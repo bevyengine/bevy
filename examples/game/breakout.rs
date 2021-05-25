@@ -25,22 +25,25 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct Paddle {
     speed: f32,
 }
 
+#[derive(Component)]
 struct Ball {
     velocity: Vec3,
 }
 
-struct Scoreboard {
-    score: usize,
-}
-
+#[derive(Component)]
 enum Collider {
     Solid,
     Scorable,
     Paddle,
+}
+
+struct Scoreboard {
+    score: usize,
 }
 
 fn setup(

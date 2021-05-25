@@ -2,7 +2,8 @@ mod type_info;
 
 pub use type_info::*;
 
-use crate::storage::SparseSetIndex;
+use crate::{storage::SparseSetIndex, system::Resource};
+pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -13,7 +14,7 @@ use thiserror::Error;
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
 /// multiple different types of components, but only one of them per type.
 ///
-/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
+/// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
 ///
 /// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
 /// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
@@ -24,7 +25,26 @@ use thiserror::Error;
 ///
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {}
-impl<T: Send + Sync + 'static> Component for T {}
+
+// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
+impl<T> Component for bevy_tasks::Task<T> where Self: Send + Sync + 'static {}
+
+// For our own convinience, let's implement Component for primitives in tests.
+// It will eventually be removed, once tests are not using them anymore.
+// Consider those impls deprecated.
+#[cfg(test)]
+mod private_test_component_impls {
+    use super::Component;
+    impl Component for &'static str {}
+    impl Component for usize {}
+    impl Component for i32 {}
+    impl Component for u32 {}
+    impl Component for u64 {}
+    impl Component for f32 {}
+    impl Component for f64 {}
+    impl Component for u8 {}
+    impl Component for bool {}
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
@@ -262,7 +282,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn get_or_insert_resource_id<T: Component>(&mut self) -> ComponentId {
+    pub fn get_or_insert_resource_id<T: Resource>(&mut self) -> ComponentId {
         self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of::<T>)
     }
 

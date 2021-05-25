@@ -19,6 +19,7 @@ use crate::{
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
+    system::Resource,
 };
 use std::{
     any::TypeId,
@@ -139,8 +140,12 @@ impl World {
     /// The default component storage type can be overridden like this:
     ///
     /// ```
-    /// use bevy_ecs::{component::{ComponentDescriptor, StorageType}, world::World};
+    /// use bevy_ecs::{
+    ///     component::{Component, ComponentDescriptor, StorageType},
+    ///     world::World,
+    /// };
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -170,8 +175,9 @@ impl World {
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -195,8 +201,9 @@ impl World {
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -220,8 +227,9 @@ impl World {
     /// to unwrap the [EntityRef] yourself.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -247,8 +255,9 @@ impl World {
     /// to unwrap the [EntityMut] yourself.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -274,17 +283,22 @@ impl World {
     /// to add components to the entity or retrieve its id.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
     /// }
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Num(u32);
     ///
     /// let mut world = World::new();
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
-    ///     .insert_bundle((1, 2.0, "hello")) // add a bundle of components
+    ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
     /// let position = world.entity(entity).get::<Position>().unwrap();
@@ -316,12 +330,17 @@ impl World {
     /// individually is more flexible.
     ///
     /// ```
-    /// use bevy_ecs::{entity::Entity, world::World};
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Str(&'static str);
+    /// #[derive(Component)]
+    /// struct Num(u32);
     ///
     /// let mut world = World::new();
     /// let entities = world.spawn_batch(vec![
-    ///   ("a", 0.0), // the first entity
-    ///   ("b", 1.0), // the second entity
+    ///   (Str("a"), Num(0)), // the first entity
+    ///   (Str("b"), Num(1)), // the second entity
     /// ]).collect::<Vec<Entity>>();
     ///
     /// assert_eq!(entities.len(), 2);
@@ -337,8 +356,9 @@ impl World {
     /// Retrieves a reference to the given `entity`'s [Component] of the given type.
     /// Returns [None] if the `entity` does not have a [Component] of the given type.
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -358,8 +378,9 @@ impl World {
     /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
     /// Returns [None] if the `entity` does not have a [Component] of the given type.
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -380,8 +401,9 @@ impl World {
     /// [Component]s. Returns `true` if the `entity` is successfully despawned and `false` if
     /// the `entity` does not exist.
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::{component::Component, world::World};
     ///
+    /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
@@ -417,14 +439,15 @@ impl World {
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
     /// run queries on the [World] by storing and reusing the [QueryState].
     /// ```
-    /// use bevy_ecs::{entity::Entity, world::World};
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
     ///
-    /// #[derive(Debug, PartialEq)]
+    /// #[derive(Component, Debug, PartialEq)]
     /// struct Position {
     ///   x: f32,
     ///   y: f32,
     /// }
     ///
+    /// #[derive(Component)]
     /// struct Velocity {
     ///   x: f32,
     ///   y: f32,
@@ -452,18 +475,28 @@ impl World {
     /// and allocation of a [Vec] to store it.
     ///
     /// ```
-    /// use bevy_ecs::{entity::Entity, world::World};
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Debug)]
+    /// struct Order(i32);
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct Label(&'static str);
+    ///
     /// let mut world = World::new();
-    /// let a = world.spawn().insert_bundle((2, 4.0)).id();
-    /// let b = world.spawn().insert_bundle((3, 5.0)).id();
-    /// let c = world.spawn().insert_bundle((1, 6.0)).id();
-    /// let mut entities = world.query::<(Entity, &i32, &f64)>()
+    /// let a = world.spawn().insert_bundle((Order(2), Label("second"))).id();
+    /// let b = world.spawn().insert_bundle((Order(3), Label("third"))).id();
+    /// let c = world.spawn().insert_bundle((Order(1), Label("first"))).id();
+    /// let mut entities = world.query::<(Entity, &Order, &Label)>()
     ///     .iter(&world)
     ///     .collect::<Vec<_>>();
-    /// // Sort the query results by their `i32` component before comparing
+    /// // Sort the query results by their `Order` component before comparing
     /// // to expected results. Query iteration order should not be relied on.
     /// entities.sort_by_key(|e| e.1);
-    /// assert_eq!(entities, vec![(c, &1, &6.0), (a, &2, &4.0), (b, &3, &5.0)]);
+    /// assert_eq!(entities, vec![
+    ///     (c, &Order(1), &Label("first")),
+    ///     (a, &Order(2), &Label("second")),
+    ///     (b, &Order(3), &Label("third")),
+    /// ]);
     /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
@@ -473,9 +506,11 @@ impl World {
     /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
     /// run queries on the [World] by storing and reusing the [QueryState].
     /// ```
-    /// use bevy_ecs::{entity::Entity, world::World, query::With};
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
     ///
+    /// #[derive(Component)]
     /// struct A;
+    /// #[derive(Component)]
     /// struct B;
     ///
     /// let mut world = World::new();
@@ -521,7 +556,7 @@ impl World {
     /// Inserts a new resource with the given `value`.
     /// Resources are "unique" data of a given type.
     #[inline]
-    pub fn insert_resource<T: Component>(&mut self, value: T) {
+    pub fn insert_resource<T: Resource>(&mut self, value: T) {
         let component_id = self.components.get_or_insert_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
@@ -540,7 +575,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
     /// Resources are "unique" data of a given type.
     #[inline]
-    pub fn remove_resource<T: Component>(&mut self) -> Option<T> {
+    pub fn remove_resource<T: Resource>(&mut self) -> Option<T> {
         // SAFE: T is Send + Sync
         unsafe { self.remove_resource_unchecked() }
     }
@@ -573,7 +608,7 @@ impl World {
 
     /// Returns `true` if a resource of type `T` exists. Otherwise returns `false`.
     #[inline]
-    pub fn contains_resource<T: Component>(&self) -> bool {
+    pub fn contains_resource<T: Resource>(&self) -> bool {
         let component_id =
             if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
                 component_id
@@ -586,12 +621,12 @@ impl World {
     /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
     /// Resources are "unique" data of a given type.
     #[inline]
-    pub fn get_resource<T: Component>(&self) -> Option<&T> {
+    pub fn get_resource<T: Resource>(&self) -> Option<&T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         unsafe { self.get_resource_with_id(component_id) }
     }
 
-    pub fn is_resource_added<T: Component>(&self) -> bool {
+    pub fn is_resource_added<T: Resource>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
         // SAFE: resources table always have row 0
@@ -599,7 +634,7 @@ impl World {
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
-    pub fn is_resource_changed<T: Component>(&self) -> bool {
+    pub fn is_resource_changed<T: Resource>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
         // SAFE: resources table always have row 0
@@ -610,7 +645,7 @@ impl World {
     /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
     /// [None] Resources are "unique" data of a given type.
     #[inline]
-    pub fn get_resource_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
     }
@@ -619,7 +654,7 @@ impl World {
     /// Gets a resource of type `T` if it exists, otherwise inserts the resource using the result of
     /// calling `func`.
     #[inline]
-    pub fn get_resource_or_insert_with<T: Component>(
+    pub fn get_resource_or_insert_with<T: Resource>(
         &mut self,
         func: impl FnOnce() -> T,
     ) -> Mut<'_, T> {
@@ -636,7 +671,7 @@ impl World {
     /// This will allow aliased mutable access to the given resource type. The caller must ensure
     /// that only one mutable access exists at a time.
     #[inline]
-    pub unsafe fn get_resource_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
+    pub unsafe fn get_resource_unchecked_mut<T: Resource>(&self) -> Option<Mut<'_, T>> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
     }
@@ -674,8 +709,10 @@ impl World {
     /// returning. This enables safe mutable access to a resource while still providing mutable
     /// world access
     /// ```
-    /// use bevy_ecs::world::{World, Mut};
+    /// use bevy_ecs::{component::Component, world::{World, Mut}};
+    /// #[derive(Component)]
     /// struct A(u32);
+    /// #[derive(Component)]
     /// struct B(u32);
     /// let mut world = World::new();
     /// world.insert_resource(A(1));
@@ -687,10 +724,7 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<T: Component, U>(
-        &mut self,
-        f: impl FnOnce(&mut World, Mut<T>) -> U,
-    ) -> U {
+    pub fn resource_scope<T: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<T>) -> U) -> U {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
@@ -831,7 +865,7 @@ impl World {
             })
     }
 
-    pub(crate) fn initialize_resource<T: Component>(&mut self) -> ComponentId {
+    pub(crate) fn initialize_resource<T: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.get_or_insert_resource_id::<T>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };

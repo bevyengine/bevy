@@ -4,12 +4,12 @@ use crate::{
     CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    component::{Component, ComponentDescriptor},
+    component::ComponentDescriptor,
     event::Events,
     schedule::{
         RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
     },
-    system::{IntoExclusiveSystem, IntoSystem},
+    system::{IntoExclusiveSystem, IntoSystem, Resource},
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
@@ -252,7 +252,7 @@ impl AppBuilder {
     /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: Resource + Debug + Clone + Eq + Hash,
     {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
@@ -264,7 +264,7 @@ impl AppBuilder {
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: Resource + Debug + Clone + Eq + Hash,
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
@@ -292,7 +292,7 @@ impl AppBuilder {
     /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.insert_resource(Events::<T>::default())
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
@@ -318,7 +318,7 @@ impl AppBuilder {
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.app.world.insert_resource(resource);
         self

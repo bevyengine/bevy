@@ -9,7 +9,9 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 pub struct Player;
+#[derive(Component)]
 pub struct PlayerCount(usize);
 
 /// The SystemParam struct can contain any types that can also be included in a

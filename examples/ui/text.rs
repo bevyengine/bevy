@@ -17,9 +17,11 @@ fn main() {
 }
 
 // A unit struct to help identify the FPS UI component, since there may be many Text components
+#[derive(Component)]
 struct FpsText;
 
 // A unit struct to help identify the color-changing Text component
+#[derive(Component)]
 struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

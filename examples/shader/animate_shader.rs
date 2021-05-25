@@ -20,7 +20,7 @@ pub fn main() {
         .run();
 }
 
-#[derive(RenderResources, Default, TypeUuid)]
+#[derive(Component, RenderResources, Default, TypeUuid)]
 #[uuid = "463e4b8a-d555-4fc2-ba9f-4c880063ba92"]
 struct TimeUniform {
     value: f32,

@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
@@ -6,7 +7,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub Entity);
 
@@ -41,7 +42,7 @@ impl DerefMut for Parent {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct PreviousParent(pub(crate) Entity);
 

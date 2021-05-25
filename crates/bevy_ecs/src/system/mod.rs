@@ -20,9 +20,10 @@ mod tests {
     use std::any::TypeId;
 
     use crate::{
+        self as bevy_ecs,
         archetype::Archetypes,
         bundle::Bundles,
-        component::Components,
+        component::{Component, Components},
         entity::{Entities, Entity},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
@@ -33,12 +34,17 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    #[derive(Debug, Eq, PartialEq, Default)]
+    #[derive(Component, Debug, Eq, PartialEq, Default)]
     struct A;
+    #[derive(Component)]
     struct B;
+    #[derive(Component)]
     struct C;
+    #[derive(Component)]
     struct D;
+    #[derive(Component)]
     struct E;
+    #[derive(Component)]
     struct F;
 
     #[test]

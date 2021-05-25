@@ -1,10 +1,11 @@
 use bevy_asset::{self, Handle};
+use bevy_ecs::component::Component;
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
-#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
+#[derive(Component, Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything

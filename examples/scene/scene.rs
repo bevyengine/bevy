@@ -19,7 +19,7 @@ fn main() {
 // example. The `FromResources` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
 // FromResources). The simplest registered component just needs these two derives:
-#[derive(Reflect, Default)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
@@ -30,7 +30,7 @@ struct ComponentA {
 // ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromResources`
 // trait comes into play. `FromResources` gives you access to your App's current ECS `Resources`
 // when you construct your component.
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,

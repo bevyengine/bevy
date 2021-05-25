@@ -1,4 +1,4 @@
-use crate::component::{Component, ComponentTicks};
+use crate::{component::ComponentTicks, system::Resource};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
@@ -141,14 +141,14 @@ pub(crate) struct Ticks<'a> {
 /// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'a, T: Component> {
+pub struct ResMut<'a, T: Resource> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
 
-change_detection_impl!(ResMut<'a, T>, T, Component);
-impl_into_inner!(ResMut<'a, T>, T, Component);
-impl_debug!(ResMut<'a, T>, Component);
+change_detection_impl!(ResMut<'a, T>, T, Resource);
+impl_into_inner!(ResMut<'a, T>, T, Resource);
+impl_debug!(ResMut<'a, T>, Resource);
 
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T> {

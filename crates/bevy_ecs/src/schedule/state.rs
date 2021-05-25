@@ -1,10 +1,9 @@
 use crate::{
-    component::Component,
     schedule::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut},
+    system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut, Resource},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;
@@ -17,7 +16,7 @@ use thiserror::Error;
 /// * Set replaces the active state with a new one
 /// * Replace unwinds the state stack, and replaces the entire stack with a single new state
 #[derive(Debug)]
-pub struct State<T: Component + Clone + Eq> {
+pub struct State<T: Resource + Clone + Eq> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
@@ -25,7 +24,7 @@ pub struct State<T: Component + Clone + Eq> {
 }
 
 #[derive(Debug)]
-enum StateTransition<T: Component + Clone + Eq> {
+enum StateTransition<T: Resource + Clone + Eq> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
@@ -37,7 +36,7 @@ enum StateTransition<T: Component + Clone + Eq> {
 }
 
 #[derive(Debug)]
-enum ScheduledOperation<T: Component + Clone + Eq> {
+enum ScheduledOperation<T: Resource + Clone + Eq> {
     Set(T),
     Replace(T),
     Pop,
@@ -58,7 +57,7 @@ enum StateCallback {
 impl StateCallback {
     fn into_label<T>(self, state: T) -> StateRunCriteriaLabel<T>
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: Resource + Debug + Clone + Eq + Hash,
     {
         StateRunCriteriaLabel(state, self)
     }
@@ -68,7 +67,7 @@ impl StateCallback {
 struct StateRunCriteriaLabel<T>(T, StateCallback);
 impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
 where
-    T: Component + Debug + Clone + Eq + Hash,
+    T: Resource + Debug + Clone + Eq + Hash,
 {
     fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
         Box::new(self.clone())
@@ -91,7 +90,7 @@ impl DriverLabel {
 
 impl<T> State<T>
 where
-    T: Component + Debug + Clone + Eq + Hash,
+    T: Resource + Debug + Clone + Eq + Hash,
 {
     pub fn on_update(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
@@ -394,7 +393,7 @@ pub enum StateError {
     StackEmpty,
 }
 
-fn should_run_adapter<T: Component + Clone + Eq>(
+fn should_run_adapter<T: Resource + Clone + Eq>(
     In(cmp_result): In<bool>,
     state: Res<State<T>>,
 ) -> ShouldRun {
@@ -408,7 +407,7 @@ fn should_run_adapter<T: Component + Clone + Eq>(
     }
 }
 
-fn state_cleaner<T: Component + Clone + Eq>(
+fn state_cleaner<T: Resource + Clone + Eq>(
     mut state: ResMut<State<T>>,
     mut prep_exit: Local<bool>,
 ) -> ShouldRun {

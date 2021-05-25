@@ -51,12 +51,14 @@ where
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// #
-/// # #[derive(Debug)]
-/// # struct IsBeautiful {};
+/// # #[derive(Component)]
+/// # struct IsBeautiful;
+/// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
 /// fn compliment_entity_system(query: Query<&Name, With<IsBeautiful>>) {
@@ -170,12 +172,14 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::query::Without;
 /// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// #
-/// # #[derive(Debug)]
+/// # #[derive(Component)]
 /// # struct Permit;
+/// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
 /// fn no_permit_system(query: Query<&Name, Without<Permit>>) {
@@ -393,14 +397,16 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
 /// # Examples
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
-/// # use bevy_ecs::system::Query;
-/// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::query::Changed;
 /// # use bevy_ecs::query::Or;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// #
-/// # #[derive(Debug)]
+/// # #[derive(Component, Debug)]
 /// # struct Color {};
+/// # #[derive(Component)]
 /// # struct Style {};
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
@@ -697,13 +703,13 @@ impl_tick_filter!(
     /// # Examples
     ///
     /// ```
+    /// # use bevy_ecs::component::Component;
+    /// # use bevy_ecs::query::Added;
     /// # use bevy_ecs::system::IntoSystem;
     /// # use bevy_ecs::system::Query;
-    /// # use bevy_ecs::query::Added;
     /// #
-    /// # #[derive(Debug)]
+    /// # #[derive(Component, Debug)]
     /// # struct Name {};
-    /// # struct Transform {};
     ///
     /// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
     ///     for name in query.iter() {
@@ -738,12 +744,14 @@ impl_tick_filter!(
     /// # Examples
     ///
     /// ```
+    /// # use bevy_ecs::component::Component;
+    /// # use bevy_ecs::query::Changed;
     /// # use bevy_ecs::system::IntoSystem;
     /// # use bevy_ecs::system::Query;
-    /// # use bevy_ecs::query::Changed;
     /// #
-    /// # #[derive(Debug)]
+    /// # #[derive(Component, Debug)]
     /// # struct Name {};
+    /// # #[derive(Component)]
     /// # struct Transform {};
     ///
     /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {

@@ -691,12 +691,14 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::query::ChangeTrackers;
 /// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// #
-/// # #[derive(Debug)]
+/// # #[derive(Component, Debug)]
 /// # struct Name {};
+/// # #[derive(Component)]
 /// # struct Transform {};
 /// #
 /// fn print_moving_objects_system(query: Query<(&Name, ChangeTrackers<Transform>)>) {

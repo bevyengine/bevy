@@ -28,6 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// this component indicates what entities should rotate
+#[derive(Component)]
 struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {

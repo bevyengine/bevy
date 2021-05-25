@@ -1,5 +1,7 @@
 extern crate proc_macro;
 
+mod component;
+
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -475,6 +477,11 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     }
 }
 
-fn bevy_ecs_path() -> syn::Path {
+pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
+}
+
+#[proc_macro_derive(Component)]
+pub fn derive_component(input: TokenStream) -> TokenStream {
+    component::derive_component(input)
 }

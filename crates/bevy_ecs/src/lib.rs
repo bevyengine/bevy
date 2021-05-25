@@ -20,6 +20,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::DetectChanges,
+        component::Component,
         entity::Entity,
         event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
@@ -58,12 +59,14 @@ mod tests {
         },
     };
 
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Component, Debug, PartialEq, Eq)]
     struct A(usize);
+    #[derive(Component)]
     struct B(usize);
+    #[derive(Component)]
     struct C;
 
-    #[derive(Clone, Debug)]
+    #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
@@ -760,7 +763,7 @@ mod tests {
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
-        world.spawn().insert_bundle((A(0), B));
+        world.spawn().insert_bundle((A(0), B(0)));
 
         world.clear_trackers();
 
@@ -788,7 +791,7 @@ mod tests {
         assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing changed state
-        world.entity_mut(e1).insert_bundle((A(0), B));
+        world.entity_mut(e1).insert_bundle((A(0), B(0)));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
             vec![e3, e1],

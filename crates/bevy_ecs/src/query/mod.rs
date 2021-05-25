@@ -13,13 +13,14 @@ pub use state::*;
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{ComponentDescriptor, StorageType},
+        self as bevy_ecs,
+        component::{Component, ComponentDescriptor, StorageType},
         world::World,
     };
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq)]
     struct A(usize);
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq)]
     struct B(usize);
 
     #[test]

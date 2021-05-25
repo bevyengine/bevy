@@ -9,7 +9,9 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
+#[derive(Component)]
 pub struct PrintTimer(Timer);
+#[derive(Component)]
 pub struct Position(Transform);
 
 /// This example is for performance testing purposes.

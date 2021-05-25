@@ -7,6 +7,8 @@ use crate::{
 use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
+use super::Resource;
+
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self: Box<Self>, world: &mut World);
@@ -63,6 +65,13 @@ impl<'a> Commands<'a> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+    ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new empty entity and retrieve its id.
     ///     let empty_entity = commands.spawn().id();
@@ -70,9 +79,9 @@ impl<'a> Commands<'a> {
     ///     // Create another empty entity, then add some component to it
     ///     commands.spawn()
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -98,8 +107,16 @@ impl<'a> Commands<'a> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
     /// struct Component1;
+    /// #[derive(Component)]
     /// struct Component2;
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
     ///
     /// #[derive(Bundle)]
     /// struct ExampleBundle {
@@ -118,9 +135,9 @@ impl<'a> Commands<'a> {
     ///         // Create a new entity with two components using a "tuple bundle".
     ///         .spawn_bundle((Component1, Component2))
     ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // or insert single components like this:
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -137,15 +154,22 @@ impl<'a> Commands<'a> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn().id();
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -167,12 +191,12 @@ impl<'a> Commands<'a> {
     }
 
     /// See [`World::insert_resource`].
-    pub fn insert_resource<T: Component>(&mut self, resource: T) {
+    pub fn insert_resource<T: Resource>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
     }
 
     /// Queue a resource removal.
-    pub fn remove_resource<T: Component>(&mut self) {
+    pub fn remove_resource<T: Resource>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
         });
@@ -223,8 +247,11 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
     /// struct Component1;
+    /// #[derive(Component)]
     /// struct Component2;
+
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity with `Component1` and `Component2`
@@ -393,21 +420,21 @@ where
     }
 }
 
-pub struct InsertResource<T: Component> {
+pub struct InsertResource<T: Resource> {
     pub resource: T,
 }
 
-impl<T: Component> Command for InsertResource<T> {
+impl<T: Resource> Command for InsertResource<T> {
     fn write(self: Box<Self>, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
 
-pub struct RemoveResource<T: Component> {
+pub struct RemoveResource<T: Resource> {
     pub phantom: PhantomData<T>,
 }
 
-impl<T: Component> Command for RemoveResource<T> {
+impl<T: Resource> Command for RemoveResource<T> {
     fn write(self: Box<Self>, world: &mut World) {
         world.remove_resource::<T>();
     }
@@ -417,7 +444,8 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
-        component::{ComponentDescriptor, StorageType},
+        self as bevy_ecs,
+        component::{Component, ComponentDescriptor, StorageType},
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -426,7 +454,10 @@ mod tests {
         Arc,
     };
 
-    #[derive(Clone, Debug)]
+    #[derive(Component)]
+    struct DenseDropCk(DropCk);
+
+    #[derive(Component)]
     struct DropCk(Arc<AtomicUsize>);
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
@@ -475,7 +506,6 @@ mod tests {
     fn remove_components() {
         let mut world = World::default();
 
-        struct DenseDropCk(DropCk);
         world
             .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
             .unwrap();
