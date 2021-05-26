@@ -205,6 +205,7 @@ impl AssetServer {
                     }
                     LoadState::Failed => return LoadState::Failed,
                     LoadState::NotLoaded => return LoadState::NotLoaded,
+                    LoadState::Unloaded => return LoadState::Unloaded,
                 },
                 HandleId::Id(_, _) => return LoadState::NotLoaded,
             }
@@ -509,9 +510,7 @@ impl AssetServer {
                             .get_or_insert_with(|| self.server.asset_sources.write());
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             source_info.committed_assets.remove(&id.label_id());
-                            if source_info.is_loaded() {
-                                source_info.load_state = LoadState::Loaded;
-                            }
+                            source_info.load_state = LoadState::Unloaded;
                         }
                     }
                     assets.remove(handle_id);
@@ -750,13 +749,18 @@ mod test {
             asset_server.get_load_state(path.get_id())
         );
 
+        let load_asset = || {
+            let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+                .unwrap();
+            asset_server.get_handle_untyped(id)
+        };
+
         // load the asset
-        let id =
-            futures_lite::future::block_on(asset_server.load_async(path.clone(), true)).unwrap();
-        let handle = asset_server.get_handle_untyped(id);
+        let handle = load_asset();
+        let weak_handle = handle.clone_weak();
 
         // asset is loading
-        assert_eq!(LoadState::Loading, asset_server.get_load_state(id));
+        assert_eq!(LoadState::Loading, asset_server.get_load_state(&handle));
 
         // mimics one full frame
         let tick = |server: &AssetServer, assets: &mut Assets<PngAsset>| {
@@ -766,18 +770,28 @@ mod test {
 
         tick(&asset_server, &mut assets);
         // asset should exist and be loaded at this point
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(id));
+        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&handle));
         assert!(assets.get(&handle).is_some());
 
         // after dropping the handle, next call to `tick` will prepare the assets for removal.
         drop(handle);
         tick(&asset_server, &mut assets);
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(id));
-        assert!(assets.get(id).is_some());
+        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&weak_handle));
+        assert!(assets.get(&weak_handle).is_some());
 
         // second call to tick will actually remove the asset.
         tick(&asset_server, &mut assets);
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(id)); // TODO: should this now show `LoadState::NotLoaded`?
-        assert!(assets.get(id).is_none());
+        assert_eq!(
+            LoadState::Unloaded,
+            asset_server.get_load_state(&weak_handle)
+        );
+        assert!(assets.get(&weak_handle).is_none());
+
+        // finally, reload the asset
+        let handle = load_asset();
+        assert_eq!(LoadState::Loading, asset_server.get_load_state(&handle));
+        tick(&asset_server, &mut assets);
+        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&handle));
+        assert!(assets.get(&handle).is_some());
     }
 }
