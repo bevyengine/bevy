@@ -539,7 +539,6 @@ mod test {
     use crate::loader::LoadedAsset;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
-    use tempfile::*;
 
     #[derive(Debug, TypeUuid)]
     #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
@@ -682,8 +681,8 @@ mod test {
         assert_eq!(t.unwrap().extensions()[0], "test.png");
     }
 
-    fn create_dir_and_file(file: impl AsRef<Path>) -> TempDir {
-        let asset_dir = tempdir().unwrap();
+    fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
+        let asset_dir = tempfile::tempdir().unwrap();
         std::fs::write(asset_dir.path().join(file), &[]).unwrap();
         asset_dir
     }
