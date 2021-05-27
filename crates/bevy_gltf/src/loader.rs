@@ -50,7 +50,7 @@ pub enum GltfError {
     BufferFormatUnsupported,
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("{0}")]
+    #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
@@ -265,21 +265,7 @@ async fn load_gltf<'a, 'b>(
         .into_iter()
         .filter_map(|res| {
             if let Err(err) = res.as_ref() {
-                match err {
-                    GltfError::AssetIoError(error) => {
-                        warn!("Error loading GLTF texture: {}", error)
-                    }
-                    GltfError::ImageError(error) => {
-                        warn!("Error loading GLTF texture, maybe you're missing a feature for the file format: {}", error)
-                    }
-                    GltfError::InvalidImageMimeType(error) => {
-                        warn!("Error loading GLTF texture: {}", error)
-                    }
-                    GltfError::Base64Decode(error) => {
-                        warn!("Error loading GLTF texture: {}", error)
-                    }
-                    _ => (),
-                }
+                warn!("Error loading GLTF texture: {}", err);
             }
             res.ok()
         })
