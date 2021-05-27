@@ -44,11 +44,17 @@ impl BevyManifest {
         };
 
         let deps = self.manifest.dependencies.as_ref();
-        let deps_dev = self.manifest.dev_dependencies.as_ref();
 
-        deps.and_then(find_in_deps)
-            .or_else(|| deps_dev.and_then(find_in_deps))
-            .unwrap_or_else(|| get_path(name))
+        let path = deps.and_then(find_in_deps);
+        #[cfg(test)]
+        let path = path.or_else(|| {
+            self.manifest
+                .dev_dependencies
+                .as_ref()
+                .and_then(find_in_deps)
+        });
+
+        path.unwrap_or_else(|| get_path(name))
     }
 }
 
