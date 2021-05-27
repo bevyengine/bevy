@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
+use bevy_log::warn;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
@@ -262,7 +263,26 @@ async fn load_gltf<'a, 'b>(
             });
         })
         .into_iter()
-        .filter_map(|result| result.ok())
+        .filter_map(|res| {
+            if let Err(err) = res.as_ref() {
+                match err {
+                    GltfError::AssetIoError(error) => {
+                        warn!("Error loading GLTF texture: {}", error)
+                    }
+                    GltfError::ImageError(error) => {
+                        warn!("Error loading GLTF texture, maybe you're missing a feature for the file format: {}", error)
+                    }
+                    GltfError::InvalidImageMimeType(error) => {
+                        warn!("Error loading GLTF texture: {}", error)
+                    }
+                    GltfError::Base64Decode(error) => {
+                        warn!("Error loading GLTF texture: {}", error)
+                    }
+                    _ => (),
+                }
+            }
+            res.ok()
+        })
         .for_each(|(texture, label)| {
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         });
