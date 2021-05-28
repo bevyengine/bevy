@@ -545,6 +545,7 @@ where
     }
 
     /// Returns true if this query contains no elements.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
