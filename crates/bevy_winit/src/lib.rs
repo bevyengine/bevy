@@ -14,15 +14,12 @@ use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, P
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
-use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
-};
+use bevy_window::{CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCommand, WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows};
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::Icon,
 };
 
 use winit::dpi::LogicalSize;
@@ -157,6 +154,13 @@ fn change_window(world: &mut World) {
                     if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
+                }
+                bevy_window::WindowCommand::SetWindowIcon { icon } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    //let winit_icon = Icon::default;
+                    let winit_icon = None;
+
+                    window.set_window_icon(winit_icon);
                 }
             }
         }

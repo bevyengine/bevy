@@ -10,10 +10,26 @@ fn main() {
             vsync: true,
             ..Default::default()
         })
+        .insert_resource(IconResource::default())
         .add_plugins(DefaultPlugins)
+        .add_startup_system(setup.system())
         .add_system(change_title.system())
         .add_system(toggle_cursor.system())
+        .add_system(toggle_icon.system())
         .run();
+}
+
+#[derive(Debug, Clone, Default)]
+struct IconResource {
+    handle: Handle<Texture>,
+}
+
+fn setup(
+    asset_server: Res<AssetServer>,
+    mut icon_resource: ResMut<IconResource>,
+) {
+    let icon: /* TODO */ Handle<Texture> = asset_server.load("android-res/mipmap-mdpi/ic_launcher.png");
+    (*icon_resource).handle = icon;
 }
 
 /// This system will then change the title during execution
@@ -31,5 +47,16 @@ fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if input.just_pressed(KeyCode::Space) {
         window.set_cursor_lock_mode(!window.cursor_locked());
         window.set_cursor_visibility(!window.cursor_visible());
+    }
+}
+
+fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>, textures: Res<Assets<Texture>>, icon_resource: Res<IconResource>) {
+    let window = windows.get_primary_mut().unwrap();
+    let icon = textures.get(icon_resource.handle.clone());
+    if input.just_pressed(KeyCode::I) {
+        match window.icon() {
+            None => window.set_icon(None /* TODO */),
+            _ => window.set_icon(None),
+        }
     }
 }

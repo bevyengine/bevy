@@ -1,5 +1,6 @@
 use bevy_math::{IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
+use bevy_asset::Handle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -127,6 +128,7 @@ pub struct Window {
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    icon: Option<WindowIcon>,
     command_queue: Vec<WindowCommand>,
 }
 
@@ -176,6 +178,9 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    SetWindowIcon {
+        icon: Option<WindowIcon>,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -220,6 +225,7 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            icon: window_descriptor.icon,
             command_queue: Vec::new(),
         }
     }
@@ -511,6 +517,23 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
+
+    #[inline]
+    pub fn icon(&self) -> Option<WindowIcon> {
+        self.icon
+    }
+
+    pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
+        self.icon = icon;
+        self.command_queue.push(WindowCommand::SetWindowIcon {
+            icon,
+        });
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct WindowIcon {
+    /* icon: Handle<Texture>, */
 }
 
 #[derive(Debug, Clone)]
@@ -528,6 +551,7 @@ pub struct WindowDescriptor {
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    pub icon: Option<WindowIcon>,
 }
 
 impl Default for WindowDescriptor {
@@ -546,6 +570,7 @@ impl Default for WindowDescriptor {
             mode: WindowMode::Windowed,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
+            icon: None,
         }
     }
 }
