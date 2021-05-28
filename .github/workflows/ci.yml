@@ -158,10 +158,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Check that examples are present in both README and Cargo
-        uses: Weibye/action-internal-link-consistency@1.0.1
+        uses: Weibye/action-internal-link-consistency@1.1.0
         with:
           source: './examples/'
           targets: '[ "./Cargo.toml", "./examples/README.md" ]'
-          file-types: '["rs"]'
+          file-types: '[".rs"]'
           exclude-folders: '["./examples/ios"]'
           exclude-files: '[]'
