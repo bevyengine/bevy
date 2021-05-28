@@ -24,11 +24,8 @@ struct IconResource {
     handle: Handle<Texture>,
 }
 
-fn setup(
-    asset_server: Res<AssetServer>,
-    mut icon_resource: ResMut<IconResource>,
-) {
-    let icon: /* TODO */ Handle<Texture> = asset_server.load("android-res/mipmap-mdpi/ic_launcher.png");
+fn setup(asset_server: Res<AssetServer>, mut icon_resource: ResMut<IconResource>) {
+    let icon = asset_server.load("android-res/mipmap-mdpi/ic_launcher.png");
     (*icon_resource).handle = icon;
 }
 
@@ -50,16 +47,16 @@ fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     }
 }
 
-fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>, textures: Res<Assets<Texture>>, icon_resource: Res<IconResource>) {
+fn toggle_icon(
+    input: Res<Input<KeyCode>>,
+    mut windows: ResMut<Windows>,
+    icon_resource: Res<IconResource>,
+) {
     let window = windows.get_primary_mut().unwrap();
-    let icon = textures.get(icon_resource.handle.clone());
     if input.just_pressed(KeyCode::I) {
-        match icon {
-            None => (),
-            Some(texture) =>         match window.icon() {
-                None => window.set_icon(Some( bevy::window::WindowIcon { rgba: texture.data.clone(), width: texture.size.width, height: texture.size.height }) ),
-                _ => window.set_icon(None),
-            },
+        match window.icon() {
+            None => window.set_icon(Some(icon_resource.handle.clone())),
+            _ => window.set_icon(None),
         }
     }
 }

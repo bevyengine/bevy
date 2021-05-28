@@ -138,14 +138,20 @@ impl WinitWindows {
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
+
+        let window = Window::new(
             window_id,
             &window_descriptor,
             inner_size.width,
             inner_size.height,
             scale_factor,
             position,
-        )
+        );
+
+        /* TODO: How would we even provide a Handle at this point? */
+        window.set_icon(window_descriptor.icon); /* This will queue up SetWindowIcon until the asset has loaded */
+
+        window
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {

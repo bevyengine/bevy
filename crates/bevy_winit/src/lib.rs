@@ -11,11 +11,23 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, Plugin};
+use bevy_asset::Handle;
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, Vec2};
+use bevy_render::texture::Texture;
 use bevy_utils::tracing::{error, trace, warn};
-use bevy_window::{CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows};
-use winit::{dpi::PhysicalPosition, event::{self, DeviceEvent, Event, WindowEvent}, event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget}, window::Icon};
+use bevy_window::{
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
+    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+};
+
+use winit::{
+    dpi::PhysicalPosition,
+    event::{self, DeviceEvent, Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::Icon,
+};
 
 use winit::dpi::LogicalSize;
 #[cfg(any(
@@ -151,16 +163,31 @@ fn change_window(world: &mut World) {
                     }
                 }
                 bevy_window::WindowCommand::SetWindowIcon { icon } => {
+                    let texture_assets = world.get_resource_mut::<Assets<Texture>>().unwrap();
                     let window = winit_windows.get_window(id).unwrap();
-                    
+
                     let winit_icon = match icon {
-                        Some(icon) => {
-                            match Icon::from_rgba(icon.rgba, icon.width, icon.height) {
-                                Ok(res) => Some(res),
-                                _ => /* TODO */ None,
+                        Some(window_icon) => {
+                            match texture_assets.get(&window_icon.handle) {
+                                None => {
+                                    warn!("Setting window icon with texture that was not yet loaded: {}", window_icon.handle);
+                                    bevy_window.set_icon(icon); // We queue up the command again, so the icon is set as soon as possible
+                                    return;
+                                }
+                                Some(texture) => match Icon::from_rgba(
+                                    texture.data,
+                                    texture.size.width,
+                                    texture.size.height,
+                                ) {
+                                    Ok(icon) => Some(icon),
+                                    Err(e) => {
+                                        error!("Unable to create window icon: {}", e);
+                                        None
+                                    }
+                                },
                             }
-                        },
-                        _ => None,
+                        }
+                        None => None,
                     };
 
                     window.set_window_icon(winit_icon);

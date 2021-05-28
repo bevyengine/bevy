@@ -1,4 +1,6 @@
+use bevy_asset::Handle;
 use bevy_math::{IVec2, Vec2};
+use bevy_render::texture::Texture;
 use bevy_utils::{tracing::warn, Uuid};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -524,17 +526,14 @@ impl Window {
 
     pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
         self.icon = icon.clone();
-        self.command_queue.push(WindowCommand::SetWindowIcon {
-            icon: icon.clone(),
-        });
+        self.command_queue
+            .push(WindowCommand::SetWindowIcon { icon: icon.clone() });
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct WindowIcon {
-    pub rgba: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
+    pub handle: Handle<Texture>,
 }
 
 #[derive(Debug, Clone)]
