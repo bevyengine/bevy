@@ -1,6 +1,7 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::world::World;
+use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::marker::PhantomData;
 
@@ -9,8 +10,8 @@ pub struct AudioOutput<P = AudioSource>
 where
     P: Decodable,
 {
-    _stream: OutputStream,
-    stream_handle: OutputStreamHandle,
+    _stream: Option<OutputStream>,
+    stream_handle: Option<OutputStreamHandle>,
     phantom: PhantomData<P>,
 }
 
@@ -19,12 +20,19 @@ where
     P: Decodable,
 {
     fn default() -> Self {
-        let (stream, stream_handle) = OutputStream::try_default().unwrap();
-
-        Self {
-            _stream: stream,
-            stream_handle,
-            phantom: PhantomData,
+        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
+            Self {
+                _stream: Some(stream),
+                stream_handle: Some(stream_handle),
+                phantom: PhantomData,
+            }
+        } else {
+            warn!("No audio device found.");
+            Self {
+                _stream: None,
+                stream_handle: None,
+                phantom: PhantomData,
+            }
         }
     }
 }
@@ -36,9 +44,11 @@ where
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     fn play_source(&self, audio_source: &P) {
-        let sink = Sink::try_new(&self.stream_handle).unwrap();
-        sink.append(audio_source.decoder());
-        sink.detach();
+        if let Some(stream_handle) = &self.stream_handle {
+            let sink = Sink::try_new(&stream_handle).unwrap();
+            sink.append(audio_source.decoder());
+            sink.detach();
+        }
     }
 
     fn try_play_queued(&self, audio_sources: &Assets<P>, audio: &mut Audio<P>) {
