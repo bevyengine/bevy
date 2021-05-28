@@ -54,9 +54,12 @@ fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>, texture
     let window = windows.get_primary_mut().unwrap();
     let icon = textures.get(icon_resource.handle.clone());
     if input.just_pressed(KeyCode::I) {
-        match window.icon() {
-            None => window.set_icon(None /* TODO */),
-            _ => window.set_icon(None),
+        match icon {
+            None => (),
+            Some(texture) =>         match window.icon() {
+                None => window.set_icon(Some( bevy::window::WindowIcon { rgba: texture.data.clone(), width: texture.size.width, height: texture.size.height }) ),
+                _ => window.set_icon(None),
+            },
         }
     }
 }

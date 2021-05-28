@@ -1,6 +1,5 @@
 use bevy_math::{IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
-use bevy_asset::Handle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -225,7 +224,7 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
-            icon: window_descriptor.icon,
+            icon: window_descriptor.icon.clone(),
             command_queue: Vec::new(),
         }
     }
@@ -520,20 +519,22 @@ impl Window {
 
     #[inline]
     pub fn icon(&self) -> Option<WindowIcon> {
-        self.icon
+        self.icon.clone()
     }
 
     pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
-        self.icon = icon;
+        self.icon = icon.clone();
         self.command_queue.push(WindowCommand::SetWindowIcon {
-            icon,
+            icon: icon.clone(),
         });
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WindowIcon {
-    /* icon: Handle<Texture>, */
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone)]
