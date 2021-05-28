@@ -548,11 +548,11 @@ where
     pub fn is_empty(&self) -> bool {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        let iter = unsafe {
+        let mut iter = unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
         };
-        iter.peekable().peek().is_none()
+        iter.next().is_none()
     }
 }
 
