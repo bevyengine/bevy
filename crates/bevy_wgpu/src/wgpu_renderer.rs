@@ -6,10 +6,7 @@ use crate::{
 use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::{Mut, World};
 
-use bevy_render::{
-    render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
-    renderer::RenderResourceContext,
-};
+use bevy_render::{render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager}, renderer::{RenderResourceContext, TextureId}};
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
 
@@ -107,6 +104,27 @@ impl WgpuRenderer {
         }
     }
 
+    pub fn handle_texture_created_events(&mut self, world: &mut World) {
+        let world = world.cell();
+
+        let mut render_state = world.get_resource_mut::<WgpuRenderState>().unwrap();
+        if render_state.add_textures.len() > 0 {
+
+            let mut render_resource_context = world
+                .get_resource_mut::<Box<dyn RenderResourceContext>>()
+                .unwrap();
+            let render_resource_context = render_resource_context
+                .downcast_mut::<WgpuRenderResourceContext>()
+                .unwrap();
+
+            let mut texture_views = render_resource_context.resources.texture_views.write();
+            for _ in 0..render_state.add_textures.len() {
+                let texture_view = render_state.add_textures.pop().unwrap();
+                texture_views.insert(texture_view.id, texture_view.texture_view);
+            }
+        }
+    }
+
     pub fn run_graph(&mut self, world: &mut World) {
         world.resource_scope(|world, mut render_graph: Mut<RenderGraph>| {
             render_graph.prepare(world);
@@ -130,6 +148,8 @@ impl WgpuRenderer {
         }
 
         self.handle_window_created_events(world);
+        self.handle_texture_created_events(world);
+
         self.run_graph(world);
 
         let render_resource_context = world

@@ -69,7 +69,7 @@ impl WgpuRenderGraphExecutor {
                                     outputs.get(*output_index).expect("Output should be set.");
                                 input_slot.resource = Some(output_resource);
                             } else {
-                                panic!("No edge connected to input.")
+                                panic!("No edge connected to input (input node {:?}). Did you call `output.set(...)` in the node where the input originates", node_state.name);
                             }
                         }
                         node_state.node.update(

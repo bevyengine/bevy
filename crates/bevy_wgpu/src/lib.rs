@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem},
     world::World,
 };
-use bevy_render::renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers};
+use bevy_render::renderer::{RenderResourceContext, SharedBuffers, TextureId, shared_buffers_update_system};
 use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
 use std::{borrow::Cow, sync::Arc};
@@ -128,6 +128,7 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
     });
     world.insert_resource(WgpuRenderState {
         should_render: true,
+        add_textures: Vec::new(),
     });
 
     move |world| {
@@ -141,6 +142,7 @@ pub struct WgpuRendererHandles {
 
 pub struct WgpuRenderState {
     pub should_render: bool,
+    pub add_textures: Vec<TextureView>,
 }
 
 #[derive(Default, Clone)]
@@ -198,4 +200,8 @@ impl Default for WgpuPowerOptions {
     fn default() -> Self {
         WgpuPowerOptions::HighPerformance
     }
+}
+pub struct TextureView {
+    pub id: TextureId,
+    pub texture_view: wgpu::TextureView,
 }
