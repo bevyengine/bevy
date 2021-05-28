@@ -439,6 +439,18 @@ mod tests {
     }
 
     #[test]
+    fn query_is_empty() {
+        fn sys(query: Query<&A>) {
+            assert!(query.is_empty());
+        }
+
+        let mut world = World::default();
+        let mut sys = sys.system();
+        sys.initialize(&mut world);
+        sys.run((), &mut world);
+    }
+
+    #[test]
     #[allow(clippy::too_many_arguments)]
     fn can_have_16_parameters() {
         fn sys_x(
