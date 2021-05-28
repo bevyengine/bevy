@@ -440,11 +440,14 @@ mod tests {
 
     #[test]
     fn query_is_empty() {
-        fn sys(query: Query<&A>) {
-            assert!(query.is_empty());
+        fn sys(empty: Query<&A>, not_empty: Query<&B>) {
+            assert!(empty.is_empty());
+            assert!(!not_empty.is_empty());
         }
 
         let mut world = World::default();
+        world.spawn().insert(B);
+
         let mut sys = sys.system();
         sys.initialize(&mut world);
         sys.run((), &mut world);
