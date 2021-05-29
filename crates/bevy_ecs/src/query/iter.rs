@@ -84,7 +84,6 @@ where
                             None => return true,
                         };
                         let table = &self.tables[*table_id];
-                        self.fetch.set_table(&self.query_state.fetch_state, table);
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
                         self.current_index = 0;
@@ -106,11 +105,6 @@ where
                             None => return true,
                         };
                         let archetype = &self.archetypes[*archetype_id];
-                        self.fetch.set_archetype(
-                            &self.query_state.fetch_state,
-                            archetype,
-                            self.tables,
-                        );
                         self.filter.set_archetype(
                             &self.query_state.filter_state,
                             archetype,
