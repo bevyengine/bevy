@@ -27,7 +27,7 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in std::mem::take(&mut children.0) {
-            despawn_with_children_recursive(world, e);
+            despawn_with_children_recursive_inner(world, e);
         }
     }
 
