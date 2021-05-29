@@ -74,7 +74,7 @@ where
         // `QueryIter::is_empty` never creates any references (mutable or immutable) to the `Item`.
         unsafe {
             self.iter_unchecked_manual(world, last_change_tick, change_tick)
-                .is_empty()
+                .any_remaining()
         }
     }
 

@@ -70,9 +70,10 @@ where
         }
     }
 
+    /// Consumes `self` and returns true is there were any elements left to yield.
     #[inline(always)]
     #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn is_empty(mut self) -> bool {
+    pub(crate) fn any_remaining(mut self) -> bool {
         // NOTE: this mimics the behavior of `QueryIter::next()`, expect that it
         // never gets a `Self::Item`.
         unsafe {
