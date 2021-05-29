@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 
@@ -112,3 +112,24 @@ pub fn camera_system<T: CameraProjection + Component>(
         }
     }
 }
+
+#[derive(Reflect)]
+pub struct XrCamera {
+    pub projection_matrix: Mat4,
+    pub transform: Transform,
+}
+
+#[derive(Reflect, Default)]
+pub struct XrCameraGroup {
+    pub cameras: Vec<XrCamera>,
+    pub name: Option<String>,
+}
+
+// #[allow(clippy::type_complexity)]
+// pub fn xr_camera_system(
+//     mut queries: QuerySet<(
+//         Query<(Entity, &mut XrCameraGroup, &mut T)>,
+//         Query<Entity, Added<Camera>>,
+//     )>,
+// ) {
+// }

@@ -227,6 +227,16 @@ impl Plugin for RenderPlugin {
             shader::clear_shader_defs_system.system(),
         );
 
+        // #[cfg(feature = "bevy_openxr")]
+        // {
+        //     app.add_system_to_stage(
+        //         CoreStage::PostUpdate,
+        //         camera::x_camera_system()
+        //             .system()
+        //             .before(RenderSystem::VisibleEntities),
+        //     )
+        // }
+
         if let Some(ref config) = self.base_render_graph_config {
             crate::base::add_base_graph(config, app.world_mut());
             let mut active_cameras = app.world_mut().get_resource_mut::<ActiveCameras>().unwrap();

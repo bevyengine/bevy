@@ -37,6 +37,10 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         TextureId::new()
     }
 
+    fn next_xr_swap_chain_texture(&self, _view_index: usize) -> TextureId {
+        TextureId::new()
+    }
+
     fn drop_swap_chain_texture(&self, _render_resource: TextureId) {}
 
     fn drop_all_swap_chain_textures(&self) {}

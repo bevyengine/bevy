@@ -14,6 +14,7 @@ use std::ops::Range;
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&self, window: &Window);
     fn next_swap_chain_texture(&self, window: &Window) -> TextureId;
+    fn next_xr_swap_chain_texture(&self, view_index: usize) -> TextureId;
     fn drop_swap_chain_texture(&self, resource: TextureId);
     fn drop_all_swap_chain_textures(&self);
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId;

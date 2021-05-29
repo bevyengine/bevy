@@ -12,6 +12,8 @@ use bevy_gilrs::GilrsPlugin;
 use bevy_gltf::GltfPlugin;
 use bevy_input::InputPlugin;
 use bevy_log::LogPlugin;
+#[cfg(feature = "bevy_openxr")]
+use bevy_openxr::OpenXrPlugin;
 #[cfg(feature = "bevy_pbr")]
 use bevy_pbr::PbrPlugin;
 #[cfg(feature = "bevy_render")]
@@ -29,6 +31,8 @@ use bevy_wgpu::WgpuPlugin;
 use bevy_window::WindowPlugin;
 #[cfg(feature = "bevy_winit")]
 use bevy_winit::WinitPlugin;
+#[cfg(feature = "bevy_xr")]
+use bevy_xr::XrPlugin;
 
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`]
@@ -61,6 +65,7 @@ impl PluginGroup for DefaultPlugins {
         group.add(WindowPlugin::default());
         group.add(AssetPlugin::default());
         group.add(ScenePlugin::default());
+        group.add(ScenePlugin::default());
 
         #[cfg(feature = "bevy_render")]
         group.add(RenderPlugin::default());
@@ -88,6 +93,13 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_winit")]
         group.add(WinitPlugin::default());
+
+        #[cfg(feature = "bevy_xr")]
+        group.add(XrPlugin::default());
+
+        // OpenXrPlugin must be initialized before WgpuPlugin
+        #[cfg(feature = "bevy_openxr")]
+        group.add(OpenXrPlugin::default());
 
         #[cfg(feature = "bevy_wgpu")]
         group.add(WgpuPlugin::default());

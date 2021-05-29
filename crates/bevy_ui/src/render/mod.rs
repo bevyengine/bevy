@@ -114,7 +114,7 @@ pub(crate) fn add_ui_graph(world: &mut World) {
 
     graph
         .add_slot_edge(
-            base::node::PRIMARY_SWAP_CHAIN,
+            base::node::PRIMARY_WINDOW_SWAP_CHAIN,
             WindowSwapChainNode::OUT_TEXTURE,
             node::UI_PASS,
             if msaa.samples > 1 {

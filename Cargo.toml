@@ -32,6 +32,7 @@ default = [
   "hdr",
   "mp3",
   "x11",
+  "bevy_openxr", # todo: remove
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -40,6 +41,8 @@ dynamic = ["bevy_dylib"]
 # Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
 render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
 
+xr = ["bevy_internal/bevy_xr"]
+
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -47,6 +50,7 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_openxr = ["bevy_internal/bevy_xr", "bevy_internal/bevy_openxr"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
@@ -474,6 +478,17 @@ required-features = []
 name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
 required-features = ["bevy_winit"]
+
+# XR
+[[example]]
+name = "vr_cubes"
+path = "examples/xr/vr_cubes.rs"
+required-features = ["bevy_openxr"]
+
+[[example]]
+name = "xr_headless_backend"
+path = "examples/xr/xr_headless_backend.rs"
+required-features = ["xr"]
 
 # Android
 [[example]]

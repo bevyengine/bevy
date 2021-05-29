@@ -691,4 +691,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             ..*shader
         })
     }
+
+    fn next_xr_swap_chain_texture(&self, _view: usize) -> TextureId {
+        todo!()
+    }
 }
