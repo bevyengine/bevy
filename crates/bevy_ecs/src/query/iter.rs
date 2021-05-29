@@ -70,7 +70,7 @@ where
         }
     }
 
-    /// Consumes `self` and returns true is there were any elements left to yield.
+    /// Consumes `self` and returns true if there were any elements remaining in this iterator.
     #[inline(always)]
     #[allow(clippy::wrong_self_convention)]
     pub(crate) fn any_remaining(mut self) -> bool {
