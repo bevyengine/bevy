@@ -1,5 +1,3 @@
-# Brief Description
-
 ## Problem
 
 - Describe the problem this PR solves here.
@@ -13,8 +11,8 @@
 
 - Any additional information needed to better understand this PR.
 
-
 ## Checklist (if applicable)
 
-- [ ] Documentation
 - [ ] Tests
+- [ ] Documentation
+- [ ] Examples (see `examples/README.md`) 
