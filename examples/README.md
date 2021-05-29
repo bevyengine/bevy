@@ -65,6 +65,8 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+  - [XR (Virtual Reality)](#xr-virtual-reality)
+    - [Setup](#setup-3)
 
 # The Bare Minimum
 
@@ -398,3 +400,13 @@ Example | File | Description
 `assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
 `headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
 `winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
+
+## XR (Virtual Reality)
+
+### Setup
+
+If you have a wired headset, you need to install and enable an OpenXR runtime. If you have a standalone headset that runs Android, follow [Android setup](#setup), then download the latest OpenXR SDK compatible with your headset and copy `libopenxr_loader.so` to `examples/libs/arm64-v8a`.
+
+Example | File | Description
+--- | --- | ---
+`vr_cubes` | [`xr/vr_cubes.rs`](./xr/vr_cubes.rs) | Create floating cubes by pressing the trigger

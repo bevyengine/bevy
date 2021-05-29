@@ -1,0 +1,60 @@
+[package]
+name = "bevy_webxr"
+version = "0.5.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "OpenXR presentation and input backend for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.5.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
+bevy_log = { path = "../bevy_log", version = "0.5.0" }
+bevy_math = { path = "../bevy_math", version = "0.5.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_xr = { path = "../bevy_xr", version = "0.5.0" }
+
+# other
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Navigator",
+    "Xr",
+    "XrBoundedReferenceSpace",
+    "XrEye",
+    "XrFrame",
+    "XrHandedness",
+    "XrInputSource",
+    "XrInputSourceArray",
+    "XrInputSourceEvent",
+    "XrInputSourceEventInit",
+    "XrInputSourcesChangeEvent",
+    "XrInputSourcesChangeEventInit",
+    "XrPose",
+    "XrReferenceSpace",
+    "XrReferenceSpaceEvent",
+    "XrReferenceSpaceEventInit",
+    "XrReferenceSpaceType",
+    "XrRenderState",
+    "XrRenderStateInit",
+    "XrRigidTransform",
+    "XrSession",
+    "XrSessionEvent",
+    "XrSessionEventInit",
+    "XrSessionInit",
+    "XrSessionMode",
+    "XrSpace",
+    "XrTargetRayMode",
+    "XrView",
+    "XrViewerPose",
+    "XrViewport",
+    "XrVisibilityState",
+    "XrWebGlLayer",
+    "XrWebGlLayerInit",
+] }

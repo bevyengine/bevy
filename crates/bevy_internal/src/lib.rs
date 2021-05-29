@@ -164,6 +164,18 @@ pub mod wgpu {
     pub use bevy_wgpu::*;
 }
 
+#[cfg(feature = "bevy_xr")]
+pub mod xr {
+    //! Common interface for XR backends
+    pub use bevy_xr::*;
+}
+
+#[cfg(feature = "bevy_openxr")]
+pub mod openxr {
+    //! OpenXR backend
+    pub use bevy_openxr::*;
+}
+
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;

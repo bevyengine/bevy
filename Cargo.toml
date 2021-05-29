@@ -36,7 +36,9 @@ default = [
   "hdr",
   "mp3",
   "x11",
+  "bevy_openxr",         # todo: remove
 ]
+
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
@@ -50,6 +52,8 @@ render = [
   "bevy_internal/bevy_ui",
 ]
 
+xr = ["bevy_internal/bevy_xr"]
+
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -57,6 +61,7 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_openxr = ["bevy_internal/bevy_xr", "bevy_internal/bevy_openxr"]
 
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_render2 = ["bevy_internal/bevy_render2"]
@@ -551,6 +556,18 @@ name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
 required-features = ["bevy_winit"]
 
+# XR
+[[example]]
+name = "vr_cubes"
+path = "examples/xr/vr_cubes.rs"
+required-features = ["bevy_openxr"]
+
+[[example]]
+name = "vr_cubes_android"
+path = "examples/xr/vr_cubes.rs"
+required-features = ["bevy_openxr"]
+crate-type = ["cdylib"]
+
 # Android
 [[example]]
 crate-type = ["cdylib"]
@@ -563,5 +580,30 @@ assets = "assets"
 res = "assets/android-res"
 icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+runtime_libs = "libs"
+
+[package.metadata.android.sdk]
 min_sdk_version = 16
 target_sdk_version = 29
+
+[package.metadata.android.application]
+icon = "@mipmap/ic_launcher"
+
+[[package.metadata.android.application.meta_data]]
+name = "com.samsung.android.vr.application.mode"
+value = "vr_only"
+
+[package.metadata.android.application.activity]
+theme = "@android:style/Theme.Black.NoTitleBar.Fullscreen"
+config_changes = "density|keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|uiMode"
+launch_mode = "singleTask"
+orientation = "landscape"
+resizeable_activity = "false"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.MAIN"]
+categories = [
+  "com.oculus.intent.category.VR",
+  "android.intent.category.LAUNCHER",
+  "android.intent.category.INFO",
+]

@@ -12,6 +12,8 @@ use bevy_gilrs::GilrsPlugin;
 use bevy_gltf::GltfPlugin;
 use bevy_input::InputPlugin;
 use bevy_log::LogPlugin;
+#[cfg(feature = "bevy_openxr")]
+use bevy_openxr::OpenXrPlugin;
 #[cfg(feature = "bevy_pbr")]
 use bevy_pbr::PbrPlugin;
 #[cfg(feature = "bevy_render")]
@@ -29,6 +31,8 @@ use bevy_wgpu::WgpuPlugin;
 use bevy_window::WindowPlugin;
 #[cfg(feature = "bevy_winit")]
 use bevy_winit::WinitPlugin;
+#[cfg(feature = "bevy_xr")]
+use bevy_xr::XrPlugin;
 
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`]
@@ -48,6 +52,8 @@ use bevy_winit::WinitPlugin;
 /// * [`GilrsPlugin`] - with feature `bevy_gilrs`
 /// * [`GltfPlugin`] - with feature `bevy_gltf`
 /// * [`WinitPlugin`] - with feature `bevy_winit`
+/// * [`XrPlugin`] - with feature `bevy_xr`
+/// * [`OpenXrPlugin`] - with feature `bevy_openxr`
 /// * [`WgpuPlugin`] - with feature `bevy_wgpu`
 pub struct DefaultPlugins;
 
