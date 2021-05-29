@@ -70,8 +70,12 @@ where
 
     #[inline]
     pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
-        let iter = unsafe { self.iter_unchecked_manual(world, last_change_tick, change_tick) };
-        iter.is_empty()
+        // SAFE: the iterator is instantly consumed via `is_empty` and the implementation of
+        // `QueryIter::is_empty` never creates any references (mutable or immutable) to the `Item`.
+        unsafe {
+            self.iter_unchecked_manual(world, last_change_tick, change_tick)
+                .is_empty()
+        }
     }
 
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {

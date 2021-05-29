@@ -73,7 +73,8 @@ where
     #[inline(always)]
     #[allow(clippy::wrong_self_convention)]
     pub(crate) fn is_empty(mut self) -> bool {
-        // NOTE: this mimics the behavior of `QueryIter::next()`
+        // NOTE: this mimics the behavior of `QueryIter::next()`, expect that it
+        // never gets a `Self::Item`.
         unsafe {
             if self.is_dense {
                 loop {
