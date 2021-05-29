@@ -7,6 +7,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, QuerySet, Res},
 };
+use bevy_geometry::{Line, Plane};
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
@@ -60,6 +61,68 @@ impl Camera {
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
         Some(screen_space_coords)
+    }
+
+    /// Given a position in screen space, compute the world-space line that corresponds to it.
+    pub fn screen_to_world_line<W: AsRef<Windows>>(
+        pos_screen: Vec2,
+        windows: W,
+        camera: &Camera,
+        camera_transform: &GlobalTransform,
+    ) -> Line {
+        let camera_position = camera_transform.compute_matrix();
+        let window = windows
+            .as_ref()
+            .get(camera.window)
+            .unwrap_or_else(|| panic!("WindowId {} does not exist", camera.window));
+        let screen_size = Vec2::from([window.width() as f32, window.height() as f32]);
+        let projection_matrix = camera.projection_matrix;
+
+        // Normalized device coordinate cursor position from (-1, -1, -1) to (1, 1, 1)
+        let cursor_ndc = (pos_screen / screen_size) * 2.0 - Vec2::from([1.0, 1.0]);
+        let cursor_pos_ndc_near: Vec3 = cursor_ndc.extend(-1.0);
+        let cursor_pos_ndc_far: Vec3 = cursor_ndc.extend(1.0);
+
+        // Use near and far ndc points to generate a ray in world space
+        // This method is more robust than using the location of the camera as the start of
+        // the ray, because ortho cameras have a focal point at infinity!
+        let ndc_to_world: Mat4 = camera_position * projection_matrix.inverse();
+        let cursor_pos_near: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_near);
+        let cursor_pos_far: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_far);
+        let ray_direction = cursor_pos_far - cursor_pos_near;
+        Line::from_point_direction(cursor_pos_near, ray_direction)
+        //Ray3d::new(cursor_pos_near, ray_direction)
+    }
+
+    /// Given a position in screen space and a plane in world space, compute what point on the plane the point in screen space corresponds to.
+    /// In 2D, use `screen_to_point_2d`.
+    pub fn screen_to_point_on_plane<W: AsRef<Windows>>(
+        pos_screen: Vec2,
+        plane: Plane,
+        windows: W,
+        camera: &Camera,
+        camera_transform: &GlobalTransform,
+    ) -> Option<Vec3> {
+        let world_line = Self::screen_to_world_line(pos_screen, windows, camera, camera_transform);
+        plane.intersection_line(&world_line)
+    }
+
+    /// Computes the world position for a given screen position.
+    /// The output will always be on the XY plane with Z at zero. It is designed for 2D, but also works with a 3D camera.
+    /// For more flexibility in 3D, consider `screen_to_point_on_plane`.
+    pub fn screen_to_point_2d<W: AsRef<Windows>>(
+        pos_screen: Vec2,
+        windows: W,
+        camera: &Camera,
+        camera_transform: &GlobalTransform,
+    ) -> Option<Vec3> {
+        Self::screen_to_point_on_plane(
+            pos_screen,
+            Plane::from_point_normal(Vec3::new(0., 0., 0.), Vec3::new(0., 0., 1.)),
+            windows,
+            camera,
+            camera_transform,
+        )
     }
 }
 

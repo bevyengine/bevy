@@ -4,6 +4,7 @@ crates=(
     bevy_macro_utils
     bevy_derive
     bevy_math
+    bevy_geometry
     bevy_tasks
     bevy_ecs/macros
     bevy_ecs
