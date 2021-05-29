@@ -1,20 +1,20 @@
 # Brief Description
 
-## Problem:
+## Problem
 
-- Describe the problem this PR solves here. 
+- Describe the problem this PR solves here.
 - If you're fixing an issue, say "Fixes #X".
 
-## Solution:
+## Solution
 
 - Describe the solution used to overcome the problem.
 
-## Additional Information:
+## Additional Information
 
 - Any additional information needed to better understand this PR.
 
 
 ## Checklist (if applicable)
 
-- [ ] Documentation 
+- [ ] Documentation
 - [ ] Tests
