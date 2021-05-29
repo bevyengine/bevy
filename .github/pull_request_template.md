@@ -11,6 +11,11 @@
 
 - Any additional information needed to better understand this PR.
 
+## Breaking Changes (if applicable)
+
+- What changes were introduced that would break backwards compatibility?
+- How would a user modify their code to adjust for these breaking changes?
+
 ## Checklist (if applicable)
 
 - [ ] Tests
