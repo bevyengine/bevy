@@ -163,28 +163,39 @@ fn change_window(world: &mut World) {
                     }
                 }
                 bevy_window::WindowCommand::SetWindowIcon { icon } => {
-                    let texture_assets = world.get_resource_mut::<Assets<Texture>>().unwrap();
+                    let asset_server = world.get_resource::<AssetServer>().unwrap();
+                    let texture_assets = world.get_resource::<Assets<Texture>>().unwrap();
                     let window = winit_windows.get_window(id).unwrap();
 
                     let winit_icon = match icon {
                         Some(window_icon) => {
-                            match texture_assets.get(&window_icon.handle) {
-                                None => {
+                            match asset_server.get_load_state(&window_icon.handle) {
+                                LoadState::Loading => {
                                     warn!("Setting window icon with texture that was not yet loaded: {}", window_icon.handle);
-                                    bevy_window.set_icon(icon); // We queue up the command again, so the icon is set as soon as possible
+                                    bevy_window.set_icon(icon); // We queue up the command again, so the icon is set as soon as it is loaded
                                     return;
                                 }
-                                Some(texture) => match Icon::from_rgba(
-                                    texture.data,
-                                    texture.size.width,
-                                    texture.size.height,
-                                ) {
-                                    Ok(icon) => Some(icon),
-                                    Err(e) => {
-                                        error!("Unable to create window icon: {}", e);
-                                        None
+                                LoadState::Loaded => {
+                                    let texture = texture_assets.get(&window_icon.handle).unwrap();
+                                    match Icon::from_rgba(
+                                        texture.data,
+                                        texture.size.width,
+                                        texture.size.height,
+                                    ) {
+                                        Ok(icon) => Some(icon),
+                                        Err(e) => {
+                                            error!("Unable to create window icon: {}", e);
+                                            return;
+                                        }
                                     }
-                                },
+                                }
+                                _ => {
+                                    error!(
+                                        "Handle to create window icon points to unloaded asset: {}",
+                                        window_icon.handle
+                                    );
+                                    return;
+                                }
                             }
                         }
                         None => None,

@@ -10,7 +10,7 @@ fn main() {
             vsync: true,
             ..Default::default()
         })
-        .insert_resource(IconResource::default())
+        .insert_resource(IconResource)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(change_title.system())
@@ -26,7 +26,7 @@ struct IconResource {
 
 fn setup(asset_server: Res<AssetServer>, mut icon_resource: ResMut<IconResource>) {
     let icon = asset_server.load("android-res/mipmap-mdpi/ic_launcher.png");
-    (*icon_resource).handle = icon;
+    icon_resource.handle = icon;
 }
 
 /// This system will then change the title during execution

@@ -520,14 +520,14 @@ impl Window {
     }
 
     #[inline]
-    pub fn icon(&self) -> Option<WindowIcon> {
-        self.icon.clone()
+    pub fn icon(&self) -> Option<&WindowIcon> {
+        self.icon.as_ref()
     }
 
     pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
         self.icon = icon.clone();
         self.command_queue
-            .push(WindowCommand::SetWindowIcon { icon: icon.clone() });
+            .push(WindowCommand::SetWindowIcon { icon });
     }
 }
 
