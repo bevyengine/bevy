@@ -72,7 +72,6 @@ where
 
     /// Consumes `self` and returns true if there were any elements remaining in this iterator.
     #[inline(always)]
-    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn any_remaining(mut self) -> bool {
         // NOTE: this mimics the behavior of `QueryIter::next()`, expect that it
         // never gets a `Self::Item`.
