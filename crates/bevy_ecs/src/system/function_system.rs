@@ -3,26 +3,27 @@ use crate::{
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
-        check_system_change_tick, System, SystemId, SystemParam, SystemParamFetch, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
+        SystemParamFetch, SystemParamState,
     },
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
-/// The state of a [`System`].
-pub struct SystemState {
+/// The metadata of a [`System`].
+pub struct SystemMeta {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
-    // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent
+    // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
     pub(crate) last_change_tick: u32,
 }
 
-impl SystemState {
+impl SystemMeta {
     fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
@@ -46,6 +47,86 @@ impl SystemState {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+}
+
+// TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
+// (to avoid the need for unwrapping to retrieve SystemMeta)
+/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].  
+pub struct SystemState<Param: SystemParam> {
+    meta: SystemMeta,
+    param_state: <Param as SystemParam>::Fetch,
+    change_tick: u32,
+}
+
+impl<Param: SystemParam> SystemState<Param> {
+    pub fn new(world: &mut World) -> Self {
+        let config = <Param::Fetch as SystemParamState>::default_config();
+        Self::with_config(world, config)
+    }
+
+    pub fn with_config(
+        world: &mut World,
+        config: <Param::Fetch as SystemParamState>::Config,
+    ) -> Self {
+        let mut meta = SystemMeta::new::<Param>();
+        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta, config);
+        Self {
+            meta,
+            param_state,
+            change_tick: 0,
+        }
+    }
+
+    #[inline]
+    pub fn meta(&self) -> &SystemMeta {
+        &self.meta
+    }
+
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    pub fn get<'a>(&'a mut self, world: &'a World) -> <Param::Fetch as SystemParamFetch<'a>>::Item
+    where
+        Param::Fetch: ReadOnlySystemParamFetch,
+    {
+        // SAFE: Param is read-only and doesn't allow mutable access to World
+        unsafe { self.get_unchecked(world) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.
+    pub fn get_mut<'a>(
+        &'a mut self,
+        world: &'a mut World,
+    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+        // SAFE: World is uniquely borrowed
+        unsafe { self.get_unchecked(world) }
+    }
+
+    /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
+    /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
+    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]  
+    /// are finished being used.
+    pub fn apply(&mut self, world: &mut World) {
+        self.param_state.apply(world);
+    }
+
+    /// Retrieve the [`SystemParam`] values.
+    ///
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access.
+    #[inline]
+    pub unsafe fn get_unchecked<'a>(
+        &'a mut self,
+        world: &'a World,
+    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+        let change_tick = world.increment_change_tick();
+        self.change_tick = change_tick;
+        <Param::Fetch as SystemParamFetch>::get_param(
+            &mut self.param_state,
+            &self.meta,
+            world,
+            change_tick,
+        )
     }
 }
 
@@ -116,7 +197,7 @@ where
 {
     func: F,
     param_state: Option<Param::Fetch>,
-    system_state: SystemState,
+    system_meta: SystemMeta,
     config: Option<<Param::Fetch as SystemParamState>::Config>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
@@ -161,7 +242,7 @@ where
             func: self,
             param_state: None,
             config: Some(<Param::Fetch as SystemParamState>::default_config()),
-            system_state: SystemState::new::<F>(),
+            system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
         }
     }
@@ -180,33 +261,33 @@ where
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
-        self.system_state.name.clone()
+        self.system_meta.name.clone()
     }
 
     #[inline]
     fn id(&self) -> SystemId {
-        self.system_state.id
+        self.system_meta.id
     }
 
     #[inline]
     fn new_archetype(&mut self, archetype: &Archetype) {
         let param_state = self.param_state.as_mut().unwrap();
-        param_state.new_archetype(archetype, &mut self.system_state);
+        param_state.new_archetype(archetype, &mut self.system_meta);
     }
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.system_state.component_access_set.combined_access()
+        &self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_state.archetype_component_access
+        &self.system_meta.archetype_component_access
     }
 
     #[inline]
     fn is_send(&self) -> bool {
-        self.system_state.is_send
+        self.system_meta.is_send
     }
 
     #[inline]
@@ -215,11 +296,11 @@ where
         let out = self.func.run(
             input,
             self.param_state.as_mut().unwrap(),
-            &self.system_state,
+            &self.system_meta,
             world,
             change_tick,
         );
-        self.system_state.last_change_tick = change_tick;
+        self.system_meta.last_change_tick = change_tick;
         out
     }
 
@@ -233,7 +314,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
-            &mut self.system_state,
+            &mut self.system_meta,
             self.config.take().unwrap(),
         ));
     }
@@ -241,9 +322,9 @@ where
     #[inline]
     fn check_change_tick(&mut self, change_tick: u32) {
         check_system_change_tick(
-            &mut self.system_state.last_change_tick,
+            &mut self.system_meta.last_change_tick,
             change_tick,
-            self.system_state.name.as_ref(),
+            self.system_meta.name.as_ref(),
         );
     }
 }
@@ -254,7 +335,7 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
         &mut self,
         input: In,
         state: &mut Param::Fetch,
-        system_state: &SystemState,
+        system_meta: &SystemMeta,
         world: &World,
         change_tick: u32,
     ) -> Out;
@@ -270,9 +351,9 @@ macro_rules! impl_system_function {
                 FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World, change_tick: u32) -> Out {
+            fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
                 unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world, change_tick);
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
                     self($($param),*)
                 }
             }
@@ -286,9 +367,9 @@ macro_rules! impl_system_function {
                 FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World, change_tick: u32) -> Out {
+            fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
                 unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world, change_tick);
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
                     self(In(input), $($param),*)
                 }
             }
