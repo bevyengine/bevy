@@ -73,7 +73,7 @@ where
     /// Consumes `self` and returns true if there were any elements remaining in this iterator.
     #[inline(always)]
     pub(crate) fn any_remaining(mut self) -> bool {
-        // NOTE: this mimics the behavior of `QueryIter::next()`, expect that it
+        // NOTE: this mimics the behavior of `QueryIter::next()`, except that it
         // never gets a `Self::Item`.
         unsafe {
             if self.is_dense {
