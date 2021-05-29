@@ -547,13 +547,8 @@ where
     /// Returns true if this query contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        // SAFE: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        let mut iter = unsafe {
-            self.state
-                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
-        };
-        iter.next().is_none()
+        self.state
+            .is_empty(self.world, self.last_change_tick, self.change_tick)
     }
 }
 

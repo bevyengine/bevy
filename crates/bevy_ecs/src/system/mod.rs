@@ -440,17 +440,26 @@ mod tests {
 
     #[test]
     fn query_is_empty() {
-        fn sys(empty: Query<&A>, not_empty: Query<&B>) {
-            assert!(empty.is_empty());
+        fn without_filter(not_empty: Query<&A>, empty: Query<&B>) {
             assert!(!not_empty.is_empty());
+            assert!(empty.is_empty());
+        }
+
+        fn with_filter(not_empty: Query<&A, With<C>>, empty: Query<&A, With<D>>) {
+            assert!(!not_empty.is_empty());
+            assert!(empty.is_empty());
         }
 
         let mut world = World::default();
-        world.spawn().insert(B);
+        world.spawn().insert(A).insert(C);
 
-        let mut sys = sys.system();
-        sys.initialize(&mut world);
-        sys.run((), &mut world);
+        let mut without_filter = without_filter.system();
+        without_filter.initialize(&mut world);
+        without_filter.run((), &mut world);
+
+        let mut with_filter = with_filter.system();
+        with_filter.initialize(&mut world);
+        with_filter.run((), &mut world);
     }
 
     #[test]
