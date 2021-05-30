@@ -8,7 +8,7 @@ use crate::{
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
-use std::{marker::PhantomData, ptr};
+use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 // TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when
 // this bug is fixed in Rust 1.51: https://github.com/rust-lang/rust/pull/81671
@@ -561,7 +561,7 @@ macro_rules! impl_tick_filter {
         $(#[$fetch_meta])*
         pub struct $fetch_name<T> {
             storage_type: StorageType,
-            table_ticks: *mut ComponentTicks,
+            table_ticks: *const UnsafeCell<ComponentTicks>,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
             entities: *const Entity,
@@ -630,7 +630,7 @@ macro_rules! impl_tick_filter {
             unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
-                    table_ticks: ptr::null_mut::<ComponentTicks>(),
+                    table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
                     entities: ptr::null::<Entity>(),
                     entity_table_rows: ptr::null::<usize>(),
                     sparse_set: ptr::null::<ComponentSparseSet>(),
@@ -655,7 +655,7 @@ macro_rules! impl_tick_filter {
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
                 self.table_ticks = table
                     .get_column(state.component_id).unwrap()
-                    .get_ticks_mut_ptr();
+                    .get_ticks_ptr();
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
@@ -665,25 +665,25 @@ macro_rules! impl_tick_filter {
                         let table = &tables[archetype.table_id()];
                         self.table_ticks = table
                             .get_column(state.component_id).unwrap()
-                            .get_ticks_mut_ptr();
+                            .get_ticks_ptr();
                     }
                     StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
+                $is_detected(&*(&*self.table_ticks.add(table_row)).get(), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(&*self.table_ticks.add(table_row)).get(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
-                        let ticks = (*(*self.sparse_set).get_ticks(entity).unwrap());
+                        let ticks = (&*self.sparse_set).get_ticks(entity).cloned().unwrap();
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

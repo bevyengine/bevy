@@ -50,12 +50,33 @@ mod tests {
     };
     use bevy_tasks::TaskPool;
     use parking_lot::Mutex;
-    use std::{any::TypeId, sync::Arc};
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
 
     #[derive(Debug, PartialEq, Eq)]
     struct A(usize);
     struct B(usize);
     struct C;
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn random_access() {
@@ -1175,5 +1196,34 @@ mod tests {
             assert!(!world.contains_resource::<i32>());
         });
         assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
+    }
+
+    #[test]
+    fn insert_overwrite_drop() {
+        let (dropck1, dropped1) = DropCk::new_pair();
+        let (dropck2, dropped2) = DropCk::new_pair();
+        let mut world = World::default();
+        world.spawn().insert(dropck1).insert(dropck2);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 0);
+        drop(world);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn insert_overwrite_drop_sparse() {
+        let (dropck1, dropped1) = DropCk::new_pair();
+        let (dropck2, dropped2) = DropCk::new_pair();
+        let mut world = World::default();
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+        world.spawn().insert(dropck1).insert(dropck2);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 0);
+        drop(world);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 1);
     }
 }
