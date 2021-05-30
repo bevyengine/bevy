@@ -267,9 +267,9 @@ impl Default for TextureFormat {
     fn default() -> Self {
         if cfg!(target_os = "android") {
             // Bgra8UnormSrgb texture missing on some Android devices
-            TextureFormat::Rgba8Unorm
+            TextureFormat::Rgba8UnormSrgb
         } else {
-            TextureFormat::Rgba8Unorm
+            TextureFormat::Rgba8UnormSrgb
         }
     }
 }

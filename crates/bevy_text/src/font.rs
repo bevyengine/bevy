@@ -33,7 +33,7 @@ impl Font {
                 .map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
                 .flatten()
                 .collect::<Vec<u8>>(),
-            TextureFormat::Rgba8Unorm,
+            TextureFormat::Rgba8UnormSrgb,
         )
     }
 }
