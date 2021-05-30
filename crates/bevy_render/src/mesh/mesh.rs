@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::Mut,
 };
 use bevy_math::*;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_utils::EnumVariantMeta;
 use std::{borrow::Cow, collections::BTreeMap};
 
@@ -219,16 +219,26 @@ impl From<&Indices> for IndexFormat {
 }
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, Clone)]
+#[derive(Debug, TypeUuid, Clone, Reflect)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute name maps to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    #[reflect(ignore)]
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
+    #[reflect(ignore)]
     indices: Option<Indices>,
+}
+
+impl Default for Mesh {
+    /// Creates a empty triangle list mesh
+    fn default() -> Self {
+        Mesh::new(PrimitiveTopology::TriangleList)
+    }
 }
 
 /// Contains geometry in the form of a mesh.

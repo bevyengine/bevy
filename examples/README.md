@@ -108,6 +108,14 @@ Example | File | Description
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
 
+## Animations
+
+Example | File | Description
+--- | --- | ---
+`run_animation` | [`animations/run_animation.rs`](./animations/run_animation.rs) | Demonstrates how to play, and blend between, an idle animation and a run animation
+[//]: # (`mesh_swap_animation` | [`animations/mesh_swap_animation.rs`](./animations/mesh_swap_animation.rs) | Demonstrates how to create your own animation clip that swaps meshes (or any other asset handle))
+[//]: # (`material_animation` | [`animations/material_animation.rs`](./animations/material_animation.rs) | Illustrates how to animate material properties (or any other asset property))
+
 ## Application
 
 Example | File | Description

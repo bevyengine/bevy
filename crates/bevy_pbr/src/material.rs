@@ -1,10 +1,10 @@
 use bevy_asset::{self, Handle};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
-#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
+#[derive(Debug, RenderResources, ShaderDefs, TypeUuid, Reflect)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
@@ -12,6 +12,7 @@ pub struct StandardMaterial {
     /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
     #[shader_def]
+    #[reflect(ignore)]
     pub base_color_texture: Option<Handle<Texture>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
@@ -25,19 +26,23 @@ pub struct StandardMaterial {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     #[shader_def]
+    #[reflect(ignore)]
     pub metallic_roughness_texture: Option<Handle<Texture>>,
     pub reflectance: f32,
     #[shader_def]
+    #[reflect(ignore)]
     pub normal_map: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]
     pub double_sided: bool,
     #[shader_def]
+    #[reflect(ignore)]
     pub occlusion_texture: Option<Handle<Texture>>,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Color,
     #[shader_def]
+    #[reflect(ignore)]
     pub emissive_texture: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]

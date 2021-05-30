@@ -1,5 +1,7 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::AnimationPlugin;
 use bevy_app::ScheduleRunnerPlugin;
 use bevy_asset::AssetPlugin;
 #[cfg(feature = "bevy_audio")]
@@ -8,7 +10,7 @@ use bevy_core::CorePlugin;
 use bevy_diagnostic::DiagnosticsPlugin;
 #[cfg(feature = "bevy_gilrs")]
 use bevy_gilrs::GilrsPlugin;
-#[cfg(feature = "bevy_gltf")]
+#[cfg(all(feature = "bevy_gltf", feature = "bevy_animation"))]
 use bevy_gltf::GltfPlugin;
 use bevy_input::InputPlugin;
 use bevy_log::LogPlugin;
@@ -83,7 +85,10 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_gilrs")]
         group.add(GilrsPlugin::default());
 
-        #[cfg(feature = "bevy_gltf")]
+        #[cfg(feature = "bevy_animation")]
+        group.add(AnimationPlugin::default());
+
+        #[cfg(all(feature = "bevy_gltf", feature = "bevy_animation"))]
         group.add(GltfPlugin::default());
 
         #[cfg(feature = "bevy_winit")]
