@@ -11,6 +11,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
+    change_detection::Ticks,
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
         StorageType,
@@ -708,9 +709,11 @@ impl World {
         // SAFE: pointer is of type T
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
-            component_ticks: &mut ticks,
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.change_tick(),
+            ticks: Ticks {
+                component_ticks: &mut ticks,
+                last_change_tick: self.last_change_tick(),
+                change_tick: self.change_tick(),
+            },
         };
         let result = f(self, value);
         let resource_archetype = self.archetypes.resource_mut();
@@ -747,9 +750,11 @@ impl World {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            component_ticks: &mut *column.get_ticks_mut_ptr(),
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
+            ticks: Ticks {
+                component_ticks: &mut *column.get_ticks_mut_ptr(),
+                last_change_tick: self.last_change_tick(),
+                change_tick: self.read_change_tick(),
+            },
         })
     }
 
