@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowIcon};
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -10,7 +10,7 @@ fn main() {
             vsync: true,
             ..Default::default()
         })
-        .insert_resource(IconResource)
+        .insert_resource(IconResource::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(change_title.system())
@@ -51,12 +51,23 @@ fn toggle_icon(
     input: Res<Input<KeyCode>>,
     mut windows: ResMut<Windows>,
     icon_resource: Res<IconResource>,
+    textures: Res<Assets<Texture>>,
 ) {
     let window = windows.get_primary_mut().unwrap();
     if input.just_pressed(KeyCode::I) {
         match window.icon() {
-            None => window.set_icon(Some(icon_resource.handle.clone())),
-            _ => window.set_icon(None),
+            None => {
+                if let Some(texture) = textures.get(&icon_resource.handle) {
+                    let window_icon = WindowIcon {
+                        bytes: texture.data.clone(),
+                        width: texture.size.width,
+                        height: texture.size.height,
+                    };
+
+                    window.set_icon(window_icon);
+                }
+            }
+            _ => window.clear_icon(),
         }
     }
 }

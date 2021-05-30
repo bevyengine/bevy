@@ -1,6 +1,4 @@
-use bevy_asset::Handle;
 use bevy_math::{IVec2, Vec2};
-use bevy_render::texture::Texture;
 use bevy_utils::{tracing::warn, Uuid};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -20,7 +18,10 @@ impl WindowId {
     }
 }
 
-use std::fmt;
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -92,6 +93,13 @@ impl WindowResizeConstraints {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct WindowIcon {
+    pub bytes: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// An operating system window that can present content and receive user input.
 ///
 /// ## Window Sizes
@@ -129,6 +137,7 @@ pub struct Window {
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    icon_path: Option<PathBuf>,
     icon: Option<WindowIcon>,
     command_queue: Vec<WindowCommand>,
 }
@@ -179,9 +188,13 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
-    SetWindowIcon {
-        icon: Option<WindowIcon>,
+    SetIconPath {
+        path: PathBuf,
     },
+    SetIcon {
+        icon: WindowIcon,
+    },
+    ClearIcon,
 }
 
 /// Defines the way a window is displayed
@@ -226,7 +239,8 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
-            icon: window_descriptor.icon.clone(),
+            icon_path: window_descriptor.icon_path.clone(),
+            icon: None,
             command_queue: Vec::new(),
         }
     }
@@ -520,20 +534,36 @@ impl Window {
     }
 
     #[inline]
+    pub fn icon_path(&self) -> Option<&Path> {
+        self.icon_path.as_deref()
+    }
+
+    pub fn set_icon_path(&mut self, path: &Path) {
+        self.icon_path = Some(path.to_path_buf());
+
+        self.command_queue.push(WindowCommand::SetIconPath {
+            path: path.to_owned(),
+        })
+    }
+
+    #[inline]
     pub fn icon(&self) -> Option<&WindowIcon> {
         self.icon.as_ref()
     }
 
-    pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
-        self.icon = icon.clone();
-        self.command_queue
-            .push(WindowCommand::SetWindowIcon { icon });
-    }
-}
+    pub fn set_icon(&mut self, icon: WindowIcon) {
+        self.icon = Some(icon.clone());
 
-#[derive(Debug, Clone)]
-pub struct WindowIcon {
-    pub handle: Handle<Texture>,
+        self.command_queue
+            .push(WindowCommand::SetIcon { icon });
+    }
+
+    pub fn clear_icon(&mut self) {
+        self.icon = None;
+        self.icon_path = None;
+
+        self.command_queue.push(WindowCommand::ClearIcon);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -551,7 +581,7 @@ pub struct WindowDescriptor {
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
-    pub icon: Option<WindowIcon>,
+    pub icon_path: Option<PathBuf>,
 }
 
 impl Default for WindowDescriptor {
@@ -570,7 +600,7 @@ impl Default for WindowDescriptor {
             mode: WindowMode::Windowed,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
-            icon: None,
+            icon_path: None,
         }
     }
 }

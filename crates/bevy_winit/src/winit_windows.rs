@@ -139,7 +139,7 @@ impl WinitWindows {
         let scale_factor = winit_window.scale_factor();
         self.windows.insert(winit_window.id(), winit_window);
 
-        let window = Window::new(
+        let mut window = Window::new(
             window_id,
             &window_descriptor,
             inner_size.width,
@@ -149,7 +149,9 @@ impl WinitWindows {
         );
 
         /* TODO: How would we even provide a Handle at this point? */
-        window.set_icon(window_descriptor.icon); /* This will queue up SetWindowIcon until the asset has loaded */
+        if let Some(icon_path) = &window_descriptor.icon_path {
+            window.set_icon_path(icon_path); /* This will queue up SetWindowIcon until the asset has loaded */
+        }
 
         window
     }

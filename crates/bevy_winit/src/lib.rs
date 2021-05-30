@@ -11,10 +11,8 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_asset::Handle;
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, Vec2};
-use bevy_render::texture::Texture;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
@@ -162,46 +160,24 @@ fn change_window(world: &mut World) {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
-                bevy_window::WindowCommand::SetWindowIcon { icon } => {
-                    let asset_server = world.get_resource::<AssetServer>().unwrap();
-                    let texture_assets = world.get_resource::<Assets<Texture>>().unwrap();
+                bevy_window::WindowCommand::SetIconPath { path } => {
+                    let _ = path;
+                }
+                bevy_window::WindowCommand::SetIcon { icon } => {
                     let window = winit_windows.get_window(id).unwrap();
 
-                    let winit_icon = match icon {
-                        Some(window_icon) => {
-                            match asset_server.get_load_state(&window_icon.handle) {
-                                LoadState::Loading => {
-                                    warn!("Setting window icon with texture that was not yet loaded: {}", window_icon.handle);
-                                    bevy_window.set_icon(icon); // We queue up the command again, so the icon is set as soon as it is loaded
-                                    return;
-                                }
-                                LoadState::Loaded => {
-                                    let texture = texture_assets.get(&window_icon.handle).unwrap();
-                                    match Icon::from_rgba(
-                                        texture.data,
-                                        texture.size.width,
-                                        texture.size.height,
-                                    ) {
-                                        Ok(icon) => Some(icon),
-                                        Err(e) => {
-                                            error!("Unable to create window icon: {}", e);
-                                            return;
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    error!(
-                                        "Handle to create window icon points to unloaded asset: {}",
-                                        window_icon.handle
-                                    );
-                                    return;
-                                }
-                            }
+                    match Icon::from_rgba(icon.bytes, icon.width, icon.height) {
+                        Ok(icon) => window.set_window_icon(Some(icon)),
+                        Err(e) => {
+                            error!("Unable to create window icon: {}", e);
+                            return;
                         }
-                        None => None,
-                    };
+                    }
+                }
+                bevy_window::WindowCommand::ClearIcon => {
+                    let window = winit_windows.get_window(id).unwrap();
 
-                    window.set_window_icon(winit_icon);
+                    window.set_window_icon(None);
                 }
             }
         }
