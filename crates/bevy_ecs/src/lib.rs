@@ -1,5 +1,6 @@
 pub mod archetype;
 pub mod bundle;
+pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
@@ -18,6 +19,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
+        change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},

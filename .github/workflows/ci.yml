@@ -152,3 +152,16 @@ jobs:
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
+  
+  check-missing-examples-in-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check that examples are present in both README and Cargo
+        uses: Weibye/action-internal-link-consistency@1.0.0
+        with:
+          source: './examples/'
+          targets: '[ "./Cargo.toml", "./examples/README.md" ]'
+          file-types: '[".rs"]'
+          exclude-folders: '["./examples/ios"]'
+          exclude-files: '[]'

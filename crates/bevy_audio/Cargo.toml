@@ -22,7 +22,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 anyhow = "1.0"
-rodio = { version = "0.13", default-features = false }
+rodio = { version = "0.14", default-features = false }
 parking_lot = "0.11.0"
 
 [features]

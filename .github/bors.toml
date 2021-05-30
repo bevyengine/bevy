@@ -10,6 +10,7 @@ status = [
     "check-markdown-links",
     "run-examples",
     "check-doc",
+    "check-missing-examples-in-docs",
 ]
 
 use_squash_merge = true

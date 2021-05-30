@@ -12,11 +12,12 @@ fn main() {
         })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup_scene.system())
+        .add_startup_system(setup_music.system())
         .run();
 }
 /// set up a simple 3D scene
-fn setup(
+fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -54,4 +55,9 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
+}
+
+fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    let music = asset_server.load("sounds/Windless Slopes.mp3");
+    audio.play(music);
 }

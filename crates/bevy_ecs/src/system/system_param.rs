@@ -1,6 +1,8 @@
+pub use crate::change_detection::ResMut;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
+    change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery},
@@ -333,83 +335,6 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
     }
 }
 
-/// Unique borrow of a resource.
-///
-/// # Panics
-///
-/// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
-///
-/// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'w, T: Component> {
-    value: &'w mut T,
-    ticks: &'w mut ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-impl<'w, T: Component> Debug for ResMut<'w, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("ResMut").field(&self.value).finish()
-    }
-}
-
-impl<'w, T: Component> ResMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
-    }
-
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
-    pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
-    }
-
-    /// Manually flags this resource as having been changed. This normally isn't
-    /// required because accessing this pointer mutably automatically flags this
-    /// resource as "changed".
-    ///
-    /// **Note**: This operation is irreversible.
-    #[inline]
-    pub fn set_changed(&mut self) {
-        self.ticks.set_changed(self.change_tick);
-    }
-}
-
-impl<'w, T: Component> Deref for ResMut<'w, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'w, T: Component> DerefMut for ResMut<'w, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.set_changed();
-        self.value
-    }
-}
-
-impl<'w, T: Component> AsRef<T> for ResMut<'w, T> {
-    #[inline]
-    fn as_ref(&self) -> &T {
-        self.deref()
-    }
-}
-
-impl<'w, T: Component> AsMut<T> for ResMut<'w, T> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut T {
-        self.deref_mut()
-    }
-}
-
 /// The [`SystemParamState`] of [`ResMut`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
@@ -476,9 +401,11 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
             });
         ResMut {
             value: value.value,
-            ticks: value.component_ticks,
-            last_change_tick: system_state.last_change_tick,
-            change_tick,
+            ticks: Ticks {
+                component_ticks: value.ticks.component_ticks,
+                last_change_tick: system_state.last_change_tick,
+                change_tick,
+            },
         }
     }
 }
@@ -514,9 +441,11 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
             .get_resource_unchecked_mut_with_id(state.0.component_id)
             .map(|value| ResMut {
                 value: value.value,
-                ticks: value.component_ticks,
-                last_change_tick: system_state.last_change_tick,
-                change_tick,
+                ticks: Ticks {
+                    component_ticks: value.ticks.component_ticks,
+                    last_change_tick: system_state.last_change_tick,
+                    change_tick,
+                },
             })
     }
 }
