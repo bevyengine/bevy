@@ -7,8 +7,3 @@
 
 ## Additional Information
 - Any additional information needed to better understand this PR.
-
-## Checklist (these usually only apply to new feature additions)
-- [ ] Adds Tests
-- [ ] Adds Documentation
-- [ ] Adds Examples
