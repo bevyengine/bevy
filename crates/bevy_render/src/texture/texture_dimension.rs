@@ -269,7 +269,7 @@ impl Default for TextureFormat {
             // Bgra8UnormSrgb texture missing on some Android devices
             TextureFormat::Rgba8UnormSrgb
         } else {
-            TextureFormat::Rgba8UnormSrgb
+            TextureFormat::Bgra8UnormSrgb
         }
     }
 }
