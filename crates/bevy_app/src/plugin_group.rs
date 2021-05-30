@@ -96,21 +96,6 @@ impl PluginGroupBuilder {
         self
     }
 
-    pub fn remove<T: Plugin>(&mut self) -> &mut Self {
-        let plugin_exists = self
-            .plugins
-            .contains_key(&TypeId::of::<T>());
-
-        if plugin_exists {
-            self.order.retain(|val| val != &TypeId::of::<T>());
-
-            self.plugins
-                .remove(&TypeId::of::<T>())
-                .expect("Could not remove a plugin");
-        }
-        self
-    }
-
     pub fn finish(self, app: &mut AppBuilder) {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {
