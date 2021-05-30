@@ -177,7 +177,11 @@ impl<T: Asset> Assets<T> {
         mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,
     ) {
-        events.send_batch(assets.events.drain())
+        // Check if the events are empty before calling `drain`.
+        // As `drain` triggers change detection.
+        if !assets.events.is_empty() {
+            events.send_batch(assets.events.drain())
+        }
     }
 
     pub fn len(&self) -> usize {

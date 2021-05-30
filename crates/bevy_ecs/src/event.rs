@@ -342,6 +342,12 @@ impl<T: Component> Events<T> {
         self.events_b.clear();
     }
 
+    /// Returns true if there are no events in this collection.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.events_a.is_empty() && self.events_b.is_empty()
+    }
+
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
         self.reset_start_event_count();
@@ -556,5 +562,22 @@ mod tests {
         assert!(reader
             .iter(&events)
             .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
+    }
+
+    #[test]
+    fn test_events_empty() {
+        let mut events = Events::<TestEvent>::default();
+        assert!(events.is_empty());
+
+        events.send(TestEvent { i: 0 });
+        assert!(!events.is_empty());
+
+        events.update();
+        assert!(!events.is_empty());
+
+        // events are only empty after the second call to update
+        // due to double buffering.
+        events.update();
+        assert!(events.is_empty());
     }
 }
