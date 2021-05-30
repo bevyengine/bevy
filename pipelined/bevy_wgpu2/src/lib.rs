@@ -1,5 +1,6 @@
 pub mod diagnostic;
 
+mod compute_pass;
 mod render_context;
 mod render_graph_executor;
 mod render_pass;
@@ -8,6 +9,7 @@ mod renderer;
 mod resources;
 mod type_converter;
 
+pub use compute_pass::*;
 pub use render_context::*;
 pub use render_pass::*;
 pub use render_resource_context::*;

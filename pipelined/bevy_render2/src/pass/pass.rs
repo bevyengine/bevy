@@ -1,6 +1,5 @@
 use crate::{color::Color, pass::Operations, render_resource::TextureId};
 
-
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {
     Id(TextureId),

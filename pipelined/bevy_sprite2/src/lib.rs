@@ -1,12 +1,12 @@
 mod bundle;
-mod render;
 mod rect;
+mod render;
 mod sprite;
 
+pub use bundle::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;
-pub use bundle::*;
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::IntoSystem;

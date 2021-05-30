@@ -10,7 +10,7 @@ use crate::{
         BlendComponent, BlendState, ColorTargetState, DepthBiasState, DepthStencilState,
         MultisampleState, PolygonMode, PrimitiveState, StencilFaceState, StencilState,
     },
-    shader::{ShaderStages},
+    shader::ShaderStages,
     texture::TextureFormat,
 };
 use bevy_reflect::{TypeUuid, Uuid};

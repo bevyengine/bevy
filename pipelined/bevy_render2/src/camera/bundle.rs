@@ -1,4 +1,7 @@
-use crate::camera::{CAMERA_2D, CAMERA_3D, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode};
+use crate::camera::{
+    Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode,
+    CAMERA_2D, CAMERA_3D,
+};
 use bevy_ecs::bundle::Bundle;
 use bevy_transform::components::{GlobalTransform, Transform};
 

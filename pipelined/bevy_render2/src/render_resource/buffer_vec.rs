@@ -2,7 +2,7 @@ use crate::{
     render_resource::{BufferId, BufferInfo, BufferMapMode, BufferUsage},
     renderer::{RenderContext, RenderResources},
 };
-use bevy_core::{Pod, cast_slice};
+use bevy_core::{cast_slice, Pod};
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,

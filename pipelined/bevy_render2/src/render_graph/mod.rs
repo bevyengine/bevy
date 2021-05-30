@@ -2,15 +2,15 @@ mod edge;
 mod graph;
 mod node;
 mod node_slot;
-mod schedule;
 mod nodes;
+mod schedule;
 
 pub use edge::*;
 pub use graph::*;
 pub use node::*;
 pub use node_slot::*;
-pub use schedule::*;
 pub use nodes::*;
+pub use schedule::*;
 
 use thiserror::Error;
 

@@ -1,9 +1,12 @@
 use super::WgpuRenderResourceContext;
-use crate::{WgpuRenderPass, resources::WgpuResourceRefs, type_converter::WgpuInto};
+use crate::{
+    compute_pass::WgpuComputePass, resources::WgpuResourceRefs, type_converter::WgpuInto,
+    WgpuRenderPass,
+};
 
 use bevy_render2::{
     pass::{
-        PassDescriptor, RenderPass, RenderPassColorAttachment,
+        ComputePass, PassDescriptor, RenderPass, RenderPassColorAttachment,
         RenderPassDepthStencilAttachment, TextureAttachment,
     },
     render_resource::{BufferId, TextureId},
@@ -165,7 +168,7 @@ impl RenderContext for WgpuRenderContext {
         &mut self.render_resource_context
     }
 
-    fn begin_pass(
+    fn begin_render_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
         run_pass: &mut dyn FnMut(&mut dyn RenderPass),
@@ -180,6 +183,29 @@ impl RenderContext for WgpuRenderContext {
             let render_pass = create_render_pass(pass_descriptor, &refs, &mut encoder);
             let mut wgpu_render_pass = WgpuRenderPass {
                 render_pass,
+                render_context: self,
+                wgpu_resources: refs,
+                pipeline_descriptor: None,
+            };
+
+            run_pass(&mut wgpu_render_pass);
+        }
+
+        self.command_encoder.set(encoder);
+    }
+
+    fn begin_compute_pass(&mut self, run_pass: &mut dyn FnMut(&mut dyn ComputePass)) {
+        if !self.command_encoder.is_some() {
+            self.command_encoder.create(&self.device);
+        }
+        let resource_lock = self.render_resource_context.resources.read();
+        let refs = resource_lock.refs();
+        let mut encoder = self.command_encoder.take().unwrap();
+        {
+            let compute_pass =
+                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            let mut wgpu_render_pass = WgpuComputePass {
+                compute_pass,
                 render_context: self,
                 wgpu_resources: refs,
                 pipeline_descriptor: None,
@@ -225,10 +251,7 @@ fn create_wgpu_color_attachment<'a>(
     refs: &WgpuResourceRefs<'a>,
     color_attachment: &RenderPassColorAttachment,
 ) -> wgpu::RenderPassColorAttachment<'a> {
-    let view = get_texture_view(
-        refs,
-        &color_attachment.attachment,
-    );
+    let view = get_texture_view(refs, &color_attachment.attachment);
 
     let resolve_target = color_attachment
         .resolve_target
@@ -246,10 +269,7 @@ fn create_wgpu_depth_stencil_attachment<'a>(
     refs: &WgpuResourceRefs<'a>,
     depth_stencil_attachment: &RenderPassDepthStencilAttachment,
 ) -> wgpu::RenderPassDepthStencilAttachment<'a> {
-    let view = get_texture_view(
-        refs,
-        &depth_stencil_attachment.attachment,
-    );
+    let view = get_texture_view(refs, &depth_stencil_attachment.attachment);
 
     wgpu::RenderPassDepthStencilAttachment {
         view,

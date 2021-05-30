@@ -4,8 +4,8 @@ use crate::{
 };
 use bevy_render2::{
     pipeline::{
-        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
-        PipelineId,
+        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, ComputePipelineDescriptor,
+        PipelineDescriptor, PipelineId,
     },
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding, SamplerId,
@@ -480,6 +480,52 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let mut render_pipelines = self.resources.render_pipelines.write();
         let id = PipelineId::new();
         render_pipelines.insert(id, render_pipeline);
+        id
+    }
+
+    fn create_compute_pipeline(
+        &self,
+        pipeline_descriptor: &ComputePipelineDescriptor,
+    ) -> PipelineId {
+        let layout = &pipeline_descriptor.layout;
+        for bind_group_descriptor in layout.bind_groups.iter() {
+            self.create_bind_group_layout(&bind_group_descriptor);
+        }
+
+        let bind_group_layouts = self.resources.bind_group_layouts.read();
+        // setup and collect bind group layouts
+        let bind_group_layouts = layout
+            .bind_groups
+            .iter()
+            .map(|bind_group| bind_group_layouts.get(&bind_group.id).unwrap())
+            .collect::<Vec<&wgpu::BindGroupLayout>>();
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: bind_group_layouts.as_slice(),
+                push_constant_ranges: &[],
+            });
+
+        let shader_modules = self.resources.shader_modules.read();
+        let compute_shader_module = shader_modules
+            .get(&pipeline_descriptor.shader_stages.compute)
+            .unwrap();
+
+        let compute_pipeline_descriptor = wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            entry_point: "main",
+            module: compute_shader_module,
+        };
+
+        let compute_pipeline = self
+            .device
+            .create_compute_pipeline(&compute_pipeline_descriptor);
+        let mut compute_pipelines = self.resources.compute_pipelines.write();
+        let id = PipelineId::new();
+        compute_pipelines.insert(id, compute_pipeline);
         id
     }
 

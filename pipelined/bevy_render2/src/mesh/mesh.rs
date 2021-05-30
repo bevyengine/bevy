@@ -1,6 +1,9 @@
 mod conversions;
 
-use crate::pipeline::{IndexFormat, InputStepMode, PrimitiveTopology, VertexAttribute, VertexBufferLayout, VertexFormat};
+use crate::pipeline::{
+    IndexFormat, InputStepMode, PrimitiveTopology, VertexAttribute, VertexBufferLayout,
+    VertexFormat,
+};
 use bevy_core::cast_slice;
 use bevy_math::*;
 use bevy_reflect::TypeUuid;

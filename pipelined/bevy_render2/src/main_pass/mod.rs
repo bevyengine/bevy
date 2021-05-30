@@ -1,20 +1,17 @@
-mod draw_state;
 mod draw;
+mod draw_state;
 
-pub use draw_state::*;
 pub use draw::*;
+pub use draw_state::*;
 
-use crate::{RenderStage, pass::RenderPassColorAttachment, renderer::RenderContext};
 use crate::{
     camera::CameraPlugin,
     color::Color,
-    pass::{
-        LoadOp, Operations, PassDescriptor, RenderPass,
-        TextureAttachment,
-    },
+    pass::{LoadOp, Operations, PassDescriptor, RenderPass, TextureAttachment},
     render_graph::{Node, RenderGraph, ResourceSlotInfo, ResourceSlots, WindowSwapChainNode},
     render_resource::RenderResourceType,
 };
+use crate::{pass::RenderPassColorAttachment, renderer::RenderContext, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::WindowId;
@@ -120,17 +117,20 @@ impl Node for MainPassNode {
         let transparent_phase = world.get_resource::<RenderPhase>().unwrap();
         let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
 
-        render_context.begin_pass(&pass_descriptor, &mut |render_pass: &mut dyn RenderPass| {
-            let mut draw_functions = draw_functions.draw_function.lock();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for drawable in transparent_phase.drawn_things.iter() {
-                draw_functions[drawable.draw_function].draw(
-                    world,
-                    &mut tracked_pass,
-                    drawable.draw_key,
-                    drawable.sort_key,
-                );
-            }
-        })
+        render_context.begin_render_pass(
+            &pass_descriptor,
+            &mut |render_pass: &mut dyn RenderPass| {
+                let mut draw_functions = draw_functions.draw_function.lock();
+                let mut tracked_pass = TrackedRenderPass::new(render_pass);
+                for drawable in transparent_phase.drawn_things.iter() {
+                    draw_functions[drawable.draw_function].draw(
+                        world,
+                        &mut tracked_pass,
+                        drawable.draw_key,
+                        drawable.sort_key,
+                    );
+                }
+            },
+        )
     }
 }

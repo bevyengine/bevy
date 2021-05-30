@@ -48,6 +48,7 @@ pub struct WgpuResourcesReadLock<'a> {
     pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
     pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines: RwLockReadGuard<'a, HashMap<PipelineId, wgpu::RenderPipeline>>,
+    pub compute_pipelines: RwLockReadGuard<'a, HashMap<PipelineId, wgpu::ComputePipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
     pub used_bind_group_sender: Sender<BindGroupId>,
 }
@@ -59,6 +60,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
             textures: &self.textures,
             swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
+            compute_pipelines: &self.compute_pipelines,
             bind_groups: &self.bind_groups,
             used_bind_group_sender: &self.used_bind_group_sender,
         }
@@ -73,6 +75,7 @@ pub struct WgpuResourceRefs<'a> {
     pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<PipelineId, wgpu::RenderPipeline>,
+    pub compute_pipelines: &'a HashMap<PipelineId, wgpu::ComputePipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
     pub used_bind_group_sender: &'a Sender<BindGroupId>,
 }
@@ -90,6 +93,7 @@ pub struct WgpuResources {
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<ShaderId, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<PipelineId, wgpu::RenderPipeline>>>,
+    pub compute_pipelines: Arc<RwLock<HashMap<PipelineId, wgpu::ComputePipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
     pub bind_group_layouts: Arc<RwLock<HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>>>,
     pub bind_group_counter: BindGroupCounter,
@@ -102,6 +106,7 @@ impl WgpuResources {
             textures: self.texture_views.read(),
             swap_chain_frames: self.swap_chain_frames.read(),
             render_pipelines: self.render_pipelines.read(),
+            compute_pipelines: self.compute_pipelines.read(),
             bind_groups: self.bind_groups.read(),
             used_bind_group_sender: self.bind_group_counter.used_bind_group_sender.clone(),
         }

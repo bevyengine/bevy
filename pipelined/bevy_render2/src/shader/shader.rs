@@ -253,6 +253,12 @@ pub struct ShaderStages {
     pub fragment: Option<ShaderId>,
 }
 
+/// All stages in a compute shader program
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ComputeShaderStages {
+    pub compute: ShaderId,
+}
+
 #[derive(Default)]
 pub struct ShaderLoader;
 

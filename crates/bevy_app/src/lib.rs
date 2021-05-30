@@ -15,10 +15,7 @@ pub use schedule_runner::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup,
-        StartupStage,
-    };
+    pub use crate::{app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage};
 }
 
 use bevy_ecs::schedule::StageLabel;
