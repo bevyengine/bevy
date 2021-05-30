@@ -153,7 +153,7 @@ jobs:
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
   
-  example-doc-validation:
+  check-missing-examples-in-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
