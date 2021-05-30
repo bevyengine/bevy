@@ -19,7 +19,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::ChangeDetectable,
+        change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},

@@ -5,10 +5,10 @@ use std::ops::{Deref, DerefMut};
 /// Types that implement reliable change detection.
 ///
 /// ## Example
-/// Using types that implement [`ChangeDetectable`], such as [`ResMut`], provide
+/// Using types that implement [`DetectChanges`], such as [`ResMut`], provide
 /// a way to query if a value has been mutated in another system.
 /// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
-/// it can be manually triggered via [`ChangeDetectable::set_changed`].
+/// it can be manually triggered via [`DetectChanges::set_changed`].
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
@@ -24,7 +24,7 @@ use std::ops::{Deref, DerefMut};
 /// }
 /// ```
 ///
-pub trait ChangeDetectable {
+pub trait DetectChanges {
     /// Returns true if (and only if) this value been added since the last execution of this
     /// system.
     fn is_added(&self) -> bool;
@@ -43,7 +43,7 @@ pub trait ChangeDetectable {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> ChangeDetectable for $name<$($generics),*> {
+        impl<$($generics),* $(: $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
