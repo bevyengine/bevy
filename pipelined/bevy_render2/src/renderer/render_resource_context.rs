@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, PipelineDescriptor, PipelineId},
+    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor, PipelineId},
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, SamplerId, SwapChainDescriptor, TextureId,
     },
@@ -64,7 +64,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo>;
     fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize;
     fn get_aligned_texture_size(&self, data_size: usize) -> usize;
-    fn create_render_pipeline(&self, pipeline_descriptor: &PipelineDescriptor) -> PipelineId;
+    fn create_render_pipeline(&self, pipeline_descriptor: &RenderPipelineDescriptor) -> PipelineId;
     fn create_compute_pipeline(
         &self,
         _pipeline_descriptor: &ComputePipelineDescriptor,

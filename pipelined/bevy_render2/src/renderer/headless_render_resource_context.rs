@@ -1,6 +1,6 @@
 use super::RenderResourceContext;
 use crate::{
-    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, PipelineDescriptor, PipelineId},
+    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor, PipelineId},
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, SamplerId, SwapChainDescriptor, TextureId,
     },
@@ -97,7 +97,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn remove_sampler(&self, _sampler: SamplerId) {}
 
-    fn create_render_pipeline(&self, _pipeline_descriptor: &PipelineDescriptor) -> PipelineId {
+    fn create_render_pipeline(&self, _pipeline_descriptor: &RenderPipelineDescriptor) -> PipelineId {
         PipelineId::new()
     }
 

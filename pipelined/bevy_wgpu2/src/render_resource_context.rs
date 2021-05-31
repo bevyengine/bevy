@@ -5,7 +5,7 @@ use crate::{
 use bevy_render2::{
     pipeline::{
         BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, ComputePipelineDescriptor,
-        PipelineDescriptor, PipelineId,
+        RenderPipelineDescriptor, PipelineId,
     },
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding, SamplerId,
@@ -402,7 +402,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         swap_chain_outputs.clear();
     }
 
-    fn create_render_pipeline(&self, pipeline_descriptor: &PipelineDescriptor) -> PipelineId {
+    fn create_render_pipeline(&self, pipeline_descriptor: &RenderPipelineDescriptor) -> PipelineId {
         let layout = &pipeline_descriptor.layout;
         for bind_group_descriptor in layout.bind_groups.iter() {
             self.create_bind_group_layout(&bind_group_descriptor);

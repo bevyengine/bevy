@@ -8,6 +8,7 @@ mod render_resource_context;
 mod renderer;
 mod resources;
 mod type_converter;
+mod bind_group;
 
 pub use compute_pass::*;
 pub use render_context::*;

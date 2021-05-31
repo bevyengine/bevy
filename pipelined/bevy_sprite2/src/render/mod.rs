@@ -22,7 +22,7 @@ use bytemuck::{Pod, Zeroable};
 
 pub struct SpriteShaders {
     pipeline: PipelineId,
-    pipeline_descriptor: PipelineDescriptor,
+    pipeline_descriptor: RenderPipelineDescriptor,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
@@ -67,7 +67,7 @@ impl FromWorld for SpriteShaders {
 
         pipeline_layout.bind_groups[0].bindings[0].set_dynamic(true);
 
-        let pipeline_descriptor = PipelineDescriptor {
+        let pipeline_descriptor = RenderPipelineDescriptor {
             depth_stencil: None,
             color_target_states: vec![ColorTargetState {
                 format: TextureFormat::default(),
@@ -94,7 +94,7 @@ impl FromWorld for SpriteShaders {
                 clamp_depth: false,
                 conservative: false,
             },
-            ..PipelineDescriptor::new(
+            ..RenderPipelineDescriptor::new(
                 ShaderStages {
                     vertex,
                     fragment: Some(fragment),
