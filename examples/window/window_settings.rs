@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use bevy::{prelude::*, window::WindowIcon};
+use bevy::{
+    prelude::*,
+    window::{WindowIcon, WindowIconBytes},
+};
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -61,11 +64,11 @@ fn toggle_icon(
         match window.icon() {
             None => {
                 if let Some(texture) = textures.get(&icon_resource.handle) {
-                    let window_icon = WindowIcon {
+                    let window_icon = WindowIcon::from(WindowIconBytes {
                         bytes: texture.data.clone(),
                         width: texture.size.width,
                         height: texture.size.height,
-                    };
+                    });
 
                     window.set_icon(window_icon);
                 }

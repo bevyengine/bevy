@@ -94,10 +94,31 @@ impl WindowResizeConstraints {
 }
 
 #[derive(Debug, Clone)]
-pub struct WindowIcon {
+pub struct WindowIconBytes {
     pub bytes: Vec<u8>,
     pub width: u32,
     pub height: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum WindowIcon {
+    Path(PathBuf),
+    Bytes(WindowIconBytes),
+}
+
+impl<T> From<T> for WindowIcon
+where
+    T: AsRef<Path>,
+{
+    fn from(path: T) -> Self {
+        WindowIcon::Path(path.as_ref().to_path_buf())
+    }
+}
+
+impl From<WindowIconBytes> for WindowIcon {
+    fn from(window_icon_bytes: WindowIconBytes) -> Self {
+        WindowIcon::Bytes(window_icon_bytes)
+    }
 }
 
 /// An operating system window that can present content and receive user input.
@@ -137,7 +158,6 @@ pub struct Window {
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
-    icon_path: Option<PathBuf>,
     icon: Option<WindowIcon>,
     command_queue: Vec<WindowCommand>,
 }
@@ -188,9 +208,6 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
-    SetIconPath {
-        path: PathBuf,
-    },
     SetIcon {
         icon: WindowIcon,
     },
@@ -239,7 +256,6 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
-            icon_path: window_descriptor.icon_path.clone(),
             icon: None,
             command_queue: Vec::new(),
         }
@@ -529,21 +545,13 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_focused(&self) -> bool {
-        self.focused
+    pub fn command_queue(&self) -> &[WindowCommand] {
+        &self.command_queue
     }
 
     #[inline]
-    pub fn icon_path(&self) -> Option<&Path> {
-        self.icon_path.as_deref()
-    }
-
-    pub fn set_icon_path(&mut self, path: &Path) {
-        self.icon_path = Some(path.to_path_buf());
-
-        self.command_queue.push(WindowCommand::SetIconPath {
-            path: path.to_owned(),
-        })
+    pub fn is_focused(&self) -> bool {
+        self.focused
     }
 
     #[inline]
@@ -559,7 +567,6 @@ impl Window {
 
     pub fn clear_icon(&mut self) {
         self.icon = None;
-        self.icon_path = None;
 
         self.command_queue.push(WindowCommand::ClearIcon);
     }

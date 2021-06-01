@@ -17,7 +17,7 @@ use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowIcon, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 
 use winit::{
@@ -160,18 +160,24 @@ fn change_window(world: &mut World) {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
-                bevy_window::WindowCommand::SetIconPath { path } => {
-                    let _ = path;
-                }
                 bevy_window::WindowCommand::SetIcon { icon } => {
-                    let window = winit_windows.get_window(id).unwrap();
+                    match icon {
+                        WindowIcon::Bytes(window_icon_bytes) => {
+                            let window = winit_windows.get_window(id).unwrap();
 
-                    match Icon::from_rgba(icon.bytes, icon.width, icon.height) {
-                        Ok(icon) => window.set_window_icon(Some(icon)),
-                        Err(e) => {
-                            error!("Unable to create window icon: {}", e);
-                            return;
+                            match Icon::from_rgba(
+                                window_icon_bytes.bytes,
+                                window_icon_bytes.width,
+                                window_icon_bytes.height,
+                            ) {
+                                Ok(winit_icon) => window.set_window_icon(Some(winit_icon)),
+                                Err(e) => {
+                                    error!("Unable to create window icon: {}", e);
+                                    return;
+                                }
+                            }
                         }
+                        WindowIcon::Path(_) => { /* Do Nothing */ }
                     }
                 }
                 bevy_window::WindowCommand::ClearIcon => {

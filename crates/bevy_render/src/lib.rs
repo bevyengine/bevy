@@ -12,8 +12,6 @@ pub mod shader;
 pub mod texture;
 pub mod wireframe;
 
-use std::path::PathBuf;
-
 use bevy_ecs::{
     prelude::{Local, ResMut},
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
@@ -21,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_transform::TransformSystem;
 use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{WindowIcon, WindowId, Windows};
+use bevy_window::{WindowCommand, WindowIcon, WindowIconBytes, WindowId, Windows};
 use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
@@ -206,7 +204,10 @@ impl Plugin for RenderPlugin {
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
-        .add_system_to_stage(CoreStage::PostUpdate, window_icon_system.system())
+        .add_system_to_stage(
+            CoreStage::PreUpdate,
+            window_icon_changed.system(), /* TODO: label? */
+        )
         .add_system_to_stage(
             RenderStage::RenderResource,
             shader::shader_update_system.system(),
@@ -254,38 +255,35 @@ fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceC
     }
 }
 
-pub fn window_icon_system(
-    mut map: Local<HashMap<WindowId, (PathBuf, Handle<Texture>)>>,
+fn window_icon_changed(
+    mut map: Local<HashMap<WindowId, Handle<Texture>>>,
     textures: Res<Assets<Texture>>,
     mut windows: ResMut<Windows>,
     asset_server: ResMut<AssetServer>,
 ) {
     for window in windows.iter_mut() {
         /* Insert new icon changed */
-        if let Some(path) = window.icon_path() {
-            if let Some((map_path, _)) = map.get(&window.id()) {
-                if path != map_path {
-                    let handle = asset_server.load(path);
+        for command in window.command_queue() {
+            if let WindowCommand::SetIcon {
+                icon: WindowIcon::Path(path),
+            } = command
+            {
+                let handle = asset_server.load(path.to_owned());
 
-                    map.insert(window.id(), (path.to_path_buf(), handle));
-                }
-            } else {
-                let handle = asset_server.load(path);
-
-                map.insert(window.id(), (path.to_path_buf(), handle));
+                map.insert(window.id(), handle);
             }
         }
 
         /* Poll load state of handle and set the icon */
-        if let Some((_, handle)) = map.get(&window.id()) {
+        if let Some(handle) = map.get(&window.id()) {
             match asset_server.get_load_state(handle) {
                 LoadState::Loaded => {
                     let texture = textures.get(handle).unwrap();
-                    let window_icon = WindowIcon {
+                    let window_icon = WindowIcon::from(WindowIconBytes {
                         bytes: texture.data.clone(),
                         width: texture.size.width,
                         height: texture.size.height,
-                    };
+                    });
                     window.set_icon(window_icon);
 
                     map.remove_entry(&window.id());
