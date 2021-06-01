@@ -88,7 +88,7 @@ pub trait SystemParamFetch<'a>: SystemParamState {
     /// access is safe in the context of the system scheduler.
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item;
@@ -155,7 +155,7 @@ where
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -292,7 +292,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -340,7 +340,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -406,7 +406,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -453,7 +453,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -498,7 +498,7 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -588,7 +588,7 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         _world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -661,7 +661,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -774,7 +774,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -906,7 +906,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        system_meta: &'a SystemMeta,
+        system_meta: &SystemMeta,
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
@@ -956,7 +956,7 @@ impl<'a> SystemParamFetch<'a> for ArchetypesState {
     #[inline]
     unsafe fn get_param(
         _state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -991,7 +991,7 @@ impl<'a> SystemParamFetch<'a> for ComponentsState {
     #[inline]
     unsafe fn get_param(
         _state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1026,7 +1026,7 @@ impl<'a> SystemParamFetch<'a> for EntitiesState {
     #[inline]
     unsafe fn get_param(
         _state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1061,7 +1061,7 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
     #[inline]
     unsafe fn get_param(
         _state: &'a mut Self,
-        _system_meta: &'a SystemMeta,
+        _system_meta: &SystemMeta,
         world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1128,7 +1128,7 @@ macro_rules! impl_system_param_tuple {
             #[inline]
             unsafe fn get_param(
                 state: &'a mut Self,
-                system_meta: &'a SystemMeta,
+                system_meta: &SystemMeta,
                 world: &'a World,
                 change_tick: u32,
             ) -> Self::Item {

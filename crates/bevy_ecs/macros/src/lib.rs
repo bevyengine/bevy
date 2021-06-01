@@ -276,7 +276,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn get_param(
                     state: &'a mut Self,
-                    system_meta: &'a SystemMeta,
+                    system_meta: &SystemMeta,
                     world: &'a World,
                     change_tick: u32,
                 ) -> Self::Item {
@@ -417,7 +417,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
                 state: &'a mut Self,
-                system_meta: &'a #path::system::SystemMeta,
+                system_meta: &#path::system::SystemMeta,
                 world: &'a #path::world::World,
                 change_tick: u32,
             ) -> Self::Item {

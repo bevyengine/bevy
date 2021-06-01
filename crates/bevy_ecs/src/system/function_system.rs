@@ -56,7 +56,6 @@ impl SystemMeta {
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
-    change_tick: u32,
 }
 
 impl<Param: SystemParam> SystemState<Param> {
@@ -71,11 +70,7 @@ impl<Param: SystemParam> SystemState<Param> {
     ) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta, config);
-        Self {
-            meta,
-            param_state,
-            change_tick: 0,
-        }
+        Self { meta, param_state }
     }
 
     #[inline]
@@ -120,13 +115,14 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'a World,
     ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
         let change_tick = world.increment_change_tick();
-        self.change_tick = change_tick;
-        <Param::Fetch as SystemParamFetch>::get_param(
+        let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
             &self.meta,
             world,
             change_tick,
-        )
+        );
+        self.meta.last_change_tick = change_tick;
+        param
     }
 }
 
