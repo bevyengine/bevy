@@ -1,8 +1,13 @@
 [package]
 name = "bevy_animation"
 version = "0.5.0"
-authors = ["Felipe Jorge <felipe.jorge.pereira@gmail.com>"]
 edition = "2018"
+authors = ["Felipe Jorge <felipe.jorge.pereira@gmail.com>"]
+description = "Bevy Engine Property Animation System"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy", "animation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
