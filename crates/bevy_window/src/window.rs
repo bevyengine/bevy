@@ -554,8 +554,7 @@ impl Window {
     pub fn set_icon(&mut self, icon: WindowIcon) {
         self.icon = Some(icon.clone());
 
-        self.command_queue
-            .push(WindowCommand::SetIcon { icon });
+        self.command_queue.push(WindowCommand::SetIcon { icon });
     }
 
     pub fn clear_icon(&mut self) {

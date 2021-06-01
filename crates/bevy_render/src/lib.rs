@@ -12,12 +12,16 @@ pub mod shader;
 pub mod texture;
 pub mod wireframe;
 
+use std::path::PathBuf;
+
 use bevy_ecs::{
+    prelude::{Local, ResMut},
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem, Res},
 };
 use bevy_transform::TransformSystem;
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, HashMap};
+use bevy_window::{WindowIcon, WindowId, Windows};
 use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
@@ -40,7 +44,7 @@ pub mod prelude {
 use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, AssetStage};
+use bevy_asset::{AddAsset, AssetServer, AssetStage, Assets, Handle, LoadState};
 use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
@@ -202,6 +206,7 @@ impl Plugin for RenderPlugin {
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
+        .add_system_to_stage(CoreStage::PostUpdate, window_icon_system.system())
         .add_system_to_stage(
             RenderStage::RenderResource,
             shader::shader_update_system.system(),
@@ -246,5 +251,50 @@ fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceC
         warn!(
             "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
         );
+    }
+}
+
+pub fn window_icon_system(
+    mut map: Local<HashMap<WindowId, (PathBuf, Handle<Texture>)>>,
+    textures: Res<Assets<Texture>>,
+    mut windows: ResMut<Windows>,
+    asset_server: ResMut<AssetServer>,
+) {
+    for window in windows.iter_mut() {
+        /* Insert new icon changed */
+        if let Some(path) = window.icon_path() {
+            if let Some((map_path, _)) = map.get(&window.id()) {
+                if path != map_path {
+                    let handle = asset_server.load(path);
+
+                    map.insert(window.id(), (path.to_path_buf(), handle));
+                }
+            } else {
+                let handle = asset_server.load(path);
+
+                map.insert(window.id(), (path.to_path_buf(), handle));
+            }
+        }
+
+        /* Poll load state of handle and set the icon */
+        if let Some((_, handle)) = map.get(&window.id()) {
+            match asset_server.get_load_state(handle) {
+                LoadState::Loaded => {
+                    let texture = textures.get(handle).unwrap();
+                    let window_icon = WindowIcon {
+                        bytes: texture.data.clone(),
+                        width: texture.size.width,
+                        height: texture.size.height,
+                    };
+                    window.set_icon(window_icon);
+
+                    map.remove_entry(&window.id());
+                }
+                LoadState::Failed => {
+                    map.remove_entry(&window.id());
+                }
+                _ => { /* Do nothing */ }
+            }
+        }
     }
 }

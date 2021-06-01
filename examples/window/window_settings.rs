@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bevy::{prelude::*, window::WindowIcon};
 
 /// This example illustrates how to customize the default window settings
@@ -8,6 +10,7 @@ fn main() {
             width: 500.,
             height: 300.,
             vsync: true,
+            icon_path: Some(PathBuf::from("android-res/mipmap-mdpi/ic_launcher.png")),
             ..Default::default()
         })
         .insert_resource(IconResource::default())
