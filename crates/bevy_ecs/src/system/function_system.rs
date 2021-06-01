@@ -79,6 +79,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    #[inline]
     pub fn get<'a>(&'a mut self, world: &'a World) -> <Param::Fetch as SystemParamFetch<'a>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
@@ -88,6 +89,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
+    #[inline]
     pub fn get_mut<'a>(
         &'a mut self,
         world: &'a mut World,
@@ -327,7 +329,11 @@ where
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
-    fn run(
+    /// # Safety
+    ///
+    /// This call might access any of the input parameters in an unsafe way. Make sure the data
+    /// access is safe in the context of the system scheduler.
+    unsafe fn run(
         &mut self,
         input: In,
         state: &mut Param::Fetch,
@@ -347,11 +353,9 @@ macro_rules! impl_system_function {
                 FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
-                unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                    self($($param),*)
-                }
+            unsafe fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
+                self($($param),*)
             }
         }
 
@@ -363,11 +367,9 @@ macro_rules! impl_system_function {
                 FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
-                unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                    self(In(input), $($param),*)
-                }
+            unsafe fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
+                self(In(input), $($param),*)
             }
         }
     };
