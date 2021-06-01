@@ -325,6 +325,10 @@ async fn load_gltf<'a, 'b>(
         }
 
         let mut clip = Clip::default();
+        clip.name = animation
+            .name()
+            .unwrap_or_else(|| anim_label.as_str())
+            .to_string();
 
         let mut start_time = f32::MAX;
 
