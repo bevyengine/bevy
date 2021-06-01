@@ -535,4 +535,30 @@ mod tests {
             "returned component matches initial value"
         );
     }
+
+    #[test]
+    fn system_param_change_detection() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        let mut world = World::default();
+        let entity = world.spawn().insert(A(1)).id();
+
+        let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(*query.single().unwrap(), A(1));
+        }
+
+        {
+            let query = system_state.get(&world);
+            assert!(query.single().is_err());
+        }
+
+        world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
+        {
+            let query = system_state.get(&world);
+            assert_eq!(*query.single().unwrap(), A(2));
+        }
+    }
 }
