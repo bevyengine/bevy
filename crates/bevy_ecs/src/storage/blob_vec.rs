@@ -386,4 +386,11 @@ mod tests {
 
         assert_eq!(*drop_counter.borrow(), 6);
     }
+
+    #[test]
+    fn blob_vec_drop_empty() {
+        let item_layout = Layout::new::<Foo>();
+        let drop = TypeInfo::drop_ptr::<Foo>;
+        let _blob_vec = BlobVec::new(item_layout, drop, 0);
+    }
 }
