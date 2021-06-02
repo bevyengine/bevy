@@ -361,11 +361,27 @@ impl AssetServer {
         asset_path.into()
     }
 
+    /// Loads all assets in the specified folder at `path` that satisfy the predicate `f`.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_asset::AssetServer;
+    ///
+    /// fn load_png_files(asset_server: Res<AssetServer>) {
+    ///     let handles = asset_server.load_folder_if("my-assets/", |p| p.ends_with("png"));
+    /// }
+    /// ```
     #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
-    pub fn load_folder<P: AsRef<Path>>(
+    pub fn load_folder_if<P, F>(
         &self,
         path: P,
-    ) -> Result<Vec<HandleUntyped>, AssetServerError> {
+        mut f: F,
+    ) -> Result<Vec<HandleUntyped>, AssetServerError>
+    where
+        P: AsRef<Path>,
+        F: FnMut(&Path) -> bool,
+    {
         let path = path.as_ref();
         if !self.server.asset_io.is_directory(path) {
             return Err(AssetServerError::AssetFolderNotADirectory(
@@ -377,7 +393,7 @@ impl AssetServer {
         for child_path in self.server.asset_io.read_directory(path.as_ref())? {
             if self.server.asset_io.is_directory(&child_path) {
                 handles.extend(self.load_folder(&child_path)?);
-            } else {
+            } else if f(child_path.as_path()) {
                 if self.get_path_asset_loader(&child_path).is_err() {
                     continue;
                 }
@@ -388,6 +404,15 @@ impl AssetServer {
         }
 
         Ok(handles)
+    }
+
+    /// Loads all assets in the specified folder at `path`.
+    #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
+    pub fn load_folder<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<Vec<HandleUntyped>, AssetServerError> {
+        self.load_folder_if(path, |_| true)
     }
 
     pub fn free_unused_assets(&self) {
