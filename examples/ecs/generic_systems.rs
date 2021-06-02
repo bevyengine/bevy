@@ -3,8 +3,8 @@ use bevy::{prelude::*, ecs::component::Component};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_system(spawn_entities_on_click::<A>.system())
-        .add_system(spawn_entities_on_click::<B>.system())
+        .add_system(spawn_entities_on_click::<A>::<N>.system())
+        .add_system(spawn_entities_on_click::<B>::<N>.system())
         .run();
 }
 
