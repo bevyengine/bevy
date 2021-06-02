@@ -391,18 +391,21 @@ impl AssetServer {
         }
 
         let mut handles = Vec::new();
-        for child_path in self.server.asset_io.read_directory(path.as_ref())? {
-            if predicate(child_path.as_path()) {
-                if self.server.asset_io.is_directory(&child_path) {
-                    handles.extend(self.load_folder(&child_path)?);
-                } else {
-                    if self.get_path_asset_loader(&child_path).is_err() {
-                        continue;
-                    }
-                    let handle = self
-                        .load_untyped(child_path.to_str().expect("Path should be a valid string."));
-                    handles.push(handle);
+        for child_path in self
+            .server
+            .asset_io
+            .read_directory(path.as_ref())?
+            .filter(|p| predicate(p.as_path()))
+        {
+            if self.server.asset_io.is_directory(&child_path) {
+                handles.extend(self.load_folder(&child_path)?);
+            } else {
+                if self.get_path_asset_loader(&child_path).is_err() {
+                    continue;
                 }
+                let handle =
+                    self.load_untyped(child_path.to_str().expect("Path should be a valid string."));
+                handles.push(handle);
             }
         }
 
