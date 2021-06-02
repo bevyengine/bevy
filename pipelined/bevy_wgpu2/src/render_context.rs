@@ -242,7 +242,7 @@ fn get_texture_view<'a>(
     attachment: &TextureAttachment,
 ) -> &'a wgpu::TextureView {
     match attachment {
-        TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
+        TextureAttachment::Id(render_resource) => refs.texture_views.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
         TextureAttachment::Input(_) => panic!("Encountered unset `TextureAttachment::Input`. The `RenderGraph` executor should always set `TextureAttachment::Inputs` to `TextureAttachment::RenderResource` before running. This is a bug, please report it!"),
     }
 }

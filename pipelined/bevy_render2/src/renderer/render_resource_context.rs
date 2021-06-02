@@ -1,12 +1,14 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor, PipelineId},
+    pipeline::{
+        BindGroupDescriptorId, ComputePipelineDescriptor, PipelineId, RenderPipelineDescriptor,
+    },
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, SamplerId, SwapChainDescriptor, TextureId,
+        TextureViewId,
     },
     shader::{Shader, ShaderId},
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
-use bevy_window::Window;
 use downcast_rs::{impl_downcast, Downcast};
 use std::ops::{Deref, DerefMut, Range};
 
@@ -33,13 +35,16 @@ impl DerefMut for RenderResources {
 }
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
-    // TODO: remove me
-    fn create_swap_chain(&self, window: &Window);
-    fn next_swap_chain_texture(&self, descriptor: &SwapChainDescriptor) -> TextureId;
-    fn drop_swap_chain_texture(&self, resource: TextureId);
+    fn next_swap_chain_texture(&self, descriptor: &SwapChainDescriptor) -> TextureViewId;
+    fn drop_swap_chain_texture(&self, resource: TextureViewId);
     fn drop_all_swap_chain_textures(&self);
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId;
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId;
+    fn create_texture_view(
+        &self,
+        texture_id: TextureId,
+        texture_view_descriptor: TextureViewDescriptor,
+    ) -> TextureViewId;
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId;
     // TODO: remove RenderResourceContext here
     fn write_mapped_buffer(
@@ -61,6 +66,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn remove_buffer(&self, buffer: BufferId);
     fn remove_texture(&self, texture: TextureId);
     fn remove_sampler(&self, sampler: SamplerId);
+    fn remove_texture_view(&self, texture_view: TextureViewId);
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo>;
     fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize;
     fn get_aligned_texture_size(&self, data_size: usize) -> usize;

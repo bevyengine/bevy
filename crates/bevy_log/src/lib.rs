@@ -33,7 +33,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
-///     App::build()
+///     App::new()
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info".to_string(),
@@ -53,7 +53,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_app::App;
 /// # use bevy_log::LogPlugin;
 /// fn main() {
-///     App::build()
+///     App::new()
 ///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
 ///         .run();
 /// }

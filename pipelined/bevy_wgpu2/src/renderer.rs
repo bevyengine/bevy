@@ -1,12 +1,9 @@
 use crate::{
-    render_graph_executor::WgpuRenderGraphExecutor, type_converter::WgpuInto, WgpuBackend,
-    WgpuOptions, WgpuPowerOptions, WgpuRenderResourceContext,
+    type_converter::WgpuInto, WgpuBackend, WgpuOptions, WgpuPowerOptions, WgpuRenderGraphRunner,
+    WgpuRenderResourceContext,
 };
-use bevy_ecs::world::{Mut, World};
-use bevy_render2::{
-    render_graph::{DependentNodeStager, ExtractedWindows, RenderGraph, RenderGraphStager},
-    renderer::RenderResources,
-};
+use bevy_ecs::{prelude::Mut, world::World};
+use bevy_render2::{render_graph::RenderGraph, renderer::RenderResources, view::ExtractedWindows};
 use std::sync::Arc;
 
 pub struct WgpuRenderer {
@@ -80,31 +77,33 @@ impl WgpuRenderer {
         let extracted_windows = world.get_resource::<ExtractedWindows>().unwrap();
         for (id, window) in extracted_windows.iter() {
             if !render_resource_context.contains_window_surface(*id) {
-                let surface = unsafe { self.instance.create_surface(&window.handle) };
+                let surface = unsafe { self.instance.create_surface(&window.handle.get_handle()) };
                 render_resource_context.set_window_surface(*id, surface);
             }
         }
     }
 
     pub fn run_graph(&mut self, world: &mut World) {
-        world.resource_scope(|world, mut render_graph: Mut<RenderGraph>| {
-            // stage nodes
-            let mut stager = DependentNodeStager::loose_grouping();
-            let stages = stager.get_stages(&render_graph).unwrap();
-            let mut borrowed = stages.borrow(&mut render_graph);
-
-            // execute stages
-            let graph_executor = WgpuRenderGraphExecutor {
-                max_thread_count: 2,
-            };
-            graph_executor.execute(world, self.device.clone(), &mut self.queue, &mut borrowed);
-        })
+        world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+            graph.update(world);
+        });
+        let graph = world.get_resource::<RenderGraph>().unwrap();
+        let render_resources = world.get_resource::<RenderResources>().unwrap();
+        let resource_context = render_resources
+            .downcast_ref::<WgpuRenderResourceContext>()
+            .unwrap();
+        WgpuRenderGraphRunner::run(
+            graph,
+            self.device.clone(),
+            &mut self.queue,
+            world,
+            resource_context,
+        )
+        .unwrap();
     }
 
     pub fn update(&mut self, world: &mut World) {
-        self.handle_new_windows(world);
         self.run_graph(world);
-
         let render_resources = world.get_resource::<RenderResources>().unwrap();
         render_resources.drop_all_swap_chain_textures();
         render_resources.remove_stale_bind_groups();

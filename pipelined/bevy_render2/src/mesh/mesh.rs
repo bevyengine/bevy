@@ -1,8 +1,14 @@
 mod conversions;
+mod mesh_resource_provider;
 
-use crate::pipeline::{
-    IndexFormat, InputStepMode, PrimitiveTopology, VertexAttribute, VertexBufferLayout,
-    VertexFormat,
+pub use mesh_resource_provider::*;
+
+use crate::{
+    pipeline::{
+        IndexFormat, InputStepMode, PrimitiveTopology, VertexAttribute, VertexBufferLayout,
+        VertexFormat,
+    },
+    render_resource::BufferId,
 };
 use bevy_core::cast_slice;
 use bevy_math::*;
@@ -182,6 +188,13 @@ impl Indices {
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),
         }
     }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Indices::U16(vec) => vec.len(),
+            Indices::U32(vec) => vec.len(),
+        }
+    }
 }
 enum IndicesIter<'a> {
     U16(std::slice::Iter<'a, u16>),
@@ -207,6 +220,13 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+// TODO: this shouldn't live in the Mesh type
+#[derive(Debug, Clone)]
+pub struct MeshGpuData {
+    pub vertex_buffer: BufferId,
+    pub index_buffer: Option<BufferId>,
+}
+
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
 #[derive(Debug, TypeUuid, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
@@ -218,6 +238,7 @@ pub struct Mesh {
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
+    gpu_data: Option<MeshGpuData>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -264,11 +285,16 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            gpu_data: None,
         }
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
+    }
+
+    pub fn gpu_data(&self) -> Option<&MeshGpuData> {
+        self.gpu_data.as_ref()
     }
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will

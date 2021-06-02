@@ -24,12 +24,8 @@ bevy_reflect = { path = "../../crates/bevy_reflect", version = "0.5.0", features
 bevy_render2 = { path = "../bevy_render2", version = "0.5.0" }
 bevy_transform = { path = "../../crates/bevy_transform", version = "0.5.0" }
 bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
-bevy_window = { path = "../../crates/bevy_window", version = "0.5.0" }
 
 # other
-rectangle-pack = "0.3"
 thiserror = "1.0"
-guillotiere = "0.6.0"
 serde = { version = "1", features = ["derive"] }
-parking_lot= "0.11.0"
 bytemuck = "1.5"

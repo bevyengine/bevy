@@ -26,6 +26,11 @@ impl ArchetypeId {
     }
 
     #[inline]
+    pub const fn invalid() -> ArchetypeId {
+        ArchetypeId(usize::MAX)
+    }
+
+    #[inline]
     pub const fn resource() -> ArchetypeId {
         ArchetypeId(1)
     }

@@ -99,6 +99,12 @@ pub mod pbr {
     pub use bevy_pbr::*;
 }
 
+#[cfg(feature = "bevy_pbr2")]
+pub mod pbr2 {
+    //! Physically based rendering.
+    pub use bevy_pbr2::*;
+}
+
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.

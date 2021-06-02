@@ -1,18 +1,56 @@
-use crate::render_resource::{RenderResourceId, RenderResourceType};
-
-use super::RenderGraphError;
+use crate::render_resource::{BufferId, SamplerId, TextureViewId};
+use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 
-#[derive(Debug, Clone)]
-pub struct ResourceSlot {
-    pub resource: Option<RenderResourceId>,
-    pub name: Cow<'static, str>,
-    pub resource_type: RenderResourceType,
+#[derive(Debug, Copy, Clone)]
+pub enum SlotValue {
+    Buffer(BufferId),
+    TextureView(TextureViewId),
+    Sampler(SamplerId),
+    Entity(Entity),
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct ResourceSlots {
-    slots: Vec<ResourceSlot>,
+impl SlotValue {
+    pub fn slot_type(self) -> SlotType {
+        match self {
+            SlotValue::Buffer(_) => SlotType::Buffer,
+            SlotValue::TextureView(_) => SlotType::TextureView,
+            SlotValue::Sampler(_) => SlotType::Sampler,
+            SlotValue::Entity(_) => SlotType::Entity,
+        }
+    }
+}
+
+impl From<BufferId> for SlotValue {
+    fn from(value: BufferId) -> Self {
+        SlotValue::Buffer(value)
+    }
+}
+
+impl From<TextureViewId> for SlotValue {
+    fn from(value: TextureViewId) -> Self {
+        SlotValue::TextureView(value)
+    }
+}
+
+impl From<SamplerId> for SlotValue {
+    fn from(value: SamplerId) -> Self {
+        SlotValue::Sampler(value)
+    }
+}
+
+impl From<Entity> for SlotValue {
+    fn from(value: Entity) -> Self {
+        SlotValue::Entity(value)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SlotType {
+    Buffer,
+    TextureView,
+    Sampler,
+    Entity,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -39,105 +77,83 @@ impl From<&'static str> for SlotLabel {
     }
 }
 
+impl From<Cow<'static, str>> for SlotLabel {
+    fn from(value: Cow<'static, str>) -> Self {
+        SlotLabel::Name(value.clone())
+    }
+}
+
 impl From<usize> for SlotLabel {
     fn from(value: usize) -> Self {
         SlotLabel::Index(value)
     }
 }
 
-impl ResourceSlots {
-    pub fn set(&mut self, label: impl Into<SlotLabel>, resource: RenderResourceId) {
-        let mut slot = self.get_slot_mut(label).unwrap();
-        slot.resource = Some(resource);
+#[derive(Clone, Debug)]
+pub struct SlotInfo {
+    pub name: Cow<'static, str>,
+    pub slot_type: SlotType,
+}
+
+impl SlotInfo {
+    pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
+        SlotInfo {
+            name: name.into(),
+            slot_type,
+        }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct SlotInfos {
+    slots: Vec<SlotInfo>,
+}
+
+impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
+    fn from(slots: T) -> Self {
+        SlotInfos {
+            slots: slots.into_iter().collect(),
+        }
+    }
+}
+
+impl SlotInfos {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.slots.len()
     }
 
-    pub fn get(&self, label: impl Into<SlotLabel>) -> Option<RenderResourceId> {
-        let slot = self.get_slot(label).unwrap();
-        slot.resource.clone()
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.slots.is_empty()
     }
 
-    pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Result<&ResourceSlot, RenderGraphError> {
+    pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Option<&SlotInfo> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
-        self.slots
-            .get(index)
-            .ok_or(RenderGraphError::InvalidNodeSlot(label))
+        self.slots.get(index)
     }
 
-    pub fn get_slot_mut(
-        &mut self,
-        label: impl Into<SlotLabel>,
-    ) -> Result<&mut ResourceSlot, RenderGraphError> {
+    pub fn get_slot_mut(&mut self, label: impl Into<SlotLabel>) -> Option<&mut SlotInfo> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
-        self.slots
-            .get_mut(index)
-            .ok_or(RenderGraphError::InvalidNodeSlot(label))
+        self.slots.get_mut(index)
     }
 
-    pub fn get_slot_index(&self, label: impl Into<SlotLabel>) -> Result<usize, RenderGraphError> {
+    pub fn get_slot_index(&self, label: impl Into<SlotLabel>) -> Option<usize> {
         let label = label.into();
         match label {
-            SlotLabel::Index(index) => Ok(index),
+            SlotLabel::Index(index) => Some(index),
             SlotLabel::Name(ref name) => self
                 .slots
                 .iter()
                 .enumerate()
                 .find(|(_i, s)| s.name == *name)
-                .map(|(i, _s)| i)
-                .ok_or(RenderGraphError::InvalidNodeSlot(label)),
+                .map(|(i, _s)| i),
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &ResourceSlot> {
+    pub fn iter(&self) -> impl Iterator<Item = &SlotInfo> {
         self.slots.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ResourceSlot> {
-        self.slots.iter_mut()
-    }
-
-    pub fn len(&self) -> usize {
-        self.slots.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.slots.is_empty()
-    }
-}
-
-impl From<&ResourceSlotInfo> for ResourceSlot {
-    fn from(slot: &ResourceSlotInfo) -> Self {
-        ResourceSlot {
-            resource: None,
-            name: slot.name.clone(),
-            resource_type: slot.resource_type.clone(),
-        }
-    }
-}
-
-impl From<&[ResourceSlotInfo]> for ResourceSlots {
-    fn from(slots: &[ResourceSlotInfo]) -> Self {
-        ResourceSlots {
-            slots: slots
-                .iter()
-                .map(|s| s.into())
-                .collect::<Vec<ResourceSlot>>(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ResourceSlotInfo {
-    pub name: Cow<'static, str>,
-    pub resource_type: RenderResourceType,
-}
-
-impl ResourceSlotInfo {
-    pub fn new(name: impl Into<Cow<'static, str>>, resource_type: RenderResourceType) -> Self {
-        ResourceSlotInfo {
-            name: name.into(),
-            resource_type,
-        }
     }
 }

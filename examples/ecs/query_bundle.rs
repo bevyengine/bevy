@@ -1,7 +1,7 @@
 use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugin(LogPlugin)
         .add_startup_system(setup.system())
         .add_system(log_names.system().label(LogNamesSystem))

@@ -1,8 +1,9 @@
-use super::CameraProjection;
+use crate::camera::CameraProjection;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::DetectChanges,
     query::Added,
     reflect::ReflectComponent,
     system::{Query, QuerySet, Res},

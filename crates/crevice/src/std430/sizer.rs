@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use core::mem::size_of;
 
 use crate::internal::align_offset;
 use crate::std430::{AsStd430, Std430};

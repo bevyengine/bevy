@@ -1,13 +1,13 @@
-use crate::{color::Color, pass::Operations, render_resource::TextureId};
+use crate::{color::Color, pass::Operations, render_resource::TextureViewId};
 
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {
-    Id(TextureId),
+    Id(TextureViewId),
     Input(String),
 }
 
 impl TextureAttachment {
-    pub fn get_texture_id(&self) -> Option<TextureId> {
+    pub fn get_texture_view_id(&self) -> Option<TextureViewId> {
         if let TextureAttachment::Id(texture_id) = self {
             Some(*texture_id)
         } else {

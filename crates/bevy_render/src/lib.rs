@@ -102,7 +102,7 @@ impl Default for RenderPlugin {
 }
 
 impl Plugin for RenderPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",

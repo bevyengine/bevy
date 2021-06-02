@@ -1,3 +1,5 @@
+use bevy_utils::tracing::debug;
+
 use crate::{
     pass::RenderPass,
     pipeline::{BindGroupDescriptorId, IndexFormat, PipelineId},
@@ -102,6 +104,7 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
     pub fn set_pipeline(&mut self, pipeline: PipelineId) {
+        debug!("set pipeline: {:?}", pipeline);
         if self.state.is_pipeline_set(pipeline) {
             return;
         }
@@ -120,7 +123,16 @@ impl<'a> TrackedRenderPass<'a> {
             .state
             .is_bind_group_set(index as usize, bind_group, dynamic_uniform_indices)
         {
+            debug!(
+                "set bind_group {} (already set): {:?} ({:?})",
+                index, bind_group, dynamic_uniform_indices
+            );
             return;
+        } else {
+            debug!(
+                "set bind_group {}: {:?} ({:?})",
+                index, bind_group, dynamic_uniform_indices
+            );
         }
         self.pass.set_bind_group(
             index as u32,
@@ -134,7 +146,13 @@ impl<'a> TrackedRenderPass<'a> {
 
     pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
         if self.state.is_vertex_buffer_set(index, buffer, offset) {
+            debug!(
+                "set vertex buffer {} (already set): {:?} ({})",
+                index, buffer, offset
+            );
             return;
+        } else {
+            debug!("set vertex buffer {}: {:?} ({})", index, buffer, offset);
         }
         self.pass.set_vertex_buffer(index as u32, buffer, offset);
         self.state.set_vertex_buffer(index, buffer, offset);
@@ -142,13 +160,20 @@ impl<'a> TrackedRenderPass<'a> {
 
     pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         if self.state.is_index_buffer_set(buffer, offset, index_format) {
+            debug!("set index buffer (already set): {:?} ({})", buffer, offset);
             return;
+        } else {
+            debug!("set index buffer: {:?} ({})", buffer, offset);
         }
         self.pass.set_index_buffer(buffer, offset, index_format);
         self.state.set_index_buffer(buffer, offset, index_format);
     }
 
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
+        debug!(
+            "draw indexed: {:?} {} {:?}",
+            indices, base_vertex, instances
+        );
         self.pass.draw_indexed(indices, base_vertex, instances);
     }
 }

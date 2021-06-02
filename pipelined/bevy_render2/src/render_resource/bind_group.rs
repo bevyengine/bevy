@@ -1,6 +1,6 @@
-use crate::render_resource::RenderResourceId;
-
-use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
+use crate::render_resource::{
+    BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureViewId,
+};
 use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},
@@ -21,7 +21,6 @@ pub struct IndexedBindGroupEntry {
 pub struct BindGroup {
     pub id: BindGroupId,
     pub indexed_bindings: Arc<[IndexedBindGroupEntry]>,
-    pub dynamic_uniform_indices: Option<Arc<[u32]>>,
 }
 
 impl BindGroup {
@@ -33,21 +32,12 @@ impl BindGroup {
 #[derive(Debug, Default)]
 pub struct BindGroupBuilder {
     pub indexed_bindings: Vec<IndexedBindGroupEntry>,
-    pub dynamic_uniform_indices: Vec<u32>,
     pub hasher: AHasher,
 }
 
 impl BindGroupBuilder {
     pub fn add_binding<T: Into<RenderResourceBinding>>(mut self, index: u32, binding: T) -> Self {
         let binding = binding.into();
-        if let RenderResourceBinding::Buffer {
-            dynamic_index: Some(dynamic_index),
-            ..
-        } = binding
-        {
-            self.dynamic_uniform_indices.push(dynamic_index);
-        }
-
         self.hash_binding(&binding);
         self.indexed_bindings.push(IndexedBindGroupEntry {
             index,
@@ -56,8 +46,8 @@ impl BindGroupBuilder {
         self
     }
 
-    pub fn add_texture(self, index: u32, texture: TextureId) -> Self {
-        self.add_binding(index, RenderResourceBinding::Texture(texture))
+    pub fn add_texture_view(self, index: u32, texture: TextureViewId) -> Self {
+        self.add_binding(index, RenderResourceBinding::TextureView(texture))
     }
 
     pub fn add_sampler(self, index: u32, sampler: SamplerId) -> Self {
@@ -70,24 +60,6 @@ impl BindGroupBuilder {
             RenderResourceBinding::Buffer {
                 buffer,
                 range,
-                dynamic_index: None,
-            },
-        )
-    }
-
-    pub fn add_dynamic_buffer(
-        self,
-        index: u32,
-        buffer: BufferId,
-        range: Range<u64>,
-        dynamic_index: u32,
-    ) -> Self {
-        self.add_binding(
-            index,
-            RenderResourceBinding::Buffer {
-                buffer,
-                range,
-                dynamic_index: Some(dynamic_index),
             },
         )
     }
@@ -98,11 +70,6 @@ impl BindGroupBuilder {
         BindGroup {
             id: BindGroupId(self.hasher.finish()),
             indexed_bindings: self.indexed_bindings.into(),
-            dynamic_uniform_indices: if self.dynamic_uniform_indices.is_empty() {
-                None
-            } else {
-                Some(self.dynamic_uniform_indices.into())
-            },
         }
     }
 
@@ -111,13 +78,12 @@ impl BindGroupBuilder {
             RenderResourceBinding::Buffer {
                 buffer,
                 range,
-                dynamic_index: _, // dynamic_index is not a part of the binding
             } => {
                 RenderResourceId::Buffer(*buffer).hash(&mut self.hasher);
                 range.hash(&mut self.hasher);
             }
-            RenderResourceBinding::Texture(texture) => {
-                RenderResourceId::Texture(*texture).hash(&mut self.hasher);
+            RenderResourceBinding::TextureView(texture) => {
+                RenderResourceId::TextureView(*texture).hash(&mut self.hasher);
             }
             RenderResourceBinding::Sampler(sampler) => {
                 RenderResourceId::Sampler(*sampler).hash(&mut self.hasher);

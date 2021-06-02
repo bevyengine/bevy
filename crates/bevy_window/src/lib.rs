@@ -1,9 +1,10 @@
 mod event;
+mod raw_window_handle;
 mod system;
 mod window;
 mod windows;
 
-use bevy_ecs::system::IntoSystem;
+pub use crate::raw_window_handle::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
@@ -18,6 +19,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, Events};
+use bevy_ecs::system::IntoSystem;
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,

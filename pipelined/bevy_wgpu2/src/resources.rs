@@ -1,6 +1,6 @@
 use bevy_render2::{
     pipeline::{BindGroupDescriptorId, PipelineId},
-    render_resource::{BindGroupId, BufferId, BufferInfo, SamplerId, TextureId},
+    render_resource::{BindGroupId, BufferId, BufferInfo, SamplerId, TextureId, TextureViewId},
     shader::ShaderId,
     texture::TextureDescriptor,
 };
@@ -45,8 +45,8 @@ pub struct WgpuBindGroupInfo {
 #[derive(Debug)]
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
-    pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
-    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
+    pub texture_views: RwLockReadGuard<'a, HashMap<TextureViewId, wgpu::TextureView>>,
+    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureViewId, wgpu::SwapChainFrame>>,
     pub render_pipelines: RwLockReadGuard<'a, HashMap<PipelineId, wgpu::RenderPipeline>>,
     pub compute_pipelines: RwLockReadGuard<'a, HashMap<PipelineId, wgpu::ComputePipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -57,7 +57,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
     pub fn refs(&'a self) -> WgpuResourceRefs<'a> {
         WgpuResourceRefs {
             buffers: &self.buffers,
-            textures: &self.textures,
+            texture_views: &self.texture_views,
             swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
             compute_pipelines: &self.compute_pipelines,
@@ -72,8 +72,8 @@ impl<'a> WgpuResourcesReadLock<'a> {
 #[derive(Debug)]
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
-    pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
-    pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
+    pub texture_views: &'a HashMap<TextureViewId, wgpu::TextureView>,
+    pub swap_chain_frames: &'a HashMap<TextureViewId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<PipelineId, wgpu::RenderPipeline>,
     pub compute_pipelines: &'a HashMap<PipelineId, wgpu::ComputePipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
@@ -86,9 +86,9 @@ pub struct WgpuResources {
     pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
-    pub swap_chain_frames: Arc<RwLock<HashMap<TextureId, wgpu::SwapChainFrame>>>,
+    pub swap_chain_frames: Arc<RwLock<HashMap<TextureViewId, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
-    pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
+    pub texture_views: Arc<RwLock<HashMap<TextureViewId, wgpu::TextureView>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<ShaderId, wgpu::ShaderModule>>>,
@@ -103,7 +103,7 @@ impl WgpuResources {
     pub fn read(&self) -> WgpuResourcesReadLock {
         WgpuResourcesReadLock {
             buffers: self.buffers.read(),
-            textures: self.texture_views.read(),
+            texture_views: self.texture_views.read(),
             swap_chain_frames: self.swap_chain_frames.read(),
             render_pipelines: self.render_pipelines.read(),
             compute_pipelines: self.compute_pipelines.read(),

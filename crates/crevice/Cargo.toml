@@ -13,15 +13,19 @@ license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["std"]
+std = []
+
 [dependencies]
-crevice-derive = "0.6.0"
+crevice-derive = { version = "0.6.0", path = "crevice-derive" }
 
 bytemuck = "1.4.1"
-mint = { version = "0.5.5", optional = true }
+mint = "0.5.5"
 glam = "0.15.1"
 
 [dev-dependencies]
 cgmath = { version = "0.17.0", features = ["mint"] }
 insta = "0.16.1"
 type-layout = { version = "0.2.0", features = ["serde1"] }
-crevice-derive = { version = "0.6.0", features = ["test_type_layout"] }
+crevice-derive = { version = "0.6.0", path = "crevice-derive" }

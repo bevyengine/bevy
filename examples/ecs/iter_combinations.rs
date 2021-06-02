@@ -7,7 +7,7 @@ struct FixedUpdateStage;
 const DELTA_TIME: f64 = 0.01;
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(generate_bodies.system())

@@ -48,7 +48,7 @@ pub enum PhysicsSystem {
 /// Lastly a system with run criterion _done_ is used to exit the app.
 /// ```
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
         // Note that the system sets added in this example set their run criteria explicitly.

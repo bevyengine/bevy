@@ -22,7 +22,7 @@ pub enum TextureDimension {
 }
 
 // TODO: use math type here
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Extent3d {
     pub width: u32,
     pub height: u32,
@@ -277,20 +277,17 @@ impl Default for TextureFormat {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct TextureUsage: u32 {
+        /// Allows a texture to be the source in a [`CommandEncoder::copy_texture_to_buffer`] or
+        /// [`CommandEncoder::copy_texture_to_texture`] operation.
         const COPY_SRC = 1;
+        /// Allows a texture to be the destination in a  [`CommandEncoder::copy_texture_to_buffer`],
+        /// [`CommandEncoder::copy_texture_to_texture`], or [`Queue::write_texture`] operation.
         const COPY_DST = 2;
+        /// Allows a texture to be a [`BindingType::Texture`] in a bind group.
         const SAMPLED = 4;
+        /// Allows a texture to be a [`BindingType::StorageTexture`] in a bind group.
         const STORAGE = 8;
-        const OUTPUT_ATTACHMENT = 16;
-        const NONE = 0;
-        /// The combination of all read-only usages.
-        const READ_ALL = Self::COPY_SRC.bits | Self::SAMPLED.bits;
-        /// The combination of all write-only and read-write usages.
-        const WRITE_ALL = Self::COPY_DST.bits | Self::STORAGE.bits | Self::OUTPUT_ATTACHMENT.bits;
-        /// The combination of all usages that the are guaranteed to be be ordered by the hardware.
-        /// If a usage is not ordered, then even if it doesn't change between draw calls, there
-        /// still need to be pipeline barriers inserted for synchronization.
-        const ORDERED = Self::READ_ALL.bits | Self::OUTPUT_ATTACHMENT.bits;
-        const UNINITIALIZED = 0xFFFF;
+        /// Allows a texture to be an output attachment of a renderpass.
+        const RENDER_ATTACHMENT = 16;
     }
 }

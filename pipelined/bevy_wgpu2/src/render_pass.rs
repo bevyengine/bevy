@@ -1,7 +1,7 @@
 use crate::{resources::WgpuResourceRefs, type_converter::WgpuInto, WgpuRenderContext};
 use bevy_render2::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, IndexFormat, RenderPipelineDescriptor, PipelineId},
+    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineId, RenderPipelineDescriptor},
     render_resource::{BindGroupId, BufferId},
     renderer::RenderContext,
 };

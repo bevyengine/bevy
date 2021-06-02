@@ -12,8 +12,8 @@ use bevy_render2::{
     render_resource::{BufferUsage, SwapChainDescriptor},
     texture::{
         AddressMode, Extent3d, FilterMode, SamplerBorderColor, SamplerDescriptor,
-        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsage, TextureViewDimension,
+        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsage, TextureViewDescriptor, TextureViewDimension,
     },
 };
 use bevy_window::Window;
@@ -274,6 +274,35 @@ impl WgpuFrom<&TextureDescriptor> for wgpu::TextureDescriptor<'_> {
             dimension: texture_descriptor.dimension.wgpu_into(),
             format: texture_descriptor.format.wgpu_into(),
             usage: texture_descriptor.usage.wgpu_into(),
+        }
+    }
+}
+
+impl WgpuFrom<TextureViewDescriptor> for wgpu::TextureViewDescriptor<'_> {
+    fn from(texture_view_descriptor: TextureViewDescriptor) -> Self {
+        wgpu::TextureViewDescriptor {
+            label: None,
+            format: texture_view_descriptor
+                .format
+                .map(|format| format.wgpu_into()),
+            dimension: texture_view_descriptor
+                .dimension
+                .map(|dimension| dimension.wgpu_into()),
+            aspect: texture_view_descriptor.aspect.wgpu_into(),
+            base_mip_level: texture_view_descriptor.base_mip_level,
+            mip_level_count: None,
+            base_array_layer: texture_view_descriptor.base_array_layer,
+            array_layer_count: texture_view_descriptor.array_layer_count,
+        }
+    }
+}
+
+impl WgpuFrom<TextureAspect> for wgpu::TextureAspect {
+    fn from(aspect: TextureAspect) -> Self {
+        match aspect {
+            TextureAspect::All => wgpu::TextureAspect::All,
+            TextureAspect::StencilOnly => wgpu::TextureAspect::StencilOnly,
+            TextureAspect::DepthOnly => wgpu::TextureAspect::DepthOnly,
         }
     }
 }

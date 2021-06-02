@@ -58,6 +58,16 @@ impl<'a> Commands<'a> {
         }
     }
 
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
+        self.add(GetOrSpawn {
+            entity,
+        });
+        EntityCommands {
+            entity,
+            commands: self,
+        }
+    }
+
     // TODO: this is a hack to work around the "multiple worlds" limitations:
     // Right now Commands must allocate entities from their "scheduled" world, but Commands might be applied to other worlds,
     // such as the "render world"
@@ -275,6 +285,17 @@ where
 {
     fn write(self, world: &mut World) {
         world.spawn().insert_bundle(self.bundle);
+    }
+}
+
+pub struct GetOrSpawn {
+    entity: Entity,
+}
+
+impl Command for GetOrSpawn
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.get_or_spawn(self.entity);
     }
 }
 

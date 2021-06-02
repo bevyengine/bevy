@@ -1,9 +1,15 @@
-use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
-use crate::renderer::RenderContext;
+use crate::{
+    render_graph::{
+        Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
+        RunSubGraphError, SlotInfo, SlotInfos,
+    },
+    renderer::RenderContext,
+};
 use bevy_ecs::world::World;
 use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NodeId(Uuid);
@@ -20,26 +26,37 @@ impl NodeId {
 }
 
 pub trait Node: Downcast + Send + Sync + 'static {
-    fn input(&self) -> &[ResourceSlotInfo] {
-        &[]
+    fn input(&self) -> Vec<SlotInfo> {
+        Vec::new()
     }
 
-    fn output(&self) -> &[ResourceSlotInfo] {
-        &[]
+    fn output(&self) -> Vec<SlotInfo> {
+        Vec::new()
     }
 
-    /// Run the graph node logic. This runs once per graph run after [Node::prepare] has been called
-    /// on all nodes.
-    fn update(
-        &mut self,
-        world: &World,
+    /// Update internal node state using the current render [`World`].
+    fn update(&mut self, _world: &mut World) {}
+
+    /// Run the graph node logic
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
         render_context: &mut dyn RenderContext,
-        input: &ResourceSlots,
-        output: &mut ResourceSlots,
-    );
+        world: &World,
+    ) -> Result<(), NodeRunError>;
 }
 
 impl_downcast!(Node);
+
+#[derive(Error, Debug, Eq, PartialEq)]
+pub enum NodeRunError {
+    #[error("encountered an input slot error")]
+    InputSlotError(#[from] InputSlotError),
+    #[error("encountered an output slot error")]
+    OutputSlotError(#[from] OutputSlotError),
+    #[error("encountered an error when running a sub-graph")]
+    RunSubGraphError(#[from] RunSubGraphError),
+}
 
 #[derive(Debug)]
 pub struct Edges {
@@ -111,8 +128,8 @@ pub struct NodeState {
     pub name: Option<Cow<'static, str>>,
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
-    pub input_slots: ResourceSlots,
-    pub output_slots: ResourceSlots,
+    pub input_slots: SlotInfos,
+    pub output_slots: SlotInfos,
     pub edges: Edges,
 }
 
@@ -130,8 +147,8 @@ impl NodeState {
         NodeState {
             id,
             name: None,
-            input_slots: ResourceSlots::from(node.input()),
-            output_slots: ResourceSlots::from(node.output()),
+            input_slots: node.input().into(),
+            output_slots: node.output().into(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),
             edges: Edges {
@@ -204,5 +221,17 @@ impl From<&'static str> for NodeLabel {
 impl From<NodeId> for NodeLabel {
     fn from(value: NodeId) -> Self {
         NodeLabel::Id(value)
+    }
+}
+pub struct EmptyNode;
+
+impl Node for EmptyNode {
+    fn run(
+        &self,
+        _graph: &mut RenderGraphContext,
+        _render_context: &mut dyn RenderContext,
+        _world: &World,
+    ) -> Result<(), NodeRunError> {
+        Ok(())
     }
 }

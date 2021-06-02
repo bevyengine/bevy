@@ -129,6 +129,7 @@ Crevice supports Rust 1.46.0 and newer due to use of new `const fn` features.
 */
 
 #![deny(missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod std140;
 pub mod std430;
@@ -136,7 +137,6 @@ pub mod std430;
 #[doc(hidden)]
 pub mod internal;
 
-#[cfg(feature = "mint")]
 mod mint;
 
 mod glam;

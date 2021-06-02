@@ -29,6 +29,7 @@ default = [
   "bevy_wgpu2",
   "bevy_sprite2",
   "bevy_render2",
+  "bevy_pbr2",
   "bevy_winit",
   "render",
   "png",
@@ -54,6 +55,7 @@ bevy_winit = ["bevy_internal/bevy_winit"]
 bevy_wgpu2 = ["bevy_internal/bevy_wgpu2"]
 bevy_render2 = ["bevy_internal/bevy_render2"]
 bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
+bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
@@ -141,6 +143,10 @@ path = "examples/2d/texture_atlas.rs"
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+
+[[example]]
+name = "3d_scene_pipelined"
+path = "examples/3d/3d_scene_pipelined.rs"
 
 [[example]]
 name = "load_gltf"

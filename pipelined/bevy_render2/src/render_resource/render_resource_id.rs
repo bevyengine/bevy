@@ -1,22 +1,15 @@
-use crate::render_resource::{BufferId, SamplerId, TextureId};
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum RenderResourceType {
-    Buffer,
-    Texture,
-    Sampler,
-}
+use crate::render_resource::{BufferId, SamplerId, TextureViewId};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum RenderResourceId {
     Buffer(BufferId),
-    Texture(TextureId),
+    TextureView(TextureViewId),
     Sampler(SamplerId),
 }
 
 impl RenderResourceId {
-    pub fn get_texture(&self) -> Option<TextureId> {
-        if let RenderResourceId::Texture(id) = self {
+    pub fn get_texture_view(&self) -> Option<TextureViewId> {
+        if let RenderResourceId::TextureView(id) = self {
             Some(*id)
         } else {
             None

@@ -4,6 +4,7 @@ mod image_texture_loader;
 mod sampler_descriptor;
 #[allow(clippy::module_inception)]
 mod texture;
+mod texture_cache;
 mod texture_descriptor;
 mod texture_dimension;
 
@@ -14,6 +15,7 @@ pub use hdr_texture_loader::*;
 pub use image_texture_loader::*;
 pub use sampler_descriptor::*;
 pub use texture::*;
+pub use texture_cache::*;
 pub use texture_descriptor::*;
 pub use texture_dimension::*;
 
@@ -21,6 +23,7 @@ use crate::{
     render_command::RenderCommandQueue,
     render_resource::{BufferInfo, BufferUsage},
     renderer::{RenderResourceContext, RenderResources},
+    RenderStage,
 };
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, Assets, Handle};
@@ -38,10 +41,14 @@ impl Plugin for TexturePlugin {
 
         app.add_system_to_stage(CoreStage::PostUpdate, texture_resource_system.system())
             .add_asset::<Texture>();
+
+        let render_app = app.sub_app_mut(0);
+        render_app
+            .init_resource::<TextureCache>()
+            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system.system());
     }
 }
 
-// TODO: remove old system
 pub fn texture_resource_system(
     render_resource_context: Res<RenderResources>,
     mut render_command_queue: ResMut<RenderCommandQueue>,
@@ -57,7 +64,8 @@ pub fn texture_resource_system(
             }
             AssetEvent::Modified { handle } => {
                 changed_textures.insert(handle);
-                remove_current_texture_resources(render_resource_context, handle, &mut textures);
+                // TODO: uncomment this to support mutated textures
+                // remove_current_texture_resources(render_resource_context, handle, &mut textures);
             }
             AssetEvent::Removed { handle } => {
                 remove_current_texture_resources(render_resource_context, handle, &mut textures);
@@ -109,9 +117,13 @@ pub fn texture_resource_system(
                 },
                 &aligned_data,
             );
-            texture.gpu_data = Some(GpuData {
-                texture_id,
-                sampler_id,
+
+            let texture_view_id = render_resource_context
+                .create_texture_view(texture_id, TextureViewDescriptor::default());
+            texture.gpu_data = Some(TextureGpuData {
+                texture: texture_id,
+                texture_view: texture_view_id,
+                sampler: sampler_id,
             });
 
             render_command_queue.copy_buffer_to_texture(
@@ -134,7 +146,7 @@ fn remove_current_texture_resources(
     textures: &mut Assets<Texture>,
 ) {
     if let Some(gpu_data) = textures.get_mut(handle).and_then(|t| t.gpu_data.take()) {
-        render_resource_context.remove_texture(gpu_data.texture_id);
-        render_resource_context.remove_sampler(gpu_data.sampler_id);
+        render_resource_context.remove_texture(gpu_data.texture);
+        render_resource_context.remove_sampler(gpu_data.sampler);
     }
 }

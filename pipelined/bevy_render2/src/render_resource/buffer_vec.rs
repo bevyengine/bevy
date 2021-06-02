@@ -106,7 +106,7 @@ impl<T: Pod> BufferVec<T> {
             render_resources.unmap_buffer(staging_buffer);
         }
     }
-    pub fn write_to_uniform_buffer(&self, render_context: &mut dyn RenderContext) {
+    pub fn write_to_buffer(&self, render_context: &mut dyn RenderContext) {
         if let (Some(staging_buffer), Some(uniform_buffer)) = (self.staging_buffer, self.buffer) {
             render_context.copy_buffer_to_buffer(
                 staging_buffer,

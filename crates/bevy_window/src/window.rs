@@ -1,5 +1,6 @@
 use bevy_math::{IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
+use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -19,6 +20,8 @@ impl WindowId {
 }
 
 use std::fmt;
+
+use crate::raw_window_handle::RawWindowHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -123,6 +126,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     cursor_position: Option<Vec2>,
+    raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
@@ -198,6 +202,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
+        raw_window_handle: RawWindowHandle,
     ) -> Self {
         Window {
             id,
@@ -216,6 +221,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
             cursor_position: None,
+            raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
@@ -510,6 +516,10 @@ impl Window {
     #[inline]
     pub fn is_focused(&self) -> bool {
         self.focused
+    }
+
+    pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
+        self.raw_window_handle.clone()
     }
 }
 

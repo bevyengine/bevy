@@ -1,4 +1,11 @@
-use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel};
+use crate::{
+    render_graph::{
+        Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
+        RenderGraphError, SlotInfo, SlotLabel,
+    },
+    renderer::RenderContext,
+};
+use bevy_ecs::prelude::World;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
@@ -6,9 +13,38 @@ use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
+    sub_graphs: HashMap<Cow<'static, str>, RenderGraph>,
+    input_node: Option<NodeId>,
 }
 
 impl RenderGraph {
+    pub const INPUT_NODE_NAME: &'static str = "GraphInputNode";
+
+    pub fn update(&mut self, world: &mut World) {
+        for node in self.nodes.values_mut() {
+            node.node.update(world);
+        }
+
+        for sub_graph in self.sub_graphs.values_mut() {
+            sub_graph.update(world);
+        }
+    }
+
+    pub fn set_input(&mut self, inputs: Vec<SlotInfo>) -> NodeId {
+        if self.input_node.is_some() {
+            panic!("Graph already has an input node");
+        }
+
+        let id = self.add_node("GraphInputNode", GraphInputNode { inputs });
+        self.input_node = Some(id);
+        id
+    }
+
+    #[inline]
+    pub fn input_node(&self) -> Option<&NodeState> {
+        self.input_node.and_then(|id| self.get_node_state(id).ok())
+    }
+
     pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: Node,
@@ -80,17 +116,21 @@ impl RenderGraph {
         input_node: impl Into<NodeLabel>,
         input_slot: impl Into<SlotLabel>,
     ) -> Result<(), RenderGraphError> {
+        let output_slot = output_slot.into();
+        let input_slot = input_slot.into();
         let output_node_id = self.get_node_id(output_node)?;
         let input_node_id = self.get_node_id(input_node)?;
 
         let output_index = self
             .get_node_state(output_node_id)?
             .output_slots
-            .get_slot_index(output_slot)?;
+            .get_slot_index(output_slot.clone())
+            .ok_or(RenderGraphError::InvalidOutputNodeSlot(output_slot))?;
         let input_index = self
             .get_node_state(input_node_id)?
             .input_slots
-            .get_slot_index(input_slot)?;
+            .get_slot_index(input_slot.clone())
+            .ok_or(RenderGraphError::InvalidInputNodeSlot(input_slot))?;
 
         let edge = Edge::SlotEdge {
             output_node: output_node_id,
@@ -151,8 +191,18 @@ impl RenderGraph {
                 let output_node_state = self.get_node_state(output_node)?;
                 let input_node_state = self.get_node_state(input_node)?;
 
-                let output_slot = output_node_state.output_slots.get_slot(output_index)?;
-                let input_slot = input_node_state.input_slots.get_slot(input_index)?;
+                let output_slot = output_node_state
+                    .output_slots
+                    .get_slot(output_index)
+                    .ok_or_else(|| {
+                        RenderGraphError::InvalidOutputNodeSlot(SlotLabel::Index(output_index))
+                    })?;
+                let input_slot = input_node_state
+                    .input_slots
+                    .get_slot(input_index)
+                    .ok_or_else(|| {
+                        RenderGraphError::InvalidInputNodeSlot(SlotLabel::Index(input_index))
+                    })?;
 
                 if let Some(Edge::SlotEdge {
                     output_node: current_output_node,
@@ -175,7 +225,7 @@ impl RenderGraph {
                     });
                 }
 
-                if output_slot.resource_type != input_slot.resource_type {
+                if output_slot.slot_type != input_slot.slot_type {
                     return Err(RenderGraphError::MismatchedNodeSlots {
                         output_node,
                         output_slot: output_index,
@@ -241,6 +291,18 @@ impl RenderGraph {
             .map(|edge| (edge, edge.get_input_node()))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
     }
+
+    pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: RenderGraph) {
+        self.sub_graphs.insert(name.into(), sub_graph);
+    }
+
+    pub fn get_sub_graph(&self, name: impl AsRef<str>) -> Option<&RenderGraph> {
+        self.sub_graphs.get(name.as_ref())
+    }
+
+    pub fn get_sub_graph_mut(&mut self, name: impl AsRef<str>) -> Option<&mut RenderGraph> {
+        self.sub_graphs.get_mut(name.as_ref())
+    }
 }
 
 impl Debug for RenderGraph {
@@ -255,13 +317,40 @@ impl Debug for RenderGraph {
     }
 }
 
+pub struct GraphInputNode {
+    inputs: Vec<SlotInfo>,
+}
+
+impl Node for GraphInputNode {
+    fn input(&self) -> Vec<SlotInfo> {
+        self.inputs.clone()
+    }
+
+    fn output(&self) -> Vec<SlotInfo> {
+        self.inputs.clone()
+    }
+
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        _render_context: &mut dyn RenderContext,
+        _world: &World,
+    ) -> Result<(), NodeRunError> {
+        for i in 0..graph.inputs().len() {
+            let input = graph.inputs()[i];
+            graph.set_output(i, input)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         render_graph::{
-            Edge, Node, NodeId, RenderGraph, RenderGraphError, ResourceSlotInfo, ResourceSlots,
+            Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
+            SlotInfo, SlotType,
         },
-        render_resource::RenderResourceType,
         renderer::RenderContext,
     };
     use bevy_ecs::world::World;
@@ -270,45 +359,39 @@ mod tests {
 
     #[derive(Debug)]
     struct TestNode {
-        inputs: Vec<ResourceSlotInfo>,
-        outputs: Vec<ResourceSlotInfo>,
+        inputs: Vec<SlotInfo>,
+        outputs: Vec<SlotInfo>,
     }
 
     impl TestNode {
         pub fn new(inputs: usize, outputs: usize) -> Self {
             TestNode {
                 inputs: (0..inputs)
-                    .map(|i| ResourceSlotInfo {
-                        name: format!("in_{}", i).into(),
-                        resource_type: RenderResourceType::Texture,
-                    })
+                    .map(|i| SlotInfo::new(format!("in_{}", i), SlotType::TextureView))
                     .collect(),
                 outputs: (0..outputs)
-                    .map(|i| ResourceSlotInfo {
-                        name: format!("out_{}", i).into(),
-                        resource_type: RenderResourceType::Texture,
-                    })
+                    .map(|i| SlotInfo::new(format!("out_{}", i), SlotType::TextureView))
                     .collect(),
             }
         }
     }
 
     impl Node for TestNode {
-        fn input(&self) -> &[ResourceSlotInfo] {
-            &self.inputs
+        fn input(&self) -> Vec<SlotInfo> {
+            self.inputs.clone()
         }
 
-        fn output(&self) -> &[ResourceSlotInfo] {
-            &self.outputs
+        fn output(&self) -> Vec<SlotInfo> {
+            self.outputs.clone()
         }
 
-        fn update(
-            &mut self,
-            _: &World,
+        fn run(
+            &self,
+            _: &mut RenderGraphContext,
             _: &mut dyn RenderContext,
-            _: &ResourceSlots,
-            _: &mut ResourceSlots,
-        ) {
+            _: &World,
+        ) -> Result<(), NodeRunError> {
+            Ok(())
         }
     }
 
@@ -375,13 +458,13 @@ mod tests {
         }
 
         impl Node for MyNode {
-            fn update(
-                &mut self,
-                _: &World,
+            fn run(
+                &self,
+                _: &mut RenderGraphContext,
                 _: &mut dyn RenderContext,
-                _: &ResourceSlots,
-                _: &mut ResourceSlots,
-            ) {
+                _: &World,
+            ) -> Result<(), NodeRunError> {
+                Ok(())
             }
         }
 

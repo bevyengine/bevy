@@ -1,21 +1,28 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::std140::Std140;
+use crate::std140::{Std140, Std140Padded};
+
+use crate::internal::{align_offset, max};
+use core::mem::size_of;
 
 unsafe impl Std140 for f32 {
     const ALIGNMENT: usize = 4;
+    type Padded = Std140Padded<Self, 12>;
 }
 
 unsafe impl Std140 for f64 {
     const ALIGNMENT: usize = 8;
+    type Padded = Std140Padded<Self, 8>;
 }
 
 unsafe impl Std140 for i32 {
     const ALIGNMENT: usize = 4;
+    type Padded = Std140Padded<Self, 12>;
 }
 
 unsafe impl Std140 for u32 {
     const ALIGNMENT: usize = 4;
+    type Padded = Std140Padded<Self, 12>;
 }
 
 macro_rules! vectors {
@@ -37,6 +44,7 @@ macro_rules! vectors {
 
             unsafe impl Std140 for $name {
                 const ALIGNMENT: usize = $align;
+                type Padded = Std140Padded<Self, {align_offset(size_of::<$name>(), max(16, $align))}>;
             }
         )+
     };
@@ -87,6 +95,9 @@ macro_rules! matrices {
 
             unsafe impl Std140 for $name {
                 const ALIGNMENT: usize = $align;
+                /// Matrices are technically arrays of primitives, and as such require pad at end.
+                const PAD_AT_END: bool = true;
+                type Padded = Std140Padded<Self, {align_offset(size_of::<$name>(), max(16, $align))}>;
             }
         )+
     };

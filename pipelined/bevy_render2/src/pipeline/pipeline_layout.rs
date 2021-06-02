@@ -11,10 +11,27 @@ pub struct PipelineLayout {
 }
 
 impl PipelineLayout {
+    // TODO: make direct indexing work to avoid a full scan
     pub fn get_bind_group(&self, index: u32) -> Option<&BindGroupDescriptor> {
         self.bind_groups
             .iter()
             .find(|bind_group| bind_group.index == index)
+    }
+
+    pub fn get_bind_group_mut(&mut self, index: u32) -> Option<&mut BindGroupDescriptor> {
+        self.bind_groups
+            .iter_mut()
+            .find(|bind_group| bind_group.index == index)
+    }
+
+    pub fn bind_group(&self, index: u32) -> &BindGroupDescriptor {
+        self.get_bind_group(index)
+            .expect("bind group exists")
+    }
+
+    pub fn bind_group_mut(&mut self, index: u32) -> &mut BindGroupDescriptor {
+        self.get_bind_group_mut(index)
+            .expect("bind group exists")
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
@@ -66,6 +83,12 @@ impl PipelineLayout {
         PipelineLayout {
             bind_groups: bind_groups_result,
             vertex_buffer_descriptors,
+        }
+    }
+    
+    pub fn update_bind_group_ids(&mut self) {
+        for bind_group in self.bind_groups.iter_mut() {
+            bind_group.update_id();
         }
     }
 }

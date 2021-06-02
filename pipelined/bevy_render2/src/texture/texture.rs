@@ -2,7 +2,7 @@ use super::{
     image_texture_conversion::image_to_texture, Extent3d, SamplerDescriptor, TextureDimension,
     TextureFormat,
 };
-use crate::render_resource::{SamplerId, TextureId};
+use crate::render_resource::{SamplerId, TextureId, TextureViewId};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
 
@@ -11,16 +11,17 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 // TODO: this shouldn't live in the Texture type
 #[derive(Debug, Clone)]
-pub struct GpuData {
-    pub texture_id: TextureId,
-    pub sampler_id: SamplerId,
+pub struct TextureGpuData {
+    pub texture: TextureId,
+    pub texture_view: TextureViewId,
+    pub sampler: SamplerId,
 }
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Texture {
     pub data: Vec<u8>,
-    pub gpu_data: Option<GpuData>,
+    pub gpu_data: Option<TextureGpuData>,
     pub size: Extent3d,
     pub format: TextureFormat,
     pub dimension: TextureDimension,

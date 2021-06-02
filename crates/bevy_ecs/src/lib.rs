@@ -1227,6 +1227,7 @@ mod tests {
         assert_eq!(dropped2.load(Ordering::Relaxed), 1);
     }
 
+    #[test]
     fn clear_entities() {
         let mut world = World::default();
         world
@@ -1264,6 +1265,132 @@ mod tests {
             *world.get_resource::<i32>().unwrap(),
             0,
             "world should still contain resources"
+        );
+    }
+
+    #[test]
+    fn reserve_entities_across_worlds() {
+        let mut world_a = World::default();
+        let mut world_b = World::default();
+
+        let e1 = world_a.spawn().insert(1u32).id();
+        let e2 = world_a.spawn().insert(2u32).id();
+        let e3 = world_a.entities().reserve_entity();
+        world_a.flush();
+
+        let world_a_max_entities = world_a.entities().meta.len();
+        world_b
+            .entities
+            .reserve_entities(world_a_max_entities as u32);
+        world_b.entities.flush_as_invalid();
+
+        let e4 = world_b.spawn().insert(4u32).id();
+        assert_eq!(
+            e4,
+            Entity {
+                generation: 0,
+                id: 3,
+            },
+            "new entity is created immediately after world_a's max entity"
+        );
+        assert!(world_b.get::<u32>(e1).is_none());
+        assert!(world_b.get_entity(e1).is_none());
+
+        assert!(world_b.get::<u32>(e2).is_none());
+        assert!(world_b.get_entity(e2).is_none());
+
+        assert!(world_b.get::<u32>(e3).is_none());
+        assert!(world_b.get_entity(e3).is_none());
+
+        world_b.get_or_spawn(e1).unwrap().insert(1.0f32);
+        assert_eq!(
+            world_b.get::<f32>(e1),
+            Some(&1.0f32),
+            "spawning into 'world_a' entities works"
+        );
+
+        world_b.get_or_spawn(e4).unwrap().insert(4.0f32);
+        assert_eq!(
+            world_b.get::<f32>(e4),
+            Some(&4.0f32),
+            "spawning into existing `world_b` entities works"
+        );
+        assert_eq!(
+            world_b.get::<u32>(e4),
+            Some(&4u32),
+            "spawning into existing `world_b` entities works"
+        );
+
+        let e4_mismatched_generation = Entity {
+            generation: 1,
+            id: 3,
+        };
+        assert!(
+            world_b.get_or_spawn(e4_mismatched_generation).is_none(),
+            "attempting to spawn on top of an entity with a mismatched entity generation fails"
+        );
+        assert_eq!(
+            world_b.get::<f32>(e4),
+            Some(&4.0f32),
+            "failed mismatched spawn doesn't change existing entity"
+        );
+        assert_eq!(
+            world_b.get::<u32>(e4),
+            Some(&4u32),
+            "failed mismatched spawn doesn't change existing entity"
+        );
+
+        let high_non_existent_entity = Entity {
+            generation: 0,
+            id: 6,
+        };
+        world_b
+            .get_or_spawn(high_non_existent_entity)
+            .unwrap()
+            .insert(10.0f32);
+        assert_eq!(
+            world_b.get::<f32>(high_non_existent_entity),
+            Some(&10.0f32),
+            "inserting into newly allocated high / non-continous entity id works"
+        );
+
+        let high_non_existent_but_reserved_entity = Entity {
+            generation: 0,
+            id: 5,
+        };
+        assert!(
+            world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
+            "entities between high-newly allocated entity and continuous block of existing entities don't exist"
+        );
+
+        let reserved_entities = vec![
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+        ];
+
+        assert_eq!(
+            reserved_entities,
+            vec![
+                Entity {
+                    generation: 0,
+                    id: 5
+                },
+                Entity {
+                    generation: 0,
+                    id: 4
+                },
+                Entity {
+                    generation: 0,
+                    id: 7,
+                },
+                Entity {
+                    generation: 0,
+                    id: 8,
+                },
+            ],
+            "space between original entities and high entities is used for new entity ids"
         );
     }
 }

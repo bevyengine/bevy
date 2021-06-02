@@ -108,7 +108,7 @@ impl ComponentSparseSet {
 
     pub fn clear(&mut self) {
         self.dense.clear();
-        self.ticks.get_mut().clear();
+        self.ticks.clear();
         self.entities.clear();
         self.sparse.clear();
     }

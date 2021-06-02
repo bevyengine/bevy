@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::internal::max;
+#[allow(unused_imports)]
+use crate::internal::{align_offset, max};
 use crate::std140::{AsStd140, Std140};
 
 /// Wrapper type that aligns the inner type to at least 256 bytes.
@@ -15,6 +16,10 @@ impl<T: AsStd140> AsStd140 for DynamicUniform<T> {
     fn as_std140(&self) -> Self::Std140Type {
         DynamicUniformStd140(self.0.as_std140())
     }
+
+    fn from_std140(value: Self::Std140Type) -> Self {
+        DynamicUniform(<T as AsStd140>::from_std140(value.0))
+    }
 }
 
 /// std140 variant of [`DynamicUniform`].
@@ -24,6 +29,13 @@ pub struct DynamicUniformStd140<T>(T);
 
 unsafe impl<T: Std140> Std140 for DynamicUniformStd140<T> {
     const ALIGNMENT: usize = max(256, T::ALIGNMENT);
+    #[cfg(const_evaluatable_checked)]
+    type Padded = crate::std140::Std140Padded<
+        Self,
+        { align_offset(core::mem::size_of::<T>(), max(256, T::ALIGNMENT)) },
+    >;
+    #[cfg(not(const_evaluatable_checked))]
+    type Padded = crate::std140::InvalidPadded;
 }
 
 unsafe impl<T: Zeroable> Zeroable for DynamicUniformStd140<T> {}

@@ -11,6 +11,16 @@ impl TextureId {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct TextureViewId(Uuid);
+
+impl TextureViewId {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        TextureViewId(Uuid::new_v4())
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct SamplerId(Uuid);
 
 impl SamplerId {

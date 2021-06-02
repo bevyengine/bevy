@@ -16,7 +16,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
         StorageType,
     },
-    entity::{Entities, Entity},
+    entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
@@ -93,6 +93,13 @@ impl World {
     pub fn entities(&self) -> &Entities {
         &self.entities
     }
+
+    /// Retrieves this world's [Entities] collection mutably
+    #[inline]
+    pub fn entities_mut(&mut self) -> &mut Entities {
+        &mut self.entities
+    }
+
 
     /// Retrieves this world's [Archetypes] collection
     #[inline]
@@ -215,6 +222,24 @@ impl World {
         self.get_entity_mut(entity).expect("Entity does not exist")
     }
 
+    /// Returns an EntityMut for an existing entity or creates one if it doesn't exist.
+    /// This will return `None` if the entity exists with a different generation.
+    #[inline]
+    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityMut> {
+        self.flush();
+        match self.entities.alloc_at_without_replacement(entity) {
+            AllocAtWithoutReplacement::Exists(location) => {
+                // SAFE: `entity` exists and `location` is that entity's location
+                Some(unsafe { EntityMut::new(self, entity, location) })
+            }
+            AllocAtWithoutReplacement::DidNotExist => {
+                // SAFE: entity was just allocated
+                Some(unsafe { self.spawn_at_internal(entity) })
+            }
+            AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
+        }
+    }
+
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
     /// Returns [None] if the `entity` does not exist. Use [World::entity] if you don't want
     /// to unwrap the [EntityRef] yourself.
@@ -293,20 +318,25 @@ impl World {
     pub fn spawn(&mut self) -> EntityMut {
         self.flush();
         let entity = self.entities.alloc();
+        // SAFE: entity was just allocated
+        unsafe { self.spawn_at_internal(entity) }
+    }
+
+    /// # Safety
+    /// must be called on an entity that was just allocated
+    unsafe fn spawn_at_internal(&mut self, entity: Entity) -> EntityMut {
         let archetype = self.archetypes.empty_mut();
-        unsafe {
-            // PERF: consider avoiding allocating entities in the empty archetype unless needed
-            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
-            // SAFE: no components are allocated by archetype.allocate() because the archetype is
-            // empty
-            let location = archetype.allocate(entity, table_row);
-            // SAFE: entity index was just allocated
-            self.entities
-                .meta
-                .get_unchecked_mut(entity.id() as usize)
-                .location = location;
-            EntityMut::new(self, entity, location)
-        }
+        // PERF: consider avoiding allocating entities in the empty archetype unless needed
+        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+        // SAFE: no components are allocated by archetype.allocate() because the archetype is
+        // empty
+        let location = archetype.allocate(entity, table_row);
+        // SAFE: entity index was just allocated
+        self.entities
+            .meta
+            .get_unchecked_mut(entity.id() as usize)
+            .location = location;
+        EntityMut::new(self, entity, location)
     }
 
     /// Spawns a batch of entities with the same component [Bundle] type. Takes a given [Bundle]
@@ -878,6 +908,7 @@ impl World {
         unsafe {
             let table = &mut self.storages.tables[empty_archetype.table_id()];
             // PERF: consider pre-allocating space for flushed entities
+            // SAFE: entity is set to a valid location
             self.entities.flush(|entity, location| {
                 // SAFE: no components are allocated by archetype.allocate() because the archetype
                 // is empty

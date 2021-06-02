@@ -1,6 +1,6 @@
 use crate::camera::{
-    Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode,
-    CAMERA_2D, CAMERA_3D,
+    Camera, CameraPlugin, DepthCalculation, OrthographicProjection, PerspectiveProjection,
+    ScalingMode,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -38,7 +38,7 @@ impl Default for PerspectiveCameraBundle {
     fn default() -> Self {
         PerspectiveCameraBundle {
             camera: Camera {
-                name: Some(CAMERA_3D.to_string()),
+                name: Some(CameraPlugin::CAMERA_3D.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
@@ -66,7 +66,7 @@ impl OrthographicCameraBundle {
         let far = 1000.0;
         OrthographicCameraBundle {
             camera: Camera {
-                name: Some(CAMERA_2D.to_string()),
+                name: Some(CameraPlugin::CAMERA_2D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
@@ -82,7 +82,7 @@ impl OrthographicCameraBundle {
     pub fn new_3d() -> Self {
         OrthographicCameraBundle {
             camera: Camera {
-                name: Some(CAMERA_3D.to_string()),
+                name: Some(CameraPlugin::CAMERA_3D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {

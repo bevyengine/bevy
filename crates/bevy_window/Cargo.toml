@@ -18,6 +18,7 @@ bevy_app = { path = "../bevy_app", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_math = { path = "../bevy_math", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+raw-window-handle = "0.3.0"
 
 # other
 

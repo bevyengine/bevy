@@ -1,8 +1,10 @@
+use core::mem::{size_of, MaybeUninit};
+#[cfg(feature = "std")]
 use std::io::{self, Write};
-use std::mem::size_of;
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 
+#[cfg(feature = "std")]
 use crate::std430::Writer;
 
 /// Trait implemented for all `std430` primitives. Generally should not be
@@ -15,6 +17,15 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     /// control and zero their padding bytes, making converting them to and from
     /// slices safe.
     const ALIGNMENT: usize;
+    /// Whether this type requires a padding at the end (ie, is a struct or an array
+    /// of primitives).
+    /// See https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159
+    /// (rule 4 and 9)
+    const PAD_AT_END: bool = false;
+    /// Padded type (Std430Padded specialization)
+    /// The usual implementation is
+    /// type Padded = Std430Padded<Self, {align_offset(size_of::<Self>(), ALIGNMENT)}>;
+    type Padded: Std430Convertible<Self>;
 
     /// Casts the type to a byte array. Implementors should not override this
     /// method.
@@ -27,6 +38,35 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     }
 }
 
+/// Trait specifically for Std430::Padded, implements conversions between padded type and base type.
+pub trait Std430Convertible<T: Std430>: Copy {
+    /// Convert from self to Std430
+    fn into_std430(self) -> T;
+    /// Convert from Std430 to self
+    fn from_std430(_: T) -> Self;
+}
+
+impl<T: Std430> Std430Convertible<T> for T {
+    fn into_std430(self) -> T {
+        self
+    }
+    fn from_std430(also_self: T) -> Self {
+        also_self
+    }
+}
+
+/// Unfortunately, we cannot easily derive padded representation for generic Std140 types.
+/// For now, we'll just use this empty enum with no values.
+#[derive(Copy, Clone)]
+pub enum InvalidPadded {}
+impl<T: Std430> Std430Convertible<T> for InvalidPadded {
+    fn into_std430(self) -> T {
+        unimplemented!()
+    }
+    fn from_std430(_: T) -> Self {
+        unimplemented!()
+    }
+}
 /**
 Trait implemented for all types that can be turned into `std430` values.
 
@@ -80,6 +120,9 @@ pub trait AsStd430 {
     fn std430_size_static() -> usize {
         size_of::<Self::Std430Type>()
     }
+
+    /// Converts from `std430` version of self to self.
+    fn from_std430(value: Self::Std430Type) -> Self;
 }
 
 impl<T> AsStd430 for T
@@ -91,6 +134,75 @@ where
     fn as_std430(&self) -> Self {
         *self
     }
+
+    fn from_std430(value: Self) -> Self {
+        value
+    }
+}
+
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug)]
+pub struct Std430Padded<T: Std430, const PAD: usize> {
+    inner: T,
+    _padding: [u8; PAD],
+}
+
+unsafe impl<T: Std430, const PAD: usize> Zeroable for Std430Padded<T, PAD> {}
+unsafe impl<T: Std430, const PAD: usize> Pod for Std430Padded<T, PAD> {}
+
+impl<T: Std430, const PAD: usize> Std430Convertible<T> for Std430Padded<T, PAD> {
+    fn into_std430(self) -> T {
+        self.inner
+    }
+
+    fn from_std430(inner: T) -> Self {
+        Self {
+            inner,
+            _padding: [0u8; PAD],
+        }
+    }
+}
+
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug)]
+#[repr(transparent)]
+pub struct Std430Array<T: Std430, const N: usize>([T::Padded; N]);
+
+unsafe impl<T: Std430, const N: usize> Zeroable for Std430Array<T, N> where T::Padded: Zeroable {}
+unsafe impl<T: Std430, const N: usize> Pod for Std430Array<T, N> where T::Padded: Pod {}
+unsafe impl<T: Std430, const N: usize> Std430 for Std430Array<T, N>
+where
+    T::Padded: Pod,
+{
+    const ALIGNMENT: usize = T::ALIGNMENT;
+    type Padded = Self;
+}
+
+impl<T: AsStd430, const N: usize> AsStd430 for [T; N]
+where
+    <T::Std430Type as Std430>::Padded: Pod,
+{
+    type Std430Type = Std430Array<T::Std430Type, N>;
+    fn as_std430(&self) -> Self::Std430Type {
+        let mut res: [MaybeUninit<<T::Std430Type as Std430>::Padded>; N] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+
+        for i in 0..N {
+            res[i] = MaybeUninit::new(Std430Convertible::from_std430(self[i].as_std430()));
+        }
+
+        unsafe { core::mem::transmute_copy(&res) }
+    }
+
+    fn from_std430(val: Self::Std430Type) -> Self {
+        let mut res: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        for i in 0..N {
+            res[i] = MaybeUninit::new(AsStd430::from_std430(val.0[i].into_std430()));
+        }
+
+        unsafe { core::mem::transmute_copy(&res) }
+    }
 }
 
 /// Trait implemented for all types that can be written into a buffer as
@@ -101,6 +213,7 @@ where
 /// `Std430` trait, `WriteStd430` directly writes bytes using a [`Writer`]. This
 /// makes `WriteStd430` usable for writing slices or other DSTs that could not
 /// implement `AsStd430` without allocating new memory on the heap.
+#[cfg(feature = "std")]
 pub trait WriteStd430 {
     /// Writes this value into the given [`Writer`] using `std430` layout rules.
     ///
@@ -118,6 +231,7 @@ pub trait WriteStd430 {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> WriteStd430 for T
 where
     T: AsStd430,
@@ -131,6 +245,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> WriteStd430 for [T]
 where
     T: WriteStd430,

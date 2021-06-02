@@ -5,18 +5,18 @@ use crate::{
 use bevy_render2::{
     pipeline::{
         BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, ComputePipelineDescriptor,
-        RenderPipelineDescriptor, PipelineId,
+        PipelineId, RenderPipelineDescriptor,
     },
     render_resource::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding, SamplerId,
-        SwapChainDescriptor, TextureId,
+        SwapChainDescriptor, TextureId, TextureViewId,
     },
     renderer::RenderResourceContext,
     shader::{Shader, ShaderId},
-    texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
+    texture::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_utils::tracing::trace;
-use bevy_window::{Window, WindowId};
+use bevy_window::WindowId;
 use futures_lite::future;
 use std::{
     borrow::Cow,
@@ -239,13 +239,16 @@ impl WgpuRenderResourceContext {
         bind_group_layouts.insert(descriptor.id, bind_group_layout);
     }
 
-    fn try_next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
+    fn try_next_swap_chain_texture(
+        &self,
+        window_id: bevy_window::WindowId,
+    ) -> Option<TextureViewId> {
         let mut window_swap_chains = self.resources.window_swap_chains.write();
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id)?;
         let next_texture = window_swap_chain.get_current_frame().ok()?;
-        let id = TextureId::new();
+        let id = TextureViewId::new();
         swap_chain_outputs.insert(id, next_texture);
         Some(id)
     }
@@ -265,17 +268,29 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
         let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
         let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let id = TextureId::new();
         texture_descriptors.insert(id, texture_descriptor);
-        texture_views.insert(id, texture_view);
         textures.insert(id, texture);
+        id
+    }
+
+    fn create_texture_view(
+        &self,
+        texture_id: TextureId,
+        texture_view_descriptor: TextureViewDescriptor,
+    ) -> TextureViewId {
+        let mut texture_views = self.resources.texture_views.write();
+        let textures = self.resources.textures.read();
+        let texture = textures.get(&texture_id).unwrap();
+        let descriptor: wgpu::TextureViewDescriptor = texture_view_descriptor.wgpu_into();
+        let texture_view = texture.create_view(&descriptor);
+        let id = TextureViewId::new();
+        texture_views.insert(id, texture_view);
         id
     }
 
@@ -327,12 +342,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn remove_texture(&self, texture: TextureId) {
         let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
         let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         textures.remove(&texture);
-        texture_views.remove(&texture);
         texture_descriptors.remove(&texture);
+    }
+
+    fn remove_texture_view(&self, texture_view: TextureViewId) {
+        let mut texture_views = self.resources.texture_views.write();
+        texture_views.remove(&texture_view);
     }
 
     fn remove_sampler(&self, sampler: SamplerId) {
@@ -355,22 +373,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         id
     }
 
-    fn create_swap_chain(&self, window: &Window) {
-        let surfaces = self.resources.window_surfaces.read();
-        let mut window_swap_chains = self.resources.window_swap_chains.write();
-
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
-        let surface = surfaces
-            .get(&window.id())
-            .expect("No surface found for window.");
-        let swap_chain = self
-            .device
-            .create_swap_chain(surface, &swap_chain_descriptor);
-
-        window_swap_chains.insert(window.id(), swap_chain);
-    }
-
-    fn next_swap_chain_texture(&self, descriptor: &SwapChainDescriptor) -> TextureId {
+    fn next_swap_chain_texture(&self, descriptor: &SwapChainDescriptor) -> TextureViewId {
         if let Some(texture_id) = self.try_next_swap_chain_texture(descriptor.window_id) {
             texture_id
         } else {
@@ -392,7 +395,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         }
     }
 
-    fn drop_swap_chain_texture(&self, texture: TextureId) {
+    fn drop_swap_chain_texture(&self, texture: TextureViewId) {
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
         swap_chain_outputs.remove(&texture);
     }
@@ -561,7 +564,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .iter()
                 .map(|indexed_binding| {
                     let wgpu_resource = match &indexed_binding.entry {
-                        RenderResourceBinding::Texture(resource) => {
+                        RenderResourceBinding::TextureView(resource) => {
                             let texture_view = texture_views
                                 .get(&resource)
                                 .unwrap_or_else(|| panic!("{:?}", resource));

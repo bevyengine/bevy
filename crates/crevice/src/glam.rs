@@ -16,6 +16,10 @@ macro_rules! glam_vectors {
                         )*
                     }
                 }
+
+                fn from_std140(value: Self::Std140Type) -> Self {
+                    Self::new($(value.$field,)*)
+                }
             }
 
             impl AsStd430 for $glam_ty {
@@ -27,6 +31,10 @@ macro_rules! glam_vectors {
                             $field: self.$field,
                         )*
                     }
+                }
+
+                fn from_std430(value: Self::Std430Type) -> Self {
+                    Self::new($(value.$field,)*)
                 }
             }
         )*
@@ -53,6 +61,14 @@ macro_rules! glam_matrices {
                         ..Zeroable::zeroed()
                     }
                 }
+
+                fn from_std140(value: Self::Std140Type) -> Self {
+                    Self::from_cols(
+                        $(
+                            <_ as AsStd140>::from_std140(value.$field),
+                        )*
+                    )
+                }
             }
 
             impl AsStd430 for $glam_ty {
@@ -65,6 +81,14 @@ macro_rules! glam_matrices {
                         )*
                         ..Zeroable::zeroed()
                     }
+                }
+
+                fn from_std430(value: Self::Std430Type) -> Self {
+                    Self::from_cols(
+                        $(
+                            <_ as AsStd430>::from_std430(value.$field),
+                        )*
+                    )
                 }
             }
         )*

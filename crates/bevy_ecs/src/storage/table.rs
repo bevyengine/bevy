@@ -181,7 +181,7 @@ impl Column {
 
     pub fn clear(&mut self) {
         self.data.clear();
-        self.ticks.get_mut().clear();
+        self.ticks.clear();
     }
 
     #[inline]

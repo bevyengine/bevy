@@ -64,7 +64,7 @@ where
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
         };
-        state.validate_world_and_update_archetypes(world);
+        state.update_archetypes(world);
         state
     }
 
@@ -78,11 +78,8 @@ where
         }
     }
 
-    pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
-        if world.id() != self.world_id {
-            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>());
-        }
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.validate_world(world);
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -90,6 +87,14 @@ where
 
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
+        }
+    }
+
+    #[inline]
+    pub fn validate_world(&self, world: &World) {
+        if world.id() != self.world_id {
+            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
+                std::any::type_name::<Self>());
         }
     }
 
@@ -130,6 +135,27 @@ where
     }
 
     #[inline]
+    pub fn get_manual<'w>(
+        &self,
+        world: &'w World,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.validate_world(world);
+        // SAFETY: query is read only and world is validated
+        unsafe {
+            self.get_unchecked_manual(
+                world,
+                entity,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    #[inline]
     pub fn get_mut<'w>(
         &mut self,
         world: &'w mut World,
@@ -149,7 +175,7 @@ where
         world: &'w World,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.get_unchecked_manual(
             world,
             entity,
@@ -203,6 +229,18 @@ where
     }
 
     #[inline]
+    pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, Q, F>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.validate_world(world);
+        // SAFETY: query is read only and world is validated
+        unsafe {
+            self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+        }
+    }
+
+    #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
         // SAFETY: query has unique world access
         unsafe { self.iter_unchecked(world) }
@@ -238,7 +276,7 @@ where
         &'s mut self,
         world: &'w World,
     ) -> QueryIter<'w, 's, Q, F> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
@@ -251,7 +289,7 @@ where
         &'s mut self,
         world: &'w World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.iter_combinations_unchecked_manual(
             world,
             world.last_change_tick(),
@@ -325,7 +363,7 @@ where
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
     ) {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.for_each_unchecked_manual(
             world,
             func,
@@ -376,7 +414,7 @@ where
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.par_for_each_unchecked_manual(
             world,
             task_pool,
