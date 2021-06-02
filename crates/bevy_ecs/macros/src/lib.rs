@@ -221,40 +221,45 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
             }
 
-            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If any QueryState conflicts
+            // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
+            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> ReadOnlySystemParamFetch for QuerySetState<(#(QueryState<#query, #filter>,)*)>
+            where #(#query::Fetch: ReadOnlyFetch,)* #(#filter::Fetch: FilterFetch,)*
+            { }
+
+            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
             // with any prior access, a panic will occur.
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
                 type Config = ();
-                fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self {
+                fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
                     #(
                         let mut #query = QueryState::<#query, #filter>::new(world);
                         assert_component_access_compatibility(
-                            &system_state.name,
+                            &system_meta.name,
                             std::any::type_name::<#query>(),
                             std::any::type_name::<#filter>(),
-                            &system_state.component_access_set,
+                            &system_meta.component_access_set,
                             &#query.component_access,
                             world,
                         );
                     )*
                     #(
-                        system_state
+                        system_meta
                             .component_access_set
                             .add(#query.component_access.clone());
-                        system_state
+                        system_meta
                             .archetype_component_access
                             .extend(&#query.archetype_component_access);
                     )*
                     QuerySetState((#(#query,)*))
                 }
 
-                fn new_archetype(&mut self, archetype: &Archetype, system_state: &mut SystemState) {
+                fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
                     let (#(#query,)*) = &mut self.0;
                     #(
                         #query.new_archetype(archetype);
-                        system_state
+                        system_meta
                             .archetype_component_access
                             .extend(&#query.archetype_component_access);
                     )*
@@ -271,12 +276,12 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn get_param(
                     state: &'a mut Self,
-                    system_state: &'a SystemState,
+                    system_meta: &SystemMeta,
                     world: &'a World,
                     change_tick: u32,
                 ) -> Self::Item {
                     let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query, system_state.last_change_tick, change_tick),)*))
+                    QuerySet((#(Query::new(world, #query, system_meta.last_change_tick, change_tick),)*))
                 }
             }
 
@@ -388,15 +393,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
         unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             type Config = TSystemParamState::Config;
-            fn init(world: &mut #path::world::World, system_state: &mut #path::system::SystemState, config: Self::Config) -> Self {
+            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta, config: Self::Config) -> Self {
                 Self {
-                    state: TSystemParamState::init(world, system_state, config),
+                    state: TSystemParamState::init(world, system_meta, config),
                     marker: std::marker::PhantomData,
                 }
             }
 
-            fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_state: &mut #path::system::SystemState) {
-                self.state.new_archetype(archetype, system_state)
+            fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                self.state.new_archetype(archetype, system_meta)
             }
 
             fn default_config() -> TSystemParamState::Config {
@@ -412,12 +417,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
                 state: &'a mut Self,
-                system_state: &'a #path::system::SystemState,
+                system_meta: &#path::system::SystemMeta,
                 world: &'a #path::world::World,
                 change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world, change_tick),)*
+                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }
