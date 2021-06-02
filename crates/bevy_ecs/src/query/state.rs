@@ -69,6 +69,7 @@ where
         state
     }
 
+    /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
     pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
         // SAFE: the iterator is instantly consumed via `none_remaining` and the implementation of
