@@ -69,6 +69,62 @@ where
             current_index: 0,
         }
     }
+
+    /// Consumes `self` and returns true if there were no elements remaining in this iterator.
+    #[inline(always)]
+    pub(crate) fn none_remaining(mut self) -> bool {
+        // NOTE: this mimics the behavior of `QueryIter::next()`, except that it
+        // never gets a `Self::Item`.
+        unsafe {
+            if self.is_dense {
+                loop {
+                    if self.current_index == self.current_len {
+                        let table_id = match self.table_id_iter.next() {
+                            Some(table_id) => table_id,
+                            None => return true,
+                        };
+                        let table = &self.tables[*table_id];
+                        self.filter.set_table(&self.query_state.filter_state, table);
+                        self.current_len = table.len();
+                        self.current_index = 0;
+                        continue;
+                    }
+
+                    if !self.filter.table_filter_fetch(self.current_index) {
+                        self.current_index += 1;
+                        continue;
+                    }
+
+                    return false;
+                }
+            } else {
+                loop {
+                    if self.current_index == self.current_len {
+                        let archetype_id = match self.archetype_id_iter.next() {
+                            Some(archetype_id) => archetype_id,
+                            None => return true,
+                        };
+                        let archetype = &self.archetypes[*archetype_id];
+                        self.filter.set_archetype(
+                            &self.query_state.filter_state,
+                            archetype,
+                            self.tables,
+                        );
+                        self.current_len = archetype.len();
+                        self.current_index = 0;
+                        continue;
+                    }
+
+                    if !self.filter.archetype_filter_fetch(self.current_index) {
+                        self.current_index += 1;
+                        continue;
+                    }
+
+                    return false;
+                }
+            }
+        }
+    }
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F>

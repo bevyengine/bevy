@@ -68,6 +68,16 @@ where
         state
     }
 
+    #[inline]
+    pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
+        // SAFE: the iterator is instantly consumed via `none_remaining` and the implementation of
+        // `QueryIter::none_remaining` never creates any references to the `<Q::Fetch as Fetch<'w>>::Item`.
+        unsafe {
+            self.iter_unchecked_manual(world, last_change_tick, change_tick)
+                .none_remaining()
+        }
+    }
+
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
         if world.id() != self.world_id {
             panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",

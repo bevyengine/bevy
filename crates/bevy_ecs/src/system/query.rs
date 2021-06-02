@@ -543,6 +543,15 @@ where
             >())),
         }
     }
+
+    /// Returns true if this query contains no elements.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        // TODO: This code can be replaced with `self.iter().next().is_none()` if/when
+        // we sort out how to convert "write" queries to "read" queries.
+        self.state
+            .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
