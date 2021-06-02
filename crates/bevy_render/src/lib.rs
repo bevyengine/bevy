@@ -259,7 +259,7 @@ fn window_icon_changed(
     mut map: Local<HashMap<WindowId, Handle<Texture>>>,
     textures: Res<Assets<Texture>>,
     mut windows: ResMut<Windows>,
-    asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
 ) {
     for window in windows.iter_mut() {
         /* Insert new icon changed */

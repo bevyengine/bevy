@@ -18,10 +18,7 @@ impl WindowId {
     }
 }
 
-use std::{
-    fmt,
-    path::{Path, PathBuf},
-};
+use std::{fmt, path::PathBuf};
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -108,10 +105,10 @@ pub enum WindowIcon {
 
 impl<T> From<T> for WindowIcon
 where
-    T: AsRef<Path>,
+    T: Into<PathBuf>,
 {
     fn from(path: T) -> Self {
-        WindowIcon::Path(path.as_ref().to_path_buf())
+        WindowIcon::Path(path.into())
     }
 }
 
@@ -559,10 +556,11 @@ impl Window {
         self.icon.as_ref()
     }
 
-    pub fn set_icon(&mut self, icon: WindowIcon) {
-        self.icon = Some(icon.clone());
+    pub fn set_icon(&mut self, icon: impl Into<WindowIcon> + Clone) {
+        self.icon = Some(icon.clone().into());
 
-        self.command_queue.push(WindowCommand::SetIcon { icon });
+        self.command_queue
+            .push(WindowCommand::SetIcon { icon: icon.into() });
     }
 
     pub fn clear_icon(&mut self) {

@@ -1,6 +1,6 @@
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowIcon, WindowId, WindowMode};
+use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
@@ -149,7 +149,7 @@ impl WinitWindows {
         );
 
         if let Some(icon_path) = &window_descriptor.icon_path {
-            window.set_icon(WindowIcon::from(icon_path)); /* This will queue up SetWindowIcon until the asset has loaded */
+            window.set_icon(icon_path); /* This will queue up SetWindowIcon until the asset has loaded */
         }
 
         window
