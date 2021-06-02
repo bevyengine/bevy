@@ -6,7 +6,7 @@ use crate::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
         SystemParamFetch, SystemParamState,
     },
-    world::World,
+    world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
@@ -56,6 +56,7 @@ impl SystemMeta {
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
+    world_id: WorldId,
 }
 
 impl<Param: SystemParam> SystemState<Param> {
@@ -70,7 +71,11 @@ impl<Param: SystemParam> SystemState<Param> {
     ) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta, config);
-        Self { meta, param_state }
+        Self {
+            meta,
+            param_state,
+            world_id: world.id(),
+        }
     }
 
     #[inline]
@@ -84,7 +89,8 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
-        // SAFE: Param is read-only and doesn't allow mutable access to World
+        self.validate_world(world);
+        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with
         unsafe { self.get_unchecked(world) }
     }
 
@@ -94,7 +100,8 @@ impl<Param: SystemParam> SystemState<Param> {
         &'a mut self,
         world: &'a mut World,
     ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
-        // SAFE: World is uniquely borrowed
+        self.validate_world(world);
+        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with
         unsafe { self.get_unchecked(world) }
     }
 
@@ -106,11 +113,22 @@ impl<Param: SystemParam> SystemState<Param> {
         self.param_state.apply(world);
     }
 
+    #[inline]
+    pub fn matches_world(&self, world: &World) -> bool {
+        self.world_id == world.id()
+    }
+
+    #[inline]
+    fn validate_world(&self, world: &World) {
+        assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.")
+    }
+
     /// Retrieve the [`SystemParam`] values.
     ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
-    /// access is safe in the context of global [`World`] access.
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.   
     #[inline]
     pub unsafe fn get_unchecked<'a>(
         &'a mut self,

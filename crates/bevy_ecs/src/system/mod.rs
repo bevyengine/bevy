@@ -487,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn read_system_param() {
+    fn read_system_state() {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn write_system_param() {
+    fn write_system_state() {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
@@ -537,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn system_param_change_detection() {
+    fn system_state_change_detection() {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
@@ -560,5 +560,14 @@ mod tests {
             let query = system_state.get(&world);
             assert_eq!(*query.single().unwrap(), A(2));
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn system_state_invalid_world() {
+        let mut world = World::default();
+        let mut system_state = SystemState::<Query<&A>>::new(&mut world);
+        let mismatched_world = World::default();
+        system_state.get(&mismatched_world);
     }
 }
