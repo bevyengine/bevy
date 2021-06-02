@@ -361,22 +361,23 @@ impl AssetServer {
         asset_path.into()
     }
 
-    /// Loads all assets in the specified folder at `path` that satisfy the predicate `f`.
+    /// Loads all assets in the specified folder at `path` that satisfy the `predicate`.
     ///
     /// # Examples
     /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_asset::AssetServer;
+    /// use std::ffi::OsStr;
     ///
     /// fn load_png_files(asset_server: Res<AssetServer>) {
-    ///     let handles = asset_server.load_folder_if("my-assets/", |p| p.ends_with("png"));
+    ///     let handles = asset_server.load_folder_if("my-assets/", |p| p.extension() == Some(OsStr::new("png")));
     /// }
     /// ```
     #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder_if<P, F>(
         &self,
         path: P,
-        mut f: F,
+        mut predicate: F,
     ) -> Result<Vec<HandleUntyped>, AssetServerError>
     where
         P: AsRef<Path>,
@@ -391,15 +392,17 @@ impl AssetServer {
 
         let mut handles = Vec::new();
         for child_path in self.server.asset_io.read_directory(path.as_ref())? {
-            if self.server.asset_io.is_directory(&child_path) {
-                handles.extend(self.load_folder(&child_path)?);
-            } else if f(child_path.as_path()) {
-                if self.get_path_asset_loader(&child_path).is_err() {
-                    continue;
+            if predicate(child_path.as_path()) {
+                if self.server.asset_io.is_directory(&child_path) {
+                    handles.extend(self.load_folder(&child_path)?);
+                } else {
+                    if self.get_path_asset_loader(&child_path).is_err() {
+                        continue;
+                    }
+                    let handle = self
+                        .load_untyped(child_path.to_str().expect("Path should be a valid string."));
+                    handles.push(handle);
                 }
-                let handle =
-                    self.load_untyped(child_path.to_str().expect("Path should be a valid string."));
-                handles.push(handle);
             }
         }
 
