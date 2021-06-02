@@ -391,6 +391,6 @@ mod tests {
     fn blob_vec_drop_empty() {
         let item_layout = Layout::new::<Foo>();
         let drop = TypeInfo::drop_ptr::<Foo>;
-        let _blob_vec = BlobVec::new(item_layout, drop, 0);
+        let _ = BlobVec::new(item_layout, drop, 0);
     }
 }
