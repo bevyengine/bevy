@@ -5,7 +5,14 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
+#[cfg(feature = "command_panic_origin")]
+use bevy_utils::tracing::error;
 use std::marker::PhantomData;
+#[cfg(feature = "command_panic_origin")]
+use std::{
+    borrow::Cow,
+    panic::{self, AssertUnwindSafe},
+};
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
@@ -15,7 +22,9 @@ pub trait Command: Send + Sync + 'static {
 /// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
-    commands: Vec<Box<dyn Command>>,
+    pub(crate) commands: Vec<Box<dyn Command>>,
+    #[cfg(feature = "command_panic_origin")]
+    pub(crate) system_name: Option<Cow<'static, str>>,
 }
 
 impl CommandQueue {
@@ -24,7 +33,22 @@ impl CommandQueue {
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
         for command in self.commands.drain(..) {
+            // TODO: replace feature by proper error handling from commands
+            // https://github.com/bevyengine/bevy/issues/2004
+            #[cfg(not(feature = "command_panic_origin"))]
             command.write(world);
+            #[cfg(feature = "command_panic_origin")]
+            {
+                let may_panic = panic::catch_unwind(AssertUnwindSafe(|| {
+                    command.write(world);
+                }));
+                if let Err(err) = may_panic {
+                    if let Some(system_name) = &self.system_name {
+                        error!("panic while applying a command from {}", system_name);
+                    }
+                    std::panic::resume_unwind(err);
+                }
+            }
         }
     }
 

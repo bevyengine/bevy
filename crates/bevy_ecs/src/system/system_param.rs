@@ -458,8 +458,13 @@ impl<'a> SystemParam for Commands<'a> {
 unsafe impl SystemParamState for CommandQueue {
     type Config = ();
 
-    fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
-        Default::default()
+    #[allow(unused)]
+    fn init(_world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
+        CommandQueue {
+            #[cfg(feature = "command_panic_origin")]
+            system_name: Some(system_state.name()),
+            ..Default::default()
+        }
     }
 
     fn apply(&mut self, world: &mut World) {

@@ -47,6 +47,11 @@ impl SystemState {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    #[cfg(feature = "command_panic_origin")]
+    pub fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
 }
 
 /// Conversion trait to turn something into a [`System`].

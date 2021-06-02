@@ -41,6 +41,9 @@ x11 = ["bevy_winit/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
+# enable tracing system origin of commands in case of command failure
+bevy_command_panic_origin = ["bevy_ecs/command_panic_origin"]
+
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
