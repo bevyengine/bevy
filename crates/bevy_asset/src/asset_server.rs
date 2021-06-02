@@ -5,7 +5,7 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
@@ -466,7 +466,9 @@ impl AssetServer {
         }
     }
 
-    pub(crate) fn update_asset_storage<T: Asset>(&self, assets: &mut Assets<T>) {
+    // Note: this takes a `ResMut<Assets<T>>` to ensure change detection does not get
+    // triggered unless the `Assets` collection is actually updated.
+    pub(crate) fn update_asset_storage<T: Asset>(&self, mut assets: ResMut<Assets<T>>) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
         let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).unwrap();
         let mut asset_sources_guard = None;
