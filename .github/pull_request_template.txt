@@ -4,6 +4,3 @@
 
 ## Solution
 - Describe the solution used to achieve the objective above.
-
-## Additional Information
-- Any additional information needed to better understand this PR.
