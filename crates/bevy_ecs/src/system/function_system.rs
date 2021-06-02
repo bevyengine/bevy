@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
@@ -57,6 +57,7 @@ pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
     world_id: WorldId,
+    archetype_generation: ArchetypeGeneration,
 }
 
 impl<Param: SystemParam> SystemState<Param> {
@@ -75,6 +76,7 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 
@@ -89,9 +91,9 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
-        self.validate_world(world);
-        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with
-        unsafe { self.get_unchecked(world) }
+        self.validate_world_and_update_archetypes(world);
+        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_manual(world) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
@@ -100,9 +102,9 @@ impl<Param: SystemParam> SystemState<Param> {
         &'a mut self,
         world: &'a mut World,
     ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
-        self.validate_world(world);
-        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with
-        unsafe { self.get_unchecked(world) }
+        self.validate_world_and_update_archetypes(world);
+        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_manual(world) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -118,19 +120,29 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
-    #[inline]
-    fn validate_world(&self, world: &World) {
-        assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.")
+    fn validate_world_and_update_archetypes(&mut self, world: &World) {
+        assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype_index in archetype_index_range {
+            self.param_state.new_archetype(
+                &archetypes[ArchetypeId::new(archetype_index)],
+                &mut self.meta,
+            );
+        }
     }
 
-    /// Retrieve the [`SystemParam`] values.
+    /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
     ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.   
     #[inline]
-    pub unsafe fn get_unchecked<'a>(
+    pub unsafe fn get_unchecked_manual<'a>(
         &'a mut self,
         world: &'a World,
     ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {

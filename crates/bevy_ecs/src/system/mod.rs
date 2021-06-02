@@ -570,4 +570,36 @@ mod tests {
         let mismatched_world = World::default();
         system_state.get(&mismatched_world);
     }
+
+    #[test]
+    fn system_state_archetype_update() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        #[derive(Eq, PartialEq, Debug)]
+        struct B(usize);
+
+        let mut world = World::default();
+        world.spawn().insert(A(1));
+
+        let mut system_state = SystemState::<Query<&A>>::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(
+                query.iter().collect::<Vec<_>>(),
+                vec![&A(1)],
+                "exactly one component returned"
+            );
+        }
+
+        world.spawn().insert_bundle((A(2), B(2)));
+        {
+            let query = system_state.get(&world);
+            assert_eq!(
+                query.iter().collect::<Vec<_>>(),
+                vec![&A(1), &A(2)],
+                "components from both archetypes returned"
+            );
+        }
+    }
 }
