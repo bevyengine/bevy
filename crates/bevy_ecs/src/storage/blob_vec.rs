@@ -199,13 +199,11 @@ impl BlobVec {
 impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
-        if self.item_layout.size() > 0 {
+        let array_layout =
+            array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
+        if array_layout.size() > 0 {
             unsafe {
-                std::alloc::dealloc(
-                    self.get_ptr().as_ptr(),
-                    array_layout(&self.item_layout, self.capacity)
-                        .expect("array layout should be valid"),
-                );
+                std::alloc::dealloc(self.get_ptr().as_ptr(), array_layout);
                 std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
@@ -387,5 +385,12 @@ mod tests {
         }
 
         assert_eq!(*drop_counter.borrow(), 6);
+    }
+
+    #[test]
+    fn blob_vec_drop_empty_capacity() {
+        let item_layout = Layout::new::<Foo>();
+        let drop = TypeInfo::drop_ptr::<Foo>;
+        let _ = BlobVec::new(item_layout, drop, 0);
     }
 }
