@@ -13,6 +13,7 @@ use bevy_tasks::TaskPool;
 use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
+/// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
@@ -80,7 +81,12 @@ where
         }
     }
 
-    /// Validates a query for the given [`World`] and updates all archetypes.
+    /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
+    /// generates new archetypes for the given world.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `world.id()` is not equal to the query's `world_id`.
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
         if world.id() != self.world_id {
             panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
@@ -295,7 +301,7 @@ where
         )
     }
 
-    /// Returns an [`Iterator`] for the given [`World`] and [`Entity`], where the last change and
+    /// Returns an [`Iterator`] for the given [`World`], where the last change and
     /// the current change tick are given.
     ///
     /// # Safety
@@ -353,7 +359,7 @@ where
     }
 
     /// Runs `f` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    /// iter_mut() method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w>(
         &mut self,
