@@ -264,14 +264,14 @@ fn window_icon_changed(
     for window in windows.iter_mut() {
         /* Insert new icon changed */
         if let Some(WindowIcon::Path(path)) = window.icon() {
-            if let Some(handle) = map.get(&window.id()) {
-                if let Some(handle_path) = asset_server.get_handle_path(handle) {
-                    if handle_path.path() != path {
-                        map.insert(window.id(), asset_server.load(path.clone()));
+            match map.entry(window.id()) {
+                Entry::Occupied(mut o) => {
+                    let handle_path = asset_server.get_handle_path(o.get()).unwrap();
+                    if handle_path != path {
+                        o.insert(asset_server.load(path.clone());
                     }
                 }
-            } else {
-                map.insert(window.id(), asset_server.load(path.clone()));
+                Entry::Vacant(v) => v.insert(asset_server.load(path.clone()),
             }
         }
 
