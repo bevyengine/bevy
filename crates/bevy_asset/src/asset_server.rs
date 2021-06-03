@@ -593,7 +593,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
 
-        let asset_server = AssetServer {
+        AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
                 extension_to_loader_index: Default::default(),
@@ -604,16 +604,14 @@ mod test {
                 task_pool: Default::default(),
                 asset_io: Box::new(FileAssetIo::new(asset_path)),
             }),
-        };
-        asset_server.add_loader::<FakePngLoader>(FakePngLoader);
-        asset_server.add_loader::<FailingLoader>(FailingLoader);
-        asset_server.add_loader::<FakeMultipleDotLoader>(FakeMultipleDotLoader);
-        asset_server
+        }
     }
 
     #[test]
     fn extensions() {
         let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test.png");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
@@ -621,6 +619,8 @@ mod test {
     #[test]
     fn case_insensitive_extensions() {
         let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test.PNG");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
@@ -670,6 +670,8 @@ mod test {
     #[test]
     fn filename_with_dots() {
         let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test-v1.2.3.png");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
@@ -677,6 +679,8 @@ mod test {
     #[test]
     fn multiple_extensions() {
         let asset_server = setup(".");
+        asset_server.add_loader(FakeMultipleDotLoader);
+
         let t = asset_server.get_path_asset_loader("test.test.png");
         assert_eq!(t.unwrap().extensions()[0], "test.png");
     }
@@ -710,6 +714,7 @@ mod test {
     #[test]
     fn test_invalid_asset_path() {
         let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
 
         let path: AssetPath = "an/invalid/path.png".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
@@ -725,6 +730,7 @@ mod test {
     fn test_failing_loader() {
         let dir = create_dir_and_file("fake.fail");
         let asset_server = setup(dir.path());
+        asset_server.add_loader(FailingLoader);
 
         let path: AssetPath = "fake.fail".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
@@ -740,6 +746,8 @@ mod test {
     fn test_asset_lifecycle() {
         let dir = create_dir_and_file("fake.png");
         let asset_server = setup(dir.path());
+        asset_server.add_loader(FakePngLoader);
+
         let mut assets = asset_server.register_asset_type::<PngAsset>();
 
         let path: AssetPath = "fake.png".into();
