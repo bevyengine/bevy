@@ -67,8 +67,8 @@ impl Node for WindowTextureNode {
                 render_resource_context.remove_texture(old_texture);
             }
 
-            self.descriptor.size.width = window.physical_width();
-            self.descriptor.size.height = window.physical_height();
+            self.descriptor.size.width = window.physical_width().max(1);
+            self.descriptor.size.height = window.physical_height().max(1);
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
         }
