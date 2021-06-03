@@ -270,8 +270,9 @@ fn window_icon_changed(
                         map.insert(window.id(), asset_server.load(path.clone()));
                     }
                 }
+            } else {
+                map.insert(window.id(), asset_server.load(path.clone()));
             }
-            map.insert(window.id(), asset_server.load(path.clone()));
         }
 
         /* Poll load state of handle and set the icon */
