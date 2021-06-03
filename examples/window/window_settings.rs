@@ -1,9 +1,4 @@
-use std::path::PathBuf;
-
-use bevy::{
-    prelude::*,
-    window::{WindowIcon, WindowIconBytes},
-};
+use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -13,26 +8,14 @@ fn main() {
             width: 500.,
             height: 300.,
             vsync: true,
-            icon_path: Some(PathBuf::from("android-res/mipmap-mdpi/ic_launcher.png")),
+            icon_path: Some("android-res/mipmap-mdpi/ic_launcher.png".into()),
             ..Default::default()
         })
-        .insert_resource(IconResource::default())
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
         .add_system(change_title.system())
         .add_system(toggle_cursor.system())
         .add_system(toggle_icon.system())
         .run();
-}
-
-#[derive(Debug, Clone, Default)]
-struct IconResource {
-    handle: Handle<Texture>,
-}
-
-fn setup(asset_server: Res<AssetServer>, mut icon_resource: ResMut<IconResource>) {
-    let icon = asset_server.load("android-res/mipmap-mdpi/ic_launcher.png");
-    icon_resource.handle = icon;
 }
 
 /// This system will then change the title during execution
@@ -53,25 +36,12 @@ fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     }
 }
 
-fn toggle_icon(
-    input: Res<Input<KeyCode>>,
-    mut windows: ResMut<Windows>,
-    icon_resource: Res<IconResource>,
-    textures: Res<Assets<Texture>>,
-) {
+fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.get_primary_mut().unwrap();
     if input.just_pressed(KeyCode::I) {
         match window.icon() {
             None => {
-                if let Some(texture) = textures.get(&icon_resource.handle) {
-                    let window_icon = WindowIcon::from(WindowIconBytes {
-                        bytes: texture.data.clone(),
-                        width: texture.size.width,
-                        height: texture.size.height,
-                    });
-
-                    window.set_icon(window_icon);
-                }
+                window.set_icon("android-res/mipmap-mdpi/ic_launcher.png");
             }
             _ => window.clear_icon(),
         }

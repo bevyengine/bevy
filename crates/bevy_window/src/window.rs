@@ -206,7 +206,7 @@ pub enum WindowCommand {
         resize_constraints: WindowResizeConstraints,
     },
     SetIcon {
-        icon: WindowIcon,
+        window_icon_bytes: WindowIconBytes,
     },
     ClearIcon,
 }
@@ -554,8 +554,10 @@ impl Window {
     pub fn set_icon(&mut self, icon: impl Into<WindowIcon> + Clone) {
         self.icon = Some(icon.clone().into());
 
-        self.command_queue
-            .push(WindowCommand::SetIcon { icon: icon.into() });
+        if let WindowIcon::Bytes(window_icon_bytes) = icon.into() {
+            self.command_queue
+                .push(WindowCommand::SetIcon { window_icon_bytes });
+        }
     }
 
     pub fn clear_icon(&mut self) {

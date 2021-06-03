@@ -279,15 +279,17 @@ fn window_icon_changed(
         if let Some(handle) = map.get(&window.id()) {
             match asset_server.get_load_state(handle) {
                 LoadState::Loaded => {
-                    let texture = textures.get(handle).unwrap();
-                    let window_icon = WindowIcon::from(WindowIconBytes {
-                        bytes: texture.data.clone(),
-                        width: texture.size.width,
-                        height: texture.size.height,
-                    });
-                    window.set_icon(window_icon);
+                    if let Some(texture) = textures.get(handle) {
+                        /* TODO: Why can I not just unwrap here? */
+                        let window_icon = WindowIcon::from(WindowIconBytes {
+                            bytes: texture.data.clone(),
+                            width: texture.size.width,
+                            height: texture.size.height,
+                        });
+                        window.set_icon(window_icon);
 
-                    map.remove_entry(&window.id());
+                        map.remove_entry(&window.id());
+                    }
                 }
                 LoadState::Failed => {
                     map.remove_entry(&window.id());
