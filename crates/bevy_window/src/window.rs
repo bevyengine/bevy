@@ -542,11 +542,6 @@ impl Window {
     }
 
     #[inline]
-    pub fn command_queue(&self) -> &[WindowCommand] {
-        &self.command_queue
-    }
-
-    #[inline]
     pub fn is_focused(&self) -> bool {
         self.focused
     }

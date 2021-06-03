@@ -19,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_transform::TransformSystem;
 use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{WindowCommand, WindowIcon, WindowIconBytes, WindowId, Windows};
+use bevy_window::{WindowIcon, WindowIconBytes, WindowId, Windows};
 use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
@@ -205,7 +205,7 @@ impl Plugin for RenderPlugin {
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
-            CoreStage::PreUpdate,
+            CoreStage::PostUpdate,
             window_icon_changed.system(), /* TODO: label? */
         )
         .add_system_to_stage(
@@ -263,15 +263,15 @@ fn window_icon_changed(
 ) {
     for window in windows.iter_mut() {
         /* Insert new icon changed */
-        for command in window.command_queue() {
-            if let WindowCommand::SetIcon {
-                icon: WindowIcon::Path(path),
-            } = command
-            {
-                let handle = asset_server.load(path.to_owned());
-
-                map.insert(window.id(), handle);
+        if let Some(WindowIcon::Path(path)) = window.icon() {
+            if let Some(handle) = map.get(&window.id()) {
+                if let Some(handle_path) = asset_server.get_handle_path(handle) {
+                    if handle_path.path() != path {
+                        map.insert(window.id(), asset_server.load(path.clone()));
+                    }
+                }
             }
+            map.insert(window.id(), asset_server.load(path.clone()));
         }
 
         /* Poll load state of handle and set the icon */
