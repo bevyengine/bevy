@@ -36,7 +36,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    /// Creates a new query.
+    /// Creates a new [`QueryState`].
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
@@ -102,7 +102,7 @@ where
         }
     }
 
-    /// Creates a new archetype.
+    /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if self.fetch_state.matches_archetype(archetype)
             && self.filter_state.matches_archetype(archetype)
@@ -340,7 +340,7 @@ where
         QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
-    /// Runs `f` on each query result for the given [`World`]. This is faster than the equivalent
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
@@ -358,7 +358,7 @@ where
         }
     }
 
-    /// Runs `f` on each query result for the given [`World`]. This is faster than the equivalent
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter_mut() method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w>(
@@ -372,7 +372,7 @@ where
         }
     }
 
-    /// Runs `f` on each query result for the given [`World`]. This is faster than the equivalent
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
     /// This can only be called for read-only queries.
@@ -396,7 +396,7 @@ where
         );
     }
 
-    /// Runs `f` on each query result in parallel using the given task pool.
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
@@ -416,7 +416,7 @@ where
         }
     }
 
-    /// Runs `f` on each query result in parallel using the given task pool.
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
     #[inline]
     pub fn par_for_each_mut<'w>(
         &mut self,
@@ -431,7 +431,7 @@ where
         }
     }
 
-    /// Runs `f` on each query result in parallel using the given task pool.
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
     ///
     /// This can only be called for read-only queries.
     ///
@@ -458,7 +458,7 @@ where
         );
     }
 
-    /// Runs `f` on each query result for the given [`World`], where the last change and
+    /// Runs `func` on each query result for the given [`World`], where the last change and
     /// the current change tick are given. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
@@ -514,7 +514,7 @@ where
         }
     }
 
-    /// Runs `f` on each query result in parallel for the given [`World`], where the last change and
+    /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
     /// the current change tick are given. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
