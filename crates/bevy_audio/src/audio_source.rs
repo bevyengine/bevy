@@ -30,7 +30,16 @@ impl AssetLoader for Mp3Loader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["mp3", "flac", "wav", "ogg"]
+        &[
+            #[cfg(feature = "mp3")]
+            "mp3",
+            #[cfg(feature = "flac")]
+            "flac",
+            #[cfg(feature = "wav")]
+            "wav",
+            #[cfg(feature = "vorbis")]
+            "ogg",
+        ]
     }
 }
 

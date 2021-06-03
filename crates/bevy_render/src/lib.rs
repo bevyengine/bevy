@@ -58,7 +58,13 @@ use renderer::{AssetRenderResourceBindings, RenderResourceBindings, RenderResour
 use shader::ShaderLoader;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
-#[cfg(feature = "png")]
+#[cfg(any(
+    feature = "png",
+    feature = "dds",
+    feature = "tga",
+    feature = "jpeg",
+    feature = "bmp"
+))]
 use texture::ImageTextureLoader;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -97,7 +103,13 @@ impl Default for RenderPlugin {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        #[cfg(feature = "png")]
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp"
+        ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();
         }
