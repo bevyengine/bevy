@@ -537,6 +537,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 mod test {
     use super::*;
     use crate::loader::LoadedAsset;
+    use bevy_ecs::prelude::*;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
 
@@ -747,58 +748,91 @@ mod test {
         let dir = create_dir_and_file("fake.png");
         let asset_server = setup(dir.path());
         asset_server.add_loader(FakePngLoader);
+        let assets = asset_server.register_asset_type::<PngAsset>();
 
-        let mut assets = asset_server.register_asset_type::<PngAsset>();
+        let mut world = World::new();
+        world.insert_resource(assets);
+        world.insert_resource(asset_server);
 
-        let path: AssetPath = "fake.png".into();
-        assert_eq!(
-            LoadState::NotLoaded,
-            asset_server.get_load_state(path.get_id())
-        );
+        let mut tick = {
+            fn free_unused_assets(asset_server: Res<AssetServer>) {
+                free_unused_assets_system(asset_server);
+            }
 
-        let load_asset = || {
+            fn update_asset_storage(
+                asset_server: Res<AssetServer>,
+                assets: ResMut<Assets<PngAsset>>,
+            ) {
+                asset_server.update_asset_storage(assets);
+            }
+
+            let mut free_unused_assets = free_unused_assets.system();
+            free_unused_assets.initialize(&mut world);
+            let mut update_asset_storage = update_asset_storage.system();
+            update_asset_storage.initialize(&mut world);
+
+            move |world: &mut World| {
+                free_unused_assets.run((), world);
+                update_asset_storage.run((), world);
+            }
+        };
+
+        fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
+            let asset_server = world.get_resource::<AssetServer>().unwrap();
             let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
                 .unwrap();
             asset_server.get_handle_untyped(id)
-        };
+        }
+
+        fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
+            world
+                .get_resource::<Assets<PngAsset>>()
+                .unwrap()
+                .get(id.into())
+        }
+
+        fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
+            world
+                .get_resource::<AssetServer>()
+                .unwrap()
+                .get_load_state(id.into())
+        }
+
+        // ---
+        // Start of the actual lifecycle test
+        // ---
+
+        let path: AssetPath = "fake.png".into();
+        assert_eq!(LoadState::NotLoaded, get_load_state(path.get_id(), &world));
 
         // load the asset
-        let handle = load_asset();
+        let handle = load_asset(path.clone(), &world);
         let weak_handle = handle.clone_weak();
 
         // asset is loading
-        assert_eq!(LoadState::Loading, asset_server.get_load_state(&handle));
+        assert_eq!(LoadState::Loading, get_load_state(&handle, &world));
 
-        // mimics one full frame
-        let tick = |server: &AssetServer, assets: &mut Assets<PngAsset>| {
-            free_unused_assets_system_impl(server);
-            server.update_asset_storage(assets);
-        };
-
-        tick(&asset_server, &mut assets);
+        tick(&mut world);
         // asset should exist and be loaded at this point
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&handle));
-        assert!(assets.get(&handle).is_some());
+        assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
+        assert!(get_asset(&handle, &world).is_some());
 
         // after dropping the handle, next call to `tick` will prepare the assets for removal.
         drop(handle);
-        tick(&asset_server, &mut assets);
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&weak_handle));
-        assert!(assets.get(&weak_handle).is_some());
+        tick(&mut world);
+        assert_eq!(LoadState::Loaded, get_load_state(&weak_handle, &world));
+        assert!(get_asset(&weak_handle, &world).is_some());
 
         // second call to tick will actually remove the asset.
-        tick(&asset_server, &mut assets);
-        assert_eq!(
-            LoadState::Unloaded,
-            asset_server.get_load_state(&weak_handle)
-        );
-        assert!(assets.get(&weak_handle).is_none());
+        tick(&mut world);
+        assert_eq!(LoadState::Unloaded, get_load_state(&weak_handle, &world));
+        assert!(get_asset(&weak_handle, &world).is_none());
 
         // finally, reload the asset
-        let handle = load_asset();
-        assert_eq!(LoadState::Loading, asset_server.get_load_state(&handle));
-        tick(&asset_server, &mut assets);
-        assert_eq!(LoadState::Loaded, asset_server.get_load_state(&handle));
-        assert!(assets.get(&handle).is_some());
+        let handle = load_asset(path.clone(), &world);
+        assert_eq!(LoadState::Loading, get_load_state(&handle, &world));
+        tick(&mut world);
+        assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
+        assert!(get_asset(&handle, &world).is_some());
     }
 }
