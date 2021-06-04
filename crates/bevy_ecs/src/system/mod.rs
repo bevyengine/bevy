@@ -785,4 +785,218 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn immutable_mut_test() {
+        #[derive(Component, Eq, PartialEq, Debug, Clone, Copy)]
+        struct A(usize);
+
+        let mut world = World::default();
+        world.spawn().insert(A(1));
+        world.spawn().insert(A(2));
+
+        let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
+        {
+            let mut query = system_state.get_mut(&mut world);
+            assert_eq!(
+                query.iter_mut().map(|m| *m).collect::<Vec<A>>(),
+                vec![A(1), A(2)],
+                "both components returned by iter_mut of &mut"
+            );
+            assert_eq!(
+                query.iter().collect::<Vec<&A>>(),
+                vec![&A(1), &A(2)],
+                "both components returned by iter of &mut"
+            );
+        }
+    }
 }
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+///     let mut iter = query.iter_mut();
+///     let a = &mut *iter.next().unwrap();
+///
+///     let mut iter2 = query.iter_mut();
+///     let b = &mut *iter2.next().unwrap();
+///
+///     // this should fail to compile
+///     println!("{}", a.0);
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_iter_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+///     let mut a1 = query.get_mut(*e).unwrap();
+///     let mut a2 = query.get_mut(*e).unwrap();
+///     // this should fail to compile
+///     println!("{} {}", a1.0, a2.0);
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let mut q2 = queries.q0();
+///     let mut iter2 = q2.iter_mut();
+///     let mut b = iter2.next().unwrap();
+///
+///     let q1 = queries.q1();
+///     let mut iter = q1.iter();
+///     let a = &*iter.next().unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_iter_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let q1 = queries.q1();
+///     let mut iter = q1.iter();
+///     let a = &*iter.next().unwrap();
+///
+///     let mut q2 = queries.q0();
+///     let mut iter2 = q2.iter_mut();
+///     let mut b = iter2.next().unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0;
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_iter_flip_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let mut q2 = queries.q0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///
+///     let q1 = queries.q1();
+///     let a = q1.get(*e).unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let q1 = queries.q1();
+///     let a = q1.get(*e).unwrap();
+///
+///     let mut q2 = queries.q0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_get_flip_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::SystemState;
+/// struct A(usize);
+/// struct B(usize);
+/// struct State {
+///     state_r: SystemState<Query<'static, 'static, &'static A>>,
+///     state_w: SystemState<Query<'static, 'static, &'static mut A>>,
+/// }
+///
+/// impl State {
+///     fn get_component<'w>(&mut self, world: &'w mut World, entity: Entity) {
+///         let q1 = self.state_r.get(&world);
+///         let a1 = q1.get(entity).unwrap();
+///
+///         let mut q2 = self.state_w.get_mut(world);
+///         let a2 = q2.get_mut(entity).unwrap();
+///
+///         // this should fail to compile
+///         println!("{}", a1.0);
+///     }
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_state_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::SystemState;
+/// struct A(usize);
+/// struct B(usize);
+/// struct State {
+///     state_r: SystemState<Query<'static, 'static, &'static A>>,
+///     state_w: SystemState<Query<'static, 'static, &'static mut A>>,
+/// }
+///
+/// impl State {
+///     fn get_components<'w>(&mut self, world: &'w mut World) {
+///         let q1 = self.state_r.get(&world);
+///         let a1 = q1.iter().next().unwrap();
+///         let mut q2 = self.state_w.get_mut(world);
+///         let a2 = q2.iter_mut().next().unwrap();
+///         // this should fail to compile
+///         println!("{}", a1.0);
+///     }
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_state_iter_lifetime_safety_test() {}
+
+#[allow(unused)]
+#[cfg(doc)]
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// #[derive(Eq, PartialEq, Debug, Clone, Copy)]
+/// struct A(usize);
+///
+/// let mut world = World::default();
+/// world.spawn().insert(A(1));
+/// world.spawn().insert(A(2));
+///
+/// let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
+/// {
+///     let mut query = system_state.get_mut(&mut world);
+///     let mut_vec = query.iter_mut().collect::<Vec<crate::prelude::Mut<A>>>();
+///     assert_eq!(
+///         // this should fail to compile due to the later use of mut_vec
+///         query.iter().collect::<Vec<&A>>(),
+///         vec![&A(1), &A(2)],
+///         "both components returned by iter of &mut"
+///     );
+///     assert_eq!(
+///         mut_vec.iter().map(|m| **m).collect::<Vec<A>>(),
+///         vec![A(1), A(2)],
+///         "both components returned by iter_mut of &mut"
+///     );
+/// }
+/// ```
+fn mut_overlap_test() {}

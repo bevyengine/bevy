@@ -8,7 +8,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, QueryItem, ReadOnlyFetch, WorldQuery},
+    query::{FilterFetch, ReadOnlyQueryItem, QueryItem, ReadOnlyFetch, WorldQuery},
     system::{
         lifetimeless::{Read, SCommands, SQuery},
         RunSystem, SystemParamItem,
@@ -41,7 +41,7 @@ pub trait ExtractComponent: Component {
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery;
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<Self::Query>) -> Self;
+    fn extract_component(item: ReadOnlyQueryItem<Self::Query>) -> Self;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
