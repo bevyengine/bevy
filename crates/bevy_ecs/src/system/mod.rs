@@ -521,7 +521,7 @@ mod tests {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();
@@ -544,7 +544,7 @@ mod tests {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn system_state_change_detection() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct A(usize);
 
         let mut world = World::default();
@@ -603,10 +603,10 @@ mod tests {
 
     #[test]
     fn system_state_archetype_update() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();
