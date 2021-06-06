@@ -48,6 +48,7 @@ impl Plugin for CorePlugin {
             .unwrap_or_else(DefaultTaskPoolOptions::default)
             .create_default_pools(app.world_mut());
 
+        #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_task_pool_panicking_threads_system::<IoTaskPool>.system())
             .add_system(handle_task_pool_panicking_threads_system::<ComputeTaskPool>.system())
             .add_system(handle_task_pool_panicking_threads_system::<AsyncComputeTaskPool>.system());

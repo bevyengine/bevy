@@ -394,6 +394,11 @@ impl Default for TaskPool {
     }
 }
 
+#[doc(hidden)]
+pub fn handle_task_pool_panicking_threads(task_pool: &TaskPool) {
+    task_pool.handle_panicking_threads();
+}
+
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,

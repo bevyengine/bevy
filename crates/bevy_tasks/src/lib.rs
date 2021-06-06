@@ -7,7 +7,9 @@ pub use task::Task;
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]
-pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadPanicPolicy};
+pub use task_pool::{
+    handle_task_pool_panicking_threads, Scope, TaskPool, TaskPoolBuilder, ThreadPanicPolicy,
+};
 
 #[cfg(target_arch = "wasm32")]
 mod single_threaded_task_pool;
@@ -15,10 +17,7 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
-pub use usages::{
-    handle_task_pool_panicking_threads, AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool,
-    TaskPoolTrait,
-};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolTrait};
 
 mod countdown_event;
 pub use countdown_event::CountdownEvent;

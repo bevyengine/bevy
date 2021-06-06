@@ -178,6 +178,7 @@ impl DefaultTaskPoolOptions {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn handle_task_pool_panicking_threads_system<
     T: TaskPoolTrait + Send + Sync + 'static,
 >(
