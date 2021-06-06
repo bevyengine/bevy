@@ -20,7 +20,10 @@ use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem, Res},
 };
 use bevy_transform::TransformSystem;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
 use bevy_window::{WindowIcon, WindowIconBytes, WindowId, Windows};
 use draw::{OutsideFrustum, Visible};
 
@@ -286,12 +289,24 @@ fn window_icon_changed(
             match asset_server.get_load_state(handle) {
                 LoadState::Loaded => {
                     if let Some(texture) = textures.get(handle) {
-                        let window_icon = WindowIcon::from(WindowIconBytes {
-                            bytes: texture.data.clone(),
-                            width: texture.size.width,
-                            height: texture.size.height,
-                        });
-                        window.set_icon(window_icon);
+                        /* TODO: Not actually sure if we need to check the error here
+                        Whatever Texture gives us might be fine */
+                        let window_icon_bytes = WindowIconBytes::new(
+                            texture.data.clone(),
+                            texture.size.width,
+                            texture.size.height,
+                        );
+
+                        match window_icon_bytes {
+                            Ok(window_icon_bytes) => {
+                                let window_icon = WindowIcon::from(window_icon_bytes);
+                                window.set_icon(window_icon);
+                            }
+                            Err(e) => error!(
+                                "For handle {:?} the following error was produced: {}",
+                                handle, e
+                            ),
+                        }
 
                         o.remove();
                     }

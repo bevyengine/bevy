@@ -1,5 +1,6 @@
 use bevy_math::{IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -92,9 +93,20 @@ impl WindowResizeConstraints {
 
 #[derive(Debug, Clone)]
 pub struct WindowIconBytes {
-    pub bytes: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
+    bytes: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+#[derive(Error, Debug)]
+pub enum WindowIconBytesError {
+    #[error("32bpp RGBA image buffer expected, but {bytes_length} is not divisible by 4")]
+    NotRGBA { bytes_length: usize },
+    #[error("Buffer size {bytes_length} does not match the expected size based on the dimensions {pixel_bytes_length}")]
+    SizeMismatch {
+        pixel_bytes_length: usize,
+        bytes_length: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +127,41 @@ where
 impl From<WindowIconBytes> for WindowIcon {
     fn from(window_icon_bytes: WindowIconBytes) -> Self {
         WindowIcon::Bytes(window_icon_bytes)
+    }
+}
+
+impl WindowIconBytes {
+    pub fn new(bytes: Vec<u8>, width: u32, height: u32) -> Result<Self, WindowIconBytesError> {
+        let pixel_count = (width * height) as usize;
+        let pixel_bytes_length = pixel_count * 4;
+        let bytes_length = bytes.len();
+
+        if bytes_length % 4 != 0 {
+            Err(WindowIconBytesError::NotRGBA { bytes_length })
+        } else if pixel_bytes_length != bytes_length {
+            Err(WindowIconBytesError::SizeMismatch {
+                pixel_bytes_length,
+                bytes_length,
+            })
+        } else {
+            Ok(Self {
+                bytes,
+                width,
+                height,
+            })
+        }
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
     }
 }
 

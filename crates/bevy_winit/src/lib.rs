@@ -163,17 +163,15 @@ fn change_window(world: &mut World) {
                 bevy_window::WindowCommand::SetIcon { window_icon_bytes } => {
                     let window = winit_windows.get_window(id).unwrap();
 
-                    match Icon::from_rgba(
-                        window_icon_bytes.bytes,
-                        window_icon_bytes.width,
-                        window_icon_bytes.height,
-                    ) {
-                        Ok(winit_icon) => window.set_window_icon(Some(winit_icon)),
-                        Err(e) => {
-                            error!("Unable to create window icon: {}", e);
-                            return;
-                        }
-                    }
+                    /* Failures should already be covered in WindowIconBytes constructor */
+                    window.set_window_icon(
+                        Icon::from_rgba(
+                            window_icon_bytes.bytes().to_vec(),
+                            window_icon_bytes.width(),
+                            window_icon_bytes.height(),
+                        )
+                        .ok(),
+                    );
                 }
                 bevy_window::WindowCommand::ClearIcon => {
                     let window = winit_windows.get_window(id).unwrap();
