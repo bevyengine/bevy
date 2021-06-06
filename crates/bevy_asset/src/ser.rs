@@ -1,4 +1,4 @@
-use std::{cell::Cell, ptr::NonNull};
+use std::cell::Cell;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -7,7 +7,7 @@ use crate::{Asset, AssetServer, Handle};
 ///////////////////////////////////////////////////////////////////////////////
 
 thread_local! {
-    static ASSET_SERVER: Cell<Option<NonNull<AssetServer>>> = Cell::new(None);
+    static ASSET_SERVER: Cell<Option<AssetServer>> = Cell::new(None);
 }
 
 impl<T: Asset> Serialize for Handle<T> {
@@ -15,13 +15,10 @@ impl<T: Asset> Serialize for Handle<T> {
     where
         S: Serializer,
     {
-        let path = ASSET_SERVER.with(|server| {
-            server.get().and_then(|ptr| {
-                // SAFETY: The thread local [`ASSET_SERVER`] can only
-                // be set by a valid [`AssetServer`] instance that will
-                // also make sure to set it back to [`None`] once it's no longer is valid
-                let server = unsafe { ptr.as_ref() };
-                //  TODO: `get_handle_path` does absolutely nothing issue #1290
+        let path = ASSET_SERVER.with(|cell| {
+            let server = cell.replace(None);
+            let path = server.as_ref().and_then(|server| {
+                // TODO: `get_handle_path` does absolutely nothing issue #1290
                 server.get_handle_path(self).map(|asset_path| {
                     let mut path = asset_path.path().to_string_lossy().to_string();
                     if let Some(label) = asset_path.label() {
@@ -30,7 +27,9 @@ impl<T: Asset> Serialize for Handle<T> {
                     }
                     path
                 })
-            })
+            });
+            cell.replace(server);
+            path
         });
 
         path.serialize(serializer)
@@ -44,14 +43,11 @@ impl<'de, T: Asset> Deserialize<'de> for Handle<T> {
     {
         Ok(Option::<String>::deserialize(deserializer)?
             .and_then(|path| {
-                ASSET_SERVER.with(|server| {
-                    server.get().map(|ptr| {
-                        // SAFETY: The thread local [`ASSET_SERVER`] can only
-                        // be set by a valid [`AssetServer`] instance that will
-                        // also make sure to set it to back [`None`] once it's no longer is valid
-                        let server = unsafe { ptr.as_ref() };
-                        server.load(path.as_str())
-                    })
+                ASSET_SERVER.with(|cell| {
+                    let server = cell.replace(None);
+                    let handle = server.as_ref().map(|server| server.load(path.as_str()));
+                    cell.replace(server);
+                    handle
                 })
             })
             .unwrap_or_default())
@@ -69,7 +65,7 @@ impl AssetServer {
         T: Serialize,
     {
         ASSET_SERVER.with(|key| {
-            key.replace(NonNull::new(self as *const _ as *mut _));
+            key.replace(Some(self.clone()));
             let result = value.serialize(serializer);
             key.replace(None);
             result
@@ -82,7 +78,7 @@ impl AssetServer {
         T: Deserialize<'de>,
     {
         ASSET_SERVER.with(|key| {
-            key.replace(NonNull::new(self as *const _ as *mut _));
+            key.replace(Some(self.clone()));
             let result = T::deserialize(deserializer);
             key.replace(None);
             result
