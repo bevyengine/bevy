@@ -75,31 +75,14 @@ impl<'de, T: Asset> Deserialize<'de> for Handle<T> {
 }
 
 impl AssetServer {
-    pub fn serialize_with_asset_refs<S, T>(
-        &self,
-        serializer: S,
-        value: &T,
-    ) -> Result<S::Ok, S::Error>
+    /// Enables asset references to be serialized or deserialized
+    pub fn with_asset_refs_serialization<F, T>(&self, f: F) -> T
     where
-        S: Serializer,
-        T: Serialize,
+        F: FnOnce() -> T,
     {
         ASSET_SERVER.with(|key| {
             key.replace(Some(self.clone()));
-            let result = value.serialize(serializer);
-            key.replace(None);
-            result
-        })
-    }
-
-    pub fn deserialize_with_asset_refs<'de, D, T>(&self, deserializer: D) -> Result<T, D::Error>
-    where
-        D: Deserializer<'de>,
-        T: Deserialize<'de>,
-    {
-        ASSET_SERVER.with(|key| {
-            key.replace(Some(self.clone()));
-            let result = T::deserialize(deserializer);
+            let result = (f)();
             key.replace(None);
             result
         })
