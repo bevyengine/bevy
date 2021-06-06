@@ -16,7 +16,7 @@ use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused, WindowId,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
@@ -487,7 +487,20 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     app.update();
                 }
             }
-            event::Event::Resumed => suspended = false,
+            event::Event::Resumed => {
+                suspended = false;
+                #[cfg(target_os = "android")]
+                {
+                    let mut window_created_events = app
+                        .world
+                        .get_resource_mut::<Events<WindowCreated>>()
+                        .unwrap();
+
+                    window_created_events.send(WindowCreated {
+                        id: WindowId::primary(),
+                    });
+                }
+            }
             event::Event::Suspended => suspended = true,
             _ => (),
         }
@@ -516,6 +529,7 @@ fn handle_create_window_events(
             &create_window_event.descriptor,
         );
         windows.add(window);
+        #[cfg(not(target_os = "android"))]
         window_created_events.send(WindowCreated {
             id: create_window_event.id,
         });

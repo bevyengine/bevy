@@ -645,8 +645,8 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
-            width: window.physical_width(),
-            height: window.physical_height(),
+            width: window.physical_width().max(1),
+            height: window.physical_height().max(1),
             present_mode: if window.vsync() {
                 wgpu::PresentMode::Fifo
             } else {
