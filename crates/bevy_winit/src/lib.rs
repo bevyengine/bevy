@@ -16,7 +16,7 @@ use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused, WindowId,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
@@ -497,7 +497,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         .unwrap();
 
                     window_created_events.send(WindowCreated {
-                        id: WindowId::primary(),
+                        id: bevy_window::WindowId::primary(),
                     });
                 }
             }
