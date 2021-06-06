@@ -30,17 +30,14 @@ impl<T: Asset> Serialize for Handle<T> {
                 let server = cell.replace(None);
                 let path = server.as_ref().and_then(|server| {
                     // TODO: `get_handle_path` does absolutely nothing issue #1290
-                    server
-                        .get_handle_path(self)
-                        .map(|asset_path| {
-                            let mut path = asset_path.path().to_string_lossy().to_string();
-                            if let Some(label) = asset_path.label() {
-                                path.push('#');
-                                path.push_str(label);
-                            }
-                            path
-                        })
-                        .and_then(|path| Some(AssetRef::External(path)))
+                    server.get_handle_path(self).map(|asset_path| {
+                        let mut path = asset_path.path().to_string_lossy().to_string();
+                        if let Some(label) = asset_path.label() {
+                            path.push('#');
+                            path.push_str(label);
+                        }
+                        AssetRef::External(path)
+                    })
                 });
                 cell.replace(server);
                 path
