@@ -371,24 +371,54 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
 
-        let mut child = Option::<Entity>::None;
+        let mut child1 = Option::<Entity>::None;
+        let mut child2 = Option::<Entity>::None;
         let parent = world
             .spawn()
-            .insert(Visible::default())
-            .with_children(|parent| child = Some(parent.spawn().insert(Visible::default()).id()))
+            .insert(Visible {
+                is_visible: false,
+                is_transparent: false,
+            })
+            .with_children(|parent| {
+                child1 = Some(
+                    parent
+                        .spawn()
+                        .insert(Visible::default())
+                        .with_children(|parent| {
+                            child2 = Some(parent.spawn().insert(Visible::default()).id())
+                        })
+                        .id(),
+                )
+            })
             .id();
 
+        let child1 = child1.unwrap();
+        let child2 = child2.unwrap();
+
         schedule.run(&mut world);
-        assert_eq!(
-            Some(true),
-            world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
-        );
-        assert_eq!(
-            Some(true),
-            world
-                .get::<VisibleEffective>(child.unwrap())
-                .map(|v| v.is_visible)
-        );
+        assert_eq!(false, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(parent)
+            .map(|mut v| v.is_visible = true)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(true, is_visible(&world, child1));
+        assert_eq!(true, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(child1)
+            .map(|mut v| v.is_visible = false)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
 
         world
             .get_mut::<Visible>(parent)
@@ -396,15 +426,25 @@ mod test {
             .unwrap();
 
         schedule.run(&mut world);
-        assert_eq!(
-            Some(false),
-            world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
-        );
-        assert_eq!(
-            Some(false),
+        assert_eq!(false, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(parent)
+            .map(|mut v| v.is_visible = true)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        fn is_visible(world: &World, entity: Entity) -> bool {
             world
-                .get::<VisibleEffective>(child.unwrap())
+                .get::<VisibleEffective>(entity)
                 .map(|v| v.is_visible)
-        );
+                .unwrap()
+        }
     }
 }
