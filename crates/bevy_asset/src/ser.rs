@@ -16,7 +16,7 @@ enum AssetRef {
     Default,
     /// Used for static handles like the `PBR_PIPELINE_HANDLE` or a embedded assets
     Local(Uuid, u64),
-    /// Loads form a file
+    /// Loads from a file
     External(String),
 }
 
