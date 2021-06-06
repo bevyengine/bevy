@@ -50,3 +50,13 @@ impl Deref for IoTaskPool {
         &self.0
     }
 }
+
+/// TODO: RENAME
+pub trait TaskPoolTrait: Deref<Target = TaskPool> {}
+
+impl<T> TaskPoolTrait for T where T: Deref<Target = TaskPool> {}
+
+#[doc(hidden)]
+pub fn handle_task_pool_panicking_threads(task_pool: &TaskPool) {
+    task_pool.handle_panicking_threads();
+}
