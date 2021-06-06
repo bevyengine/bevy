@@ -233,7 +233,7 @@ impl AssetServer {
 
     async fn load_async(
         &self,
-        asset_path: AssetPath<'_>,
+        asset_path: AssetPath<'static>,
         force: bool,
     ) -> Result<AssetPathId, AssetServerError> {
         let asset_loader = self.get_path_asset_loader(asset_path.path())?;
@@ -264,6 +264,13 @@ impl AssetServer {
             {
                 return Ok(asset_path_id);
             }
+
+            // add the asset to internal HashMap<HandleId, AssetPath>
+            let handle_id: HandleId = asset_path.get_id().into();
+            self.server
+                .handle_to_path
+                .write()
+                .insert(handle_id, asset_path.clone());
 
             source_info.load_state = LoadState::Loading;
             source_info.committed_assets.clear();
