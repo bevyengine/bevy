@@ -536,7 +536,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::loader::LoadedAsset;
+    use crate::{loader::LoadedAsset, update_asset_storage_system};
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
@@ -755,25 +755,14 @@ mod test {
         world.insert_resource(asset_server);
 
         let mut tick = {
-            fn free_unused_assets(asset_server: Res<AssetServer>) {
-                free_unused_assets_system(asset_server);
-            }
-
-            fn update_asset_storage(
-                asset_server: Res<AssetServer>,
-                assets: ResMut<Assets<PngAsset>>,
-            ) {
-                asset_server.update_asset_storage(assets);
-            }
-
-            let mut free_unused_assets = free_unused_assets.system();
-            free_unused_assets.initialize(&mut world);
-            let mut update_asset_storage = update_asset_storage.system();
-            update_asset_storage.initialize(&mut world);
+            let mut free_unused_assets_system = free_unused_assets_system.system();
+            free_unused_assets_system.initialize(&mut world);
+            let mut update_asset_storage_system = update_asset_storage_system.system();
+            update_asset_storage_system.initialize(&mut world);
 
             move |world: &mut World| {
-                free_unused_assets.run((), world);
-                update_asset_storage.run((), world);
+                free_unused_assets_system.run((), world);
+                update_asset_storage_system.run((), world);
             }
         };
 
