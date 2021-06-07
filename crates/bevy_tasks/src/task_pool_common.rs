@@ -1,6 +1,6 @@
 /// The policy used when a task pool's internal thread panics
 #[derive(Copy, Clone, Debug)]
-pub enum ThreadPanicPolicy {
+pub enum TaskPoolThreadPanicPolicy {
     /// Propagate the panic to the main thread, causing the main
     /// thread to panic as well.
     Propagate,

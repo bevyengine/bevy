@@ -1,7 +1,7 @@
 use bevy_ecs::{system::Res, world::World};
 use bevy_tasks::{
-    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, TaskPoolTrait,
-    ThreadPanicPolicy,
+    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, TaskPoolThreadPanicPolicy,
+    TaskPoolTrait,
 };
 use bevy_utils::tracing::trace;
 
@@ -11,7 +11,7 @@ pub struct TaskPoolPolicies {
     /// Used to determine number of threads to allocate
     pub assignment_policy: TaskPoolThreadAssignmentPolicy,
     /// Used to determine the panic policy of the task pool
-    pub panic_policy: ThreadPanicPolicy,
+    pub panic_policy: TaskPoolThreadPanicPolicy,
 }
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
@@ -76,7 +76,7 @@ impl Default for DefaultTaskPoolOptions {
                     max_threads: 4,
                     percent: 0.25,
                 },
-                panic_policy: ThreadPanicPolicy::Restart,
+                panic_policy: TaskPoolThreadPanicPolicy::Restart,
             },
 
             // Use 25% of cores for async compute, at least 1, no more than 4
@@ -86,7 +86,7 @@ impl Default for DefaultTaskPoolOptions {
                     max_threads: 4,
                     percent: 0.25,
                 },
-                panic_policy: ThreadPanicPolicy::Restart,
+                panic_policy: TaskPoolThreadPanicPolicy::Restart,
             },
 
             // Use all remaining cores for compute (at least 1)
@@ -96,7 +96,7 @@ impl Default for DefaultTaskPoolOptions {
                     max_threads: std::usize::MAX,
                     percent: 1.0, // This 1.0 here means "whatever is left over"
                 },
-                panic_policy: ThreadPanicPolicy::Restart,
+                panic_policy: TaskPoolThreadPanicPolicy::Restart,
             },
         }
     }

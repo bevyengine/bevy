@@ -3,7 +3,7 @@ use std::{
     mem,
     sync::{Arc, Mutex},
 };
-use crate::ThreadPanicPolicy;
+use crate::TaskPoolThreadPanicPolicy;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -27,7 +27,7 @@ impl TaskPoolBuilder {
         self
     }
 
-    pub fn panic_policy(self, _policy: ThreadPanicPolicy) -> Self {
+    pub fn panic_policy(self, _policy: TaskPoolThreadPanicPolicy) -> Self {
         self
     }
 

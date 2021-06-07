@@ -1,4 +1,4 @@
-use crate::{Task, ThreadPanicPolicy};
+use crate::{Task, TaskPoolThreadPanicPolicy};
 use futures_lite::{future, pin};
 use parking_lot::RwLock;
 use std::{
@@ -25,7 +25,7 @@ pub struct TaskPoolBuilder {
     /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
     thread_name: Option<String>,
     /// Allows customizing the policy for when a [`TaskPool`]'s thread(s) panic.
-    panic_policy: Option<ThreadPanicPolicy>,
+    panic_policy: Option<TaskPoolThreadPanicPolicy>,
 }
 
 impl TaskPoolBuilder {
@@ -54,7 +54,7 @@ impl TaskPoolBuilder {
         self
     }
 
-    pub fn panic_policy(mut self, policy: ThreadPanicPolicy) -> Self {
+    pub fn panic_policy(mut self, policy: TaskPoolThreadPanicPolicy) -> Self {
         self.panic_policy = Some(policy);
         self
     }
@@ -133,7 +133,7 @@ pub struct TaskPool {
     inner: Arc<RwLock<TaskPoolInner>>,
 
     /// Panic policy of the inner thread pool.
-    panic_policy: ThreadPanicPolicy,
+    panic_policy: TaskPoolThreadPanicPolicy,
 
     /// Receiving channel used when an inner thread panics and
     /// another one is spawned in its place.
@@ -160,7 +160,7 @@ impl TaskPool {
 
     pub(crate) fn handle_panicking_threads(&self) {
         match self.panic_policy {
-            ThreadPanicPolicy::Propagate => {
+            TaskPoolThreadPanicPolicy::Propagate => {
                 if self.any_panicking_threads() {
                     for state in self.inner.write().threads.drain(..) {
                         let thread = state.thread().clone();
@@ -173,7 +173,7 @@ impl TaskPool {
                     }
                 }
             }
-            ThreadPanicPolicy::Restart => {
+            TaskPoolThreadPanicPolicy::Restart => {
                 if self.any_panicking_threads() {
                     for (idx, state) in self
                         .inner
@@ -245,7 +245,7 @@ impl TaskPool {
         num_threads: Option<usize>,
         stack_size: Option<usize>,
         thread_name: Option<&str>,
-        panic_policy: Option<ThreadPanicPolicy>,
+        panic_policy: Option<TaskPoolThreadPanicPolicy>,
     ) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
@@ -270,7 +270,7 @@ impl TaskPool {
             })
             .collect();
 
-        let panic_policy = panic_policy.unwrap_or(ThreadPanicPolicy::Restart);
+        let panic_policy = panic_policy.unwrap_or(TaskPoolThreadPanicPolicy::Restart);
 
         Self {
             executor,

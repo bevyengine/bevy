@@ -5,7 +5,7 @@ mod task;
 pub use task::Task;
 
 mod task_pool_common;
-pub use task_pool_common::ThreadPanicPolicy;
+pub use task_pool_common::TaskPoolThreadPanicPolicy;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
