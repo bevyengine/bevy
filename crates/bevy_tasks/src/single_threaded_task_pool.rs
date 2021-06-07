@@ -1,9 +1,9 @@
+use crate::TaskPoolThreadPanicPolicy;
 use std::{
     future::Future,
     mem,
     sync::{Arc, Mutex},
 };
-use crate::TaskPoolThreadPanicPolicy;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
