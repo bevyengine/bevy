@@ -757,7 +757,7 @@ mod test {
         let mut tick = {
             let mut free_unused_assets_system = free_unused_assets_system.system();
             free_unused_assets_system.initialize(&mut world);
-            let mut update_asset_storage_system = update_asset_storage_system.system();
+            let mut update_asset_storage_system = update_asset_storage_system::<PngAsset>.system();
             update_asset_storage_system.initialize(&mut world);
 
             move |world: &mut World| {
