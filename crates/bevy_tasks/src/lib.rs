@@ -18,7 +18,7 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolTrait};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, DerefTaskPool, IoTaskPool};
 
 mod countdown_event;
 pub use countdown_event::CountdownEvent;

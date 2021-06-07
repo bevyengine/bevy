@@ -2,8 +2,8 @@
 use bevy_ecs::system::Res;
 use bevy_ecs::world::World;
 use bevy_tasks::{
-    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, TaskPoolThreadPanicPolicy,
-    TaskPoolTrait,
+    AsyncComputeTaskPool, ComputeTaskPool, DerefTaskPool, IoTaskPool, TaskPoolBuilder,
+    TaskPoolThreadPanicPolicy,
 };
 use bevy_utils::tracing::trace;
 
@@ -182,7 +182,7 @@ impl DefaultTaskPoolOptions {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn handle_task_pool_panicking_threads_system<
-    T: TaskPoolTrait + Send + Sync + 'static,
+    T: DerefTaskPool + Send + Sync + 'static,
 >(
     task_pool: Res<T>,
 ) {

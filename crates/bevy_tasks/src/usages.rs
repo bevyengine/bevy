@@ -51,7 +51,6 @@ impl Deref for IoTaskPool {
     }
 }
 
-/// TODO: RENAME
-pub trait TaskPoolTrait: Deref<Target = TaskPool> {}
+pub trait DerefTaskPool: Deref<Target = TaskPool> {}
 
-impl<T> TaskPoolTrait for T where T: Deref<Target = TaskPool> {}
+impl<T> DerefTaskPool for T where T: Deref<Target = TaskPool> {}
