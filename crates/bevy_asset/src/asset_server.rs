@@ -266,7 +266,7 @@ impl AssetServer {
             }
 
             // add the asset to internal HashMap<HandleId, AssetPath>
-            let handle_id: HandleId = asset_path.get_id().into();
+            let handle_id = asset_path.get_id().into();
             self.server
                 .handle_to_path
                 .write()
