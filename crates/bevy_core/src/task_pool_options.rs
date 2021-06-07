@@ -1,4 +1,6 @@
-use bevy_ecs::{system::Res, world::World};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_ecs::system::Res;
+use bevy_ecs::world::World;
 use bevy_tasks::{
     AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, TaskPoolThreadPanicPolicy,
     TaskPoolTrait,
@@ -178,6 +180,7 @@ impl DefaultTaskPoolOptions {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn handle_task_pool_panicking_threads_system<
     T: TaskPoolTrait + Send + Sync + 'static,
 >(
