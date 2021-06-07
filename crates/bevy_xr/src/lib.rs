@@ -5,7 +5,7 @@ use bevy_app::{AppBuilder, Plugin, StartupStage};
 use bevy_ecs::prelude::{IntoExclusiveSystem, World};
 use interaction::{
     GenericControllerPairButtons, GenericControllerVibration, HandAction, HandType, Motion, Pose,
-    TrackingReferenceMode, XR_HAND_JOINT_COUNT,
+    Position, TrackingReferenceMode, XR_HAND_JOINT_COUNT,
 };
 
 pub struct XrDuration(i64);
@@ -96,13 +96,19 @@ impl XrState {
     pub fn viewer_pose_at_time(&self, time: XrTime) -> Pose {
         let poses = self.inner.views_poses(time);
 
-        let orientation = poses.iter().find_map(|pose| pose.orientation);
+        let orientation = poses.iter().find_map(|pose| pose.orientation.clone());
 
         let position = poses
             .iter()
-            .filter_map(|pose| pose.position)
-            .reduce(|pos1, pos2| pos1 + pos2)
-            .map(|sum| sum / poses.len() as f32);
+            .filter_map(|pose| pose.position.clone())
+            .reduce(|pos1, pos2| Position {
+                value: pos1.value + pos2.value,
+                tracked: pos1.tracked,
+            })
+            .map(|sum| Position {
+                value: sum.value / poses.len() as f32,
+                tracked: sum.tracked,
+            });
 
         Pose {
             position,

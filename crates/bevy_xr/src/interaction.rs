@@ -1,7 +1,5 @@
-use glam::{Quat, Vec2, Vec3};
-use std::time::Duration;
-
 use crate::XrDuration;
+use glam::{Mat4, Quat, Vec2, Vec3};
 
 // Note: indices follow WebXR convention. OpenXR's palm joint is missing, but it can be retrieved
 // using `XrState::hand_motion(..., HandAction::Grip)`.
@@ -32,28 +30,38 @@ pub const XR_HAND_JOINT_LITTLE_DISTAL: usize = 23;
 pub const XR_HAND_JOINT_LITTLE_TIP: usize = 24;
 pub const XR_HAND_JOINT_COUNT: usize = 25;
 
+#[derive(Clone)]
+pub struct Position {
+    pub value: Vec3,
+
+    /// If `tracked` is false, the position is inferred (for example just after a controller has
+    /// occluded)
+    pub tracked: bool,
+}
+
+#[derive(Clone)]
+pub struct Orientation {
+    pub value: Quat,
+    pub tracked: bool,
+}
+
+#[derive(Default)]
 pub struct Pose {
-    pub position: Option<Vec3>,
-    pub orientation: Option<Quat>,
+    pub position: Option<Position>,
+    pub orientation: Option<Orientation>,
 }
 
 impl Pose {
-    pub fn is_tracked(&self) -> bool {
-        self.position.is_some() || self.orientation.is_some()
+    pub fn to_mat4(&self) -> Mat4 {
+        todo!()
     }
 }
 
+#[derive(Default)]
 pub struct Motion {
     pub pose: Pose,
-    pub occluded: bool,
     pub linear_velocity: Option<Vec3>,
     pub angular_velocity: Option<Vec3>,
-}
-
-impl Motion {
-    pub fn is_tracked(&self) -> bool {
-        self.pose.is_tracked()
-    }
 }
 
 #[derive(Clone)]
@@ -91,21 +99,10 @@ pub enum HandAction {
     Aim,
 }
 
-pub enum BinaryEventType {
-    Toggled,
-    Unchanged,
-}
-
-impl Default for BinaryEventType {
-    fn default() -> Self {
-        Self::Unchanged
-    }
-}
-
 #[derive(Default)]
 pub struct BinaryEvent {
     pub value: bool,
-    pub event: BinaryEventType,
+    pub toggled: bool,
 }
 
 /// Oculus-Touch-like virtual controller buttons. Different types of controller inputs get mapped to

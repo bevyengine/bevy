@@ -7,7 +7,8 @@ use bevy_ecs::prelude::IntoSystem;
 use bevy_xr::{
     implementation::XrStateBackend,
     interaction::{
-        HandAction, HandType, Motion, Pose, TrackingReferenceMode, Vibration, XR_HAND_JOINT_COUNT,
+        HandAction, HandType, Motion, Orientation, Pose, Position, TrackingReferenceMode,
+        Vibration, XR_HAND_JOINT_COUNT,
     },
     presentation::XrPresentationResourceContext,
     ViewerType, XrConfig, XrDuration, XrMode, XrTime,
@@ -230,7 +231,7 @@ impl OpenXrResourceContext {
             xr_config,
             openxr_config,
             &instance,
-            &&action_set,
+            &action_set,
             &session,
         );
 
@@ -349,13 +350,28 @@ impl XrStateBackend for OpenXrState {
 
             views
                 .into_iter()
-                .map(|view| Pose {
-                    position: if flags.contains(xr::ViewStateFlags::POSITION_VALID) {
-                        Some(to_vec3(view.pose.position))
+                .map(|view| {
+                    let position = if flags.contains(xr::ViewStateFlags::POSITION_VALID) {
+                        Some(Position {
+                            value: to_vec3(view.pose.position),
+                            tracked: flags.contains(xr::ViewStateFlags::POSITION_TRACKED),
+                        })
                     } else {
                         None
-                    },
-                    orientation: Some(to_quat(view.pose.orientation)),
+                    };
+                    let orientation = if flags.contains(xr::ViewStateFlags::ORIENTATION_VALID) {
+                        Some(Orientation {
+                            value: to_quat(view.pose.orientation),
+                            tracked: flags.contains(xr::ViewStateFlags::ORIENTATION_TRACKED),
+                        })
+                    } else {
+                        None
+                    };
+
+                    Pose {
+                        position,
+                        orientation,
+                    }
                 })
                 .collect()
         } else {
@@ -380,7 +396,12 @@ impl XrStateBackend for OpenXrState {
                 .location_flags
                 .contains(xr::SpaceLocationFlags::POSITION_VALID)
             {
-                Some(to_vec3(location.pose.position))
+                Some(Position {
+                    value: to_vec3(location.pose.position),
+                    tracked: location
+                        .location_flags
+                        .contains(xr::SpaceLocationFlags::POSITION_TRACKED),
+                })
             } else {
                 None
             };
@@ -388,7 +409,12 @@ impl XrStateBackend for OpenXrState {
                 .location_flags
                 .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
             {
-                Some(to_quat(location.pose.orientation))
+                Some(Orientation {
+                    value: to_quat(location.pose.orientation),
+                    tracked: location
+                        .location_flags
+                        .contains(xr::SpaceLocationFlags::ORIENTATION_TRACKED),
+                })
             } else {
                 None
             };
@@ -414,22 +440,11 @@ impl XrStateBackend for OpenXrState {
                     position,
                     orientation,
                 },
-                occluded: !location
-                    .location_flags
-                    .contains(xr::SpaceLocationFlags::POSITION_TRACKED),
                 linear_velocity,
                 angular_velocity,
             }
         } else {
-            Motion {
-                pose: Pose {
-                    position: None,
-                    orientation: None,
-                },
-                occluded: false,
-                linear_velocity: None,
-                angular_velocity: None,
-            }
+            Motion::default()
         }
     }
 
@@ -448,7 +463,6 @@ impl XrStateBackend for OpenXrState {
                 position: None,
                 orientation: None,
             },
-            occluded: false,
             linear_velocity: None,
             angular_velocity: None,
         }

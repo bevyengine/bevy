@@ -80,7 +80,7 @@ pub enum OpenXrActionType {
 #[derive(Clone)]
 pub struct OpenXrBindingDesc {
     pub name: &'static str,
-    pub ids: Vec<OpenXrActionPath>,
+    pub paths: Vec<OpenXrActionPath>,
     pub action_type: OpenXrActionType,
 }
 
@@ -130,7 +130,7 @@ pub(crate) fn pose_bindings() -> Vec<OpenXrBindingDesc> {
     fn binding(name: &'static str, path: &'static str) -> OpenXrBindingDesc {
         OpenXrBindingDesc {
             name,
-            ids: vec![OpenXrActionPath {
+            paths: vec![OpenXrActionPath {
                 profile: KHR_PROFILE,
                 path,
             }],
@@ -189,7 +189,7 @@ pub(crate) fn create_actions(
         };
         actions.insert(binding.name, action);
 
-        for id in &binding.ids {
+        for id in &binding.paths {
             bindings_by_profile
                 .entry(id.profile)
                 .or_default()
@@ -271,11 +271,7 @@ pub(crate) fn extract_controller_actions(
 fn action_state_to_binary_event(state: ActionState<bool>) -> BinaryEvent {
     BinaryEvent {
         value: state.current_state,
-        event: if state.changed_since_last_sync {
-            BinaryEventType::Toggled
-        } else {
-            BinaryEventType::Unchanged
-        },
+        toggled: state.changed_since_last_sync,
     }
 }
 
