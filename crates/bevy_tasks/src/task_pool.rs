@@ -159,9 +159,9 @@ impl TaskPool {
     }
 
     pub(crate) fn handle_panicking_threads(&self) {
-        match self.panic_policy {
-            TaskPoolThreadPanicPolicy::Propagate => {
-                if self.any_panicking_threads() {
+        if self.any_panicking_threads() {
+            match self.panic_policy {
+                TaskPoolThreadPanicPolicy::Propagate => {
                     for state in self.inner.write().threads.drain(..) {
                         let thread = state.thread().clone();
                         if let Err(err) = state.handle.join() {
@@ -172,9 +172,7 @@ impl TaskPool {
                         }
                     }
                 }
-            }
-            TaskPoolThreadPanicPolicy::Restart => {
-                if self.any_panicking_threads() {
+                TaskPoolThreadPanicPolicy::Restart => {
                     for (idx, state) in self
                         .inner
                         .write()
