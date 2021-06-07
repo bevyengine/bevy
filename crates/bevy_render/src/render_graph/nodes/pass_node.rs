@@ -3,7 +3,6 @@ use crate::{
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{IndexFormat, PipelineDescriptor},
-    prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
         BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceContext,
@@ -160,11 +159,6 @@ where
                         continue;
                     };
 
-                    if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
-                        if !visible.is_visible {
-                            continue;
-                        }
-                    }
                     for render_command in draw.render_commands.iter() {
                         commands.push(render_command.clone());
                         // whenever a new pipeline is set, ensure the relevant camera bind groups
