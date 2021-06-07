@@ -1,3 +1,4 @@
+use crate::{Task, ThreadPanicPolicy};
 use futures_lite::{future, pin};
 use parking_lot::RwLock;
 use std::{
@@ -11,19 +12,6 @@ use std::{
     thread::{self, JoinHandle},
 };
 use tracing::warn;
-
-use crate::Task;
-
-/// The policy used when a [`TaskPool`]'s thread panics
-#[derive(Copy, Clone, Debug)]
-pub enum ThreadPanicPolicy {
-    /// Propagate the panic to the main thread, causing the main
-    /// thread to panic as well.
-    Propagate,
-    /// Restart the thread by joining the panicked thread and
-    /// spawning another one in it's place.
-    Restart,
-}
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]

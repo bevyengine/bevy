@@ -3,6 +3,7 @@ use std::{
     mem,
     sync::{Arc, Mutex},
 };
+use crate::ThreadPanicPolicy;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -23,6 +24,10 @@ impl TaskPoolBuilder {
     }
 
     pub fn thread_name(self, _thread_name: String) -> Self {
+        self
+    }
+
+    pub fn panic_policy(self, _policy: ThreadPanicPolicy) -> Self {
         self
     }
 

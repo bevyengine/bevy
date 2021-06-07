@@ -4,12 +4,13 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 mod task;
 pub use task::Task;
 
+mod task_pool_common;
+pub use task_pool_common::ThreadPanicPolicy;
+
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]
-pub use task_pool::{
-    handle_task_pool_panicking_threads, Scope, TaskPool, TaskPoolBuilder, ThreadPanicPolicy,
-};
+pub use task_pool::{handle_task_pool_panicking_threads, Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(target_arch = "wasm32")]
 mod single_threaded_task_pool;
