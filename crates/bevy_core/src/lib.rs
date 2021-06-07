@@ -25,6 +25,7 @@ use bevy_ecs::{
 };
 use bevy_utils::HashSet;
 use std::ops::Range;
+
 /// Adds core functionality to Apps.
 #[derive(Default)]
 pub struct CorePlugin;
