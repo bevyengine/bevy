@@ -7,7 +7,7 @@ use bevy_tasks::{
 };
 use bevy_utils::tracing::trace;
 
-/// DOCS: todo
+/// The set of policies describing how the according task pool behaves
 #[derive(Clone, Debug)]
 pub struct TaskPoolPolicies {
     /// Used to determine number of threads to allocate
