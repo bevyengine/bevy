@@ -23,11 +23,8 @@ use bevy_ecs::{
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
     system::{IntoExclusiveSystem, IntoSystem},
 };
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 use bevy_utils::HashSet;
 use std::ops::Range;
-use task_pool_options::handle_task_pool_panicking_threads_system;
-
 /// Adds core functionality to Apps.
 #[derive(Default)]
 pub struct CorePlugin;
@@ -49,9 +46,22 @@ impl Plugin for CorePlugin {
             .create_default_pools(app.world_mut());
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(handle_task_pool_panicking_threads_system::<IoTaskPool>.system())
-            .add_system(handle_task_pool_panicking_threads_system::<ComputeTaskPool>.system())
-            .add_system(handle_task_pool_panicking_threads_system::<AsyncComputeTaskPool>.system());
+        app.add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<bevy_tasks::IoTaskPool>
+                .system(),
+        )
+        .add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<
+                bevy_tasks::ComputeTaskPool,
+            >
+                .system(),
+        )
+        .add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<
+                bevy_tasks::AsyncComputeTaskPool,
+            >
+                .system(),
+        );
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
