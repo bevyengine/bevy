@@ -1,4 +1,5 @@
 use crate::{Task, TaskPoolThreadPanicPolicy};
+use bevy_utils::tracing::warn;
 use futures_lite::{future, pin};
 use parking_lot::RwLock;
 use std::{
@@ -11,7 +12,6 @@ use std::{
     },
     thread::{self, JoinHandle},
 };
-use tracing::warn;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
