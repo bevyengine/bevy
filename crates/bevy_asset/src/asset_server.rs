@@ -328,8 +328,7 @@ impl AssetServer {
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in loaded_asset.dependencies.iter() {
-                // another handle already exists created from the asset path
-                let _ = self.load_untyped(dependency.clone());
+                self.load_untracked(dependency.clone(), false);
             }
         }
 
@@ -493,7 +492,7 @@ impl AssetServer {
                         }
                     }
 
-                    let _ = assets.set(result.id, *result.asset);
+                    assets.set_untracked(result.id, *result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {
