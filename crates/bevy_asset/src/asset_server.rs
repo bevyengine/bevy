@@ -368,6 +368,8 @@ impl AssetServer {
             .detach();
 
         let handle_id = asset_path.get_id().into();
+
+        // check if the `handle_id` exists first to avoid unnecessary `write()` calls.
         if !self.server.handle_to_path.read().contains_key(&handle_id) {
             self.server
                 .handle_to_path
