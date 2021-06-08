@@ -1,5 +1,5 @@
 use crate::{Task, TaskPoolThreadPanicPolicy};
-use bevy_utils::tracing::warn;
+use bevy_utils::tracing::{error, warn};
 use futures_lite::{future, pin};
 use parking_lot::RwLock;
 use std::{
@@ -165,10 +165,8 @@ impl TaskPool {
                     for state in self.inner.write().threads.drain(..) {
                         let thread = state.thread().clone();
                         if let Err(err) = state.handle.join() {
-                            panic!(
-                                "TaskPool's inner thread '{:?}' panicked with error: {:?}",
-                                thread, err
-                            );
+                            error!("TaskPool's inner thread '{:?}' panicked!", thread);
+                            std::panic::resume_unwind(err);
                         }
                     }
                 }
@@ -543,12 +541,10 @@ mod tests {
         .detach();
 
         while !pool.any_panicking_threads() {}
-        pool.handle_panicking_threads();
 
-        assert!(!pool.any_panicking_threads());
-
-        // even though the first thread panicked, `handle_panicking_threads` replaced it with
-        // a new thread. Allowing `spawn` to work again.
+        // even though the first thread panicked, we can still queue up a task
+        // as the next call to `handle_panicking_threads` will replace the panicked
+        // thread with a new once.
         let success = Arc::new(AtomicBool::new(false));
         let success_clone = success.clone();
         pool.spawn(async move {
@@ -556,11 +552,14 @@ mod tests {
         })
         .detach();
 
+        pool.handle_panicking_threads();
+        assert!(!pool.any_panicking_threads());
+
         while !success.load(Ordering::Acquire) {}
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "bevy"]
     fn test_propagate_panic_policy() {
         std::panic::set_hook(Box::new(|_| {}));
 
@@ -572,7 +571,7 @@ mod tests {
         );
 
         pool.spawn(async {
-            panic!("");
+            panic!("bevy");
         })
         .detach();
 
