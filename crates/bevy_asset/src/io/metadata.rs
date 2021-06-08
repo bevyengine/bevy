@@ -42,10 +42,19 @@ impl TryFrom<std::fs::FileType> for FileType {
 /// This structure is returned from the [`AssetIo::get_metadata`] method.
 #[derive(Debug, Clone)]
 pub struct Metadata {
-    pub file_type: FileType,
+    file_type: FileType,
 }
 
 impl Metadata {
+    pub fn new(file_type: FileType) -> Self {
+        Self { file_type }
+    }
+
+    #[inline]
+    pub const fn file_type(&self) -> FileType {
+        self.file_type
+    }
+
     #[inline]
     pub const fn is_dir(&self) -> bool {
         self.file_type.is_dir()
