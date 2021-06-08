@@ -236,7 +236,6 @@ impl AssetServer {
         asset_path: AssetPath<'_>,
         force: bool,
     ) -> Result<AssetPathId, AssetServerError> {
-        let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
         // load metadata and update source info. this is done in a scope to ensure we release the
@@ -278,6 +277,15 @@ impl AssetServer {
                 .get_mut(&asset_path_id.source_path_id())
                 .expect("`AssetSource` should exist at this point.");
             source_info.load_state = LoadState::Failed;
+        };
+
+        // get the according asset loader
+        let asset_loader = match self.get_path_asset_loader(asset_path.path()) {
+            Ok(loader) => loader,
+            Err(err) => {
+                set_asset_failed();
+                return Err(err);
+            }
         };
 
         // load the asset bytes
@@ -708,7 +716,7 @@ mod test {
             _ => false,
         });
 
-        assert_eq!(asset_server.get_load_state(handle), LoadState::NotLoaded);
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
     }
 
     #[test]
