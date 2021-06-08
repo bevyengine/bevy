@@ -831,4 +831,25 @@ mod test {
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
         assert!(get_asset(&handle, &world).is_some());
     }
+
+    #[test]
+    fn test_get_handle_path() {
+        const PATH: &str = "path/file.png";
+
+        // valid handle
+        let server = setup(".");
+        let handle = server.load_untyped(PATH);
+        let handle_path = server.get_handle_path(&handle).unwrap();
+
+        assert_eq!(handle_path.path(), Path::new(PATH));
+        assert!(handle_path.label().is_none());
+
+        let handle_id: HandleId = handle.into();
+        let path_id: HandleId = handle_path.get_id().into();
+        assert_eq!(handle_id, path_id);
+
+        // invalid handle
+        let invalid = HandleId::new(Uuid::new_v4(), 42);
+        assert!(server.get_handle_path(invalid).is_none());
+    }
 }
