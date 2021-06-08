@@ -176,8 +176,8 @@ impl TaskPool {
                         .write()
                         .threads
                         .iter_mut()
-                        .filter(|state| state.panicking())
                         .enumerate()
+                        .filter(|(_, state)| state.panicking())
                     {
                         let thread_name = match state.thread().name() {
                             Some(name) => name.to_owned(),
