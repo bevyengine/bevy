@@ -848,8 +848,17 @@ mod test {
         let path_id: HandleId = handle_path.get_id().into();
         assert_eq!(handle_id, path_id);
 
-        // invalid handle
-        let invalid = HandleId::new(Uuid::new_v4(), 42);
-        assert!(server.get_handle_path(invalid).is_none());
+        // invalid handle (not loaded through server)
+        let mut assets = server.register_asset_type::<PngAsset>();
+        let handle = assets.add(PngAsset);
+        assert!(server.get_handle_path(&handle).is_none());
+
+        // invalid HandleId
+        let invalid_id = HandleId::new(Uuid::new_v4(), 42);
+        assert!(server.get_handle_path(invalid_id).is_none());
+
+        // invalid AssetPath
+        let invalid_path = AssetPath::new("some/path.ext".into(), None);
+        assert!(server.get_handle_path(invalid_path).is_none());
     }
 }
