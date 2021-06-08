@@ -525,4 +525,58 @@ mod tests {
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
     }
+
+    #[test]
+    fn test_restart_panic_policy() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let pool = Arc::new(
+            TaskPoolBuilder::new()
+                .panic_policy(TaskPoolThreadPanicPolicy::Restart)
+                .num_threads(1)
+                .build(),
+        );
+
+        pool.spawn(async {
+            panic!("oh no!");
+        })
+        .detach();
+
+        while !pool.any_panicking_threads() {}
+        pool.handle_panicking_threads();
+
+        assert!(!pool.any_panicking_threads());
+
+        // even though the first thread panicked, `handle_panicking_threads` replaced it with
+        // a new thread. Allowing `spawn` to work again.
+        let success = Arc::new(AtomicBool::new(false));
+        let success_clone = success.clone();
+        pool.spawn(async move {
+            success_clone.store(true, Ordering::Release);
+        })
+        .detach();
+
+        while !success.load(Ordering::Acquire) {}
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_propagate_panic_policy() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let pool = Arc::new(
+            TaskPoolBuilder::new()
+                .panic_policy(TaskPoolThreadPanicPolicy::Propagate)
+                .num_threads(1)
+                .build(),
+        );
+
+        pool.spawn(async {
+            panic!("");
+        })
+        .detach();
+
+        while !pool.any_panicking_threads() {}
+        pool.handle_panicking_threads();
+    }
 }
