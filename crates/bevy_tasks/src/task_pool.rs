@@ -194,14 +194,13 @@ impl TaskPool {
                             ),
                         );
 
-                        // join the panicked thread handle
-                        let panic_error = old_state.handle.join().unwrap_err();
-
                         warn!(
-                            "TaskPool's inner thread '{:?}' panicked with error: {:?}",
-                            state.thread(),
-                            panic_error
+                            "TaskPool's inner thread '{:?}' panicked!",
+                            old_state.thread()
                         );
+
+                        // join the panicked thread handle
+                        old_state.handle.join().unwrap_err();
                     }
                 }
             }
