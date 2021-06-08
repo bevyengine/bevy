@@ -1,7 +1,6 @@
-use super::{
-    image_texture_conversion::image_to_texture, Extent3d, SamplerDescriptor, TextureDescriptor,
-    TextureDimension, TextureFormat,
-};
+use std::convert::TryInto;
+
+use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
@@ -135,9 +134,10 @@ impl Texture {
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
-    pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
-            .and_then(|img| match new_format {
+    pub fn convert(self, new_format: TextureFormat) -> Option<Self> {
+        self.try_into()
+            .ok()
+            .and_then(|img: image::DynamicImage| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {
                     Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
@@ -150,7 +150,7 @@ impl Texture {
                 }
                 _ => None,
             })
-            .map(super::image_texture_conversion::image_to_texture)
+            .map(|image| image.into())
     }
 
     pub fn texture_resource_system(
@@ -243,7 +243,7 @@ impl Texture {
         // cases.
 
         let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-        Ok(image_to_texture(dyn_img))
+        Ok(dyn_img.into())
     }
 }
 
