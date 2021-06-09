@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    component::Component,
     storage::SparseSet,
+    system::Resource,
     world::{Mut, World},
 };
 use std::{
@@ -182,7 +182,7 @@ impl<'w> WorldCell<'w> {
         }
     }
 
-    pub fn get_resource<T: Component>(&self) -> Option<WorldBorrow<'_, T>> {
+    pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
@@ -194,7 +194,7 @@ impl<'w> WorldCell<'w> {
         ))
     }
 
-    pub fn get_resource_mut<T: Component>(&self) -> Option<WorldBorrowMut<'_, T>> {
+    pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;

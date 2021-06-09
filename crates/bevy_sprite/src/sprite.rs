@@ -2,6 +2,7 @@ use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
 use bevy_core::Bytes;
 use bevy_ecs::{
+    component::Component,
     query::Without,
     system::{Query, Res},
 };
@@ -15,7 +16,7 @@ use bevy_render::{
 use serde::{Deserialize, Serialize};
 
 /// General Sprite Examples: [Link](https://github.com/bevyengine/bevy/tree/latest/examples/2d)
-#[derive(Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
+#[derive(Component, Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
 #[render_resources(from_self)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[repr(C)]

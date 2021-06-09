@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     query::Changed,
     reflect::ReflectComponent,
@@ -13,7 +14,7 @@ use std::{
 };
 
 /// A collection of labels
-#[derive(Default, Reflect)]
+#[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct Labels {
     labels: HashSet<Cow<'static, str>>,

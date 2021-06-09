@@ -17,6 +17,7 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {

@@ -17,6 +17,7 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating

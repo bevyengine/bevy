@@ -1,8 +1,5 @@
-use crate as bevy_ecs;
-use crate::{
-    component::Component,
-    system::{Local, Res, ResMut, SystemParam},
-};
+use crate::system::{Local, Res, ResMut, SystemParam};
+use crate::{self as bevy_ecs, system::Resource};
 use bevy_utils::tracing::trace;
 use std::{
     fmt::{self},
@@ -151,18 +148,18 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
+pub struct EventReader<'a, T: Resource> {
     last_event_count: Local<'a, (usize, PhantomData<T>)>,
     events: Res<'a, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
+pub struct EventWriter<'a, T: Resource> {
     events: ResMut<'a, Events<T>>,
 }
 
-impl<'a, T: Component> EventWriter<'a, T> {
+impl<'a, T: Resource> EventWriter<'a, T> {
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -252,7 +249,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: Component> EventReader<'a, T> {
+impl<'a, T: Resource> EventReader<'a, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.
@@ -269,7 +266,7 @@ impl<'a, T: Component> EventReader<'a, T> {
     }
 }
 
-impl<T: Component> Events<T> {
+impl<T: Resource> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {

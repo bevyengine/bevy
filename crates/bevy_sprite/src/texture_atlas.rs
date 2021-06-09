@@ -1,6 +1,7 @@
 use crate::Rect;
 use bevy_asset::Handle;
 use bevy_core::Bytes;
+use bevy_ecs::component::Component;
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -27,7 +28,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
-#[derive(Debug, Clone, RenderResources)]
+#[derive(Component, Debug, Clone, RenderResources)]
 #[render_resources(from_self)]
 #[repr(C)]
 pub struct TextureAtlasSprite {

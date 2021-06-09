@@ -10,12 +10,12 @@ use crate::{
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_ecs::{reflect::ReflectComponent, world::World};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct MainPass;
 

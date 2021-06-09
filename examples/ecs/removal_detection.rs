@@ -23,6 +23,7 @@ fn main() {
 
 // This `Struct` is just used for convenience in this example. This is the `Component` we'll be
 // giving to the `Entity` so we have a `Component` to remove in `remove_component()`.
+#[derive(Component)]
 struct MyComponent;
 
 fn setup(

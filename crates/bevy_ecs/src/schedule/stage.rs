@@ -2060,6 +2060,9 @@ mod tests {
 
     #[test]
     fn change_query_wrapover() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct C;
         let mut world = World::new();
 

@@ -21,7 +21,7 @@ fn main() {
         .run();
 }
 
-#[derive(RenderResources, Default, TypeUuid)]
+#[derive(Component, RenderResources, Default, TypeUuid)]
 #[uuid = "93fb26fc-6c05-489b-9029-601edf703b6b"]
 struct MyArrayTexture {
     pub texture: Handle<Texture>,

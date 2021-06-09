@@ -27,8 +27,10 @@ use thiserror::Error;
 /// functions which return a [`QueryIter`] to iterate over:
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
+/// #[derive(Component)]
 /// struct UnitHealth(pub u32);
 /// fn system(query: Query<&UnitHealth>) {
 ///     for UnitHealth(health) in query.iter() {
@@ -46,15 +48,19 @@ use thiserror::Error;
 /// component.
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
-/// #[derive(Debug)]
+/// #[derive(Component, Debug)]
 /// enum Shape {
 ///     Circle,
 ///     Box,
 /// };
+/// #[derive(Component)]
 /// struct Color(pub String);
+/// #[derive(Component)]
 /// struct Size(pub u32);
+///
 /// fn system(mut query: Query<(&Shape, &Color, &mut Size)>) {
 ///     for (shape, color, mut size) in query.iter_mut() {
 ///         *size = Size(1);
@@ -75,11 +81,15 @@ use thiserror::Error;
 /// it requests. Let's look at an example on how to use this filter.
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_ecs::query::With;
+/// #[derive(Component)]
 /// struct Person(String);
+/// #[derive(Component)]
 /// struct IsTallEnough;
+///
 /// fn system(query: Query<&Person, With<IsTallEnough>>) {
 ///     for person in query.iter() {
 ///         println!("{} is tall enough!", person.0);
@@ -198,8 +208,9 @@ where
     /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
     ///
     /// ```
-    /// # struct A;
     /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// # struct A;
     /// # fn some_system(mut query: Query<&mut A>) {
     /// // iterate using `fetch_next` in while loop
     /// let mut combinations = query.iter_combinations_mut();
@@ -491,9 +502,11 @@ where
     /// # Examples
     ///
     /// ```
-    ///  # use bevy_ecs::system::{Query, QuerySingleError};
-    ///  # use bevy_ecs::prelude::IntoSystem;
+    ///  # use bevy_ecs::system::{QuerySingleError};
+    ///  # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
     /// struct PlayerScore(i32);
+    ///
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
     ///     match query.single() {
     ///         Ok(PlayerScore(score)) => {

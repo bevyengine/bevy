@@ -37,11 +37,13 @@ use rand::random;
 //
 
 // Our game will have a number of "players". Each player has a name that identifies them
+#[derive(Component)]
 struct Player {
     name: String,
 }
 
 // Each player also has a score. This component holds on to that score
+#[derive(Component)]
 struct Score {
     value: usize,
 }

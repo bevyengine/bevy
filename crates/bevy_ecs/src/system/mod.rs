@@ -20,9 +20,10 @@ mod tests {
     use std::any::TypeId;
 
     use crate::{
+        self as bevy_ecs,
         archetype::Archetypes,
         bundle::Bundles,
-        component::Components,
+        component::{Component, Components},
         entity::{Entities, Entity},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
@@ -33,12 +34,17 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    #[derive(Debug, Eq, PartialEq, Default)]
+    #[derive(Component, Debug, Eq, PartialEq, Default)]
     struct A;
+    #[derive(Component)]
     struct B;
+    #[derive(Component)]
     struct C;
+    #[derive(Component)]
     struct D;
+    #[derive(Component)]
     struct E;
+    #[derive(Component)]
     struct F;
 
     #[test]
@@ -515,7 +521,7 @@ mod tests {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();
@@ -538,7 +544,7 @@ mod tests {
         #[derive(Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();
@@ -562,7 +568,7 @@ mod tests {
 
     #[test]
     fn system_state_change_detection() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct A(usize);
 
         let mut world = World::default();
@@ -597,10 +603,10 @@ mod tests {
 
     #[test]
     fn system_state_archetype_update() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct A(usize);
 
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Component, Eq, PartialEq, Debug)]
         struct B(usize);
 
         let mut world = World::default();

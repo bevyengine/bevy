@@ -3,6 +3,7 @@ use bevy_asset::{Asset, Assets, Handle};
 use crate::{draw::OutsideFrustum, pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
 use bevy_ecs::{
+    prelude::Component,
     query::Without,
     system::{Query, Res},
 };
@@ -70,7 +71,7 @@ impl ShaderDef for Option<Handle<Texture>> {
 /// Updates [RenderPipelines] with the latest [ShaderDefs]
 pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines), Without<OutsideFrustum>>)
 where
-    T: ShaderDefs + Send + Sync + 'static,
+    T: ShaderDefs + Component,
 {
     for (shader_defs, mut render_pipelines) in query.iter_mut() {
         for shader_def in shader_defs.iter_shader_defs() {

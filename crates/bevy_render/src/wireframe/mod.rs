@@ -8,6 +8,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
+    component::Component,
     query::With,
     reflect::ReflectComponent,
     system::{IntoSystem, Query, QuerySet, Res},
@@ -40,7 +41,7 @@ impl Plugin for WireframePlugin {
     }
 }
 
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Component, Debug, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct Wireframe;
 

@@ -2,7 +2,9 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
+    component::{
+        Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, TypeInfo,
+    },
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -21,19 +23,26 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// You can nest bundles like so:
 /// ```
-/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::{component::Component, bundle::Bundle};
+///
+/// #[derive(Component)]
+/// struct X(i32);
+/// #[derive(Component)]
+/// struct Y(u64);
+/// #[derive(Component)]
+/// struct Z(String);
 ///
 /// #[derive(Bundle)]
 /// struct A {
-///     x: i32,
-///     y: u64,
+///     x: X,
+///     y: Y,
 /// }
 ///
 /// #[derive(Bundle)]
 /// struct B {
 ///     #[bundle]
 ///     a: A,
-///     z: String,
+///     z: Z,
 /// }
 /// ```
 ///
@@ -43,6 +52,8 @@ use std::{any::TypeId, collections::HashMap};
 /// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by
 /// [Bundle::type_info]
 pub unsafe trait Bundle: Send + Sync + 'static {
+    const IS_DENSE: bool;
+
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn type_info() -> Vec<TypeInfo>;
 
@@ -69,6 +80,13 @@ macro_rules! tuple_impl {
             fn type_info() -> Vec<TypeInfo> {
                 vec![$(TypeInfo::of::<$name>()),*]
             }
+
+            const IS_DENSE: bool = true $(&&
+                match $name::Storage::STORAGE_TYPE {
+                    StorageType::Table => true,
+                    StorageType::SparseSet => false,
+                }
+            )*;
 
             #[allow(unused_variables, unused_mut)]
             unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {

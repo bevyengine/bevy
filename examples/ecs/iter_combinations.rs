@@ -26,11 +26,11 @@ const GRAVITY_CONSTANT: f32 = 0.001;
 const SOFTENING: f32 = 0.01;
 const NUM_BODIES: usize = 100;
 
-#[derive(Default)]
+#[derive(Component, Default)]
 struct Mass(f32);
-#[derive(Default)]
+#[derive(Component, Default)]
 struct Acceleration(Vec3);
-#[derive(Default)]
+#[derive(Component, Default)]
 struct LastPos(Vec3);
 
 #[derive(Bundle, Default)]

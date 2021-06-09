@@ -1,11 +1,12 @@
 use bevy_asset::Handle;
+use bevy_ecs::component::Component;
 use bevy_math::Size;
 use bevy_render::color::Color;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::Font;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,
@@ -101,7 +102,7 @@ impl Default for TextStyle {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug)]
 pub struct Text2dSize {
     pub size: Size,
 }

@@ -12,10 +12,10 @@ fn main() {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct LogNamesSystem;
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 struct Name(String);
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 struct Age(usize);
 
 #[derive(Debug, Bundle)]

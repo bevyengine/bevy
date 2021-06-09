@@ -1,6 +1,7 @@
 use bevy::{prelude::*, tasks::prelude::*};
 use rand::random;
 
+#[derive(Component)]
 struct Velocity(Vec2);
 
 fn spawn_system(

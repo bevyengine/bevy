@@ -2,7 +2,8 @@ mod type_info;
 
 pub use type_info::*;
 
-use crate::storage::SparseSetIndex;
+use crate::{storage::SparseSetIndex, system::Resource};
+pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -13,8 +14,15 @@ use thiserror::Error;
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
 /// multiple different types of components, but only one of them per type.
 ///
-/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
+/// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
 ///
+/// In order to use foreign types as components, wrap them using a newtype pattern.
+/// ```
+/// # use bevy_ecs::component::Component;
+/// use std::time::Duration;
+/// #[derive(Component)]
+/// struct Cooldown(Duration);
+/// ```
 /// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
 /// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
 /// or their [`World`](crate::world::World) equivalents.
@@ -23,8 +31,73 @@ use thiserror::Error;
 /// as one of the arguments.
 ///
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
-pub trait Component: Send + Sync + 'static {}
-impl<T: Send + Sync + 'static> Component for T {}
+pub trait Component: Send + Sync + 'static {
+    type Storage: ComponentStorage;
+}
+
+pub struct TableStorage;
+pub struct SparseStorage;
+
+pub trait ComponentStorage: sealed::Sealed {
+    // because the trait is selaed, those items are private API.
+    const STORAGE_TYPE: StorageType;
+}
+
+impl ComponentStorage for TableStorage {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+}
+impl ComponentStorage for SparseStorage {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+}
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::TableStorage {}
+    impl Sealed for super::SparseStorage {}
+}
+
+// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
+impl<T> Component for bevy_tasks::Task<T>
+where
+    Self: Send + Sync + 'static,
+{
+    type Storage = TableStorage;
+}
+
+// For our own convinience, let's implement Component for primitives in tests.
+// It will eventually be removed, once tests are not using them anymore.
+// Consider those impls deprecated.
+#[cfg(test)]
+mod private_test_component_impls {
+    use super::{Component, TableStorage};
+    impl Component for &'static str {
+        type Storage = TableStorage;
+    }
+    impl Component for usize {
+        type Storage = TableStorage;
+    }
+    impl Component for i32 {
+        type Storage = TableStorage;
+    }
+    impl Component for u32 {
+        type Storage = TableStorage;
+    }
+    impl Component for u64 {
+        type Storage = TableStorage;
+    }
+    impl Component for f32 {
+        type Storage = TableStorage;
+    }
+    impl Component for f64 {
+        type Storage = TableStorage;
+    }
+    impl Component for u8 {
+        type Storage = TableStorage;
+    }
+    impl Component for bool {
+        type Storage = TableStorage;
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
@@ -138,10 +211,10 @@ pub struct ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    pub fn new<T: Component>(storage_type: StorageType) -> Self {
+    pub fn new<T: Component>(_storage_type: StorageType) -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
-            storage_type,
+            storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -262,7 +335,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn get_or_insert_resource_id<T: Component>(&mut self) -> ComponentId {
+    pub fn get_or_insert_resource_id<T: Resource>(&mut self) -> ComponentId {
         self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of::<T>)
     }
 

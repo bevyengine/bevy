@@ -24,14 +24,18 @@ struct ContributorSelection {
     idx: usize,
 }
 
+#[derive(Component)]
 struct SelectTimer;
 
+#[derive(Component)]
 struct ContributorDisplay;
 
+#[derive(Component)]
 struct Contributor {
     hue: f32,
 }
 
+#[derive(Component)]
 struct Velocity {
     translation: Vec3,
     rotation: f32,

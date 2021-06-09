@@ -1,4 +1,4 @@
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
 use std::{
@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized

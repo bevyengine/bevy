@@ -15,6 +15,7 @@ struct BevyCounter {
     pub count: u128,
 }
 
+#[derive(Component)]
 struct Bird {
     velocity: Vec3,
 }
