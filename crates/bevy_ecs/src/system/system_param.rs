@@ -1,4 +1,4 @@
-pub use crate::change_detection::ResMut;
+pub use crate::change_detection::{NonSendMut, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -798,61 +798,6 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     }
 }
 
-/// Unique borrow of a non-[`Send`] resource.
-///
-/// Only `Send` resources may be accessed with the [`ResMut`] [`SystemParam`]. In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// # Panics
-///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-pub struct NonSendMut<'a, T: 'static> {
-    pub(crate) value: &'a mut T,
-    ticks: &'a mut ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-impl<'w, T: Component> NonSendMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
-    }
-
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
-    pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
-    }
-}
-
-impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut T {
-        self.ticks.set_changed(self.change_tick);
-        self.value
-    }
-}
-
-impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("NonSendMut").field(&self.value).finish()
-    }
-}
-
 /// The [`SystemParamState`] of [`NonSendMut`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
@@ -922,9 +867,11 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
             });
         NonSendMut {
             value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
-            ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
+            ticks: Ticks {
+                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                last_change_tick: system_meta.last_change_tick,
+                change_tick,
+            },
         }
     }
 }
