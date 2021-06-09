@@ -64,13 +64,15 @@ impl Node for WindowTextureNode {
         {
             let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
-                render_resource_context.remove_texture(old_texture);
+                // cleans up all views
+                render_resource_context.remove_texture(old_texture.get_texture_id());
             }
 
             self.descriptor.size.width = window.physical_width();
             self.descriptor.size.height = window.physical_height();
-            let texture_resource = render_resource_context.create_texture(self.descriptor);
-            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+            let texture_id = render_resource_context.create_texture(self.descriptor);
+            let texture_view = render_resource_context.create_default_texture_view(texture_id);
+            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_view));
         }
     }
 }

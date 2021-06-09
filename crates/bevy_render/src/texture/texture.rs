@@ -182,13 +182,14 @@ impl Texture {
         for texture_handle in changed_textures.iter() {
             if let Some(texture) = textures.get(*texture_handle) {
                 let texture_descriptor: TextureDescriptor = texture.into();
-                let texture_resource = render_resource_context.create_texture(texture_descriptor);
+                let texture_id = render_resource_context.create_texture(texture_descriptor);
+                let texture_view = render_resource_context.create_default_texture_view(texture_id);
 
                 let sampler_resource = render_resource_context.create_sampler(&texture.sampler);
 
                 render_resource_context.set_asset_resource(
                     texture_handle,
-                    RenderResourceId::Texture(texture_resource),
+                    RenderResourceId::Texture(texture_view),
                     TEXTURE_ASSET_INDEX,
                 );
                 render_resource_context.set_asset_resource(
@@ -204,10 +205,11 @@ impl Texture {
         render_resource_context: &dyn RenderResourceContext,
         handle: &Handle<Texture>,
     ) {
-        if let Some(RenderResourceId::Texture(resource)) =
+        if let Some(RenderResourceId::Texture(texture_view)) =
             render_resource_context.get_asset_resource(handle, TEXTURE_ASSET_INDEX)
         {
-            render_resource_context.remove_texture(resource);
+            // removes all texture_views
+            render_resource_context.remove_texture(texture_view.get_texture_id());
             render_resource_context.remove_asset_resource(handle, TEXTURE_ASSET_INDEX);
         }
         if let Some(RenderResourceId::Sampler(resource)) =

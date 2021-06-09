@@ -1,14 +1,17 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    renderer::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
+    renderer::{
+        BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, SwapChainTextureId,
+        TextureId, TextureViewId,
+    },
     shader::Shader,
-    texture::TextureDescriptor,
+    texture::{TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_utils::HashMap;
 use bevy_window::WindowId;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
-use parking_lot::{RwLock, RwLockReadGuard};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use std::sync::Arc;
 
 #[derive(Debug, Default)]
@@ -46,8 +49,8 @@ pub struct WgpuBindGroupInfo {
 #[derive(Debug)]
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
-    pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
-    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
+    pub textures: RwLockReadGuard<'a, HashMap<TextureViewId, wgpu::TextureView>>,
+    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<SwapChainTextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -72,8 +75,8 @@ impl<'a> WgpuResourcesReadLock<'a> {
 #[derive(Debug)]
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
-    pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
-    pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
+    pub textures: &'a HashMap<TextureViewId, wgpu::TextureView>,
+    pub swap_chain_frames: &'a HashMap<SwapChainTextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
     pub used_bind_group_sender: &'a Sender<BindGroupId>,
@@ -82,12 +85,15 @@ pub struct WgpuResourceRefs<'a> {
 #[derive(Default, Clone, Debug)]
 pub struct WgpuResources {
     pub buffer_infos: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
-    pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
+    pub texture_descriptors: Arc<Mutex<HashMap<TextureId, TextureDescriptor>>>,
+    pub texture_view_descriptors: Arc<Mutex<HashMap<TextureViewId, TextureViewDescriptor>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
-    pub swap_chain_frames: Arc<RwLock<HashMap<TextureId, wgpu::SwapChainFrame>>>,
+    pub swap_chain_frames: Arc<RwLock<HashMap<SwapChainTextureId, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
-    pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
+    pub texture_views: Arc<RwLock<HashMap<TextureViewId, wgpu::TextureView>>>,
+    pub texture_texture_views:
+        Arc<Mutex<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,

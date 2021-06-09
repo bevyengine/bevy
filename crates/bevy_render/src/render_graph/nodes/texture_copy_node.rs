@@ -71,7 +71,7 @@ impl Node for TextureCopyNode {
                             texture_buffer,
                             0,
                             (format_size * aligned_width) as u32,
-                            texture_resource.get_texture().unwrap(),
+                            texture_resource.get_texture().unwrap().get_texture_id(),
                             [0, 0, 0],
                             0,
                             texture_descriptor.size,

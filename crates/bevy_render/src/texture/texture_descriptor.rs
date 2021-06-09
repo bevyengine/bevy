@@ -1,4 +1,8 @@
-use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
+use std::num::NonZeroU32;
+
+use super::{
+    Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
+};
 
 /// Describes a texture
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -39,6 +43,47 @@ impl Default for TextureDescriptor {
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }
     }
+}
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum TextureAspect {
+    /// Depth, Stencil, and Color.
+    All,
+    /// Stencil.
+    StencilOnly,
+    /// Depth.
+    DepthOnly,
+}
+
+impl Default for TextureAspect {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+pub struct TextureViewDescriptor {
+    /// Debug label of the texture view. This will show up in graphics debuggers for easy identification.
+    // TODO enable labels
+    // pub label: Option<&'a str>,
+    /// Format of the texture view. At this time, it must be the same as the underlying format of the texture.
+    pub format: Option<TextureFormat>,
+    /// The dimension of the texture view. For 1D textures, this must be `1D`. For 2D textures it must be one of
+    /// `D2`, `D2Array`, `Cube`, and `CubeArray`. For 3D textures it must be `3D`
+    pub dimension: Option<TextureViewDimension>,
+    /// Aspect of the texture. Color textures must be [`TextureAspect::All`].
+    pub aspect: TextureAspect,
+    /// Base mip level.
+    pub base_mip_level: u32,
+    /// Mip level count.
+    /// If `Some(count)`, `base_mip_level + count` must be less or equal to underlying texture mip count.
+    /// If `None`, considered to include the rest of the mipmap levels, but at least 1 in total.
+    pub level_count: Option<NonZeroU32>,
+    /// Base array layer.
+    pub base_array_layer: u32,
+    /// Layer count.
+    /// If `Some(count)`, `base_array_layer + count` must be less or equal to the underlying array count.
+    /// If `None`, considered to include the rest of the array layers, but at least 1 in total.
+    pub array_layer_count: Option<NonZeroU32>,
 }
 
 #[derive(Hash, Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]

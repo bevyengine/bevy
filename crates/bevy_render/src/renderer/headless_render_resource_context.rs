@@ -1,11 +1,11 @@
-use super::RenderResourceContext;
+use super::{RenderResourceContext, SwapChainTextureId, TextureViewId};
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
     },
     shader::{Shader, ShaderError},
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_utils::HashMap;
@@ -17,6 +17,9 @@ use std::{ops::Range, sync::Arc};
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
+    texture_view_descriptors: Arc<RwLock<HashMap<TextureViewId, TextureViewDescriptor>>>,
+    texture_texture_views:
+        Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
@@ -28,16 +31,26 @@ impl HeadlessRenderResourceContext {
     pub fn add_texture_descriptor(&self, texture: TextureId, descriptor: TextureDescriptor) {
         self.texture_descriptors.write().insert(texture, descriptor);
     }
+
+    pub fn add_texture_view_descriptor(
+        &self,
+        texture_view: TextureViewId,
+        descriptor: TextureViewDescriptor,
+    ) {
+        self.texture_view_descriptors
+            .write()
+            .insert(texture_view, descriptor);
+    }
 }
 
 impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_swap_chain(&self, _window: &Window) {}
 
-    fn next_swap_chain_texture(&self, _window: &Window) -> TextureId {
-        TextureId::new()
+    fn next_swap_chain_texture(&self, _window: &Window) -> SwapChainTextureId {
+        SwapChainTextureId::new()
     }
 
-    fn drop_swap_chain_texture(&self, _render_resource: TextureId) {}
+    fn drop_swap_chain_texture(&self, _render_resource: SwapChainTextureId) {}
 
     fn drop_all_swap_chain_textures(&self) {}
 
@@ -49,6 +62,26 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         let texture = TextureId::new();
         self.add_texture_descriptor(texture, texture_descriptor);
         texture
+    }
+
+    fn create_default_texture_view(&self, texture_id: TextureId) -> TextureViewId {
+        self.create_texture_view(texture_id, TextureViewDescriptor::default(), None)
+    }
+
+    fn create_texture_view(
+        &self,
+        texture_id: TextureId,
+        texture_view_descriptor: TextureViewDescriptor,
+        bind_group_descriptor: Option<BindGroupDescriptorId>,
+    ) -> TextureViewId {
+        let texture_view = TextureViewId::new(texture_id);
+        self.add_texture_view_descriptor(texture_view, texture_view_descriptor);
+        self.texture_texture_views
+            .write()
+            .entry(texture_id)
+            .or_insert_with(HashMap::default)
+            .insert(bind_group_descriptor, texture_view);
+        texture_view
     }
 
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId {
@@ -91,15 +124,44 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn create_shader_module(&self, _shader_handle: &Handle<Shader>, _shaders: &Assets<Shader>) {}
 
+    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
+
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        _macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        Ok(shader.clone())
+    }
+
     fn remove_buffer(&self, buffer: BufferId) {
         self.buffer_info.write().remove(&buffer);
     }
 
     fn remove_texture(&self, texture: TextureId) {
         self.texture_descriptors.write().remove(&texture);
+        for (_, texture_view) in self.texture_texture_views.write().remove(&texture).unwrap() {
+            self.texture_view_descriptors.write().remove(&texture_view);
+        }
+    }
+
+    fn remove_texture_view(&self, texture_view: TextureViewId) {
+        self.texture_view_descriptors.write().remove(&texture_view);
     }
 
     fn remove_sampler(&self, _sampler: SamplerId) {}
+
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
+        self.buffer_info.read().get(&buffer).cloned()
+    }
+
+    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
+        size
+    }
+
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        size
+    }
 
     fn set_asset_resource_untyped(
         &self,
@@ -120,31 +182,16 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         self.asset_resources.write().get(&(handle, index)).cloned()
     }
 
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
+        self.asset_resources.write().remove(&(handle, index));
+    }
+
     fn create_render_pipeline(
         &self,
         _pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_descriptor: &PipelineDescriptor,
         _shaders: &Assets<Shader>,
     ) {
-    }
-
-    fn create_bind_group(
-        &self,
-        _bind_group_descriptor_id: BindGroupDescriptorId,
-        _bind_group: &BindGroup,
-    ) {
-    }
-
-    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
-
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
-        self.asset_resources.write().remove(&(handle, index));
-    }
-
-    fn clear_bind_groups(&self) {}
-
-    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.buffer_info.read().get(&buffer).cloned()
     }
 
     fn bind_group_descriptor_exists(
@@ -154,21 +201,14 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         false
     }
 
-    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
-        size
-    }
-
-    fn get_aligned_texture_size(&self, size: usize) -> usize {
-        size
-    }
-
-    fn get_specialized_shader(
+    fn create_bind_group(
         &self,
-        shader: &Shader,
-        _macros: Option<&[String]>,
-    ) -> Result<Shader, ShaderError> {
-        Ok(shader.clone())
+        _bind_group_descriptor_id: BindGroupDescriptorId,
+        _bind_group: &BindGroup,
+    ) {
     }
+
+    fn clear_bind_groups(&self) {}
 
     fn remove_stale_bind_groups(&self) {}
 }

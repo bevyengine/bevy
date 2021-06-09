@@ -211,13 +211,10 @@ where
                 }
             }
             if let Some(input_index) = self.color_attachment_input_indices[i] {
-                color_attachment.attachment =
-                    TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
+                color_attachment.attachment = input.get(input_index).unwrap().into();
             }
             if let Some(input_index) = self.color_resolve_target_indices[i] {
-                color_attachment.resolve_target = Some(TextureAttachment::Id(
-                    input.get(input_index).unwrap().get_texture().unwrap(),
-                ));
+                color_attachment.resolve_target = Some(input.get(input_index).unwrap().into());
             }
         }
 
@@ -226,8 +223,7 @@ where
                 .depth_stencil_attachment
                 .as_mut()
                 .unwrap()
-                .attachment =
-                TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
+                .attachment = input.get(input_index).unwrap().into();
         }
 
         let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();

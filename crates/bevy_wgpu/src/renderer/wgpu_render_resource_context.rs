@@ -8,12 +8,14 @@ use bevy_render::{
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding,
-        RenderResourceContext, RenderResourceId, SamplerId, TextureId,
+        RenderResourceContext, RenderResourceId, SamplerId, SwapChainTextureId, TextureId,
+        TextureViewId,
     },
     shader::{glsl_to_spirv, Shader, ShaderError, ShaderSource},
-    texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
+    texture::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_utils::tracing::trace;
+use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{
@@ -230,19 +232,61 @@ impl WgpuRenderResourceContext {
         bind_group_layouts.insert(descriptor.id, bind_group_layout);
     }
 
-    fn try_next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
+    fn try_next_swap_chain_texture(
+        &self,
+        window_id: bevy_window::WindowId,
+    ) -> Option<SwapChainTextureId> {
         let mut window_swap_chains = self.resources.window_swap_chains.write();
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
         let next_texture = window_swap_chain.get_current_frame().ok()?;
-        let id = TextureId::new();
+        let id = SwapChainTextureId::new();
         swap_chain_outputs.insert(id, next_texture);
         Some(id)
     }
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
+    fn create_swap_chain(&self, window: &Window) {
+        let surfaces = self.resources.window_surfaces.read();
+        let mut window_swap_chains = self.resources.window_swap_chains.write();
+
+        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
+        let surface = surfaces
+            .get(&window.id())
+            .expect("No surface found for window.");
+        let swap_chain = self
+            .device
+            .create_swap_chain(surface, &swap_chain_descriptor);
+
+        window_swap_chains.insert(window.id(), swap_chain);
+    }
+
+    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> SwapChainTextureId {
+        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
+            texture_id
+        } else {
+            self.resources
+                .window_swap_chains
+                .write()
+                .remove(&window.id());
+            self.create_swap_chain(window);
+            self.try_next_swap_chain_texture(window.id())
+                .expect("Failed to acquire next swap chain texture!")
+        }
+    }
+
+    fn drop_swap_chain_texture(&self, texture: SwapChainTextureId) {
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
+        swap_chain_outputs.remove(&texture);
+    }
+
+    fn drop_all_swap_chain_textures(&self) {
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
+        swap_chain_outputs.clear();
+    }
+
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId {
         let mut samplers = self.resources.samplers.write();
 
@@ -256,18 +300,56 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
         let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
-        let mut texture_descriptors = self.resources.texture_descriptors.write();
+        let mut texture_descriptors = self.resources.texture_descriptors.lock();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let id = TextureId::new();
-        texture_descriptors.insert(id, texture_descriptor);
-        texture_views.insert(id, texture_view);
-        textures.insert(id, texture);
-        id
+        let texture_id = TextureId::new();
+
+        texture_descriptors.insert(texture_id, texture_descriptor);
+        textures.insert(texture_id, texture);
+
+        texture_id
+    }
+
+    fn create_default_texture_view(&self, texture_id: TextureId) -> TextureViewId {
+        self.create_texture_view(texture_id, TextureViewDescriptor::default(), None)
+    }
+
+    fn create_texture_view(
+        &self,
+        texture_id: TextureId,
+        texture_view_descriptor: TextureViewDescriptor,
+        bind_group_descriptor: Option<BindGroupDescriptorId>,
+    ) -> TextureViewId {
+        let mut texture_texture_views = self.resources.texture_texture_views.lock();
+        if let Some(texture_view_id) = texture_texture_views
+            .get(&texture_id)
+            .and_then(|per_bind_group_ids| per_bind_group_ids.get(&bind_group_descriptor))
+        {
+            return *texture_view_id;
+        }
+
+        let textures = self.resources.textures.read();
+        let mut texture_views = self.resources.texture_views.write();
+        let mut texture_view_descriptors = self.resources.texture_view_descriptors.lock();
+
+        let texture = textures.get(&texture_id).unwrap();
+
+        let wgpu_texture_view_descriptor: wgpu::TextureViewDescriptor =
+            (&texture_view_descriptor).wgpu_into();
+        let texture_view = texture.create_view(&wgpu_texture_view_descriptor);
+        let texture_view_id = TextureViewId::new(texture_id);
+
+        texture_texture_views
+            .entry(texture_id)
+            .or_insert_with(HashMap::default)
+            .insert(bind_group_descriptor, texture_view_id);
+        texture_views.insert(texture_view_id, texture_view);
+        texture_view_descriptors.insert(texture_view_id, texture_view_descriptor);
+
+        texture_view_id
     }
 
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId {
@@ -286,6 +368,57 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         buffer_infos.insert(id, buffer_info);
         buffers.insert(id, Arc::new(buffer));
         id
+    }
+
+    fn write_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let mut data = buffer_slice.get_mapped_range_mut();
+        write(&mut data, self);
+    }
+
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let data = buffer_slice.get_mapped_range();
+        read(&data, self);
+    }
+
+    fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&id).unwrap();
+        let buffer_slice = buffer.slice(..);
+        let wgpu_mode = match mode {
+            BufferMapMode::Read => wgpu::MapMode::Read,
+            BufferMapMode::Write => wgpu::MapMode::Write,
+        };
+        let data = buffer_slice.map_async(wgpu_mode);
+        self.device.poll(wgpu::Maintain::Wait);
+        if future::block_on(data).is_err() {
+            panic!("Failed to map buffer to host.");
+        }
+    }
+
+    fn unmap_buffer(&self, id: BufferId) {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&id).unwrap();
+        buffer.unmap();
     }
 
     fn create_buffer_with_data(&self, mut buffer_info: BufferInfo, data: &[u8]) -> BufferId {
@@ -308,27 +441,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         id
     }
 
-    fn remove_buffer(&self, buffer: BufferId) {
-        let mut buffer_infos = self.resources.buffer_infos.write();
-        let mut buffers = self.resources.buffers.write();
-
-        buffers.remove(&buffer);
-        buffer_infos.remove(&buffer);
-    }
-
-    fn remove_texture(&self, texture: TextureId) {
-        let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
-        let mut texture_descriptors = self.resources.texture_descriptors.write();
-
-        textures.remove(&texture);
-        texture_views.remove(&texture);
-        texture_descriptors.remove(&texture);
-    }
-
-    fn remove_sampler(&self, sampler: SamplerId) {
-        let mut samplers = self.resources.samplers.write();
-        samplers.remove(&sampler);
+    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
+        if self
+            .resources
+            .shader_modules
+            .read()
+            .get(&shader_handle)
+            .is_some()
+        {
+            return;
+        }
+        let shader = shaders.get(shader_handle).unwrap();
+        self.create_shader_module_from_source(shader_handle, shader);
     }
 
     fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
@@ -344,57 +468,69 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
-    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
-        if self
-            .resources
-            .shader_modules
-            .read()
-            .get(&shader_handle)
-            .is_some()
-        {
-            return;
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        let spirv_data = match shader.source {
+            ShaderSource::Spirv(ref bytes) => bytes.clone(),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
+        };
+        Ok(Shader {
+            source: ShaderSource::Spirv(spirv_data),
+            ..*shader
+        })
+    }
+
+    fn remove_buffer(&self, buffer: BufferId) {
+        let mut buffer_infos = self.resources.buffer_infos.write();
+        let mut buffers = self.resources.buffers.write();
+
+        buffers.remove(&buffer);
+        buffer_infos.remove(&buffer);
+    }
+
+    fn remove_texture(&self, texture: TextureId) {
+        let mut textures = self.resources.textures.write();
+        let mut texture_texture_views = self.resources.texture_texture_views.lock();
+        let mut texture_descriptors = self.resources.texture_descriptors.lock();
+
+        textures.remove(&texture);
+        // remove all views
+        for texture_view in texture_texture_views.remove(&texture).unwrap().values() {
+            self.remove_texture_view(*texture_view);
         }
-        let shader = shaders.get(shader_handle).unwrap();
-        self.create_shader_module_from_source(shader_handle, shader);
+        texture_descriptors.remove(&texture);
     }
 
-    fn create_swap_chain(&self, window: &Window) {
-        let surfaces = self.resources.window_surfaces.read();
-        let mut window_swap_chains = self.resources.window_swap_chains.write();
+    fn remove_texture_view(&self, texture_view: TextureViewId) {
+        let mut texture_views = self.resources.texture_views.write();
+        let mut texture_view_descriptors = self.resources.texture_view_descriptors.lock();
 
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
-        let surface = surfaces
-            .get(&window.id())
-            .expect("No surface found for window.");
-        let swap_chain = self
-            .device
-            .create_swap_chain(surface, &swap_chain_descriptor);
-
-        window_swap_chains.insert(window.id(), swap_chain);
+        texture_views.remove(&texture_view);
+        texture_view_descriptors.remove(&texture_view);
     }
 
-    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> TextureId {
-        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
-            texture_id
+    fn remove_sampler(&self, sampler: SamplerId) {
+        let mut samplers = self.resources.samplers.write();
+        samplers.remove(&sampler);
+    }
+
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
+        self.resources.buffer_infos.read().get(&buffer).cloned()
+    }
+
+    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {
+        if dynamic {
+            (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
         } else {
-            self.resources
-                .window_swap_chains
-                .write()
-                .remove(&window.id());
-            self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id())
-                .expect("Failed to acquire next swap chain texture!")
+            size
         }
     }
 
-    fn drop_swap_chain_texture(&self, texture: TextureId) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.remove(&texture);
-    }
-
-    fn drop_all_swap_chain_textures(&self) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.clear();
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
     }
 
     fn set_asset_resource_untyped(
@@ -608,87 +744,5 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn remove_stale_bind_groups(&self) {
         self.resources.remove_stale_bind_groups();
-    }
-
-    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.resources.buffer_infos.read().get(&buffer).cloned()
-    }
-
-    fn write_mapped_buffer(
-        &self,
-        id: BufferId,
-        range: Range<u64>,
-        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) {
-        let buffer = {
-            let buffers = self.resources.buffers.read();
-            buffers.get(&id).unwrap().clone()
-        };
-        let buffer_slice = buffer.slice(range);
-        let mut data = buffer_slice.get_mapped_range_mut();
-        write(&mut data, self);
-    }
-
-    fn read_mapped_buffer(
-        &self,
-        id: BufferId,
-        range: Range<u64>,
-        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
-    ) {
-        let buffer = {
-            let buffers = self.resources.buffers.read();
-            buffers.get(&id).unwrap().clone()
-        };
-        let buffer_slice = buffer.slice(range);
-        let data = buffer_slice.get_mapped_range();
-        read(&data, self);
-    }
-
-    fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
-        let buffers = self.resources.buffers.read();
-        let buffer = buffers.get(&id).unwrap();
-        let buffer_slice = buffer.slice(..);
-        let wgpu_mode = match mode {
-            BufferMapMode::Read => wgpu::MapMode::Read,
-            BufferMapMode::Write => wgpu::MapMode::Write,
-        };
-        let data = buffer_slice.map_async(wgpu_mode);
-        self.device.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
-            panic!("Failed to map buffer to host.");
-        }
-    }
-
-    fn unmap_buffer(&self, id: BufferId) {
-        let buffers = self.resources.buffers.read();
-        let buffer = buffers.get(&id).unwrap();
-        buffer.unmap();
-    }
-
-    fn get_aligned_texture_size(&self, size: usize) -> usize {
-        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
-    }
-
-    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {
-        if dynamic {
-            (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
-        } else {
-            size
-        }
-    }
-
-    fn get_specialized_shader(
-        &self,
-        shader: &Shader,
-        macros: Option<&[String]>,
-    ) -> Result<Shader, ShaderError> {
-        let spirv_data = match shader.source {
-            ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
-        };
-        Ok(Shader {
-            source: ShaderSource::Spirv(spirv_data),
-            ..*shader
-        })
     }
 }
