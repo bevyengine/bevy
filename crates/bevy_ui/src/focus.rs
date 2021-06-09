@@ -100,13 +100,7 @@ pub fn ui_focus_system(
             MouseButton::Right => ClickedWith::MouseRightButton,
             MouseButton::Other(button) => ClickedWith::MouseOtherButton(*button),
         })
-        .or_else(|| {
-            if touches_input.just_released(0) {
-                Some(ClickedWith::Touch)
-            } else {
-                None
-            }
-        });
+        .or_else(|| touches_input.just_released(0).then(|| ClickedWith::Touch));
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
