@@ -14,6 +14,7 @@ pub enum ClickedWith {
     MouseLeftButton,
     MouseMiddleButton,
     MouseRightButton,
+    MouseOtherButton(u16),
     Touch,
 }
 
@@ -77,10 +78,8 @@ pub fn ui_focus_system(
         }
     }
 
-    let mouse_released = mouse_button_input.just_released(MouseButton::Left)
-        || mouse_button_input.just_released(MouseButton::Middle)
-        || mouse_button_input.just_released(MouseButton::Right)
-        || touches_input.just_released(0);
+    let mouse_released =
+        mouse_button_input.get_just_released().last().is_some() || touches_input.just_released(0);
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
@@ -92,17 +91,22 @@ pub fn ui_focus_system(
         }
     }
 
-    let interacting_from = if mouse_button_input.just_pressed(MouseButton::Left) {
-        Some(ClickedWith::MouseLeftButton)
-    } else if mouse_button_input.just_pressed(MouseButton::Middle) {
-        Some(ClickedWith::MouseMiddleButton)
-    } else if mouse_button_input.just_pressed(MouseButton::Right) {
-        Some(ClickedWith::MouseRightButton)
-    } else if touches_input.just_released(0) {
-        Some(ClickedWith::Touch)
-    } else {
-        None
-    };
+    let interacting_from = mouse_button_input
+        .get_just_pressed()
+        .last()
+        .map(|button| match button {
+            MouseButton::Left => ClickedWith::MouseLeftButton,
+            MouseButton::Middle => ClickedWith::MouseMiddleButton,
+            MouseButton::Right => ClickedWith::MouseRightButton,
+            MouseButton::Other(button) => ClickedWith::MouseOtherButton(*button),
+        })
+        .or_else(|| {
+            if touches_input.just_released(0) {
+                Some(ClickedWith::Touch)
+            } else {
+                None
+            }
+        });
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
