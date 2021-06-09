@@ -133,10 +133,12 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
         }
     }
 
-    #[inline]
-    fn is_dense(&self) -> bool {
-        T::Storage::STORAGE_TYPE == StorageType::Table
-    }
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -250,10 +252,12 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
         }
     }
 
-    #[inline]
-    fn is_dense(&self) -> bool {
-        T::Storage::STORAGE_TYPE == StorageType::Table
-    }
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -343,10 +347,7 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
         }
     }
 
-    #[inline]
-    fn is_dense(&self) -> bool {
-        T::is_dense()
-    }
+    const IS_DENSE: bool = T::IS_DENSE;
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -449,11 +450,7 @@ macro_rules! impl_query_filter_tuple {
                 },)*))
             }
 
-            #[inline]
-            fn is_dense(&self) -> bool {
-                let ($($filter,)*) = &self.0;
-                true $(&& $filter.fetch.is_dense())*
-            }
+            const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             #[inline]
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
@@ -627,10 +624,12 @@ macro_rules! impl_tick_filter {
                 value
             }
 
-            #[inline]
-            fn is_dense(&self) -> bool {
-                T::Storage::STORAGE_TYPE == StorageType::Table
-            }
+            const IS_DENSE: bool = {
+                match T::Storage::STORAGE_TYPE {
+                    StorageType::Table => true,
+                    StorageType::SparseSet => false,
+                }
+            };
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
                 self.table_ticks = table

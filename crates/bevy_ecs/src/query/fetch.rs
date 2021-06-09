@@ -67,7 +67,7 @@ pub trait Fetch<'w>: Sized {
     /// for "dense" queries. If this returns true, [`Fetch::set_table`] and [`Fetch::table_fetch`]
     /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] and
     /// [`Fetch::archetype_fetch`] will be called for iterators.
-    fn is_dense(&self) -> bool;
+    const IS_DENSE: bool;
 
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`Fetch`].
@@ -177,10 +177,7 @@ impl<'w> Fetch<'w> for EntityFetch {
     type Item = Entity;
     type State = EntityState;
 
-    #[inline]
-    fn is_dense(&self) -> bool {
-        true
-    }
+    const IS_DENSE: bool = true;
 
     unsafe fn init(
         _world: &World,
@@ -296,13 +293,12 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
     type Item = &'w T;
     type State = ReadState<T>;
 
-    #[inline]
-    fn is_dense(&self) -> bool {
+    const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
-    }
+    };
 
     unsafe fn init(
         world: &World,
@@ -454,13 +450,12 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     type Item = Mut<'w, T>;
     type State = WriteState<T>;
 
-    #[inline]
-    fn is_dense(&self) -> bool {
+    const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
-    }
+    };
 
     unsafe fn init(
         world: &World,
@@ -613,10 +608,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     type Item = Option<T::Item>;
     type State = OptionState<T::State>;
 
-    #[inline]
-    fn is_dense(&self) -> bool {
-        self.fetch.is_dense()
-    }
+    const IS_DENSE: bool = T::IS_DENSE;
 
     unsafe fn init(
         world: &World,
@@ -803,13 +795,12 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
     type Item = ChangeTrackers<T>;
     type State = ChangeTrackersState<T>;
 
-    #[inline]
-    fn is_dense(&self) -> bool {
+    const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
-    }
+    };
 
     unsafe fn init(
         world: &World,
@@ -910,12 +901,7 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
-
-            #[inline]
-            fn is_dense(&self) -> bool {
-                let ($($name,)*) = self;
-                true $(&& $name.is_dense())*
-            }
+            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &Archetype, _tables: &Tables) {

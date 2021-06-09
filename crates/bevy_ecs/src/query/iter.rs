@@ -74,7 +74,7 @@ where
         // NOTE: this mimics the behavior of `QueryIter::next()`, except that it
         // never gets a `Self::Item`.
         unsafe {
-            if self.fetch.is_dense() && self.filter.is_dense() {
+            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = match self.table_id_iter.next() {
@@ -137,7 +137,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if self.fetch.is_dense() && self.filter.is_dense() {
+            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
@@ -477,7 +477,7 @@ where
     #[inline]
     unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
         if self.current_index > 0 {
-            if self.fetch.is_dense() && self.filter.is_dense() {
+            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
             } else {
                 Some(self.fetch.archetype_fetch(self.current_index - 1))
@@ -497,7 +497,7 @@ where
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
     ) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
-        if self.fetch.is_dense() && self.filter.is_dense() {
+        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;

@@ -40,7 +40,10 @@ fn parse_storage_attribute(attr: &Attribute) -> Result<StorageTy> {
     match ident.to_string().as_str() {
         "table" => Ok(StorageTy::Table),
         "sparse" => Ok(StorageTy::Sparse),
-        _ => Err(Error::new(ident.span(), "Invalid storage type, expected 'table' or 'sparse'.")),
+        _ => Err(Error::new(
+            ident.span(),
+            "Invalid storage type, expected 'table' or 'sparse'.",
+        )),
     }
 }
 

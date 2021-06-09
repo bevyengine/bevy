@@ -115,8 +115,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_type_infos = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    let mut is_dense_const_exprs = Vec::new();
-    let mut is_dense_fn_exprs = Vec::new();
+    let mut is_dense_exprs = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
@@ -130,8 +129,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             field_from_components.push(quote! {
                 #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
-            is_dense_fn_exprs.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::is_dense()
+            is_dense_exprs.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::IS_DENSE
             });
         } else {
             field_type_infos.push(quote! {
@@ -144,9 +143,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             field_from_components.push(quote! {
                 #field: func().cast::<#field_type>().read(),
             });
-            is_dense_const_exprs.push(quote! {
-                <<#field_type as #ecs_path::component::Component>::Storage as #ecs_path::component::ComponentStorage>::STORAGE_TYPE
-                    == #ecs_path::component::StorageType::Table
+            is_dense_exprs.push(quote! {
+                match <<#field_type as #ecs_path::component::Component>::Storage as #ecs_path::component::ComponentStorage>::STORAGE_TYPE {
+                    #ecs_path::component::StorageType::Table => true,
+                    #ecs_path::component::StorageType::SparseSet => false,
+                }
             });
         }
     }
@@ -158,16 +159,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
+            const IS_DENSE: bool = true #(&& #is_dense_exprs)*;
+
             fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
                 #(#field_type_infos)*
                 type_info
-            }
-
-            #[inline(always)]
-            fn is_dense() -> bool {
-                // insert const expressions in front to avoid evaluating non-const functions if possible
-                true #(&& (#is_dense_const_exprs))* #(&& #is_dense_fn_exprs)*
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]

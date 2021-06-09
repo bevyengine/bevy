@@ -445,7 +445,7 @@ impl<T: Resource> Command for RemoveResource<T> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::{Component, ComponentDescriptor, StorageType},
+        component::Component,
         system::{CommandQueue, Commands},
         world::World,
     };
