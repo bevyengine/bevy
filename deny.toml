@@ -22,7 +22,6 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
-    "MPL-2.0",
 ]
 default = "deny"
 
