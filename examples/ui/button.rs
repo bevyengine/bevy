@@ -39,8 +39,8 @@ fn button_system(
     for (interaction, mut material, children) in interaction_query.iter_mut() {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
-            Interaction::Clicked => {
-                text.sections[0].value = "Press".to_string();
+            Interaction::Clicked(button) => {
+                text.sections[0].value = format!("Press {:?}", button);
                 *material = button_materials.pressed.clone();
             }
             Interaction::Hovered => {
@@ -65,7 +65,7 @@ fn setup(
     commands
         .spawn_bundle(ButtonBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                size: Size::new(Val::Px(450.0), Val::Px(65.0)),
                 // center button
                 margin: Rect::all(Val::Auto),
                 // horizontally center child text

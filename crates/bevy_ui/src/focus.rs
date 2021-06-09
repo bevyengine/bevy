@@ -10,8 +10,16 @@ use bevy_window::Windows;
 use smallvec::SmallVec;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ClickedWith {
+    MouseLeftButton,
+    MouseMiddleButton,
+    MouseRightButton,
+    Touch,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
-    Clicked,
+    Clicked(ClickedWith),
     Hovered,
     None,
 }
@@ -69,21 +77,32 @@ pub fn ui_focus_system(
         }
     }
 
-    let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+    let mouse_released = mouse_button_input.just_released(MouseButton::Left)
+        || mouse_button_input.just_released(MouseButton::Middle)
+        || mouse_button_input.just_released(MouseButton::Right)
+        || touches_input.just_released(0);
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
+                if matches!(*interaction, Interaction::Clicked(_)) {
                     *interaction = Interaction::None;
                 }
             }
         }
     }
 
-    let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
+    let interacting_from = if mouse_button_input.just_pressed(MouseButton::Left) {
+        Some(ClickedWith::MouseLeftButton)
+    } else if mouse_button_input.just_pressed(MouseButton::Middle) {
+        Some(ClickedWith::MouseMiddleButton)
+    } else if mouse_button_input.just_pressed(MouseButton::Right) {
+        Some(ClickedWith::MouseRightButton)
+    } else if touches_input.just_released(0) {
+        Some(ClickedWith::Touch)
+    } else {
+        None
+    };
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
@@ -118,10 +137,10 @@ pub fn ui_focus_system(
     // set Clicked or Hovered on top nodes
     for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
         if let Some(mut interaction) = interaction {
-            if mouse_clicked {
+            if let Some(interacting_from) = interacting_from {
                 // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
+                if !matches!(*interaction, Interaction::Clicked(_)) {
+                    *interaction = Interaction::Clicked(interacting_from);
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {
