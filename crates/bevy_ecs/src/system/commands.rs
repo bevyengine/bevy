@@ -4,18 +4,28 @@ use crate::{
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::{anystack::AnyStack, tracing::debug};
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
-    fn write(self: Box<Self>, world: &mut World);
+    fn write(self, world: &mut World);
+}
+
+/// # Safety
+///
+/// This function is only used when the provided `world` is a `&mut World` and
+/// is only ever called once, so it's safe to consume `command`.
+unsafe fn write_command_on_mut_world<T: Command>(command: *mut u8, world: *mut u8) {
+    let world = &mut *world.cast::<World>();
+    let command = command.cast::<T>().read();
+    command.write(world);
 }
 
 /// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
-    commands: Vec<Box<dyn Command>>,
+    commands: AnyStack,
 }
 
 impl CommandQueue {
@@ -23,21 +33,27 @@ impl CommandQueue {
     /// This clears the queue.
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
-        for command in self.commands.drain(..) {
-            command.write(world);
+        // SAFE:
+        // `apply`: the provided function `write_command_on_mut_world` safely
+        // handle the provided [`World`], drops the associate `Command`, and
+        // clears the inner [`AnyStack`].
+        //
+        // `clear`: is safely used because the call to `apply` above
+        // ensures each added command is dropped.
+        unsafe {
+            self.commands.apply(world as *mut World as *mut u8);
+            self.commands.clear();
         }
-    }
-
-    /// Push a boxed [`Command`] onto the queue.
-    #[inline]
-    pub fn push_boxed(&mut self, command: Box<dyn Command>) {
-        self.commands.push(command);
     }
 
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<T: Command>(&mut self, command: T) {
-        self.push_boxed(Box::new(command));
+        // SAFE: `write_command_on_mut_world` safely casts `command` back to its original type
+        // and safely casts the `user_data` back to a `World`.
+        unsafe {
+            self.commands.push(command, write_command_on_mut_world::<T>);
+        }
     }
 }
 
@@ -292,7 +308,7 @@ impl<T> Command for Spawn<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn().insert_bundle(self.bundle);
     }
 }
@@ -310,7 +326,7 @@ where
     I: IntoIterator + Send + Sync + 'static,
     I::Item: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn_batch(self.bundles_iter);
     }
 }
@@ -321,7 +337,7 @@ pub struct Despawn {
 }
 
 impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if !world.despawn(self.entity) {
             debug!("Failed to despawn non-existent entity {:?}", self.entity);
         }
@@ -337,7 +353,7 @@ impl<T> Command for InsertBundle<T>
 where
     T: Bundle + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert_bundle(self.bundle);
     }
 }
@@ -352,7 +368,7 @@ impl<T> Command for Insert<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert(self.component);
     }
 }
@@ -367,7 +383,7 @@ impl<T> Command for Remove<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
         }
@@ -384,7 +400,7 @@ impl<T> Command for RemoveBundle<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             // remove intersection to gracefully handle components that were removed before running
             // this command
@@ -398,7 +414,7 @@ pub struct InsertResource<T: Component> {
 }
 
 impl<T: Component> Command for InsertResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
@@ -408,7 +424,7 @@ pub struct RemoveResource<T: Component> {
 }
 
 impl<T: Component> Command for RemoveResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.remove_resource::<T>();
     }
 }
