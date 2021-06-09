@@ -94,6 +94,8 @@ fn setup_pipeline(
                 sample_count: msaa.samples,
                 ..Default::default()
             },
+            None,
+            None,
         ),
     );
 
@@ -169,6 +171,8 @@ fn setup_pipeline(
                     format: TextureFormat::default(),
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
+                None,
+                None,
             ),
         );
 

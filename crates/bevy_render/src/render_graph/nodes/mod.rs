@@ -1,4 +1,5 @@
 mod camera_node;
+pub mod fullscreen_pass_node;
 mod pass_node;
 mod render_resources_node;
 mod shared_buffers_node;
@@ -8,6 +9,7 @@ mod window_swapchain_node;
 mod window_texture_node;
 
 pub use camera_node::*;
+pub use fullscreen_pass_node::node::*;
 pub use pass_node::*;
 pub use render_resources_node::*;
 pub use shared_buffers_node::*;

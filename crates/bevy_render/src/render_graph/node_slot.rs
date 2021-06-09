@@ -51,7 +51,7 @@ impl ResourceSlots {
 
     pub fn get(&self, label: impl Into<SlotLabel>) -> Option<RenderResourceId> {
         let slot = self.get_slot(label).unwrap();
-        slot.resource.clone()
+        slot.resource
     }
 
     pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Result<&ResourceSlot, RenderGraphError> {
