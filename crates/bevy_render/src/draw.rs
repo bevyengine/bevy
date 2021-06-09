@@ -76,6 +76,7 @@ impl Default for Visible {
 /// need to support multiple views (ex: set the `SpriteSettings::frustum_culling_enabled` resource).
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
+#[storage(sparse)]
 pub struct OutsideFrustum;
 
 /// A component that indicates how to draw an entity.

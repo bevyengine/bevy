@@ -455,7 +455,8 @@ mod tests {
     };
 
     #[derive(Component)]
-    struct DenseDropCk(DropCk);
+    #[storage(sparse)]
+    struct SparseDropCk(DropCk);
 
     #[derive(Component)]
     struct DropCk(Arc<AtomicUsize>);
@@ -506,14 +507,10 @@ mod tests {
     fn remove_components() {
         let mut world = World::default();
 
-        world
-            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
-            .unwrap();
-
         let mut command_queue = CommandQueue::default();
         let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
-        let dense_dropck = DenseDropCk(dense_dropck);
         let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
 
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
@@ -531,7 +528,7 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<u32>()
-            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+            .remove_bundle::<(u32, u64, SparseDropCk, DropCk)>();
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);

@@ -2,7 +2,9 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
+    component::{
+        Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, TypeInfo,
+    },
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -60,6 +62,8 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// "mem::forget" the bundle fields, so callers are responsible for dropping the fields if
     /// that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
+
+    fn is_dense() -> bool;
 }
 
 macro_rules! tuple_impl {
@@ -68,6 +72,11 @@ macro_rules! tuple_impl {
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             fn type_info() -> Vec<TypeInfo> {
                 vec![$(TypeInfo::of::<$name>()),*]
+            }
+
+            #[inline(always)]
+            fn is_dense() -> bool {
+                true $(&& $name::Storage::STORAGE_TYPE == StorageType::Table)*
             }
 
             #[allow(unused_variables, unused_mut)]

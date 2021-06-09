@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     bundle::Bundle,
-    component::{Component, ComponentId, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
@@ -77,14 +77,12 @@ impl<T: Component> WorldQuery for With<T> {
 
 /// The [`Fetch`] of [`With`].
 pub struct WithFetch<T> {
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
 /// The [`FetchState`] of [`With`].
 pub struct WithState<T> {
     component_id: ComponentId,
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
@@ -94,7 +92,6 @@ unsafe impl<T: Component> FetchState for WithState<T> {
         let component_info = world.components.get_or_insert_info::<T>();
         Self {
             component_id: component_info.id(),
-            storage_type: component_info.storage_type(),
             marker: PhantomData,
         }
     }
@@ -127,19 +124,18 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
 
     unsafe fn init(
         _world: &World,
-        state: &Self::State,
+        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            storage_type: state.storage_type,
             marker: PhantomData,
         }
     }
 
     #[inline]
     fn is_dense(&self) -> bool {
-        self.storage_type == StorageType::Table
+        T::Storage::STORAGE_TYPE == StorageType::Table
     }
 
     #[inline]
@@ -198,14 +194,12 @@ impl<T: Component> WorldQuery for Without<T> {
 
 /// The [`Fetch`] of [`Without`].
 pub struct WithoutFetch<T> {
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
 /// The [`FetchState`] of [`Without`].
 pub struct WithoutState<T> {
     component_id: ComponentId,
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
@@ -215,7 +209,6 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
         let component_info = world.components.get_or_insert_info::<T>();
         Self {
             component_id: component_info.id(),
-            storage_type: component_info.storage_type(),
             marker: PhantomData,
         }
     }
@@ -248,19 +241,18 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
 
     unsafe fn init(
         _world: &World,
-        state: &Self::State,
+        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            storage_type: state.storage_type,
             marker: PhantomData,
         }
     }
 
     #[inline]
     fn is_dense(&self) -> bool {
-        self.storage_type == StorageType::Table
+        T::Storage::STORAGE_TYPE == StorageType::Table
     }
 
     #[inline]
@@ -294,13 +286,11 @@ impl<T: Bundle> WorldQuery for WithBundle<T> {
 }
 
 pub struct WithBundleFetch<T: Bundle> {
-    is_dense: bool,
     marker: PhantomData<T>,
 }
 
 pub struct WithBundleState<T: Bundle> {
     component_ids: Vec<ComponentId>,
-    is_dense: bool,
     marker: PhantomData<T>,
 }
 
@@ -308,12 +298,8 @@ pub struct WithBundleState<T: Bundle> {
 unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
     fn init(world: &mut World) -> Self {
         let bundle_info = world.bundles.init_info::<T>(&mut world.components);
-        let components = &world.components;
         Self {
             component_ids: bundle_info.component_ids.clone(),
-            is_dense: !bundle_info.component_ids.iter().any(|id| unsafe {
-                components.get_info_unchecked(*id).storage_type() != StorageType::Table
-            }),
             marker: PhantomData,
         }
     }
@@ -348,19 +334,18 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
 
     unsafe fn init(
         _world: &World,
-        state: &Self::State,
+        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            is_dense: state.is_dense,
             marker: PhantomData,
         }
     }
 
     #[inline]
     fn is_dense(&self) -> bool {
-        self.is_dense
+        T::is_dense()
     }
 
     #[inline]
@@ -633,7 +618,7 @@ macro_rules! impl_tick_filter {
                     last_change_tick,
                     change_tick,
                 };
-                if state.storage_type == StorageType::SparseSet {
+                if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
                     value.sparse_set = world
                         .storages()
                         .sparse_sets
@@ -644,7 +629,7 @@ macro_rules! impl_tick_filter {
 
             #[inline]
             fn is_dense(&self) -> bool {
-                self.storage_type == StorageType::Table
+                T::Storage::STORAGE_TYPE == StorageType::Table
             }
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {

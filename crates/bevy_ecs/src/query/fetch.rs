@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
@@ -227,7 +227,6 @@ impl<T: Component> WorldQuery for &T {
 /// The [`FetchState`] of `&T`.
 pub struct ReadState<T> {
     component_id: ComponentId,
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
@@ -238,7 +237,6 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
         let component_info = world.components.get_or_insert_info::<T>();
         ReadState {
             component_id: component_info.id(),
-            storage_type: component_info.storage_type(),
             marker: PhantomData,
         }
     }
@@ -274,7 +272,6 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 
 /// The [`Fetch`] of `&T`.
 pub struct ReadFetch<T> {
-    storage_type: StorageType,
     table_components: NonNull<T>,
     entity_table_rows: *const usize,
     entities: *const Entity,
@@ -284,7 +281,6 @@ pub struct ReadFetch<T> {
 impl<T> Clone for ReadFetch<T> {
     fn clone(&self) -> Self {
         Self {
-            storage_type: self.storage_type,
             table_components: self.table_components,
             entity_table_rows: self.entity_table_rows,
             entities: self.entities,
@@ -302,7 +298,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
 
     #[inline]
     fn is_dense(&self) -> bool {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -315,13 +311,12 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         _change_tick: u32,
     ) -> Self {
         let mut value = Self {
-            storage_type: state.storage_type,
             table_components: NonNull::dangling(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
         };
-        if state.storage_type == StorageType::SparseSet {
+        if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
                 .storages()
                 .sparse_sets
@@ -338,7 +333,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         archetype: &Archetype,
         tables: &Tables,
     ) {
-        match state.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                 let column = tables[archetype.table_id()]
@@ -361,7 +356,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 &*self.table_components.as_ptr().add(table_row)
@@ -386,7 +381,6 @@ impl<T: Component> WorldQuery for &mut T {
 
 /// The [`Fetch`] of `&mut T`.
 pub struct WriteFetch<T> {
-    storage_type: StorageType,
     table_components: NonNull<T>,
     table_ticks: *const UnsafeCell<ComponentTicks>,
     entities: *const Entity,
@@ -399,7 +393,6 @@ pub struct WriteFetch<T> {
 impl<T> Clone for WriteFetch<T> {
     fn clone(&self) -> Self {
         Self {
-            storage_type: self.storage_type,
             table_components: self.table_components,
             table_ticks: self.table_ticks,
             entities: self.entities,
@@ -414,7 +407,6 @@ impl<T> Clone for WriteFetch<T> {
 /// The [`FetchState`] of `&mut T`.
 pub struct WriteState<T> {
     component_id: ComponentId,
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
@@ -425,7 +417,6 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
         let component_info = world.components.get_or_insert_info::<T>();
         WriteState {
             component_id: component_info.id(),
-            storage_type: component_info.storage_type(),
             marker: PhantomData,
         }
     }
@@ -465,7 +456,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
 
     #[inline]
     fn is_dense(&self) -> bool {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -478,7 +469,6 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         change_tick: u32,
     ) -> Self {
         let mut value = Self {
-            storage_type: state.storage_type,
             table_components: NonNull::dangling(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
@@ -487,7 +477,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             last_change_tick,
             change_tick,
         };
-        if state.storage_type == StorageType::SparseSet {
+        if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
                 .storages()
                 .sparse_sets
@@ -504,7 +494,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         archetype: &Archetype,
         tables: &Tables,
     ) {
-        match state.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                 let column = tables[archetype.table_id()]
@@ -526,7 +516,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 Mut {
@@ -752,7 +742,6 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 /// The [`FetchState`] of [`ChangeTrackers`].
 pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
-    storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
@@ -763,7 +752,6 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
         let component_info = world.components.get_or_insert_info::<T>();
         Self {
             component_id: component_info.id(),
-            storage_type: component_info.storage_type(),
             marker: PhantomData,
         }
     }
@@ -799,7 +787,6 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 
 /// The [`Fetch`] of [`ChangeTrackers`].
 pub struct ChangeTrackersFetch<T> {
-    storage_type: StorageType,
     table_ticks: *const ComponentTicks,
     entity_table_rows: *const usize,
     entities: *const Entity,
@@ -818,7 +805,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
 
     #[inline]
     fn is_dense(&self) -> bool {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -831,7 +818,6 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         change_tick: u32,
     ) -> Self {
         let mut value = Self {
-            storage_type: state.storage_type,
             table_ticks: ptr::null::<ComponentTicks>(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
@@ -840,7 +826,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             last_change_tick,
             change_tick,
         };
-        if state.storage_type == StorageType::SparseSet {
+        if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
                 .storages()
                 .sparse_sets
@@ -857,7 +843,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         archetype: &Archetype,
         tables: &Tables,
     ) {
-        match state.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                 let column = tables[archetype.table_id()]
@@ -879,7 +865,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        match self.storage_type {
+        match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 ChangeTrackers {

@@ -31,26 +31,72 @@ use thiserror::Error;
 /// as one of the arguments.
 ///
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
-pub trait Component: Send + Sync + 'static {}
+pub trait Component: Send + Sync + 'static {
+    type Storage: ComponentStorage;
+}
+
+pub struct TableStorage;
+pub struct SparseStorage;
+
+pub trait ComponentStorage: sealed::Sealed {
+    // because the trait is selaed, those items are private API.
+    const STORAGE_TYPE: StorageType;
+}
+
+impl ComponentStorage for TableStorage {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+}
+impl ComponentStorage for SparseStorage {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+}
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::TableStorage {}
+    impl Sealed for super::SparseStorage {}
+}
 
 // ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
-impl<T> Component for bevy_tasks::Task<T> where Self: Send + Sync + 'static {}
+impl<T> Component for bevy_tasks::Task<T>
+where
+    Self: Send + Sync + 'static,
+{
+    type Storage = TableStorage;
+}
 
 // For our own convinience, let's implement Component for primitives in tests.
 // It will eventually be removed, once tests are not using them anymore.
 // Consider those impls deprecated.
 #[cfg(test)]
 mod private_test_component_impls {
-    use super::Component;
-    impl Component for &'static str {}
-    impl Component for usize {}
-    impl Component for i32 {}
-    impl Component for u32 {}
-    impl Component for u64 {}
-    impl Component for f32 {}
-    impl Component for f64 {}
-    impl Component for u8 {}
-    impl Component for bool {}
+    use super::{Component, TableStorage};
+    impl Component for &'static str {
+        type Storage = TableStorage;
+    }
+    impl Component for usize {
+        type Storage = TableStorage;
+    }
+    impl Component for i32 {
+        type Storage = TableStorage;
+    }
+    impl Component for u32 {
+        type Storage = TableStorage;
+    }
+    impl Component for u64 {
+        type Storage = TableStorage;
+    }
+    impl Component for f32 {
+        type Storage = TableStorage;
+    }
+    impl Component for f64 {
+        type Storage = TableStorage;
+    }
+    impl Component for u8 {
+        type Storage = TableStorage;
+    }
+    impl Component for bool {
+        type Storage = TableStorage;
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -165,10 +211,10 @@ pub struct ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    pub fn new<T: Component>(storage_type: StorageType) -> Self {
+    pub fn new<T: Component>(_storage_type: StorageType) -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
-            storage_type,
+            storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
