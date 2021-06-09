@@ -683,7 +683,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 /// # Panics
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
-pub struct NonSend<'w, T> {
+pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
     last_change_tick: u32,
@@ -702,7 +702,7 @@ where
     }
 }
 
-impl<'w, T: Component> NonSend<'w, T> {
+impl<'w, T: 'static> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
