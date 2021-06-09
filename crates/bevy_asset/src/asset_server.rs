@@ -374,6 +374,14 @@ impl AssetServer {
                 }
             })
             .detach();
+
+        let handle_id = asset_path.get_id().into();
+        self.server
+            .handle_to_path
+            .write()
+            .entry(handle_id)
+            .or_insert_with(|| asset_path.to_owned());
+
         asset_path.into()
     }
 
@@ -830,5 +838,35 @@ mod test {
         tick(&mut world);
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
         assert!(get_asset(&handle, &world).is_some());
+    }
+
+    #[test]
+    fn test_get_handle_path() {
+        const PATH: &str = "path/file.png";
+
+        // valid handle
+        let server = setup(".");
+        let handle = server.load_untyped(PATH);
+        let handle_path = server.get_handle_path(&handle).unwrap();
+
+        assert_eq!(handle_path.path(), Path::new(PATH));
+        assert!(handle_path.label().is_none());
+
+        let handle_id: HandleId = handle.into();
+        let path_id: HandleId = handle_path.get_id().into();
+        assert_eq!(handle_id, path_id);
+
+        // invalid handle (not loaded through server)
+        let mut assets = server.register_asset_type::<PngAsset>();
+        let handle = assets.add(PngAsset);
+        assert!(server.get_handle_path(&handle).is_none());
+
+        // invalid HandleId
+        let invalid_id = HandleId::new(Uuid::new_v4(), 42);
+        assert!(server.get_handle_path(invalid_id).is_none());
+
+        // invalid AssetPath
+        let invalid_path = AssetPath::new("some/path.ext".into(), None);
+        assert!(server.get_handle_path(invalid_path).is_none());
     }
 }
