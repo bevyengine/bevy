@@ -124,12 +124,3 @@ pub struct XrCameraGroup {
     pub cameras: Vec<XrCamera>,
     pub name: Option<String>,
 }
-
-// #[allow(clippy::type_complexity)]
-// pub fn xr_camera_system(
-//     mut queries: QuerySet<(
-//         Query<(Entity, &mut XrCameraGroup, &mut T)>,
-//         Query<Entity, Added<Camera>>,
-//     )>,
-// ) {
-// }

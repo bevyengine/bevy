@@ -1,10 +1,7 @@
-use crate::{
-    conversion::{to_vec2, to_xr_time},
-    Session,
-};
+use crate::{Session, conversion::{from_duration, to_vec2, to_xr_time}};
 use bevy_app::{EventReader, EventWriter};
+use bevy_math::Vec2;
 use bevy_xr::{interaction::*, XrTime};
-use glam::Vec2;
 use openxr as xr;
 use std::{
     collections::HashMap,
@@ -373,7 +370,7 @@ pub(crate) fn controller_output_system_fn(
                     amplitude,
                 } => {
                     let haptic_vibration = xr::HapticVibration::new()
-                        .duration(xr::Duration::from_nanos(duration.as_nanos()))
+                        .duration(from_duration(*duration))
                         .frequency(*frequency)
                         .amplitude(*amplitude);
                     session
@@ -475,7 +472,7 @@ pub(crate) fn vendor_output_system_fn(
                             amplitude,
                         } => {
                             let haptic_vibration = xr::HapticVibration::new()
-                                .duration(xr::Duration::from_nanos(duration.as_nanos()))
+                                .duration(from_duration(*duration))
                                 .frequency(*frequency)
                                 .amplitude(*amplitude);
                             session

@@ -13,7 +13,6 @@ use crate::{
 use bevy_ecs::{reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
 use bevy_window::WindowId;
-use bevy_xr::XrConfig;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
 #[derive(Clone, Debug, Default, Reflect)]
@@ -58,7 +57,6 @@ impl Msaa {
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
     pub add_3d_camera: bool,
-    pub add_xr_camera: bool,
     pub add_main_depth_texture: bool,
     pub add_main_pass: bool,
     pub connect_main_pass_to_swapchain: bool,
@@ -67,10 +65,8 @@ pub struct BaseRenderGraphConfig {
 
 pub mod node {
     pub const PRIMARY_WINDOW_SWAP_CHAIN: &str = "swapchain";
-    pub const XR_SWAP_CHAIN: &str = "xr_swapchain";
     pub const CAMERA_3D: &str = "camera_3d";
     pub const CAMERA_2D: &str = "camera_2d";
-    pub const CAMERA_XR: &str = "camera_xr";
     pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_SAMPLED_COLOR_ATTACHMENT: &str = "main_pass_sampled_color_attachment";
@@ -89,7 +85,6 @@ impl Default for BaseRenderGraphConfig {
         BaseRenderGraphConfig {
             add_2d_camera: true,
             add_3d_camera: true,
-            add_xr_camera: false,
             add_main_pass: true,
             add_main_depth_texture: true,
             connect_main_pass_to_swapchain: true,
@@ -106,8 +101,6 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
     let msaa = world.get_resource::<Msaa>().unwrap();
 
-    let xr_options = world.get_resource::<XrConfig>();
-
     graph.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
     if config.add_3d_camera {
         graph.add_system_node(node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
@@ -118,24 +111,25 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     }
 
     graph.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
-    let main_depth_texture_descriptor = TextureDescriptor {
-        size: Extent3d {
-            depth_or_array_layers: 1,
-            width: 1,
-            height: 1,
-        },
-        mip_level_count: 1,
-        sample_count: msaa.samples,
-        dimension: TextureDimension::D2,
-        format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                              * bit depth for better performance */
-        usage: TextureUsage::OUTPUT_ATTACHMENT,
-    };
-
-    if config.add_main_depth_texture && xr_options.is_none() {
+    if config.add_main_depth_texture {
         graph.add_node(
             node::MAIN_DEPTH_TEXTURE,
-            WindowTextureNode::new(WindowId::primary(), main_depth_texture_descriptor),
+            WindowTextureNode::new(
+                WindowId::primary(),
+                TextureDescriptor {
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: 1,
+                        height: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
+                                                          * bit depth for better performance */
+                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                },
+            ),
         );
     }
 

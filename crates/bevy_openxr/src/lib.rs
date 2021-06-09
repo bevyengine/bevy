@@ -4,6 +4,8 @@ mod presentation;
 
 use bevy_app::{AppBuilder, CoreStage, Plugin};
 use bevy_ecs::prelude::IntoSystem;
+use bevy_math::Vec2;
+use bevy_utils::Duration;
 use bevy_xr::{
     implementation::XrStateBackend,
     interaction::{
@@ -11,10 +13,9 @@ use bevy_xr::{
         Vibration, XR_HAND_JOINT_COUNT,
     },
     presentation::XrPresentationResourceContext,
-    ViewerType, XrConfig, XrDuration, XrMode, XrTime,
+    ViewerType, XrConfig, XrMode, XrTime,
 };
-use conversion::{from_xr_time, to_quat, to_vec3, to_xr_duration, to_xr_time};
-use glam::Vec2;
+use conversion::{from_xr_time, to_quat, to_vec3, to_duration, to_xr_time};
 use interaction::{OpenXrBindingDesc, OpenXrVendorInput, OpenXrVendorOutput, PoseActions, Spaces};
 use openxr as xr;
 use std::sync::{Arc, Mutex};
@@ -458,14 +459,7 @@ impl XrStateBackend for OpenXrState {
 
     fn generic_tracker_motion(&self, _: usize, _: XrTime) -> Motion {
         // Generic trackers are not supported
-        Motion {
-            pose: Pose {
-                position: None,
-                orientation: None,
-            },
-            linear_velocity: None,
-            angular_velocity: None,
-        }
+        Motion::default()
     }
 
     fn predicted_display_time(&self) -> XrTime {
@@ -476,11 +470,11 @@ impl XrStateBackend for OpenXrState {
         }
     }
 
-    fn predicted_display_period(&self) -> XrDuration {
+    fn predicted_display_period(&self) -> Duration {
         if let Some(session) = &*self.session.lock().unwrap() {
-            to_xr_duration(session.frame_state.predicted_display_period)
+            to_duration(session.frame_state.predicted_display_period)
         } else {
-            XrDuration::from_nanos(0)
+            Duration::from_nanos(0)
         }
     }
 
@@ -498,11 +492,11 @@ pub struct OpenXrPlugin;
 
 impl Plugin for OpenXrPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let xr_config = app
-            .world()
-            .get_resource::<XrConfig>()
-            .cloned()
-            .unwrap_or_else(|| panic!("You need to add XrConfig resource."));
+        let xr_config = if let Some(config) = app.world().get_resource::<XrConfig>() {
+            config.clone()
+        } else {
+            return;
+        };
 
         let openxr_config = app
             .world()

@@ -1,5 +1,5 @@
-use crate::XrDuration;
-use glam::{Mat4, Quat, Vec2, Vec3};
+use bevy_utils::Duration;
+use bevy_math::{Mat4, Quat, Vec2, Vec3};
 
 // Note: indices follow WebXR convention. OpenXR's palm joint is missing, but it can be retrieved
 // using `XrState::hand_motion(..., HandAction::Grip)`.
@@ -30,7 +30,7 @@ pub const XR_HAND_JOINT_LITTLE_DISTAL: usize = 23;
 pub const XR_HAND_JOINT_LITTLE_TIP: usize = 24;
 pub const XR_HAND_JOINT_COUNT: usize = 25;
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Position {
     pub value: Vec3,
 
@@ -39,13 +39,13 @@ pub struct Position {
     pub tracked: bool,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Orientation {
     pub value: Quat,
     pub tracked: bool,
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Pose {
     pub position: Option<Position>,
     pub orientation: Option<Orientation>,
@@ -57,14 +57,14 @@ impl Pose {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Motion {
     pub pose: Pose,
     pub linear_velocity: Option<Vec3>,
     pub angular_velocity: Option<Vec3>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum TrackingReferenceMode {
     /// The coordinate system (position and orientation) is set as the headset pose at startup or
     /// after a recenter. This should be used only for experiences where the user is laid down.
@@ -85,11 +85,13 @@ impl Default for TrackingReferenceMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum HandType {
     Left,
     Right,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum HandAction {
     /// Position at the center of the palm, +X exiting the palm, -Z up the grip of a virtual gun.
     Grip,
@@ -99,7 +101,7 @@ pub enum HandAction {
     Aim,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BinaryEvent {
     pub value: bool,
     pub toggled: bool,
@@ -110,14 +112,14 @@ pub struct BinaryEvent {
 /// buttons will remain unused, while for others the behavior could change (for example the trigger
 /// value might be only 0 or 1). Many controllers do not support touch inputs so they should only be
 /// used for visual feedback.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct GenericControllerPairButtons {
     pub menu_click: BinaryEvent,
     pub left_hand: GenericControllerButtons,
     pub right_hand: GenericControllerButtons,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct GenericControllerButtons {
     pub primary_click: BinaryEvent,
     pub primary_touch: BinaryEvent,
@@ -131,15 +133,17 @@ pub struct GenericControllerButtons {
     pub directional_touch: BinaryEvent,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Vibration {
     Apply {
-        duration: XrDuration,
+        duration: Duration,
         frequency: f32,
         amplitude: f32,
     },
     Stop,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct GenericControllerVibration {
     pub hand: HandType,
     pub action: Vibration,

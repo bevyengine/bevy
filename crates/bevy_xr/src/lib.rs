@@ -3,62 +3,37 @@ pub mod presentation;
 
 use bevy_app::{AppBuilder, Plugin, StartupStage};
 use bevy_ecs::prelude::{IntoExclusiveSystem, World};
+use bevy_utils::Duration;
 use interaction::{
     GenericControllerPairButtons, GenericControllerVibration, HandAction, HandType, Motion, Pose,
     Position, TrackingReferenceMode, XR_HAND_JOINT_COUNT,
 };
 
-pub struct XrDuration(i64);
-
-impl XrDuration {
-    pub fn from_nanos(nanos: i64) -> Self {
-        Self(nanos)
-    }
-
-    pub fn as_nanos(&self) -> i64 {
-        self.0
-    }
-}
-
-pub struct XrTime(i64);
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct XrTime(Duration);
 
 impl XrTime {
-    pub fn from_nanos(x: i64) -> Self {
-        Self(x)
+    pub fn from_nanos(nanos: u64) -> Self {
+        Self(Duration::from_nanos(nanos))
     }
 
-    pub fn as_nanos(&self) -> i64 {
-        self.0
+    pub fn as_nanos(self) -> u64 {
+        self.0.as_nanos() as _
     }
 }
 
-impl std::ops::Add<XrDuration> for XrTime {
+impl std::ops::Add<Duration> for XrTime {
     type Output = XrTime;
 
-    fn add(self, rhs: XrDuration) -> XrTime {
-        XrTime(self.0 + rhs.0)
-    }
-}
-
-impl std::ops::Sub<XrDuration> for XrTime {
-    type Output = XrTime;
-
-    fn sub(self, rhs: XrDuration) -> XrTime {
-        XrTime(self.0 - rhs.0)
-    }
-}
-
-impl std::ops::Sub for XrTime {
-    type Output = XrDuration;
-
-    fn sub(self, rhs: XrTime) -> XrDuration {
-        XrDuration(self.0 - rhs.0)
+    fn add(self, rhs: Duration) -> XrTime {
+        XrTime(self.0 + rhs)
     }
 }
 
 pub mod implementation {
-    use super::{HandAction, HandType, TrackingReferenceMode, XrDuration, XrTime};
+    use super::{HandAction, HandType, TrackingReferenceMode, XrTime};
     use crate::interaction::{Motion, Pose, XR_HAND_JOINT_COUNT};
+    use bevy_utils::Duration;
 
     pub trait XrStateBackend: Send + Sync {
         fn set_tracking_reference_mode(&self, mode: TrackingReferenceMode) -> bool;
@@ -71,7 +46,7 @@ pub mod implementation {
         ) -> [Motion; XR_HAND_JOINT_COUNT];
         fn generic_tracker_motion(&self, index: usize, time: XrTime) -> Motion;
         fn predicted_display_time(&self) -> XrTime;
-        fn predicted_display_period(&self) -> XrDuration;
+        fn predicted_display_period(&self) -> Duration;
         fn should_render(&self) -> bool;
     }
 }
@@ -96,11 +71,11 @@ impl XrState {
     pub fn viewer_pose_at_time(&self, time: XrTime) -> Pose {
         let poses = self.inner.views_poses(time);
 
-        let orientation = poses.iter().find_map(|pose| pose.orientation.clone());
+        let orientation = poses.iter().find_map(|pose| pose.orientation);
 
         let position = poses
             .iter()
-            .filter_map(|pose| pose.position.clone())
+            .filter_map(|pose| pose.position)
             .reduce(|pos1, pos2| Position {
                 value: pos1.value + pos2.value,
                 tracked: pos1.tracked,
@@ -164,7 +139,7 @@ impl XrState {
         self.inner.predicted_display_time()
     }
 
-    pub fn predicted_display_period(&self) -> XrDuration {
+    pub fn predicted_display_period(&self) -> Duration {
         self.inner.predicted_display_period()
     }
 
@@ -240,18 +215,20 @@ pub struct XrPlugin;
 
 impl Plugin for XrPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let config = if let Some(config) = app.world().get_resource::<XrConfig>() {
-            config.clone()
-        } else {
-            return;
-        };
+        let config = app
+            .world()
+            .get_resource::<XrConfig>()
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!("You need to add XrConfig resource before DefaultPlugins or XrPlugin.")
+            });
 
         if config.enable_generic_controllers {
             app.add_event::<GenericControllerPairButtons>()
                 .add_event::<GenericControllerVibration>();
         }
 
-        app.add_system_to_stage(
+        app.add_startup_system_to_stage(
             StartupStage::PreStartup,
             add_xr_state_resource.exclusive_system(),
         );

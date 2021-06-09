@@ -52,6 +52,8 @@ use bevy_xr::XrPlugin;
 /// * [`GilrsPlugin`] - with feature `bevy_gilrs`
 /// * [`GltfPlugin`] - with feature `bevy_gltf`
 /// * [`WinitPlugin`] - with feature `bevy_winit`
+/// * [`XrPlugin`] - with feature `bevy_xr`
+/// * [`OpenXrPlugin`] - with feature `bevy_openxr`
 /// * [`WgpuPlugin`] - with feature `bevy_wgpu`
 pub struct DefaultPlugins;
 
@@ -64,7 +66,6 @@ impl PluginGroup for DefaultPlugins {
         group.add(InputPlugin::default());
         group.add(WindowPlugin::default());
         group.add(AssetPlugin::default());
-        group.add(ScenePlugin::default());
         group.add(ScenePlugin::default());
 
         #[cfg(feature = "bevy_render")]
