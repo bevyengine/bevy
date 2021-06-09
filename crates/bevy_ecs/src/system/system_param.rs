@@ -815,7 +815,7 @@ pub struct NonSendMut<'a, T: 'static> {
     change_tick: u32,
 }
 
-impl<'w, T: 'static> NonSendMut<'w, T> {
+impl<'w, T: Component> NonSendMut<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
