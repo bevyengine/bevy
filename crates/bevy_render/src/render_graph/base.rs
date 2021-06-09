@@ -128,6 +128,8 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                                                           * bit depth for better performance */
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
+                None,
+                None,
             ),
         );
     }
@@ -222,6 +224,8 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     format: TextureFormat::default(),
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
+                None,
+                None,
             ),
         );
 
