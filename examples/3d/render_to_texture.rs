@@ -151,7 +151,7 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: cube_handle,
             material: cube_material_handle,
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
+            transform: TransformBundle::from_xyz(0.0, 0.0, 1.0),
             ..Default::default()
         })
         .insert(FirstPassCube)
@@ -161,7 +161,7 @@ fn setup(
     // light
     // note: currently lights are shared between passes!
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        transform: TransformBundle::from_xyz(0.0, 0.0, 10.0),
         ..Default::default()
     });
 
@@ -174,7 +174,8 @@ fn setup(
             ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+            .looking_at(Vec3::default(), Vec3::Y)
+            .into(),
         ..Default::default()
     };
     active_cameras.add(FIRST_PASS_CAMERA);
@@ -207,7 +208,8 @@ fn setup(
                 translation: Vec3::new(0.0, 0.0, 1.5),
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
-            },
+            }
+            .into(),
             visible: Visible {
                 is_transparent: true,
                 ..Default::default()
@@ -218,7 +220,8 @@ fn setup(
 
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+            .looking_at(Vec3::default(), Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }

@@ -68,15 +68,14 @@ fn setup(
     let mut rnd = rand::thread_rng();
 
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
+        let transform =
+            TransformBundle::from_xyz(rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0), 0.0);
         let dir = rnd.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = rnd.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
         let flipped = rnd.gen_bool(0.5);
-
-        let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let e = commands
             .spawn()

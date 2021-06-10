@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::TransformBundle;
 
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
@@ -26,8 +26,8 @@ pub struct NodeBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for NodeBundle {
@@ -46,7 +46,6 @@ impl Default for NodeBundle {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -62,8 +61,8 @@ pub struct ImageBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for ImageBundle {
@@ -84,7 +83,6 @@ impl Default for ImageBundle {
                 ..Default::default()
             },
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -98,8 +96,8 @@ pub struct TextBundle {
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for TextBundle {
@@ -118,7 +116,6 @@ impl Default for TextBundle {
             calculated_size: Default::default(),
             style: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -135,8 +132,8 @@ pub struct ButtonBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for ButtonBundle {
@@ -158,7 +155,6 @@ impl Default for ButtonBundle {
                 ..Default::default()
             },
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -168,8 +164,8 @@ pub struct UiCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for UiCameraBundle {
@@ -189,8 +185,7 @@ impl Default for UiCameraBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
-            global_transform: Default::default(),
+            transform: TransformBundle::from_xyz(0.0, 0.0, far - 0.1),
         }
     }
 }

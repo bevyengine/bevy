@@ -10,7 +10,7 @@ use bevy_render::{
     prelude::{Draw, Visible},
     render_graph::base::MainPass,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::TransformBundle;
 
 #[derive(Bundle, Clone)]
 pub struct SpriteBundle {
@@ -21,8 +21,8 @@ pub struct SpriteBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for SpriteBundle {
@@ -41,7 +41,6 @@ impl Default for SpriteBundle {
             sprite: Default::default(),
             material: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -60,8 +59,8 @@ pub struct SpriteSheetBundle {
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for SpriteSheetBundle {
@@ -80,7 +79,6 @@ impl Default for SpriteSheetBundle {
             sprite: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }

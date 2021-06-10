@@ -68,7 +68,8 @@ fn setup(
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
             ..Default::default()
-        },
+        }
+        .into(),
         sprite: TextureAtlasSprite::new(vendor_index as u32),
         texture_atlas: atlas_handle,
         ..Default::default()
@@ -76,7 +77,7 @@ fn setup(
     // draw the atlas itself
     commands.spawn_bundle(SpriteBundle {
         material: materials.add(texture_atlas_texture.into()),
-        transform: Transform::from_xyz(-300.0, 0.0, 0.0),
+        transform: TransformBundle::from_xyz(-300.0, 0.0, 0.0),
         ..Default::default()
     });
 }

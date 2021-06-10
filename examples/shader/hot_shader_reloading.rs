@@ -68,13 +68,15 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            transform: TransformBundle::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
         .insert(material);
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(3.0, 5.0, -8.0)
+            .looking_at(Vec3::ZERO, Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }

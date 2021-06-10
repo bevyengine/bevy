@@ -86,7 +86,7 @@ fn handle_tasks(
             commands.entity(entity).insert_bundle(PbrBundle {
                 mesh: box_mesh_handle.0.clone(),
                 material: box_material_handle.0.clone(),
-                transform,
+                transform: transform.into(),
                 ..Default::default()
             });
 
@@ -107,14 +107,15 @@ fn setup_env(mut commands: Commands) {
 
     // lights
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(4.0, 12.0, 15.0)),
+        transform: TransformBundle::from_xyz(4.0, 12.0, 15.0),
         ..Default::default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
-            .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
+        transform: Transform::from_xyz(offset, offset, 15.0)
+            .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }

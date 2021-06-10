@@ -11,7 +11,7 @@ use crate::{
 use base::MainPass;
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::TransformBundle;
 
 /// A component bundle for "mesh" entities
 #[derive(Bundle, Default)]
@@ -21,8 +21,8 @@ pub struct MeshBundle {
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 /// Component bundle for camera entities with perspective projection
@@ -33,8 +33,8 @@ pub struct PerspectiveCameraBundle {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl PerspectiveCameraBundle {
@@ -51,7 +51,6 @@ impl PerspectiveCameraBundle {
             perspective_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -66,7 +65,6 @@ impl Default for PerspectiveCameraBundle {
             perspective_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -79,8 +77,8 @@ pub struct OrthographicCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl OrthographicCameraBundle {
@@ -99,8 +97,7 @@ impl OrthographicCameraBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
-            global_transform: Default::default(),
+            transform: TransformBundle::from_xyz(0.0, 0.0, far - 0.1),
         }
     }
 
@@ -117,7 +114,6 @@ impl OrthographicCameraBundle {
             },
             visible_entities: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 
@@ -130,7 +126,6 @@ impl OrthographicCameraBundle {
             orthographic_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }

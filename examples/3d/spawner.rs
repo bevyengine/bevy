@@ -42,12 +42,14 @@ fn setup(
 ) {
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, -4.0, 5.0),
+        transform: TransformBundle::from_xyz(4.0, -4.0, 5.0),
         ..Default::default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 15.0, 150.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 15.0, 150.0)
+            .looking_at(Vec3::ZERO, Vec3::Y)
+            .into(),
         ..Default::default()
     });
 
@@ -64,7 +66,7 @@ fn setup(
                 ),
                 ..Default::default()
             }),
-            transform: Transform::from_xyz(
+            transform: TransformBundle::from_xyz(
                 rng.gen_range(-50.0..50.0),
                 rng.gen_range(-50.0..50.0),
                 0.0,

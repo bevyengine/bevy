@@ -88,7 +88,8 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
             2.0 * BOARD_SIZE_J as f32 / 3.0,
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
-        .looking_at(game.camera_is_focus, Vec3::Y),
+        .looking_at(game.camera_is_focus, Vec3::Y)
+        .into(),
         ..Default::default()
     });
     commands.spawn_bundle(UiCameraBundle::default());
@@ -102,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
 
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        transform: TransformBundle::from_xyz(4.0, 5.0, 4.0),
         ..Default::default()
     });
 
