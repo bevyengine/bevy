@@ -255,7 +255,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
         Res {
             value: &*column.get_data_ptr().cast::<T>().as_ptr(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_unchecked(0),
+                component_ticks: *column.get_ticks_unchecked(0),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -298,7 +298,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
             .map(|column| Res {
                 value: &*column.get_data_ptr().cast::<T>().as_ptr(),
                 ticks: Ticks {
-                    component_ticks: column.get_ticks_unchecked(0),
+                    component_ticks: *column.get_ticks_unchecked(0),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
@@ -694,7 +694,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
         NonSend {
             value: &*column.get_data_ptr().cast::<T>().as_ptr(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_unchecked(0),
+                component_ticks: *column.get_ticks_unchecked(0),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },

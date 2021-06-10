@@ -133,8 +133,8 @@ macro_rules! impl_debug {
     };
 }
 
-pub(crate) struct Ticks<'a> {
-    pub(crate) component_ticks: &'a ComponentTicks,
+pub(crate) struct Ticks {
+    pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
@@ -171,7 +171,7 @@ impl_debug!(ResMut<'a, T>, Component);
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'a, T: Component> {
     pub(crate) value: &'a T,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: Ticks,
 }
 
 detect_changes_impl!(Res<'a, T>, T, Component);
@@ -211,7 +211,7 @@ impl_debug!(NonSendMut<'a, T>, 'static);
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 pub struct NonSend<'a, T: 'static> {
     pub(crate) value: &'a T,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: Ticks,
 }
 
 detect_changes_impl!(NonSend<'a, T>, T, 'static);
