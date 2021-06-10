@@ -61,7 +61,6 @@ fn setup(
             range: 100.,
             ..Default::default()
         },
-        ..Default::default()
     });
     // camera
     commands.spawn_bundle(OrthographicCameraBundle {
