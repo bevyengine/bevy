@@ -8,13 +8,46 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+// Note: Neccesary because `Component` is only used in the documentation of TransformBundle.
+#[allow(unused_imports)]
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
 };
 use bevy_math::{Mat4, Quat, Vec3};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
+/// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`] [`Component`]s, which describe the position of an entity.
+///
+/// * To place or move an entity, you should set its [`Transform`].
+/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * Use the [`TransformBundle`] to guaranty this.
+///
+/// ## [`Transform`] and [`GlobalTransform`]
+///
+/// [`Transform`] is the position of an entity relative to its parent position, or the reference
+/// frame if it doesn't have a [`Parent`](super::Parent).
+///
+/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
+///
+/// [`GlobalTransform`] is updated from [`Transform`] in the system
+/// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
+///
+/// In pseudo code:
+/// ```ignore
+/// for entity in entities_without_parent:
+///     set entity.global_transform to entity.transform
+///     recursively:
+///         set parent to current entity
+///         for child in parent.children:
+///             set child.global_transform to parent.global_transform * child.transform
+/// ```
+///
+/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// before the [`GlobalTransform`] is updated.
 #[derive(Default, Bundle, Clone, Debug)]
 pub struct TransformBundle {
     pub local: Transform,

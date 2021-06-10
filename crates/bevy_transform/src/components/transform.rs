@@ -8,8 +8,9 @@ use std::ops::Mul;
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * Use the [`TransformBundle`] to guaranty this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
