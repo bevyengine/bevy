@@ -38,7 +38,7 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
             material: cube_material_handle.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            transform: TransformBundle::from_xyz(0.0, 0.0, 1.0),
             ..Default::default()
         })
         .insert(Rotator)
@@ -47,18 +47,20 @@ fn setup(
             parent.spawn_bundle(PbrBundle {
                 mesh: cube_handle,
                 material: cube_material_handle,
-                transform: Transform::from_xyz(0.0, 0.0, 3.0),
+                transform: TransformBundle::from_xyz(0.0, 0.0, 3.0),
                 ..Default::default()
             });
         });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, -4.0),
+        transform: TransformBundle::from_xyz(4.0, 5.0, -4.0),
         ..Default::default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(5.0, 10.0, 10.0)
+            .looking_at(Vec3::ZERO, Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }

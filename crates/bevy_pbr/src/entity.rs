@@ -8,7 +8,7 @@ use bevy_render::{
     prelude::Visible,
     render_graph::base::MainPass,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::prelude::TransformBundle;
 
 /// A component bundle for "pbr mesh" entities
 #[derive(Bundle)]
@@ -19,8 +19,8 @@ pub struct PbrBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }
 
 impl Default for PbrBundle {
@@ -35,7 +35,6 @@ impl Default for PbrBundle {
             main_pass: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -44,6 +43,6 @@ impl Default for PbrBundle {
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transform: TransformBundle,
 }

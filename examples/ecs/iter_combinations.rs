@@ -75,7 +75,8 @@ fn generate_bodies(
                     translation: position,
                     scale: Vec3::splat(mass_value_cube_root * 0.1),
                     ..Default::default()
-                },
+                }
+                .into(),
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb_linear(
@@ -104,10 +105,7 @@ fn generate_bodies(
     commands
         .spawn_bundle(BodyBundle {
             pbr: PbrBundle {
-                transform: Transform {
-                    scale: Vec3::splat(0.5),
-                    ..Default::default()
-                },
+                transform: TransformBundle::from_scale(Vec3::splat(0.5)),
                 mesh: meshes.add(Mesh::from(shape::Icosphere {
                     radius: 1.0,
                     subdivisions: 5,
@@ -123,7 +121,9 @@ fn generate_bodies(
             ..Default::default()
         });
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 10.5, -20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 10.5, -20.0)
+            .looking_at(Vec3::ZERO, Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }

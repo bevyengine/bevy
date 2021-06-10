@@ -19,7 +19,7 @@ fn setup(
     // Spawn a root entity with no parent
     let parent = commands
         .spawn_bundle(SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(0.75)),
+            transform: TransformBundle::from_scale(Vec3::splat(0.75)),
             material: materials.add(ColorMaterial {
                 color: Color::WHITE,
                 texture: Some(texture.clone()),
@@ -34,7 +34,8 @@ fn setup(
                     translation: Vec3::new(250.0, 0.0, 0.0),
                     scale: Vec3::splat(0.75),
                     ..Default::default()
-                },
+                }
+                .into(),
                 material: materials.add(ColorMaterial {
                     color: Color::BLUE,
                     texture: Some(texture.clone()),
@@ -55,7 +56,8 @@ fn setup(
                 translation: Vec3::new(-250.0, 0.0, 0.0),
                 scale: Vec3::splat(0.75),
                 ..Default::default()
-            },
+            }
+            .into(),
             material: materials.add(ColorMaterial {
                 color: Color::RED,
                 texture: Some(texture.clone()),
@@ -73,7 +75,8 @@ fn setup(
                 translation: Vec3::new(0.0, 250.0, 0.0),
                 scale: Vec3::splat(0.75),
                 ..Default::default()
-            },
+            }
+            .into(),
             material: materials.add(ColorMaterial {
                 color: Color::GREEN,
                 texture: Some(texture),
