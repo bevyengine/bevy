@@ -17,8 +17,8 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 
 #[derive(Default, Bundle, Clone, Debug)]
 pub struct TransformBundle {
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    pub local: Transform,
+    pub global: GlobalTransform,
 }
 
 impl TransformBundle {
@@ -28,7 +28,7 @@ impl TransformBundle {
     #[inline]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         TransformBundle {
-            transform: Transform::from_xyz(x, y, z),
+            local: Transform::from_xyz(x, y, z),
             ..Default::default()
         }
     }
@@ -38,8 +38,8 @@ impl TransformBundle {
     #[inline]
     pub const fn identity() -> Self {
         TransformBundle {
-            transform: Transform::identity(),
-            global_transform: GlobalTransform::identity(),
+            local: Transform::identity(),
+            global: GlobalTransform::identity(),
         }
     }
 
@@ -48,7 +48,7 @@ impl TransformBundle {
     #[inline]
     pub fn from_matrix(matrix: Mat4) -> Self {
         TransformBundle {
-            transform: Transform::from_matrix(matrix),
+            local: Transform::from_matrix(matrix),
             ..Default::default()
         }
     }
@@ -58,7 +58,7 @@ impl TransformBundle {
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
         TransformBundle {
-            transform: Transform::from_translation(translation),
+            local: Transform::from_translation(translation),
             ..Default::default()
         }
     }
@@ -68,7 +68,7 @@ impl TransformBundle {
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
         TransformBundle {
-            transform: Transform::from_rotation(rotation),
+            local: Transform::from_rotation(rotation),
             ..Default::default()
         }
     }
@@ -78,7 +78,7 @@ impl TransformBundle {
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
         TransformBundle {
-            transform: Transform::from_scale(scale),
+            local: Transform::from_scale(scale),
             ..Default::default()
         }
     }
@@ -87,7 +87,7 @@ impl TransformBundle {
 impl From<Transform> for TransformBundle {
     fn from(transform: Transform) -> Self {
         TransformBundle {
-            transform,
+            local: transform,
             ..Default::default()
         }
     }
