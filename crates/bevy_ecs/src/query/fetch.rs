@@ -881,7 +881,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: (&*self.table_ticks.add(table_row)).clone(),
+                    component_ticks: *self.table_ticks.add(table_row),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -902,7 +902,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         ChangeTrackers {
-            component_ticks: (&*self.table_ticks.add(table_row)).clone(),
+            component_ticks: *self.table_ticks.add(table_row),
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
