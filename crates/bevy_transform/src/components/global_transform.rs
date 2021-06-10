@@ -7,8 +7,9 @@ use std::ops::Mul;
 /// Describe the position of an entity relative to the reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * Use the [`TransformBundle`] to guaranty this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
