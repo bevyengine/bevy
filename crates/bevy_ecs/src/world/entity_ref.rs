@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
-    change_detection::Ticks,
+    change_detection::TicksMut,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -81,7 +81,7 @@ impl<'w> EntityRef<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                ticks: Ticks {
+                ticks: TicksMut {
                     component_ticks: &mut *ticks,
                     last_change_tick,
                     change_tick,
@@ -164,7 +164,7 @@ impl<'w> EntityMut<'w> {
             )
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                ticks: Ticks {
+                ticks: TicksMut {
                     component_ticks: &mut *ticks,
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.change_tick(),
@@ -181,7 +181,7 @@ impl<'w> EntityMut<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                ticks: Ticks {
+                ticks: TicksMut {
                     component_ticks: &mut *ticks,
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.read_change_tick(),

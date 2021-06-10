@@ -22,6 +22,7 @@ mod tests {
     use crate::{
         archetype::Archetypes,
         bundle::Bundles,
+        change_detection::DetectChanges,
         component::Components,
         entity::{Entities, Entity},
         query::{Added, Changed, Or, With, Without},
