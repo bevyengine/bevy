@@ -9,11 +9,17 @@ edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
+rand = { version = "0.8.0", features = ["small_rng"] }
 bevy = { path = "../" }
 
 [[bench]]
 name = "system_stage"
 path = "benches/bevy_ecs/stages.rs"
+harness = false
+
+[[bench]]
+name = "commands"
+path = "benches/bevy_ecs/commands.rs"
 harness = false
 
 [[bench]]
