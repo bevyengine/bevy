@@ -455,7 +455,7 @@ mod tests {
     };
 
     #[derive(Component)]
-    #[storage(sparse)]
+    #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);
 
     #[derive(Component)]
