@@ -219,8 +219,10 @@ where
     }
 }
 
-// TODO: Dead code
-// This trait seems to be unused apart from in implementations of this trait
+/// Trait used to generate `TypeData` for trait reflection.
+///
+/// This is used by the `#[derive(Reflect)]` macro to generate an implementation of [TypeData]
+/// to pass to [TypeRegistration::insert].
 pub trait FromType<T> {
     fn from_type() -> Self;
 }

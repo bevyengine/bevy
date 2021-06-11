@@ -6,7 +6,6 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0016", # net2 deprecated - https://github.com/deprecrated/net2-rs/commit/3350e3819adf151709047e93f25583a5df681091
     "RUSTSEC-2020-0056", # stdweb unmaintained - https://github.com/koute/stdweb/issues/403
     "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
 ]
@@ -23,9 +22,28 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
-    "MPL-2.0",
 ]
 default = "deny"
+
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+name = "wgpu-core"
+version = "0.8"
+
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+name = "wgpu-types"
+version = "0.8"
+
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+name = "wgpu"
+version = "0.8"
+
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+name = "hexasphere"
+version = "3.4"
 
 [[licenses.clarify]]
 name = "stretch"
