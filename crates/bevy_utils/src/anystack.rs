@@ -56,7 +56,7 @@ impl AnyStack {
     /// `func` must safely handle the provided `value` bytes and `user_data` bytes.
     /// [`AnyStack`] does not drop the contained member.
     /// The user should manually call [`AnyStack::apply`] and in the implementation
-    /// of the provided `drop` function from [`AnyStack::push`], the element should
+    /// of the provided `func` function from [`AnyStack::push`], the element should
     /// be dropped.
     pub unsafe fn push<U>(
         &mut self,
