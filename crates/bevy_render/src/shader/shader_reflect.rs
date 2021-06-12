@@ -159,20 +159,14 @@ fn reflect_bind_groups(
             Some((variable, binding))
         })
         .map(|(variable, binding)| {
-            let name = variable
-                .name
-                .clone()
-                .expect("resource binding without name");
-
             let ty = module
                 .types
                 .try_get(variable.ty)
                 .expect("resource binding references inexistent type");
 
-            let name = if name.is_empty() {
-                ty.name.clone().unwrap_or_default()
-            } else {
-                name
+            let name = match variable.name.clone() {
+                Some(name) if !name.is_empty() => name,
+                _ => ty.name.clone().unwrap_or_default(),
             };
 
             let bind_type = reflect_bind_type(&module, variable, &ty.inner);
