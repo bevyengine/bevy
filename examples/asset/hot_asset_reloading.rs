@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_scene(scene_handle);
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(4.0, 5.0, 4.0),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).into(),
         ..Default::default()
     });
     // camera

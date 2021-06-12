@@ -53,26 +53,26 @@ fn setup(
     commands.spawn_bundle(PbrBundle {
         mesh: monkey_handle,
         material: material_handle.clone(),
-        transform: TransformBundle::from_xyz(-3.0, 0.0, 0.0),
+        transform: Transform::from_xyz(-3.0, 0.0, 0.0).into(),
         ..Default::default()
     });
     // cube
     commands.spawn_bundle(PbrBundle {
         mesh: cube_handle,
         material: material_handle.clone(),
-        transform: TransformBundle::from_xyz(0.0, 0.0, 0.0),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0).into(),
         ..Default::default()
     });
     // sphere
     commands.spawn_bundle(PbrBundle {
         mesh: sphere_handle,
         material: material_handle,
-        transform: TransformBundle::from_xyz(3.0, 0.0, 0.0),
+        transform: Transform::from_xyz(3.0, 0.0, 0.0).into(),
         ..Default::default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(4.0, 5.0, 4.0),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).into(),
         ..Default::default()
     });
     // camera

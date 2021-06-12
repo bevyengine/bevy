@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
-use bevy_transform::TransformBundle;
+use bevy_transform::{components::Transform, TransformBundle};
 
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
@@ -185,7 +185,7 @@ impl Default for UiCameraBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: TransformBundle::from_xyz(0.0, 0.0, far - 0.1),
+            transform: Transform::from_xyz(0.0, 0.0, far - 0.1).into(),
         }
     }
 }

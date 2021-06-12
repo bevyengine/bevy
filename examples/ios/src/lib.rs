@@ -32,7 +32,7 @@ fn setup_scene(
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-        transform: TransformBundle::from_xyz(0.0, 0.5, 0.0),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0).into(),
         ..Default::default()
     });
     // sphere
@@ -42,12 +42,12 @@ fn setup_scene(
             radius: 0.5,
         })),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
-        transform: TransformBundle::from_xyz(1.5, 1.5, 1.5),
+        transform: Transform::from_xyz(1.5, 1.5, 1.5).into(),
         ..Default::default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).into(),
         ..Default::default()
     });
     // camera

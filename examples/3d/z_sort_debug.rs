@@ -56,7 +56,7 @@ fn setup(
                 unlit: true,
                 ..Default::default()
             }),
-            transform: TransformBundle::from_xyz(0.0, 0.0, 1.0),
+            transform: Transform::from_xyz(0.0, 0.0, 1.0).into(),
             ..Default::default()
         })
         .insert(Rotator)
@@ -68,7 +68,7 @@ fn setup(
                     unlit: true,
                     ..Default::default()
                 }),
-                transform: TransformBundle::from_xyz(0.0, 3.0, 0.0),
+                transform: Transform::from_xyz(0.0, 3.0, 0.0).into(),
                 ..Default::default()
             });
             parent.spawn_bundle(PbrBundle {
@@ -77,7 +77,7 @@ fn setup(
                     unlit: true,
                     ..Default::default()
                 }),
-                transform: TransformBundle::from_xyz(0.0, -3.0, 0.0),
+                transform: Transform::from_xyz(0.0, -3.0, 0.0).into(),
                 ..Default::default()
             });
         });

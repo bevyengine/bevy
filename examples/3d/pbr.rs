@@ -33,7 +33,7 @@ fn setup(
                     roughness: x01,
                     ..Default::default()
                 }),
-                transform: TransformBundle::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                transform: Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0).into(),
                 ..Default::default()
             });
         }
@@ -50,12 +50,12 @@ fn setup(
             unlit: true,
             ..Default::default()
         }),
-        transform: TransformBundle::from_xyz(-5.0, -2.5, 0.0),
+        transform: Transform::from_xyz(-5.0, -2.5, 0.0).into(),
         ..Default::default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(50.0, 50.0, 50.0),
+        transform: Transform::from_xyz(50.0, 50.0, 50.0).into(),
         point_light: PointLight {
             intensity: 50000.,
             range: 100.,

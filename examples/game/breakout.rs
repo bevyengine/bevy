@@ -57,7 +57,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-            transform: TransformBundle::from_xyz(0.0, -215.0, 0.0),
+            transform: Transform::from_xyz(0.0, -215.0, 0.0).into(),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
         })
@@ -67,7 +67,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
-            transform: TransformBundle::from_xyz(0.0, -50.0, 1.0),
+            transform: Transform::from_xyz(0.0, -50.0, 1.0).into(),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
         })
@@ -118,7 +118,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: wall_material.clone(),
-            transform: TransformBundle::from_xyz(-bounds.x / 2.0, 0.0, 0.0),
+            transform: Transform::from_xyz(-bounds.x / 2.0, 0.0, 0.0).into(),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
@@ -127,7 +127,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: wall_material.clone(),
-            transform: TransformBundle::from_xyz(bounds.x / 2.0, 0.0, 0.0),
+            transform: Transform::from_xyz(bounds.x / 2.0, 0.0, 0.0).into(),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
@@ -136,7 +136,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: wall_material.clone(),
-            transform: TransformBundle::from_xyz(0.0, -bounds.y / 2.0, 0.0),
+            transform: Transform::from_xyz(0.0, -bounds.y / 2.0, 0.0).into(),
             sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
@@ -145,7 +145,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: wall_material,
-            transform: TransformBundle::from_xyz(0.0, bounds.y / 2.0, 0.0),
+            transform: Transform::from_xyz(0.0, bounds.y / 2.0, 0.0).into(),
             sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
@@ -173,7 +173,7 @@ fn setup(
                 .spawn_bundle(SpriteBundle {
                     material: brick_material.clone(),
                     sprite: Sprite::new(brick_size),
-                    transform: TransformBundle::from_translation(brick_position),
+                    transform: Transform::from_translation(brick_position).into(),
                     ..Default::default()
                 })
                 .insert(Collider::Scorable);
