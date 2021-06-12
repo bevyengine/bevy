@@ -14,8 +14,8 @@ pub trait Command: Send + Sync + 'static {
 
 /// # Safety
 ///
-/// This function is only every associated when the `command` bytes is the associated
-/// [`Commands`] `T` type. Also this only read the data via `read_unaligned` to unaligned
+/// This function is only every called when the `command` bytes is the associated
+/// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
 /// accesses are safe.
 unsafe fn write_command_on_mut_world<T: Command>(command: *mut u8, world: &mut World) {
     let command = command.cast::<T>().read_unaligned();
