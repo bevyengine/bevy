@@ -288,28 +288,28 @@ fn window_icon_changed(
             let handle = o.get();
             match asset_server.get_load_state(handle) {
                 LoadState::Loaded => {
-                    if let Some(texture) = textures.get(handle) {
-                        /* TODO: Not actually sure if we need to check the error here
-                        Whatever Texture gives us might be fine */
-                        let window_icon_bytes = WindowIconBytes::new(
-                            texture.data.clone(),
-                            texture.size.width,
-                            texture.size.height,
-                        );
+                    let texture = textures.get(handle).unwrap(); /* Safe to unwrap here, because loadstate==loaded is checked */
 
-                        match window_icon_bytes {
-                            Ok(window_icon_bytes) => {
-                                let window_icon = WindowIcon::from(window_icon_bytes);
-                                window.set_icon(window_icon);
-                            }
-                            Err(e) => error!(
-                                "For handle {:?} the following error was produced: {}",
-                                handle, e
-                            ),
+                    /* TODO: Not actually sure if we need to check the error here
+                    Whatever Texture gives us might be fine */
+                    let window_icon_bytes = WindowIconBytes::new(
+                        texture.data.clone(),
+                        texture.size.width,
+                        texture.size.height,
+                    );
+
+                    match window_icon_bytes {
+                        Ok(window_icon_bytes) => {
+                            let window_icon = WindowIcon::from(window_icon_bytes);
+                            window.set_icon(window_icon);
                         }
-
-                        o.remove();
+                        Err(e) => error!(
+                            "For handle {:?} the following error was produced: {}",
+                            handle, e
+                        ),
                     }
+
+                    o.remove();
                 }
                 LoadState::Failed => {
                     o.remove();
