@@ -14,18 +14,18 @@ pub trait Command: Send + Sync + 'static {
 
 /// # Safety
 ///
-/// This function is only used when the provided `world` is a `&mut World` and
-/// is only ever called once, so it's safe to consume `command`.
-unsafe fn write_command_on_mut_world<T: Command>(command: *mut u8, world: *mut u8) {
-    let world = &mut *world.cast::<World>();
-    let command = command.cast::<T>().read();
+/// This function is only every associated when the `command` bytes is the associated
+/// [`Commands`] `T` type. Also this only read the data via `read_unaligned` to unaligned
+/// accesses are safe.
+unsafe fn write_command_on_mut_world<T: Command>(command: *mut u8, world: &mut World) {
+    let command = command.cast::<T>().read_unaligned();
     command.write(world);
 }
 
 /// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
-    commands: AnyStack,
+    commands: AnyStack<World>,
 }
 
 impl CommandQueue {
@@ -33,24 +33,17 @@ impl CommandQueue {
     /// This clears the queue.
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
-        // SAFE:
-        // `apply`: the provided function `write_command_on_mut_world` safely
-        // handle the provided [`World`], drops the associate `Command`, and
-        // clears the inner [`AnyStack`].
-        //
-        // `clear`: is safely used because the call to `apply` above
-        // ensures each added command is dropped.
-        unsafe {
-            self.commands.apply(world as *mut World as *mut u8);
-            self.commands.clear();
-        }
+        // Note: the provided function `write_command_on_mut_world` safely
+        // drops the associated `Command`.
+        self.commands.consume(world);
     }
 
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<T: Command>(&mut self, command: T) {
         // SAFE: `write_command_on_mut_world` safely casts `command` back to its original type
-        // and safely casts the `user_data` back to a `World`.
+        // and only access the command via `read_unaligned`.
+        // Also it correctly `drops` the command.
         unsafe {
             self.commands.push(command, write_command_on_mut_world::<T>);
         }

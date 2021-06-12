@@ -1,14 +1,14 @@
-struct AnyStackMeta {
+struct AnyStackMeta<T> {
     offset: usize,
-    func: unsafe fn(value: *mut u8, user_data: *mut u8),
+    func: unsafe fn(value: *mut u8, user_data: &mut T),
 }
 
-pub struct AnyStack {
+pub struct AnyStack<T> {
     bytes: Vec<u8>,
-    metas: Vec<AnyStackMeta>,
+    metas: Vec<AnyStackMeta<T>>,
 }
 
-impl Default for AnyStack {
+impl<T> Default for AnyStack<T> {
     fn default() -> Self {
         Self {
             bytes: vec![],
@@ -17,97 +17,89 @@ impl Default for AnyStack {
     }
 }
 
-unsafe impl Send for AnyStack {}
-unsafe impl Sync for AnyStack {}
+// SAFE: All values pushed onto the stack are required to be [`Send`]
+unsafe impl<T> Send for AnyStack<T> {}
 
-impl AnyStack {
+// SAFE: All values pushed onto the stack are required to be [`Sync`]
+unsafe impl<T> Sync for AnyStack<T> {}
+
+impl<T> AnyStack<T> {
+    ////Constructs a new, empty `AnyStack<T>`.
+    /// The stack will not allocate until elements are pushed onto it.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns the number of elements in the [`AnyStack`], also referred to as its ‘length’.
     #[inline]
     pub fn len(&self) -> usize {
         self.metas.len()
     }
 
+    /// Returns true if the [`AnyStack`] contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-
-    /// Clears in internal bytes and metas storage.
-    ///
-    /// # Safety
-    ///
-    /// This does not [`drop`] the pushed values.
-    /// The pushed values must be dropped via [`AnyStack::apply`] and
-    /// the provided `func` before calling this function.
-    #[inline]
-    pub unsafe fn clear(&mut self) {
-        self.bytes.clear();
-        self.metas.clear();
     }
 
     /// Push a new `value` onto the stack.
     ///
     /// # Safety
     ///
-    /// `func` must safely handle the provided `value` bytes and `user_data` bytes.
+    /// `func` must safely handle the provided `value` bytes.
+    /// _NOTE_: the bytes provided to the given function may **NOT** be aligned. If you wish
+    /// to read the value, consider using [`std::ptr::read_unalinged`].
+    ///
     /// [`AnyStack`] does not drop the contained member.
-    /// The user should manually call [`AnyStack::apply`] and in the implementation
-    /// of the provided `func` function from [`AnyStack::push`], the element should
-    /// be dropped.
-    pub unsafe fn push<U>(
-        &mut self,
-        value: U,
-        func: unsafe fn(value: *mut u8, user_data: *mut u8),
-    ) {
-        let align = std::mem::align_of::<U>();
+    /// The user should manually call [`AnyStack::consume`] and in the implementation
+    /// of the provided `func` the element should be dropped.
+    #[inline]
+    pub unsafe fn push<U>(&mut self, value: U, func: unsafe fn(value: *mut u8, user_data: &mut T))
+    where
+        U: Send + Sync,
+    {
         let size = std::mem::size_of::<U>();
-
-        if self.is_empty() {
-            self.bytes.reserve(size);
-        }
 
         let old_len = self.bytes.len();
 
-        let aligned_offset = loop {
-            let aligned_offset = self.bytes.as_ptr().add(old_len).align_offset(align);
-
-            if old_len + aligned_offset + size > self.bytes.capacity() {
-                self.bytes.reserve(aligned_offset + size);
-            } else {
-                break aligned_offset;
-            }
-        };
-
-        let offset = old_len + aligned_offset;
-        let total_bytes = size + aligned_offset;
-        self.bytes.set_len(old_len + total_bytes);
-
-        self.metas.push(AnyStackMeta { offset, func });
-
+        self.bytes.reserve(size);
         std::ptr::copy_nonoverlapping(
             &value as *const U as *const u8,
-            self.bytes.as_mut_ptr().add(offset),
+            self.bytes.as_mut_ptr().add(old_len),
             size,
         );
+        self.bytes.set_len(old_len + size);
+
+        self.metas.push(AnyStackMeta {
+            offset: old_len,
+            func,
+        });
 
         std::mem::forget(value);
     }
 
-    /// Call each user `func` for each inserted value with `user_data`.
+    /// Call each user `func` for each inserted value with `user_data`
+    /// and then clears the internal bytes/metas vectors.
     ///
-    /// # Safety
+    /// # Warning
     ///
-    /// It is up to the user to safely handle `user_data` in each of the initially
-    /// provided `func` functions in [`AnyStack::push`].
-    pub unsafe fn apply(&mut self, user_data: *mut u8) {
+    /// This does not [`drop`] the pushed values.
+    /// If the value should be dropped, the initially provided `func`
+    /// should ensure any necessary cleanup occurs.
+    pub fn consume(&mut self, user_data: &mut T) {
         let byte_ptr = self.bytes.as_mut_ptr();
         for meta in self.metas.iter() {
-            (meta.func)(byte_ptr.add(meta.offset), user_data);
+            // SAFE: The safety guarantees are promised to be held by the caller
+            // from [`AnyStack::push`].
+            // Also each value has it's offset correctly stored in it's assocaited meta.
+            unsafe {
+                (meta.func)(byte_ptr.add(meta.offset), user_data);
+            }
         }
+
+        self.bytes.clear();
+        self.metas.clear();
     }
 }
 
@@ -136,18 +128,16 @@ mod test {
 
     /// # Safety
     ///
-    /// This function does not touch the `user_data` provided,
-    /// and this is only used when the value is a `DropCheck`.
-    /// Lastly, this drops the `DropCheck` value and is only
+    /// This function is only used when the value is a `DropCheck`.
+    /// This also drops the `DropCheck` value and is only
     /// every call once.
-    unsafe fn drop_check_func(bytes: *mut u8, _: *mut u8) {
-        assert_eq!(bytes.align_offset(std::mem::align_of::<DropCheck>()), 0);
-        let _ = bytes.cast::<DropCheck>().read();
+    unsafe fn drop_check_func(bytes: *mut u8, _: &mut ()) {
+        let _ = bytes.cast::<DropCheck>().read_unaligned();
     }
 
     #[test]
     fn test_anystack_drop() {
-        let mut stack = AnyStack::new();
+        let mut stack = AnyStack::<()>::new();
 
         let (dropcheck_a, drops_a) = DropCheck::new();
         let (dropcheck_b, drops_b) = DropCheck::new();
@@ -161,10 +151,7 @@ mod test {
         assert_eq!(drops_a.load(Ordering::Relaxed), 0);
         assert_eq!(drops_b.load(Ordering::Relaxed), 0);
 
-        // SAFE: The `drop_check_func` does not access the null `user_data`.
-        unsafe {
-            stack.apply(std::ptr::null_mut());
-        }
+        stack.consume(&mut ());
 
         assert_eq!(drops_a.load(Ordering::Relaxed), 1);
         assert_eq!(drops_b.load(Ordering::Relaxed), 1);
@@ -174,11 +161,9 @@ mod test {
 
     /// # Safety
     /// `bytes` must point to a valid `u32`
-    /// `world` must point to a mutable `FakeWorld`.
     /// Since `u32` is a primitive type, it does not require a `drop` call.
-    unsafe fn increment_fake_world_u32(bytes: *mut u8, world: *mut u8) {
-        let world = &mut *world.cast::<FakeWorld>();
-        world.0 += *bytes.cast::<u32>();
+    unsafe fn increment_fake_world_u32(bytes: *mut u8, world: &mut FakeWorld) {
+        world.0 += bytes.cast::<u32>().read_unaligned();
     }
 
     #[test]
@@ -199,18 +184,9 @@ mod test {
 
         let mut world = FakeWorld(0);
 
-        // SAFE: the given `user_data` is a `&mut FakeWorld` which is safely
-        // handled in the invocation of `increment_fake_world_u32`
-        unsafe {
-            stack.apply(&mut world as *mut FakeWorld as *mut u8);
-        }
+        stack.consume(&mut world);
 
         assert_eq!(world.0, 15);
-
-        // SAFE: the data is only `u32` so they don't need to be dropped.
-        unsafe {
-            stack.clear();
-        }
 
         assert!(stack.is_empty());
         assert_eq!(stack.len(), 0);
