@@ -12,10 +12,10 @@ use bevy_ecs::{
     bundle::Bundle,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
 };
-use bevy_math::{Mat4, Quat, Vec3};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
-/// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`] [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
+/// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
+/// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
@@ -52,13 +52,17 @@ pub struct TransformBundle {
 }
 
 impl TransformBundle {
-    /// Creates a new [`TransformBundle`] at the position `(x, y, z)`. In 2d, the `z` component
-    /// is used for z-ordering elements: higher `z`-value will be in front of lower
-    /// `z`-value.
+    /// Creates a new [`TransformBundle`] from a [`Transform`] and a [`GlobalTransform`].
+    pub fn new(local: Transform, global: GlobalTransform) -> Self {
+        TransformBundle { local, global }
+    }
+
+    /// Creates a new [`TransformBundle`] from a [`Transform`] and leaving [`GlobalTransform`] with
+    /// no translation, rotation, and a scale of 1 on all axes.
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+    pub fn from_transform(transform: Transform) -> Self {
         TransformBundle {
-            local: Transform::from_xyz(x, y, z),
+            local: transform,
             ..Default::default()
         }
     }
@@ -73,54 +77,11 @@ impl TransformBundle {
             global: GlobalTransform::identity(),
         }
     }
-
-    /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
-    /// transformation matrix.
-    #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        TransformBundle {
-            local: Transform::from_matrix(matrix),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`TransformBundle`], with `translation`. Rotation will be 0 and scale 1 on
-    /// all axes.
-    #[inline]
-    pub fn from_translation(translation: Vec3) -> Self {
-        TransformBundle {
-            local: Transform::from_translation(translation),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`TransformBundle`], with `rotation`. Translation will be 0 and scale 1 on
-    /// all axes.
-    #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
-        TransformBundle {
-            local: Transform::from_rotation(rotation),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`TransformBundle`], with `scale`. Translation will be 0 and rotation 0 on
-    /// all axes.
-    #[inline]
-    pub fn from_scale(scale: Vec3) -> Self {
-        TransformBundle {
-            local: Transform::from_scale(scale),
-            ..Default::default()
-        }
-    }
 }
 
 impl From<Transform> for TransformBundle {
     fn from(transform: Transform) -> Self {
-        TransformBundle {
-            local: transform,
-            ..Default::default()
-        }
+        Self::from_transform(transform)
     }
 }
 

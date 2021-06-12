@@ -15,7 +15,7 @@ fn spawn_system(
         commands
             .spawn_bundle(SpriteBundle {
                 material: material.clone(),
-                transform: TransformBundle::from_scale(Vec3::splat(0.1)),
+                transform: Transform::from_scale(Vec3::splat(0.1)).into(),
                 ..Default::default()
             })
             .insert(Velocity(

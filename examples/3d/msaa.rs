@@ -26,7 +26,7 @@ fn setup(
     });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).into(),
         ..Default::default()
     });
     // camera

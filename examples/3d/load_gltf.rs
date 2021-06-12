@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
     commands
         .spawn_bundle(PointLightBundle {
-            transform: TransformBundle::from_xyz(3.0, 5.0, 3.0),
+            transform: Transform::from_xyz(3.0, 5.0, 3.0).into(),
             ..Default::default()
         })
         .insert(Rotates);

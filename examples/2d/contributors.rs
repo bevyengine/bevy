@@ -69,7 +69,8 @@ fn setup(
 
     for name in contribs {
         let transform =
-            TransformBundle::from_xyz(rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0), 0.0);
+            Transform::from_xyz(rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0), 0.0)
+                .into();
         let dir = rnd.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = rnd.gen_range(0.0..=360.0);

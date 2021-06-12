@@ -107,7 +107,7 @@ fn setup_env(mut commands: Commands) {
 
     // lights
     commands.spawn_bundle(PointLightBundle {
-        transform: TransformBundle::from_xyz(4.0, 12.0, 15.0),
+        transform: Transform::from_xyz(4.0, 12.0, 15.0).into(),
         ..Default::default()
     });
 

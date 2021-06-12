@@ -34,7 +34,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
-            transform: TransformBundle::from_scale(Vec3::splat(6.0)),
+            transform: Transform::from_scale(Vec3::splat(6.0)).into(),
             ..Default::default()
         })
         .insert(Timer::from_seconds(0.1, true));

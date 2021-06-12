@@ -90,7 +90,7 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
-            transform: TransformBundle::from_xyz(0.0, 0.0, 0.0),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0).into(),
             ..Default::default()
         })
         .insert(material);

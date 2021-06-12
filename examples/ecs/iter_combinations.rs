@@ -105,7 +105,7 @@ fn generate_bodies(
     commands
         .spawn_bundle(BodyBundle {
             pbr: PbrBundle {
-                transform: TransformBundle::from_scale(Vec3::splat(0.5)),
+                transform: Transform::from_scale(Vec3::splat(0.5)).into(),
                 mesh: meshes.add(Mesh::from(shape::Icosphere {
                     radius: 1.0,
                     subdivisions: 5,
