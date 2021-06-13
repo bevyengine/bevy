@@ -115,7 +115,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_drop() {
-        let mut queue = CommandQueueInner::new();
+        let mut queue = CommandQueueInner::default();
 
         let (dropcheck_a, drops_a) = DropCheck::new();
         let (dropcheck_b, drops_b) = DropCheck::new();
@@ -143,7 +143,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner() {
-        let mut queue = CommandQueueInner::new();
+        let mut queue = CommandQueueInner::default();
 
         assert!(queue.is_empty());
         assert_eq!(queue.len(), 0);
