@@ -1,10 +1,13 @@
+mod command_queue;
+
 use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::{anystack::AnyStack, tracing::debug};
+use bevy_utils::tracing::debug;
+use command_queue::CommandQueueInner;
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
@@ -12,20 +15,10 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// # Safety
-///
-/// This function is only every called when the `command` bytes is the associated
-/// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
-/// accesses are safe.
-unsafe fn write_command_on_mut_world<T: Command>(command: *mut u8, world: &mut World) {
-    let command = command.cast::<T>().read_unaligned();
-    command.write(world);
-}
-
 /// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
-    commands: AnyStack<World>,
+    commands: CommandQueueInner,
 }
 
 impl CommandQueue {
@@ -35,18 +28,13 @@ impl CommandQueue {
         world.flush();
         // Note: the provided function `write_command_on_mut_world` safely
         // drops the associated `Command`.
-        self.commands.consume(world);
+        self.commands.apply(world);
     }
 
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<T: Command>(&mut self, command: T) {
-        // SAFE: `write_command_on_mut_world` safely casts `command` back to its original type
-        // and only access the command via `read_unaligned`.
-        // Also it correctly `drops` the command.
-        unsafe {
-            self.commands.push(command, write_command_on_mut_world::<T>);
-        }
+        self.commands.push(command);
     }
 }
 
