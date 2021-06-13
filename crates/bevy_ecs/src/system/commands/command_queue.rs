@@ -29,25 +29,6 @@ unsafe impl Send for CommandQueueInner {}
 unsafe impl Sync for CommandQueueInner {}
 
 impl CommandQueueInner {
-    ////Constructs a new, empty `CommandQueueInner`.
-    /// The stack will not allocate until commands are pushed onto it.
-    #[inline]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Returns the number of commands in the [`CommandQueueInner`], also referred to as its ‘length’.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.metas.len()
-    }
-
-    /// Returns true if the [`CommandQueueInner`] contains no elements.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
     /// Push a new `command` onto the queue.
     #[inline]
     pub fn push<C>(&mut self, command: C)
