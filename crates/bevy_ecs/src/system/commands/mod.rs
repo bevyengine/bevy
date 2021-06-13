@@ -11,6 +11,10 @@ use command_queue::CommandQueueInner;
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
+//
+// NOTE: `CommandQueueInner` is `Send` because `Command` is send.
+// If the `Command` trait gets reworked to be non-send, `CommandQueueInner`
+// should be reworked.
 pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }

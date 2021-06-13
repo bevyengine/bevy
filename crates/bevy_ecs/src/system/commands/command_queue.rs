@@ -25,7 +25,7 @@ pub(crate) struct CommandQueueInner {
 // SAFE: All commands [`Command`] implement [`Send`]
 unsafe impl Send for CommandQueueInner {}
 
-// SAFE: All commands [`Command`] implement [`Sync`]
+// SAFE: `&CommandQueueInner` never gives access to the inner commands.
 unsafe impl Sync for CommandQueueInner {}
 
 impl CommandQueueInner {
@@ -64,13 +64,7 @@ impl CommandQueueInner {
     }
 
     /// Invoke each command `func` for each inserted value with `world`
-    /// and then clears the internal bytes/metas vectors.
-    ///
-    /// # Warning
-    ///
-    /// This does not [`drop`] the pushed commands.
-    /// If the command should be dropped, the initially provided `func`
-    /// should ensure any necessary cleanup occurs.
+    /// and then clears the internal bytes/metas command vectors.
     pub fn apply(&mut self, world: &mut World) {
         let byte_ptr = self.bytes.as_mut_ptr();
         for meta in self.metas.iter() {
