@@ -145,21 +145,17 @@ mod test {
     fn test_command_queue_inner() {
         let mut queue = CommandQueueInner::default();
 
-        assert!(queue.is_empty());
-        assert_eq!(queue.len(), 0);
-
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
-
-        assert!(!queue.is_empty());
-        assert_eq!(queue.len(), 2);
 
         let mut world = World::new();
         queue.apply(&mut world);
 
         assert_eq!(world.entities().len(), 2);
 
-        assert!(queue.is_empty());
-        assert_eq!(queue.len(), 0);
+        // The previous call to `apply` clearer the queue.
+        // This call should do nothing.
+        queue.apply(&mut world);
+        assert_eq!(world.entities().len(), 2);
     }
 }
