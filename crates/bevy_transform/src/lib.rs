@@ -54,6 +54,7 @@ pub struct TransformBundle {
 
 impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`] and a [`GlobalTransform`].
+    #[inline]
     pub fn new(local: Transform, global: GlobalTransform) -> Self {
         TransformBundle { local, global }
     }
@@ -81,6 +82,7 @@ impl TransformBundle {
 }
 
 impl From<Transform> for TransformBundle {
+    #[inline]
     fn from(transform: Transform) -> Self {
         Self::from_transform(transform)
     }
