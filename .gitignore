@@ -7,3 +7,4 @@ Cargo.lock
 /.idea
 /.vscode
 /benches/target
+.DS_Store
