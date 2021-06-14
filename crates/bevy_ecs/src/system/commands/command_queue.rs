@@ -147,7 +147,7 @@ mod test {
 
         assert_eq!(world.entities().len(), 2);
 
-        // The previous call to `apply` clearer the queue.
+        // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
         assert_eq!(world.entities().len(), 2);
