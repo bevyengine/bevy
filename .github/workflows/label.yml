@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/labeler@v2
+    - uses: actions/labeler@v3.0.1
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/label-config.yml
