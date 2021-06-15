@@ -6,6 +6,10 @@ use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
 use serde::de::DeserializeSeed;
 
+// Written in "one line" to insert it into the module overview.
+#[doc = "[`AssetLoader`]: <ul>\
+<li>`.scn`, `.scn.ron` -> [`DynamicScene`](`crate::dynamic_scene::DynamicScene`)</li>\
+</ul>"]
 #[derive(Debug)]
 pub struct SceneLoader {
     type_registry: TypeRegistryArc,

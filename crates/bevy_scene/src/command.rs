@@ -19,7 +19,12 @@ impl Command for SpawnScene {
     }
 }
 
+// Written in "one line" to insert it into the module overview.
+#[doc = "[`Commands`] extension: <ul>\
+<li><code>.[spawn_scene](SpawnSceneCommands::spawn_scene)(scene: [Handle]<[Scene]>)</code></li>\
+</ul>"]
 pub trait SpawnSceneCommands {
+    /// Adds a new [`SpawnScene`] instance to this command list.
     fn spawn_scene(&mut self, scene: Handle<Scene>);
 }
 
@@ -41,7 +46,12 @@ impl Command for SpawnSceneAsChild {
     }
 }
 
+// Written in "one line" to insert it into the module overview.
+#[doc = "[`ChildBuilder`] extension: <ul>\
+<li><code>.[spawn_scene](SpawnSceneAsChildCommands::spawn_scene)(scene: [Handle]<[Scene]>)</code></li>\
+</ul>"]
 pub trait SpawnSceneAsChildCommands {
+    /// Adds a new [`SpawnSceneAsChild`] instance to this command list.
     fn spawn_scene(&mut self, scene: Handle<Scene>) -> &mut Self;
 }
 
