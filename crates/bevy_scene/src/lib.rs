@@ -26,11 +26,11 @@ use bevy_ecs::{schedule::ExclusiveSystemDescriptorCoercion, system::IntoExclusiv
 ///
 /// # Contents
 ///
-/// - Assets
+/// - Asset Types
 ///
 ///   [`DynamicScene`], [`Scene`]
 ///
-/// - AssetLoaders
+/// - Asset Loaders
 ///
 ///   [`SceneLoader`]
 ///
