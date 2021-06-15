@@ -281,7 +281,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle(TransformBundle::default())
+            .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
