@@ -7,7 +7,18 @@ use crate::world::World;
 /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
 /// accesses are safe.
 unsafe fn invoke_command<T: Command>(command: *mut u8, world: &mut World) {
-    let command = command.cast::<T>().read_unaligned();
+    let command = if std::mem::size_of::<T>() > 0 {
+        command.cast::<T>().read_unaligned()
+    } else {
+        // NOTE: This is necessary because if the `CommandQueueInner` is only filled with 0-sized
+        // commands the `bytes` vec will never allocate. Then means that `bytes.as_ptr()` could be null
+        // and reading a null pointer is always UB.
+        // However according to https://doc.rust-lang.org/std/ptr/index.html
+        // "The canonical way to obtain a pointer that is valid for zero-sized accesses is NonNull::dangling"
+        // therefore the below code is safe to do.
+        let ptr = std::ptr::NonNull::<T>::dangling().as_ptr();
+        ptr.cast::<T>().read()
+    };
     command.write(world);
 }
 
@@ -43,12 +54,9 @@ impl CommandQueueInner {
             func: invoke_command::<C>,
         });
 
-        // Even if `size` == 0, we still need the vector to allocate.
-        // When we call `read_unaliged` in `invoke_command`, the ptr must be non-null
-        // therefore, `self.bytes.as_ptr()` must be non-null.
-        self.bytes.reserve(size.max(1));
-
         if size > 0 {
+            self.bytes.reserve(size);
+
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), and the vector has
             // its length set appropriately.
