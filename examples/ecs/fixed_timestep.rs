@@ -13,7 +13,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update.system())
-        // add a new stage that runs every two seconds
+        // add a new stage that runs twice a second
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,

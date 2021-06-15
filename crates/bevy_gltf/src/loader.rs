@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
+use bevy_log::warn;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
@@ -49,7 +50,7 @@ pub enum GltfError {
     BufferFormatUnsupported,
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("{0}")]
+    #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
@@ -140,6 +141,11 @@ async fn load_gltf<'a, 'b>(
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+            } else {
+                let len = mesh.count_vertices();
+                let uvs = vec![[0.0, 0.0]; len];
+                bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
+                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             if let Some(vertex_attribute) = reader
@@ -209,7 +215,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from(rotation),
+                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
@@ -257,7 +263,12 @@ async fn load_gltf<'a, 'b>(
             });
         })
         .into_iter()
-        .filter_map(|result| result.ok())
+        .filter_map(|res| {
+            if let Err(err) = res.as_ref() {
+                warn!("Error loading GLTF texture: {}", err);
+            }
+            res.ok()
+        })
         .for_each(|(texture, label)| {
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         });

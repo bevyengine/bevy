@@ -3,7 +3,6 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, staging, trying]
 
 env:
   CARGO_TERM_COLOR: always
@@ -85,7 +84,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Markdown Lint
-        uses: github/super-linter@v3.15.5
+        uses: docker://ghcr.io/github/super-linter:slim-v4
         env:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
@@ -153,3 +152,16 @@ jobs:
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
+  
+  check-missing-examples-in-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check that examples are present in both README and Cargo
+        uses: Weibye/action-internal-link-consistency@1.0.0
+        with:
+          source: './examples/'
+          targets: '[ "./Cargo.toml", "./examples/README.md" ]'
+          file-types: '[".rs"]'
+          exclude-folders: '["./examples/ios"]'
+          exclude-files: '[]'

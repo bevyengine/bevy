@@ -2,7 +2,7 @@ use super::{BufferId, SamplerId, TextureId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
 
-use bevy_core::{Byteable, Bytes};
+use bevy_core::{cast_slice, Bytes, Pod};
 pub use bevy_derive::{RenderResource, RenderResources};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 use bevy_transform::components::GlobalTransform;
@@ -189,18 +189,18 @@ where
 
 impl<T> RenderResource for Vec<T>
 where
-    T: Sized + Byteable,
+    T: Sized + Pod,
 {
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Buffer)
     }
 
     fn write_buffer_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes(buffer);
+        buffer.copy_from_slice(cast_slice(self));
     }
 
     fn buffer_byte_len(&self) -> Option<usize> {
-        Some(self.byte_len())
+        Some(std::mem::size_of_val(&self[..]))
     }
 
     fn texture(&self) -> Option<&Handle<Texture>> {
@@ -210,18 +210,18 @@ where
 
 impl<T, const N: usize> RenderResource for [T; N]
 where
-    T: Sized + Byteable,
+    T: Sized + Pod,
 {
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Buffer)
     }
 
     fn write_buffer_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes(buffer);
+        buffer.copy_from_slice(cast_slice(self));
     }
 
     fn buffer_byte_len(&self) -> Option<usize> {
-        Some(self.byte_len())
+        Some(std::mem::size_of_val(self))
     }
 
     fn texture(&self) -> Option<&Handle<Texture>> {
@@ -277,9 +277,9 @@ impl RenderResources for bevy_transform::prelude::GlobalTransform {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate as bevy_render;
 
     #[derive(RenderResource, Bytes)]
-    #[as_crate(bevy_render)]
     struct GenericRenderResource<T>
     where
         T: Bytes + Send + Sync + 'static,
@@ -288,7 +288,6 @@ mod test {
     }
 
     #[derive(RenderResources)]
-    #[as_crate(bevy_render)]
     struct GenericRenderResources<T>
     where
         T: RenderResource + Send + Sync + 'static,
@@ -298,7 +297,6 @@ mod test {
 
     #[derive(Bytes, RenderResource, RenderResources)]
     #[render_resources(from_self)]
-    #[as_crate(bevy_render)]
     struct FromSelfGenericRenderResources<T>
     where
         T: Bytes + Send + Sync + 'static,

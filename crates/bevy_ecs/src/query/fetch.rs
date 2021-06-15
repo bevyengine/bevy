@@ -1,5 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
+    change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
@@ -8,6 +9,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use std::{
+    cell::UnsafeCell,
     marker::PhantomData,
     ptr::{self, NonNull},
 };
@@ -279,6 +281,18 @@ pub struct ReadFetch<T> {
     sparse_set: *const ComponentSparseSet,
 }
 
+impl<T> Clone for ReadFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+        }
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ReadFetch<T> {}
 
@@ -330,7 +344,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_ptr().cast::<T>();
+                self.table_components = column.get_data_ptr().cast::<T>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -341,7 +355,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         self.table_components = table
             .get_column(state.component_id)
             .unwrap()
-            .get_ptr()
+            .get_data_ptr()
             .cast::<T>();
     }
 
@@ -374,12 +388,27 @@ impl<T: Component> WorldQuery for &mut T {
 pub struct WriteFetch<T> {
     storage_type: StorageType,
     table_components: NonNull<T>,
-    table_ticks: *mut ComponentTicks,
+    table_ticks: *const UnsafeCell<ComponentTicks>,
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<T> Clone for WriteFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            table_ticks: self.table_ticks,
+            entities: self.entities,
+            entity_table_rows: self.entity_table_rows,
+            sparse_set: self.sparse_set,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 /// The [`FetchState`] of `&mut T`.
@@ -454,7 +483,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
-            table_ticks: ptr::null_mut::<ComponentTicks>(),
+            table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
             last_change_tick,
             change_tick,
         };
@@ -481,8 +510,8 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_ptr().cast::<T>();
-                self.table_ticks = column.get_ticks_mut_ptr();
+                self.table_components = column.get_data_ptr().cast::<T>();
+                self.table_ticks = column.get_ticks_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -491,8 +520,8 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         let column = table.get_column(state.component_id).unwrap();
-        self.table_components = column.get_ptr().cast::<T>();
-        self.table_ticks = column.get_ticks_mut_ptr();
+        self.table_components = column.get_data_ptr().cast::<T>();
+        self.table_ticks = column.get_ticks_ptr();
     }
 
     #[inline]
@@ -502,9 +531,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 Mut {
                     value: &mut *self.table_components.as_ptr().add(table_row),
-                    component_ticks: &mut *self.table_ticks.add(table_row),
-                    change_tick: self.change_tick,
-                    last_change_tick: self.last_change_tick,
+                    ticks: Ticks {
+                        component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                        change_tick: self.change_tick,
+                        last_change_tick: self.last_change_tick,
+                    },
                 }
             }
             StorageType::SparseSet => {
@@ -513,9 +544,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                     (*self.sparse_set).get_with_ticks(entity).unwrap();
                 Mut {
                     value: &mut *component.cast::<T>(),
-                    component_ticks: &mut *component_ticks,
-                    change_tick: self.change_tick,
-                    last_change_tick: self.last_change_tick,
+                    ticks: Ticks {
+                        component_ticks: &mut *component_ticks,
+                        change_tick: self.change_tick,
+                        last_change_tick: self.last_change_tick,
+                    },
                 }
             }
         }
@@ -525,9 +558,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         Mut {
             value: &mut *self.table_components.as_ptr().add(table_row),
-            component_ticks: &mut *self.table_ticks.add(table_row),
-            change_tick: self.change_tick,
-            last_change_tick: self.last_change_tick,
+            ticks: Ticks {
+                component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                change_tick: self.change_tick,
+                last_change_tick: self.last_change_tick,
+            },
         }
     }
 }
@@ -826,7 +861,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_ticks = column.get_ticks_mut_ptr().cast::<ComponentTicks>();
+                self.table_ticks = column.get_ticks_const_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -837,8 +872,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         self.table_ticks = table
             .get_column(state.component_id)
             .unwrap()
-            .get_ticks_mut_ptr()
-            .cast::<ComponentTicks>();
+            .get_ticks_const_ptr();
     }
 
     #[inline]
@@ -847,7 +881,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: *self.table_ticks.add(table_row),
+                    component_ticks: (&*self.table_ticks.add(table_row)).clone(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -856,7 +890,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: *(*self.sparse_set).get_ticks(entity).unwrap(),
+                    component_ticks: (&*self.sparse_set).get_ticks(entity).cloned().unwrap(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -868,7 +902,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         ChangeTrackers {
-            component_ticks: *self.table_ticks.add(table_row),
+            component_ticks: (&*self.table_ticks.add(table_row)).clone(),
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,

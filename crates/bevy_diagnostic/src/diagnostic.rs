@@ -2,7 +2,7 @@ use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
 use std::{borrow::Cow, collections::VecDeque};
 
-use crate::log_diagnostics_plugin::MAX_LOG_NAME_WIDTH;
+use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
 
 /// Unique identifier for a [Diagnostic]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -59,12 +59,12 @@ impl Diagnostic {
         max_history_length: usize,
     ) -> Diagnostic {
         let name = name.into();
-        if name.chars().count() > MAX_LOG_NAME_WIDTH {
+        if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
             // This could be a false positive due to a unicode width being shorter
             warn!(
                 "Diagnostic {:?} has name longer than {} characters, and so might overflow in the LogDiagnosticsPlugin\
                 Consider using a shorter name.",
-                name, MAX_LOG_NAME_WIDTH
+                name, MAX_DIAGNOSTIC_NAME_WIDTH
             )
         }
         Diagnostic {

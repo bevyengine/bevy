@@ -14,13 +14,16 @@ use bevy_render::{
 };
 use serde::{Deserialize, Serialize};
 
+/// General Sprite Examples: [Link](https://github.com/bevyengine/bevy/tree/latest/examples/2d)
 #[derive(Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
 #[render_resources(from_self)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[repr(C)]
 pub struct Sprite {
     pub size: Vec2,
+    /// When true flips sprite to left. [Example](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_flipping.rs)
     pub flip_x: bool,
+    /// When true flips sprite upside down. [Example](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_flipping.rs)
     pub flip_y: bool,
     pub resize_mode: SpriteResizeMode,
 }

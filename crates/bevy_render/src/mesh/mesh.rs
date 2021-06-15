@@ -5,7 +5,7 @@ use crate::{
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_core::AsBytes;
+use bevy_core::cast_slice;
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
@@ -110,34 +110,34 @@ impl VertexAttributeValues {
     /// useful for serialization and sending to the GPU.
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float32(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint32(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint32(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Float32x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint32x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint32x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Float32x3(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint32x3(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint32x3(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Float32x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint32x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint32x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint16x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Snorm16x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint16x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Unorm16x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint16x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Snorm16x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint16x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Unorm16x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint8x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Snorm8x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint8x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Unorm8x2(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Sint8x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Snorm8x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Uint8x4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Unorm8x4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Float32(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint32(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint32(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Float32x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint32x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint32x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Float32x3(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint32x3(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint32x3(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Float32x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint32x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint32x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint16x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Snorm16x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint16x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Unorm16x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint16x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Snorm16x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint16x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Unorm16x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint8x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Snorm8x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint8x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Unorm8x2(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Sint8x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Snorm8x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Uint8x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Unorm8x4(values) => cast_slice(&values[..]),
         }
     }
 }
@@ -262,6 +262,11 @@ impl Mesh {
     /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
 
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::set_attribute`]
+    pub const ATTRIBUTE_JOINT_WEIGHT: &'static str = "Vertex_JointWeight";
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
+    pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
+
     /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// `PrimitiveTopology::TriangleList`.
@@ -315,10 +320,10 @@ impl Mesh {
         self.indices.as_mut()
     }
 
-    pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
+    pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
         self.indices.as_ref().map(|indices| match &indices {
-            Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
-            Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
+            Indices::U16(indices) => cast_slice(&indices[..]),
+            Indices::U32(indices) => cast_slice(&indices[..]),
         })
     }
 
@@ -500,6 +505,7 @@ pub struct MeshResourceProviderState {
     mesh_entities: HashMap<Handle<Mesh>, MeshEntities>,
 }
 
+#[allow(clippy::type_complexity)]
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,

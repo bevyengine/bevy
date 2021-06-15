@@ -277,7 +277,7 @@ impl<T: Component> Events<T> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        trace!("Events::send() -> {}", event_id);
+        trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -328,14 +328,30 @@ impl<T: Component> Events<T> {
         events.update();
     }
 
+    #[inline]
+    fn reset_start_event_count(&mut self) {
+        self.a_start_event_count = self.event_count;
+        self.b_start_event_count = self.event_count;
+    }
+
     /// Removes all events.
+    #[inline]
     pub fn clear(&mut self) {
+        self.reset_start_event_count();
         self.events_a.clear();
         self.events_b.clear();
     }
 
+    /// Returns true if there are no events in this collection.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.events_a.is_empty() && self.events_b.is_empty()
+    }
+
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
+        self.reset_start_event_count();
+
         let map = |i: EventInstance<T>| i.event;
         match self.state {
             State::A => self
@@ -351,15 +367,6 @@ impl<T: Component> Events<T> {
         }
     }
 
-    pub fn extend<I>(&mut self, events: I)
-    where
-        I: Iterator<Item = T>,
-    {
-        for event in events {
-            self.send(event);
-        }
-    }
-
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
     /// `EventReader`. You should only use this if you know you only need to consume events
@@ -371,6 +378,35 @@ impl<T: Component> Events<T> {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
+    }
+}
+
+impl<T> std::iter::Extend<T> for Events<T> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let mut event_count = self.event_count;
+        let events = iter.into_iter().map(|event| {
+            let event_id = EventId {
+                id: event_count,
+                _marker: PhantomData,
+            };
+            event_count += 1;
+            EventInstance { event_id, event }
+        });
+
+        match self.state {
+            State::A => self.events_a.extend(events),
+            State::B => self.events_b.extend(events),
+        }
+
+        trace!(
+            "Events::extend() -> ids: ({}..{})",
+            self.event_count,
+            event_count
+        );
+        self.event_count = event_count;
     }
 }
 
@@ -479,5 +515,69 @@ mod tests {
         reader: &mut ManualEventReader<TestEvent>,
     ) -> Vec<TestEvent> {
         reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    struct E(usize);
+
+    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
+        let mut events = Events::<E>::default();
+        let mut reader = events.get_reader();
+
+        assert!(reader.iter(&events).next().is_none());
+
+        events.send(E(0));
+        assert_eq!(*reader.iter(&events).next().unwrap(), E(0));
+        assert_eq!(reader.iter(&events).next(), None);
+
+        events.send(E(1));
+        clear_func(&mut events);
+        assert!(reader.iter(&events).next().is_none());
+
+        events.send(E(2));
+        events.update();
+        events.send(E(3));
+
+        assert!(reader.iter(&events).eq([E(2), E(3)].iter()));
+    }
+
+    #[test]
+    fn test_events_clear_and_read() {
+        events_clear_and_read_impl(|events| events.clear());
+    }
+
+    #[test]
+    fn test_events_drain_and_read() {
+        events_clear_and_read_impl(|events| {
+            assert!(events.drain().eq(vec![E(0), E(1)].into_iter()));
+        });
+    }
+
+    #[test]
+    fn test_events_extend_impl() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_reader();
+
+        events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
+        assert!(reader
+            .iter(&events)
+            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
+    }
+
+    #[test]
+    fn test_events_empty() {
+        let mut events = Events::<TestEvent>::default();
+        assert!(events.is_empty());
+
+        events.send(TestEvent { i: 0 });
+        assert!(!events.is_empty());
+
+        events.update();
+        assert!(!events.is_empty());
+
+        // events are only empty after the second call to update
+        // due to double buffering.
+        events.update();
+        assert!(events.is_empty());
     }
 }

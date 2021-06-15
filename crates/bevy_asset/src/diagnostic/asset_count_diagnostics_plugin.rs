@@ -1,6 +1,6 @@
 use crate::{Asset, Assets};
 use bevy_app::prelude::*;
-use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
+use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics, MAX_DIAGNOSTIC_NAME_WIDTH};
 use bevy_ecs::system::{IntoSystem, Res, ResMut};
 
 /// Adds "asset count" diagnostic to an App
@@ -29,9 +29,20 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     }
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
+        let asset_type_name = std::any::type_name::<T>();
+        let max_length = MAX_DIAGNOSTIC_NAME_WIDTH - "asset_count ".len();
         diagnostics.add(Diagnostic::new(
             Self::diagnostic_id(),
-            format!("asset_count {}", std::any::type_name::<T>()),
+            format!(
+                "asset_count {}",
+                if asset_type_name.len() > max_length {
+                    asset_type_name
+                        .split_at(asset_type_name.len() - max_length + 1)
+                        .1
+                } else {
+                    asset_type_name
+                }
+            ),
             20,
         ));
     }
