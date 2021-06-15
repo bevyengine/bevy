@@ -43,9 +43,12 @@ impl CommandQueueInner {
             func: invoke_command::<C>,
         });
 
-        if size > 0 {
-            self.bytes.reserve(size);
+        // Even if `size` == 0, we still need the vector to allocate.
+        // When we call `read_unaliged` in `invoke_command`, the ptr must be non-null
+        // therefore, `self.bytes.as_ptr()` must be non-null.
+        self.bytes.reserve(size.max(1));
 
+        if size > 0 {
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), and the vector has
             // its length set appropriately.
