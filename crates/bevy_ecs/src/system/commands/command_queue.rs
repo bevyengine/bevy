@@ -36,29 +36,30 @@ impl CommandQueueInner {
         C: Command,
     {
         let size = std::mem::size_of::<C>();
-
         let old_len = self.bytes.len();
-
-        self.bytes.reserve(size);
-
-        // SAFE: The internal `bytes` vector has enough storage for the
-        // command (see the call the `reserve` above), and the vector has
-        // its length set appropriately.
-        // Also `command` is forgotten at the end of this function so that
-        // when `apply` is called later, a double `drop` does not occur.
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                &command as *const C as *const u8,
-                self.bytes.as_mut_ptr().add(old_len),
-                size,
-            );
-            self.bytes.set_len(old_len + size);
-        }
 
         self.metas.push(CommandMeta {
             offset: old_len,
             func: invoke_command::<C>,
         });
+
+        if size > 0 {
+            self.bytes.reserve(size);
+
+            // SAFE: The internal `bytes` vector has enough storage for the
+            // command (see the call the `reserve` above), and the vector has
+            // its length set appropriately.
+            // Also `command` is forgotten at the end of this function so that
+            // when `apply` is called later, a double `drop` does not occur.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    &command as *const C as *const u8,
+                    self.bytes.as_mut_ptr().add(old_len),
+                    size,
+                );
+                self.bytes.set_len(old_len + size);
+            }
+        }
 
         std::mem::forget(command);
     }
