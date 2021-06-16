@@ -1,7 +1,5 @@
 # Style guide: Engine
 
-For more advice on contributing to the engine, see the [relevant section](CONTRIBUTING.md#contributing-your-own-ideas) of CONTRIBUTING.md.
-
 1. Prefer granular imports over glob imports of `bevy::prelude::*` and `bevy::sub_crate::*`.
 2. Use a consistent comment style:
    1. `///` doc comments belong above `#[derive(Trait)]` invocations.
