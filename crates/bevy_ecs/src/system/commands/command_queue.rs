@@ -164,4 +164,18 @@ mod test {
         queue.apply(&mut world);
         assert_eq!(world.entities().len(), 2);
     }
+
+    // NOTE: `CommandQueueInner` is `Send` because `Command` is send.
+    // If the `Command` trait gets reworked to be non-send, `CommandQueueInner`
+    // should be reworked.
+    // This test asserts that Command types are send.
+    fn assert_is_send(_: impl Send) {}
+    fn a_command(command: impl Command) {
+        assert_is_send(command);
+    }
+
+    #[test]
+    fn test_command_is_send() {
+        a_command(SpawnCommand);
+    }
 }
