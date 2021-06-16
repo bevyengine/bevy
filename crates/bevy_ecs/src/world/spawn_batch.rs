@@ -105,7 +105,7 @@ where
                 bundle,
                 self.change_tick,
             );
-            self.entities.meta[entity.id as usize].location = location;
+            self.entities.meta[entity.id() as usize].location = location;
         }
         Some(entity)
     }

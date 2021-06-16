@@ -21,15 +21,18 @@ use std::{
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Entity {
-    pub(crate) generation: u32,
-    pub(crate) id: u32,
-}
+pub struct Entity(u64);
 
 impl Entity {
+    #[inline(always)]
+    fn from_id_and_gen(id: u32, gen: u32) -> Self {
+        Self(u64::from(gen) << 32 | u64::from(id))
+    }
+
     /// Creates a new entity reference with a generation of 0.
+    #[inline(always)]
     pub fn new(id: u32) -> Entity {
-        Entity { id, generation: 0 }
+        Self::from_id_and_gen(id, 0)
     }
 
     /// Convert to a form convenient for passing outside of rust.
@@ -38,18 +41,17 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
+    #[inline(always)]
     pub fn to_bits(self) -> u64 {
-        u64::from(self.generation) << 32 | u64::from(self.id)
+        self.0
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    #[inline(always)]
     pub fn from_bits(bits: u64) -> Self {
-        Self {
-            generation: (bits >> 32) as u32,
-            id: bits as u32,
-        }
+        Self(bits)
     }
 
     /// Return a transiently unique identifier.
@@ -57,23 +59,23 @@ impl Entity {
     /// No two simultaneously-live entities share the same ID, but dead entities' IDs may collide
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
-    #[inline]
+    #[inline(always)]
     pub fn id(self) -> u32 {
-        self.id
+        self.0 as u32
     }
 
     /// Returns the generation of this Entity's id. The generation is incremented each time an
     /// entity with a given id is despawned. This serves as a "count" of the number of times a
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
-    #[inline]
+    #[inline(always)]
     pub fn generation(self) -> u32 {
-        self.generation
+        (self.0 >> 32) as u32
     }
 }
 
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.id, self.generation)
+        write!(f, "{}v{}", self.id(), self.generation())
     }
 }
 
@@ -106,11 +108,8 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.id_iter
             .next()
-            .map(|&id| Entity {
-                generation: self.meta[id as usize].generation,
-                id,
-            })
-            .or_else(|| self.id_range.next().map(|id| Entity { generation: 0, id }))
+            .map(|&id| Entity::from_id_and_gen(id, self.meta[id as usize].generation))
+            .or_else(|| self.id_range.next().map(|id| Entity::new(id)))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -216,20 +215,14 @@ impl Entities {
         if n > 0 {
             // Allocate from the freelist.
             let id = self.pending[(n - 1) as usize];
-            Entity {
-                generation: self.meta[id as usize].generation,
-                id,
-            }
+            Entity::from_id_and_gen(id, self.meta[id as usize].generation)
         } else {
             // Grab a new ID, outside the range of `meta.len()`. `flush()` must
             // eventually be called to make it valid.
             //
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
-            Entity {
-                generation: 0,
-                id: u32::try_from(self.meta.len() as i64 - n).expect("too many entities"),
-            }
+            Entity::new(u32::try_from(self.meta.len() as i64 - n).expect("too many entities"))
         }
     }
 
@@ -251,14 +244,11 @@ impl Entities {
         if let Some(id) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity {
-                generation: self.meta[id as usize].generation,
-                id,
-            }
+            Entity::from_id_and_gen(id, self.meta[id as usize].generation)
         } else {
             let id = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            Entity { generation: 0, id }
+            Entity::new(id)
         }
     }
 
@@ -269,14 +259,15 @@ impl Entities {
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let loc = if entity.id as usize >= self.meta.len() {
-            self.pending.extend((self.meta.len() as u32)..entity.id);
+        let loc = if entity.id() as usize >= self.meta.len() {
+            self.pending.extend((self.meta.len() as u32)..entity.id());
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
+            self.meta
+                .resize(entity.id() as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
+        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
@@ -284,12 +275,12 @@ impl Entities {
             None
         } else {
             Some(mem::replace(
-                &mut self.meta[entity.id as usize].location,
+                &mut self.meta[entity.id() as usize].location,
                 EntityMeta::EMPTY.location,
             ))
         };
 
-        self.meta[entity.id as usize].generation = entity.generation;
+        self.meta[entity.id() as usize].generation = entity.generation();
 
         loc
     }
@@ -300,15 +291,15 @@ impl Entities {
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let meta = &mut self.meta[entity.id as usize];
-        if meta.generation != entity.generation {
+        let meta = &mut self.meta[entity.id() as usize];
+        if meta.generation != entity.generation() {
             return None;
         }
         meta.generation += 1;
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
-        self.pending.push(entity.id);
+        self.pending.push(entity.id());
 
         let new_free_cursor = self.pending.len() as i64;
         *self.free_cursor.get_mut() = new_free_cursor;
@@ -331,8 +322,8 @@ impl Entities {
         // Note that out-of-range IDs are considered to be "contained" because
         // they must be reserved IDs that we haven't flushed yet.
         self.meta
-            .get(entity.id as usize)
-            .map_or(true, |meta| meta.generation == entity.generation)
+            .get(entity.id() as usize)
+            .map_or(true, |meta| meta.generation == entity.generation())
     }
 
     pub fn clear(&mut self) {
@@ -345,8 +336,8 @@ impl Entities {
     ///
     /// Must not be called on pending entities.
     pub fn get_mut(&mut self, entity: Entity) -> Option<&mut EntityLocation> {
-        let meta = &mut self.meta[entity.id as usize];
-        if meta.generation == entity.generation {
+        let meta = &mut self.meta[entity.id() as usize];
+        if meta.generation == entity.generation() {
             Some(&mut meta.location)
         } else {
             None
@@ -355,9 +346,9 @@ impl Entities {
 
     /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities.
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if (entity.id as usize) < self.meta.len() {
-            let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation {
+        if (entity.id() as usize) < self.meta.len() {
+            let meta = &self.meta[entity.id() as usize];
+            if meta.generation != entity.generation() {
                 return None;
             }
             Some(meta.location)
@@ -376,10 +367,7 @@ impl Entities {
 
         if meta_len > id as usize {
             let meta = &self.meta[id as usize];
-            Entity {
-                generation: meta.generation,
-                id,
-            }
+            Entity::from_id_and_gen(id, meta.generation)
         } else {
             // See if it's pending, but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
@@ -387,7 +375,7 @@ impl Entities {
 
             if meta_len + num_pending > id as usize {
                 // Pending entities will have generation 0.
-                Entity { generation: 0, id }
+                Entity::new(id)
             } else {
                 panic!("entity id is out of range");
             }
@@ -413,10 +401,7 @@ impl Entities {
             self.len += -current_free_cursor as u32;
             for (id, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(
-                    Entity {
-                        id: id as u32,
-                        generation: meta.generation,
-                    },
+                    Entity::from_id_and_gen(id as u32, meta.generation),
                     &mut meta.location,
                 );
             }
@@ -429,10 +414,7 @@ impl Entities {
         for id in self.pending.drain(new_free_cursor..) {
             let meta = &mut self.meta[id as usize];
             init(
-                Entity {
-                    id,
-                    generation: meta.generation,
-                },
+                Entity::from_id_and_gen(id, meta.generation),
                 &mut meta.location,
             );
         }
@@ -481,10 +463,7 @@ mod tests {
 
     #[test]
     fn entity_bits_roundtrip() {
-        let e = Entity {
-            generation: 0xDEADBEEF,
-            id: 0xBAADF00D,
-        };
+        let e = Entity::from_id_and_gen(0xBAADF00D, 0xDEADBEEF);
         assert_eq!(Entity::from_bits(e.to_bits()), e);
     }
 
@@ -494,5 +473,16 @@ mod tests {
         e.reserve_entity();
         e.flush(|_, _| {});
         assert_eq!(e.len(), 1);
+    }
+
+    #[test]
+    fn test_entity() {
+        let e = Entity::from_id_and_gen(33, 42);
+        assert_eq!(e.id(), 33);
+        assert_eq!(e.generation(), 42);
+
+        let e = Entity::new(33);
+        assert_eq!(e.id(), 33);
+        assert_eq!(e.generation(), 0);
     }
 }

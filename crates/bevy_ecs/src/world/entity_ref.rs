@@ -218,7 +218,7 @@ impl<'w> EntityMut<'w> {
                     let old_archetype = &mut archetypes[current_location.archetype_id];
                     let result = old_archetype.swap_remove(current_location.index);
                     if let Some(swapped_entity) = result.swapped_entity {
-                        entities.meta[swapped_entity.id as usize].location = current_location;
+                        entities.meta[swapped_entity.id() as usize].location = current_location;
                     }
                     (result.table_row, old_archetype.table_id())
                 };
@@ -246,7 +246,7 @@ impl<'w> EntityMut<'w> {
                     new_location
                 };
 
-                entities.meta[entity.id as usize].location = new_location;
+                entities.meta[entity.id() as usize].location = new_location;
                 let (old_archetype, new_archetype) =
                     archetypes.get_2_mut(current_location.archetype_id, new_archetype_id);
                 let edge = old_archetype
@@ -342,7 +342,7 @@ impl<'w> EntityMut<'w> {
 
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.meta[swapped_entity.id as usize].location = old_location;
+            entities.meta[swapped_entity.id() as usize].location = old_location;
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -374,7 +374,7 @@ impl<'w> EntityMut<'w> {
         };
 
         self.location = new_location;
-        entities.meta[self.entity.id as usize].location = new_location;
+        entities.meta[self.entity.id() as usize].location = new_location;
 
         Some(result)
     }
@@ -427,7 +427,7 @@ impl<'w> EntityMut<'w> {
 
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.meta[swapped_entity.id as usize].location = old_location;
+            entities.meta[swapped_entity.id() as usize].location = old_location;
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -458,7 +458,7 @@ impl<'w> EntityMut<'w> {
         };
 
         self.location = new_location;
-        entities.meta[self.entity.id as usize].location = new_location;
+        entities.meta[self.entity.id() as usize].location = new_location;
     }
 
     pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
@@ -488,7 +488,7 @@ impl<'w> EntityMut<'w> {
             }
             let remove_result = archetype.swap_remove(location.index);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                world.entities.meta[swapped_entity.id as usize].location = location;
+                world.entities.meta[swapped_entity.id() as usize].location = location;
             }
             table_row = remove_result.table_row;
 
