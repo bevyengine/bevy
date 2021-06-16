@@ -1,6 +1,5 @@
 # Style guide: Examples
 
-
 ## Organization
 
 1. Each example should live in an appropriate subfolder of `/examples` (other than `hello_world.rs`). and take exactly one file unless otherwise needed.
