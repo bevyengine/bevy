@@ -78,26 +78,28 @@ impl CommandQueueInner {
     /// Invoke each command `func` for each inserted value with `world`
     /// and then clears the internal bytes/metas command vectors.
     pub fn apply(&mut self, world: &mut World) {
-        let byte_ptr = self.bytes.as_mut_ptr();
-        for meta in self.metas.iter() {
+        let mut bytes = std::mem::replace(&mut self.bytes, vec![]);
+        let byte_ptr = bytes.as_mut_ptr();
+
+        for meta in self.metas.drain(..) {
             // The implementation of `invoke_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
                 (meta.func)(byte_ptr.add(meta.offset), world);
             }
         }
-
-        self.bytes.clear();
-        self.metas.clear();
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
+    use std::{
+        panic::AssertUnwindSafe,
+        sync::{
+            atomic::{AtomicU32, Ordering},
+            Arc,
+        },
     };
 
     struct DropCheck(Arc<AtomicU32>);
@@ -161,6 +163,44 @@ mod test {
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
+        queue.apply(&mut world);
+        assert_eq!(world.entities().len(), 2);
+    }
+
+    // This has an arbitrary value `String` stored to ensure
+    // when then command gets pushed, the `bytes` vector gets
+    // some data added to it.
+    struct PanicCommand(String);
+    impl Command for PanicCommand {
+        fn write(self, _: &mut World) {
+            panic!("command is panicking");
+        }
+    }
+
+    #[test]
+    fn test_command_queue_inner_panic_safe() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let mut queue = CommandQueueInner::default();
+
+        queue.push(PanicCommand("I panic!".to_owned()));
+        queue.push(SpawnCommand);
+
+        let mut world = World::new();
+
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            queue.apply(&mut world);
+        }));
+
+        // even though the first command panicking.
+        // the `bytes`/`metas` vectors were cleared.
+        assert_eq!(queue.bytes.len(), 0);
+        assert_eq!(queue.metas.len(), 0);
+
+        // Even though the first command panicked, it's still ok to push
+        // more commands.
+        queue.push(SpawnCommand);
+        queue.push(SpawnCommand);
         queue.apply(&mut world);
         assert_eq!(world.entities().len(), 2);
     }
