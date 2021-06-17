@@ -84,20 +84,20 @@ fn main() {
                 .with_system(kinematics.system().label("kinematics"))
                 // We need to check for collisions before handling movement
                 // to reduce the risk of the ball passing through objects
-                .with_system(ball_collision.system().before("kinematics")),
+                .with_system(ball_collision.system().before("kinematics"))
+                // We need to handle input before we move our paddle,
+                // to ensure that we're responding to the most recent frame's events,
+                // avoiding input lag
+                // See https://github.com/bevyengine/bevy/blob/latest/examples/ecs/ecs_guide.rs
+                // for more information on system ordering
+                .with_system(
+                    paddle_input
+                        .system()
+                        .before("bound_paddle")
+                        .before("kinematics"),
+                ),
         )
         // Ordinary systems run every frame
-        // We need to handle input before we move our paddle,
-        // to ensure that we're responding to the most recent frame's events,
-        // avoiding input lag
-        // See https://github.com/bevyengine/bevy/blob/latest/examples/ecs/ecs_guide.rs
-        // for more information on system ordering
-        .add_system(
-            paddle_input
-                .system()
-                .before("bound_paddle")
-                .before("kinematics"),
-        )
         .add_system(
             bound_paddle
                 .system()
@@ -349,15 +349,13 @@ fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
     });
 }
 
-/// Turns left and right arrow key inputs to set paddle velocity
-fn paddle_input(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Paddle, &mut Velocity)>,
-    time: Res<Time>,
-) {
+/// Reads left and right arrow key inputs to set paddle velocity
+fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, &mut Velocity)>) {
     let (paddle, mut velocity) = query.single_mut().unwrap();
 
     let mut direction = 0.0;
+    // Adds to the direction rather than just setting it to
+    // properly handle case where both are pressed at once
     if keyboard_input.pressed(KeyCode::Left) {
         direction -= 1.0;
     }
@@ -366,7 +364,7 @@ fn paddle_input(
         direction += 1.0;
     }
 
-    velocity.x = direction * paddle.speed * time.delta_seconds();
+    velocity.x = direction * paddle.speed * TIME_STEP;
 }
 
 /// Ensures our paddle never goes out of bounds
