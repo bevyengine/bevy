@@ -21,7 +21,7 @@ mod config {
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-    pub const PADDLE_SPEED: f32 = 500.0;
+    pub const PADDLE_SPEED: f32 = 20000.0;
     pub const PADDLE_SIZE: Vec2 = const_vec2!([120.0, 30.0]);
     pub const PADDLE_BOUND: f32 = 380.0;
     pub const PADDLE_STARTING_TRANSFORM: Transform = Transform {
@@ -350,7 +350,11 @@ fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
 }
 
 /// Turns left and right arrow key inputs to set paddle velocity
-fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, &mut Velocity)>) {
+fn paddle_input(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<(&Paddle, &mut Velocity)>,
+    time: Res<Time>,
+) {
     let (paddle, mut velocity) = query.single_mut().unwrap();
 
     let mut direction = 0.0;
@@ -362,7 +366,7 @@ fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, 
         direction += 1.0;
     }
 
-    velocity.x = direction * paddle.speed;
+    velocity.x = direction * paddle.speed * time.delta_seconds();
 }
 
 /// Ensures our paddle never goes out of bounds
