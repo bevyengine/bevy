@@ -78,15 +78,22 @@ impl CommandQueueInner {
     /// Invoke each command `func` for each inserted value with `world`
     /// and then clears the internal bytes/metas command vectors.
     pub fn apply(&mut self, world: &mut World) {
-        let byte_ptr = self.bytes.as_mut_ptr();
-
         // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
         // unnecessary allocations.
         unsafe { self.bytes.set_len(0) };
 
+        let byte_ptr = if self.bytes.as_mut_ptr().is_null() {
+            // SAFE: If the vector's buffer pointer is `null` this mean nothing has been pushed to it's bytes.
+            // This means either there are no command or there are only zero-sized commands.
+            // In either of these cases, this pointer will never be read/written to/from.
+            unsafe { std::ptr::NonNull::dangling().as_mut() }
+        } else {
+            self.bytes.as_mut_ptr()
+        };
+
         for meta in self.metas.drain(..) {
-            // The implementation of `invoke_command` is safe for the according Command type.
+            // SAFE: The implementation of `invoke_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
                 (meta.func)(byte_ptr.add(meta.offset), world);
