@@ -123,9 +123,8 @@ mod tests {
 
         {
             let children = world.get::<Children>(grandparent_entity).unwrap();
-            assert_eq!(
-                children.iter().any(|&i| i == parent_entity),
-                false,
+            assert!(
+                !children.iter().any(|&i| i == parent_entity),
                 "grandparent should no longer know about its child which has been removed"
             );
         }
