@@ -1,8 +1,4 @@
-use crate::{
-    archetype::ArchetypeGeneration,
-    system::{check_system_change_tick, BoxedSystem, IntoSystem, SystemId},
-    world::World,
-};
+use crate::{archetype::ArchetypeGeneration, system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId}, world::World};
 use std::borrow::Cow;
 
 pub trait ExclusiveSystem: Send + Sync + 'static {
@@ -96,7 +92,6 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
         for archetype in archetypes.archetypes[archetype_index_range].iter() {
             self.system.new_archetype(archetype);
         }
-
         self.system.run((), world);
         self.system.apply_buffers(world);
     }
