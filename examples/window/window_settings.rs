@@ -36,11 +36,13 @@ fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     }
 }
 
+/// This system toggles the windows' icon (on/off) when I is pressed
 fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.get_primary_mut().unwrap();
     if input.just_pressed(KeyCode::I) {
         match window.icon() {
             None => {
+                /* Alternatively you can construct a "buffer-based" WindowIcon and bypass the asset server */
                 window.set_icon("android-res/mipmap-mdpi/ic_launcher.png");
             }
             _ => window.clear_icon(),

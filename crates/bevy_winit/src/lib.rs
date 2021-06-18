@@ -163,7 +163,7 @@ fn change_window(world: &mut World) {
                 bevy_window::WindowCommand::SetIcon { window_icon_bytes } => {
                     let window = winit_windows.get_window(id).unwrap();
 
-                    /* Failures should already be covered in WindowIconBytes constructor */
+                    /* Winit errors are replicated in the WindowIconBytes constructor, so it is safe to ignore here */
                     window.set_window_icon(
                         Icon::from_rgba(
                             window_icon_bytes.bytes().to_vec(),

@@ -209,10 +209,7 @@ impl Plugin for RenderPlugin {
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            window_icon_changed.system(), /* TODO: label? */
-        )
+        .add_system_to_stage(CoreStage::PostUpdate, window_icon_changed.system())
         .add_system_to_stage(
             RenderStage::RenderResource,
             shader::shader_update_system.system(),
@@ -274,8 +271,8 @@ fn window_icon_changed(
                     if let Some(handle_path) = asset_server.get_handle_path(o.get()) {
                         if handle_path.path() != path {
                             o.insert(asset_server.load(path.clone()));
-                        }
-                    }
+                        } /* else we are still attempting to load the initial asset */
+                    } /* else the path from the asset is not available yet */
                 }
                 Entry::Vacant(v) => {
                     v.insert(asset_server.load(path.clone()));
@@ -290,9 +287,7 @@ fn window_icon_changed(
                 LoadState::Loaded => {
                     let texture = textures.get(handle).unwrap(); /* Safe to unwrap here, because loadstate==loaded is checked */
 
-                    /* TODO: Not actually sure if we need to check the error here
-                    Whatever Texture gives us might be fine */
-                    let window_icon_bytes = WindowIconBytes::new(
+                    let window_icon_bytes = WindowIconBytes::from_rgba(
                         texture.data.clone(),
                         texture.size.width,
                         texture.size.height,

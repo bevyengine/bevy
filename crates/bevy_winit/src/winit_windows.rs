@@ -149,7 +149,7 @@ impl WinitWindows {
         );
 
         if let Some(icon_path) = &window_descriptor.icon_path {
-            window.set_icon(icon_path); /* This will queue up SetWindowIcon until the asset has loaded */
+            window.set_icon(icon_path); /* This will queue up loading the asset and subsequently set the window icon */
         }
 
         window

@@ -91,6 +91,10 @@ impl WindowResizeConstraints {
     }
 }
 
+/// Generic icon buffer for a window.
+/// Replicates the struct from winit.
+///
+/// Only allows rgba images.
 #[derive(Debug, Clone)]
 pub struct WindowIconBytes {
     bytes: Vec<u8>,
@@ -98,6 +102,7 @@ pub struct WindowIconBytes {
     height: u32,
 }
 
+/// Errors that occur while constructing window icons.
 #[derive(Error, Debug)]
 pub enum WindowIconBytesError {
     #[error("32bpp RGBA image buffer expected, but {bytes_length} is not divisible by 4")]
@@ -109,6 +114,10 @@ pub enum WindowIconBytesError {
     },
 }
 
+/// The icon on a window.
+/// The path buffer in the `Path` variant will be passed to the asset server and will be automatically passed to the window backend.
+///
+/// Make sure that the source image is reasonably sized. Refer to winit's `set_window_icon` function.
 #[derive(Debug, Clone)]
 pub enum WindowIcon {
     Path(PathBuf),
@@ -131,7 +140,14 @@ impl From<WindowIconBytes> for WindowIcon {
 }
 
 impl WindowIconBytes {
-    pub fn new(bytes: Vec<u8>, width: u32, height: u32) -> Result<Self, WindowIconBytesError> {
+    /// Create a window icon from a rgba image.
+    ///
+    /// Returns a `WindowIconBytesError` if `bytes` do not add up to a rgba image or the size does not match the specified width and height.
+    pub fn from_rgba(
+        bytes: Vec<u8>,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, WindowIconBytesError> {
         let pixel_count = (width * height) as usize;
         let pixel_bytes_length = pixel_count * 4;
         let bytes_length = bytes.len();
@@ -152,14 +168,17 @@ impl WindowIconBytes {
         }
     }
 
+    /// Bytes of the rgba icon.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
 
+    /// Width of the icon.
     pub fn width(&self) -> u32 {
         self.width
     }
 
+    /// Height of the icon.
     pub fn height(&self) -> u32 {
         self.height
     }
@@ -200,9 +219,9 @@ pub struct Window {
     cursor_position: Option<Vec2>,
     focused: bool,
     mode: WindowMode,
+    icon: Option<WindowIcon>,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
-    icon: Option<WindowIcon>,
     command_queue: Vec<WindowCommand>,
 }
 
