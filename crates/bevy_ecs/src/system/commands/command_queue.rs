@@ -1,27 +1,6 @@
 use super::Command;
 use crate::world::World;
 
-/// # Safety
-///
-/// This function is only every called when the `command` bytes is the associated
-/// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
-/// accesses are safe.
-unsafe fn invoke_command<T: Command>(command: *mut u8, world: &mut World) {
-    let command = if std::mem::size_of::<T>() > 0 {
-        command.cast::<T>().read_unaligned()
-    } else {
-        // NOTE: This is necessary because if the `CommandQueueInner` is only filled with 0-sized
-        // commands the `bytes` vec will never allocate. Then means that `bytes.as_ptr()` could be null
-        // and reading a null pointer is always UB.
-        // However according to https://doc.rust-lang.org/std/ptr/index.html
-        // "The canonical way to obtain a pointer that is valid for zero-sized accesses is NonNull::dangling"
-        // therefore the below code is safe to do.
-        let ptr = std::ptr::NonNull::<T>::dangling().as_ptr();
-        ptr.cast::<T>().read()
-    };
-    command.write(world);
-}
-
 struct CommandMeta {
     offset: usize,
     func: unsafe fn(value: *mut u8, world: &mut World),
@@ -46,12 +25,20 @@ impl CommandQueueInner {
     where
         C: Command,
     {
+        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
+        /// accesses are safe.
+        unsafe fn write_command<T: Command>(command: *mut u8, world: &mut World) {
+            let command = command.cast::<T>().read_unaligned();
+            command.write(world);
+        }
+
         let size = std::mem::size_of::<C>();
         let old_len = self.bytes.len();
 
         self.metas.push(CommandMeta {
             offset: old_len,
-            func: invoke_command::<C>,
+            func: write_command::<C>,
         });
 
         if size > 0 {
@@ -84,16 +71,23 @@ impl CommandQueueInner {
         unsafe { self.bytes.set_len(0) };
 
         let byte_ptr = if self.bytes.as_mut_ptr().is_null() {
-            // SAFE: If the vector's buffer pointer is `null` this mean nothing has been pushed to it's bytes.
-            // This means either there are no command or there are only zero-sized commands.
-            // In either of these cases, this pointer will never be read/written to/from.
+            // SAFE: If the vector's buffer pointer is `null` this mean nothing has been pushed to its bytes.
+            // This means either that:
+            //
+            // 1) There are no commands so this pointer will never be read/written from/to.
+            //
+            // 2) There are only zero-sized commands pushed.
+            //    According to https://doc.rust-lang.org/std/ptr/index.html
+            //    "The canonical way to obtain a pointer that is valid for zero-sized accesses is NonNull::dangling"
+            //    therefore it is safe to call `read_unaligned` on a pointer produced from `NonNull::dangling` for
+            //    zero-sized commands.
             unsafe { std::ptr::NonNull::dangling().as_mut() }
         } else {
             self.bytes.as_mut_ptr()
         };
 
         for meta in self.metas.drain(..) {
-            // SAFE: The implementation of `invoke_command` is safe for the according Command type.
+            // SAFE: The implementation of `write_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
                 (meta.func)(byte_ptr.add(meta.offset), world);

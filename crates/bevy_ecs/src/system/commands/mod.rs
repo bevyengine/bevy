@@ -26,8 +26,6 @@ impl CommandQueue {
     /// This clears the queue.
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
-        // Note: the provided function `write_command_on_mut_world` safely
-        // drops the associated `Command`.
         self.commands.apply(world);
     }
 
