@@ -4,8 +4,8 @@ mod draw_state;
 pub use draw::*;
 pub use draw_state::*;
 
-use std::marker::PhantomData;
 use bevy_ecs::prelude::Query;
+use std::marker::PhantomData;
 
 // TODO: make this configurable per phase?
 pub struct Drawable {
@@ -39,9 +39,8 @@ impl<T> RenderPhase<T> {
     }
 }
 
-
 pub fn sort_phase_system<T: 'static>(mut render_phases: Query<&mut RenderPhase<T>>) {
-   for mut phase in render_phases.iter_mut() {
-       phase.sort();
-   } 
+    for mut phase in render_phases.iter_mut() {
+        phase.sort();
+    }
 }

@@ -1,4 +1,8 @@
-use crate::{archetype::ArchetypeGeneration, system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId}, world::World};
+use crate::{
+    archetype::ArchetypeGeneration,
+    system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId},
+    world::World,
+};
 use std::borrow::Cow;
 
 pub trait ExclusiveSystem: Send + Sync + 'static {

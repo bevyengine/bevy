@@ -37,14 +37,24 @@ fn setup(
     // plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        material: materials.add(StandardMaterial {
+            color: Color::INDIGO,
+            roughness: 1.0,
+            ..Default::default()
+        }),
         ..Default::default()
     });
     // cube
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            material: materials.add(StandardMaterial {
+                color: Color::PINK,
+                roughness: 0.0,
+                metallic: 1.0,
+                reflectance: 1.0,
+                ..Default::default()
+            }),
             transform: Transform::from_xyz(0.0, 1.0, 0.0),
             ..Default::default()
         })
@@ -52,8 +62,14 @@ fn setup(
     // sphere
     commands
         .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere { radius: 0.5, ..Default::default() })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.5,
+                ..Default::default()
+            })),
+            material: materials.add(StandardMaterial {
+                color: Color::LIME_GREEN,
+                ..Default::default()
+            }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
             ..Default::default()
         })

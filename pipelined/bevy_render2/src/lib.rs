@@ -47,7 +47,7 @@ pub enum RenderStage {
     Queue,
 
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
-    /// Sort RenderPhases here 
+    /// Sort RenderPhases here
     PhaseSort,
 
     /// Actual rendering happens here. In most cases, only the render backend should insert resources here

@@ -3,10 +3,7 @@ use std::ops::Range;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
-    Buffer {
-        buffer: BufferId,
-        range: Range<u64>,
-    },
+    Buffer { buffer: BufferId, range: Range<u64> },
     TextureView(TextureViewId),
     Sampler(SamplerId),
 }

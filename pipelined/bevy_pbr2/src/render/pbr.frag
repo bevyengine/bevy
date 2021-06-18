@@ -18,6 +18,7 @@ struct PointLight {
 // TODO: this can be removed if we move to storage buffers for light arrays
 const int MAX_POINT_LIGHTS = 10;
 
+// View bindings - set 0
 layout(set = 0, binding = 0) uniform View {
     mat4 ViewProj;
     vec3 ViewWorldPosition;
@@ -28,6 +29,18 @@ layout(std140, set = 0, binding = 1) uniform Lights {
 };
 layout(set = 0, binding = 2) uniform texture2DArray t_Shadow;
 layout(set = 0, binding = 3) uniform samplerShadow s_Shadow;
+
+// Material bindings - set 2
+struct StandardMaterial_t {
+    vec4 color;
+    float roughness;
+    float metallic;
+    float reflectance;
+    vec4 emissive;
+};
+layout(set = 2, binding = 0) uniform StandardMaterial {
+    StandardMaterial_t Material;
+};
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
@@ -252,11 +265,11 @@ float fetch_shadow(int light_id, vec4 homogeneous_coords) {
 }
 
 void main() {
-    vec4 color = vec4(0.6, 0.6, 0.6, 1.0); 
-    float metallic = 0.01;
-    float reflectance = 0.5;
-    float perceptual_roughness = 0.089;
-    vec3 emissive = vec3(0.0, 0.0, 0.0);
+    vec4 color = Material.color;
+    float metallic = Material.metallic;
+    float reflectance = Material.reflectance;
+    float perceptual_roughness = Material.roughness;
+    vec3 emissive = Material.emissive.xyz;
     vec3 ambient_color = vec3(0.1, 0.1, 0.1);
     float occlusion = 1.0;
 

@@ -325,44 +325,46 @@ impl Node for ShadowPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let view_lights = self.main_view_query.get_manual(world, view_entity).unwrap();
-        for view_light_entity in view_lights.lights.iter().copied() {
-            let (view_light, shadow_phase) = self
-                .view_light_query
-                .get_manual(world, view_light_entity)
-                .unwrap();
-            let pass_descriptor = PassDescriptor {
-                color_attachments: Vec::new(),
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    attachment: TextureAttachment::Id(view_light.depth_texture),
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(1.0),
-                        store: true,
+        if let Some(view_lights) = self.main_view_query.get_manual(world, view_entity).ok() {
+            for view_light_entity in view_lights.lights.iter().copied() {
+                let (view_light, shadow_phase) = self
+                    .view_light_query
+                    .get_manual(world, view_light_entity)
+                    .unwrap();
+                let pass_descriptor = PassDescriptor {
+                    color_attachments: Vec::new(),
+                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                        attachment: TextureAttachment::Id(view_light.depth_texture),
+                        depth_ops: Some(Operations {
+                            load: LoadOp::Clear(1.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-                sample_count: 1,
-            };
+                    sample_count: 1,
+                };
 
-            let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
+                let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
 
-            render_context.begin_render_pass(
-                &pass_descriptor,
-                &mut |render_pass: &mut dyn RenderPass| {
-                    let mut draw_functions = draw_functions.write();
-                    let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                    for drawable in shadow_phase.drawn_things.iter() {
-                        let draw_function = draw_functions.get_mut(drawable.draw_function).unwrap();
-                        draw_function.draw(
-                            world,
-                            &mut tracked_pass,
-                            view_light_entity,
-                            drawable.draw_key,
-                            drawable.sort_key,
-                        );
-                    }
-                },
-            );
+                render_context.begin_render_pass(
+                    &pass_descriptor,
+                    &mut |render_pass: &mut dyn RenderPass| {
+                        let mut draw_functions = draw_functions.write();
+                        let mut tracked_pass = TrackedRenderPass::new(render_pass);
+                        for drawable in shadow_phase.drawn_things.iter() {
+                            let draw_function =
+                                draw_functions.get_mut(drawable.draw_function).unwrap();
+                            draw_function.draw(
+                                world,
+                                &mut tracked_pass,
+                                view_light_entity,
+                                drawable.draw_key,
+                                drawable.sort_key,
+                            );
+                        }
+                    },
+                );
+            }
         }
 
         Ok(())

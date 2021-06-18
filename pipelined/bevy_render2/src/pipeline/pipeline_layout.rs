@@ -25,13 +25,11 @@ impl PipelineLayout {
     }
 
     pub fn bind_group(&self, index: u32) -> &BindGroupDescriptor {
-        self.get_bind_group(index)
-            .expect("bind group exists")
+        self.get_bind_group(index).expect("bind group exists")
     }
 
     pub fn bind_group_mut(&mut self, index: u32) -> &mut BindGroupDescriptor {
-        self.get_bind_group_mut(index)
-            .expect("bind group exists")
+        self.get_bind_group_mut(index).expect("bind group exists")
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
@@ -85,7 +83,7 @@ impl PipelineLayout {
             vertex_buffer_descriptors,
         }
     }
-    
+
     pub fn update_bind_group_ids(&mut self) {
         for bind_group in self.bind_groups.iter_mut() {
             bind_group.update_id();

@@ -100,7 +100,6 @@ impl World {
         &mut self.entities
     }
 
-
     /// Retrieves this world's [Archetypes] collection
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {

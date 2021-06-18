@@ -8,11 +8,13 @@ layout(location = 0) out vec4 v_WorldPosition;
 layout(location = 1) out vec3 v_WorldNormal;
 layout(location = 2) out vec2 v_Uv;
 
+// View bindings - set 0
 layout(set = 0, binding = 0) uniform View {
     mat4 ViewProj;
     vec3 ViewWorldPosition;
 };
 
+// Object bindings - set 1
 layout(set = 1, binding = 0) uniform MeshTransform {
     mat4 Model;
 };

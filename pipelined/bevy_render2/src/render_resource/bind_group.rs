@@ -55,13 +55,7 @@ impl BindGroupBuilder {
     }
 
     pub fn add_buffer(self, index: u32, buffer: BufferId, range: Range<u64>) -> Self {
-        self.add_binding(
-            index,
-            RenderResourceBinding::Buffer {
-                buffer,
-                range,
-            },
-        )
+        self.add_binding(index, RenderResourceBinding::Buffer { buffer, range })
     }
 
     pub fn finish(mut self) -> BindGroup {
@@ -75,10 +69,7 @@ impl BindGroupBuilder {
 
     fn hash_binding(&mut self, binding: &RenderResourceBinding) {
         match binding {
-            RenderResourceBinding::Buffer {
-                buffer,
-                range,
-            } => {
+            RenderResourceBinding::Buffer { buffer, range } => {
                 RenderResourceId::Buffer(*buffer).hash(&mut self.hasher);
                 range.hash(&mut self.hasher);
             }
