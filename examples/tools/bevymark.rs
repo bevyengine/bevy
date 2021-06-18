@@ -2,7 +2,6 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 1000;
 const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -116,9 +115,9 @@ fn mouse_handler(
     mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut rnd: ResMut<InsecureRng>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        let mut rnd = rand::thread_rng();
         let color = gen_color(&mut rnd);
 
         let texture_handle = asset_server.load("branding/icon.png");
@@ -207,7 +206,10 @@ fn counter_system(
 ///
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
-fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+fn gen_color<R>(rng: &mut ResMut<R>) -> [f32; 3]
+where
+    R: Rng + Sync + Send + 'static,
+{
     let r = rng.gen_range(0.2..1.0);
     let g = rng.gen_range(0.2..1.0);
     let b = rng.gen_range(0.2..1.0);

@@ -1,5 +1,4 @@
 use bevy::{core::FixedTimestep, prelude::*};
-use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
@@ -44,6 +43,7 @@ struct BodyBundle {
 
 fn generate_bodies(
     mut commands: Commands,
+    mut rng: ResMut<InsecureRng>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -56,7 +56,6 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
     for _ in 0..NUM_BODIES {
         let mass_value_cube_root: f32 = rng.gen_range(0.5..4.0);
         let mass_value: f32 = mass_value_cube_root * mass_value_cube_root * mass_value_cube_root;

@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use rand::{prelude::SliceRandom, Rng};
 use std::{
     collections::BTreeSet,
     io::{BufRead, BufReader},
@@ -52,6 +51,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut rng: ResMut<InsecureRng>,
 ) {
     let contribs = contributors();
 
@@ -65,16 +65,14 @@ fn setup(
         idx: 0,
     };
 
-    let mut rnd = rand::thread_rng();
-
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
-        let dir = rnd.gen_range(-1.0..1.0);
+        let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
+        let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let hue = rnd.gen_range(0.0..=360.0);
+        let hue = rng.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
-        let flipped = rnd.gen_bool(0.5);
+        let flipped = rng.gen_bool(0.5);
 
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
@@ -106,7 +104,7 @@ fn setup(
         sel.order.push((name, e));
     }
 
-    sel.order.shuffle(&mut rnd);
+    sel.order.shuffle(&mut *rng);
 
     commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
 
@@ -245,10 +243,9 @@ fn velocity_system(time: Res<Time>, mut q: Query<&mut Velocity>) {
 /// force.
 fn collision_system(
     wins: Res<Windows>,
+    mut rng: ResMut<InsecureRng>,
     mut q: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let mut rnd = rand::thread_rng();
-
     let win = wins.get_primary().unwrap();
 
     let ceiling = win.height() / 2.;
@@ -267,7 +264,7 @@ fn collision_system(
         if bottom < ground {
             t.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            v.translation.y = rnd.gen_range(700.0..1000.0);
+            v.translation.y = rng.gen_range(700.0..1000.0);
         }
         if top > ceiling {
             t.translation.y = ceiling - SPRITE_SIZE / 2.0;

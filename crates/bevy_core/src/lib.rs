@@ -2,6 +2,7 @@ mod bytes;
 mod float_ord;
 mod label;
 mod name;
+mod rng;
 mod task_pool_options;
 mod time;
 
@@ -9,12 +10,16 @@ pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
 pub use name::*;
+pub use rng::*;
 pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
+    pub use crate::{
+        CryptoRng, DefaultRngOptions, DefaultTaskPoolOptions, EntityLabels, InsecureRng, Labels,
+        Name, Rng, RngCore, SecureRng, Time, Timer, SliceRandom
+    };
 }
 
 use bevy_app::prelude::*;
@@ -45,6 +50,13 @@ impl Plugin for CorePlugin {
             .cloned()
             .unwrap_or_else(DefaultTaskPoolOptions::default)
             .create_default_pools(app.world_mut());
+
+        // Setup the default bevy random number generators
+        app.world_mut()
+            .get_resource::<DefaultRngOptions>()
+            .cloned()
+            .unwrap_or_else(DefaultRngOptions::default)
+            .create_default_rngs(app.world_mut());
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()

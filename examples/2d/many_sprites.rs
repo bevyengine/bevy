@@ -5,8 +5,6 @@ use bevy::{
     sprite::SpriteSettings,
 };
 
-use rand::Rng;
-
 const CAMERA_SPEED: f32 = 1000.0;
 
 pub struct PrintTimer(Timer);
@@ -32,10 +30,9 @@ fn main() {
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
+    mut rng: ResMut<InsecureRng>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mut rng = rand::thread_rng();
-
     let tile_size = Vec2::splat(64.0);
     let map_size = Vec2::splat(320.0);
 
