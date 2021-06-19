@@ -217,7 +217,8 @@ impl Timer {
 
         if self.finished() {
             if self.repeating() {
-                self.times_finished = (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
+                self.times_finished =
+                    (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
                 // Duration does not have a modulo
                 self.set_elapsed(self.elapsed() - self.duration() * self.times_finished);
             } else {
