@@ -41,6 +41,9 @@ pub trait DetectChanges {
     fn set_changed(&mut self);
 }
 
+// TODO: Add some nice docs here
+pub trait AllowGetUntracked<Marker = ()> {}
+
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* $(: $traits)?> DetectChanges for $name<$($generics),*> {
@@ -113,6 +116,28 @@ macro_rules! impl_into_inner {
     };
 }
 
+macro_rules! impl_change_detection_circumvention {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+        impl<$($generics),* $(: $traits)?> $name<$($generics),*> {
+            #[inline]
+            pub fn get_untracked(&mut self) -> &mut T
+            where
+                T: AllowGetUntracked,
+            {
+                self.value
+            }
+
+            #[inline]
+            pub fn get_untracked_with_token<Token>(&mut self, _: Token) -> &mut T
+            where
+                T: AllowGetUntracked<Token>,
+            {
+                self.value
+            }
+        }
+    };
+}
+
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
         impl<$($generics),* $(: $traits)?> std::fmt::Debug for $name<$($generics),*>
@@ -148,6 +173,7 @@ pub struct ResMut<'a, T: Component> {
 
 change_detection_impl!(ResMut<'a, T>, T, Component);
 impl_into_inner!(ResMut<'a, T>, T, Component);
+impl_change_detection_circumvention!(ResMut<'a, T>, T, Component);
 impl_debug!(ResMut<'a, T>, Component);
 
 /// Unique borrow of a non-[`Send`] resource.
@@ -167,6 +193,7 @@ pub struct NonSendMut<'a, T: 'static> {
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
+impl_change_detection_circumvention!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
 /// Unique mutable borrow of an entity's component
@@ -177,6 +204,7 @@ pub struct Mut<'a, T> {
 
 change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
+impl_change_detection_circumvention!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
 /// Unique mutable borrow of a Reflected component
