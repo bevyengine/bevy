@@ -62,6 +62,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
 # bevy (optional)
+bevy_animation_rig = { path = "../bevy_animation_rig", optional = true, version = "0.5.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.5.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.5.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.5.0" }
