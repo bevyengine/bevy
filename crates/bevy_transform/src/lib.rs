@@ -20,7 +20,7 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`] to guaranty this.
+///   * You may use the [`TransformBundle`] to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
