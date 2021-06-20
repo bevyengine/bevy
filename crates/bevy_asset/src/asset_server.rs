@@ -205,6 +205,7 @@ impl AssetServer {
                     }
                     LoadState::Failed => return LoadState::Failed,
                     LoadState::NotLoaded => return LoadState::NotLoaded,
+                    LoadState::Unloaded => return LoadState::Unloaded,
                 },
                 HandleId::Id(_, _) => return LoadState::NotLoaded,
             }
@@ -230,13 +231,11 @@ impl AssetServer {
         self.load_untyped(path).typed()
     }
 
-    // TODO: properly set failed LoadState in all failure cases
     async fn load_async(
         &self,
         asset_path: AssetPath<'_>,
         force: bool,
     ) -> Result<AssetPathId, AssetServerError> {
-        let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
         // load metadata and update source info. this is done in a scope to ensure we release the
@@ -272,15 +271,28 @@ impl AssetServer {
             source_info.version
         };
 
+        let set_asset_failed = || {
+            let mut asset_sources = self.server.asset_sources.write();
+            let source_info = asset_sources
+                .get_mut(&asset_path_id.source_path_id())
+                .expect("`AssetSource` should exist at this point.");
+            source_info.load_state = LoadState::Failed;
+        };
+
+        // get the according asset loader
+        let asset_loader = match self.get_path_asset_loader(asset_path.path()) {
+            Ok(loader) => loader,
+            Err(err) => {
+                set_asset_failed();
+                return Err(err);
+            }
+        };
+
         // load the asset bytes
         let bytes = match self.server.asset_io.load_path(asset_path.path()).await {
             Ok(bytes) => bytes,
             Err(err) => {
-                let mut asset_sources = self.server.asset_sources.write();
-                let source_info = asset_sources
-                    .get_mut(&asset_path_id.source_path_id())
-                    .expect("`AssetSource` should exist at this point.");
-                source_info.load_state = LoadState::Failed;
+                set_asset_failed();
                 return Err(AssetServerError::AssetIoError(err));
             }
         };
@@ -293,10 +305,15 @@ impl AssetServer {
             version,
             &self.server.task_pool,
         );
-        asset_loader
+
+        if let Err(err) = asset_loader
             .load(&bytes, &mut load_context)
             .await
-            .map_err(AssetServerError::AssetLoaderError)?;
+            .map_err(AssetServerError::AssetLoaderError)
+        {
+            set_asset_failed();
+            return Err(err);
+        }
 
         // if version has changed since we loaded and grabbed a lock, return. theres is a newer
         // version being loaded
@@ -328,8 +345,7 @@ impl AssetServer {
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in loaded_asset.dependencies.iter() {
-                // another handle already exists created from the asset path
-                let _ = self.load_untyped(dependency.clone());
+                self.load_untracked(dependency.clone(), false);
             }
         }
 
@@ -358,6 +374,14 @@ impl AssetServer {
                 }
             })
             .detach();
+
+        let handle_id = asset_path.get_id().into();
+        self.server
+            .handle_to_path
+            .write()
+            .entry(handle_id)
+            .or_insert_with(|| asset_path.to_owned());
+
         asset_path.into()
     }
 
@@ -493,7 +517,7 @@ impl AssetServer {
                         }
                     }
 
-                    let _ = assets.set(result.id, *result.asset);
+                    assets.set_untracked(result.id, *result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {
@@ -501,9 +525,7 @@ impl AssetServer {
                             .get_or_insert_with(|| self.server.asset_sources.write());
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             source_info.committed_assets.remove(&id.label_id());
-                            if source_info.is_loaded() {
-                                source_info.load_state = LoadState::Loaded;
-                            }
+                            source_info.load_state = LoadState::Unloaded;
                         }
                     }
                     assets.remove(handle_id);
@@ -517,28 +539,55 @@ impl AssetServer {
     }
 }
 
-pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
+fn free_unused_assets_system_impl(asset_server: &AssetServer) {
     asset_server.free_unused_assets();
     asset_server.mark_unused_assets();
+}
+
+pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
+    free_unused_assets_system_impl(&asset_server);
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{loader::LoadedAsset, update_asset_storage_system};
+    use bevy_ecs::prelude::*;
+    use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
+
+    #[derive(Debug, TypeUuid)]
+    #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
+    struct PngAsset;
 
     struct FakePngLoader;
     impl AssetLoader for FakePngLoader {
         fn load<'a>(
             &'a self,
             _: &'a [u8],
-            _: &'a mut LoadContext,
+            ctx: &'a mut LoadContext,
         ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+            ctx.set_default_asset(LoadedAsset::new(PngAsset));
             Box::pin(async move { Ok(()) })
         }
 
         fn extensions(&self) -> &[&str] {
             &["png"]
+        }
+    }
+
+    struct FailingLoader;
+    impl AssetLoader for FailingLoader {
+        fn load<'a>(
+            &'a self,
+            _: &'a [u8],
+            _: &'a mut LoadContext,
+        ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+            Box::pin(async { anyhow::bail!("failed") })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["fail"]
         }
     }
 
@@ -557,10 +606,10 @@ mod test {
         }
     }
 
-    fn setup() -> AssetServer {
+    fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
 
-        let asset_server = AssetServer {
+        AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
                 extension_to_loader_index: Default::default(),
@@ -569,38 +618,39 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(&".")),
+                asset_io: Box::new(FileAssetIo::new(asset_path)),
             }),
-        };
-        asset_server.add_loader::<FakePngLoader>(FakePngLoader);
-        asset_server.add_loader::<FakeMultipleDotLoader>(FakeMultipleDotLoader);
-        asset_server
+        }
     }
 
     #[test]
     fn extensions() {
-        let asset_server = setup();
+        let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test.png");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
 
     #[test]
     fn case_insensitive_extensions() {
-        let asset_server = setup();
+        let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test.PNG");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
 
     #[test]
     fn no_loader() {
-        let asset_server = setup();
+        let asset_server = setup(".");
         let t = asset_server.get_path_asset_loader("test.pong");
         assert!(t.is_err());
     }
 
     #[test]
     fn multiple_extensions_no_loader() {
-        let asset_server = setup();
+        let asset_server = setup(".");
 
         assert!(
             match asset_server.get_path_asset_loader("test.v1.2.3.pong") {
@@ -635,15 +685,188 @@ mod test {
 
     #[test]
     fn filename_with_dots() {
-        let asset_server = setup();
+        let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
         let t = asset_server.get_path_asset_loader("test-v1.2.3.png");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
 
     #[test]
     fn multiple_extensions() {
-        let asset_server = setup();
+        let asset_server = setup(".");
+        asset_server.add_loader(FakeMultipleDotLoader);
+
         let t = asset_server.get_path_asset_loader("test.test.png");
         assert_eq!(t.unwrap().extensions()[0], "test.png");
+    }
+
+    fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
+        let asset_dir = tempfile::tempdir().unwrap();
+        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        asset_dir
+    }
+
+    #[test]
+    fn test_missing_loader() {
+        let dir = create_dir_and_file("file.not-a-real-extension");
+        let asset_server = setup(dir.path());
+
+        let path: AssetPath = "file.not-a-real-extension".into();
+        let handle = asset_server.get_handle_untyped(path.get_id());
+
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+            .unwrap_err();
+        assert!(match err {
+            AssetServerError::MissingAssetLoader { extensions } => {
+                extensions == ["not-a-real-extension"]
+            }
+            _ => false,
+        });
+
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+    }
+
+    #[test]
+    fn test_invalid_asset_path() {
+        let asset_server = setup(".");
+        asset_server.add_loader(FakePngLoader);
+
+        let path: AssetPath = "an/invalid/path.png".into();
+        let handle = asset_server.get_handle_untyped(path.get_id());
+
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+            .unwrap_err();
+        assert!(matches!(err, AssetServerError::AssetIoError(_)));
+
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+    }
+
+    #[test]
+    fn test_failing_loader() {
+        let dir = create_dir_and_file("fake.fail");
+        let asset_server = setup(dir.path());
+        asset_server.add_loader(FailingLoader);
+
+        let path: AssetPath = "fake.fail".into();
+        let handle = asset_server.get_handle_untyped(path.get_id());
+
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+            .unwrap_err();
+        assert!(matches!(err, AssetServerError::AssetLoaderError(_)));
+
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+    }
+
+    #[test]
+    fn test_asset_lifecycle() {
+        let dir = create_dir_and_file("fake.png");
+        let asset_server = setup(dir.path());
+        asset_server.add_loader(FakePngLoader);
+        let assets = asset_server.register_asset_type::<PngAsset>();
+
+        let mut world = World::new();
+        world.insert_resource(assets);
+        world.insert_resource(asset_server);
+
+        let mut tick = {
+            let mut free_unused_assets_system = free_unused_assets_system.system();
+            free_unused_assets_system.initialize(&mut world);
+            let mut update_asset_storage_system = update_asset_storage_system::<PngAsset>.system();
+            update_asset_storage_system.initialize(&mut world);
+
+            move |world: &mut World| {
+                free_unused_assets_system.run((), world);
+                update_asset_storage_system.run((), world);
+            }
+        };
+
+        fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
+            let asset_server = world.get_resource::<AssetServer>().unwrap();
+            let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+                .unwrap();
+            asset_server.get_handle_untyped(id)
+        }
+
+        fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
+            world
+                .get_resource::<Assets<PngAsset>>()
+                .unwrap()
+                .get(id.into())
+        }
+
+        fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
+            world
+                .get_resource::<AssetServer>()
+                .unwrap()
+                .get_load_state(id.into())
+        }
+
+        // ---
+        // Start of the actual lifecycle test
+        // ---
+
+        let path: AssetPath = "fake.png".into();
+        assert_eq!(LoadState::NotLoaded, get_load_state(path.get_id(), &world));
+
+        // load the asset
+        let handle = load_asset(path.clone(), &world);
+        let weak_handle = handle.clone_weak();
+
+        // asset is loading
+        assert_eq!(LoadState::Loading, get_load_state(&handle, &world));
+
+        tick(&mut world);
+        // asset should exist and be loaded at this point
+        assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
+        assert!(get_asset(&handle, &world).is_some());
+
+        // after dropping the handle, next call to `tick` will prepare the assets for removal.
+        drop(handle);
+        tick(&mut world);
+        assert_eq!(LoadState::Loaded, get_load_state(&weak_handle, &world));
+        assert!(get_asset(&weak_handle, &world).is_some());
+
+        // second call to tick will actually remove the asset.
+        tick(&mut world);
+        assert_eq!(LoadState::Unloaded, get_load_state(&weak_handle, &world));
+        assert!(get_asset(&weak_handle, &world).is_none());
+
+        // finally, reload the asset
+        let handle = load_asset(path.clone(), &world);
+        assert_eq!(LoadState::Loading, get_load_state(&handle, &world));
+        tick(&mut world);
+        assert_eq!(LoadState::Loaded, get_load_state(&handle, &world));
+        assert!(get_asset(&handle, &world).is_some());
+    }
+
+    #[test]
+    fn test_get_handle_path() {
+        const PATH: &str = "path/file.png";
+
+        // valid handle
+        let server = setup(".");
+        let handle = server.load_untyped(PATH);
+        let handle_path = server.get_handle_path(&handle).unwrap();
+
+        assert_eq!(handle_path.path(), Path::new(PATH));
+        assert!(handle_path.label().is_none());
+
+        let handle_id: HandleId = handle.into();
+        let path_id: HandleId = handle_path.get_id().into();
+        assert_eq!(handle_id, path_id);
+
+        // invalid handle (not loaded through server)
+        let mut assets = server.register_asset_type::<PngAsset>();
+        let handle = assets.add(PngAsset);
+        assert!(server.get_handle_path(&handle).is_none());
+
+        // invalid HandleId
+        let invalid_id = HandleId::new(Uuid::new_v4(), 42);
+        assert!(server.get_handle_path(invalid_id).is_none());
+
+        // invalid AssetPath
+        let invalid_path = AssetPath::new("some/path.ext".into(), None);
+        assert!(server.get_handle_path(invalid_path).is_none());
     }
 }

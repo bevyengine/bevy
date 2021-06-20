@@ -324,7 +324,7 @@ mod tests {
         run_system(&mut world, sys.system());
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]
@@ -353,7 +353,7 @@ mod tests {
         }
 
         run_system(&mut world, validate_removed.system());
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true, "system ran");
+        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
 
     #[test]
@@ -371,7 +371,7 @@ mod tests {
         );
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
     #[test]
     fn world_collections_system() {
@@ -414,7 +414,7 @@ mod tests {
         run_system(&mut world, sys.system());
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]
