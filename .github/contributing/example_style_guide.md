@@ -1,5 +1,7 @@
 # Style guide: Examples
 
+For more advice on writing examples, see the [relevant section](../../CONTRIBUTING.md#writing-examples) of CONTRIBUTING.md.
+
 ## Organization
 
 1. Each example should live in an appropriate subfolder of `/examples` (other than `hello_world.rs`). and take exactly one file unless otherwise needed.
