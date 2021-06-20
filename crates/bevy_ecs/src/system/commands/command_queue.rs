@@ -73,7 +73,7 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
-        // flush previously queued entities
+        // flush the previously queued entities
         world.flush();
 
         // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
