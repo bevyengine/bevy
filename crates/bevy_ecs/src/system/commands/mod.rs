@@ -7,33 +7,12 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
-use command_queue::CommandQueueInner;
+pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
-}
-
-/// A queue of [`Command`]s.
-#[derive(Default)]
-pub struct CommandQueue {
-    commands: CommandQueueInner,
-}
-
-impl CommandQueue {
-    /// Execute the queued [`Command`]s in the world.
-    /// This clears the queue.
-    pub fn apply(&mut self, world: &mut World) {
-        world.flush();
-        self.commands.apply(world);
-    }
-
-    /// Push a [`Command`] onto the queue.
-    #[inline]
-    pub fn push<T: Command>(&mut self, command: T) {
-        self.commands.push(command);
-    }
 }
 
 /// A list of commands that will be run to modify a [`World`].

@@ -6,20 +6,27 @@ struct CommandMeta {
     func: unsafe fn(value: *mut u8, world: &mut World),
 }
 
+/// A queue of [`Command`]s
+//
+// NOTE: [`CommandQueue`] is implemented via a `Vec<u8>` over a `Vec<Box<dyn Command>>`
+// as an optimization. Since commands are used frequently in systems as a way to spawn
+// entities/components/resources, and it's not currently possible to parallelize these
+// due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
+// preferred to simplicitiy of implementation.
 #[derive(Default)]
-pub(crate) struct CommandQueueInner {
+pub struct CommandQueue {
     bytes: Vec<u8>,
     metas: Vec<CommandMeta>,
 }
 
 // SAFE: All commands [`Command`] implement [`Send`]
-unsafe impl Send for CommandQueueInner {}
+unsafe impl Send for CommandQueue {}
 
-// SAFE: `&CommandQueueInner` never gives access to the inner commands.
-unsafe impl Sync for CommandQueueInner {}
+// SAFE: `&CommandQueue` never gives access to the inner commands.
+unsafe impl Sync for CommandQueue {}
 
-impl CommandQueueInner {
-    /// Push a new `command` onto the queue.
+impl CommandQueue {
+    /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<C>(&mut self, command: C)
     where
@@ -62,8 +69,9 @@ impl CommandQueueInner {
         std::mem::forget(command);
     }
 
-    /// Invoke each command `func` for each inserted value with `world`
-    /// and then clears the internal bytes/metas command vectors.
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
+    #[inline]
     pub fn apply(&mut self, world: &mut World) {
         // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
@@ -128,7 +136,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_drop() {
-        let mut queue = CommandQueueInner::default();
+        let mut queue = CommandQueue::default();
 
         let (dropcheck_a, drops_a) = DropCheck::new();
         let (dropcheck_b, drops_b) = DropCheck::new();
@@ -156,7 +164,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner() {
-        let mut queue = CommandQueueInner::default();
+        let mut queue = CommandQueue::default();
 
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
@@ -186,7 +194,7 @@ mod test {
     fn test_command_queue_inner_panic_safe() {
         std::panic::set_hook(Box::new(|_| {}));
 
-        let mut queue = CommandQueueInner::default();
+        let mut queue = CommandQueue::default();
 
         queue.push(PanicCommand("I panic!".to_owned()));
         queue.push(SpawnCommand);
@@ -210,17 +218,17 @@ mod test {
         assert_eq!(world.entities().len(), 2);
     }
 
-    // NOTE: `CommandQueueInner` is `Send` because `Command` is send.
-    // If the `Command` trait gets reworked to be non-send, `CommandQueueInner`
+    // NOTE: `CommandQueue` is `Send` because `Command` is send.
+    // If the `Command` trait gets reworked to be non-send, `CommandQueue`
     // should be reworked.
     // This test asserts that Command types are send.
-    fn assert_is_send(_: impl Send) {}
-    fn a_command(command: impl Command) {
-        assert_is_send(command);
+    fn assert_is_send_impl(_: impl Send) {}
+    fn assert_is_send(command: impl Command) {
+        assert_is_send_impl(command);
     }
 
     #[test]
     fn test_command_is_send() {
-        a_command(SpawnCommand);
+        assert_is_send(SpawnCommand);
     }
 }
