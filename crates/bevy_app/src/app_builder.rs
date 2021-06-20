@@ -16,6 +16,23 @@ use bevy_utils::tracing::debug;
 use std::{fmt::Debug, hash::Hash};
 
 /// Configure [App]s using the builder pattern
+///
+/// ## Example
+/// Here is a simple "Hello World" Bevy app:
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///    App::build()
+///        .add_system(hello_world_system.system())
+///        .run();
+/// }
+///
+/// fn hello_world_system() {
+///    println!("hello world");
+/// }
+/// ```
 pub struct AppBuilder {
     pub app: App,
 }

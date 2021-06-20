@@ -13,23 +13,6 @@ use bevy_utils::tracing::info_span;
 /// an ECS based application. It also stores a pointer to a
 /// [runner function](AppBuilder::set_runner), which by default executes the App schedule
 /// once. Apps are constructed with the builder pattern, using the [`AppBuilder`] struct.
-///
-/// ## Example
-/// Here is a simple "Hello World" Bevy app:
-/// ```
-/// # use bevy_app::prelude::*;
-/// # use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///    App::build()
-///        .add_system(hello_world_system.system())
-///        .run();
-/// }
-///
-/// fn hello_world_system() {
-///    println!("hello world");
-/// }
-/// ```
 pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
