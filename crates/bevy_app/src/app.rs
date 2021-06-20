@@ -34,10 +34,13 @@ fn run_once(mut app: App) {
 }
 
 impl App {
+    /// Returns an [`AppBuilder`] with a basic structure that can be configured further
+    /// to create an `App`.
     pub fn build() -> AppBuilder {
         AppBuilder::default()
     }
 
+    /// Updates the [`Schedule`] of the `App`.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_frame_update_span = info_span!("frame");
@@ -46,6 +49,7 @@ impl App {
         self.schedule.run(&mut self.world);
     }
 
+    /// Calls the runner function of the `App`.
     pub fn run(mut self) {
         #[cfg(feature = "trace")]
         let bevy_app_run_span = info_span!("bevy_app");
