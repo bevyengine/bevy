@@ -57,7 +57,7 @@ impl App {
         AppBuilder::default()
     }
 
-    /// Updates the [`Schedule`] of the `App`.
+    /// Advances the execution of the [`Schedule`] by one cycle.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_frame_update_span = info_span!("frame");
