@@ -233,8 +233,7 @@ impl AppBuilder {
     }
 
     pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set);
-        self
+        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
     }
 
     pub fn add_startup_system_to_stage(
