@@ -9,9 +9,10 @@ use bevy_utils::tracing::info_span;
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
-/// of the App, which by default executes the App schedule once. Apps are constructed using the
-/// builder pattern.
+/// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
+/// an ECS based application. It also stores a pointer to a
+/// [runner function](AppBuilder::set_runner), which by default executes the App schedule
+/// once. Apps are constructed with the builder pattern, using the [`AppBuilder`] struct.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
