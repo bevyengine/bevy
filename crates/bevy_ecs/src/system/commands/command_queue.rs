@@ -73,6 +73,9 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
+        // flush previouly queued entities
+        world.flush();
+
         // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
         // unnecessary allocations.
