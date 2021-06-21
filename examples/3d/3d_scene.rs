@@ -30,7 +30,7 @@ fn setup(
     // light
     let transform = Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y);
     let mut directional_light = DirectionalLight::default();
-    directional_light.illuminance = 10000.0;
+    directional_light.illuminance = 10_000.0;
     directional_light.set_direction(transform.forward());
 
     commands.spawn_bundle(DirectionalLightBundle {

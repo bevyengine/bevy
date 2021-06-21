@@ -109,7 +109,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: 100000.0,
+            illuminance: 100_000.0,
             direction: Vec3::new(0.0, -1.0, 0.0),
         }
     }
