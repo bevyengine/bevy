@@ -1,13 +1,14 @@
 use std::ffi::c_void;
 
-use crate::{FrameStream, OpenXrResourceContext, SessionBackend};
+use crate::{FrameStream, OpenXrContext, SessionBackend};
+use bevy_app::Plugin;
 use bevy_xr::presentation::{
     GraphicsContextHandles, VkGetInstanceProcAddr, XrPresentationError,
-    XrPresentationResourceContext, XrSessionHandle,
+    XrPresentationContext, XrSessionHandle,
 };
 use openxr as xr;
 
-impl XrPresentationResourceContext for OpenXrResourceContext {
+impl XrPresentationContext for OpenXrContext {
     unsafe fn create_vulkan_instance(
         &self,
         get_instance_proc_addr: VkGetInstanceProcAddr,
@@ -95,32 +96,6 @@ impl XrPresentationResourceContext for OpenXrResourceContext {
                     SessionBackend::D3D11(session),
                     frame_waiter,
                     FrameStream::D3D11(frame_stream),
-                )
-            }
-            GraphicsContextHandles::OpenGlXLib {
-                x_display,
-                visualid,
-                glx_fb_config,
-                glx_drawable,
-                glx_context,
-            } => {
-                let (session, frame_waiter, frame_stream) = self
-                    .instance
-                    .create_session(
-                        self.system_id,
-                        &xr::opengl::SessionCreateInfo::Xlib {
-                            x_display,
-                            visualid,
-                            glx_fb_config,
-                            glx_drawable,
-                            glx_context,
-                        },
-                    )
-                    .unwrap();
-                (
-                    SessionBackend::OpenGL(session),
-                    frame_waiter,
-                    FrameStream::OpenGL(frame_stream),
                 )
             }
             _ => return Err(XrPresentationError("Unsupported backend".into())),

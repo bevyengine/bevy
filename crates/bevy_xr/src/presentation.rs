@@ -13,15 +13,11 @@ pub enum GraphicsContextHandles {
         queue_family_index: u32,
         queue_index: u32,
     },
-    OpenGlXLib {
-        x_display: *mut c_void,
-        visualid: u32,
-        glx_fb_config: *mut c_void,
-        glx_drawable: u32,
-        glx_context: *mut c_void,
-    },
     D3D11 {
         device: *mut c_void,
+    },
+    WebGpu {
+        // todo
     },
 }
 
@@ -32,7 +28,7 @@ pub trait XrSessionHandle {
 }
 
 // Trait implemented by XR backends that support display mode.
-pub trait XrPresentationResourceContext: Send + Sync + 'static {
+pub trait XrPresentationContext: Send + Sync + 'static {
     /// Note: this is OpenXR-Vulkan specific. Any other XR backend should return an error
     /// # Safety
     /// Arguments must be valid Vulkan pointers

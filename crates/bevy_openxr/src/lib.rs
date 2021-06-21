@@ -4,26 +4,37 @@ mod presentation;
 
 use bevy_app::{AppBuilder, CoreStage, Plugin};
 use bevy_ecs::prelude::IntoSystem;
-use bevy_math::Vec2;
 use bevy_utils::Duration;
-use bevy_xr::{
-    implementation::XrStateBackend,
-    interaction::{
-        HandAction, HandType, Motion, Orientation, Pose, Position, TrackingReferenceMode,
-        Vibration, XR_HAND_JOINT_COUNT,
-    },
-    presentation::XrPresentationResourceContext,
-    ViewerType, XrConfig, XrMode, XrTime,
-};
-use conversion::{from_xr_time, to_quat, to_vec3, to_duration, to_xr_time};
-use interaction::{OpenXrBindingDesc, OpenXrVendorInput, OpenXrVendorOutput, PoseActions, Spaces};
+use bevy_xr::{presentation::XrPresentationContext, XrMode};
+use interaction::{OpenXrBindings, OpenXrInteractionContext, Spaces};
 use openxr as xr;
-use std::sync::{Arc, Mutex};
+use openxr::sys;
+
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct OpenXrTime(Duration);
+
+impl OpenXrTime {
+    pub fn from_nanos(nanos: u64) -> Self {
+        Self(Duration::from_nanos(nanos))
+    }
+
+    pub fn as_nanos(self) -> u64 {
+        self.0.as_nanos() as _
+    }
+}
+
+impl std::ops::Add<Duration> for OpenXrTime {
+    type Output = OpenXrTime;
+
+    fn add(self, rhs: Duration) -> OpenXrTime {
+        OpenXrTime(self.0 + rhs)
+    }
+}
 
 pub(crate) enum SessionBackend {
     Vulkan(xr::Session<xr::Vulkan>),
+    #[cfg(windows)]
     D3D11(xr::Session<xr::D3D11>),
-    OpenGL(xr::Session<xr::OpenGL>),
 }
 
 impl SessionBackend {
@@ -33,8 +44,8 @@ impl SessionBackend {
     ) -> xr::Result<xr::ActionState<T>> {
         match self {
             SessionBackend::Vulkan(backend) => action.state(backend, xr::Path::NULL),
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => action.state(backend, xr::Path::NULL),
-            SessionBackend::OpenGL(backend) => action.state(backend, xr::Path::NULL),
         }
     }
 
@@ -47,10 +58,8 @@ impl SessionBackend {
             SessionBackend::Vulkan(backend) => {
                 action.apply_feedback(backend, xr::Path::NULL, haptic)
             }
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => {
-                action.apply_feedback(backend, xr::Path::NULL, haptic)
-            }
-            SessionBackend::OpenGL(backend) => {
                 action.apply_feedback(backend, xr::Path::NULL, haptic)
             }
         }
@@ -59,8 +68,8 @@ impl SessionBackend {
     pub fn stop_feedback(&self, action: &xr::Action<xr::Haptic>) -> xr::Result<()> {
         match self {
             SessionBackend::Vulkan(backend) => action.stop_feedback(backend, xr::Path::NULL),
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => action.stop_feedback(backend, xr::Path::NULL),
-            SessionBackend::OpenGL(backend) => action.stop_feedback(backend, xr::Path::NULL),
         }
     }
 
@@ -69,10 +78,8 @@ impl SessionBackend {
             SessionBackend::Vulkan(backend) => {
                 action.create_space(backend.clone(), xr::Path::NULL, xr::Posef::IDENTITY)
             }
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => {
-                action.create_space(backend.clone(), xr::Path::NULL, xr::Posef::IDENTITY)
-            }
-            SessionBackend::OpenGL(backend) => {
                 action.create_space(backend.clone(), xr::Path::NULL, xr::Posef::IDENTITY)
             }
         }
@@ -86,10 +93,8 @@ impl SessionBackend {
             SessionBackend::Vulkan(backend) => {
                 backend.create_reference_space(reference_type, xr::Posef::IDENTITY)
             }
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => {
-                backend.create_reference_space(reference_type, xr::Posef::IDENTITY)
-            }
-            SessionBackend::OpenGL(backend) => {
                 backend.create_reference_space(reference_type, xr::Posef::IDENTITY)
             }
         }
@@ -105,10 +110,8 @@ impl SessionBackend {
             SessionBackend::Vulkan(backend) => {
                 backend.locate_views(view_configuration_type, display_time, space)
             }
+            #[cfg(windows)]
             SessionBackend::D3D11(backend) => {
-                backend.locate_views(view_configuration_type, display_time, space)
-            }
-            SessionBackend::OpenGL(backend) => {
                 backend.locate_views(view_configuration_type, display_time, space)
             }
         }
@@ -117,13 +120,13 @@ impl SessionBackend {
 
 enum FrameStream {
     Vulkan(xr::FrameStream<xr::Vulkan>),
+    #[cfg(windows)]
     D3D11(xr::FrameStream<xr::D3D11>),
-    OpenGL(xr::FrameStream<xr::OpenGL>),
 }
 
 // Note: this is not a simple wrapper of xr::Session, instead it is a wrapper for every object
 // which depends directly or indirectly on graphics initialization.
-struct Session {
+struct OpenXrSession {
     pub(crate) backend: SessionBackend,
     frame_stream: FrameStream,
     frame_waiter: xr::FrameWaiter,
@@ -131,24 +134,25 @@ struct Session {
     spaces: Spaces,
 }
 
-#[derive(Default, Clone)]
-pub struct OpenXrConfig {
-    pub vendor_bindings: Vec<OpenXrBindingDesc>,
+#[derive(Debug)]
+pub enum OpenXrError {
+    Loader(xr::LoadError),
+    InstanceCreation(sys::Result),
+    UnsupportedMode,
 }
 
-pub struct OpenXrResourceContext {
+#[derive(Clone)]
+pub struct OpenXrContext {
     instance: xr::Instance,
     system_id: xr::SystemId,
     view_type: xr::ViewConfigurationType,
     blend_mode: xr::EnvironmentBlendMode,
-    _action_set: xr::ActionSet,
-    session: Arc<Mutex<Option<Session>>>,
-    pose_actions: PoseActions,
+    mode: XrMode,
 }
 
-impl OpenXrResourceContext {
-    fn new(app: &mut AppBuilder, xr_config: &XrConfig, openxr_config: &OpenXrConfig) -> Self {
-        let entry = xr::Entry::load().expect("Could not find OpenXR loader");
+impl OpenXrContext {
+    fn new(mode: XrMode) -> Result<Self, OpenXrError> {
+        let entry = xr::Entry::load().map_err(OpenXrError::Loader)?;
 
         let available_extensions = entry.enumerate_extensions().unwrap();
 
@@ -167,34 +171,16 @@ impl OpenXrResourceContext {
                 &enabled_extensions,
                 &[], // todo: add debug layer
             )
-            .unwrap();
+            .map_err(OpenXrError::InstanceCreation)?;
 
-        let (system_id, form_factor, blend_mode) = match &xr_config.mode {
-            XrMode::Display {
-                viewer: display,
-                blend,
-            } => {
-                let form_factors = match display {
-                    ViewerType::PreferHeadMounted => [
-                        xr::FormFactor::HEAD_MOUNTED_DISPLAY,
-                        xr::FormFactor::HANDHELD_DISPLAY,
-                    ],
-                    ViewerType::PreferHandheld => [
-                        xr::FormFactor::HANDHELD_DISPLAY,
-                        xr::FormFactor::HEAD_MOUNTED_DISPLAY,
-                    ],
-                };
-
-                form_factors
-                    .iter()
-                    .find_map(|form| Some((instance.system(*form).ok()?, *form, blend)))
-                    .unwrap()
-            }
-            XrMode::OnlyTracking => {
-                // Note: MND_HEADLESS extension exists
-                panic!("bevy_openxr does not support XrMode::OnlyTracking.");
-            }
+        let form_factor = match mode {
+            XrMode::ImmersiveVR | XrMode::ImmersiveAR => xr::FormFactor::HEAD_MOUNTED_DISPLAY,
+            XrMode::InlineVR | XrMode::InlineAR => xr::FormFactor::HANDHELD_DISPLAY,
         };
+
+        let system_id = instance
+            .system(form_factor)
+            .map_err(|_| OpenXrError::UnsupportedMode)?;
 
         let view_type = if form_factor == xr::FormFactor::HANDHELD_DISPLAY {
             xr::ViewConfigurationType::PRIMARY_MONO
@@ -206,284 +192,26 @@ impl OpenXrResourceContext {
         let blend_modes = instance
             .enumerate_environment_blend_modes(system_id, view_type)
             .unwrap();
-        let blend_mode = match blend_mode {
-            bevy_xr::BlendMode::PreferVR => *blend_modes
-                .iter()
-                .find(|m| **m == xr::EnvironmentBlendMode::OPAQUE)
-                .or_else(|| blend_modes.first())
-                .unwrap(),
-            bevy_xr::BlendMode::AR => *blend_modes
-                .iter()
-                .find(|m| {
+
+        let blend_mode = blend_modes
+            .iter()
+            .find(|m| match mode {
+                XrMode::ImmersiveVR | XrMode::InlineVR => **m == xr::EnvironmentBlendMode::OPAQUE,
+                XrMode::ImmersiveAR | XrMode::InlineAR => {
                     **m == xr::EnvironmentBlendMode::ADDITIVE
                         || **m == xr::EnvironmentBlendMode::ALPHA_BLEND
-                })
-                .unwrap_or_else(|| panic!("The XR device does not support AR mode")),
-        };
+                }
+            })
+            .cloned()
+            .ok_or(OpenXrError::UnsupportedMode)?;
 
-        let action_set = instance
-            .create_action_set("interaction", "XR interactions", 0)
-            .unwrap();
-
-        let session = Arc::new(Mutex::new(None));
-
-        let pose_actions = register_actions(
-            app,
-            xr_config,
-            openxr_config,
-            &instance,
-            &action_set,
-            &session,
-        );
-
-        Self {
+        Ok(Self {
             instance,
             system_id,
             view_type,
             blend_mode,
-            _action_set: action_set,
-            session,
-            pose_actions,
-        }
-    }
-}
-
-fn register_actions(
-    app: &mut AppBuilder,
-    xr_config: &XrConfig,
-    openxr_config: &OpenXrConfig,
-    instance: &xr::Instance,
-    action_set: &xr::ActionSet,
-    session: &Arc<Mutex<Option<Session>>>,
-) -> PoseActions {
-    // Register bindings
-    let mut bindings = interaction::pose_bindings();
-
-    if xr_config.enable_generic_controllers {
-        // todo: add virtual controller bindings, which should be loaded from an external resource.
-    }
-
-    // This must be set after pose_bindings and controller bindings, to allow the user to override
-    // the behavior for certain actions.
-    bindings.extend(openxr_config.vendor_bindings.clone());
-
-    // Create actions. Various types of actions must be created all at once with one call per
-    // vendor.
-    let mut actions = interaction::create_actions(&instance, &action_set, &bindings);
-
-    // Redistribute actions in various containers
-    let pose_actions = interaction::extract_pose_actions(&mut actions);
-
-    if xr_config.enable_generic_controllers {
-        let (controller_input_actions, controller_output_actions) =
-            interaction::extract_controller_actions(&mut actions);
-
-        let input_system = Box::new(interaction::controller_input_system_fn(
-            Arc::clone(session),
-            controller_input_actions,
-        ));
-        app.add_system_to_stage(CoreStage::PreUpdate, input_system.system());
-
-        let output_system = Box::new(interaction::controller_output_system_fn(
-            Arc::clone(session),
-            controller_output_actions,
-        ));
-        app.add_system_to_stage(CoreStage::PostUpdate, output_system.system());
-    }
-
-    if !openxr_config.vendor_bindings.is_empty() {
-        app.add_event::<OpenXrVendorInput<bool>>()
-            .add_event::<OpenXrVendorInput<f32>>()
-            .add_event::<OpenXrVendorInput<Vec2>>()
-            .add_event::<OpenXrVendorOutput<Vibration>>();
-
-        let input_system = Box::new(interaction::vendor_input_system_fn(
-            Arc::clone(session),
-            actions.clone(),
-        ));
-        app.add_system_to_stage(CoreStage::PreUpdate, input_system.system());
-
-        let output_system = Box::new(interaction::vendor_output_system_fn(
-            Arc::clone(session),
-            actions,
-        ));
-        app.add_system_to_stage(CoreStage::PostUpdate, output_system.system());
-    }
-
-    pose_actions
-}
-
-struct OpenXrState {
-    view_type: xr::ViewConfigurationType,
-    session: Arc<Mutex<Option<Session>>>,
-}
-
-impl XrStateBackend for OpenXrState {
-    fn set_tracking_reference_mode(&self, mode: TrackingReferenceMode) -> bool {
-        if let Some(session) = &mut *self.session.lock().unwrap() {
-            let reference_type = match mode {
-                TrackingReferenceMode::Tilted => xr::ReferenceSpaceType::VIEW,
-                TrackingReferenceMode::GravityAligned => xr::ReferenceSpaceType::LOCAL,
-                TrackingReferenceMode::Stage => xr::ReferenceSpaceType::STAGE,
-            };
-            if let Ok(space) = session.backend.create_reference_space(reference_type) {
-                session.spaces.reference = space;
-
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
-
-    fn views_poses(&self, time: XrTime) -> Vec<Pose> {
-        if let Some(session) = &*self.session.lock().unwrap() {
-            let (flags, views) = session
-                .backend
-                .locate_views(
-                    self.view_type,
-                    from_xr_time(time),
-                    &session.spaces.reference,
-                )
-                .unwrap();
-
-            views
-                .into_iter()
-                .map(|view| {
-                    let position = if flags.contains(xr::ViewStateFlags::POSITION_VALID) {
-                        Some(Position {
-                            value: to_vec3(view.pose.position),
-                            tracked: flags.contains(xr::ViewStateFlags::POSITION_TRACKED),
-                        })
-                    } else {
-                        None
-                    };
-                    let orientation = if flags.contains(xr::ViewStateFlags::ORIENTATION_VALID) {
-                        Some(Orientation {
-                            value: to_quat(view.pose.orientation),
-                            tracked: flags.contains(xr::ViewStateFlags::ORIENTATION_TRACKED),
-                        })
-                    } else {
-                        None
-                    };
-
-                    Pose {
-                        position,
-                        orientation,
-                    }
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn hand_motion(&self, hand_type: HandType, action: HandAction, time: XrTime) -> Motion {
-        if let Some(session) = &*self.session.lock().unwrap() {
-            let space = match (hand_type, action) {
-                (HandType::Left, HandAction::Grip) => &session.spaces.left_grip,
-                (HandType::Right, HandAction::Grip) => &session.spaces.right_grip,
-                (HandType::Left, HandAction::Aim) => &session.spaces.left_aim,
-                (HandType::Right, HandAction::Aim) => &session.spaces.right_aim,
-            };
-
-            let (location, velocity) = space
-                .relate(&session.spaces.reference, from_xr_time(time))
-                .unwrap();
-
-            let position = if location
-                .location_flags
-                .contains(xr::SpaceLocationFlags::POSITION_VALID)
-            {
-                Some(Position {
-                    value: to_vec3(location.pose.position),
-                    tracked: location
-                        .location_flags
-                        .contains(xr::SpaceLocationFlags::POSITION_TRACKED),
-                })
-            } else {
-                None
-            };
-            let orientation = if location
-                .location_flags
-                .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
-            {
-                Some(Orientation {
-                    value: to_quat(location.pose.orientation),
-                    tracked: location
-                        .location_flags
-                        .contains(xr::SpaceLocationFlags::ORIENTATION_TRACKED),
-                })
-            } else {
-                None
-            };
-            let linear_velocity = if velocity
-                .velocity_flags
-                .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
-            {
-                Some(to_vec3(velocity.linear_velocity))
-            } else {
-                None
-            };
-            let angular_velocity = if velocity
-                .velocity_flags
-                .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
-            {
-                Some(to_vec3(velocity.angular_velocity))
-            } else {
-                None
-            };
-
-            Motion {
-                pose: Pose {
-                    position,
-                    orientation,
-                },
-                linear_velocity,
-                angular_velocity,
-            }
-        } else {
-            Motion::default()
-        }
-    }
-
-    fn hand_skeleton_motion(
-        &self,
-        hand_type: HandType,
-        time: XrTime,
-    ) -> [Motion; XR_HAND_JOINT_COUNT] {
-        todo!()
-    }
-
-    fn generic_tracker_motion(&self, _: usize, _: XrTime) -> Motion {
-        // Generic trackers are not supported
-        Motion::default()
-    }
-
-    fn predicted_display_time(&self) -> XrTime {
-        if let Some(session) = &*self.session.lock().unwrap() {
-            to_xr_time(session.frame_state.predicted_display_time)
-        } else {
-            XrTime::from_nanos(0)
-        }
-    }
-
-    fn predicted_display_period(&self) -> Duration {
-        if let Some(session) = &*self.session.lock().unwrap() {
-            to_duration(session.frame_state.predicted_display_period)
-        } else {
-            Duration::from_nanos(0)
-        }
-    }
-
-    fn should_render(&self) -> bool {
-        if let Some(session) = &*self.session.lock().unwrap() {
-            session.frame_state.should_render
-        } else {
-            false
-        }
+            mode,
+        })
     }
 }
 
@@ -492,25 +220,51 @@ pub struct OpenXrPlugin;
 
 impl Plugin for OpenXrPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let xr_config = if let Some(config) = app.world().get_resource::<XrConfig>() {
-            config.clone()
+        let context = if let Some(context) = app.world().get_resource::<OpenXrContext>() {
+            context.clone()
         } else {
-            return;
+            let maybe_mode = app.world().get_resource::<XrMode>().cloned();
+            let mode = maybe_mode.unwrap_or(XrMode::ImmersiveVR);
+
+            let context = match OpenXrContext::new(mode) {
+                Ok(context) => context,
+                Err(OpenXrError::UnsupportedMode) => xr_mode_fallback(mode)
+                    .iter()
+                    .find_map(|mode| OpenXrContext::new(*mode).ok())
+                    .unwrap(),
+                Err(e) => panic!("Failed to initialize OpenXR: {:?}", e),
+            };
+
+            if let Some(mode) = maybe_mode {
+                if context.mode != mode {
+                    bevy_log::warn!("XrMode has been changed to {:?}", mode);
+                }
+            }
+
+            context
         };
 
-        let openxr_config = app
+        let bindings = app
             .world()
-            .get_resource::<OpenXrConfig>()
+            .get_resource::<OpenXrBindings>()
             .cloned()
             .unwrap_or_default();
 
-        let context = OpenXrResourceContext::new(app, &xr_config, &openxr_config);
+        app.insert_resource(OpenXrInteractionContext::new(&context.instance, bindings))
+            .insert_resource(context.mode)
+            .insert_resource::<Box<dyn XrPresentationContext>>(Box::new(context));
 
-        app.insert_resource::<Box<dyn XrStateBackend>>(Box::new(OpenXrState {
-            session: Arc::clone(&context.session),
-            view_type: context.view_type,
-        }));
+        app.add_system_to_stage(CoreStage::PreUpdate, interaction::input_system.system())
+            .add_system_to_stage(CoreStage::PostUpdate, interaction::output_system.system());
+    }
+}
 
-        app.insert_resource::<Box<dyn XrPresentationResourceContext>>(Box::new(context));
+fn xr_mode_fallback(mode: XrMode) -> &'static [XrMode] {
+    match mode {
+        XrMode::ImmersiveVR => &[XrMode::ImmersiveAR, XrMode::InlineVR, XrMode::InlineAR],
+        XrMode::ImmersiveAR | XrMode::InlineVR => {
+            &[XrMode::InlineAR, XrMode::ImmersiveVR, XrMode::ImmersiveAR]
+        }
+        XrMode::InlineAR => &[XrMode::ImmersiveAR, XrMode::InlineVR, XrMode::ImmersiveVR],
     }
 }

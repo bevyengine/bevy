@@ -1,124 +1,61 @@
 use bevy::{
-    openxr::{
-        interaction::{
-            OpenXrActionPath, OpenXrActionType, OpenXrBindingDesc, OpenXrVendorInput,
-            VALVE_INDEX_PROFILE,
-        },
-        OpenXrConfig,
-    },
     prelude::*,
     utils::Duration,
-    xr::{
-        interaction::{
-            GenericControllerPairButtons, GenericControllerVibration, HandAction, HandType,
-            TrackingReferenceMode, Vibration,
-        },
-        BlendMode, ViewerType, XrConfig, XrMode, XrState,
+    xr::interaction::{
+        HandType, VibrationEvent, VibrationEventType, XrButtonType, XrButtons,
+        XrReferenceSpaceType, XrTrackingState,
     },
     DefaultPlugins,
 };
 
-const LEFT_SQUEEZE_FORCE: &str = "left_squeeze_force";
-const LEFT_SQUEEZE_FORCE_PATH: &str = "/user/hand/left/input/squeeze/force";
-const RIGHT_SQUEEZE_FORCE: &str = "right_squeeze_force";
-const RIGHT_SQUEEZE_FORCE_PATH: &str = "/user/hand/right/input/squeeze/force";
-
 fn main() {
     App::build()
-        // XrConfig is mandatory
-        .insert_resource(XrConfig {
-            mode: XrMode::Display {
-                viewer: ViewerType::PreferHeadMounted,
-                blend: BlendMode::PreferVR,
-            },
-            enable_generic_controllers: true,
-        })
-        // OpenXrConfig is optional
-        .insert_resource(OpenXrConfig {
-            vendor_bindings: vec![
-                OpenXrBindingDesc {
-                    name: LEFT_SQUEEZE_FORCE,
-                    paths: vec![OpenXrActionPath {
-                        profile: VALVE_INDEX_PROFILE,
-                        path: LEFT_SQUEEZE_FORCE_PATH,
-                    }],
-                    action_type: OpenXrActionType::FloatInput,
-                },
-                OpenXrBindingDesc {
-                    name: RIGHT_SQUEEZE_FORCE,
-                    paths: vec![OpenXrActionPath {
-                        profile: VALVE_INDEX_PROFILE,
-                        path: RIGHT_SQUEEZE_FORCE_PATH,
-                    }],
-                    action_type: OpenXrActionType::FloatInput,
-                },
-            ],
-        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(startup.system())
         .add_system(interaction.system())
         .run();
 }
 
-fn startup(xr_state: Res<XrState>) {
-    // This is the default
-    xr_state.set_tracking_reference_mode(TrackingReferenceMode::GravityAligned);
+fn startup(mut xr_state: ResMut<XrTrackingState>) {
+    xr_state.set_reference_space_type(XrReferenceSpaceType::GravityAligned);
 }
 
 fn interaction(
-    mut controller_button_events: EventReader<GenericControllerPairButtons>,
-    mut float_events: EventReader<OpenXrVendorInput<f32>>,
-    mut vibration_events: EventWriter<GenericControllerVibration>,
-    xr_state: Res<XrState>,
+    buttons: Res<XrButtons>,
+    mut vibration_events: EventWriter<VibrationEvent>,
+    xr_state: Res<XrTrackingState>,
 ) {
-    for e in controller_button_events.iter() {
-        let hand = if e.left_hand.primary_click.value && e.left_hand.primary_click.toggled {
-            HandType::Left
-        } else if e.right_hand.primary_click.value && e.right_hand.primary_click.toggled {
-            HandType::Right
-        } else {
-            continue;
-        };
-
-        // Short haptic click
-        vibration_events.send(GenericControllerVibration {
-            hand,
-            action: Vibration::Apply {
-                duration: Duration::from_millis(2),
-                frequency: 3000_f32, // Hz
-                amplitude: 1_f32,
-            },
-        });
+    for hand in [HandType::Left, HandType::Right] {
+        if buttons.just_pressed(hand, XrButtonType::Trigger) {
+            // Short haptic click
+            vibration_events.send(VibrationEvent {
+                hand,
+                command: VibrationEventType::Apply {
+                    duration: Duration::from_millis(2),
+                    frequency: 3000_f32, // Hz
+                    amplitude: 1_f32,
+                },
+            });
+        } else if buttons.pressed(hand, XrButtonType::Squeeze) {
+            // Low frequency rumble
+            vibration_events.send(VibrationEvent {
+                hand,
+                command: VibrationEventType::Apply {
+                    duration: Duration::from_millis(100),
+                    frequency: 100_f32, // Hz
+                    // haptics intensity depends on the squeeze force
+                    amplitude: buttons.value(hand, XrButtonType::Squeeze),
+                },
+            });
+        }
     }
 
-    for e in float_events.iter() {
-        let hand = if e.name == LEFT_SQUEEZE_FORCE {
-            HandType::Left
-        } else if e.name == RIGHT_SQUEEZE_FORCE {
-            HandType::Right
-        } else {
-            continue;
-        };
-
-        // Low frequency rumble
-        vibration_events.send(GenericControllerVibration {
-            hand,
-            action: Vibration::Apply {
-                duration: Duration::from_millis(100),
-                frequency: 100_f32, // Hz
-                amplitude: e.value, // haptics intensity depends on the squeeze force
-            },
-        });
+    if let Some(pose) = xr_state.hand_pose(HandType::Left) {
+        let left_pose = pose.transform.to_mat4();
     }
-
-    let left_pose = xr_state
-        .hand_motion(HandType::Left, HandAction::Grip)
-        .pose
-        .to_mat4();
-    let right_pose = xr_state
-        .hand_motion(HandType::Right, HandAction::Grip)
-        .pose
-        .to_mat4();
+    if let Some(pose) = xr_state.hand_pose(HandType::Right) {
+        let right_pose = pose.transform.to_mat4();
+    }
 
     todo!() // Draw hands
 }

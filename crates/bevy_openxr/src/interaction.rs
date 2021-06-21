@@ -1,13 +1,22 @@
-use crate::{Session, conversion::{from_duration, to_vec2, to_xr_time}};
-use bevy_app::{EventReader, EventWriter};
-use bevy_math::Vec2;
-use bevy_xr::{interaction::*, XrTime};
-use openxr as xr;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
+use crate::{
+    conversion::{from_duration, from_xr_time, to_duration, to_quat, to_vec3, to_xr_time},
+    OpenXrSession, OpenXrTime,
 };
-use xr::ActionState;
+use bevy_app::EventReader;
+use bevy_ecs::{prelude::ResMut, system::Res};
+use bevy_utils::{Duration, HashMap};
+use bevy_xr::interaction::{
+    implementation::XrTrackingStateBackend, HandType, VibrationEvent, VibrationEventType, XrAxes,
+    XrAxisType, XrButtonState, XrButtonType, XrButtons, XrPose, XrReferenceSpaceType,
+    XrRigidTransform, XR_HAND_JOINT_COUNT,
+};
+use openxr as xr;
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+
+/// If a button has a `value` binding but not a `click` binding, this threshold is used to determine
+/// if the button has been pressed.
+pub const PRESSED_THRESHOLD: f32 = 0.1;
 
 // Profiles
 pub const KHR_PROFILE: &str = "/interaction_profiles/khr/simple_controller";
@@ -20,351 +29,564 @@ pub const GO_PROFILE: &str = "/interaction_profiles/oculus/go_controller";
 pub const OCULUS_TOUCH_PROFILE: &str = "/interaction_profiles/oculus/touch_controller";
 pub const VALVE_INDEX_PROFILE: &str = "/interaction_profiles/valve/index_controller";
 
-// Pose actions
-pub const LEFT_GRIP_POSE: &str = "bevy_left_grip_pose";
-pub const RIGHT_GRIP_POSE: &str = "bevy_right_grip_pose";
-pub const LEFT_AIM_POSE: &str = "bevy_left_aim_pose";
-pub const RIGHT_AIM_POSE: &str = "bevy_right_aim_pose";
-
-// Virtual controllers action names. The user can override the virtual controllers behavior by
-// submitting `OpenXrBindingDesc`s with these names.
-pub const MENU_CLICK: &str = "bevy_menu_click";
-pub const LEFT_PRIMARY_CLICK: &str = "bevy_left_primary_click";
-pub const RIGHT_PRIMARY_CLICK: &str = "bevy_right_primary_click";
-// ... todo: add the rest
-pub const LEFT_VIBRATION: &str = "bevy_left_vibration";
-pub const RIGHT_VIBRATION: &str = "bevy_right_vibration";
-
-pub(crate) struct ControllerPairInputActions {
-    menu_click: xr::Action<bool>,
-    left_hand: ControllerInputActions,
-    right_hand: ControllerInputActions,
-}
-
-struct ControllerInputActions {
-    primary_click: xr::Action<bool>,
-    primary_touch: xr::Action<bool>,
-    secondary_click: xr::Action<bool>,
-    secondary_touch: xr::Action<bool>,
-    trigger_value: xr::Action<f32>,
-    trigger_touch: xr::Action<bool>,
-    squeeze_value: xr::Action<f32>,
-    directional_value: xr::Action<xr::Vector2f>,
-    directional_click: xr::Action<bool>,
-    directional_touch: xr::Action<bool>,
-}
-
-pub(crate) struct ControllerPairOutputActions {
-    left_vibration: xr::Action<xr::Haptic>,
-    right_vibration: xr::Action<xr::Haptic>,
-}
-
-#[derive(Clone)]
-pub struct OpenXrActionPath {
-    pub profile: &'static str,
-    pub path: &'static str,
-}
-
-#[derive(Clone)]
-pub enum OpenXrActionType {
-    BinaryInput,
-    FloatInput,
-    Vector2Input,
-    PoseInput,
-    VibrationOutput,
-}
-
-#[derive(Clone)]
-pub struct OpenXrBindingDesc {
-    pub name: &'static str,
-    pub paths: Vec<OpenXrActionPath>,
-    pub action_type: OpenXrActionType,
-}
-
-#[derive(Clone)]
-pub(crate) enum XrAction {
-    BinaryInput(xr::Action<bool>),
-    FloatInput(xr::Action<f32>),
-    Vector2Input(xr::Action<xr::Vector2f>),
-    PoseInput(xr::Action<xr::Posef>),
-    VibrationOutput(xr::Action<xr::Haptic>),
-}
-
-impl XrAction {
-    fn unwrap_binary(self) -> xr::Action<bool> {
-        match self {
-            Self::BinaryInput(action) => action,
-            _ => panic!(),
-        }
-    }
-    fn unwrap_float(self) -> xr::Action<f32> {
-        match self {
-            Self::FloatInput(action) => action,
-            _ => panic!(),
-        }
-    }
-    fn unwrap_vector2(self) -> xr::Action<xr::Vector2f> {
-        match self {
-            Self::Vector2Input(action) => action,
-            _ => panic!(),
-        }
-    }
-    fn unwrap_pose(self) -> xr::Action<xr::Posef> {
-        match self {
-            Self::PoseInput(action) => action,
-            _ => panic!(),
-        }
-    }
-    fn unwrap_vibration(self) -> xr::Action<xr::Haptic> {
-        match self {
-            Self::VibrationOutput(action) => action,
-            _ => panic!(),
-        }
-    }
-}
-
-pub(crate) fn pose_bindings() -> Vec<OpenXrBindingDesc> {
-    fn binding(name: &'static str, path: &'static str) -> OpenXrBindingDesc {
-        OpenXrBindingDesc {
-            name,
-            paths: vec![OpenXrActionPath {
-                profile: KHR_PROFILE,
-                path,
-            }],
-            action_type: OpenXrActionType::PoseInput,
-        }
-    }
-
-    vec![
-        binding(LEFT_GRIP_POSE, "/user/hand/left/input/grip/pose"),
-        binding(RIGHT_GRIP_POSE, "/user/hand/right/input/grip/pose"),
-        binding(LEFT_AIM_POSE, "/user/hand/left/input/aim/pose"),
-        binding(RIGHT_AIM_POSE, "/user/hand/right/input/aim/pose"),
-    ]
-}
-
-pub(crate) fn create_actions(
-    instance: &xr::Instance,
-    action_set: &xr::ActionSet,
-    bindings: &[OpenXrBindingDesc],
-) -> HashMap<&'static str, XrAction> {
-    // filter out duplicates, retain the last occurrence
-    let mut filtered_bindings = HashMap::new();
-    for binding in bindings {
-        filtered_bindings.insert(binding.name, binding);
-    }
-
-    let mut actions = HashMap::new();
-    let mut bindings_by_profile = HashMap::<&'static str, Vec<_>>::new();
-    for binding in filtered_bindings.values() {
-        let action = match binding.action_type {
-            OpenXrActionType::BinaryInput => XrAction::BinaryInput(
-                action_set
-                    .create_action(binding.name, binding.name, &[])
-                    .unwrap(),
-            ),
-            OpenXrActionType::FloatInput => XrAction::FloatInput(
-                action_set
-                    .create_action(binding.name, binding.name, &[])
-                    .unwrap(),
-            ),
-            OpenXrActionType::Vector2Input => XrAction::Vector2Input(
-                action_set
-                    .create_action(binding.name, binding.name, &[])
-                    .unwrap(),
-            ),
-            OpenXrActionType::PoseInput => XrAction::PoseInput(
-                action_set
-                    .create_action(binding.name, binding.name, &[])
-                    .unwrap(),
-            ),
-            OpenXrActionType::VibrationOutput => XrAction::VibrationOutput(
-                action_set
-                    .create_action(binding.name, binding.name, &[])
-                    .unwrap(),
-            ),
-        };
-        actions.insert(binding.name, action);
-
-        for id in &binding.paths {
-            bindings_by_profile
-                .entry(id.profile)
-                .or_default()
-                .push((binding.name, id.path));
-        }
-    }
-
-    for (profile, bindings) in bindings_by_profile {
-        let profile = instance.string_to_path(profile).unwrap();
-
-        let mut xr_bindings = vec![];
-        for (name, path) in bindings {
-            let path = instance.string_to_path(path).unwrap();
-
-            let action = actions.get(name).unwrap();
-
-            let binding = match action {
-                XrAction::BinaryInput(action) => xr::Binding::new(action, path),
-                XrAction::FloatInput(action) => xr::Binding::new(action, path),
-                XrAction::Vector2Input(action) => xr::Binding::new(action, path),
-                XrAction::PoseInput(action) => xr::Binding::new(action, path),
-                XrAction::VibrationOutput(action) => xr::Binding::new(action, path),
-            };
-
-            xr_bindings.push(binding);
-        }
-
-        // This must be called only once per interaction profile.
-        // Ignore error for unsupported profiles.
-        instance
-            .suggest_interaction_profile_bindings(profile, &xr_bindings)
-            .ok();
-    }
-
-    actions
-}
-
-pub(crate) struct PoseActions {
-    left_grip: xr::Action<xr::Posef>,
-    right_grip: xr::Action<xr::Posef>,
-    left_aim: xr::Action<xr::Posef>,
-    right_aim: xr::Action<xr::Posef>,
-}
-
 pub(crate) struct Spaces {
-    pub reference: xr::Space,
+    pub reference: Mutex<(XrReferenceSpaceType, xr::Space)>,
     pub left_grip: xr::Space,
     pub right_grip: xr::Space,
-    pub left_aim: xr::Space,
-    pub right_aim: xr::Space,
+    pub left_target_ray: xr::Space,
+    pub right_target_ray: xr::Space,
 }
 
-pub(crate) fn extract_pose_actions(actions: &mut HashMap<&'static str, XrAction>) -> PoseActions {
-    PoseActions {
-        left_grip: actions.remove(LEFT_GRIP_POSE).unwrap().unwrap_pose(),
-        right_grip: actions.remove(RIGHT_GRIP_POSE).unwrap().unwrap_pose(),
-        left_aim: actions.remove(LEFT_GRIP_POSE).unwrap().unwrap_pose(),
-        right_aim: actions.remove(LEFT_GRIP_POSE).unwrap().unwrap_pose(),
+fn hand_str(hand_type: HandType) -> &'static str {
+    match hand_type {
+        HandType::Left => "left",
+        HandType::Right => "right",
     }
 }
 
-pub(crate) fn extract_controller_actions(
-    actions: &mut HashMap<&'static str, XrAction>,
-) -> (ControllerPairInputActions, ControllerPairOutputActions) {
-    (
-        ControllerPairInputActions {
-            menu_click: actions.remove(MENU_CLICK).unwrap().unwrap_binary(),
-            left_hand: todo!(),
-            right_hand: todo!(),
-        },
-        ControllerPairOutputActions {
-            left_vibration: actions.remove(LEFT_VIBRATION).unwrap().unwrap_vibration(),
-            right_vibration: actions.remove(RIGHT_VIBRATION).unwrap().unwrap_vibration(),
-        },
-    )
-}
-
-#[inline]
-fn action_state_to_binary_event(state: ActionState<bool>) -> BinaryEvent {
-    BinaryEvent {
-        value: state.current_state,
-        toggled: state.changed_since_last_sync,
+fn button_str(button_type: XrButtonType) -> &'static str {
+    match button_type {
+        XrButtonType::Menu => "menu",
+        XrButtonType::Trigger => "trigger",
+        XrButtonType::Squeeze => "squeeze",
+        XrButtonType::Touchpad => "touchpad",
+        XrButtonType::Thumbstick => "thumbstick",
+        XrButtonType::FaceButton1 => "a",
+        XrButtonType::FaceButton2 => "b",
+        XrButtonType::Thumbrest => "thumbrest",
     }
 }
 
-pub(crate) fn controller_input_system_fn(
-    session: Arc<Mutex<Option<Session>>>,
-    controller_input_actions: ControllerPairInputActions,
-) -> impl FnMut(EventWriter<GenericControllerPairButtons>) {
-    move |mut event_writer| {
-        let session_lock = session.lock().unwrap();
-        let session = if let Some(session) = &*session_lock {
-            session
-        } else {
-            return;
-        };
+fn axis_identifier(axis_type: XrAxisType) -> &'static str {
+    match axis_type {
+        XrAxisType::TouchpadX | XrAxisType::TouchpadY => "touchpad",
+        XrAxisType::ThumbstickX | XrAxisType::ThumbstickY => "thumbstick",
+    }
+}
 
-        let mut event = GenericControllerPairButtons::default();
-        let mut input_changed = false;
+fn axis_component(axis_type: XrAxisType) -> &'static str {
+    match axis_type {
+        XrAxisType::TouchpadX | XrAxisType::ThumbstickX => "x",
+        XrAxisType::TouchpadY | XrAxisType::ThumbstickY => "y",
+    }
+}
 
-        let menu_click = session
-            .backend
-            .state(&controller_input_actions.menu_click)
+#[derive(Clone, Serialize, Deserialize)]
+pub enum ButtonPaths {
+    // `Default` uses "/user/hand/{hand}/input/{identifier}" for both `click` and `value` components
+    // (which are omitted). Identifers are extracted from `XrButtonType` by converting the variants
+    // to lowercase, except for FaceButton1 => "a", FaceButton2 => "b".
+    Default {
+        has_touch: bool,
+    },
+    Custom {
+        touch: Vec<String>,
+        click: Vec<String>,
+        value: Vec<String>,
+    },
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum AxesBindings {
+    Default { touchpad: bool, thumbstick: bool },
+    Custom(HashMap<(HandType, XrAxisType), Vec<String>>),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum VibrationBindings {
+    None,
+    // `Default` uses "/user/hand/{hand}/output/haptic" paths
+    Default,
+    Custom(HashMap<HandType, Vec<String>>),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum PosesBindings {
+    None,
+    Default,
+    Custom {
+        grip: HashMap<HandType, String>,
+        target_ray: HashMap<HandType, String>,
+    },
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OpenXrProfileBindings {
+    pub profile_path: String,
+    /// The first action of each type is used. `force` and `value` are considered as the same type.
+    pub buttons: HashMap<(HandType, XrButtonType), ButtonPaths>,
+    pub axes: AxesBindings,
+    pub poses: PosesBindings,
+    pub vibration: VibrationBindings,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OpenXrBindings {
+    /// Ordered by preference. As a fallback, KHR_PROFILE should be last.
+    pub profiles: Vec<OpenXrProfileBindings>,
+}
+
+/// Default mappings for known controllers. The mappings mirror WebXR ones. In case the user wants
+/// to support newer controllers or wants to remap the buttons, OpenXrBindings resource must be
+/// provided exlicitly.
+impl Default for OpenXrBindings {
+    fn default() -> Self {
+        Self {
+            profiles: vec![
+                OpenXrProfileBindings {
+                    profile_path: OCULUS_TOUCH_PROFILE.into(),
+                    buttons: vec![
+                        (
+                            (HandType::Left, XrButtonType::Menu),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Menu),
+                            ButtonPaths::Custom {
+                                touch: vec![],
+                                click: vec!["/user/hand/right/input/system".into()],
+                                value: vec!["/user/hand/right/input/system".into()],
+                            },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::Trigger),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Trigger),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::Squeeze),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Squeeze),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::Thumbstick),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Thumbstick),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::FaceButton1),
+                            ButtonPaths::Custom {
+                                touch: vec!["/user/hand/left/input/x/touch".into()],
+                                click: vec!["/user/hand/left/input/x".into()],
+                                value: vec!["/user/hand/left/input/x".into()],
+                            },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::FaceButton1),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::FaceButton2),
+                            ButtonPaths::Custom {
+                                touch: vec!["/user/hand/left/input/y/touch".into()],
+                                click: vec!["/user/hand/left/input/y".into()],
+                                value: vec!["/user/hand/left/input/y".into()],
+                            },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::FaceButton2),
+                            ButtonPaths::Default { has_touch: true },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::Thumbrest),
+                            ButtonPaths::Custom {
+                                touch: vec!["/user/hand/left/input/thumbrest/touch".into()],
+                                click: vec![],
+                                value: vec![],
+                            },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Thumbrest),
+                            ButtonPaths::Custom {
+                                touch: vec!["/user/hand/right/input/thumbrest/touch".into()],
+                                click: vec![],
+                                value: vec![],
+                            },
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    axes: AxesBindings::Default {
+                        touchpad: false,
+                        thumbstick: true,
+                    },
+                    poses: PosesBindings::Default,
+                    vibration: VibrationBindings::Default,
+                },
+                // todo: the rest of the profiles
+                OpenXrProfileBindings {
+                    profile_path: KHR_PROFILE.into(),
+                    buttons: vec![
+                        (
+                            (HandType::Left, XrButtonType::Menu),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Menu),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Left, XrButtonType::Trigger),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                        (
+                            (HandType::Right, XrButtonType::Trigger),
+                            ButtonPaths::Default { has_touch: false },
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    axes: AxesBindings::Default {
+                        touchpad: false,
+                        thumbstick: false,
+                    },
+                    poses: PosesBindings::Default,
+                    vibration: VibrationBindings::Default,
+                },
+            ],
+        }
+    }
+}
+
+struct ButtonActions {
+    touch: xr::Action<bool>,
+    click: xr::Action<bool>,
+    value: xr::Action<f32>,
+}
+
+pub struct OpenXrInteractionContext {
+    button_actions: HashMap<(HandType, XrButtonType), ButtonActions>,
+    axes_actions: HashMap<(HandType, XrAxisType), xr::Action<f32>>,
+    grip_actions: HashMap<HandType, xr::Action<xr::Posef>>,
+    target_ray_actions: HashMap<HandType, xr::Action<xr::Posef>>,
+    vibration_actions: HashMap<HandType, xr::Action<xr::Haptic>>,
+}
+
+impl OpenXrInteractionContext {
+    pub(crate) fn new(instance: &xr::Instance, bindings: OpenXrBindings) -> Self {
+        let action_set = instance
+            .create_action_set("bevy_controller_bindings", "bevy controller bindings", 0)
             .unwrap();
-        input_changed |= menu_click.changed_since_last_sync;
 
-        for (actions, event) in &mut [
-            (&controller_input_actions.left_hand, &mut event.left_hand),
-            (&controller_input_actions.right_hand, &mut event.right_hand),
-        ] {
-            let primary_click = session.backend.state(&actions.primary_click).unwrap();
-            event.primary_click = action_state_to_binary_event(primary_click);
+        let button_actions = [HandType::Left, HandType::Right]
+            .iter()
+            .flat_map(|hand| {
+                let hand_str = hand_str(*hand);
+                [
+                    XrButtonType::Menu,
+                    XrButtonType::Trigger,
+                    XrButtonType::Squeeze,
+                    XrButtonType::Touchpad,
+                    XrButtonType::Thumbstick,
+                    XrButtonType::FaceButton1,
+                    XrButtonType::FaceButton2,
+                    XrButtonType::Thumbrest,
+                ]
+                .iter()
+                .map({
+                    let action_set = action_set.clone();
+                    move |button| {
+                        let button_str = button_str(*button);
+                        let touch_name = format!("{}_{}_touch", hand_str, button_str);
+                        let click_name = format!("{}_{}_click", hand_str, button_str);
+                        let value_name = format!("{}_{}_value", hand_str, button_str);
+                        let actions = ButtonActions {
+                            touch: action_set
+                                .create_action(&touch_name, &touch_name, &[])
+                                .unwrap(),
+                            click: action_set
+                                .create_action(&click_name, &click_name, &[])
+                                .unwrap(),
+                            value: action_set
+                                .create_action(&value_name, &value_name, &[])
+                                .unwrap(),
+                        };
+                        ((*hand, *button), actions)
+                    }
+                })
+            })
+            .collect::<HashMap<_, _>>();
 
-            let primary_touch = session.backend.state(&actions.primary_touch).unwrap();
-            event.primary_touch = action_state_to_binary_event(primary_touch);
+        let axes_actions = [HandType::Left, HandType::Right]
+            .iter()
+            .flat_map(|hand| {
+                let hand_str = hand_str(*hand);
+                [
+                    XrAxisType::TouchpadX,
+                    XrAxisType::TouchpadY,
+                    XrAxisType::ThumbstickX,
+                    XrAxisType::ThumbstickY,
+                ]
+                .iter()
+                .map({
+                    let action_set = action_set.clone();
+                    move |axis| {
+                        let name = format!(
+                            "{}_{}_{}",
+                            hand_str,
+                            axis_identifier(*axis),
+                            axis_component(*axis)
+                        );
+                        let action = action_set.create_action(&name, &name, &[]).unwrap();
+                        ((*hand, *axis), action)
+                    }
+                })
+            })
+            .collect::<HashMap<_, _>>();
 
-            let secondary_click = session.backend.state(&actions.secondary_click).unwrap();
-            event.secondary_click = action_state_to_binary_event(secondary_click);
+        let grip_actions = [HandType::Left, HandType::Right]
+            .iter()
+            .map(|hand| {
+                let name = format!("{}_grip", hand_str(*hand));
+                (*hand, action_set.create_action(&name, &name, &[]).unwrap())
+            })
+            .collect::<HashMap<_, _>>();
 
-            let secondary_touch = session.backend.state(&actions.secondary_touch).unwrap();
-            event.secondary_touch = action_state_to_binary_event(secondary_touch);
+        let target_ray_actions = [HandType::Left, HandType::Right]
+            .iter()
+            .map(|hand| {
+                let name = format!("{}_target_ray", hand_str(*hand));
+                (*hand, action_set.create_action(&name, &name, &[]).unwrap())
+            })
+            .collect::<HashMap<_, _>>();
 
-            let trigger_value = session.backend.state(&actions.trigger_value).unwrap();
-            event.trigger_value = trigger_value.current_state;
+        let vibration_actions = [HandType::Left, HandType::Right]
+            .iter()
+            .map(|hand| {
+                let name = format!("{}_vibration", hand_str(*hand));
+                (*hand, action_set.create_action(&name, &name, &[]).unwrap())
+            })
+            .collect::<HashMap<_, _>>();
 
-            let trigger_touch = session.backend.state(&actions.trigger_touch).unwrap();
-            event.trigger_touch = action_state_to_binary_event(trigger_touch);
+        for profile in bindings.profiles {
+            let mut bindings = vec![];
 
-            let squeeze_value = session.backend.state(&actions.squeeze_value).unwrap();
-            event.squeeze_value = squeeze_value.current_state;
+            for ((hand, button), paths) in profile.buttons {
+                let actions = button_actions.get(&(hand, button)).unwrap();
+                match paths {
+                    ButtonPaths::Default { has_touch } => {
+                        let path_prefix =
+                            format!("/user/hand/{}/input/{}", hand_str(hand), button_str(button));
 
-            let directional_value = session.backend.state(&actions.directional_value).unwrap();
-            event.directional_value = to_vec2(directional_value.current_state);
+                        if has_touch {
+                            bindings.push(xr::Binding::new(
+                                &actions.touch,
+                                instance
+                                    .string_to_path(&format!("{}/touch", path_prefix))
+                                    .unwrap(),
+                            ));
+                        }
 
-            let directional_click = session.backend.state(&actions.directional_click).unwrap();
-            event.directional_click = action_state_to_binary_event(directional_click);
+                        // Note: `click` and `value` components are inferred and automatically
+                        // polyfilled by the runtimes. The runtime may use a 0/1 value using the
+                        // click path or infer the click using the value path and a hysteresis
+                        // threshold.
+                        bindings.push(xr::Binding::new(
+                            &actions.click,
+                            instance.string_to_path(&path_prefix).unwrap(),
+                        ));
+                        bindings.push(xr::Binding::new(
+                            &actions.value,
+                            instance.string_to_path(&path_prefix).unwrap(),
+                        ));
+                    }
+                    ButtonPaths::Custom {
+                        touch,
+                        click,
+                        value,
+                    } => {
+                        for path in touch {
+                            bindings.push(xr::Binding::new(
+                                &actions.touch,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                        for path in click {
+                            bindings.push(xr::Binding::new(
+                                &actions.click,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                        for path in value {
+                            bindings.push(xr::Binding::new(
+                                &actions.value,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                    }
+                }
+            }
 
-            let directional_touch = session.backend.state(&actions.directional_touch).unwrap();
-            event.directional_touch = action_state_to_binary_event(directional_touch);
+            match profile.axes {
+                AxesBindings::Default {
+                    touchpad,
+                    thumbstick,
+                } => {
+                    for hand in [HandType::Left, HandType::Right] {
+                        let mut axes = vec![];
+                        if touchpad {
+                            axes.extend([XrAxisType::TouchpadX, XrAxisType::TouchpadY]);
+                        }
+                        if thumbstick {
+                            axes.extend([XrAxisType::ThumbstickX, XrAxisType::ThumbstickY]);
+                        }
+                        for axis in axes {
+                            let action = axes_actions.get(&(hand, axis)).unwrap();
+                            let path = format!(
+                                "/user/hand/{}/input/{}/{}",
+                                hand_str(hand),
+                                axis_identifier(axis),
+                                axis_component(axis)
+                            );
+                            bindings.push(xr::Binding::new(
+                                action,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                    }
+                }
+                AxesBindings::Custom(paths) => {
+                    for ((hand, axis), paths) in paths {
+                        let action = axes_actions.get(&(hand, axis)).unwrap();
+                        for path in paths {
+                            bindings.push(xr::Binding::new(
+                                action,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                    }
+                }
+            }
 
-            input_changed |= primary_click.changed_since_last_sync
-                | primary_touch.changed_since_last_sync
-                | secondary_click.changed_since_last_sync
-                | secondary_touch.changed_since_last_sync
-                | trigger_value.changed_since_last_sync
-                | trigger_touch.changed_since_last_sync
-                | squeeze_value.changed_since_last_sync
-                | directional_value.changed_since_last_sync
-                | directional_click.changed_since_last_sync
-                | directional_touch.changed_since_last_sync;
+            match profile.poses {
+                PosesBindings::None => (),
+                PosesBindings::Default => {
+                    for hand in [HandType::Left, HandType::Right] {
+                        let path_prefix = format!("/user/hand/{}/input/", hand_str(hand));
+
+                        let action = grip_actions.get(&hand).unwrap();
+                        let path = format!("{}grip/pose", path_prefix);
+                        bindings.push(xr::Binding::new(
+                            action,
+                            instance.string_to_path(&path).unwrap(),
+                        ));
+
+                        let action = target_ray_actions.get(&hand).unwrap();
+                        let path = format!("{}aim/pose", path_prefix);
+                        bindings.push(xr::Binding::new(
+                            action,
+                            instance.string_to_path(&path).unwrap(),
+                        ));
+                    }
+                }
+                PosesBindings::Custom { grip, target_ray } => {
+                    for (hand, path) in grip {
+                        let action = grip_actions.get(&hand).unwrap();
+                        bindings.push(xr::Binding::new(
+                            action,
+                            instance.string_to_path(&path).unwrap(),
+                        ));
+                    }
+                    for (hand, path) in target_ray {
+                        let action = target_ray_actions.get(&hand).unwrap();
+                        bindings.push(xr::Binding::new(
+                            action,
+                            instance.string_to_path(&path).unwrap(),
+                        ));
+                    }
+                }
+            }
+
+            match profile.vibration {
+                VibrationBindings::None => (),
+                VibrationBindings::Default => {
+                    for hand in [HandType::Left, HandType::Right] {
+                        let action = vibration_actions.get(&hand).unwrap();
+                        let path = format!("/user/hand/{}/output/haptic", hand_str(hand));
+                        bindings.push(xr::Binding::new(
+                            action,
+                            instance.string_to_path(&path).unwrap(),
+                        ));
+                    }
+                }
+                VibrationBindings::Custom(paths) => {
+                    for (hand, paths) in paths {
+                        let action = vibration_actions.get(&hand).unwrap();
+                        for path in paths {
+                            bindings.push(xr::Binding::new(
+                                action,
+                                instance.string_to_path(&path).unwrap(),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            let profile_path = instance.string_to_path(&profile.profile_path).unwrap();
+
+            // Ignore error for unsupported profiles.
+            instance
+                .suggest_interaction_profile_bindings(profile_path, &bindings)
+                .ok();
         }
 
-        if input_changed {
-            event_writer.send(event);
+        OpenXrInteractionContext {
+            button_actions,
+            axes_actions,
+            grip_actions,
+            target_ray_actions,
+            vibration_actions,
         }
     }
 }
 
-pub(crate) fn controller_output_system_fn(
-    session: Arc<Mutex<Option<Session>>>,
-    controller_output_actions: ControllerPairOutputActions,
-) -> impl Fn(EventReader<GenericControllerVibration>) + 'static {
-    move |mut event_reader| {
-        let session_lock = session.lock().unwrap();
-        let session = if let Some(session) = &*session_lock {
-            session
+pub(crate) fn input_system(
+    context: Res<OpenXrInteractionContext>,
+    session: Res<OpenXrSession>,
+    mut buttons: ResMut<XrButtons>,
+    mut axes: ResMut<XrAxes>,
+) {
+    for (&(hand, button), actions) in &context.button_actions {
+        let touched = session.backend.state(&actions.touch).unwrap().current_state;
+        let pressed = session.backend.state(&actions.click).unwrap().current_state;
+        let value = session.backend.state(&actions.value).unwrap().current_state;
+
+        let state = if pressed {
+            XrButtonState::Pressed
+        } else if touched {
+            XrButtonState::Touched
         } else {
-            return;
+            XrButtonState::Default
         };
 
-        for event in event_reader.iter() {
-            let action = match event.hand {
-                HandType::Left => &controller_output_actions.left_vibration,
-                HandType::Right => &controller_output_actions.right_vibration,
-            };
+        buttons.set(hand, button, state, value);
+    }
 
-            match &event.action {
-                Vibration::Apply {
+    for (&(hand, axis), action) in &context.axes_actions {
+        let value = session.backend.state(action).unwrap().current_state;
+        axes.set(hand, axis, value);
+    }
+}
+
+pub(crate) fn output_system(
+    context: Res<OpenXrInteractionContext>,
+    session: Res<OpenXrSession>,
+    mut vibration_events: EventReader<VibrationEvent>,
+) {
+    for event in vibration_events.iter() {
+        let action = context.vibration_actions.get(&event.hand);
+        if let Some(action) = action {
+            match &event.command {
+                VibrationEventType::Apply {
                     duration,
                     frequency,
                     amplitude,
@@ -378,116 +600,237 @@ pub(crate) fn controller_output_system_fn(
                         .apply_feedback(action, &haptic_vibration)
                         .unwrap();
                 }
-                Vibration::Stop => session.backend.stop_feedback(action).unwrap(),
+                VibrationEventType::Stop => session.backend.stop_feedback(action).unwrap(),
             }
         }
     }
 }
 
-pub struct OpenXrVendorInput<T> {
-    pub name: &'static str,
-    pub value: T,
-    pub last_change_time: XrTime,
+struct OpenXrTrackingState {
+    view_type: xr::ViewConfigurationType,
+    session: Arc<OpenXrSession>,
 }
 
-pub(crate) fn vendor_input_system_fn(
-    session: Arc<Mutex<Option<Session>>>,
-    actions: HashMap<&'static str, XrAction>,
-) -> impl FnMut(
-    EventWriter<OpenXrVendorInput<bool>>,
-    EventWriter<OpenXrVendorInput<f32>>,
-    EventWriter<OpenXrVendorInput<Vec2>>,
-) {
-    move |mut binary_events, mut float_events, mut vec2_events| {
-        let session_lock = session.lock().unwrap();
-        let session = if let Some(session) = &*session_lock {
-            session
-        } else {
-            return;
+impl OpenXrTrackingState {
+    pub fn views_poses_at_time(&self, time: OpenXrTime) -> Vec<XrPose> {
+        let (flags, views) = self
+            .session
+            .backend
+            .locate_views(
+                self.view_type,
+                from_xr_time(time),
+                &self.session.spaces.reference.lock().unwrap().1,
+            )
+            .unwrap();
+
+        views
+            .into_iter()
+            .map(|view| XrPose {
+                transform: XrRigidTransform {
+                    position: if flags.contains(xr::ViewStateFlags::POSITION_VALID) {
+                        Some(to_vec3(view.pose.position))
+                    } else {
+                        None
+                    },
+                    orientation: to_quat(view.pose.orientation),
+                },
+                linear_velocity: None,
+                angular_velocity: None,
+            })
+            .collect()
+    }
+
+    pub fn hand_pose_at_time(&self, hand_type: HandType, time: OpenXrTime) -> Option<XrPose> {
+        let space = match hand_type {
+            HandType::Left => &self.session.spaces.left_grip,
+            HandType::Right => &self.session.spaces.right_grip,
         };
 
-        for (name, action) in actions.iter() {
-            match action {
-                XrAction::BinaryInput(action) => {
-                    let state = session.backend.state(action).unwrap();
-                    if state.changed_since_last_sync {
-                        binary_events.send(OpenXrVendorInput {
-                            name,
-                            value: state.current_state,
-                            last_change_time: to_xr_time(state.last_change_time),
-                        })
-                    }
-                }
-                XrAction::FloatInput(action) => {
-                    let state = session.backend.state(action).unwrap();
-                    if state.changed_since_last_sync {
-                        float_events.send(OpenXrVendorInput {
-                            name,
-                            value: state.current_state,
-                            last_change_time: to_xr_time(state.last_change_time),
-                        })
-                    }
-                }
-                XrAction::Vector2Input(action) => {
-                    let state = session.backend.state(action).unwrap();
-                    if state.changed_since_last_sync {
-                        vec2_events.send(OpenXrVendorInput {
-                            name,
-                            value: to_vec2(state.current_state),
-                            last_change_time: to_xr_time(state.last_change_time),
-                        })
-                    }
-                }
-                XrAction::PoseInput(_) => panic!("XR: Custom Pose events are not supported."),
-                XrAction::VibrationOutput(_) => (),
-            }
+        let (location, velocity) = space
+            .relate(
+                &self.session.spaces.reference.lock().unwrap().1,
+                from_xr_time(time),
+            )
+            .unwrap();
+
+        let position = if location
+            .location_flags
+            .contains(xr::SpaceLocationFlags::POSITION_VALID)
+        {
+            Some(to_vec3(location.pose.position))
+        } else {
+            None
+        };
+        let linear_velocity = if velocity
+            .velocity_flags
+            .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
+        {
+            Some(to_vec3(velocity.linear_velocity))
+        } else {
+            None
+        };
+        let angular_velocity = if velocity
+            .velocity_flags
+            .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
+        {
+            Some(to_vec3(velocity.angular_velocity))
+        } else {
+            None
+        };
+
+        if location
+            .location_flags
+            .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
+        {
+            Some(XrPose {
+                transform: XrRigidTransform {
+                    position,
+                    orientation: to_quat(location.pose.orientation),
+                },
+                linear_velocity,
+                angular_velocity,
+            })
+        } else {
+            None
         }
+    }
+
+    pub fn hand_skeleton_pose_at_time(
+        &self,
+        hand_type: HandType,
+        time: OpenXrTime,
+    ) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
+        todo!()
+    }
+
+    pub fn hand_target_ray_at_time(&self, hand_type: HandType, time: OpenXrTime) -> Option<XrPose> {
+        let space = match hand_type {
+            HandType::Left => &self.session.spaces.left_target_ray,
+            HandType::Right => &self.session.spaces.right_target_ray,
+        };
+
+        let (location, velocity) = space
+            .relate(
+                &self.session.spaces.reference.lock().unwrap().1,
+                from_xr_time(time),
+            )
+            .unwrap();
+
+        let position = if location
+            .location_flags
+            .contains(xr::SpaceLocationFlags::POSITION_VALID)
+        {
+            Some(to_vec3(location.pose.position))
+        } else {
+            None
+        };
+        let linear_velocity = if velocity
+            .velocity_flags
+            .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
+        {
+            Some(to_vec3(velocity.linear_velocity))
+        } else {
+            None
+        };
+        let angular_velocity = if velocity
+            .velocity_flags
+            .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
+        {
+            Some(to_vec3(velocity.angular_velocity))
+        } else {
+            None
+        };
+
+        if location
+            .location_flags
+            .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
+        {
+            Some(XrPose {
+                transform: XrRigidTransform {
+                    position,
+                    orientation: to_quat(location.pose.orientation),
+                },
+                linear_velocity,
+                angular_velocity,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn viewer_target_ray_at_time(&self, time: OpenXrTime) -> XrPose {
+        let poses = self.views_poses_at_time(time);
+        let poses_count = poses.len() as f32;
+
+        let orientation = poses.first().unwrap().transform.orientation;
+
+        let position = poses
+            .into_iter()
+            .map(|pose| pose.transform.position)
+            .reduce(|pos1, pos2| Some(pos1? + pos2?))
+            .unwrap()
+            .map(|sum| sum / poses_count);
+
+        XrPose {
+            transform: XrRigidTransform {
+                position,
+                orientation,
+            },
+            linear_velocity: None,
+            angular_velocity: None,
+        }
+    }
+
+    pub fn predicted_display_time(&self) -> OpenXrTime {
+        to_xr_time(self.session.frame_state.predicted_display_time)
+    }
+
+    pub fn predicted_display_period(&self) -> Duration {
+        to_duration(self.session.frame_state.predicted_display_period)
     }
 }
 
-pub struct OpenXrVendorOutput<T> {
-    pub name: &'static str,
-    pub value: T,
-}
+impl XrTrackingStateBackend for OpenXrTrackingState {
+    fn get_reference_space_type(&self) -> XrReferenceSpaceType {
+        self.session.spaces.reference.lock().unwrap().0
+    }
 
-pub(crate) fn vendor_output_system_fn(
-    session: Arc<Mutex<Option<Session>>>,
-    actions: HashMap<&'static str, XrAction>,
-) -> impl FnMut(EventReader<OpenXrVendorOutput<Vibration>>) {
-    move |mut vibration_events| {
-        let session_lock = session.lock().unwrap();
-        let session = if let Some(session) = &*session_lock {
-            session
-        } else {
-            return;
+    fn set_reference_space_type(&self, mode: XrReferenceSpaceType) -> bool {
+        let reference_type = match mode {
+            XrReferenceSpaceType::Viewer => xr::ReferenceSpaceType::VIEW,
+            XrReferenceSpaceType::Local => xr::ReferenceSpaceType::LOCAL,
+            XrReferenceSpaceType::BoundedFloor => xr::ReferenceSpaceType::STAGE,
         };
+        if let Ok(space) = self.session.backend.create_reference_space(reference_type) {
+            *self.session.spaces.reference.lock().unwrap() = (mode, space);
 
-        for event in vibration_events.iter() {
-            if let Some(action) = actions.get(event.name) {
-                if let XrAction::VibrationOutput(action) = action {
-                    match &event.value {
-                        Vibration::Apply {
-                            duration,
-                            frequency,
-                            amplitude,
-                        } => {
-                            let haptic_vibration = xr::HapticVibration::new()
-                                .duration(from_duration(*duration))
-                                .frequency(*frequency)
-                                .amplitude(*amplitude);
-                            session
-                                .backend
-                                .apply_feedback(action, &haptic_vibration)
-                                .unwrap();
-                        }
-                        Vibration::Stop => session.backend.stop_feedback(action).unwrap(),
-                    }
-                } else {
-                    panic!("XR: \"{}\" is not a vibration action.", event.name)
-                }
-            } else {
-                panic!("XR: \"{}\" action is not registered.", event.name)
-            }
+            true
+        } else {
+            false
         }
+    }
+
+    fn tracking_area_bounds(&self) -> Option<(f32, f32)> {
+        todo!()
+    }
+
+    fn views_poses(&self) -> Vec<XrPose> {
+        self.views_poses_at_time(self.predicted_display_time())
+    }
+
+    fn hand_pose(&self, hand_type: HandType) -> Option<XrPose> {
+        self.hand_pose_at_time(hand_type, self.predicted_display_time())
+    }
+
+    fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
+        self.hand_skeleton_pose_at_time(hand_type, self.predicted_display_time())
+    }
+
+    fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose> {
+        self.hand_target_ray_at_time(hand_type, self.predicted_display_time())
+    }
+
+    fn viewer_target_ray(&self) -> XrPose {
+        self.viewer_target_ray_at_time(self.predicted_display_time())
     }
 }

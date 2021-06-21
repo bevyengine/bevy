@@ -23,3 +23,4 @@ bevy_xr = { path = "../bevy_xr", version = "0.5.0" }
 
 # other
 openxr = "0.14.0"
+serde = "1"
