@@ -12,7 +12,7 @@ struct CommandMeta {
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
-// preferred to simplicitiy of implementation.
+// preferred to simplicity of implementation.
 #[derive(Default)]
 pub struct CommandQueue {
     bytes: Vec<u8>,
