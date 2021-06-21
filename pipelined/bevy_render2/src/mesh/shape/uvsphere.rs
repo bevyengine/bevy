@@ -1,7 +1,6 @@
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use wgpu::PrimitiveTopology;
+
+use crate::mesh::{Indices, Mesh};
 use std::f32::consts::PI;
 
 /// A sphere made of sectors and stacks

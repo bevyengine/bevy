@@ -47,7 +47,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_recursive(&mut self);
 }
 
-impl<'a, 'b> DespawnRecursiveExt for EntityCommands<'a, 'b> {
+impl<'s, 'w, 'a> DespawnRecursiveExt for EntityCommands<'s, 'w, 'a> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(&mut self) {
         let entity = self.id();

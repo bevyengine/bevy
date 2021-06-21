@@ -151,18 +151,21 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
+pub struct EventReader<'s, 'w, T: Component> {
+    last_event_count: Local<'s, (usize, PhantomData<T>)>,
+    events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
+pub struct EventWriter<'s, 'w, T: Component> {
+    events: ResMut<'w, Events<T>>,
+    // TODO: this isn't ideal ... maybe the SystemParam derive can be smarter about world and state lifetimes? 
+    #[system_param(ignore)]
+    marker: PhantomData<&'s usize>,
 }
 
-impl<'a, T: Component> EventWriter<'a, T> {
+impl<'s, 'w, T: Component> EventWriter<'s, 'w, T> {
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -252,7 +255,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: Component> EventReader<'a, T> {
+impl<'s, 'w, T: Component> EventReader<'s, 'w, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.

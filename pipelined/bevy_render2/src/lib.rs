@@ -2,9 +2,6 @@ pub mod camera;
 pub mod color;
 pub mod core_pipeline;
 pub mod mesh;
-pub mod pass;
-pub mod pipeline;
-pub mod render_command;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
@@ -14,20 +11,19 @@ pub mod texture;
 pub mod view;
 
 pub use once_cell;
+use wgpu::BackendBit;
 
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_command::RenderCommandPlugin,
     render_graph::RenderGraph,
     render_phase::DrawFunctions,
-    renderer::RenderResources,
-    texture::TexturePlugin,
+    renderer::render_system,
+    texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, Plugin, StartupStage};
 use bevy_ecs::prelude::*;
-use bevy_utils::tracing::warn;
 
 #[derive(Default)]
 pub struct RenderPlugin;
@@ -59,10 +55,18 @@ pub enum RenderStage {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system_to_stage(
-            StartupStage::PreStartup,
-            check_for_render_resource_context.system(),
-        );
+        let (instance, device, queue) =
+            futures_lite::future::block_on(renderer::initialize_renderer(
+                BackendBit::PRIMARY,
+                &wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    ..Default::default()
+                },
+                &wgpu::DeviceDescriptor::default(),
+            ));
+        app.insert_resource(device.clone())
+            .insert_resource(queue.clone());
+
         let mut render_app = App::empty();
         let mut extract_stage = SystemStage::parallel();
         // don't apply buffers when the stage finishes running
@@ -73,8 +77,14 @@ impl Plugin for RenderPlugin {
             .add_stage(RenderStage::Prepare, SystemStage::parallel())
             .add_stage(RenderStage::Queue, SystemStage::parallel())
             .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
-            .add_stage(RenderStage::Render, SystemStage::parallel())
+            .add_stage(
+                RenderStage::Render,
+                SystemStage::parallel().with_system(render_system.exclusive_system()),
+            )
             .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+            .insert_resource(instance)
+            .insert_resource(device)
+            .insert_resource(queue)
             .init_resource::<RenderGraph>()
             .init_resource::<DrawFunctions>();
 
@@ -132,12 +142,11 @@ impl Plugin for RenderPlugin {
             render_app.world.clear_entities();
         });
 
-        app.add_plugin(RenderCommandPlugin)
-            .add_plugin(WindowRenderPlugin)
+        app.add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(TexturePlugin);
+            .add_plugin(ImagePlugin);
     }
 }
 
@@ -148,12 +157,4 @@ fn extract(app_world: &mut World, render_app: &mut App) {
         .unwrap();
     extract.run(app_world);
     extract.apply_buffers(&mut render_app.world);
-}
-
-fn check_for_render_resource_context(context: Option<Res<RenderResources>>) {
-    if context.is_none() {
-        warn!(
-            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
-        );
-    }
 }

@@ -333,11 +333,11 @@ impl Node for GraphInputNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut dyn RenderContext,
+        _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
-            let input = graph.inputs()[i];
+            let input = graph.inputs()[i].clone();
             graph.set_output(i, input)?;
         }
         Ok(())
@@ -388,7 +388,7 @@ mod tests {
         fn run(
             &self,
             _: &mut RenderGraphContext,
-            _: &mut dyn RenderContext,
+            _: &mut RenderContext,
             _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -461,7 +461,7 @@ mod tests {
             fn run(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &mut dyn RenderContext,
+                _: &mut RenderContext,
                 _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())

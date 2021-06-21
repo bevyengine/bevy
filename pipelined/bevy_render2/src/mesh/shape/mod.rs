@@ -1,5 +1,4 @@
 use super::{Indices, Mesh};
-use crate::pipeline::PrimitiveTopology;
 use bevy_math::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -274,3 +273,4 @@ pub use capsule::{Capsule, CapsuleUvProfile};
 pub use icosphere::Icosphere;
 pub use torus::Torus;
 pub use uvsphere::UVSphere;
+use wgpu::PrimitiveTopology;

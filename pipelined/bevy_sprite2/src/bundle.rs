@@ -1,7 +1,7 @@
 use crate::Sprite;
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
-use bevy_render2::texture::Texture;
+use bevy_render2::texture::Image;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone)]
@@ -9,7 +9,7 @@ pub struct PipelinedSpriteBundle {
     pub sprite: Sprite,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub texture: Handle<Texture>,
+    pub texture: Handle<Image>,
 }
 
 impl Default for PipelinedSpriteBundle {

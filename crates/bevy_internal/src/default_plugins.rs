@@ -127,9 +127,6 @@ impl PluginGroup for PipelinedDefaultPlugins {
         #[cfg(feature = "bevy_winit")]
         group.add(bevy_winit::WinitPlugin::default());
 
-        #[cfg(feature = "bevy_wgpu2")]
-        group.add(bevy_wgpu2::WgpuPlugin::default());
-
         #[cfg(feature = "bevy_sprite2")]
         group.add(bevy_sprite2::SpritePlugin::default());
 

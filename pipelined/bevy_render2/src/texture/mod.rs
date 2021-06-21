@@ -1,46 +1,40 @@
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 mod image_texture_loader;
-mod sampler_descriptor;
 #[allow(clippy::module_inception)]
 mod texture;
 mod texture_cache;
-mod texture_descriptor;
-mod texture_dimension;
 
 pub(crate) mod image_texture_conversion;
 
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 pub use image_texture_loader::*;
-pub use sampler_descriptor::*;
 pub use texture::*;
 pub use texture_cache::*;
-pub use texture_descriptor::*;
-pub use texture_dimension::*;
 
 use crate::{
-    render_command::RenderCommandQueue,
-    render_resource::{BufferInfo, BufferUsage},
-    renderer::{RenderResourceContext, RenderResources},
+    renderer::{RenderDevice, RenderQueue},
     RenderStage,
 };
 use bevy_app::{App, CoreStage, Plugin};
-use bevy_asset::{AddAsset, AssetEvent, Assets, Handle};
+use bevy_asset::{AddAsset, AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_utils::HashSet;
+use wgpu::{ImageCopyTexture, ImageDataLayout, Origin3d, TextureViewDescriptor};
 
-pub struct TexturePlugin;
+// TODO: replace Texture names with Image names?
+pub struct ImagePlugin;
 
-impl Plugin for TexturePlugin {
+impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "png")]
         {
             app.init_asset_loader::<ImageTextureLoader>();
         }
 
-        app.add_system_to_stage(CoreStage::PostUpdate, texture_resource_system.system())
-            .add_asset::<Texture>();
+        app.add_system_to_stage(CoreStage::PostUpdate, image_resource_system.system())
+            .add_asset::<Image>();
 
         let render_app = app.sub_app_mut(0);
         render_app
@@ -49,104 +43,104 @@ impl Plugin for TexturePlugin {
     }
 }
 
-pub fn texture_resource_system(
-    render_resource_context: Res<RenderResources>,
-    mut render_command_queue: ResMut<RenderCommandQueue>,
-    mut textures: ResMut<Assets<Texture>>,
-    mut texture_events: EventReader<AssetEvent<Texture>>,
+pub fn image_resource_system(
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut images: ResMut<Assets<Image>>,
+    mut image_events: EventReader<AssetEvent<Image>>,
 ) {
-    let render_resource_context = &**render_resource_context;
-    let mut changed_textures = HashSet::default();
-    for event in texture_events.iter() {
+    let mut changed_images = HashSet::default();
+    for event in image_events.iter() {
         match event {
             AssetEvent::Created { handle } => {
-                changed_textures.insert(handle);
+                changed_images.insert(handle);
             }
             AssetEvent::Modified { handle } => {
-                changed_textures.insert(handle);
+                changed_images.insert(handle);
                 // TODO: uncomment this to support mutated textures
                 // remove_current_texture_resources(render_resource_context, handle, &mut textures);
             }
             AssetEvent::Removed { handle } => {
-                remove_current_texture_resources(render_resource_context, handle, &mut textures);
                 // if texture was modified and removed in the same update, ignore the
                 // modification events are ordered so future modification
                 // events are ok
-                changed_textures.remove(handle);
+                changed_images.remove(handle);
             }
         }
     }
 
-    for texture_handle in changed_textures.iter() {
-        if let Some(texture) = textures.get_mut(*texture_handle) {
+    for image_handle in changed_images.iter() {
+        if let Some(image) = images.get_mut(*image_handle) {
             // TODO: this avoids creating new textures each frame because storing gpu data in the texture flags it as
             // modified. this prevents hot reloading and therefore can't be used in an actual impl.
-            if texture.gpu_data.is_some() {
+            if image.gpu_data.is_some() {
                 continue;
             }
-            // TODO: free old buffers / textures / samplers
 
-            // TODO: using Into for TextureDescriptor is weird
-            let texture_descriptor: TextureDescriptor = (&*texture).into();
-            let texture_id = render_resource_context.create_texture(texture_descriptor);
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
-            let sampler_id = render_resource_context.create_sampler(&texture.sampler);
+            let width = image.texture_descriptor.size.width as usize;
+            let format_size = image.texture_descriptor.format.pixel_size();
+            // let mut aligned_data = vec![
+            //     0;
+            //     format_size
+            //         * aligned_width
+            //         * image.texture_descriptor.size.height as usize
+            //         * image.texture_descriptor.size.depth_or_array_layers
+            //             as usize
+            // ];
+            // image
+            //     .data
+            //     .chunks_exact(format_size * width)
+            //     .enumerate()
+            //     .for_each(|(index, row)| {
+            //         let offset = index * aligned_width * format_size;
+            //         aligned_data[offset..(offset + width * format_size)].copy_from_slice(row);
+            //     });
 
-            let width = texture.size.width as usize;
-            let aligned_width = render_resource_context.get_aligned_texture_size(width);
-            let format_size = texture.format.pixel_size();
-            let mut aligned_data = vec![
-                0;
-                format_size
-                    * aligned_width
-                    * texture.size.height as usize
-                    * texture.size.depth_or_array_layers as usize
-            ];
-            texture
-                .data
-                .chunks_exact(format_size * width)
-                .enumerate()
-                .for_each(|(index, row)| {
-                    let offset = index * aligned_width * format_size;
-                    aligned_data[offset..(offset + width * format_size)].copy_from_slice(row);
-                });
-            let staging_buffer_id = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::COPY_SRC,
-                    ..Default::default()
+            // TODO: this might require different alignment. docs seem to say that we don't need it though
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
                 },
-                &aligned_data,
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
             );
 
-            let texture_view_id = render_resource_context
-                .create_texture_view(texture_id, TextureViewDescriptor::default());
-            texture.gpu_data = Some(TextureGpuData {
-                texture: texture_id,
-                texture_view: texture_view_id,
-                sampler: sampler_id,
+            let texture_view = texture.create_view(&TextureViewDescriptor::default());
+            image.gpu_data = Some(ImageGpuData {
+                texture,
+                texture_view,
+                sampler,
             });
-
-            render_command_queue.copy_buffer_to_texture(
-                staging_buffer_id,
-                0,
-                (format_size * aligned_width) as u32,
-                texture_id,
-                [0, 0, 0],
-                0,
-                texture_descriptor.size,
-            );
-            render_command_queue.free_buffer(staging_buffer_id);
         }
     }
 }
 
-fn remove_current_texture_resources(
-    render_resource_context: &dyn RenderResourceContext,
-    handle: &Handle<Texture>,
-    textures: &mut Assets<Texture>,
-) {
-    if let Some(gpu_data) = textures.get_mut(handle).and_then(|t| t.gpu_data.take()) {
-        render_resource_context.remove_texture(gpu_data.texture);
-        render_resource_context.remove_sampler(gpu_data.sampler);
+pub trait BevyDefault {
+    fn bevy_default() -> Self;
+}
+
+impl BevyDefault for wgpu::TextureFormat {
+    fn bevy_default() -> Self {
+        if cfg!(target_os = "android") {
+            // Bgra8UnormSrgb texture missing on some Android devices
+            wgpu::TextureFormat::Rgba8UnormSrgb
+        } else {
+            wgpu::TextureFormat::Bgra8UnormSrgb
+        }
     }
 }

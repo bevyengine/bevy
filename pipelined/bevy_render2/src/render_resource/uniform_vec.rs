@@ -1,13 +1,12 @@
-use crate::{
-    render_resource::{BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderResourceBinding},
-    renderer::{RenderContext, RenderResources},
-};
+use crate::{render_resource::Buffer, renderer::RenderDevice};
 use crevice::std140::{self, AsStd140, DynamicUniform, Std140};
+use std::{num::NonZeroU64, ops::DerefMut};
+use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsage, CommandEncoder};
 
 pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
-    staging_buffer: Option<BufferId>,
-    uniform_buffer: Option<BufferId>,
+    staging_buffer: Option<Buffer>,
+    uniform_buffer: Option<Buffer>,
     capacity: usize,
     item_size: usize,
 }
@@ -27,25 +26,27 @@ impl<T: AsStd140> Default for UniformVec<T> {
 
 impl<T: AsStd140> UniformVec<T> {
     #[inline]
-    pub fn staging_buffer(&self) -> Option<BufferId> {
-        self.staging_buffer
+    pub fn staging_buffer(&self) -> Option<&Buffer> {
+        self.staging_buffer.as_ref()
     }
 
     #[inline]
-    pub fn uniform_buffer(&self) -> Option<BufferId> {
-        self.uniform_buffer
+    pub fn uniform_buffer(&self) -> Option<&Buffer> {
+        self.uniform_buffer.as_ref()
+    }
+
+    #[inline]
+    pub fn binding(&self) -> BindingResource {
+        BindingResource::Buffer(BufferBinding {
+            buffer: self.uniform_buffer().expect("uniform buffer should exist"),
+            offset: 0,
+            size: Some(NonZeroU64::new(self.item_size as u64).unwrap()),
+        })
     }
 
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
-    }
-
-    pub fn binding(&self) -> RenderResourceBinding {
-        RenderResourceBinding::Buffer {
-            buffer: self.uniform_buffer.unwrap(),
-            range: 0..self.item_size as u64,
-        }
     }
 
     pub fn push(&mut self, value: T) -> usize {
@@ -61,56 +62,47 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
-    pub fn reserve(&mut self, capacity: usize, render_resources: &RenderResources) {
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
-            if let Some(staging_buffer) = self.staging_buffer.take() {
-                render_resources.remove_buffer(staging_buffer);
-            }
-
-            if let Some(uniform_buffer) = self.uniform_buffer.take() {
-                render_resources.remove_buffer(uniform_buffer);
-            }
-
-            let size = self.item_size * capacity;
-            self.staging_buffer = Some(render_resources.create_buffer(BufferInfo {
+            let size = (self.item_size * capacity) as wgpu::BufferAddress;
+            self.staging_buffer = Some(device.create_buffer(&BufferDescriptor {
+                label: None,
                 size,
-                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
                 mapped_at_creation: false,
             }));
-            self.uniform_buffer = Some(render_resources.create_buffer(BufferInfo {
+            self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
+                label: None,
                 size,
-                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                 mapped_at_creation: false,
             }));
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, render_resources: &RenderResources) {
+    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
         self.clear();
-        self.reserve(capacity, render_resources);
+        self.reserve(capacity, device);
     }
 
-    pub fn write_to_staging_buffer(&self, render_resources: &RenderResources) {
-        if let Some(staging_buffer) = self.staging_buffer {
-            let size = self.values.len() * self.item_size;
-            render_resources.map_buffer(staging_buffer, BufferMapMode::Write);
-            render_resources.write_mapped_buffer(
-                staging_buffer,
-                0..size as u64,
-                &mut |data, _renderer| {
-                    let mut writer = std140::Writer::new(data);
-                    writer.write(self.values.as_slice()).unwrap();
-                },
-            );
-            render_resources.unmap_buffer(staging_buffer);
+    pub fn write_to_staging_buffer(&self, device: &RenderDevice) {
+        if let Some(staging_buffer) = &self.staging_buffer {
+            let slice = staging_buffer.slice(..);
+            device.map_buffer(&slice, wgpu::MapMode::Write);
+            {
+                let mut data = slice.get_mapped_range_mut();
+                let mut writer = std140::Writer::new(data.deref_mut());
+                writer.write(self.values.as_slice()).unwrap();
+            }
+            staging_buffer.unmap()
         }
     }
-    pub fn write_to_uniform_buffer(&self, render_context: &mut dyn RenderContext) {
+    pub fn write_to_uniform_buffer(&self, command_encoder: &mut CommandEncoder) {
         if let (Some(staging_buffer), Some(uniform_buffer)) =
-            (self.staging_buffer, self.uniform_buffer)
+            (&self.staging_buffer, &self.uniform_buffer)
         {
-            render_context.copy_buffer_to_buffer(
+            command_encoder.copy_buffer_to_buffer(
                 staging_buffer,
                 0,
                 uniform_buffer,
@@ -139,17 +131,17 @@ impl<T: AsStd140> Default for DynamicUniformVec<T> {
 
 impl<T: AsStd140> DynamicUniformVec<T> {
     #[inline]
-    pub fn staging_buffer(&self) -> Option<BufferId> {
+    pub fn staging_buffer(&self) -> Option<&Buffer> {
         self.uniform_vec.staging_buffer()
     }
 
     #[inline]
-    pub fn uniform_buffer(&self) -> Option<BufferId> {
+    pub fn uniform_buffer(&self) -> Option<&Buffer> {
         self.uniform_vec.uniform_buffer()
     }
 
     #[inline]
-    pub fn binding(&self) -> RenderResourceBinding {
+    pub fn binding(&self) -> BindingResource {
         self.uniform_vec.binding()
     }
 
@@ -164,24 +156,23 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     }
 
     #[inline]
-    pub fn reserve(&mut self, capacity: usize, render_resources: &RenderResources) {
-        self.uniform_vec.reserve(capacity, render_resources);
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+        self.uniform_vec.reserve(capacity, device);
     }
 
     #[inline]
-    pub fn reserve_and_clear(&mut self, capacity: usize, render_resources: &RenderResources) {
-        self.uniform_vec
-            .reserve_and_clear(capacity, render_resources);
+    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
+        self.uniform_vec.reserve_and_clear(capacity, device);
     }
 
     #[inline]
-    pub fn write_to_staging_buffer(&self, render_resources: &RenderResources) {
-        self.uniform_vec.write_to_staging_buffer(render_resources);
+    pub fn write_to_staging_buffer(&self, device: &RenderDevice) {
+        self.uniform_vec.write_to_staging_buffer(device);
     }
 
     #[inline]
-    pub fn write_to_uniform_buffer(&self, render_context: &mut dyn RenderContext) {
-        self.uniform_vec.write_to_uniform_buffer(render_context);
+    pub fn write_to_uniform_buffer(&self, command_encoder: &mut CommandEncoder) {
+        self.uniform_vec.write_to_uniform_buffer(command_encoder);
     }
 
     #[inline]

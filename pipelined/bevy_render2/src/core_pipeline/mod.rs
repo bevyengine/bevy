@@ -5,17 +5,15 @@ mod main_pass_driver;
 pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
+use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage};
 
 use crate::{
     camera::{ActiveCameras, CameraPlugin},
-    render_command::RenderCommandPlugin,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, RenderPhase},
-    render_resource::{TextureId, TextureViewId},
-    renderer::RenderResources,
-    texture::{
-        Extent3d, TextureCache, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
-    },
+    render_resource::{Texture, TextureId, TextureView, TextureViewId},
+    renderer::RenderDevice,
+    texture::TextureCache,
     view::{ExtractedView, ViewPlugin},
     RenderStage,
 };
@@ -144,12 +142,6 @@ impl Plugin for CorePipelinePlugin {
             .add_node_edge(ViewPlugin::VIEW_NODE, node::MAIN_PASS_DEPENDENCIES)
             .unwrap();
         graph
-            .add_node_edge(
-                RenderCommandPlugin::RENDER_COMMAND_QUEUE_NODE,
-                node::MAIN_PASS_DEPENDENCIES,
-            )
-            .unwrap();
-        graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();
     }
@@ -159,8 +151,8 @@ pub struct Transparent3dPhase;
 pub struct Transparent2dPhase;
 
 pub struct ViewDepthTexture {
-    pub texture: TextureId,
-    pub view: TextureViewId,
+    pub texture: Texture,
+    pub view: TextureView,
 }
 
 pub fn extract_core_pipeline_camera_phases(
@@ -186,13 +178,14 @@ pub fn extract_core_pipeline_camera_phases(
 pub fn prepare_core_views_system(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_resources: Res<RenderResources>,
+    render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3dPhase>>>,
 ) {
     for (entity, view) in views.iter() {
         let cached_texture = texture_cache.get(
-            &render_resources,
+            &render_device,
             TextureDescriptor {
+                label: None,
                 size: Extent3d {
                     depth_or_array_layers: 1,
                     width: view.width as u32,

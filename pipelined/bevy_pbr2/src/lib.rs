@@ -46,7 +46,6 @@ impl Plugin for PbrPlugin {
                 RenderStage::PhaseSort,
                 sort_phase_system::<ShadowPhase>.system(),
             )
-            .add_system_to_stage(RenderStage::Cleanup, render::cleanup_view_lights.system())
             .init_resource::<PbrShaders>()
             .init_resource::<ShadowShaders>()
             .init_resource::<MaterialMeta>()

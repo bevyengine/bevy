@@ -12,7 +12,7 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
-pub trait FilterFetch: for<'a> Fetch<'a> {
+pub trait FilterFetch: for<'world, 'state> Fetch<'world, 'state> {
     /// # Safety
     ///
     /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
@@ -28,7 +28,7 @@ pub trait FilterFetch: for<'a> Fetch<'a> {
 
 impl<T> FilterFetch for T
 where
-    T: for<'a> Fetch<'a, Item = bool>,
+    T: for<'w, 's> Fetch<'w, 's, Item = bool>,
 {
     #[inline]
     unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
@@ -119,7 +119,7 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 }
 
-impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
     type Item = bool;
     type State = WithState<T>;
 
@@ -238,7 +238,7 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 }
 
-impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
     type Item = bool;
     type State = WithoutState<T>;
 
@@ -338,7 +338,7 @@ unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
     }
 }
 
-impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
+impl<'w, 's, T: Bundle> Fetch<'w, 's> for WithBundleFetch<T> {
     type Item = bool;
     type State = WithBundleState<T>;
 
@@ -446,8 +446,8 @@ macro_rules! impl_query_filter_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'a, $($filter: FilterFetch),*> Fetch<'a> for Or<($(OrFetch<$filter>,)*)> {
-            type State = Or<($(<$filter as Fetch<'a>>::State,)*)>;
+        impl<'w, 's, $($filter: FilterFetch),*> Fetch<'w, 's> for Or<($(OrFetch<$filter>,)*)> {
+            type State = Or<($(<$filter as Fetch<'w, 's>>::State,)*)>;
             type Item = bool;
 
             unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
@@ -612,7 +612,7 @@ macro_rules! impl_tick_filter {
             }
         }
 
-        impl<'a, T: Component> Fetch<'a> for $fetch_name<T> {
+        impl<'w, 's, T: Component> Fetch<'w, 's> for $fetch_name<T> {
             type State = $state_name<T>;
             type Item = bool;
 

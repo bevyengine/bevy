@@ -1,17 +1,10 @@
-use super::ShaderLayout;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
+use wgpu::ShaderStage;
 use std::marker::Copy;
 use thiserror::Error;
 
-/// The stage of a shader
-#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
-pub enum ShaderStage {
-    Vertex,
-    Fragment,
-    Compute,
-}
 
 /// An error that occurs during shader handling.
 #[derive(Error, Debug)]
@@ -62,13 +55,12 @@ pub enum ShaderError {
     all(target_arch = "armv7", target_os = "androidabi"),
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 ))]
-impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
-    fn from(s: ShaderStage) -> bevy_glsl_to_spirv::ShaderType {
-        match s {
-            ShaderStage::Vertex => bevy_glsl_to_spirv::ShaderType::Vertex,
-            ShaderStage::Fragment => bevy_glsl_to_spirv::ShaderType::Fragment,
-            ShaderStage::Compute => bevy_glsl_to_spirv::ShaderType::Compute,
-        }
+fn convert_stage(s: ShaderStage) -> bevy_glsl_to_spirv::ShaderType {
+    match s {
+        ShaderStage::VERTEX => bevy_glsl_to_spirv::ShaderType::Vertex,
+        ShaderStage::FRAGMENT => bevy_glsl_to_spirv::ShaderType::Fragment,
+        ShaderStage::COMPUTE => bevy_glsl_to_spirv::ShaderType::Compute,
+        _ => panic!("unsupported stage type"),
     }
 }
 
@@ -84,7 +76,7 @@ pub fn glsl_to_spirv(
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Result<Vec<u32>, ShaderError> {
-    bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs)
+    bevy_glsl_to_spirv::compile(glsl_source, convert_stage(stage), shader_defs)
         .map_err(ShaderError::Compilation)
 }
 
@@ -194,8 +186,8 @@ impl Shader {
         let module = ShaderModule::load_u8_data(spirv)
             .map_err(|msg| ShaderError::Compilation(msg.to_string()))?;
         let stage = match module.get_shader_stage() {
-            ReflectShaderStageFlags::VERTEX => ShaderStage::Vertex,
-            ReflectShaderStageFlags::FRAGMENT => ShaderStage::Fragment,
+            ReflectShaderStageFlags::VERTEX => ShaderStage::VERTEX,
+            ReflectShaderStageFlags::FRAGMENT => ShaderStage::FRAGMENT,
             other => panic!("cannot load {:?} shader", other),
         };
 
@@ -227,23 +219,6 @@ impl Shader {
             stage: self.stage,
         })
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn reflect_layout(&self, enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
-        if let ShaderSource::Spirv(ref spirv) = self.source {
-            Some(ShaderLayout::from_spirv(
-                spirv.as_slice(),
-                enforce_bevy_conventions,
-            ))
-        } else {
-            panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader().");
-        }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn reflect_layout(&self, _enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
-        panic!("Cannot reflect layout on wasm32.");
-    }
 }
 
 /// All stages in a shader program
@@ -272,8 +247,8 @@ impl AssetLoader for ShaderLoader {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
             let shader = match ext {
-                "vert" => Shader::from_glsl(ShaderStage::Vertex, std::str::from_utf8(bytes)?),
-                "frag" => Shader::from_glsl(ShaderStage::Fragment, std::str::from_utf8(bytes)?),
+                "vert" => Shader::from_glsl(ShaderStage::VERTEX, std::str::from_utf8(bytes)?),
+                "frag" => Shader::from_glsl(ShaderStage::FRAGMENT, std::str::from_utf8(bytes)?),
                 #[cfg(not(target_arch = "wasm32"))]
                 "spv" => Shader::from_spirv(bytes)?,
                 #[cfg(target_arch = "wasm32")]

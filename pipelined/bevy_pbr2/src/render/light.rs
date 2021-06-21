@@ -1,18 +1,15 @@
-use crate::{render::MeshViewBindGroups, ExtractedMeshes, PointLight};
+use crate::{ExtractedMeshes, MeshMeta, PbrShaders, PointLight};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{Mat4, Vec3, Vec4};
 use bevy_render2::{
     color::Color,
     core_pipeline::Transparent3dPhase,
-    pass::*,
-    pipeline::*,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{DynamicUniformVec, SamplerId, TextureId, TextureViewId},
-    renderer::{RenderContext, RenderResources},
-    shader::{Shader, ShaderStage, ShaderStages},
+    render_resource::*,
+    renderer::{RenderContext, RenderDevice},
     texture::*,
-    view::{ExtractedView, ViewUniform},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -53,56 +50,75 @@ pub const SHADOW_SIZE: Extent3d = Extent3d {
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowShaders {
-    pub pipeline: PipelineId,
-    pub pipeline_descriptor: RenderPipelineDescriptor,
-    pub light_sampler: SamplerId,
+    pub pipeline: RenderPipeline,
+    pub view_layout: BindGroupLayout,
+    pub light_sampler: Sampler,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowShaders {
     fn from_world(world: &mut World) -> Self {
-        let render_resources = world.get_resource::<RenderResources>().unwrap();
-        let vertex_shader = Shader::from_glsl(ShaderStage::Vertex, include_str!("pbr.vert"))
-            .get_spirv_shader(None)
-            .unwrap();
-        let vertex_layout = vertex_shader.reflect_layout(true).unwrap();
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let pbr_shaders = world.get_resource::<PbrShaders>().unwrap();
 
-        let mut pipeline_layout = PipelineLayout::from_shader_layouts(&mut [vertex_layout]);
-
-        let vertex = render_resources.create_shader_module(&vertex_shader);
-
-        pipeline_layout.vertex_buffer_descriptors = vec![VertexBufferLayout {
-            stride: 32,
-            name: "Vertex".into(),
-            step_mode: InputStepMode::Vertex,
-            attributes: vec![
-                // GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically)
-                VertexAttribute {
-                    name: "Vertex_Position".into(),
-                    format: VertexFormat::Float32x3,
-                    offset: 12,
-                    shader_location: 0,
-                },
-                VertexAttribute {
-                    name: "Vertex_Normals".into(),
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 1,
-                },
-                VertexAttribute {
-                    name: "Vertex_Uv".into(),
-                    format: VertexFormat::Float32x2,
-                    offset: 24,
-                    shader_location: 2,
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        // TODO: verify this is correct
+                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    },
+                    count: None,
                 },
             ],
-        }];
+            label: None,
+        });
 
-        pipeline_layout.bind_group_mut(0).bindings[0].set_dynamic(true);
-        pipeline_layout.bind_group_mut(1).bindings[0].set_dynamic(true);
-        pipeline_layout.update_bind_group_ids();
+        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: None,
+            push_constant_ranges: &[],
+            bind_group_layouts: &[
+                &view_layout,
+                &pbr_shaders.mesh_layout,
+            ],
+        });
 
-        let pipeline_descriptor = RenderPipelineDescriptor {
+        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: None,
+            vertex: VertexState {
+                buffers: &[VertexBufferLayout {
+                    array_stride: 32,
+                    step_mode: InputStepMode::Vertex,
+                    attributes: &[
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 24,
+                            shader_location: 2,
+                        },
+                    ],
+                }],
+                module: &pbr_shaders.vertex_shader_module,
+                entry_point: "main",
+            },
+            fragment: None,
             depth_stencil: Some(DepthStencilState {
                 format: SHADOW_FORMAT,
                 depth_write_enabled: true,
@@ -119,36 +135,30 @@ impl FromWorld for ShadowShaders {
                     clamp: 0.0,
                 },
             }),
+            layout: Some(&pipeline_layout),
+            multisample: MultisampleState::default(),
             primitive: PrimitiveState {
                 topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
-                // TODO: detect if this feature is enabled
+                polygon_mode: PolygonMode::Fill,
                 clamp_depth: false,
-                ..Default::default()
+                conservative: false,
             },
-            color_target_states: vec![],
-            ..RenderPipelineDescriptor::new(
-                ShaderStages {
-                    vertex,
-                    fragment: None,
-                },
-                pipeline_layout,
-            )
-        };
-
-        let pipeline = render_resources.create_render_pipeline(&pipeline_descriptor);
+        });
 
         ShadowShaders {
             pipeline,
-            pipeline_descriptor,
-            light_sampler: render_resources.create_sampler(&SamplerDescriptor {
+            view_layout,
+            light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
-                compare_function: Some(CompareFunction::LessEqual),
+                compare: Some(CompareFunction::LessEqual),
                 ..Default::default()
             }),
         }
@@ -172,12 +182,12 @@ pub fn extract_lights(
 }
 
 pub struct ViewLight {
-    pub depth_texture: TextureViewId,
+    pub depth_texture: TextureView,
 }
 
 pub struct ViewLights {
-    pub light_depth_texture: TextureId,
-    pub light_depth_texture_view: TextureViewId,
+    pub light_depth_texture: Texture,
+    pub light_depth_texture_view: TextureView,
     pub lights: Vec<Entity>,
     pub gpu_light_binding_index: u32,
 }
@@ -185,12 +195,13 @@ pub struct ViewLights {
 #[derive(Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformVec<GpuLights>,
+    pub shadow_view_bind_group: Option<BindGroup>,
 }
 
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_resources: Res<RenderResources>,
+    render_device: Res<RenderDevice>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<Entity, With<RenderPhase<Transparent3dPhase>>>,
     lights: Query<&ExtractedPointLight>,
@@ -198,12 +209,12 @@ pub fn prepare_lights(
     // PERF: view.iter().count() could be views.iter().len() if we implemented ExactSizeIterator for archetype-only filters
     light_meta
         .view_gpu_lights
-        .reserve_and_clear(views.iter().count(), &render_resources);
+        .reserve_and_clear(views.iter().count(), &render_device);
 
     // set up light data for each view
     for entity in views.iter() {
         let light_depth_texture = texture_cache.get(
-            &render_resources,
+            &render_device,
             TextureDescriptor {
                 size: SHADOW_SIZE,
                 mip_level_count: 1,
@@ -211,7 +222,7 @@ pub fn prepare_lights(
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
                 usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
-                ..Default::default()
+                label: None,
             },
         );
         let mut view_lights = Vec::new();
@@ -223,18 +234,19 @@ pub fn prepare_lights(
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for (i, light) in lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
-            let depth_texture_view = render_resources.create_texture_view(
-                light_depth_texture.texture,
-                TextureViewDescriptor {
-                    format: None,
-                    dimension: Some(TextureViewDimension::D2),
-                    aspect: TextureAspect::All,
-                    base_mip_level: 0,
-                    level_count: None,
-                    base_array_layer: i as u32,
-                    array_layer_count: NonZeroU32::new(1),
-                },
-            );
+            let depth_texture_view =
+                light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: None,
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: i as u32,
+                        array_layer_count: NonZeroU32::new(1),
+                    });
 
             let view_transform = GlobalTransform::from_translation(light.transform.translation)
                 .looking_at(Vec3::default(), Vec3::Y);
@@ -280,14 +292,7 @@ pub fn prepare_lights(
 
     light_meta
         .view_gpu_lights
-        .write_to_staging_buffer(&render_resources);
-}
-
-// TODO: we can remove this once we move to RAII
-pub fn cleanup_view_lights(render_resources: Res<RenderResources>, query: Query<&ViewLight>) {
-    for view_light in query.iter() {
-        render_resources.remove_texture_view(view_light.depth_texture);
-    }
+        .write_to_staging_buffer(&render_device);
 }
 
 pub struct ShadowPhase;
@@ -321,7 +326,7 @@ impl Node for ShadowPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut dyn RenderContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -331,39 +336,36 @@ impl Node for ShadowPassNode {
                     .view_light_query
                     .get_manual(world, view_light_entity)
                     .unwrap();
-                let pass_descriptor = PassDescriptor {
-                    color_attachments: Vec::new(),
+                let pass_descriptor = RenderPassDescriptor {
+                    label: Some("shadow_pass"),
+                    color_attachments: &[],
                     depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        attachment: TextureAttachment::Id(view_light.depth_texture),
+                        view: &view_light.depth_texture,
                         depth_ops: Some(Operations {
                             load: LoadOp::Clear(1.0),
                             store: true,
                         }),
                         stencil_ops: None,
                     }),
-                    sample_count: 1,
                 };
 
                 let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
 
-                render_context.begin_render_pass(
-                    &pass_descriptor,
-                    &mut |render_pass: &mut dyn RenderPass| {
-                        let mut draw_functions = draw_functions.write();
-                        let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                        for drawable in shadow_phase.drawn_things.iter() {
-                            let draw_function =
-                                draw_functions.get_mut(drawable.draw_function).unwrap();
-                            draw_function.draw(
-                                world,
-                                &mut tracked_pass,
-                                view_light_entity,
-                                drawable.draw_key,
-                                drawable.sort_key,
-                            );
-                        }
-                    },
-                );
+                let render_pass = render_context
+                    .command_encoder
+                    .begin_render_pass(&pass_descriptor);
+                let mut draw_functions = draw_functions.write();
+                let mut tracked_pass = TrackedRenderPass::new(render_pass);
+                for drawable in shadow_phase.drawn_things.iter() {
+                    let draw_function = draw_functions.get_mut(drawable.draw_function).unwrap();
+                    draw_function.draw(
+                        world,
+                        &mut tracked_pass,
+                        view_light_entity,
+                        drawable.draw_key,
+                        drawable.sort_key,
+                    );
+                }
             }
         }
 
@@ -371,13 +373,15 @@ impl Node for ShadowPassNode {
     }
 }
 
-type DrawShadowMeshParams<'a> = (
-    Res<'a, ShadowShaders>,
-    Res<'a, ExtractedMeshes>,
-    Query<'a, (&'a ViewUniform, &'a MeshViewBindGroups)>,
+type DrawShadowMeshParams<'s, 'w> = (
+    Res<'w, ShadowShaders>,
+    Res<'w, ExtractedMeshes>,
+    Res<'w, LightMeta>,
+    Res<'w, MeshMeta>,
+    Query<'w, 's, &'w ViewUniformOffset>,
 );
 pub struct DrawShadowMesh {
-    params: SystemState<DrawShadowMeshParams<'static>>,
+    params: SystemState<DrawShadowMeshParams<'static, 'static>>,
 }
 
 impl DrawShadowMesh {
@@ -389,35 +393,41 @@ impl DrawShadowMesh {
 }
 
 impl Draw for DrawShadowMesh {
-    fn draw(
+    fn draw<'w>(
         &mut self,
-        world: &World,
-        pass: &mut TrackedRenderPass,
+        world: &'w World,
+        pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         draw_key: usize,
         _sort_key: usize,
     ) {
-        let (shadow_shaders, extracted_meshes, views) = self.params.get(world);
-        let (view_uniforms, mesh_view_bind_groups) = views.get(view).unwrap();
-        let layout = &shadow_shaders.pipeline_descriptor.layout;
-        let extracted_mesh = &extracted_meshes.meshes[draw_key];
-        pass.set_pipeline(shadow_shaders.pipeline);
+        let (shadow_shaders, extracted_meshes, light_meta, mesh_meta, views) =
+            self.params.get(world);
+        let view_uniform_offset = views.get(view).unwrap();
+        let extracted_mesh = &extracted_meshes.into_inner().meshes[draw_key];
+        pass.set_render_pipeline(&shadow_shaders.into_inner().pipeline);
         pass.set_bind_group(
             0,
-            layout.bind_group(0).id,
-            mesh_view_bind_groups.view_bind_group,
-            Some(&[view_uniforms.view_uniform_offset]),
+            light_meta
+                .into_inner()
+                .shadow_view_bind_group
+                .as_ref()
+                .unwrap(),
+            &[view_uniform_offset.offset],
         );
 
         pass.set_bind_group(
             1,
-            layout.bind_group(1).id,
-            mesh_view_bind_groups.mesh_transform_bind_group,
-            Some(&[extracted_mesh.transform_binding_offset]),
+            mesh_meta
+                .into_inner()
+                .mesh_transform_bind_group
+                .as_ref()
+                .unwrap(),
+            &[extracted_mesh.transform_binding_offset],
         );
-        pass.set_vertex_buffer(0, extracted_mesh.vertex_buffer, 0);
+        pass.set_vertex_buffer(0, extracted_mesh.vertex_buffer.slice(..));
         if let Some(index_info) = &extracted_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer, 0, IndexFormat::Uint32);
+            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
             pass.draw_indexed(0..index_info.count, 0, 0..1);
         } else {
             panic!("non-indexed drawing not supported yet")

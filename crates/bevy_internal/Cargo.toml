@@ -77,7 +77,6 @@ bevy_sprite2 = { path = "../../pipelined/bevy_sprite2", optional = true, version
 bevy_text = { path = "../bevy_text", optional = true, version = "0.5.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
 bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
-bevy_wgpu2 = { path = "../../pipelined/bevy_wgpu2", optional = true, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 

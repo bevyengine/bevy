@@ -6,7 +6,7 @@ pub use window::*;
 use crate::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::DynamicUniformVec,
-    renderer::{RenderContext, RenderResources},
+    renderer::{RenderContext, RenderDevice},
     RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -40,23 +40,23 @@ pub struct ExtractedView {
 }
 
 #[derive(Clone, AsStd140)]
-pub struct ViewUniformData {
+pub struct ViewUniform {
     view_proj: Mat4,
     world_position: Vec3,
 }
 
 #[derive(Default)]
 pub struct ViewMeta {
-    pub uniforms: DynamicUniformVec<ViewUniformData>,
+    pub uniforms: DynamicUniformVec<ViewUniform>,
 }
 
-pub struct ViewUniform {
-    pub view_uniform_offset: u32,
+pub struct ViewUniformOffset {
+    pub offset: u32,
 }
 
 fn prepare_views(
     mut commands: Commands,
-    render_resources: Res<RenderResources>,
+    render_resources: Res<RenderDevice>,
     mut view_meta: ResMut<ViewMeta>,
     mut extracted_views: Query<(Entity, &ExtractedView)>,
 ) {
@@ -64,8 +64,8 @@ fn prepare_views(
         .uniforms
         .reserve_and_clear(extracted_views.iter_mut().len(), &render_resources);
     for (entity, camera) in extracted_views.iter() {
-        let view_uniforms = ViewUniform {
-            view_uniform_offset: view_meta.uniforms.push(ViewUniformData {
+        let view_uniforms = ViewUniformOffset {
+            offset: view_meta.uniforms.push(ViewUniform {
                 view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
                 world_position: camera.transform.translation,
             }),
@@ -85,11 +85,13 @@ impl Node for ViewNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut dyn RenderContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_meta = world.get_resource::<ViewMeta>().unwrap();
-        view_meta.uniforms.write_to_uniform_buffer(render_context);
+        view_meta
+            .uniforms
+            .write_to_uniform_buffer(&mut render_context.command_encoder);
         Ok(())
     }
 }

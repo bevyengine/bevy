@@ -11,7 +11,6 @@ use bevy::{
         color::Color,
         mesh::{shape, Mesh},
     },
-    wgpu2::diagnostic::WgpuResourceDiagnosticsPlugin,
     PipelinedDefaultPlugins,
 };
 
@@ -20,7 +19,6 @@ fn main() {
         .add_plugins(PipelinedDefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(WgpuResourceDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_system(movement.system())
         .run();

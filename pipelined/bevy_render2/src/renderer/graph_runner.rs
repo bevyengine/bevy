@@ -1,18 +1,21 @@
-use crate::{WgpuRenderContext, WgpuRenderResourceContext};
 use bevy_ecs::world::World;
-use bevy_render2::render_graph::{
-    Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel, SlotType,
-    SlotValue,
-};
 use bevy_utils::{tracing::debug, HashMap};
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::VecDeque, sync::Arc};
+use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
-pub(crate) struct WgpuRenderGraphRunner;
+use crate::{
+    render_graph::{
+        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
+        SlotType, SlotValue,
+    },
+    renderer::{RenderContext, RenderDevice},
+};
+
+pub(crate) struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
-pub enum WgpuRenderGraphRunnerError {
+pub enum RenderGraphRunnerError {
     #[error(transparent)]
     NodeRunError(#[from] NodeRunError),
     #[error("node output slot not set (index {slot_index}, name {slot_name})")]
@@ -36,29 +39,31 @@ pub enum WgpuRenderGraphRunnerError {
     },
 }
 
-impl WgpuRenderGraphRunner {
+impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        device: Arc<wgpu::Device>,
-        queue: &mut wgpu::Queue,
+        render_device: RenderDevice,
+        queue: &wgpu::Queue,
         world: &World,
-        resources: &WgpuRenderResourceContext,
-    ) -> Result<(), WgpuRenderGraphRunnerError> {
-        let mut render_context = WgpuRenderContext::new(device, resources.clone());
+    ) -> Result<(), RenderGraphRunnerError> {
+        let command_encoder =
+            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut render_context = RenderContext {
+            render_device,
+            command_encoder,
+        };
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
-        if let Some(command_buffer) = render_context.finish() {
-            queue.submit(vec![command_buffer]);
-        }
+        queue.submit(vec![render_context.command_encoder.finish()]);
         Ok(())
     }
 
     fn run_graph(
         graph: &RenderGraph,
         graph_name: Option<Cow<'static, str>>,
-        render_context: &mut WgpuRenderContext,
+        render_context: &mut RenderContext,
         world: &World,
         inputs: &[SlotValue],
-    ) -> Result<(), WgpuRenderGraphRunnerError> {
+    ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
         debug!("-----------------");
         debug!("Begin Graph Run: {:?}", graph_name);
@@ -76,17 +81,17 @@ impl WgpuRenderGraphRunner {
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
                     if input_slot.slot_type != input_value.slot_type() {
-                        return Err(WgpuRenderGraphRunnerError::MismatchedInputSlotType {
+                        return Err(RenderGraphRunnerError::MismatchedInputSlotType {
                             slot_index: i,
                             actual: input_value.slot_type(),
                             expected: input_slot.slot_type,
                             label: input_slot.name.clone().into(),
                         });
                     } else {
-                        input_values.push(*input_value);
+                        input_values.push(input_value.clone());
                     }
                 } else {
-                    return Err(WgpuRenderGraphRunnerError::MissingInput {
+                    return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
                         graph_name: graph_name.clone(),
@@ -120,7 +125,8 @@ impl WgpuRenderGraphRunner {
                         ..
                     } => {
                         if let Some(outputs) = node_outputs.get(&input_node.id) {
-                            slot_indices_and_inputs.push((*input_index, outputs[*output_index]));
+                            slot_indices_and_inputs
+                                .push((*input_index, outputs[*output_index].clone()));
                         } else {
                             node_queue.push_front(node_state);
                             continue 'handle_node;
@@ -172,7 +178,7 @@ impl WgpuRenderGraphRunner {
                     values.push(value);
                 } else {
                     let empty_slot = node_state.output_slots.get_slot(i).unwrap();
-                    return Err(WgpuRenderGraphRunnerError::EmptyNodeOutputSlot {
+                    return Err(RenderGraphRunnerError::EmptyNodeOutputSlot {
                         type_name: node_state.type_name,
                         slot_index: i,
                         slot_name: empty_slot.name.clone(),

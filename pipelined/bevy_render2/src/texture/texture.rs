@@ -1,51 +1,54 @@
-use super::{
-    image_texture_conversion::image_to_texture, Extent3d, SamplerDescriptor, TextureDimension,
-    TextureFormat,
-};
-use crate::render_resource::{SamplerId, TextureId, TextureViewId};
+use super::image_texture_conversion::image_to_texture;
+use crate::render_resource::{Sampler, Texture, TextureView};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 // TODO: this shouldn't live in the Texture type
 #[derive(Debug, Clone)]
-pub struct TextureGpuData {
-    pub texture: TextureId,
-    pub texture_view: TextureViewId,
-    pub sampler: SamplerId,
+pub struct ImageGpuData {
+    pub texture: Texture,
+    pub texture_view: TextureView,
+    pub sampler: Sampler,
 }
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
-pub struct Texture {
+pub struct Image {
     pub data: Vec<u8>,
-    pub gpu_data: Option<TextureGpuData>,
-    pub size: Extent3d,
-    pub format: TextureFormat,
-    pub dimension: TextureDimension,
-    pub sampler: SamplerDescriptor,
+    pub gpu_data: Option<ImageGpuData>,
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    pub texture_descriptor: wgpu::TextureDescriptor<'static>,
+    pub sampler_descriptor: wgpu::SamplerDescriptor<'static>,
 }
 
-impl Default for Texture {
+impl Default for Image {
     fn default() -> Self {
-        Texture {
+        Image {
             data: Default::default(),
             gpu_data: None,
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
+            texture_descriptor: wgpu::TextureDescriptor {
+                size: wgpu::Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                dimension: wgpu::TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             },
-            format: TextureFormat::Rgba8UnormSrgb,
-            dimension: TextureDimension::D2,
-            sampler: Default::default(),
+            sampler_descriptor: wgpu::SamplerDescriptor::default(),
         }
     }
 }
 
-impl Texture {
+impl Image {
     pub fn new(
         size: Extent3d,
         dimension: TextureDimension,
@@ -57,13 +60,12 @@ impl Texture {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        Self {
-            data,
-            size,
-            format,
-            dimension,
-            ..Default::default()
-        }
+        let mut image = Self::default();
+        image.data = data;
+        image.texture_descriptor.dimension = dimension;
+        image.texture_descriptor.size = size;
+        image.texture_descriptor.format = format;
+        image
     }
 
     pub fn new_fill(
@@ -72,11 +74,9 @@ impl Texture {
         pixel: &[u8],
         format: TextureFormat,
     ) -> Self {
-        let mut value = Texture {
-            format,
-            dimension,
-            ..Default::default()
-        };
+        let mut value = Image::default();
+        value.texture_descriptor.format = format;
+        value.texture_descriptor.dimension = dimension;
         value.resize(size);
 
         debug_assert_eq!(
@@ -96,26 +96,28 @@ impl Texture {
     }
 
     pub fn aspect_2d(&self) -> f32 {
-        self.size.height as f32 / self.size.width as f32
+        self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
     }
 
     pub fn resize(&mut self, size: Extent3d) {
-        self.size = size;
-        self.data
-            .resize(size.volume() * self.format.pixel_size(), 0);
+        self.texture_descriptor.size = size;
+        self.data.resize(
+            size.volume() * self.texture_descriptor.format.pixel_size(),
+            0,
+        );
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
     /// same.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
-            new_size.volume() == self.size.volume(),
+            new_size.volume() == self.texture_descriptor.size.volume(),
             "Incompatible sizes: old = {:?} new = {:?}",
-            self.size,
+            self.texture_descriptor.size,
             new_size
         );
 
-        self.size = new_size;
+        self.texture_descriptor.size = new_size;
     }
 
     /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets
@@ -123,13 +125,13 @@ impl Texture {
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert!(self.dimension == TextureDimension::D2);
-        assert!(self.size.depth_or_array_layers == 1);
-        assert_eq!(self.size.height % layers, 0);
+        assert!(self.texture_descriptor.dimension == TextureDimension::D2);
+        assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
+        assert_eq!(self.texture_descriptor.size.height % layers, 0);
 
         self.reinterpret_size(Extent3d {
-            width: self.size.width,
-            height: self.size.height / layers,
+            width: self.texture_descriptor.size.width,
+            height: self.texture_descriptor.size.height / layers,
             depth_or_array_layers: layers,
         });
     }
@@ -160,7 +162,7 @@ impl Texture {
 
     /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
     /// crate`
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Texture, TextureError> {
+    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
                 "image/png" => Ok(image::ImageFormat::Png),
@@ -204,4 +206,133 @@ pub enum ImageType<'a> {
     MimeType(&'a str),
     /// Extension of an image file, for example `"png"`
     Extension(&'a str),
+}
+
+pub trait Volume {
+    fn volume(&self) -> usize;
+}
+
+impl Volume for Extent3d {
+    fn volume(&self) -> usize {
+        (self.width * self.height * self.depth_or_array_layers) as usize
+    }
+}
+
+pub struct PixelInfo {
+    pub type_size: usize,
+    pub num_components: usize,
+}
+
+pub trait TextureFormatPixelInfo {
+    fn pixel_info(&self) -> PixelInfo;
+    fn pixel_size(&self) -> usize {
+        let info = self.pixel_info();
+        info.type_size * info.num_components
+    }
+}
+
+impl TextureFormatPixelInfo for TextureFormat {
+    fn pixel_info(&self) -> PixelInfo {
+        let type_size = match self {
+            // 8bit
+            TextureFormat::R8Unorm
+            | TextureFormat::R8Snorm
+            | TextureFormat::R8Uint
+            | TextureFormat::R8Sint
+            | TextureFormat::Rg8Unorm
+            | TextureFormat::Rg8Snorm
+            | TextureFormat::Rg8Uint
+            | TextureFormat::Rg8Sint
+            | TextureFormat::Rgba8Unorm
+            | TextureFormat::Rgba8UnormSrgb
+            | TextureFormat::Rgba8Snorm
+            | TextureFormat::Rgba8Uint
+            | TextureFormat::Rgba8Sint
+            | TextureFormat::Bgra8Unorm
+            | TextureFormat::Bgra8UnormSrgb => 1,
+
+            // 16bit
+            TextureFormat::R16Uint
+            | TextureFormat::R16Sint
+            | TextureFormat::R16Float
+            | TextureFormat::Rg16Uint
+            | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Float
+            | TextureFormat::Rgba16Uint
+            | TextureFormat::Rgba16Sint
+            | TextureFormat::Rgba16Float => 2,
+
+            // 32bit
+            TextureFormat::R32Uint
+            | TextureFormat::R32Sint
+            | TextureFormat::R32Float
+            | TextureFormat::Rg32Uint
+            | TextureFormat::Rg32Sint
+            | TextureFormat::Rg32Float
+            | TextureFormat::Rgba32Uint
+            | TextureFormat::Rgba32Sint
+            | TextureFormat::Rgba32Float
+            | TextureFormat::Depth32Float => 4,
+
+            // special cases
+            TextureFormat::Rgb10a2Unorm => 4,
+            TextureFormat::Rg11b10Float => 4,
+            TextureFormat::Depth24Plus => 3, // FIXME is this correct?
+            TextureFormat::Depth24PlusStencil8 => 4,
+            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
+            _ => panic!("cannot get pixel info for type"),
+        };
+
+        let components = match self {
+            TextureFormat::R8Unorm
+            | TextureFormat::R8Snorm
+            | TextureFormat::R8Uint
+            | TextureFormat::R8Sint
+            | TextureFormat::R16Uint
+            | TextureFormat::R16Sint
+            | TextureFormat::R16Float
+            | TextureFormat::R32Uint
+            | TextureFormat::R32Sint
+            | TextureFormat::R32Float => 1,
+
+            TextureFormat::Rg8Unorm
+            | TextureFormat::Rg8Snorm
+            | TextureFormat::Rg8Uint
+            | TextureFormat::Rg8Sint
+            | TextureFormat::Rg16Uint
+            | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Float
+            | TextureFormat::Rg32Uint
+            | TextureFormat::Rg32Sint
+            | TextureFormat::Rg32Float => 2,
+
+            TextureFormat::Rgba8Unorm
+            | TextureFormat::Rgba8UnormSrgb
+            | TextureFormat::Rgba8Snorm
+            | TextureFormat::Rgba8Uint
+            | TextureFormat::Rgba8Sint
+            | TextureFormat::Bgra8Unorm
+            | TextureFormat::Bgra8UnormSrgb
+            | TextureFormat::Rgba16Uint
+            | TextureFormat::Rgba16Sint
+            | TextureFormat::Rgba16Float
+            | TextureFormat::Rgba32Uint
+            | TextureFormat::Rgba32Sint
+            | TextureFormat::Rgba32Float => 4,
+
+            // special cases
+            TextureFormat::Rgb10a2Unorm
+            | TextureFormat::Rg11b10Float
+            | TextureFormat::Depth32Float
+            | TextureFormat::Depth24Plus
+            | TextureFormat::Depth24PlusStencil8 => 1,
+            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
+            _ => panic!("cannot get pixel info for type"),
+        };
+
+        PixelInfo {
+            type_size,
+            num_components: components,
+        }
+    }
 }

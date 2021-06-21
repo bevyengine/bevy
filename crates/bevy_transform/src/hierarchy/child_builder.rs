@@ -40,8 +40,8 @@ pub struct PushChildren {
     children: SmallVec<[Entity; 8]>,
 }
 
-pub struct ChildBuilder<'a, 'b> {
-    commands: &'b mut Commands<'a>,
+pub struct ChildBuilder<'s, 'w, 'a> {
+    commands: &'a mut Commands<'s, 'w>,
     push_children: PushChildren,
 }
 
@@ -71,14 +71,14 @@ impl Command for PushChildren {
     }
 }
 
-impl<'a, 'b> ChildBuilder<'a, 'b> {
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'a, '_> {
+impl<'s, 'w, 'a> ChildBuilder<'s, 'w, 'a> {
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'s,'w, '_> {
         let e = self.commands.spawn_bundle(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
-    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+    pub fn spawn(&mut self) -> EntityCommands<'s, 'w, '_> {
         let e = self.commands.spawn();
         self.push_children.children.push(e.id());
         e
@@ -100,7 +100,7 @@ pub trait BuildChildren {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 }
 
-impl<'a, 'b> BuildChildren for EntityCommands<'a, 'b> {
+impl<'s, 'w, 'a> BuildChildren for EntityCommands<'s, 'w, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let push_children = {

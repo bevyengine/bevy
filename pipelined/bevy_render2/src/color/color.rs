@@ -626,6 +626,18 @@ impl From<Vec4> for Color {
     }
 }
 
+impl From<Color> for wgpu::Color {
+    fn from(color: Color) -> Self {
+        let color = color.as_rgba_linear();
+        wgpu::Color {
+            r: color.r() as f64,
+            g: color.g() as f64,
+            b: color.b() as f64,
+            a: color.a() as f64,
+        }
+    }
+}
+
 impl Mul<f32> for Color {
     type Output = Color;
 

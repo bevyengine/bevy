@@ -1,13 +1,11 @@
-use crate::{
-    render_resource::{BufferId, BufferInfo, BufferMapMode, BufferUsage},
-    renderer::{RenderContext, RenderResources},
-};
+use crate::{render_resource::Buffer, renderer::RenderDevice};
 use bevy_core::{cast_slice, Pod};
+use wgpu::BufferUsage;
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
-    staging_buffer: Option<BufferId>,
-    buffer: Option<BufferId>,
+    staging_buffer: Option<Buffer>,
+    buffer: Option<Buffer>,
     capacity: usize,
     item_size: usize,
     buffer_usage: BufferUsage,
@@ -34,13 +32,13 @@ impl<T: Pod> BufferVec<T> {
         }
     }
     #[inline]
-    pub fn staging_buffer(&self) -> Option<BufferId> {
-        self.staging_buffer
+    pub fn staging_buffer(&self) -> Option<&Buffer> {
+        self.staging_buffer.as_ref()
     }
 
     #[inline]
-    pub fn buffer(&self) -> Option<BufferId> {
-        self.buffer
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
     }
 
     #[inline]
@@ -61,54 +59,45 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    pub fn reserve(&mut self, capacity: usize, render_resources: &RenderResources) {
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
-            if let Some(staging_buffer) = self.staging_buffer.take() {
-                render_resources.remove_buffer(staging_buffer);
-            }
-
-            if let Some(buffer) = self.buffer.take() {
-                render_resources.remove_buffer(buffer);
-            }
-
-            let size = self.item_size * capacity;
-            self.staging_buffer = Some(render_resources.create_buffer(BufferInfo {
+            let size = (self.item_size * capacity) as wgpu::BufferAddress;
+            self.staging_buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
                 size,
-                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
                 mapped_at_creation: false,
             }));
-            self.buffer = Some(render_resources.create_buffer(BufferInfo {
+            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
                 size,
-                buffer_usage: BufferUsage::COPY_DST | self.buffer_usage,
+                usage: BufferUsage::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, render_resources: &RenderResources) {
+    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
         self.clear();
-        self.reserve(capacity, render_resources);
+        self.reserve(capacity, device);
     }
 
-    pub fn write_to_staging_buffer(&self, render_resources: &RenderResources) {
-        if let Some(staging_buffer) = self.staging_buffer {
-            let size = self.values.len() * self.item_size;
-            render_resources.map_buffer(staging_buffer, BufferMapMode::Write);
-            render_resources.write_mapped_buffer(
-                staging_buffer,
-                0..size as u64,
-                &mut |data, _renderer| {
-                    let bytes: &[u8] = cast_slice(&self.values);
-                    data.copy_from_slice(bytes);
-                },
-            );
-            render_resources.unmap_buffer(staging_buffer);
+    pub fn write_to_staging_buffer(&self, render_device: &RenderDevice) {
+        if let Some(staging_buffer) = &self.staging_buffer {
+            let slice = staging_buffer.slice(..);
+            render_device.map_buffer(&slice, wgpu::MapMode::Write);
+            {
+                let mut data = slice.get_mapped_range_mut();
+                let bytes: &[u8] = cast_slice(&self.values);
+                data.copy_from_slice(bytes);
+            }
+            staging_buffer.unmap();
         }
     }
-    pub fn write_to_buffer(&self, render_context: &mut dyn RenderContext) {
-        if let (Some(staging_buffer), Some(uniform_buffer)) = (self.staging_buffer, self.buffer) {
-            render_context.copy_buffer_to_buffer(
+    pub fn write_to_buffer(&self, command_encoder: &mut wgpu::CommandEncoder) {
+        if let (Some(staging_buffer), Some(uniform_buffer)) = (&self.staging_buffer, &self.buffer) {
+            command_encoder.copy_buffer_to_buffer(
                 staging_buffer,
                 0,
                 uniform_buffer,

@@ -87,7 +87,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'a>(&'a mut self, world: &'a World) -> <Param::Fetch as SystemParamFetch<'a>>::Item
+    pub fn get<'s, 'w>(&'s mut self, world: &'w World) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
@@ -98,10 +98,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'a>(
-        &'a mut self,
-        world: &'a mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub fn get_mut<'s, 'w>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item {
         self.validate_world_and_update_archetypes(world);
         // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -142,10 +142,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.   
     #[inline]
-    pub unsafe fn get_unchecked_manual<'a>(
-        &'a mut self,
-        world: &'a World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub unsafe fn get_unchecked_manual<'s, 'w>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item {
         let change_tick = world.increment_change_tick();
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,

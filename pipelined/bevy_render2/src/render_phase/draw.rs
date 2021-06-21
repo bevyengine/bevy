@@ -7,10 +7,10 @@ use std::{any::TypeId, fmt::Debug, hash::Hash};
 // TODO: should this be generic on "drawn thing"? would provide more flexibility and  explicitness
 // instead of hard coded draw key and sort key
 pub trait Draw: Send + Sync + 'static {
-    fn draw(
-        &mut self,
-        world: &World,
-        pass: &mut TrackedRenderPass,
+    fn draw<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+        pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         draw_key: usize,
         sort_key: usize,

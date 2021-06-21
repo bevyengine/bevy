@@ -5,9 +5,8 @@ use bevy::{
     input::Input,
     math::{Vec2, Vec3},
     prelude::{App, AssetServer, Handle, MouseButton, Transform},
-    render2::{camera::OrthographicCameraBundle, color::Color, texture::Texture},
+    render2::{camera::OrthographicCameraBundle, color::Color, texture::Image},
     sprite2::{PipelinedSpriteBundle, Sprite},
-    wgpu2::diagnostic::WgpuResourceDiagnosticsPlugin,
     window::WindowDescriptor,
     PipelinedDefaultPlugins,
 };
@@ -52,7 +51,7 @@ fn main() {
         .add_plugins(PipelinedDefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(WgpuResourceDiagnosticsPlugin::default())
+        // .add_plugin(WgpuResourceDiagnosticsPlugin::default())
         .insert_resource(BevyCounter { count: 0 })
         // .init_resource::<BirdMaterial>()
         .add_startup_system(setup.system())
@@ -63,7 +62,7 @@ fn main() {
         .run();
 }
 
-struct BirdTexture(Handle<Texture>);
+struct BirdTexture(Handle<Image>);
 
 fn setup(
     mut commands: Commands,
@@ -168,7 +167,7 @@ fn spawn_birds(
     window: &WindowDescriptor,
     counter: &mut BevyCounter,
     spawn_count: u128,
-    texture: Handle<Texture>,
+    texture: Handle<Image>,
 ) {
     let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
     let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;

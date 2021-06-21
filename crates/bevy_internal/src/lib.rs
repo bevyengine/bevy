@@ -152,12 +152,6 @@ pub mod wgpu {
     pub use bevy_wgpu::*;
 }
 
-#[cfg(feature = "bevy_wgpu2")]
-pub mod wgpu2 {
-    //! A render backend utilizing [wgpu](https://github.com/gfx-rs/wgpu-rs).
-    pub use bevy_wgpu2::*;
-}
-
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;

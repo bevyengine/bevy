@@ -41,7 +41,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut dyn RenderContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError>;
 }
@@ -229,7 +229,7 @@ impl Node for EmptyNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _render_context: &mut dyn RenderContext,
+        _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         Ok(())

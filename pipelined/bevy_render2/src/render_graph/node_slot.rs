@@ -1,17 +1,18 @@
-use crate::render_resource::{BufferId, SamplerId, TextureViewId};
 use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 
-#[derive(Debug, Copy, Clone)]
+use crate::render_resource::{Buffer, Sampler, TextureView};
+
+#[derive(Debug, Clone)]
 pub enum SlotValue {
-    Buffer(BufferId),
-    TextureView(TextureViewId),
-    Sampler(SamplerId),
+    Buffer(Buffer),
+    TextureView(TextureView),
+    Sampler(Sampler),
     Entity(Entity),
 }
 
 impl SlotValue {
-    pub fn slot_type(self) -> SlotType {
+    pub fn slot_type(&self) -> SlotType {
         match self {
             SlotValue::Buffer(_) => SlotType::Buffer,
             SlotValue::TextureView(_) => SlotType::TextureView,
@@ -21,20 +22,20 @@ impl SlotValue {
     }
 }
 
-impl From<BufferId> for SlotValue {
-    fn from(value: BufferId) -> Self {
+impl From<Buffer> for SlotValue {
+    fn from(value: Buffer) -> Self {
         SlotValue::Buffer(value)
     }
 }
 
-impl From<TextureViewId> for SlotValue {
-    fn from(value: TextureViewId) -> Self {
+impl From<TextureView> for SlotValue {
+    fn from(value: TextureView) -> Self {
         SlotValue::TextureView(value)
     }
 }
 
-impl From<SamplerId> for SlotValue {
-    fn from(value: SamplerId) -> Self {
+impl From<Sampler> for SlotValue {
+    fn from(value: Sampler) -> Self {
         SlotValue::Sampler(value)
     }
 }

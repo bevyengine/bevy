@@ -41,7 +41,7 @@ use std::{
 /// # my_system.system();
 /// ```
 pub trait SystemParam: Sized {
-    type Fetch: for<'a> SystemParamFetch<'a>;
+    type Fetch: for<'s, 'w> SystemParamFetch<'s, 'w>;
 }
 
 /// The state of a [`SystemParam`].
@@ -80,21 +80,21 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 /// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
 
-pub trait SystemParamFetch<'a>: SystemParamState {
+pub trait SystemParamFetch<'s, 'w>: SystemParamState {
     type Item;
     /// # Safety
     ///
     /// This call might access any of the input parameters in an unsafe way. Make sure the data
     /// access is safe in the context of the system scheduler.
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item;
 }
 
-impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'a, Q, F>
+impl<'s, 'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -146,17 +146,17 @@ where
     fn default_config() {}
 }
 
-impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'a> for QueryState<Q, F>
+impl<'s,'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'s, 'w> for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    type Item = Query<'a, Q, F>;
+    type Item = Query<'w, 's, Q, F>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         Query::new(world, state, system_meta.last_change_tick, change_tick)
@@ -228,6 +228,10 @@ impl<'w, T: Component> Res<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+
+    pub fn into_inner(self) -> &'w T {
+        self.value
+    }
 }
 
 impl<'w, T: Component> Deref for Res<'w, T> {
@@ -286,14 +290,14 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
-    type Item = Res<'a, T>;
+impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResState<T> {
+    type Item = Res<'w, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         let column = world
@@ -334,14 +338,14 @@ unsafe impl<T: Component> SystemParamState for OptionResState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
-    type Item = Option<Res<'a, T>>;
+impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResState<T> {
+    type Item = Option<Res<'w, T>>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world
@@ -400,14 +404,14 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
-    type Item = ResMut<'a, T>;
+impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResMutState<T> {
+    type Item = ResMut<'w, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         let value = world
@@ -447,14 +451,14 @@ unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
-    type Item = Option<ResMut<'a, T>>;
+impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResMutState<T> {
+    type Item = Option<ResMut<'w, T>>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world
@@ -470,7 +474,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
     }
 }
 
-impl<'a> SystemParam for Commands<'a> {
+impl<'s, 'w> SystemParam for Commands<'s, 'w> {
     type Fetch = CommandQueue;
 }
 
@@ -492,14 +496,14 @@ unsafe impl SystemParamState for CommandQueue {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for CommandQueue {
-    type Item = Commands<'a>;
+impl<'s, 'w> SystemParamFetch<'s, 'w> for CommandQueue {
+    type Item = Commands<'s, 'w>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
@@ -582,14 +586,14 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
     }
 }
 
-impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
-    type Item = Local<'a, T>;
+impl<'s, 'w, T: Component + FromWorld> SystemParamFetch<'s, 'w> for LocalState<T> {
+    type Item = Local<'s, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         _system_meta: &SystemMeta,
-        _world: &'a World,
+        _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         Local(&mut state.0)
@@ -655,14 +659,14 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
-    type Item = RemovedComponents<'a, T>;
+impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for RemovedComponentsState<T> {
+    type Item = RemovedComponents<'w, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         RemovedComponents {
@@ -770,14 +774,14 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
-    type Item = NonSend<'a, T>;
+impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendState<T> {
+    type Item = NonSend<'w, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
@@ -889,14 +893,14 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
-    type Item = NonSendMut<'a, T>;
+impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendMutState<T> {
+    type Item = NonSendMut<'w, T>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
@@ -982,14 +986,14 @@ unsafe impl SystemParamState for ArchetypesState {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for ArchetypesState {
-    type Item = &'a Archetypes;
+impl<'s, 'w> SystemParamFetch<'s, 'w> for ArchetypesState {
+    type Item = &'w Archetypes;
 
     #[inline]
     unsafe fn get_param(
-        _state: &'a mut Self,
+        _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         world.archetypes()
@@ -1017,14 +1021,14 @@ unsafe impl SystemParamState for ComponentsState {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for ComponentsState {
-    type Item = &'a Components;
+impl<'s, 'w> SystemParamFetch<'s, 'w> for ComponentsState {
+    type Item = &'w Components;
 
     #[inline]
     unsafe fn get_param(
-        _state: &'a mut Self,
+        _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         world.components()
@@ -1052,14 +1056,14 @@ unsafe impl SystemParamState for EntitiesState {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for EntitiesState {
-    type Item = &'a Entities;
+impl<'s, 'w> SystemParamFetch<'s, 'w> for EntitiesState {
+    type Item = &'w Entities;
 
     #[inline]
     unsafe fn get_param(
-        _state: &'a mut Self,
+        _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         world.entities()
@@ -1087,14 +1091,14 @@ unsafe impl SystemParamState for BundlesState {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for BundlesState {
-    type Item = &'a Bundles;
+impl<'s, 'w> SystemParamFetch<'s, 'w> for BundlesState {
+    type Item = &'w Bundles;
 
     #[inline]
     unsafe fn get_param(
-        _state: &'a mut Self,
+        _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         world.bundles()
@@ -1127,13 +1131,13 @@ unsafe impl SystemParamState for SystemChangeTickState {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for SystemChangeTickState {
+impl<'s, 'w> SystemParamFetch<'s, 'w> for SystemChangeTickState {
     type Item = SystemChangeTick;
 
     unsafe fn get_param(
-        _state: &mut Self,
+        _state: &'s mut Self,
         system_meta: &SystemMeta,
-        _world: &World,
+        _world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         SystemChangeTick {
@@ -1154,14 +1158,14 @@ macro_rules! impl_system_param_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'a, $($param: SystemParamFetch<'a>),*> SystemParamFetch<'a> for ($($param,)*) {
+        impl<'s, 'w, $($param: SystemParamFetch<'s, 'w>),*> SystemParamFetch<'s, 'w> for ($($param,)*) {
             type Item = ($($param::Item,)*);
 
             #[inline]
             unsafe fn get_param(
-                state: &'a mut Self,
+                state: &'s mut Self,
                 system_meta: &SystemMeta,
-                world: &'a World,
+                world: &'w World,
                 change_tick: u32,
             ) -> Self::Item {
 

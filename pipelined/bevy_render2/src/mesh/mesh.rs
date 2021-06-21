@@ -2,19 +2,16 @@ mod conversions;
 mod mesh_resource_provider;
 
 pub use mesh_resource_provider::*;
+use wgpu::{IndexFormat, PrimitiveTopology, VertexFormat};
 
 use crate::{
-    pipeline::{
-        IndexFormat, InputStepMode, PrimitiveTopology, VertexAttribute, VertexBufferLayout,
-        VertexFormat,
-    },
-    render_resource::BufferId,
+    render_resource::Buffer,
 };
 use bevy_core::cast_slice;
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::EnumVariantMeta;
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -223,8 +220,8 @@ impl From<&Indices> for IndexFormat {
 // TODO: this shouldn't live in the Mesh type
 #[derive(Debug, Clone)]
 pub struct MeshGpuData {
-    pub vertex_buffer: BufferId,
-    pub index_buffer: Option<BufferId>,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Option<Buffer>,
 }
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
@@ -342,27 +339,27 @@ impl Mesh {
         })
     }
 
-    pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
-        let mut attributes = Vec::new();
-        let mut accumulated_offset = 0;
-        for (attribute_name, attribute_values) in self.attributes.iter() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            attributes.push(VertexAttribute {
-                name: attribute_name.clone(),
-                offset: accumulated_offset,
-                format: vertex_format,
-                shader_location: 0,
-            });
-            accumulated_offset += vertex_format.get_size();
-        }
+    // pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
+    //     let mut attributes = Vec::new();
+    //     let mut accumulated_offset = 0;
+    //     for (attribute_name, attribute_values) in self.attributes.iter() {
+    //         let vertex_format = VertexFormat::from(attribute_values);
+    //         attributes.push(VertexAttribute {
+    //             name: attribute_name.clone(),
+    //             offset: accumulated_offset,
+    //             format: vertex_format,
+    //             shader_location: 0,
+    //         });
+    //         accumulated_offset += vertex_format.get_size();
+    //     }
 
-        VertexBufferLayout {
-            name: Default::default(),
-            stride: accumulated_offset,
-            step_mode: InputStepMode::Vertex,
-            attributes,
-        }
-    }
+    //     VertexBufferLayout {
+    //         name: Default::default(),
+    //         stride: accumulated_offset,
+    //         step_mode: InputStepMode::Vertex,
+    //         attributes,
+    //     }
+    // }
 
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
@@ -488,4 +485,49 @@ impl Mesh {
 fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize().into()
+}
+
+pub trait VertexFormatSize {
+    fn get_size(self) -> u64;
+}
+
+impl VertexFormatSize for wgpu::VertexFormat {
+    fn get_size(self) -> u64 {
+        match self {
+            VertexFormat::Uint8x2 => 2,
+            VertexFormat::Uint8x4 => 4,
+            VertexFormat::Sint8x2 => 2,
+            VertexFormat::Sint8x4 => 4,
+            VertexFormat::Unorm8x2 => 2,
+            VertexFormat::Unorm8x4 => 4,
+            VertexFormat::Snorm8x2 => 2,
+            VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Uint16x2 => 2 * 2,
+            VertexFormat::Uint16x4 => 2 * 4,
+            VertexFormat::Sint16x2 => 2 * 2,
+            VertexFormat::Sint16x4 => 2 * 4,
+            VertexFormat::Unorm16x2 => 2 * 2,
+            VertexFormat::Unorm16x4 => 2 * 4,
+            VertexFormat::Snorm16x2 => 2 * 2,
+            VertexFormat::Snorm16x4 => 2 * 4,
+            VertexFormat::Float16x2 => 2 * 2,
+            VertexFormat::Float16x4 => 2 * 4,
+            VertexFormat::Float32 => 4,
+            VertexFormat::Float32x2 => 4 * 2,
+            VertexFormat::Float32x3 => 4 * 3,
+            VertexFormat::Float32x4 => 4 * 4,
+            VertexFormat::Uint32 => 4,
+            VertexFormat::Uint32x2 => 4 * 2,
+            VertexFormat::Uint32x3 => 4 * 3,
+            VertexFormat::Uint32x4 => 4 * 4,
+            VertexFormat::Sint32 => 4,
+            VertexFormat::Sint32x2 => 4 * 2,
+            VertexFormat::Sint32x3 => 4 * 3,
+            VertexFormat::Sint32x4 => 4 * 4,
+            VertexFormat::Float64 => 8,
+            VertexFormat::Float64x2 => 8 * 2,
+            VertexFormat::Float64x3 => 8 * 3,
+            VertexFormat::Float64x4 => 8 * 4,
+        }
+    }
 }

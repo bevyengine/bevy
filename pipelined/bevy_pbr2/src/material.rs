@@ -3,19 +3,14 @@ use bevy_asset::{AddAsset, AssetEvent, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
-use bevy_render2::{
-    color::Color,
-    render_command::RenderCommandQueue,
-    render_resource::{BufferId, BufferInfo, BufferUsage},
-    renderer::{RenderResourceContext, RenderResources},
-};
+use bevy_render2::{color::Color, render_resource::{Buffer, BufferId, BufferInitDescriptor, BufferUsage}, renderer::{RenderDevice, RenderQueue}};
 use bevy_utils::HashSet;
 use crevice::std140::{AsStd140, Std140};
 
 // TODO: this shouldn't live in the StandardMaterial type
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct StandardMaterialGpuData {
-    pub buffer: BufferId,
+    pub buffer: Buffer,
 }
 
 /// A material with "standard" properties used in PBR lighting
@@ -107,13 +102,12 @@ impl Plugin for StandardMaterialPlugin {
 }
 
 pub fn standard_material_resource_system(
-    render_resource_context: Res<RenderResources>,
-    mut render_command_queue: ResMut<RenderCommandQueue>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut material_events: EventReader<AssetEvent<StandardMaterial>>,
 ) {
     let mut changed_materials = HashSet::default();
-    let render_resource_context = &**render_resource_context;
     for event in material_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
@@ -125,7 +119,6 @@ pub fn standard_material_resource_system(
                 // remove_current_material_resources(render_resource_context, handle, &mut materials);
             }
             AssetEvent::Removed { ref handle } => {
-                remove_current_material_resources(render_resource_context, handle, &mut materials);
                 // if material was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_materials.remove(handle);
@@ -153,35 +146,13 @@ pub fn standard_material_resource_system(
 
             let size = StandardMaterialUniformData::std140_size_static();
 
-            let staging_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    size,
-                    buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-                    mapped_at_creation: true,
-                },
-                value_std140.as_bytes(),
-            );
-
-            let buffer = render_resource_context.create_buffer(BufferInfo {
-                size,
-                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                mapped_at_creation: false,
+            let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: None,
+                usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+                contents: value_std140.as_bytes(),
             });
-
-            render_command_queue.copy_buffer_to_buffer(staging_buffer, 0, buffer, 0, size as u64);
-            render_command_queue.free_buffer(staging_buffer);
 
             material.gpu_data = Some(StandardMaterialGpuData { buffer });
         }
-    }
-}
-
-fn remove_current_material_resources(
-    render_resource_context: &dyn RenderResourceContext,
-    handle: &Handle<StandardMaterial>,
-    materials: &mut Assets<StandardMaterial>,
-) {
-    if let Some(gpu_data) = materials.get_mut(handle).and_then(|t| t.gpu_data.take()) {
-        render_resource_context.remove_buffer(gpu_data.buffer);
     }
 }

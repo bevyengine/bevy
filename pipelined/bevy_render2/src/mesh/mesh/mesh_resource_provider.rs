@@ -1,32 +1,19 @@
 use crate::{
     mesh::{Mesh, MeshGpuData},
-    render_resource::{BufferInfo, BufferUsage},
-    renderer::{RenderResourceContext, RenderResources},
+    render_resource::Buffer,
+    renderer::RenderDevice,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_utils::HashSet;
-
-fn remove_current_mesh_resources(
-    render_resource_context: &dyn RenderResourceContext,
-    handle: &Handle<Mesh>,
-    meshes: &mut Assets<Mesh>,
-) {
-    if let Some(gpu_data) = meshes.get_mut(handle).and_then(|m| m.gpu_data.take()) {
-        render_resource_context.remove_buffer(gpu_data.vertex_buffer);
-        if let Some(index_buffer) = gpu_data.index_buffer {
-            render_resource_context.remove_buffer(index_buffer);
-        }
-    }
-}
+use wgpu::{util::BufferInitDescriptor, BufferUsage};
 
 pub fn mesh_resource_provider_system(
-    render_resource_context: Res<RenderResources>,
+    render_device: Res<RenderDevice>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
 ) {
     let mut changed_meshes = HashSet::default();
-    let render_resource_context = &**render_resource_context;
     for event in mesh_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
@@ -38,7 +25,6 @@ pub fn mesh_resource_provider_system(
                 // remove_current_mesh_resources(render_resource_context, handle, &mut meshes);
             }
             AssetEvent::Removed { ref handle } => {
-                remove_current_mesh_resources(render_resource_context, handle, &mut meshes);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_meshes.remove(handle);
@@ -56,21 +42,21 @@ pub fn mesh_resource_provider_system(
             }
 
             let vertex_buffer_data = mesh.get_vertex_buffer_data();
-            let vertex_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::VERTEX,
-                    ..Default::default()
+            let vertex_buffer = Buffer::from(render_device.create_buffer_with_data(
+                &BufferInitDescriptor {
+                    usage: BufferUsage::VERTEX,
+                    label: None,
+                    contents: &vertex_buffer_data,
                 },
-                &vertex_buffer_data,
-            );
+            ));
 
             let index_buffer = mesh.get_index_buffer_bytes().map(|data| {
-                render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::INDEX,
-                        ..Default::default()
-                    },
-                    &data,
+                Buffer::from(
+                    render_device.create_buffer_with_data(&BufferInitDescriptor {
+                        usage: BufferUsage::INDEX,
+                        contents: &data,
+                        label: None,
+                    }),
                 )
             });
 

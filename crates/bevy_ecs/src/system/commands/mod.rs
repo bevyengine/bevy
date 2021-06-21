@@ -16,14 +16,14 @@ pub trait Command: Send + Sync + 'static {
 }
 
 /// A list of commands that will be run to modify a [`World`].
-pub struct Commands<'a> {
-    queue: &'a mut CommandQueue,
-    entities: &'a Entities,
+pub struct Commands<'s, 'w> {
+    queue: &'s mut CommandQueue,
+    entities: &'w Entities,
 }
 
-impl<'a> Commands<'a> {
+impl<'s, 'w> Commands<'s, 'w> {
     /// Create a new `Commands` from a queue and a world.
-    pub fn new(queue: &'a mut CommandQueue, world: &'a World) -> Self {
+    pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self {
             queue,
             entities: world.entities(),
@@ -50,7 +50,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+    pub fn spawn(&mut self) -> EntityCommands<'s, 'w, '_> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -58,7 +58,7 @@ impl<'a> Commands<'a> {
         }
     }
 
-    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'s, 'w, '_> {
         self.add(GetOrSpawn { entity });
         EntityCommands {
             entity,
@@ -113,7 +113,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn_bundle<'b, T: Bundle>(&'b mut self, bundle: T) -> EntityCommands<'a, 'b> {
+    pub fn spawn_bundle<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'s, 'w, '_> {
         let mut e = self.spawn();
         e.insert_bundle(bundle);
         e
@@ -138,7 +138,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'s, 'w, '_> {
         EntityCommands {
             entity,
             commands: self,
@@ -174,12 +174,12 @@ impl<'a> Commands<'a> {
 }
 
 /// A list of commands that will be run to modify an [`Entity`].
-pub struct EntityCommands<'a, 'b> {
+pub struct EntityCommands<'s, 'w, 'a> {
     entity: Entity,
-    commands: &'b mut Commands<'a>,
+    commands: &'a mut Commands<'s, 'w>,
 }
 
-impl<'a, 'b> EntityCommands<'a, 'b> {
+impl<'s, 'w, 'a> EntityCommands<'s, 'w, 'a> {
     /// Retrieves the current entity's unique [`Entity`] id.
     #[inline]
     pub fn id(&self) -> Entity {
@@ -267,7 +267,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     }
 
     /// Returns the underlying `[Commands]`.
-    pub fn commands(&mut self) -> &mut Commands<'a> {
+    pub fn commands(&mut self) -> &mut Commands<'s, 'w> {
         self.commands
     }
 }

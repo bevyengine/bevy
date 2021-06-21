@@ -1,10 +1,9 @@
-use std::borrow::Cow;
-
 use crate::{
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
-    render_resource::{BufferId, SamplerId, TextureViewId},
+    render_resource::{Buffer, Sampler, TextureView},
 };
 use bevy_ecs::entity::Entity;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub struct RunSubGraph {
@@ -49,19 +48,20 @@ impl<'a> RenderGraphContext<'a> {
         &self.node.output_slots
     }
 
-    pub fn get_input(&self, label: impl Into<SlotLabel>) -> Result<SlotValue, InputSlotError> {
+    pub fn get_input(&self, label: impl Into<SlotLabel>) -> Result<&SlotValue, InputSlotError> {
         let label = label.into();
         let index = self
             .input_info()
             .get_slot_index(label.clone())
             .ok_or(InputSlotError::InvalidSlot(label))?;
-        Ok(self.inputs[index])
+        Ok(&self.inputs[index])
     }
 
+    // TODO: should this return an Arc or a reference?
     pub fn get_input_texture(
         &self,
         label: impl Into<SlotLabel>,
-    ) -> Result<TextureViewId, InputSlotError> {
+    ) -> Result<&TextureView, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::TextureView(value) => Ok(value),
@@ -76,7 +76,7 @@ impl<'a> RenderGraphContext<'a> {
     pub fn get_input_sampler(
         &self,
         label: impl Into<SlotLabel>,
-    ) -> Result<SamplerId, InputSlotError> {
+    ) -> Result<&Sampler, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::Sampler(value) => Ok(value),
@@ -88,10 +88,7 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
-    pub fn get_input_buffer(
-        &self,
-        label: impl Into<SlotLabel>,
-    ) -> Result<BufferId, InputSlotError> {
+    pub fn get_input_buffer(&self, label: impl Into<SlotLabel>) -> Result<&Buffer, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::Buffer(value) => Ok(value),
@@ -106,7 +103,7 @@ impl<'a> RenderGraphContext<'a> {
     pub fn get_input_entity(&self, label: impl Into<SlotLabel>) -> Result<Entity, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
-            SlotValue::Entity(value) => Ok(value),
+            SlotValue::Entity(value) => Ok(*value),
             value @ _ => Err(InputSlotError::MismatchedSlotType {
                 label,
                 actual: value.slot_type(),
