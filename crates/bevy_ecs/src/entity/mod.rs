@@ -109,7 +109,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
         self.id_iter
             .next()
             .map(|&id| Entity::from_id_and_gen(id, self.meta[id as usize].generation))
-            .or_else(|| self.id_range.next().map(|id| Entity::new(id)))
+            .or_else(|| self.id_range.next().map(Entity::new))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
