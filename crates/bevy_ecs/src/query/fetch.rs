@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::TicksMut,
-    component::{Component, ComponentId, ComponentTicks, StorageType},
+    change_detection::{ComponentTicks, TicksMut},
+    component::{Component, ComponentId, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},

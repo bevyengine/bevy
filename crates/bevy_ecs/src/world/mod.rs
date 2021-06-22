@@ -11,10 +11,10 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
+    change_detection::ComponentTicks,
     change_detection::TicksMut,
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
-        StorageType,
+        Component, ComponentDescriptor, ComponentId, Components, ComponentsError, StorageType,
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},

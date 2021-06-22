@@ -1,5 +1,6 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components},
+    change_detection::ComponentTicks,
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     storage::{BlobVec, SparseSet},
 };

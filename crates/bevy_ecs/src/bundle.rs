@@ -2,7 +2,8 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
+    change_detection::ComponentTicks,
+    component::{Component, ComponentId, Components, StorageType, TypeInfo},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
