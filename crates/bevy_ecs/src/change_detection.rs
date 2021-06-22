@@ -177,7 +177,7 @@ impl ComponentTicks {
     ///
     /// # Example
     /// ```rust,no_run
-    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// # use bevy_ecs::{world::World, change_detection::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
     ///
