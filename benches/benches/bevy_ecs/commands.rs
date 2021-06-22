@@ -3,7 +3,6 @@ use bevy::ecs::{
     world::World,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 criterion_group!(
     benches,
@@ -47,27 +46,24 @@ fn spawn_commands(criterion: &mut Criterion) {
             let mut world = World::default();
             let mut command_queue = CommandQueue::default();
 
-            let mut rng = SmallRng::seed_from_u64(42);
-            let mut rng_bool = || rng.next_u32() % 2 == 0;
-
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
-                for _ in 0..entity_count {
+                for i in 0..entity_count {
                     let mut entity = commands.spawn();
 
-                    if rng_bool() {
+                    if black_box(i % 2 == 0) {
                         entity.insert(A);
                     }
 
-                    if rng_bool() {
+                    if black_box(i % 3 == 0) {
                         entity.insert(B);
                     }
 
-                    if rng_bool() {
+                    if black_box(i % 4 == 0) {
                         entity.insert(C);
                     }
 
-                    if rng_bool() {
+                    if black_box(i % 5 == 0) {
                         entity.despawn();
                     }
                 }
@@ -107,13 +103,10 @@ fn fake_commands(criterion: &mut Criterion) {
             let mut world = World::default();
             let mut command_queue = CommandQueue::default();
 
-            let mut rng = SmallRng::seed_from_u64(42);
-            let mut rng_bool = || rng.next_u32() % 2 == 0;
-
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
-                for _ in 0..command_count {
-                    if rng_bool() {
+                for i in 0..command_count {
+                    if black_box(i % 2 == 0)
                         commands.add(FakeCommandA);
                     } else {
                         commands.add(FakeCommandB(0));

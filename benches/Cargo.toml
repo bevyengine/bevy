@@ -9,7 +9,6 @@ edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
-rand = { version = "0.8.0", features = ["small_rng"] }
 bevy = { path = "../" }
 
 [[bench]]
