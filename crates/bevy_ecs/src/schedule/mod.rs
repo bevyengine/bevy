@@ -173,6 +173,30 @@ impl Schedule {
         })
     }
 
+    /// Fetches the [`Stage`] of type `T` marked with `label`, then executes `func` using the
+    /// stage as parameter.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::schedule::Schedule;
+    /// # use bevy_ecs::schedule::SystemSet;
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # use bevy_ecs::system::IntoSystem;
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("update", SystemStage::parallel());
+    /// #
+    /// schedule.stage("update", |stage: &mut SystemStage| {
+    ///     stage.add_system(quit_game_keyboard_shortcuts_system.system())
+    /// });
+    /// #
+    /// # fn quit_game_keyboard_shortcuts_system() {}
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `label` refers to a non-existing stage, or if it's not of type `T`.
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
         label: impl StageLabel,

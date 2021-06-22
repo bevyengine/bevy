@@ -26,9 +26,14 @@ pub mod prelude {
 use bevy_ecs::schedule::StageLabel;
 
 /// The names of the default App stages
+///
+/// The relative stages are added by [`AppBuilder::add_default_stages`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
-    /// Runs once at the beginning of the app.
+    /// Runs only once at the beginning of the app.
+    ///
+    /// Consists in more sub-stages defined in [`StartupStage`]. Systems added here are
+    /// referred to as "startup systems".
     Startup,
     /// Name of app stage that runs before all other app stages
     First,
