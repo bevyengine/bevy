@@ -17,11 +17,6 @@ use syn::{
     NestedMeta, Path,
 };
 
-#[derive(Default)]
-struct PropAttributeArgs {
-    pub ignore: Option<bool>,
-}
-
 #[derive(Clone)]
 enum TraitImpl {
     NotImplemented,
