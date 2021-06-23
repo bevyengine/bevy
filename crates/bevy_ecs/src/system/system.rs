@@ -1,14 +1,3 @@
-/// The main building block in the Bevy ECS app model.
-///
-/// Systems are usually written as normal rust functions. Then the `.system()` trait
-/// extension method is called to make them be Bevy systems.
-///
-/// System functions can have parameters, through which one can query and
-/// mutate Bevy ECS states.
-/// See [The Bevy Book](https://bevyengine.org/learn/book/introduction/) for more information.
-///
-/// Systems are usually run in parallel, and the execution order is not deterministic.
-/// If you want more fine-grained control for order, see [`AppBuilder::add_system_to_stage`].
 use bevy_utils::tracing::warn;
 
 use crate::{

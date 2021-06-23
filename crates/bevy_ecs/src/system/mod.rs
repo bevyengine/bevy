@@ -1,3 +1,21 @@
+//! The behavior building block of an ECS application.
+//!
+//! Systems define how an ECS based application behave. They have to be registered to a
+//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually written as a normal function.
+//! Then the [`.system()`](IntoSystem::system) trait extension method have to be converted
+//! into a Bevy system.
+//!
+//! System functions can have parameters, through which one can query and mutate Bevy ECS
+//! states. Some limitations on allowed parameters apply (See [`SystemParam`]).
+//!
+//! While the execution of systems is usually parallel and not deterministic, there are two
+//! ways to determine a certain degree of execution order:
+//!
+//! - **System Stages:** They determine hard execution synchronization boundaries inside of
+//!   which systems run in parallel by default.
+//! - **Labeling:** First, systems are labeled upon creation by calling `.label()`. Then,
+//!   methods such as `.before()` and `.after()` are appended to systems to determine
+//!   execution order in respect to other systems.
 mod commands;
 mod exclusive_system;
 mod function_system;
