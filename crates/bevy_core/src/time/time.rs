@@ -2,7 +2,7 @@ use bevy_ecs::system::ResMut;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Time {
     delta: Duration,
     last_update: Option<Instant>,

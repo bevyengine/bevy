@@ -1,3 +1,5 @@
+#![allow(clippy::single_component_path_imports)]
+
 //! Forces dynamic linking of Bevy.
 //!
 //! Dynamically linking Bevy makes the "link" step much faster. This can be achieved by adding
@@ -8,5 +10,4 @@
 
 // Force linking of the main bevy crate
 #[allow(unused_imports)]
-#[allow(clippy::single_component_path_imports)]
 use bevy_internal;

@@ -167,14 +167,12 @@ mod rendering_mask_tests {
             "default masks match each other"
         );
 
-        assert_eq!(
-            RenderLayers::layer(0).intersects(&RenderLayers::layer(1)),
-            false,
+        assert!(
+            !RenderLayers::layer(0).intersects(&RenderLayers::layer(1)),
             "masks with differing layers do not match"
         );
-        assert_eq!(
-            RenderLayers(0).intersects(&RenderLayers(0)),
-            false,
+        assert!(
+            !RenderLayers(0).intersects(&RenderLayers(0)),
             "empty masks don't match"
         );
         assert_eq!(
