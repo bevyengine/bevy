@@ -1,9 +1,9 @@
-use smallvec::{Array, SmallVec};
+use smallvec::SmallVec;
 use std::any::Any;
 
-use crate::{serde::Serializable, List, ListIter, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, Array, ArrayIter, List, Reflect, ReflectMut, ReflectRef};
 
-impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
 where
     T::Item: Reflect + Clone,
 {
@@ -27,6 +27,18 @@ where
         <SmallVec<T>>::len(self)
     }
 
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+}
+
+impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
+where
+    T::Item: Reflect + Clone,
+{
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             panic!(
@@ -36,17 +48,10 @@ where
         });
         SmallVec::push(self, value);
     }
-
-    fn iter(&self) -> ListIter {
-        ListIter {
-            list: self,
-            index: 0,
-        }
-    }
 }
 
 // SAFE: any and any_mut both return self
-unsafe impl<T: Array + Send + Sync + 'static> Reflect for SmallVec<T>
+unsafe impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: Reflect + Clone,
 {
@@ -80,7 +85,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(self.clone_dynamic_list())
     }
 
     fn reflect_hash(&self) -> Option<u64> {

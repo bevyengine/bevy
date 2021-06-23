@@ -1,8 +1,8 @@
 use crate as bevy_reflect;
 use crate::{
     map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromType,
-    GetTypeRegistration, List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut,
-    ReflectRef, TypeRegistration,
+    GetTypeRegistration, List, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
+    TypeRegistration,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -36,7 +36,7 @@ impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserial
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Duration);
 
-impl<T: Reflect> List for Vec<T> {
+impl<T: Reflect> Array for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
     }
@@ -49,13 +49,15 @@ impl<T: Reflect> List for Vec<T> {
         <[T]>::len(self)
     }
 
-    fn iter(&self) -> ListIter {
-        ListIter {
-            list: self,
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
             index: 0,
         }
     }
+}
 
+impl<T: Reflect> List for Vec<T> {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T>().unwrap_or_else(|value| {
             panic!(
@@ -99,7 +101,7 @@ unsafe impl<T: Reflect> Reflect for Vec<T> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(self.clone_dynamic_list())
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -365,7 +367,7 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(self.clone_dynamic_array())
     }
 
     #[inline]
