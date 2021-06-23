@@ -37,18 +37,22 @@ impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Sen
 impl_reflect_value!(Duration);
 
 impl<T: Reflect> Array for Vec<T> {
+    #[inline]
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
     }
 
+    #[inline]
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
         <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
     }
 
+    #[inline]
     fn len(&self) -> usize {
         <[T]>::len(self)
     }
 
+    #[inline]
     fn iter(&self) -> ArrayIter {
         ArrayIter {
             array: self,
