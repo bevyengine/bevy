@@ -64,6 +64,7 @@ impl DynamicArray {
     }
 }
 
+// SAFE: any and any_mut both return self
 unsafe impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
