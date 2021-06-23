@@ -232,6 +232,10 @@ impl AppBuilder {
         self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
+    pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
+    }
+
     pub fn add_startup_system_to_stage(
         &mut self,
         stage_label: impl StageLabel,
@@ -241,6 +245,19 @@ impl AppBuilder {
             .schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_system_to_stage(stage_label, system)
+            });
+        self
+    }
+
+    pub fn add_startup_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_system_set_to_stage(stage_label, system_set)
             });
         self
     }
