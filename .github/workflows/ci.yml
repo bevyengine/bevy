@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
   push:
+    branches-ignore:
+      - 'dependabot/**'
+      - staging-squash-merge.tmp
 
 env:
   CARGO_TERM_COLOR: always
