@@ -188,25 +188,28 @@ impl<T> Default for ManualEventReader<T> {
 
 impl<T> ManualEventReader<T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+    pub fn iter<'a: 'r, 'loc: 'r, 'r>(
+        &'loc mut self,
+        events: &'a Events<T>,
+    ) -> impl DoubleEndedIterator<Item = &'a T> + 'r {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
     /// See [`EventReader::iter_with_id`]
-    pub fn iter_with_id<'a>(
-        &'a mut self,
+    pub fn iter_with_id<'a: 'r, 'loc: 'r, 'r>(
+        &'loc mut self,
         events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> + 'r {
         internal_event_reader(&mut self.last_event_count, events)
     }
 }
 
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
 /// messages.
-fn internal_event_reader<'a, T>(
-    last_event_count: &'a mut usize,
+fn internal_event_reader<'a: 'r, 'loc: 'r, 'r, T>(
+    last_event_count: &'loc mut usize,
     events: &'a Events<T>,
-) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> + 'a {
+) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> + 'r {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
     // otherwise read all events in the buffer
     let a_index = if *last_event_count > events.a_start_event_count {
