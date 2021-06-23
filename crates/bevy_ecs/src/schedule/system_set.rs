@@ -5,8 +5,7 @@ use crate::{
         RunCriteriaDescriptorOrLabel, State, SystemDescriptor, SystemLabel,
     },
 };
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, sync::atomic::{AtomicU32, Ordering}};
 
 use super::IntoSystemDescriptor;
 
