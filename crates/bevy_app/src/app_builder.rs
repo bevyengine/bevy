@@ -118,7 +118,7 @@ impl AppBuilder {
     }
 
     /// Adds a [`Stage`] with the given `label` to the last position of the
-    /// [startup schedule](CoreStage::Startup).
+    /// [startup schedule](Self::add_default_stages).
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.app
             .schedule
@@ -128,7 +128,7 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a [startup stage](CoreStage::Startup) with the given `label` of type
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label` of type
     /// [`StartupStage`], immediately after the stage labeled by `target`.
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
@@ -144,7 +144,7 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a [startup stage](CoreStage::Startup) with the given `label` of type
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label` of type
     /// [`StartupStage`], immediately before the stage labeled by `target`.
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
@@ -173,7 +173,7 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a system to the [update stage](CoreStage::Update) of the app's [`Schedule`].
+    /// Adds a system to the [update stage](Self::add_default_stages) of the app's [`Schedule`].
     ///
     /// For adding a system that runs only at app startup, see [`AppBuilder::add_startup_system`].
     ///
@@ -193,7 +193,7 @@ impl AppBuilder {
         self.add_system_to_stage(CoreStage::Update, system)
     }
 
-    /// Adds a [`SystemSet`] to the [update stage](CoreStage::Update).
+    /// Adds a [`SystemSet`] to the [update stage](Self::add_default_stages).
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.add_system_set_to_stage(CoreStage::Update, system_set)
     }
@@ -220,7 +220,7 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a system to the [startup stage](CoreStage::Startup) of the app's [`Schedule`].
+    /// Adds a system to the [startup stage](Self::add_default_stages) of the app's [`Schedule`].
     ///
     /// * For adding a system that runs for every frame, see [`AppBuilder::add_system`].
     /// * For adding a system to specific stage, see [`AppBuilder::add_system_to_stage`].
@@ -241,7 +241,7 @@ impl AppBuilder {
         self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
-    /// Adds a system to the [startup stage](CoreStage::Startup) identified by
+    /// Adds a system to the [startup stage](Self::add_default_stages) identified by
     /// `stage_label`.
     pub fn add_startup_system_to_stage(
         &mut self,
@@ -285,13 +285,22 @@ impl AppBuilder {
     ///
     /// Adding those stages is necessary to make work some core engine features, like
     /// adding systems without specifying a stage, or registering events. This is however
-    /// done by default by calling [`AppBuilder::default`], which is in turn called by
+    /// done by default by calling `AppBuilder::default`, which is in turn called by
     /// [`App::build`].
     ///
-    /// Apart from the [startup stage](CoreStage::Startup), all the other stages run for
-    /// every [`Schedule`] update cycle.
+    /// # The stages
     ///
-    /// The added stages are defined in the [`CoreStage`] and [`StartupStage`] `enum`s.
+    /// All the added stages, with the exception of the startup stage, run every time the
+    /// schedule is invoked. The most relevant stages are the following, in order of execution:
+    /// - **First:** Runs at the very start of the schedule execution cycle, even before the
+    ///   startup stage.
+    /// - **Startup:** It is actually a schedule containing sub-stages. Runs only once
+    ///   when the app starts.
+    /// - **Update:** Stage intended for user defined logic.
+    /// - **Last:** Runs right before the end of the schedule execution cycle.
+    ///
+    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`]
+    /// `enum`s.
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
             .add_stage(
