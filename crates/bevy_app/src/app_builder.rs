@@ -291,7 +291,7 @@ impl AppBuilder {
     /// Apart from the [startup stage](CoreStage::Startup), all the other stages run for
     /// every [`Schedule`] update cycle.
     ///
-    /// The added stages are defined in the [`CoreStage`] `enum`.
+    /// The added stages are defined in the [`CoreStage`] and [`StartupStage`] `enums`.
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
             .add_stage(
