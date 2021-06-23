@@ -45,7 +45,7 @@ fn active_fields(punctuated: &Punctuated<Field, Comma>) -> impl Iterator<Item = 
         field
             .attrs
             .iter()
-            .find(|attr| *attr.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+            .find(|attr| attr.path.get_ident().unwrap() == REFLECT_ATTRIBUTE_NAME)
             .map(|attr| {
                 syn::custom_keyword!(ignore);
                 attr.parse_args::<Option<ignore>>()
