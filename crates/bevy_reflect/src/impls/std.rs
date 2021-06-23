@@ -1,7 +1,8 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, FromType, GetTypeRegistration, List, ListIter,
-    Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeRegistration,
+    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromType,
+    GetTypeRegistration, List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut,
+    ReflectRef, TypeRegistration,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -297,4 +298,114 @@ impl GetTypeRegistration for Cow<'static, str> {
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
+}
+
+impl<T: Reflect, const N: usize> Array for [T; N] {
+    #[inline]
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        <[T]>::get(self, index).map(|value| value as &dyn Reflect)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        N
+    }
+
+    #[inline]
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+}
+
+// SAFE: any and any_mut both return self
+unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::array_apply(self, value);
+    }
+
+    #[inline]
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    #[inline]
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Array(self)
+    }
+
+    #[inline]
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::array_hash(self)
+    }
+
+    #[inline]
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::array_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn serializable(&self) -> Option<Serializable> {
+        None
+    }
+}
+
+// TODO:
+// `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
+// Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
+// This can be change to used const generics once serde utilized const generics for arrays.
+// Tracking issue: https://github.com/serde-rs/serde/issues/1937
+macro_rules! impl_array_get_type_registration {
+    ($($N:expr)+) => {
+        $(
+            impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for [T; $N] {
+                fn get_type_registration() -> TypeRegistration {
+                    let mut registration = TypeRegistration::of::<[T; $N]>();
+                    registration.insert::<ReflectDeserialize>(FromType::<[T; $N]>::from_type());
+                    registration
+                }
+            }
+        )+
+    };
+}
+
+impl_array_get_type_registration! {
+     0  1  2  3  4  5  6  7  8  9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
 }

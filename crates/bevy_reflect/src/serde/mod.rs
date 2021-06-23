@@ -11,5 +11,6 @@ pub(crate) mod type_fields {
     pub const TUPLE_STRUCT: &str = "tuple_struct";
     pub const TUPLE: &str = "tuple";
     pub const LIST: &str = "list";
+    pub const ARRAY: &str = "array";
     pub const VALUE: &str = "value";
 }
