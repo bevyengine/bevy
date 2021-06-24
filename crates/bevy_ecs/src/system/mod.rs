@@ -1,8 +1,8 @@
 //! The behavior building block of an ECS application.
 //!
 //! Systems define how an ECS based application behave. They have to be registered to a
-//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually written as a normal function.
-//! Then the [`.system()`](IntoSystem::system) trait extension method have to be converted
+//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually written as a normal function,
+//! on which the [`.system()`](IntoSystem::system) trait extension method is used, to turn it
 //! into a Bevy system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS
