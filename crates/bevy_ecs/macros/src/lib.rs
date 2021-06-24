@@ -150,6 +150,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         struct_name.span(),
     );
 
+    let static_assert_trait = syn::Ident::new(
+        &format!("AssertDistinctComponents{}", struct_name.to_string()),
+        struct_name.span(),
+    );
+
     let field_types = field_data.iter().map(|(_, ty, _)| ty);
 
     TokenStream::from(quote! {
@@ -176,15 +181,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
         #[allow(dead_code, non_snake_case)]
         fn #static_assert_bundle_func() {
-            macro_rules! assert_all_bundle_types_ne {
-                ($($y:ty),+ $(,)?) => {
-                    $(impl #ecs_path::PartOfBundle<#struct_name> for $y {})+
-                };
-            }
-
-            #(impl #ecs_path::bundle::PartOfBundle<#struct_name> for #field_types {})*
-
-            #(impl<T: #ecs_path::bundle::PartOfBundle<#nested_bundle_types>> #ecs_path::bundle::PartOfBundle<#struct_name> for T {})*
+            trait #static_assert_trait {}
+            #(impl #static_assert_trait for #field_types {})*
         }
     })
 }

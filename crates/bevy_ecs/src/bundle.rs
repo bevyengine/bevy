@@ -39,20 +39,16 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// ## Note
 /// Bundles do not support duplicate types.
+/// Currently there is static checking for duplicate types, however, it
+/// does not check nested bundles via `#[bundle]`.
 ///
 /// ```compile_fail
 /// # use bevy_ecs::bundle::Bundle;
 ///
 /// #[derive(Bundle)]
-/// struct Nested {
-///     a: usize,
-/// }
-///
-/// #[derive(Bundle)]
 /// struct HasDuplicateType {
-///     #[bundle]
-///     nested: Nested,
-///     b: usize, // `Nested` already contains a `usize` so this will fail to compile.
+///     a: usize,
+///     b: usize, // `a` is already a `usize` so this won't compile.
 /// }
 /// ```
 ///
@@ -80,9 +76,6 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
 }
-
-/// DOCS: todo
-pub trait PartOfBundle<T> {}
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
