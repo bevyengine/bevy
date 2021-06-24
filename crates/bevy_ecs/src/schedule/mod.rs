@@ -12,6 +12,7 @@ mod stage;
 mod state;
 mod system_container;
 mod system_descriptor;
+mod system_graph;
 mod system_set;
 
 pub use executor::*;
@@ -23,6 +24,7 @@ pub use stage::*;
 pub use state::*;
 pub use system_container::*;
 pub use system_descriptor::*;
+pub use system_graph::*;
 pub use system_set::*;
 
 use std::fmt::Debug;
