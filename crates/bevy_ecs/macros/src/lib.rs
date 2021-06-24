@@ -92,31 +92,29 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         _ => panic!("Expected a struct with named fields."),
     };
 
-    let is_bundle = named_fields
+    let field_data = named_fields
         .iter()
         .map(|field| {
-            field
-                .attrs
-                .iter()
-                .any(|a| *a.path.get_ident().as_ref().unwrap() == BUNDLE_ATTRIBUTE_NAME)
+            (
+                field.ident.as_ref().unwrap(), // name
+                &field.ty,                     // type
+                field // has `#[bundle]` attribute
+                    .attrs
+                    .iter()
+                    .any(|a| a.path.get_ident().unwrap() == BUNDLE_ATTRIBUTE_NAME),
+            )
         })
-        .collect::<Vec<bool>>();
-    let field = named_fields
-        .iter()
-        .map(|field| field.ident.as_ref().unwrap())
-        .collect::<Vec<_>>();
-    let field_type = named_fields
-        .iter()
-        .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
     let mut field_type_infos = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for ((field_type, is_bundle), field) in
-        field_type.iter().zip(is_bundle.iter()).zip(field.iter())
-    {
+    let mut nested_bundle_types = Vec::new();
+
+    for (field, field_type, is_bundle) in field_data.iter() {
         if *is_bundle {
+            nested_bundle_types.push(field_type);
+
             field_type_infos.push(quote! {
                 type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
             });
@@ -139,7 +137,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
         }
     }
-    let field_len = field.len();
+    let field_len = field_data.len();
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
@@ -152,10 +150,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         struct_name.span(),
     );
 
-    let static_assert_bundle_trait = syn::Ident::new(
-        &format!("{}HasDuplicateType", struct_name.to_string()),
-        struct_name.span(),
-    );
+    let field_types = field_data.iter().map(|(_, ty, _)| ty);
 
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
@@ -183,12 +178,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         fn #static_assert_bundle_func() {
             macro_rules! assert_all_bundle_types_ne {
                 ($($y:ty),+ $(,)?) => {
-                    trait #static_assert_bundle_trait {}
-                    $(impl #static_assert_bundle_trait for $y {})+
+                    $(impl #ecs_path::PartOfBundle<#struct_name> for $y {})+
                 };
             }
 
-            assert_all_bundle_types_ne!(#(#field_type),*);
+            #(impl #ecs_path::bundle::PartOfBundle<#struct_name> for #field_types {})*
+
+            #(impl<T: #ecs_path::bundle::PartOfBundle<#nested_bundle_types>> #ecs_path::bundle::PartOfBundle<#struct_name> for T {})*
         }
     })
 }

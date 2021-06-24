@@ -44,9 +44,15 @@ use std::{any::TypeId, collections::HashMap};
 /// # use bevy_ecs::bundle::Bundle;
 ///
 /// #[derive(Bundle)]
-/// struct HasDuplicateType {
+/// struct Nested {
 ///     a: usize,
-///     b: usize, // `b` is also a `usize` so this will fail to compile
+/// }
+///
+/// #[derive(Bundle)]
+/// struct HasDuplicateType {
+///     #[bundle]
+///     nested: Nested,
+///     b: usize, // `Nested` already contains a `usize` so this will fail to compile.
 /// }
 /// ```
 ///
@@ -74,6 +80,9 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
 }
+
+/// DOCS: todo
+pub trait PartOfBundle<T> {}
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
