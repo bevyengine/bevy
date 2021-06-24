@@ -179,7 +179,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        #[cfg(test)]
         #[allow(dead_code, non_snake_case)]
         fn #static_assert_bundle_func() {
             macro_rules! assert_all_bundle_types_ne {
