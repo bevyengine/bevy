@@ -1,10 +1,10 @@
 use crate::{
-    conversion::{from_duration, from_xr_time, to_duration, to_quat, to_vec3, to_xr_time},
-    OpenXrSession, OpenXrTime,
+    conversion::{from_duration, to_quat, to_vec3},
+    OpenXrSession,
 };
 use bevy_app::EventReader;
 use bevy_ecs::{prelude::ResMut, system::Res};
-use bevy_utils::{Duration, HashMap};
+use bevy_utils::HashMap;
 use bevy_xr::interaction::{
     implementation::XrTrackingStateBackend, HandType, VibrationEvent, VibrationEventType, XrAxes,
     XrAxisType, XrButtonState, XrButtonType, XrButtons, XrPose, XrReferenceSpaceType,
@@ -29,7 +29,7 @@ pub const GO_PROFILE: &str = "/interaction_profiles/oculus/go_controller";
 pub const OCULUS_TOUCH_PROFILE: &str = "/interaction_profiles/oculus/touch_controller";
 pub const VALVE_INDEX_PROFILE: &str = "/interaction_profiles/valve/index_controller";
 
-pub(crate) struct Spaces {
+pub struct Spaces {
     pub reference: Mutex<(XrReferenceSpaceType, xr::Space)>,
     pub left_grip: xr::Space,
     pub right_grip: xr::Space,
@@ -264,6 +264,7 @@ struct ButtonActions {
 }
 
 pub struct OpenXrInteractionContext {
+    action_set: xr::ActionSet,
     button_actions: HashMap<(HandType, XrButtonType), ButtonActions>,
     axes_actions: HashMap<(HandType, XrAxisType), xr::Action<f32>>,
     grip_actions: HashMap<HandType, xr::Action<xr::Posef>>,
@@ -540,6 +541,7 @@ impl OpenXrInteractionContext {
         }
 
         OpenXrInteractionContext {
+            action_set,
             button_actions,
             axes_actions,
             grip_actions,
@@ -551,14 +553,35 @@ impl OpenXrInteractionContext {
 
 pub(crate) fn input_system(
     context: Res<OpenXrInteractionContext>,
-    session: Res<OpenXrSession>,
+    frame_state: Res<xr::FrameState>,
+    mut tracking_state: ResMut<OpenXrTrackingState>,
     mut buttons: ResMut<XrButtons>,
     mut axes: ResMut<XrAxes>,
 ) {
+    tracking_state.next_vsync_time = frame_state.predicted_display_time;
+
+    let session = &tracking_state.session;
+
+    session
+        .sync_actions(&[(&context.action_set).into()])
+        .unwrap();
+
     for (&(hand, button), actions) in &context.button_actions {
-        let touched = session.backend.state(&actions.touch).unwrap().current_state;
-        let pressed = session.backend.state(&actions.click).unwrap().current_state;
-        let value = session.backend.state(&actions.value).unwrap().current_state;
+        let touched = actions
+            .touch
+            .state(&session, xr::Path::NULL)
+            .unwrap()
+            .current_state;
+        let pressed = actions
+            .click
+            .state(&session, xr::Path::NULL)
+            .unwrap()
+            .current_state;
+        let value = actions
+            .value
+            .state(&session, xr::Path::NULL)
+            .unwrap()
+            .current_state;
 
         let state = if pressed {
             XrButtonState::Pressed
@@ -572,16 +595,21 @@ pub(crate) fn input_system(
     }
 
     for (&(hand, axis), action) in &context.axes_actions {
-        let value = session.backend.state(action).unwrap().current_state;
+        let value = action
+            .state(&session, xr::Path::NULL)
+            .unwrap()
+            .current_state;
         axes.set(hand, axis, value);
     }
 }
 
 pub(crate) fn output_system(
-    context: Res<OpenXrInteractionContext>,
+    context: Res<Arc<OpenXrInteractionContext>>,
     session: Res<OpenXrSession>,
     mut vibration_events: EventReader<VibrationEvent>,
 ) {
+    let session = session.to_backend();
+
     for event in vibration_events.iter() {
         let action = context.vibration_actions.get(&event.hand);
         if let Some(action) = action {
@@ -595,31 +623,69 @@ pub(crate) fn output_system(
                         .duration(from_duration(*duration))
                         .frequency(*frequency)
                         .amplitude(*amplitude);
-                    session
-                        .backend
-                        .apply_feedback(action, &haptic_vibration)
+
+                    action
+                        .apply_feedback(&session, xr::Path::NULL, &haptic_vibration)
                         .unwrap();
                 }
-                VibrationEventType::Stop => session.backend.stop_feedback(action).unwrap(),
+                VibrationEventType::Stop => action.stop_feedback(&session, xr::Path::NULL).unwrap(),
             }
         }
     }
 }
 
-struct OpenXrTrackingState {
+pub struct OpenXrTrackingState {
     view_type: xr::ViewConfigurationType,
-    session: Arc<OpenXrSession>,
+    action_set: xr::ActionSet,
+    session: xr::Session<xr::AnyGraphics>,
+    spaces: Spaces,
+    next_vsync_time: xr::Time,
 }
 
 impl OpenXrTrackingState {
-    pub fn views_poses_at_time(&self, time: OpenXrTime) -> Vec<XrPose> {
+    pub fn spaces(&self) -> &Spaces {
+        &self.spaces
+    }
+}
+
+impl XrTrackingStateBackend for OpenXrTrackingState {
+    fn get_reference_space_type(&self) -> XrReferenceSpaceType {
+        self.spaces.reference.lock().unwrap().0
+    }
+
+    fn set_reference_space_type(&self, mode: XrReferenceSpaceType) -> bool {
+        let reference_type = match mode {
+            XrReferenceSpaceType::Viewer => xr::ReferenceSpaceType::VIEW,
+            XrReferenceSpaceType::Local => xr::ReferenceSpaceType::LOCAL,
+            XrReferenceSpaceType::BoundedFloor => xr::ReferenceSpaceType::STAGE,
+        };
+        if let Ok(space) = self
+            .session
+            .create_reference_space(reference_type, xr::Posef::IDENTITY)
+        {
+            *self.spaces.reference.lock().unwrap() = (mode, space);
+
+            true
+        } else {
+            false
+        }
+    }
+
+    fn tracking_area_bounds(&self) -> Option<(f32, f32)> {
+        todo!()
+    }
+
+    fn views_poses(&self) -> Vec<XrPose> {
+        self.session
+            .sync_actions(&[(&self.action_set).into()])
+            .unwrap();
+
         let (flags, views) = self
             .session
-            .backend
             .locate_views(
                 self.view_type,
-                from_xr_time(time),
-                &self.session.spaces.reference.lock().unwrap().1,
+                self.next_vsync_time,
+                &self.spaces.reference.lock().unwrap().1,
             )
             .unwrap();
 
@@ -640,16 +706,20 @@ impl OpenXrTrackingState {
             .collect()
     }
 
-    pub fn hand_pose_at_time(&self, hand_type: HandType, time: OpenXrTime) -> Option<XrPose> {
+    fn hand_pose(&self, hand_type: HandType) -> Option<XrPose> {
+        self.session
+            .sync_actions(&[(&self.action_set).into()])
+            .unwrap();
+
         let space = match hand_type {
-            HandType::Left => &self.session.spaces.left_grip,
-            HandType::Right => &self.session.spaces.right_grip,
+            HandType::Left => &self.spaces.left_grip,
+            HandType::Right => &self.spaces.right_grip,
         };
 
         let (location, velocity) = space
             .relate(
-                &self.session.spaces.reference.lock().unwrap().1,
-                from_xr_time(time),
+                &self.spaces.reference.lock().unwrap().1,
+                self.next_vsync_time,
             )
             .unwrap();
 
@@ -695,24 +765,28 @@ impl OpenXrTrackingState {
         }
     }
 
-    pub fn hand_skeleton_pose_at_time(
-        &self,
-        hand_type: HandType,
-        time: OpenXrTime,
-    ) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
+    fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
+        self.session
+            .sync_actions(&[(&self.action_set).into()])
+            .unwrap();
+
         todo!()
     }
 
-    pub fn hand_target_ray_at_time(&self, hand_type: HandType, time: OpenXrTime) -> Option<XrPose> {
+    fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose> {
+        self.session
+            .sync_actions(&[(&self.action_set).into()])
+            .unwrap();
+
         let space = match hand_type {
-            HandType::Left => &self.session.spaces.left_target_ray,
-            HandType::Right => &self.session.spaces.right_target_ray,
+            HandType::Left => &self.spaces.left_target_ray,
+            HandType::Right => &self.spaces.right_target_ray,
         };
 
         let (location, velocity) = space
             .relate(
-                &self.session.spaces.reference.lock().unwrap().1,
-                from_xr_time(time),
+                &self.spaces.reference.lock().unwrap().1,
+                self.next_vsync_time,
             )
             .unwrap();
 
@@ -758,8 +832,8 @@ impl OpenXrTrackingState {
         }
     }
 
-    pub fn viewer_target_ray_at_time(&self, time: OpenXrTime) -> XrPose {
-        let poses = self.views_poses_at_time(time);
+    fn viewer_target_ray(&self) -> XrPose {
+        let poses = self.views_poses();
         let poses_count = poses.len() as f32;
 
         let orientation = poses.first().unwrap().transform.orientation;
@@ -779,58 +853,5 @@ impl OpenXrTrackingState {
             linear_velocity: None,
             angular_velocity: None,
         }
-    }
-
-    pub fn predicted_display_time(&self) -> OpenXrTime {
-        to_xr_time(self.session.frame_state.predicted_display_time)
-    }
-
-    pub fn predicted_display_period(&self) -> Duration {
-        to_duration(self.session.frame_state.predicted_display_period)
-    }
-}
-
-impl XrTrackingStateBackend for OpenXrTrackingState {
-    fn get_reference_space_type(&self) -> XrReferenceSpaceType {
-        self.session.spaces.reference.lock().unwrap().0
-    }
-
-    fn set_reference_space_type(&self, mode: XrReferenceSpaceType) -> bool {
-        let reference_type = match mode {
-            XrReferenceSpaceType::Viewer => xr::ReferenceSpaceType::VIEW,
-            XrReferenceSpaceType::Local => xr::ReferenceSpaceType::LOCAL,
-            XrReferenceSpaceType::BoundedFloor => xr::ReferenceSpaceType::STAGE,
-        };
-        if let Ok(space) = self.session.backend.create_reference_space(reference_type) {
-            *self.session.spaces.reference.lock().unwrap() = (mode, space);
-
-            true
-        } else {
-            false
-        }
-    }
-
-    fn tracking_area_bounds(&self) -> Option<(f32, f32)> {
-        todo!()
-    }
-
-    fn views_poses(&self) -> Vec<XrPose> {
-        self.views_poses_at_time(self.predicted_display_time())
-    }
-
-    fn hand_pose(&self, hand_type: HandType) -> Option<XrPose> {
-        self.hand_pose_at_time(hand_type, self.predicted_display_time())
-    }
-
-    fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
-        self.hand_skeleton_pose_at_time(hand_type, self.predicted_display_time())
-    }
-
-    fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose> {
-        self.hand_target_ray_at_time(hand_type, self.predicted_display_time())
-    }
-
-    fn viewer_target_ray(&self) -> XrPose {
-        self.viewer_target_ray_at_time(self.predicted_display_time())
     }
 }

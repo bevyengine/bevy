@@ -1,4 +1,6 @@
+use bevy_ecs::prelude::World;
 use std::{ffi::c_void, os::raw::c_char, ptr};
+
 pub struct XrPresentationError(pub String);
 
 pub type VkGetInstanceProcAddr =
@@ -63,6 +65,7 @@ pub trait XrPresentationContext: Send + Sync + 'static {
     /// The returned handle must be dropped before destroying the graphics instance and device
     unsafe fn initialize_session_from_graphics_handles(
         &self,
-        _context_handles: GraphicsContextHandles,
+        world: &mut World,
+        context_handles: GraphicsContextHandles,
     ) -> Result<Box<dyn XrSessionHandle>, XrPresentationError>;
 }

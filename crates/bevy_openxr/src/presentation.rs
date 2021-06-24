@@ -1,10 +1,10 @@
 use std::ffi::c_void;
 
 use crate::{FrameStream, OpenXrContext, SessionBackend};
-use bevy_app::Plugin;
+use bevy_ecs::prelude::World;
 use bevy_xr::presentation::{
-    GraphicsContextHandles, VkGetInstanceProcAddr, XrPresentationError,
-    XrPresentationContext, XrSessionHandle,
+    GraphicsContextHandles, VkGetInstanceProcAddr, XrPresentationContext, XrPresentationError,
+    XrSessionHandle,
 };
 use openxr as xr;
 
@@ -52,6 +52,7 @@ impl XrPresentationContext for OpenXrContext {
 
     unsafe fn initialize_session_from_graphics_handles(
         &self,
+        world: &mut World,
         context_handles: GraphicsContextHandles,
     ) -> Result<Box<dyn XrSessionHandle>, XrPresentationError> {
         let (session_backend, frame_waiter, frame_stream) = match context_handles {

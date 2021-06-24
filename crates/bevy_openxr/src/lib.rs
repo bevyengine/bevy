@@ -2,120 +2,19 @@ mod conversion;
 pub mod interaction;
 mod presentation;
 
+use std::sync::Arc;
+
 use bevy_app::{AppBuilder, CoreStage, Plugin};
 use bevy_ecs::prelude::IntoSystem;
-use bevy_utils::Duration;
 use bevy_xr::{presentation::XrPresentationContext, XrMode};
-use interaction::{OpenXrBindings, OpenXrInteractionContext, Spaces};
+use interaction::{OpenXrBindings, OpenXrInteractionContext};
 use openxr as xr;
 use openxr::sys;
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct OpenXrTime(Duration);
-
-impl OpenXrTime {
-    pub fn from_nanos(nanos: u64) -> Self {
-        Self(Duration::from_nanos(nanos))
-    }
-
-    pub fn as_nanos(self) -> u64 {
-        self.0.as_nanos() as _
-    }
-}
-
-impl std::ops::Add<Duration> for OpenXrTime {
-    type Output = OpenXrTime;
-
-    fn add(self, rhs: Duration) -> OpenXrTime {
-        OpenXrTime(self.0 + rhs)
-    }
-}
-
-pub(crate) enum SessionBackend {
+enum SessionBackend {
     Vulkan(xr::Session<xr::Vulkan>),
     #[cfg(windows)]
     D3D11(xr::Session<xr::D3D11>),
-}
-
-impl SessionBackend {
-    pub fn state<T: xr::ActionTy + xr::ActionInput>(
-        &self,
-        action: &xr::Action<T>,
-    ) -> xr::Result<xr::ActionState<T>> {
-        match self {
-            SessionBackend::Vulkan(backend) => action.state(backend, xr::Path::NULL),
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => action.state(backend, xr::Path::NULL),
-        }
-    }
-
-    pub fn apply_feedback(
-        &self,
-        action: &xr::Action<xr::Haptic>,
-        haptic: &xr::HapticBase,
-    ) -> xr::Result<()> {
-        match self {
-            SessionBackend::Vulkan(backend) => {
-                action.apply_feedback(backend, xr::Path::NULL, haptic)
-            }
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => {
-                action.apply_feedback(backend, xr::Path::NULL, haptic)
-            }
-        }
-    }
-
-    pub fn stop_feedback(&self, action: &xr::Action<xr::Haptic>) -> xr::Result<()> {
-        match self {
-            SessionBackend::Vulkan(backend) => action.stop_feedback(backend, xr::Path::NULL),
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => action.stop_feedback(backend, xr::Path::NULL),
-        }
-    }
-
-    pub fn create_space(&self, action: &xr::Action<xr::Posef>) -> xr::Result<xr::Space> {
-        match self {
-            SessionBackend::Vulkan(backend) => {
-                action.create_space(backend.clone(), xr::Path::NULL, xr::Posef::IDENTITY)
-            }
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => {
-                action.create_space(backend.clone(), xr::Path::NULL, xr::Posef::IDENTITY)
-            }
-        }
-    }
-
-    pub fn create_reference_space(
-        &self,
-        reference_type: xr::ReferenceSpaceType,
-    ) -> xr::Result<xr::Space> {
-        match self {
-            SessionBackend::Vulkan(backend) => {
-                backend.create_reference_space(reference_type, xr::Posef::IDENTITY)
-            }
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => {
-                backend.create_reference_space(reference_type, xr::Posef::IDENTITY)
-            }
-        }
-    }
-
-    pub fn locate_views(
-        &self,
-        view_configuration_type: xr::ViewConfigurationType,
-        display_time: xr::Time,
-        space: &xr::Space,
-    ) -> xr::Result<(xr::ViewStateFlags, Vec<xr::View>)> {
-        match self {
-            SessionBackend::Vulkan(backend) => {
-                backend.locate_views(view_configuration_type, display_time, space)
-            }
-            #[cfg(windows)]
-            SessionBackend::D3D11(backend) => {
-                backend.locate_views(view_configuration_type, display_time, space)
-            }
-        }
-    }
 }
 
 enum FrameStream {
@@ -126,12 +25,20 @@ enum FrameStream {
 
 // Note: this is not a simple wrapper of xr::Session, instead it is a wrapper for every object
 // which depends directly or indirectly on graphics initialization.
-struct OpenXrSession {
-    pub(crate) backend: SessionBackend,
+pub struct OpenXrSession {
+    backend: SessionBackend,
     frame_stream: FrameStream,
     frame_waiter: xr::FrameWaiter,
-    frame_state: xr::FrameState,
-    spaces: Spaces,
+}
+
+impl OpenXrSession {
+    pub fn to_backend(&self) -> xr::Session<xr::AnyGraphics> {
+        match &self.backend {
+            SessionBackend::Vulkan(backend) => backend.clone().into_any_graphics(),
+            #[cfg(windows)]
+            SessionBackend::D3D11(backend) => backend.clone().into_any_graphics(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -250,9 +157,12 @@ impl Plugin for OpenXrPlugin {
             .cloned()
             .unwrap_or_default();
 
-        app.insert_resource(OpenXrInteractionContext::new(&context.instance, bindings))
-            .insert_resource(context.mode)
-            .insert_resource::<Box<dyn XrPresentationContext>>(Box::new(context));
+        app.insert_resource(Arc::new(OpenXrInteractionContext::new(
+            &context.instance,
+            bindings,
+        )))
+        .insert_resource(context.mode)
+        .insert_resource::<Box<dyn XrPresentationContext>>(Box::new(context));
 
         app.add_system_to_stage(CoreStage::PreUpdate, interaction::input_system.system())
             .add_system_to_stage(CoreStage::PostUpdate, interaction::output_system.system());
