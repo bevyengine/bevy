@@ -2,9 +2,9 @@ use crate::schedule::{SystemDescriptor, SystemLabel, SystemSet};
 use bevy_ecs_macros::all_tuples;
 use bevy_utils::HashMap;
 use std::{
+    cell::RefCell,
     fmt::Debug,
     rc::Rc,
-    cell::RefCell,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -39,16 +39,20 @@ static NEXT_NODE_ID: AtomicU32 = AtomicU32::new(0);
 /// # fn sys_c() {}
 /// # fn sys_d() {}
 /// # fn sys_e() {}
+/// # fn sys_f() {}
 /// let graph = SystemGraph::new();
 ///
-/// let start_a = graph.root(sys_a.system());
+/// // Split out from one original node.
+/// let (c, b, d) = graph.root(sys_a.system())
+///     .split_into((
+///         sys_b.system(),
+///         sys_c.system(),
+///         sys_d.system(),
+///     ));
 ///
-/// start_a.then(sys_b.system());
-/// start_a.then(sys_c.system());
-///
-/// start_a
-///     .then(sys_d.system())
-///     .then(sys_e.system());
+/// // The returned nodes can then be continued.
+/// d.then(sys_e.system())
+///  .then(sys_f.system());
 ///
 /// // Convert into a SystemSet
 /// let system_set: SystemSet = graph.into();
@@ -78,7 +82,7 @@ static NEXT_NODE_ID: AtomicU32 = AtomicU32::new(0);
 /// // Convert into a SystemSet
 /// let system_set: SystemSet = graph.into();
 /// ```
-/// 
+///
 /// # Cloning
 /// This type is backed by a Rc, so cloning it will still point to the same logical
 /// underlying graph.
@@ -152,13 +156,59 @@ pub struct SystemGraphNode {
 impl SystemGraphNode {
     /// Creates a new node in the graph and adds the current node as it's dependency.
     ///
-    /// This function can be called multiple times to create
+    /// This function can be called multiple times to add mulitple systems to the graph,
+    /// all of which will not execute until original node's system has finished running.
     pub fn then(&self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
         let node = self.graph.create_node(next.into());
         self.graph.add_dependency(self.id, node.id);
         node
     }
+
+    /// Fans out from the given node into multiple dependent systems. All provided
+    /// systems will not run until the original node's system finishes running.
+    ///
+    /// Functionally equivalent to calling `SystemGraphNode::then` multiple times.
+    pub fn split_into<T: SystemGroup>(&self, system_group: T) -> T::Output {
+        system_group.split_into(self)
+    }
 }
+
+pub trait SystemGroup {
+    type Output;
+    fn split_into(self, src: &SystemGraphNode) -> Self::Output;
+}
+
+impl<T: Into<SystemDescriptor>> SystemGroup for Vec<T> {
+    type Output = Vec<SystemGraphNode>;
+    fn split_into(self, src: &SystemGraphNode) -> Self::Output {
+        self.into_iter().map(|sys| src.then(sys.into())).collect()
+    }
+}
+
+macro_rules! ignore_first {
+    ($_first:ident, $second:ty) => {
+        $second
+    };
+}
+
+macro_rules! impl_system_group_tuple {
+    ($($param: ident),*) => {
+        impl<$($param: Into<SystemDescriptor>),*> SystemGroup for ($($param,)*) {
+            // HACK: using repeat macros without using the param in it fails to compile.
+            // The ignore_first here "uses" the parameter and just discards it.
+            type Output = ($(ignore_first!($param, SystemGraphNode),)*);
+
+            #[inline]
+            #[allow(non_snake_case)]
+            fn split_into(self, src: &SystemGraphNode) -> Self::Output {
+                let ($($param,)*) = self;
+                ($(src.then($param::into($param)),)*)
+            }
+        }
+    };
+}
+
+all_tuples!(impl_system_group_tuple, 2, 16, T);
 
 pub trait SystemGraphJoinExt: Sized + IntoIterator<Item = SystemGraphNode> {
     fn join_into(self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
