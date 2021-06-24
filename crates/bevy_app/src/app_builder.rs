@@ -128,8 +128,10 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a [startup stage](Self::add_default_stages) with the given `label` of type
-    /// [`StartupStage`], immediately after the stage labeled by `target`.
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
+    /// after the stage labeled by `target`.
+    ///
+    /// The `target` label must refer to a stage inside the startup schedule.
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -144,8 +146,10 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a [startup stage](Self::add_default_stages) with the given `label` of type
-    /// [`StartupStage`], immediately before the stage labeled by `target`.
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
+    /// before the stage labeled by `target`.
+    ///
+    /// The `target` label must refer to a stage inside the startup schedule.
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -249,7 +253,7 @@ impl AppBuilder {
     /// Adds a system to the [startup schedule](Self::add_default_stages), in the stage
     /// identified by `stage_label`.
     ///
-    /// Stage label must be of type [`StartupStage`].
+    /// `stage_label` must refer to a stage inside the startup schedule.
     pub fn add_startup_system_to_stage(
         &mut self,
         stage_label: impl StageLabel,
@@ -266,7 +270,7 @@ impl AppBuilder {
     /// Adds a [`SystemSet`] to the [startup schedule](Self::add_default_stages), in the stage
     /// identified by `stage_label`.
     ///
-    /// Stage label must be of type [`StartupStage`].
+    /// `stage_label` must refer to a stage inside the startup schedule.
     pub fn add_startup_system_set_to_stage(
         &mut self,
         stage_label: impl StageLabel,
