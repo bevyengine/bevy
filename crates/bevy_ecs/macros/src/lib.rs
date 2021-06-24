@@ -45,9 +45,9 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = (input.start..=input.end).count();
+    let len = (0..=input.end).count();
     let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
+    for i in 0..=input.end {
         let idents = input
             .idents
             .iter()
