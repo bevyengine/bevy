@@ -1,13 +1,11 @@
 use crate::schedule::{SystemDescriptor, SystemLabel, SystemSet};
 use bevy_ecs_macros::all_tuples;
 use bevy_utils::HashMap;
-use parking_lot::Mutex;
 use std::{
     fmt::Debug,
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    },
+    rc::Rc,
+    cell::RefCell,
+    sync::atomic::{AtomicU32, Ordering},
 };
 
 static NEXT_NODE_ID: AtomicU32 = AtomicU32::new(0);
@@ -80,8 +78,12 @@ static NEXT_NODE_ID: AtomicU32 = AtomicU32::new(0);
 /// // Convert into a SystemSet
 /// let system_set: SystemSet = graph.into();
 /// ```
+/// 
+/// # Cloning
+/// This type is backed by a Rc, so cloning it will still point to the same logical
+/// underlying graph.
 #[derive(Clone, Default)]
-pub struct SystemGraph(Arc<Mutex<HashMap<NodeId, SystemDescriptor>>>);
+pub struct SystemGraph(Rc<RefCell<HashMap<NodeId, SystemDescriptor>>>);
 
 impl SystemGraph {
     pub fn new() -> Self {
@@ -96,7 +98,7 @@ impl SystemGraph {
 
     /// Checks if two graphs instances point to the same logical underlying graph.
     pub fn is_same_graph(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        Rc::ptr_eq(&self.0, &other.0)
     }
 
     fn create_node(&self, mut system: SystemDescriptor) -> SystemGraphNode {
@@ -105,7 +107,7 @@ impl SystemGraph {
             SystemDescriptor::Parallel(descriptor) => descriptor.labels.push(id.dyn_clone()),
             SystemDescriptor::Exclusive(descriptor) => descriptor.labels.push(id.dyn_clone()),
         }
-        self.0.lock().insert(id, system);
+        self.0.borrow_mut().insert(id, system);
         SystemGraphNode {
             id,
             graph: self.clone(),
@@ -113,7 +115,7 @@ impl SystemGraph {
     }
 
     fn add_dependency(&self, src: NodeId, dst: NodeId) {
-        if let Some(system) = self.0.lock().get_mut(&dst) {
+        if let Some(system) = self.0.borrow_mut().get_mut(&dst) {
             match system {
                 SystemDescriptor::Parallel(descriptor) => descriptor.after.push(src.dyn_clone()),
                 SystemDescriptor::Exclusive(descriptor) => descriptor.after.push(src.dyn_clone()),
@@ -134,7 +136,7 @@ impl SystemGraph {
 impl From<SystemGraph> for SystemSet {
     fn from(graph: SystemGraph) -> Self {
         let mut system_set = SystemSet::new();
-        for (_, system) in graph.0.lock().drain() {
+        for (_, system) in graph.0.borrow_mut().drain() {
             system_set = system_set.with_system(system);
         }
         system_set
