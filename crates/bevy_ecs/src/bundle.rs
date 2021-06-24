@@ -37,6 +37,19 @@ use std::{any::TypeId, collections::HashMap};
 /// }
 /// ```
 ///
+/// ## Note
+/// Bundles do not support duplicate types.
+///
+/// ```compile_fail
+/// # use bevy_ecs::bundle::Bundle;
+///
+/// #[derive(Bundle)]
+/// struct HasDuplicateType {
+///     a: usize,
+///     b: usize, // `b` is also a `usize` so this will fail to compile
+/// }
+/// ```
+///
 /// # Safety
 /// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the
 /// _exact_ order that [Bundle::get_components] is called.

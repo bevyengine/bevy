@@ -144,6 +144,19 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let static_assert_bundle_func = syn::Ident::new(
+        &format!(
+            "static_assert_{}_does_not_have_duplicate_types",
+            struct_name.to_string()
+        ),
+        struct_name.span(),
+    );
+
+    let static_assert_bundle_trait = syn::Ident::new(
+        &format!("{}HasDuplicateType", struct_name.to_string()),
+        struct_name.span(),
+    );
+
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
@@ -164,6 +177,19 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
                 #(#field_get_components)*
             }
+        }
+
+        #[cfg(test)]
+        #[allow(dead_code, non_snake_case)]
+        fn #static_assert_bundle_func() {
+            macro_rules! assert_all_bundle_types_ne {
+                ($($y:ty),+ $(,)?) => {
+                    trait #static_assert_bundle_trait {}
+                    $(impl #static_assert_bundle_trait for $y {})+
+                };
+            }
+
+            assert_all_bundle_types_ne!(#(#field_type),*);
         }
     })
 }
