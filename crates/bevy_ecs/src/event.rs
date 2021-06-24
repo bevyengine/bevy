@@ -232,7 +232,7 @@ fn internal_event_reader<'a: 'r, 'loc: 'r, 'r, T>(
     };
     iterator
         .map(map_instance_event_with_id)
-        .inspect(move |_| *last_event_count += 1)
+        .inspect(move |(_, id)| *last_event_count = id.id.max(*last_event_count))
 }
 
 impl<'a, T: Component> EventReader<'a, T> {
