@@ -241,6 +241,7 @@ impl AppBuilder {
         self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
+    /// Adds a [`SystemSet`] to the [startup stage](Self::add_default_stages)
     pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
     }
@@ -262,6 +263,10 @@ impl AppBuilder {
         self
     }
 
+    /// Adds a [`SystemSet`] to the [startup schedule](Self::add_default_stages), in the stage
+    /// identified by `stage_label`.
+    ///
+    /// Stage label must be of type [`StartupStage`].
     pub fn add_startup_system_set_to_stage(
         &mut self,
         stage_label: impl StageLabel,
