@@ -1,10 +1,12 @@
 use crate::schedule::{SystemDescriptor, SystemLabel, SystemSet};
+use bevy_ecs_macros::all_tuples;
+use bevy_utils::HashMap;
+use parking_lot::Mutex;
 use std::{
-    collections::HashMap,
     fmt::Debug,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -86,10 +88,13 @@ impl SystemGraph {
         Self::default()
     }
 
+    /// Creates a root graph node without any dependencies. A graph can have multiple distinct
+    /// root nodes.
     pub fn root(&self, system: impl Into<SystemDescriptor>) -> SystemGraphNode {
         self.create_node(system.into())
     }
 
+    /// Checks if two graphs instances point to the same logical underlying graph.
     pub fn is_same_graph(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
@@ -100,7 +105,7 @@ impl SystemGraph {
             SystemDescriptor::Parallel(descriptor) => descriptor.labels.push(id.dyn_clone()),
             SystemDescriptor::Exclusive(descriptor) => descriptor.labels.push(id.dyn_clone()),
         }
-        self.0.lock().unwrap().insert(id, system);
+        self.0.lock().insert(id, system);
         SystemGraphNode {
             id,
             graph: self.clone(),
@@ -108,7 +113,7 @@ impl SystemGraph {
     }
 
     fn add_dependency(&self, src: NodeId, dst: NodeId) {
-        if let Some(system) = self.0.lock().unwrap().get_mut(&dst) {
+        if let Some(system) = self.0.lock().get_mut(&dst) {
             match system {
                 SystemDescriptor::Parallel(descriptor) => descriptor.after.push(src.dyn_clone()),
                 SystemDescriptor::Exclusive(descriptor) => descriptor.after.push(src.dyn_clone()),
@@ -122,15 +127,14 @@ impl SystemGraph {
     }
 }
 
-/// A draining conversion from [SystemGraph] to [SystemSet]. All other clones of the same graph
-/// will be empty afterwards.
+/// A draining conversion to [SystemSet]. All other clones of the same graph will be empty
+/// afterwards.
 ///
-/// [SystemGraph]: crate::schedule::SystemSet
 /// [SystemSet]: crate::schedule::SystemSet
 impl From<SystemGraph> for SystemSet {
     fn from(graph: SystemGraph) -> Self {
         let mut system_set = SystemSet::new();
-        for (_, system) in graph.0.lock().unwrap().drain() {
+        for (_, system) in graph.0.lock().drain() {
             system_set = system_set.with_system(system);
         }
         system_set
@@ -144,14 +148,13 @@ pub struct SystemGraphNode {
 }
 
 impl SystemGraphNode {
+    /// Creates a new node in the graph and adds the current node as it's dependency.
+    ///
+    /// This function can be called multiple times to create
     pub fn then(&self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
         let node = self.graph.create_node(next.into());
-        self.add_dependent(node.id);
+        self.graph.add_dependency(self.id, node.id);
         node
-    }
-
-    fn add_dependent(&self, dst: NodeId) {
-        self.graph.add_dependency(self.id, dst);
     }
 }
 
@@ -160,11 +163,7 @@ pub trait SystemGraphJoinExt: Sized + IntoIterator<Item = SystemGraphNode> {
         let mut nodes = self.into_iter().peekable();
         let output = nodes
             .peek()
-            .map(|node| {
-                let output_node = node.graph.create_node(next.into());
-                node.add_dependent(output_node.id);
-                output_node
-            })
+            .map(|node| node.graph.create_node(next.into()))
             .expect("Attempted to join a collection of zero nodes.");
 
         for node in nodes {
@@ -172,7 +171,7 @@ pub trait SystemGraphJoinExt: Sized + IntoIterator<Item = SystemGraphNode> {
                 output.graph.is_same_graph(&node.graph),
                 "Joined graph nodes should be from the same graph."
             );
-            node.add_dependent(output.id);
+            output.graph.add_dependency(node.id, output.id);
         }
 
         output
