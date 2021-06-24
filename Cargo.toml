@@ -104,6 +104,10 @@ name = "mesh"
 path = "examples/2d/mesh.rs"
 
 [[example]]
+name="move_sprite"
+path="examples/2d/move_sprite.rs"
+
+[[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
