@@ -435,7 +435,7 @@ impl<'a> serde::Serialize for SerializeArrayLike<'a> {
 // TODO:
 // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
 // Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
-// This can be change to used const generics once serde utilized const generics for arrays.
+// This can be changed to use const generics once serde utilizes const generics for arrays.
 // Tracking issue: https://github.com/serde-rs/serde/issues/1937
 macro_rules! impl_array_get_type_registration {
     ($($N:expr)+) => {
