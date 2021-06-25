@@ -9,6 +9,9 @@ on:
     paths:
       - '**/Cargo.toml'
       - 'deny.toml'
+    branches-ignore:
+      - 'dependabot/**'
+      - staging-squash-merge.tmp
   schedule:
     - cron: "0 0 * * 0"
 
