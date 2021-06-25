@@ -37,7 +37,7 @@ where
 
 impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
 where
-    T::Item: Reflect + Clone,
+    T::Item: FromReflect + Clone,
 {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
@@ -95,7 +95,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -111,7 +111,7 @@ where
     }
 }
 
-impl<T: Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {

@@ -80,8 +80,8 @@ fn setup() {
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
-        // This exposes "list" operations on your type, such as indexing and insertion. List
-        // is automatically implemented for relevant core types like Vec<T>
+        // This exposes "list" operations on your type, such as insertion. List is automatically
+        // implemented for relevant core types like Vec<T>
         ReflectRef::List(_) => {}
         // `Array` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "array" operations on your type, such as indexing. `Array`
