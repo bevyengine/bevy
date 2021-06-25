@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// An ordered, static-sized, mutable array of [`Reflect`] items.
+/// A static-sized array of [`Reflect`] items.
 /// This corresponds to types like `[T; N]` (arrays)
 pub trait Array: Reflect {
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
