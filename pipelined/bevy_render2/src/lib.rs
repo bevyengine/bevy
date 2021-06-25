@@ -2,6 +2,7 @@ pub mod camera;
 pub mod color;
 pub mod core_pipeline;
 pub mod mesh;
+pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
@@ -22,7 +23,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, Plugin, StartupStage};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 
 #[derive(Default)]

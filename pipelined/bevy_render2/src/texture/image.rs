@@ -1,25 +1,23 @@
 use super::image_texture_conversion::image_to_texture;
-use crate::render_resource::{Sampler, Texture, TextureView};
+use crate::{
+    render_asset::RenderAsset,
+    render_resource::{Sampler, Texture, TextureView},
+    renderer::{RenderDevice, RenderQueue},
+};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
+    TextureViewDescriptor,
+};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
-
-// TODO: this shouldn't live in the Texture type
-#[derive(Debug, Clone)]
-pub struct ImageGpuData {
-    pub texture: Texture,
-    pub texture_view: TextureView,
-    pub sampler: Sampler,
-}
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Image {
     pub data: Vec<u8>,
-    pub gpu_data: Option<ImageGpuData>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     pub sampler_descriptor: wgpu::SamplerDescriptor<'static>,
@@ -29,7 +27,6 @@ impl Default for Image {
     fn default() -> Self {
         Image {
             data: Default::default(),
-            gpu_data: None,
             texture_descriptor: wgpu::TextureDescriptor {
                 size: wgpu::Extent3d {
                     width: 1,
@@ -333,6 +330,60 @@ impl TextureFormatPixelInfo for TextureFormat {
         PixelInfo {
             type_size,
             num_components: components,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GpuImage {
+    pub texture: Texture,
+    pub texture_view: TextureView,
+    pub sampler: Sampler,
+}
+
+impl RenderAsset for Image {
+    type ExtractedAsset = Image;
+    type PreparedAsset = GpuImage;
+
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        image: Self::ExtractedAsset,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+    ) -> Self::PreparedAsset {
+        let texture = render_device.create_texture(&image.texture_descriptor);
+        let sampler = render_device.create_sampler(&image.sampler_descriptor);
+
+        let width = image.texture_descriptor.size.width as usize;
+        let format_size = image.texture_descriptor.format.pixel_size();
+        render_queue.write_texture(
+            ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: Origin3d::ZERO,
+            },
+            &image.data,
+            ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(
+                    std::num::NonZeroU32::new(
+                        image.texture_descriptor.size.width * format_size as u32,
+                    )
+                    .unwrap(),
+                ),
+                rows_per_image: None,
+            },
+            image.texture_descriptor.size,
+        );
+
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        GpuImage {
+            texture,
+            texture_view,
+            sampler,
         }
     }
 }

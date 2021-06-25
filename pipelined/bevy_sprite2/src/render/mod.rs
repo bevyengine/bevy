@@ -5,13 +5,14 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     core_pipeline::Transparent2dPhase,
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, Drawable, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     shader::Shader,
     texture::{BevyDefault, Image},
-    view::{ViewMeta, ViewUniformOffset, ViewUniform},
+    view::{ViewMeta, ViewUniform, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -48,23 +49,20 @@ impl FromWorld for SpriteShaders {
             source: ShaderSource::SpirV(Cow::Borrowed(&fragment_spirv)),
         });
 
-        let view_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        // TODO: verify this is correct
-                        min_binding_size: BufferSize::new(
-                            std::mem::size_of::<ViewUniform>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-                label: None,
-            });
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    // TODO: verify this is correct
+                    min_binding_size: BufferSize::new(std::mem::size_of::<ViewUniform>() as u64),
+                },
+                count: None,
+            }],
+            label: None,
+        });
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -164,9 +162,7 @@ impl FromWorld for SpriteShaders {
 struct ExtractedSprite {
     transform: Mat4,
     size: Vec2,
-    // TODO: use asset handle here instead of owned renderer handles (lots of arc cloning)
-    texture_view: TextureView,
-    sampler: Sampler,
+    handle: Handle<Image>,
 }
 
 pub struct ExtractedSprites {
@@ -175,21 +171,20 @@ pub struct ExtractedSprites {
 
 pub fn extract_sprites(
     mut commands: Commands,
-    textures: Res<Assets<Image>>,
+    images: Res<Assets<Image>>,
     query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
 ) {
     let mut extracted_sprites = Vec::new();
     for (sprite, transform, handle) in query.iter() {
-        if let Some(texture) = textures.get(handle) {
-            if let Some(gpu_data) = &texture.gpu_data {
-                extracted_sprites.push(ExtractedSprite {
-                    transform: transform.compute_matrix(),
-                    size: sprite.size,
-                    texture_view: gpu_data.texture_view.clone(),
-                    sampler: gpu_data.sampler.clone(),
-                })
-            }
+        if !images.contains(handle) {
+            continue;
         }
+
+        extracted_sprites.push(ExtractedSprite {
+            transform: transform.compute_matrix(),
+            size: sprite.size,
+            handle: handle.clone_weak(),
+        })
     }
 
     commands.insert_resource(ExtractedSprites {
@@ -211,7 +206,7 @@ pub struct SpriteMeta {
     view_bind_group: Option<BindGroup>,
     // TODO: these should be garbage collected if unused across X frames
     texture_bind_groups: Vec<BindGroup>,
-    texture_bind_group_indices: HashMap<TextureViewId, usize>,
+    texture_bind_group_indices: HashMap<Handle<Image>, usize>,
 }
 
 impl Default for SpriteMeta {
@@ -309,9 +304,10 @@ pub fn queue_sprites(
     view_meta: Res<ViewMeta>,
     sprite_shaders: Res<SpriteShaders>,
     extracted_sprites: Res<ExtractedSprites>,
+    gpu_images: Res<RenderAssets<Image>>,
     mut views: Query<&mut RenderPhase<Transparent2dPhase>>,
 ) {
-    // TODO: define this without needing to check every frame 
+    // TODO: define this without needing to check every frame
     sprite_meta.view_bind_group.get_or_insert_with(|| {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
@@ -323,27 +319,25 @@ pub fn queue_sprites(
         })
     });
     let sprite_meta = &mut *sprite_meta;
+    let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
     for mut transparent_phase in views.iter_mut() {
-        // TODO: free old bind groups? clear_unused_bind_groups() currently does this for us? Moving to RAII would also do this for us?
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
-
         let texture_bind_groups = &mut sprite_meta.texture_bind_groups;
-        // let material_layout = ;
         for (i, sprite) in extracted_sprites.sprites.iter().enumerate() {
             let bind_group_index = *sprite_meta
                 .texture_bind_group_indices
-                .entry(sprite.texture_view.id())
+                .entry(sprite.handle.clone_weak())
                 .or_insert_with(|| {
+                    let gpu_image = gpu_images.get(&sprite.handle).unwrap();
                     let index = texture_bind_groups.len();
                     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                         entries: &[
                             BindGroupEntry {
                                 binding: 0,
-                                resource: BindingResource::TextureView(&sprite.texture_view),
+                                resource: BindingResource::TextureView(&gpu_image.texture_view),
                             },
                             BindGroupEntry {
                                 binding: 1,
-                                resource: BindingResource::Sampler(&sprite.sampler),
+                                resource: BindingResource::Sampler(&gpu_image.sampler),
                             },
                         ],
                         label: None,
@@ -410,10 +404,9 @@ impl Draw for DrawSprite {
     ) {
         const INDICES: usize = 6;
         let (sprite_shaders, sprite_meta, views) = self.params.get(world);
-        let (sprite_shaders, sprite_meta, views) =
-            (sprite_shaders.into_inner(), sprite_meta.into_inner(), views);
         let view_uniform = views.get(view).unwrap();
-        pass.set_render_pipeline(&sprite_shaders.pipeline);
+        let sprite_meta = sprite_meta.into_inner();
+        pass.set_render_pipeline(&sprite_shaders.into_inner().pipeline);
         pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
         pass.set_index_buffer(
             sprite_meta.indices.buffer().unwrap().slice(..),
