@@ -30,8 +30,8 @@ pub mod prelude {
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemGraph, SystemGraphJoinExt, SystemGroup,
-            SystemLabel, SystemSet, SystemStage,
+            Schedule, Stage, StageLabel, State, SystemGraph, SystemGroup, SystemJoin, SystemLabel,
+            SystemSet, SystemStage,
         },
         system::{
             Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,

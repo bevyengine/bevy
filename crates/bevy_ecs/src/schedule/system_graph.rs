@@ -30,8 +30,8 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// ```
 ///
 /// # Fan Out
-/// `SystemGraphNode::then` can be called repeatedly on the same node to create multiple fan-out
-/// branches. All fanned out systems will not execute until the original has finished.
+/// [fork] can be used to fan out into multiple branches. All fanned out systems will not execute
+/// until the original has finished.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # fn sys_a() {}
@@ -42,26 +42,25 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// # fn sys_f() {}
 /// let graph = SystemGraph::new();
 ///
-/// // Split out from one original node.
+/// // Fork out from one original node.
 /// let (c, b, d) = graph.root(sys_a.system())
-///     .split_into((
+///     .fork((
 ///         sys_b.system(),
 ///         sys_c.system(),
 ///         sys_d.system(),
 ///     ));
 ///
-/// // The returned nodes can then be continued.
-/// d.then(sys_e.system())
-///  .then(sys_f.system());
+/// // Alternatively, calling "then" repeatedly achieves the same thing.
+/// let e = d.then(sys_e.system());
+/// let f = d.then(sys_f.system());
 ///
 /// // Convert into a SystemSet
 /// let system_set: SystemSet = graph.into();
 /// ```
 ///
 /// # Fan In
-/// A graph node can wait on multiple systems before running.
-/// `SystemGraphJoinExt::join_into` is implemented on any type that iterates over
-/// `SystemGraphNode`.
+/// A graph node can wait on multiple systems before running via [join]. The system will not run
+/// until all prior systems are finished.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # fn sys_a() {}
@@ -75,9 +74,29 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// let start_b = graph.root(sys_b.system());
 /// let start_c = graph.root(sys_c.system());
 ///
-/// vec![start_a, start_b, start_c]
-///     .join_into(sys_d.system())
+/// (start_a, start_b, start_c)
+///     .join(sys_d.system())
 ///     .then(sys_e.system());
+///
+/// // Convert into a SystemSet
+/// let system_set: SystemSet = graph.into();
+/// ```
+///
+/// # Fan In
+/// The types used to implement [fork] and [join] are composable.
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # fn sys_a() {}
+/// # fn sys_b() {}
+/// # fn sys_c() {}
+/// # fn sys_d() {}
+/// # fn sys_e() {}
+/// # fn sys_f() {}
+/// let graph = SystemGraph::new();
+/// graph.root(sys_a.system())
+///      .fork((sys_b.system(), sys_c.system(), sys_d.system()))
+///      .join(sys_e.system())
+///      .then(sys_f.system());
 ///
 /// // Convert into a SystemSet
 /// let system_set: SystemSet = graph.into();
@@ -86,6 +105,9 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// # Cloning
 /// This type is backed by a Rc, so cloning it will still point to the same logical
 /// underlying graph.
+///
+/// [fork]: crate::schedule::SystemGraphNode::join
+/// [join]: crate::schedule::SystemJoin::join
 #[derive(Clone)]
 pub struct SystemGraph {
     id: u32,
@@ -169,6 +191,10 @@ pub struct SystemGraphNode {
 }
 
 impl SystemGraphNode {
+    pub fn graph(&self) -> SystemGraph {
+        self.graph.clone()
+    }
+
     /// Creates a new node in the graph and adds the current node as it's dependency.
     ///
     /// This function can be called multiple times to add mulitple systems to the graph,
@@ -183,50 +209,29 @@ impl SystemGraphNode {
     /// systems will not run until the original node's system finishes running.
     ///
     /// Functionally equivalent to calling `SystemGraphNode::then` multiple times.
-    pub fn split_into<T: SystemGroup>(&self, system_group: T) -> T::Output {
-        system_group.split_into(self)
+    pub fn fork<T: SystemGroup>(&self, system_group: T) -> T::Output {
+        system_group.fork_from(self)
     }
 }
 
 pub trait SystemGroup {
     type Output;
-    fn split_into(self, src: &SystemGraphNode) -> Self::Output;
+    fn fork_from(self, src: &SystemGraphNode) -> Self::Output;
+}
+
+pub trait SystemJoin {
+    fn join(self, next: impl Into<SystemDescriptor>) -> SystemGraphNode;
 }
 
 impl<T: Into<SystemDescriptor>> SystemGroup for Vec<T> {
     type Output = Vec<SystemGraphNode>;
-    fn split_into(self, src: &SystemGraphNode) -> Self::Output {
+    fn fork_from(self, src: &SystemGraphNode) -> Self::Output {
         self.into_iter().map(|sys| src.then(sys.into())).collect()
     }
 }
 
-macro_rules! ignore_first {
-    ($_first:ident, $second:ty) => {
-        $second
-    };
-}
-
-macro_rules! impl_system_group_tuple {
-    ($($param: ident),*) => {
-        impl<$($param: Into<SystemDescriptor>),*> SystemGroup for ($($param,)*) {
-            // HACK: using repeat macros without using the param in it fails to compile.
-            // The ignore_first here "uses" the parameter and just discards it.
-            type Output = ($(ignore_first!($param, SystemGraphNode),)*);
-
-            #[inline]
-            #[allow(non_snake_case)]
-            fn split_into(self, src: &SystemGraphNode) -> Self::Output {
-                let ($($param,)*) = self;
-                ($(src.then($param::into($param)),)*)
-            }
-        }
-    };
-}
-
-all_tuples!(impl_system_group_tuple, 2, 16, T);
-
-pub trait SystemGraphJoinExt: Sized + IntoIterator<Item = SystemGraphNode> {
-    fn join_into(self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
+impl SystemJoin for Vec<SystemGraphNode> {
+    fn join(self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
         let mut nodes = self.into_iter().peekable();
         let output = nodes
             .peek()
@@ -245,7 +250,45 @@ pub trait SystemGraphJoinExt: Sized + IntoIterator<Item = SystemGraphNode> {
     }
 }
 
-impl<T: IntoIterator<Item = SystemGraphNode>> SystemGraphJoinExt for T {}
+// HACK: using repeat macros without using the param in it fails to compile. The ignore_first
+// here "uses" the parameter by discarding it.
+macro_rules! ignore_first {
+    ($_first:ident, $second:ty) => {
+        $second
+    };
+}
+
+macro_rules! impl_system_tuple {
+    ($($param: ident),*) => {
+        impl<$($param: Into<SystemDescriptor>),*> SystemGroup for ($($param,)*) {
+            type Output = ($(ignore_first!($param, SystemGraphNode),)*);
+
+            #[inline]
+            #[allow(non_snake_case)]
+            fn fork_from(self, src: &SystemGraphNode) -> Self::Output {
+                let ($($param,)*) = self;
+                ($(src.then($param::into($param)),)*)
+            }
+        }
+
+        impl SystemJoin for ($(ignore_first!($param, SystemGraphNode),)*) {
+            #[inline]
+            #[allow(non_snake_case)]
+            fn join(self, next: impl Into<SystemDescriptor>) -> SystemGraphNode {
+                let output = self.0.graph.create_node(next.into());
+                let ($($param,)*) = self;
+                $(
+                    assert!(output.graph.is_same_graph(&$param.graph),
+                            "Joined graph nodes should be from the same graph.");
+                    output.graph.add_dependency($param.id, output.id);
+                )*
+                output
+            }
+        }
+    };
+}
+
+all_tuples!(impl_system_tuple, 2, 16, T);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct NodeId {
@@ -282,7 +325,7 @@ mod test {
             .then(dummy_system.system())
             .then(dummy_system.system());
         vec![a, b, c]
-            .join_into(dummy_system.system())
+            .join(dummy_system.system())
             .then(dummy_system.system());
         let system_set: SystemSet = graph.into();
         let (_, systems) = system_set.bake();
@@ -306,7 +349,7 @@ mod test {
             .then(dummy_system.system())
             .then(dummy_system.system());
         vec![a, b, c]
-            .join_into(dummy_system.system())
+            .join(dummy_system.system())
             .then(dummy_system.system());
         let system_set: SystemSet = graph.into();
         let (_, systems) = system_set.bake();
