@@ -32,7 +32,7 @@ impl<T: Send + Sync + 'static> Component for T {}
 /// The [`StorageType`] for a component is normally configured via `World::register_component`.
 ///
 /// ```
-/// # use bevy_ecs::{prelude::*, component::ComponentDescriptor};
+/// # use bevy_ecs::{prelude::*, component::*};
 ///
 /// struct A;
 ///
