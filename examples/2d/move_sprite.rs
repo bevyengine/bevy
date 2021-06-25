@@ -8,8 +8,9 @@ fn main() {
         .run();
 }
 
-struct BevyLogo {
-    rising: bool,
+enum Direction {
+    UP,
+    DOWN
 }
 
 fn setup(
@@ -24,21 +25,21 @@ fn setup(
             material: materials.add(texture_handle.into()),
             ..Default::default()
         })
-        .insert(BevyLogo { rising: true });
+        .insert(Direction::UP);
 }
 
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut BevyLogo, &mut Transform)>) {
+fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in sprite_position.iter_mut() {
-        if logo.rising {
-            transform.translation.y += 150. * time.delta_seconds();
-        } else {
-            transform.translation.y -= 150. * time.delta_seconds();
+        
+        match *logo {
+            Direction::UP => transform.translation.y += 150. * time.delta_seconds(),
+            Direction::DOWN => transform.translation.y -= 150. * time.delta_seconds(),
         }
 
         if transform.translation.y > 200. {
-            logo.rising = false;
+            *logo = Direction::DOWN;
         } else if transform.translation.y < -200. {
-            logo.rising = true;
+            *logo = Direction::UP;
         }
     }
 }
