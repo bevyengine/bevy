@@ -142,19 +142,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    let static_assert_bundle_func = syn::Ident::new(
-        &format!(
-            "static_assert_{}_does_not_have_duplicate_types",
-            struct_name.to_string()
-        ),
-        struct_name.span(),
+    let static_assert_bundle_func = format_ident!(
+        "static_assert_{}_does_not_have_duplicate_types",
+        struct_name
     );
-
-    let static_assert_trait = syn::Ident::new(
-        &format!("AssertDistinctComponents{}", struct_name.to_string()),
-        struct_name.span(),
-    );
-
+    let static_assert_trait = format_ident!("AssertDistinctComponentsFor{}", struct_name);
     let field_types = field_data.iter().map(|(_, ty, _)| ty);
 
     TokenStream::from(quote! {
