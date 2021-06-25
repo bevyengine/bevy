@@ -1,3 +1,26 @@
+//! The handle to an object stored in a [`World`](crate::world::World).
+//!
+//! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
+//! `struct` is just an identification number that [`Component`s](crate::component::Component)
+//! can refer to in order to attach meaningful data to it. As the
+//! [book](#) explains, this is a fundamental design choice to increase performance and usability.
+//!
+//! # Usage
+//!
+//! In the following list there are links to the methods used to perform common operations
+//! involving entities:
+//!
+//! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
+//! - **Spawning an entity with components:** use
+//!   [`Commands::spawn_bundle`](crate::system::Commands::spawn_bundle).
+//! - **Adding multiple components to an entity:** use
+//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
+//! - **Despawning an entity:** use
+//!   [`EntityCommands::despawn`](crate::system::EntityCommands::despawn).
+//! - **Inserting a component to an entity:** use
+//!   [`EntityCommands::insert`](crate::system::EntityCommands::insert).
+//! - **Removing a component to an entity:** use
+//!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
 mod map_entities;
 mod serde;
 
