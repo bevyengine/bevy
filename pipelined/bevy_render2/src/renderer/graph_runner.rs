@@ -1,5 +1,8 @@
 use bevy_ecs::world::World;
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{
+    tracing::{debug, info_span},
+    HashMap,
+};
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
@@ -52,8 +55,17 @@ impl RenderGraphRunner {
             render_device,
             command_encoder,
         };
-        Self::run_graph(graph, None, &mut render_context, world, &[])?;
-        queue.submit(vec![render_context.command_encoder.finish()]);
+
+        {
+            let span = info_span!("run_graph");
+            let _guard = span.enter();
+            Self::run_graph(graph, None, &mut render_context, world, &[])?;
+        }
+        {
+            let span = info_span!("submit_graph_commands");
+            let _guard = span.enter();
+            queue.submit(vec![render_context.command_encoder.finish()]);
+        }
         Ok(())
     }
 
