@@ -3,7 +3,8 @@
 //! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
 //! `struct` is just an identification number that [`Component`s](crate::component::Component)
 //! can refer to in order to attach meaningful data to it. As the
-//! [book](#) explains, this is a fundamental design choice to increase performance and usability.
+//! [book](#) explains, this is a fundamental design choice that has been made to increase
+//! performance and usability.
 //!
 //! # Usage
 //!
