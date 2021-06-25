@@ -109,7 +109,7 @@ unsafe impl<T: Reflect> Reflect for Vec<T> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        None
+        crate::array_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -117,7 +117,7 @@ unsafe impl<T: Reflect> Reflect for Vec<T> {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        None
+        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
     }
 }
 
@@ -386,7 +386,7 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn serializable(&self) -> Option<Serializable> {
-        None
+        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
     }
 }
 
@@ -414,4 +414,16 @@ impl_array_get_type_registration! {
     10 11 12 13 14 15 16 17 18 19
     20 21 22 23 24 25 26 27 28 29
     30 31 32
+}
+
+// Supports dynamic serialization for types that implement `Array`.
+struct SerializeArrayLike<'a>(&'a dyn Array);
+
+impl<'a> serde::Serialize for SerializeArrayLike<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        crate::array_serialize(self.0, serializer)
+    }
 }
