@@ -157,7 +157,7 @@ unsafe impl Reflect for DynamicList {
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        None
+        crate::array_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -165,7 +165,16 @@ unsafe impl Reflect for DynamicList {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        None
+        Some(Serializable::Borrowed(self))
+    }
+}
+
+impl serde::Serialize for DynamicList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        crate::array_serialize(self, serializer)
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use serde::ser::SerializeSeq;
 use std::{
     any::Any,
     hash::{Hash, Hasher},
@@ -126,7 +127,7 @@ unsafe impl Reflect for DynamicArray {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        None
+        Some(Serializable::Borrowed(self))
     }
 }
 
@@ -190,6 +191,42 @@ impl<'a> Iterator for ArrayIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for ArrayIter<'a> {}
+
+impl<'a> serde::Serialize for dyn Array {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        array_serialize(self, serializer)
+    }
+}
+
+impl serde::Serialize for DynamicArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        array_serialize(self, serializer)
+    }
+}
+
+#[inline]
+pub fn array_serialize<A: Array + ?Sized, S>(array: &A, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(array.len()))?;
+    for element in array.iter() {
+        let serializable = element.serializable().ok_or_else(|| {
+            serde::ser::Error::custom(format!(
+                "Type '{}' does not support `Reflect` serialization",
+                element.type_name()
+            ))
+        })?;
+        seq.serialize_element(serializable.borrow())?;
+    }
+    seq.end()
+}
 
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
