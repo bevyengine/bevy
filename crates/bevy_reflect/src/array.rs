@@ -15,7 +15,7 @@ pub trait Array: Reflect {
         self.len() == 0
     }
     fn iter(&self) -> ArrayIter;
-    fn clone_dynamic_array(&self) -> DynamicArray {
+    fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
@@ -87,7 +87,7 @@ unsafe impl Reflect for DynamicArray {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic_array())
+        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -129,7 +129,7 @@ impl Array for DynamicArray {
     }
 
     #[inline]
-    fn clone_dynamic_array(&self) -> DynamicArray {
+    fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
             values: self

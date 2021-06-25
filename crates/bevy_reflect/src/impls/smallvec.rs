@@ -85,7 +85,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic_list())
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {

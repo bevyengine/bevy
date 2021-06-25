@@ -7,7 +7,7 @@ use crate::{serde::Serializable, Array, ArrayIter, DynamicArray, Reflect, Reflec
 /// size to grow.
 pub trait List: Array {
     fn push(&mut self, value: Box<dyn Reflect>);
-    fn clone_dynamic_list(&self) -> DynamicList {
+    fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
@@ -59,7 +59,7 @@ impl Array for DynamicList {
         }
     }
 
-    fn clone_dynamic_array(&self) -> DynamicArray {
+    fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
             values: self
@@ -76,7 +76,7 @@ impl List for DynamicList {
         DynamicList::push_box(self, value);
     }
 
-    fn clone_dynamic_list(&self) -> DynamicList {
+    fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.name.clone(),
             values: self
@@ -127,7 +127,7 @@ unsafe impl Reflect for DynamicList {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic_list())
+        Box::new(List::clone_dynamic(self))
     }
 
     #[inline]

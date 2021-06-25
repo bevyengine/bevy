@@ -236,7 +236,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic_list());
+        foo_patch.insert("c", List::clone_dynamic(&list));
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -340,11 +340,11 @@ mod tests {
     #[test]
     fn dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic_list();
+        let dyn_list = List::clone_dynamic(&list);
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
 
         let array = [b'0'; 4];
-        let dyn_array = array.clone_dynamic_array();
+        let dyn_array = array.clone_dynamic();
         assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();

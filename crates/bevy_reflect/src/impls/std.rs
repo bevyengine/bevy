@@ -105,7 +105,7 @@ unsafe impl<T: Reflect> Reflect for Vec<T> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic_list())
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -371,7 +371,7 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic_array())
+        Box::new(self.clone_dynamic())
     }
 
     #[inline]
