@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// An ordered, static-sized, mutable array of [`Reflect`] items.
+/// A static-sized array of [`Reflect`] items.
 /// This corresponds to types like `[T; N]` (arrays)
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
