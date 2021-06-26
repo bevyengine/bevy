@@ -137,6 +137,36 @@ use thiserror::Error;
 /// # ) {}
 /// # non_tuple_system.system()
 /// ```
+///
+/// # Iteration
+///
+/// Inside the body function of the system, the `Query` is available as a function parameter.
+/// The most important methods are [`iter`](Self::iter) for read only queries, and
+/// [`iter_mut`](Self::iter_mut) for queries that contain at least one mutable accessed
+/// component.
+///
+/// ```
+/// # use crate::system::IntoSystem;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
+///     for (a, b) in query.iter {
+///         // ...
+///     }
+/// }
+/// # immutable_query_system.system();
+///
+/// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
+///     for (mut a, b) in query.iter_mut {
+///         // ...
+///     }
+/// }
+/// # mutable_query_system.system();
+/// ```
+///
+/// To get just the first result, use `iter.next()` or `iter_mut.next()`. You can use
+/// [`single`](Self::single) or [`single_mut`](Self::single_mut) instead if you want to
+/// get an error on non exactly single results.
 pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
