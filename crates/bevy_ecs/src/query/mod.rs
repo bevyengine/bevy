@@ -1,3 +1,12 @@
+//! Helper types for `Query`.
+//!
+//! # Query filters
+//! Query filters restrict query results. The following is a full list of filters:
+//!
+//! - [`With`]
+//! - [`Without`]
+//! - [`WithBundle`]
+//! - [`Or`]
 mod access;
 mod fetch;
 mod filter;
