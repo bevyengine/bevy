@@ -3,6 +3,8 @@
 //! # Query filters
 //! Query filters restrict query results. The following is a full list of filters:
 //!
+//! - [`Added`]
+//! - [`Changed`]
 //! - [`With`]
 //! - [`Without`]
 //! - [`WithBundle`]
