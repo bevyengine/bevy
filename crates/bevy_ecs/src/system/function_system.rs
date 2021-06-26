@@ -173,13 +173,20 @@ impl<Param: SystemParam> SystemState<Param> {
 ///
 /// let system = my_system_function.system();
 /// ```
-pub trait IntoSystem<Params, SystemType: System> {
+// This trait has to be generic because we have potentially overlapping impls, in particular
+// because Rust thinks a type could impl multiple different `FnMut` combinations
+// even though none can currently
+pub trait IntoSystem<In, Out, Params> {
+    type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    fn system(self) -> SystemType;
+    fn system(self) -> Self::System;
 }
 
+pub struct AlreadyWasSystem;
+
 // Systems implicitly implement IntoSystem
-impl<Sys: System> IntoSystem<(), Sys> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+    type System = Sys;
     fn system(self) -> Sys {
         self
     }
@@ -256,8 +263,9 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
         self
     }
 }
+pub struct IsFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<Param, FunctionSystem<In, Out, Param, Marker, F>> for F
+impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
 where
     In: 'static,
     Out: 'static,
@@ -265,7 +273,8 @@ where
     Marker: 'static,
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
-    fn system(self) -> FunctionSystem<In, Out, Param, Marker, F> {
+    type System = FunctionSystem<In, Out, Param, Marker, F>;
+    fn system(self) -> Self::System {
         FunctionSystem {
             func: self,
             param_state: None,
@@ -384,6 +393,8 @@ macro_rules! impl_system_function {
         {
             #[inline]
             unsafe fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                // Yes, this is strange, but rustc fails to compile this impl
+                // without using this function.
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
                     $($param: $param,)*

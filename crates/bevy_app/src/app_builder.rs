@@ -7,7 +7,7 @@ use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     event::Events,
     schedule::{
-        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
+        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
     },
     system::{IntoExclusiveSystem, IntoSystem},
     world::{FromWorld, World},
@@ -180,7 +180,7 @@ impl AppBuilder {
     /// App::build()
     ///     .add_system(my_system.system());
     /// ```
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
         self.add_system_to_stage(CoreStage::Update, system)
     }
 
@@ -188,10 +188,10 @@ impl AppBuilder {
         self.add_system_set_to_stage(CoreStage::Update, system_set)
     }
 
-    pub fn add_system_to_stage(
+    pub fn add_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
-        system: impl Into<SystemDescriptor>,
+        system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_label, system);
         self
@@ -228,7 +228,10 @@ impl AppBuilder {
     /// App::build()
     ///     .add_startup_system(my_startup_system.system());
     /// ```
-    pub fn add_startup_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+    pub fn add_startup_system<Params>(
+        &mut self,
+        system: impl IntoSystemDescriptor<Params>,
+    ) -> &mut Self {
         self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
@@ -236,10 +239,10 @@ impl AppBuilder {
         self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
     }
 
-    pub fn add_startup_system_to_stage(
+    pub fn add_startup_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
-        system: impl Into<SystemDescriptor>,
+        system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
         self.app
             .schedule
