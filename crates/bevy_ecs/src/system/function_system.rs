@@ -395,6 +395,7 @@ macro_rules! impl_system_function {
             unsafe fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
                 // Yes, this is strange, but rustc fails to compile this impl
                 // without using this function.
+                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
                     $($param: $param,)*
@@ -415,6 +416,7 @@ macro_rules! impl_system_function {
         {
             #[inline]
             unsafe fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
                     mut f: impl FnMut(In<Input>, $($param,)*)->Out,
                     input: In<Input>,
