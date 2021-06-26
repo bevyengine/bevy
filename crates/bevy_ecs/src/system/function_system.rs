@@ -376,30 +376,43 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
         where
-            Func:
+        for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
+                FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
         {
             #[inline]
             unsafe fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                fn call_inner<Out, $($param,)*>(
+                    mut f: impl FnMut($($param,)*)->Out,
+                    $($param: $param,)*
+                )->Out{
+                    f($($param,)*)
+                }
                 let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                self($($param),*)
+                call_inner(self, $($param),*)
             }
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
         where
-            Func:
+        for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
+                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
         {
             #[inline]
             unsafe fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                fn call_inner<Input, Out, $($param,)*>(
+                    mut f: impl FnMut(In<Input>, $($param,)*)->Out,
+                    input: In<Input>,
+                    $($param: $param,)*
+                )->Out{
+                    f(input, $($param,)*)
+                }
                 let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                self(In(input), $($param),*)
+                call_inner(self, In(input), $($param),*)
             }
         }
     };
