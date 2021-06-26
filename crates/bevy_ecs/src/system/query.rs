@@ -11,102 +11,132 @@ use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
-/// Provides scoped access to a [`World`] according to a given [`WorldQuery`] and query filter.
+/// Provides scoped access to a [`World`].
 ///
 /// Queries are a powerful tool enabling the programmer to iterate over entities and their components
 /// as well as filtering them on certain conditions.
 ///
-/// # Query Building Primer
+/// Query functionality is based on the [`WorldQuery`] trait. Both tuples of components
+/// (up to 16 elements) and query filters implement this trait.
 ///
-/// ### Basic Component Access
+/// `Query` accepts two type parameters:
 ///
-/// A basic query looks like `Query<&UnitHealth>` and all it does is grant immutable access to all
-/// `UnitHealth` components. Similarly using `&mut UnitHealth` instead grants mutable access instead.
+/// ```notrust
+/// Query</*data access*/, /*query filter (optional)*/>
+/// ```
 ///
-/// The main way to access the components of a query is through the [`Query::iter`] and [`Query::iter_mut`]
-/// functions which return a [`QueryIter`] to iterate over:
+/// # Usage as system parameter
+///
+/// ## Immutable component access
+///
+/// The following example defines a query that gives an iterator over `(&ComponentA, &ComponentB)`
+/// tuples, where `ComponentA` and `ComponentB` belong to the same entity. Accessing components
+/// immutably helps system parallelization.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
-/// struct UnitHealth(pub u32);
-/// fn system(query: Query<&UnitHealth>) {
-///     for UnitHealth(health) in query.iter() {
-///         println!("We got {} health points left!", health);
-///     }
-/// }
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # fn system(
+/// query: Query<(&ComponentA, &ComponentB)>
+/// # ) {}
 /// # system.system();
 /// ```
 ///
-/// ### Multiple Component Access
+/// ## Mutable component access
 ///
-/// Instead of asking for just one component like before we can build a query that queries for multiple
-/// components with the help of tuples,`Query<(&Shape, &Color, &mut Size)>`. This query retrieves
-/// immutable references to the `Shape` and `Color` component and a mutable reference to the `Size`
-/// component.
+/// The following example similar to the previous one, with the exception of `ComponentA`
+/// being accessed mutably here. Both mutable and immutable accesses are allowed in the same
+/// query. Two systems cannot be executed in parallel if both access a certain component and
+/// at least one of the accesses is mutable.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
-/// #[derive(Debug)]
-/// enum Shape {
-///     Circle,
-///     Box,
-/// };
-/// struct Color(pub String);
-/// struct Size(pub u32);
-/// fn system(mut query: Query<(&Shape, &Color, &mut Size)>) {
-///     for (shape, color, mut size) in query.iter_mut() {
-///         *size = Size(1);
-///         println!("We got a {} colored {:?} and made it one unit big!", color.0, shape);
-///     }
-/// }
+/// # use crate::system::IntoSystem;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # fn system(
+/// // `ComponentA` is accessed mutably, while `ComponentB` is accessed immutably.
+/// mut query: Query<(&mut ComponentA, &ComponentB)>
+/// # ) {}
 /// # system.system();
 /// ```
 ///
-/// Note the use of [`Query::iter_mut`] here, as our query is not read-only anymore due to the use
-/// of the `&mut` [`WorldQuery`] we aren't able to use the `iter` method any longer.
+/// ## Entity handle access
 ///
-/// ### Filtering Query Results
-///
-/// Queries also support filters. A filter is a [`WorldQuery`] that can be used as a predicate to
-/// filter out entities that do not meet the requirement set by the predicate. [`With`](crate::query::With)
-/// is one such filter and all it does is filter out all entities that do not contain the component
-/// it requests. Let's look at an example on how to use this filter.
+/// Inserting [`Entity`](crate::entity::Entity) in the type parameter tuple will give access
+/// to the entity handle.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
-/// # use bevy_ecs::query::With;
-/// struct Person(String);
-/// struct IsTallEnough;
-/// fn system(query: Query<&Person, With<IsTallEnough>>) {
-///     for person in query.iter() {
-///         println!("{} is tall enough!", person.0);
-///     }
-/// }
+/// # use crate::entity::Entity;
+/// # use crate::system::IntoSystem;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # fn system(
+/// query: Query<(Entity, &ComponentA, &ComponentB)>
+/// # ) {}
 /// # system.system();
 /// ```
 ///
-/// As shown above, the filter is a second type parameter of the query. It is optional (defaults to
-/// ()). Filters do not give access to the component data, only limit the entities that the query will match.
+/// ## Query filtering
 ///
-/// ### Optional Components
+/// From the second type parameter on, filters can be added to restrict the query results,
+/// filtering out the elements that don't satisfy the given condition.
 ///
-/// Now we've seen how to narrow down results of a query, but what if we want to act on entities that
-/// may have a component but not always. This is where [`Option`] comes into play, with `Option` we
-/// can specify just that. The result of the following query, `Query<&Color, Option<&mut Size>>`, is
-/// the tuple `(&Color, Option<&mut Size>)` containing all entities that have the `Color` component,
-/// some of which also have a `Size` component. Note that we didn't put a [`Component`] inside the
-/// `Option` but a [`WorldQuery`], `&mut T` in this case. This means we can also do the following
-/// just fine, `Query<Option<(&Size, &Color)>>`.
+/// ```
+/// # use crate::system::IntoSystem;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # struct ComponentC;
+/// # fn system(
+/// // `ComponentC` data won't be accessed, but only entities that contains it will be queried.
+/// query: Query<(&ComponentA, &ComponentB), With<ComponentC>>
+/// # ) {}
+/// # system.system();
+/// ```
 ///
-/// Do take care when handling optional components though, as iterating a query that solely consists
-/// of optional components will go over all the entities of the [`World`]. Therefore it's best to
-/// design your queries in such a way that they at least contain one non-optional [`WorldQuery`].
+/// See the [`query`](crate::query) module for a full list of available filters.
 ///
-/// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
-/// bevy has to offer.
+/// ## Optional component access
+///
+/// A component can be made optional in a query by wrapping it into an [`Option`]. In the
+/// following example, the query will iterate over components of both entities that contain
+/// `ComponentA` and `ComponentB` and entities that contain `ComponentA` but not `ComponentB`.
+///
+/// ```
+/// # use crate::system::IntoSystem;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # fn system(
+/// query: Query<(&ComponentA, Option<&ComponentB>)>
+/// # ) {}
+/// # system.system();
+/// ```
+///
+/// If an entity does not contain a component, its corresponding query result value will be
+/// `None`. Optional components increase the number of entities a query has to match against,
+/// therefore they can hurt iteration performance, especially in the worst case scenario where
+/// the query solely consists of only optional components, where all entities will be iterated
+/// over.
+///
+/// ## Single component access
+///
+/// The use of the tuple as the type parameter of `Query` can be omitted if just a single
+/// component needs to be accessed.
+///
+/// ```
+/// # use crate::system::IntoSystem;
+/// # struct MyComponent;
+/// # fn tuple_system(
+/// // This is correct, but can be avoided.
+/// query: Query<(&MyComponent,)>
+/// # ) {}
+/// # tuple_system.system()
+///
+/// # fn non_tuple_system(
+/// // This is the preferred method.    
+/// query: Query<&MyComponent>
+/// # ) {}
+/// # non_tuple_system.system()
+/// ```
 pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
