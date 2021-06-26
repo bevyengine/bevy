@@ -410,7 +410,6 @@ impl AppBuilder {
     /// Initialize a resource in the current [`App`], if it does not exist yet
     ///
     /// Adds a resource that implements `Default` or `FromResources` trait.
-    /// If the resource already exists, `init_resource` does nothing.
     ///
     /// ## Example
     /// ```
@@ -448,7 +447,6 @@ impl AppBuilder {
     /// Initialize a non-send resource in the current [`App`], if it does not exist yet.
     ///
     /// Adds a resource that implements `Default` or `FromResources` trait.
-    /// If the resource already exists, it does nothing.
     pub fn init_non_send_resource<R>(&mut self) -> &mut Self
     where
         R: FromWorld + 'static,
