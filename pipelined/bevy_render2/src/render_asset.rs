@@ -21,8 +21,13 @@ pub trait RenderAsset: Asset {
 }
 
 /// Extracts assets into gpu-usable data
-#[derive(Default)]
 pub struct RenderAssetPlugin<A: RenderAsset>(PhantomData<fn() -> A>);
+
+impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
@@ -49,7 +54,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
-pub type RenderAssets<A: RenderAsset> = HashMap<Handle<A>, A::PreparedAsset>;
+pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
 
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,

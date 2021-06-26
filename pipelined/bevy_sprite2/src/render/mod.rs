@@ -15,7 +15,7 @@ use bevy_render2::{
     view::{ViewMeta, ViewUniform, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::slab::{FrameSlabMap, FrameSlabMapKey};
 use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 
@@ -56,7 +56,6 @@ impl FromWorld for SpriteShaders {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    // TODO: verify this is correct
                     min_binding_size: BufferSize::new(std::mem::size_of::<ViewUniform>() as u64),
                 },
                 count: None,
@@ -204,9 +203,8 @@ pub struct SpriteMeta {
     indices: BufferVec<u32>,
     quad: Mesh,
     view_bind_group: Option<BindGroup>,
-    // TODO: these should be garbage collected if unused across X frames
-    texture_bind_groups: Vec<BindGroup>,
-    texture_bind_group_indices: HashMap<Handle<Image>, usize>,
+    texture_bind_group_keys: Vec<FrameSlabMapKey<Handle<Image>, BindGroup>>,
+    texture_bind_groups: FrameSlabMap<Handle<Image>, BindGroup>,
 }
 
 impl Default for SpriteMeta {
@@ -214,8 +212,8 @@ impl Default for SpriteMeta {
         Self {
             vertices: BufferVec::new(BufferUsage::VERTEX),
             indices: BufferVec::new(BufferUsage::INDEX),
-            texture_bind_groups: Vec::new(),
-            texture_bind_group_indices: HashMap::default(),
+            texture_bind_groups: Default::default(),
+            texture_bind_group_keys: Default::default(),
             view_bind_group: None,
             quad: Quad {
                 size: Vec2::new(1.0, 1.0),
@@ -320,16 +318,15 @@ pub fn queue_sprites(
     });
     let sprite_meta = &mut *sprite_meta;
     let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+    sprite_meta.texture_bind_groups.next_frame();
+    sprite_meta.texture_bind_group_keys.clear();
     for mut transparent_phase in views.iter_mut() {
-        let texture_bind_groups = &mut sprite_meta.texture_bind_groups;
         for (i, sprite) in extracted_sprites.sprites.iter().enumerate() {
-            let bind_group_index = *sprite_meta
-                .texture_bind_group_indices
-                .entry(sprite.handle.clone_weak())
-                .or_insert_with(|| {
+            let texture_bind_group_key = sprite_meta.texture_bind_groups.get_or_insert_with(
+                sprite.handle.clone_weak(),
+                || {
                     let gpu_image = gpu_images.get(&sprite.handle).unwrap();
-                    let index = texture_bind_groups.len();
-                    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                    render_device.create_bind_group(&BindGroupDescriptor {
                         entries: &[
                             BindGroupEntry {
                                 binding: 0,
@@ -342,14 +339,17 @@ pub fn queue_sprites(
                         ],
                         label: None,
                         layout: &sprite_shaders.material_layout,
-                    });
-                    texture_bind_groups.push(bind_group);
-                    index
-                });
+                    })
+                },
+            );
+            sprite_meta
+                .texture_bind_group_keys
+                .push(texture_bind_group_key);
+
             transparent_phase.add(Drawable {
                 draw_function: draw_sprite_function,
                 draw_key: i,
-                sort_key: bind_group_index,
+                sort_key: texture_bind_group_key.index(),
             });
         }
     }
@@ -400,7 +400,7 @@ impl Draw for DrawSprite {
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         draw_key: usize,
-        sort_key: usize,
+        _sort_key: usize,
     ) {
         const INDICES: usize = 6;
         let (sprite_shaders, sprite_meta, views) = self.params.get(world);
@@ -418,7 +418,11 @@ impl Draw for DrawSprite {
             sprite_meta.view_bind_group.as_ref().unwrap(),
             &[view_uniform.offset],
         );
-        pass.set_bind_group(1, &sprite_meta.texture_bind_groups[sort_key], &[]);
+        pass.set_bind_group(
+            1,
+            &sprite_meta.texture_bind_groups[sprite_meta.texture_bind_group_keys[draw_key]],
+            &[],
+        );
 
         pass.draw_indexed(
             (draw_key * INDICES) as u32..(draw_key * INDICES + INDICES) as u32,

@@ -1,9 +1,13 @@
 use bevy_app::{App, CoreStage, EventReader, Plugin};
-use bevy_asset::{AddAsset, AssetEvent, Assets, Handle};
+use bevy_asset::{AddAsset, AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
-use bevy_render2::{color::Color, render_resource::{Buffer, BufferId, BufferInitDescriptor, BufferUsage}, renderer::{RenderDevice, RenderQueue}};
+use bevy_render2::{
+    color::Color,
+    render_resource::{Buffer, BufferInitDescriptor, BufferUsage},
+    renderer::RenderDevice,
+};
 use bevy_utils::HashSet;
 use crevice::std140::{AsStd140, Std140};
 
@@ -103,7 +107,6 @@ impl Plugin for StandardMaterialPlugin {
 
 pub fn standard_material_resource_system(
     render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut material_events: EventReader<AssetEvent<StandardMaterial>>,
 ) {
@@ -143,8 +146,6 @@ pub fn standard_material_resource_system(
                 emissive: material.emissive.into(),
             };
             let value_std140 = value.as_std140();
-
-            let size = StandardMaterialUniformData::std140_size_static();
 
             let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: None,

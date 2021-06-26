@@ -4,6 +4,8 @@ use bevy_math::{Mat4, Vec3, Vec4};
 use bevy_render2::{
     color::Color,
     core_pipeline::Transparent3dPhase,
+    mesh::Mesh,
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
@@ -82,10 +84,7 @@ impl FromWorld for ShadowShaders {
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
-            bind_group_layouts: &[
-                &view_layout,
-                &pbr_shaders.mesh_layout,
-            ],
+            bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -378,6 +377,7 @@ type DrawShadowMeshParams<'s, 'w> = (
     Res<'w, ExtractedMeshes>,
     Res<'w, LightMeta>,
     Res<'w, MeshMeta>,
+    Res<'w, RenderAssets<Mesh>>,
     Query<'w, 's, &'w ViewUniformOffset>,
 );
 pub struct DrawShadowMesh {
@@ -401,7 +401,7 @@ impl Draw for DrawShadowMesh {
         draw_key: usize,
         _sort_key: usize,
     ) {
-        let (shadow_shaders, extracted_meshes, light_meta, mesh_meta, views) =
+        let (shadow_shaders, extracted_meshes, light_meta, mesh_meta, meshes, views) =
             self.params.get(world);
         let view_uniform_offset = views.get(view).unwrap();
         let extracted_mesh = &extracted_meshes.into_inner().meshes[draw_key];
@@ -425,8 +425,10 @@ impl Draw for DrawShadowMesh {
                 .unwrap(),
             &[extracted_mesh.transform_binding_offset],
         );
-        pass.set_vertex_buffer(0, extracted_mesh.vertex_buffer.slice(..));
-        if let Some(index_info) = &extracted_mesh.index_info {
+
+        let gpu_mesh = meshes.into_inner().get(&extracted_mesh.mesh).unwrap();
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        if let Some(index_info) = &gpu_mesh.index_info {
             pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
             pass.draw_indexed(0..index_info.count, 0, 0..1);
         } else {

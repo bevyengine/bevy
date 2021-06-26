@@ -1,8 +1,8 @@
 use crate::{
-    render_resource::{Texture, TextureView, TextureViewId},
+    render_resource::{Texture, TextureView},
     renderer::RenderDevice,
 };
-use bevy_ecs::prelude::{Res, ResMut};
+use bevy_ecs::prelude::ResMut;
 use bevy_utils::HashMap;
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
@@ -72,7 +72,7 @@ impl TextureCache {
         }
     }
 
-    pub fn update(&mut self, device: &RenderDevice) {
+    pub fn update(&mut self) {
         for textures in self.textures.values_mut() {
             for texture in textures.iter_mut() {
                 texture.frames_since_last_use += 1;
@@ -84,9 +84,6 @@ impl TextureCache {
     }
 }
 
-pub fn update_texture_cache_system(
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-) {
-    texture_cache.update(&render_device);
+pub fn update_texture_cache_system(mut texture_cache: ResMut<TextureCache>) {
+    texture_cache.update();
 }

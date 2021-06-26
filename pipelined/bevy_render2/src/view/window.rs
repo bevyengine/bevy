@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
@@ -10,7 +8,8 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::HashMap;
 use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
-use wgpu::{SwapChainFrame, TextureFormat};
+use std::ops::{Deref, DerefMut};
+use wgpu::TextureFormat;
 
 pub struct WindowRenderPlugin;
 
@@ -75,10 +74,6 @@ fn extract_windows(mut commands: Commands, windows: Res<Windows>) {
 pub struct WindowSurfaces {
     surfaces: HashMap<WindowId, wgpu::Surface>,
     swap_chains: HashMap<WindowId, wgpu::SwapChain>,
-}
-
-pub struct WindowSwapChain {
-    value: TextureView,
 }
 
 pub fn prepare_windows(

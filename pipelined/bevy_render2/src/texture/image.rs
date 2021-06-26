@@ -357,7 +357,6 @@ impl RenderAsset for Image {
         let texture = render_device.create_texture(&image.texture_descriptor);
         let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
-        let width = image.texture_descriptor.size.width as usize;
         let format_size = image.texture_descriptor.format.pixel_size();
         render_queue.write_texture(
             ImageCopyTexture {

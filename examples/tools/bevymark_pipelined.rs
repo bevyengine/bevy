@@ -242,7 +242,7 @@ impl Default for CountTimer {
 
 fn counter_system(
     mut timer: Local<CountTimer>,
-    diagnostics: Res<Diagnostics>,
+    _diagnostics: Res<Diagnostics>,
     time: Res<Time>,
     counter: Res<BevyCounter>,
 ) {
@@ -255,7 +255,7 @@ fn counter_system(
 ///
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
-fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+fn _gen_color(rng: &mut impl Rng) -> [f32; 3] {
     let r = rng.gen_range(0.2..1.0);
     let g = rng.gen_range(0.2..1.0);
     let b = rng.gen_range(0.2..1.0);
