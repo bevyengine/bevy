@@ -41,10 +41,10 @@ impl<T: Send + Sync + 'static> Component for T {}
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
-    /// Provides fast and cache friendly iteration, but slower adding and removing of components.
+    /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
     /// This is the default storage type.
     Table,
-    /// Provides fast adding and removing of components, but slower iteration.
+    /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
 }
 
