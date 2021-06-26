@@ -34,6 +34,8 @@ use thiserror::Error;
 /// immutably helps system parallelization.
 ///
 /// ```
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// # fn system(
@@ -50,7 +52,8 @@ use thiserror::Error;
 /// at least one of the accesses is mutable.
 ///
 /// ```
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// # fn system(
@@ -66,8 +69,9 @@ use thiserror::Error;
 /// to the entity handle.
 ///
 /// ```
-/// # use crate::entity::Entity;
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// # fn system(
@@ -82,7 +86,9 @@ use thiserror::Error;
 /// filtering out the elements that don't satisfy the given condition.
 ///
 /// ```
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// # struct ComponentC;
@@ -102,7 +108,8 @@ use thiserror::Error;
 /// `ComponentA` and `ComponentB` and entities that contain `ComponentA` but not `ComponentB`.
 ///
 /// ```
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// # fn system(
@@ -123,19 +130,20 @@ use thiserror::Error;
 /// component needs to be accessed.
 ///
 /// ```
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct MyComponent;
 /// # fn tuple_system(
 /// // This is correct, but can be avoided.
 /// query: Query<(&MyComponent,)>
 /// # ) {}
-/// # tuple_system.system()
+/// # tuple_system.system();
 ///
 /// # fn non_tuple_system(
 /// // This is the preferred method.    
 /// query: Query<&MyComponent>
 /// # ) {}
-/// # non_tuple_system.system()
+/// # non_tuple_system.system();
 /// ```
 ///
 /// # Iteration
@@ -146,18 +154,19 @@ use thiserror::Error;
 /// component.
 ///
 /// ```
-/// # use crate::system::IntoSystem;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # struct ComponentA;
 /// # struct ComponentB;
 /// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
-///     for (a, b) in query.iter {
+///     for (a, b) in query.iter() {
 ///         // ...
 ///     }
 /// }
 /// # immutable_query_system.system();
 ///
 /// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
-///     for (mut a, b) in query.iter_mut {
+///     for (mut a, b) in query.iter_mut() {
 ///         // ...
 ///     }
 /// }
