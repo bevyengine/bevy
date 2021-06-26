@@ -1,4 +1,4 @@
-//! Helper types for [`Query`].
+//! Helper types for [`Query`](crate::system::Query).
 //!
 //! # Query filters
 //! Query filters restrict query results. The following is a full list of filters:
