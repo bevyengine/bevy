@@ -544,22 +544,18 @@ impl RenderAsset for Mesh {
         _render_queue: &RenderQueue,
     ) -> Self::PreparedAsset {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = Buffer::from(render_device.create_buffer_with_data(
-            &BufferInitDescriptor {
-                usage: BufferUsage::VERTEX,
-                label: None,
-                contents: &vertex_buffer_data,
-            },
-        ));
+        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsage::VERTEX,
+            label: None,
+            contents: &vertex_buffer_data,
+        });
 
         let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
-            buffer: Buffer::from(render_device.create_buffer_with_data(
-                &BufferInitDescriptor {
-                    usage: BufferUsage::INDEX,
-                    contents: &data,
-                    label: None,
-                },
-            )),
+            buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                usage: BufferUsage::INDEX,
+                contents: &data,
+                label: None,
+            }),
             count: mesh.indices().unwrap().len() as u32,
         });
 

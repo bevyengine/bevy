@@ -7,18 +7,15 @@ mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
 
+pub use self::image::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
-pub use self::image::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
-use crate::{
-    render_asset::RenderAssetPlugin,
-    RenderStage,
-};
+use crate::{render_asset::RenderAssetPlugin, RenderStage};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset};
+use bevy_asset::AddAsset;
 use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?

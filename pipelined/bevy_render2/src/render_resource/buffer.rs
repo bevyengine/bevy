@@ -1,5 +1,8 @@
 use bevy_utils::Uuid;
-use std::{ops::{Bound, Deref, RangeBounds}, sync::Arc};
+use std::{
+    ops::{Bound, Deref, RangeBounds},
+    sync::Arc,
+};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BufferId(Uuid);
@@ -41,7 +44,7 @@ impl From<wgpu::Buffer> for Buffer {
             id: BufferId(Uuid::new_v4()),
             value: Arc::new(value),
         }
-    }   
+    }
 }
 
 impl Deref for Buffer {

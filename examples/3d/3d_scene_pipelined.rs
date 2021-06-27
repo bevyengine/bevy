@@ -4,7 +4,7 @@ use bevy::{
     ecs::prelude::*,
     input::Input,
     math::Vec3,
-    pbr2::{PbrBundle, PointLightBundle, StandardMaterial},
+    pbr2::{OmniLightBundle, PbrBundle, StandardMaterial},
     prelude::{App, Assets, KeyCode, Transform},
     render2::{
         camera::PerspectiveCameraBundle,
@@ -36,8 +36,8 @@ fn setup(
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(StandardMaterial {
-            color: Color::INDIGO,
-            roughness: 1.0,
+            base_color: Color::INDIGO,
+            perceptual_roughness: 1.0,
             ..Default::default()
         }),
         ..Default::default()
@@ -47,8 +47,8 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
-                color: Color::PINK,
-                roughness: 0.0,
+                base_color: Color::PINK,
+                perceptual_roughness: 0.0,
                 metallic: 1.0,
                 reflectance: 1.0,
                 ..Default::default()
@@ -65,7 +65,7 @@ fn setup(
                 ..Default::default()
             })),
             material: materials.add(StandardMaterial {
-                color: Color::LIME_GREEN,
+                base_color: Color::LIME_GREEN,
                 ..Default::default()
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
@@ -73,7 +73,7 @@ fn setup(
         })
         .insert(Movable);
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn_bundle(OmniLightBundle {
         transform: Transform::from_xyz(5.0, 8.0, 2.0),
         ..Default::default()
     });

@@ -11,15 +11,19 @@ use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, Drawable, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
     shader::Shader,
-    texture::BevyDefault,
-    view::{ViewMeta, ViewUniform, ViewUniformOffset},
+    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    view::{ExtractedView, ViewMeta, ViewUniform, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::slab::{FrameSlabMap, FrameSlabMapKey};
 use crevice::std140::AsStd140;
 use std::borrow::Cow;
+use wgpu::{
+    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
+    TextureViewDescriptor,
+};
 
 use crate::{StandardMaterial, StandardMaterialUniformData};
 
@@ -29,6 +33,8 @@ pub struct PbrShaders {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
     mesh_layout: BindGroupLayout,
+    // This dummy white texture is to be used in place of optional StandardMaterial textures
+    dummy_white_gpu_image: GpuImage,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
@@ -122,18 +128,104 @@ impl FromWorld for PbrShaders {
         });
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStage::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(
-                        StandardMaterialUniformData::std140_size_static() as u64,
-                    ),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(
+                            StandardMaterialUniformData::std140_size_static() as u64,
+                        ),
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                // Base Color Texture
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Base Color Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
+                // Emissive Texture
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Emissive Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
+                // Metallic Roughness Texture
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Metallic Roughness Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
+                // Occlusion Texture
+                BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Occlusion Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 8,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
+            ],
             label: None,
         });
 
@@ -222,12 +314,53 @@ impl FromWorld for PbrShaders {
             },
         });
 
+        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
+        let dummy_white_gpu_image = {
+            let image = Image::new_fill(
+                Extent3d::default(),
+                TextureDimension::D2,
+                &[255u8; 4],
+                TextureFormat::bevy_default(),
+            );
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+
+            let format_size = image.texture_descriptor.format.pixel_size();
+            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
+                },
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
+            );
+
+            let texture_view = texture.create_view(&TextureViewDescriptor::default());
+            GpuImage {
+                texture,
+                texture_view,
+                sampler,
+            }
+        };
         PbrShaders {
             pipeline,
             view_layout,
             material_layout,
             mesh_layout,
             vertex_shader_module,
+            dummy_white_gpu_image,
         }
     }
 }
@@ -235,8 +368,8 @@ impl FromWorld for PbrShaders {
 struct ExtractedMesh {
     transform: Mat4,
     mesh: Handle<Mesh>,
-    material_buffer: Buffer,
     transform_binding_offset: u32,
+    material_handle: Handle<StandardMaterial>,
 }
 
 pub struct ExtractedMeshes {
@@ -247,6 +380,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     materials: Res<Assets<StandardMaterial>>,
+    images: Res<Assets<Image>>,
     query: Query<(&GlobalTransform, &Handle<Mesh>, &Handle<StandardMaterial>)>,
 ) {
     let mut extracted_meshes = Vec::new();
@@ -254,15 +388,37 @@ pub fn extract_meshes(
         if !meshes.contains(mesh_handle) {
             continue;
         }
+
         if let Some(material) = materials.get(material_handle) {
-            if let Some(material_gpu_data) = &material.gpu_data() {
-                extracted_meshes.push(ExtractedMesh {
-                    transform: transform.compute_matrix(),
-                    mesh: mesh_handle.clone_weak(),
-                    material_buffer: material_gpu_data.buffer.clone(),
-                    transform_binding_offset: 0,
-                });
+            if let Some(ref image) = material.base_color_texture {
+                if !images.contains(image) {
+                    continue;
+                }
             }
+
+            if let Some(ref image) = material.emissive_texture {
+                if !images.contains(image) {
+                    continue;
+                }
+            }
+            if let Some(ref image) = material.metallic_roughness_texture {
+                if !images.contains(image) {
+                    continue;
+                }
+            }
+            if let Some(ref image) = material.occlusion_texture {
+                if !images.contains(image) {
+                    continue;
+                }
+            }
+            extracted_meshes.push(ExtractedMesh {
+                transform: transform.compute_matrix(),
+                mesh: mesh_handle.clone_weak(),
+                transform_binding_offset: 0,
+                material_handle: material_handle.clone_weak(),
+            });
+        } else {
+            continue;
         }
     }
 
@@ -306,6 +462,23 @@ pub struct MeshViewBindGroups {
     view: BindGroup,
 }
 
+fn image_handle_to_view_sampler<'a>(
+    pbr_shaders: &'a PbrShaders,
+    gpu_images: &'a RenderAssets<Image>,
+    image_option: &Option<Handle<Image>>,
+) -> (&'a TextureView, &'a Sampler) {
+    image_option.as_ref().map_or(
+        (
+            &pbr_shaders.dummy_white_gpu_image.texture_view,
+            &pbr_shaders.dummy_white_gpu_image.sampler,
+        ),
+        |image_handle| {
+        let gpu_image = gpu_images.get(image_handle).expect("only materials with valid textures should be drawn");
+            (&gpu_image.texture_view, &gpu_image.sampler)
+        },
+    )
+}
+
 pub fn queue_meshes(
     mut commands: Commands,
     draw_functions: Res<DrawFunctions>,
@@ -316,7 +489,14 @@ pub fn queue_meshes(
     mut light_meta: ResMut<LightMeta>,
     view_meta: Res<ViewMeta>,
     mut extracted_meshes: ResMut<ExtractedMeshes>,
-    mut views: Query<(Entity, &ViewLights, &mut RenderPhase<Transparent3dPhase>)>,
+    gpu_images: Res<RenderAssets<Image>>,
+    render_materials: Res<RenderAssets<StandardMaterial>>,
+    mut views: Query<(
+        Entity,
+        &ExtractedView,
+        &ViewLights,
+        &mut RenderPhase<Transparent3dPhase>,
+    )>,
     mut view_light_shadow_phases: Query<&mut RenderPhase<ShadowPhase>>,
 ) {
     let mesh_meta = mesh_meta.into_inner();
@@ -346,7 +526,7 @@ pub fn queue_meshes(
             layout: &pbr_shaders.mesh_layout,
         })
     });
-    for (entity, view_lights, mut transparent_phase) in views.iter_mut() {
+    for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
         // TODO: cache this?
         let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
@@ -379,30 +559,107 @@ pub fn queue_meshes(
         mesh_meta.mesh_draw_info.clear();
         mesh_meta.material_bind_groups.next_frame();
 
+        let view_matrix = view.transform.compute_matrix();
+        let view_row_2 = view_matrix.row(2);
         for (i, mesh) in extracted_meshes.meshes.iter_mut().enumerate() {
-            let material_bind_group_key = mesh_meta.material_bind_groups.get_or_insert_with(
-                mesh.material_buffer.id(),
-                || {
-                    render_device.create_bind_group(&BindGroupDescriptor {
-                        entries: &[BindGroupEntry {
-                            binding: 0,
-                            resource: mesh.material_buffer.as_entire_binding(),
-                        }],
-                        label: None,
-                        layout: &pbr_shaders.material_layout,
-                    })
-                },
-            );
+            let gpu_material = &render_materials
+                .get(&mesh.material_handle)
+                .expect("Failed to get StandardMaterial PreparedAsset");
+            let material_bind_group_key =
+                mesh_meta
+                    .material_bind_groups
+                    .get_or_insert_with(gpu_material.buffer.id(), || {
+                        let (base_color_texture_view, base_color_sampler) =
+                            image_handle_to_view_sampler(
+                                &pbr_shaders,
+                                &gpu_images,
+                                &gpu_material.base_color_texture,
+                            );
+
+                        let (emissive_texture_view, emissive_sampler) =
+                            image_handle_to_view_sampler(
+                                &pbr_shaders,
+                                &gpu_images,
+                                &gpu_material.emissive_texture,
+                            );
+
+                        let (metallic_roughness_texture_view, metallic_roughness_sampler) =
+                            image_handle_to_view_sampler(
+                                &pbr_shaders,
+                                &gpu_images,
+                                &gpu_material.metallic_roughness_texture,
+                            );
+                        let (occlusion_texture_view, occlusion_sampler) =
+                            image_handle_to_view_sampler(
+                                &pbr_shaders,
+                                &gpu_images,
+                                &gpu_material.occlusion_texture,
+                            );
+                        render_device.create_bind_group(&BindGroupDescriptor {
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: gpu_material.buffer.as_entire_binding(),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::TextureView(
+                                        &base_color_texture_view,
+                                    ),
+                                },
+                                BindGroupEntry {
+                                    binding: 2,
+                                    resource: BindingResource::Sampler(&base_color_sampler),
+                                },
+                                BindGroupEntry {
+                                    binding: 3,
+                                    resource: BindingResource::TextureView(&emissive_texture_view),
+                                },
+                                BindGroupEntry {
+                                    binding: 4,
+                                    resource: BindingResource::Sampler(&emissive_sampler),
+                                },
+                                BindGroupEntry {
+                                    binding: 5,
+                                    resource: BindingResource::TextureView(
+                                        &metallic_roughness_texture_view,
+                                    ),
+                                },
+                                BindGroupEntry {
+                                    binding: 6,
+                                    resource: BindingResource::Sampler(&metallic_roughness_sampler),
+                                },
+                                BindGroupEntry {
+                                    binding: 7,
+                                    resource: BindingResource::TextureView(&occlusion_texture_view),
+                                },
+                                BindGroupEntry {
+                                    binding: 8,
+                                    resource: BindingResource::Sampler(&occlusion_sampler),
+                                },
+                            ],
+                            label: None,
+                            layout: &pbr_shaders.material_layout,
+                        })
+                    });
 
             mesh_meta.mesh_draw_info.push(MeshDrawInfo {
                 material_bind_group_key,
             });
 
+            // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
+            //       gives the z component of translation of the mesh in view space
+            let mesh_z = view_row_2.dot(mesh.transform.col(3));
+            // FIXME: Switch from usize to u64 for portability and use sort key encoding
+            //        similar to https://realtimecollisiondetection.net/blog/?p=86 as appropriate
+            // FIXME: What is the best way to map from view space z to a number of bits of unsigned integer?
+            let sort_key = (((mesh_z * 1000.0) as usize) << 10)
+                | (material_bind_group_key.index() & ((1 << 10) - 1));
             // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
             transparent_phase.add(Drawable {
                 draw_function: draw_pbr,
                 draw_key: i,
-                sort_key: material_bind_group_key.index(), // TODO: sort back-to-front, sorting by material for now
+                sort_key,
             });
         }
 
@@ -499,6 +756,7 @@ impl Draw for DrawPbr {
         let mesh_draw_info = &mesh_meta.mesh_draw_info[draw_key];
         pass.set_bind_group(
             2,
+            // &mesh_meta.material_bind_groups[sort_key & ((1 << 10) - 1)],
             &mesh_meta.material_bind_groups[mesh_draw_info.material_bind_group_key],
             &[],
         );

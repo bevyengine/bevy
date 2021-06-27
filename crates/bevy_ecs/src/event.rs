@@ -160,7 +160,7 @@ pub struct EventReader<'s, 'w, T: Component> {
 #[derive(SystemParam)]
 pub struct EventWriter<'s, 'w, T: Component> {
     events: ResMut<'w, Events<T>>,
-    // TODO: this isn't ideal ... maybe the SystemParam derive can be smarter about world and state lifetimes? 
+    // TODO: this isn't ideal ... maybe the SystemParam derive can be smarter about world and state lifetimes?
     #[system_param(ignore)]
     marker: PhantomData<&'s usize>,
 }

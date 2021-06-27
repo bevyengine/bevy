@@ -146,7 +146,8 @@ where
     fn default_config() {}
 }
 
-impl<'s,'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'s, 'w> for QueryState<Q, F>
+impl<'s, 'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'s, 'w>
+    for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {

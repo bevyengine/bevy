@@ -372,7 +372,7 @@ where
     pub fn get_mut(
         &mut self,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w,'s>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -406,7 +406,10 @@ where
     /// entity does not have the given component type or if the given component type does not match
     /// this query.
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&'w T, QueryComponentError> {
+    pub fn get_component<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<&'w T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)

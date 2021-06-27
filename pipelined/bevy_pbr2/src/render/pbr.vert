@@ -19,7 +19,10 @@ layout(set = 1, binding = 0) uniform MeshTransform {
 
 void main() {
     v_Uv = Vertex_Uv;
-    v_WorldPosition = Model * vec4(Vertex_Position, 1.0);
+    vec4 world_position = Model * vec4(Vertex_Position, 1.0);
+    v_WorldPosition = world_position;
+    // FIXME: The inverse transpose of the model matrix should be used to correctly handle scaling
+    // of normals
     v_WorldNormal = mat3(Model) * Vertex_Normal;
-    gl_Position = ViewProj * v_WorldPosition;
+    gl_Position = ViewProj * world_position;
 }

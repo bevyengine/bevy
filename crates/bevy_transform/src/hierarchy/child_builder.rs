@@ -72,7 +72,7 @@ impl Command for PushChildren {
 }
 
 impl<'s, 'w, 'a> ChildBuilder<'s, 'w, 'a> {
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'s,'w, '_> {
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'s, 'w, '_> {
         let e = self.commands.spawn_bundle(bundle);
         self.push_children.children.push(e.id());
         e

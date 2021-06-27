@@ -1,4 +1,4 @@
-use crate::{PointLight, StandardMaterial};
+use crate::{OmniLight, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::mesh::Mesh;
@@ -25,8 +25,8 @@ impl Default for PbrBundle {
 
 /// A component bundle for "light" entities
 #[derive(Debug, Bundle, Default)]
-pub struct PointLightBundle {
-    pub point_light: PointLight,
+pub struct OmniLightBundle {
+    pub omni_light: OmniLight,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

@@ -1,10 +1,9 @@
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
-use wgpu::ShaderStage;
 use std::marker::Copy;
 use thiserror::Error;
-
+use wgpu::ShaderStage;
 
 /// An error that occurs during shader handling.
 #[derive(Error, Debug)]

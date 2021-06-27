@@ -1,6 +1,4 @@
-use crate::{
-    mesh::{Indices, Mesh},
-};
+use crate::mesh::{Indices, Mesh};
 use bevy_math::{Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 

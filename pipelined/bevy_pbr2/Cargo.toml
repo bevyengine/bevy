@@ -25,6 +25,8 @@ bevy_transform = { path = "../../crates/bevy_transform", version = "0.5.0" }
 bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
 
 # other
+bitflags = "1.2"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 crevice = { path = "../../crates/crevice" }
+wgpu = "0.8"
