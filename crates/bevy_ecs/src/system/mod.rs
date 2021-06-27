@@ -8,6 +8,8 @@
 //! System functions can have parameters, through which one can query and mutate Bevy ECS
 //! states. Some limitations on allowed parameters apply (See [`SystemParam`]).
 //!
+//! # System ordering
+//!
 //! While the execution of systems is usually parallel and not deterministic, there are two
 //! ways to determine a certain degree of execution order:
 //!
@@ -16,6 +18,29 @@
 //! - **Labeling:** First, systems are labeled upon creation by calling `.label()`. Then,
 //!   methods such as `.before()` and `.after()` are appended to systems to determine
 //!   execution order in respect to other systems.
+//!
+//! # System parameter list
+//! Following is the complete list of accepted types as system parameters:
+//!
+//! - All tuples between 1 to 16 elements where each element implements `SystemParam`
+//! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
+//! - [`Archetypes`](crate::archetype::Archetypes)
+//! - [`Bundles`](crate::bundle::Bundles)
+//! - [`Commands`]
+//! - [`Components`](crate::component::Components)
+//! - [`Entities`](crate::entity::Entities)
+//! - [`EventReader`](crate::event::EventReader)
+//! - [`EventWriter`](crate::event::EventWriter)
+//! - [`Local`]
+//! - [`NonSend`]
+//! - [`NonSendMut`]
+//! - `Option<Res>`
+//! - `Option<ResMut>`
+//! - [`Query`]
+//! - [`RemovedComponents`]
+//! - [`Res`]
+//! - [`ResMut`]
+//! - [`SystemChangeTick`]
 mod commands;
 mod exclusive_system;
 mod function_system;
