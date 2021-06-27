@@ -251,12 +251,13 @@ impl SystemStage {
         &self.exclusive_before_commands
     }
 
-    pub fn with_system_set(mut self, system_set: SystemSet) -> Self {
+    pub fn with_system_set(mut self, system_set: impl Into<SystemSet>) -> Self {
         self.add_system_set(system_set);
         self
     }
 
-    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+    pub fn add_system_set(&mut self, system_set: impl Into<SystemSet>) -> &mut Self {
+        let system_set = system_set.into();
         self.systems_modified = true;
         let (run_criteria, mut systems) = system_set.bake();
         let set_run_criteria_index = run_criteria.and_then(|criteria| {
