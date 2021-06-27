@@ -128,6 +128,14 @@ impl SystemGraph {
         Self::default()
     }
 
+    #[cfg(test)]
+    pub(crate) fn with_id(id: u32) -> Self {
+        Self {
+            id,
+            nodes: Default::default(),
+        }
+    }
+
     /// Creates a root graph node without any dependencies. A graph can have multiple distinct
     /// root nodes.
     pub fn root<Params>(&self, system: impl IntoSystemDescriptor<Params>) -> SystemGraphNode {
@@ -146,10 +154,7 @@ impl SystemGraph {
             "Cannot add more than {} systems to a SystemGraph",
             u32::MAX
         );
-        let id = NodeId {
-            graph_id: self.id,
-            node_id: nodes.len() as u32,
-        };
+        let id = NodeId(self.id, nodes.len() as u32);
         match &mut system {
             SystemDescriptor::Parallel(descriptor) => descriptor.labels.push(id.dyn_clone()),
             SystemDescriptor::Exclusive(descriptor) => descriptor.labels.push(id.dyn_clone()),
@@ -304,10 +309,7 @@ macro_rules! impl_system_tuple {
 all_tuples!(impl_system_tuple, 2, 16, T);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct NodeId {
-    graph_id: u32,
-    node_id: u32,
-}
+struct NodeId(u32, u32);
 
 impl SystemLabel for NodeId {
     fn dyn_clone(&self) -> Box<dyn SystemLabel> {
@@ -317,10 +319,75 @@ impl SystemLabel for NodeId {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::*;
+    use super::*;
     use crate::schedule::SystemDescriptor;
 
     fn dummy_system() {}
+
+    fn assert_eq_after(sys: &SystemDescriptor, expected: Vec<NodeId>) {
+        let deps = match sys {
+            SystemDescriptor::Parallel(desc) => &desc.after,
+            SystemDescriptor::Exclusive(desc) => &desc.after,
+        };
+        let after: Vec<Box<dyn SystemLabel>> =
+            expected.into_iter().map(|id| id.dyn_clone()).collect();
+        assert_eq!(deps, &after);
+    }
+
+    #[test]
+    pub fn then_creates_accurate_dependencies() {
+        let graph = SystemGraph::with_id(0);
+        graph
+            .root(dummy_system)
+            .then(dummy_system)
+            .then(dummy_system)
+            .then(dummy_system);
+
+        let systems = graph.nodes.borrow();
+
+        assert_eq!(systems.len(), 4);
+        assert_eq_after(&systems[&NodeId(0, 0)], vec![]);
+        assert_eq_after(&systems[&NodeId(0, 1)], vec![NodeId(0, 0)]);
+        assert_eq_after(&systems[&NodeId(0, 2)], vec![NodeId(0, 1)]);
+        assert_eq_after(&systems[&NodeId(0, 3)], vec![NodeId(0, 2)]);
+    }
+
+    #[test]
+    pub fn fork_creates_accurate_dependencies() {
+        let graph = SystemGraph::with_id(0);
+        graph
+            .root(dummy_system)
+            .fork((dummy_system, dummy_system, dummy_system));
+
+        let systems = graph.nodes.borrow();
+
+        assert_eq!(systems.len(), 4);
+        assert_eq_after(&systems[&NodeId(0, 0)], vec![]);
+        assert_eq_after(&systems[&NodeId(0, 1)], vec![NodeId(0, 0)]);
+        assert_eq_after(&systems[&NodeId(0, 2)], vec![NodeId(0, 0)]);
+        assert_eq_after(&systems[&NodeId(0, 3)], vec![NodeId(0, 0)]);
+    }
+
+    #[test]
+    pub fn join_creates_accurate_dependencies() {
+        let graph = SystemGraph::with_id(0);
+        let a = graph.root(dummy_system);
+        let b = graph.root(dummy_system);
+        let c = graph.root(dummy_system);
+
+        (a, b, c).join(dummy_system);
+
+        let systems = graph.nodes.borrow();
+
+        assert_eq!(systems.len(), 4);
+        assert_eq_after(&systems[&NodeId(0, 0)], vec![]);
+        assert_eq_after(&systems[&NodeId(0, 1)], vec![]);
+        assert_eq_after(&systems[&NodeId(0, 2)], vec![]);
+        assert_eq_after(
+            &systems[&NodeId(0, 3)],
+            vec![NodeId(0, 0), NodeId(0, 1), NodeId(0, 2)],
+        );
+    }
 
     #[test]
     pub fn graph_creates_accurate_system_counts() {
