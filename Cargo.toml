@@ -66,7 +66,7 @@ mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
 
-# WASM support for audio
+# WASM support for audio (Currently only works with flac, wav and vorbis. Not with mp3)
 wasm_audio = ["bevy_internal/wasm_audio"]
 
 serialize = ["bevy_internal/serialize"]
