@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 
 fn main() {
-    // SystemGraphs can be used to specify explicit system dependencies.
-    // Labels can be used alongside SystemGraphs to help specify dependency relationships.
+    // SystemGraphs can be used to specify explicit system dependencies without specifying
+    // explicit labels for each system.
+    //
+    // Labels can be used alongside SystemGraphs to help specify dependency relationships
+    // between graphs, betwen standalone systems, or between crate boundaries.
 
     // These three systems will run sequentially one after another.
     let sequential = SystemGraph::new();
