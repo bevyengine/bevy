@@ -82,7 +82,7 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// let system_set: SystemSet = graph.into();
 /// ```
 ///
-/// # Fan In
+/// # Fan Out into Fan In
 /// The types used to implement [fork] and [join] are composable.
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -106,7 +106,7 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// This type is backed by a Rc, so cloning it will still point to the same logical
 /// underlying graph.
 ///
-/// [fork]: crate::schedule::SystemGraphNode::join
+/// [fork]: crate::schedule::SystemGraphNode::fork
 /// [join]: crate::schedule::SystemJoin::join
 #[derive(Clone)]
 pub struct SystemGraph {
@@ -114,12 +114,18 @@ pub struct SystemGraph {
     nodes: Rc<RefCell<HashMap<NodeId, SystemDescriptor>>>,
 }
 
-impl SystemGraph {
-    pub fn new() -> Self {
+impl Default for SystemGraph {
+    fn default() -> Self {
         Self {
             id: NEXT_GRAPH_ID.fetch_add(1, Ordering::Relaxed),
             nodes: Default::default(),
         }
+    }
+}
+
+impl SystemGraph {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Creates a root graph node without any dependencies. A graph can have multiple distinct
