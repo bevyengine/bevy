@@ -322,7 +322,7 @@ impl AppBuilder {
     /// schedule is invoked. The most relevant stages are the following, in order of execution:
     /// - **First:** Runs at the very start of the schedule execution cycle, even before the
     ///   startup stage.
-    /// - **Startup:** It is actually a schedule containing sub-stages. Runs only once
+    /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
     ///   when the app starts.
     /// - **Update:** Stage intended for user defined logic.
     /// - **Last:** Runs right before the end of the schedule execution cycle.
