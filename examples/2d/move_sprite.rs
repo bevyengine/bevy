@@ -9,8 +9,8 @@ fn main() {
 }
 
 enum Direction {
-    UP,
-    DOWN,
+    Up,
+    Down,
 }
 
 fn setup(
@@ -25,20 +25,20 @@ fn setup(
             material: materials.add(texture_handle.into()),
             ..Default::default()
         })
-        .insert(Direction::UP);
+        .insert(Direction::Up);
 }
 
 fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in sprite_position.iter_mut() {
         match *logo {
-            Direction::UP => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::DOWN => transform.translation.y -= 150. * time.delta_seconds(),
+            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
+            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
         }
 
         if transform.translation.y > 200. {
-            *logo = Direction::DOWN;
+            *logo = Direction::Down;
         } else if transform.translation.y < -200. {
-            *logo = Direction::UP;
+            *logo = Direction::Up;
         }
     }
 }
