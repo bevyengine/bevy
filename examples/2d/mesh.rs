@@ -9,7 +9,7 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(star.system())
+        .add_startup_system(star)
         .run();
 }
 

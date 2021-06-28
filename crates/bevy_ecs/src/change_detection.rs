@@ -160,6 +160,8 @@ impl_debug!(ResMut<'a, T>, Component);
 /// # Panics
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
+///
+/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
