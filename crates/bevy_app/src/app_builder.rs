@@ -311,7 +311,7 @@ impl AppBuilder {
 
     /// Adds utility stages to the [`Schedule`], giving it a standardized structure.
     ///
-    /// Adding those stages is necessary to make work some core engine features, like
+    /// Adding those stages is necessary to make some core engine features work, like
     /// adding systems without specifying a stage, or registering events. This is however
     /// done by default by calling `AppBuilder::default`, which is in turn called by
     /// [`App::build`].
