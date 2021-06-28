@@ -7,7 +7,7 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_reflect::TypeRegistryArc;
-use bevy_transform::prelude::Parent;
+use bevy_transform::{components::Children, prelude::Parent};
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -268,9 +268,23 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for entity in instance.entity_map.values() {
+                    // Add the `Parent` component to the scene root
                     if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                        // This will filter only the scene root entity, as all other from the
+                        // scene have a parent
                         if !entity_mut.contains::<Parent>() {
                             entity_mut.insert(Parent(parent));
+                        }
+                    }
+                    // Add the scene root to the `Children` component on the parent
+                    if let Some(mut parent_entity) = world.get_entity_mut(parent) {
+                        if let Some(children) = parent_entity.get_mut::<Children>() {
+                            let children = &**children;
+                            let mut children = children.to_vec();
+                            children.push(entity);
+                            parent_entity.insert(Children::with(&children));
+                        } else {
+                            parent_entity.insert(Children::with(&[entity]));
                         }
                     }
                 }
