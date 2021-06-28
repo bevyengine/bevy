@@ -39,44 +39,48 @@ pub enum SystemDescriptor {
     Exclusive(ExclusiveSystemDescriptor),
 }
 
+pub trait IntoSystemDescriptor<Params> {
+    fn into_descriptor(self) -> SystemDescriptor;
+}
+
 pub struct SystemLabelMarker;
 
-impl From<ParallelSystemDescriptor> for SystemDescriptor {
-    fn from(descriptor: ParallelSystemDescriptor) -> Self {
-        SystemDescriptor::Parallel(descriptor)
+impl IntoSystemDescriptor<()> for ParallelSystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        SystemDescriptor::Parallel(self)
     }
 }
 
-impl<S> From<S> for SystemDescriptor
+impl<Params, S> IntoSystemDescriptor<Params> for S
 where
-    S: System<In = (), Out = ()>,
+    S: crate::system::IntoSystem<(), (), Params>,
 {
-    fn from(system: S) -> Self {
-        new_parallel_descriptor(Box::new(system)).into()
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_parallel_descriptor(Box::new(self.system())).into_descriptor()
     }
 }
 
-impl From<BoxedSystem<(), ()>> for SystemDescriptor {
-    fn from(system: BoxedSystem<(), ()>) -> Self {
-        new_parallel_descriptor(system).into()
+impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_parallel_descriptor(self).into_descriptor()
     }
 }
 
-impl From<ExclusiveSystemDescriptor> for SystemDescriptor {
-    fn from(descriptor: ExclusiveSystemDescriptor) -> Self {
-        SystemDescriptor::Exclusive(descriptor)
+impl IntoSystemDescriptor<()> for ExclusiveSystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        SystemDescriptor::Exclusive(self)
     }
 }
 
-impl From<ExclusiveSystemFn> for SystemDescriptor {
-    fn from(system: ExclusiveSystemFn) -> Self {
-        new_exclusive_descriptor(Box::new(system)).into()
+impl IntoSystemDescriptor<()> for ExclusiveSystemFn {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).into_descriptor()
     }
 }
 
-impl From<ExclusiveSystemCoerced> for SystemDescriptor {
-    fn from(system: ExclusiveSystemCoerced) -> Self {
-        new_exclusive_descriptor(Box::new(system)).into()
+impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).into_descriptor()
     }
 }
 

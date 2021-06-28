@@ -16,6 +16,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
+use super::IntoSystemDescriptor;
+
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
@@ -105,7 +107,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single(system: impl Into<SystemDescriptor>) -> Self {
+    pub fn single<Params>(system: impl IntoSystemDescriptor<Params>) -> Self {
         Self::single_threaded().with_system(system)
     }
 
@@ -131,13 +133,13 @@ impl SystemStage {
         self.executor = executor;
     }
 
-    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+    pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_inner(system.into(), None);
+    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
+        self.add_system_inner(system.into_descriptor(), None);
         self
     }
 
