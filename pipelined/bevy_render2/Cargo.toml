@@ -30,6 +30,7 @@ image = { version = "0.23.12", default-features = false }
 
 # misc
 wgpu = "0.8"
+naga = { git = "https://github.com/gfx-rs/naga", rev = "0cf5484bba530f1134badbd2a1c1a8e9daf2e9c3", features = ["glsl-in", "spv-out", "spv-in", "wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
@@ -42,15 +43,6 @@ hex = "0.4.2"
 hexasphere = "3.4"
 parking_lot = "0.11.0"
 crevice = { path = "../../crates/crevice" }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-spirv-reflect = "0.2.3"
-
-[target.'cfg(any(all(target_arch="x86_64", target_os="linux", target_env="gnu"), all(target_arch="x86_64", target_os="macos"), all(target_arch="aarch64", target_os="android"), all(target_arch="armv7", target_os="androidabi"), all(target_arch="x86_64", target_os="windows", target_env="msvc")))'.dependencies]
-bevy-glsl-to-spirv = "0.2.0"
-
-[target.'cfg(not(any(target_arch = "wasm32", all(target_arch="x86_64", target_os="linux", target_env="gnu"), all(target_arch="x86_64", target_os="macos"), all(target_arch="aarch64", target_os="android"), all(target_arch="armv7", target_os="androidabi"), all(target_arch="x86_64", target_os="windows", target_env="msvc"))))'.dependencies]
-shaderc = "0.7.0"
 
 [features]
 png = ["image/png"]

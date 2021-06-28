@@ -2,22 +2,10 @@ use crate::Sprite;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
-use bevy_render2::{
-    core_pipeline::Transparent2dPhase,
-    mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
-    render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::{Draw, DrawFunctions, Drawable, RenderPhase, TrackedRenderPass},
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice},
-    shader::Shader,
-    texture::{BevyDefault, Image},
-    view::{ViewMeta, ViewUniform, ViewUniformOffset},
-};
+use bevy_render2::{core_pipeline::Transparent2dPhase, mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues}, render_asset::RenderAssets, render_graph::{Node, NodeRunError, RenderGraphContext}, render_phase::{Draw, DrawFunctions, Drawable, RenderPhase, TrackedRenderPass}, render_resource::*, renderer::{RenderContext, RenderDevice}, shader::Shader, texture::{BevyDefault, Image}, view::{ViewMeta, ViewUniform, ViewUniformOffset}};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::slab::{FrameSlabMap, FrameSlabMapKey};
 use bytemuck::{Pod, Zeroable};
-use std::borrow::Cow;
 
 pub struct SpriteShaders {
     pipeline: RenderPipeline,
@@ -29,25 +17,8 @@ pub struct SpriteShaders {
 impl FromWorld for SpriteShaders {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let vertex_shader = Shader::from_glsl(ShaderStage::VERTEX, include_str!("sprite.vert"))
-            .get_spirv_shader(None)
-            .unwrap();
-        let fragment_shader = Shader::from_glsl(ShaderStage::FRAGMENT, include_str!("sprite.frag"))
-            .get_spirv_shader(None)
-            .unwrap();
-        let vertex_spirv = vertex_shader.get_spirv(None).unwrap();
-        let fragment_spirv = fragment_shader.get_spirv(None).unwrap();
-
-        let vertex = render_device.create_shader_module(&ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
-            label: None,
-            source: ShaderSource::SpirV(Cow::Borrowed(&vertex_spirv)),
-        });
-        let fragment = render_device.create_shader_module(&ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
-            label: None,
-            source: ShaderSource::SpirV(Cow::Borrowed(&fragment_spirv)),
-        });
+        let shader = Shader::from_wgsl(include_str!("sprite.wgsl"));
+        let shader_module = render_device.create_shader_module(&shader);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -114,12 +85,12 @@ impl FromWorld for SpriteShaders {
                         },
                     ],
                 }],
-                module: &vertex,
-                entry_point: "main",
+                module: &shader_module,
+                entry_point: "vertex",
             },
             fragment: Some(FragmentState {
-                module: &fragment,
-                entry_point: "main",
+                module: &shader_module,
+                entry_point: "fragment",
                 targets: &[ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState {

@@ -48,9 +48,6 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
                 base_color: Color::PINK,
-                perceptual_roughness: 0.0,
-                metallic: 1.0,
-                reflectance: 1.0,
                 ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 1.0, 0.0),

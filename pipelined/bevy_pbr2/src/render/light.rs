@@ -78,8 +78,9 @@ impl FromWorld for ShadowShaders {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: verify this is correct
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                        // Context: https://github.com/LPGhatguy/crevice/issues/29
+                        min_binding_size: BufferSize::new(80),
                     },
                     count: None,
                 },
@@ -120,8 +121,8 @@ impl FromWorld for ShadowShaders {
                         },
                     ],
                 }],
-                module: &pbr_shaders.vertex_shader_module,
-                entry_point: "main",
+                module: &pbr_shaders.shader_module,
+                entry_point: "vertex",
             },
             fragment: None,
             depth_stencil: Some(DepthStencilState {

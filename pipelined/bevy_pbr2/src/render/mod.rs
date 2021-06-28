@@ -14,12 +14,11 @@ use bevy_render2::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     shader::Shader,
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, ViewMeta, ViewUniform, ViewUniformOffset},
+    view::{ExtractedView, ViewMeta, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::slab::{FrameSlabMap, FrameSlabMapKey};
 use crevice::std140::AsStd140;
-use std::borrow::Cow;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
     TextureViewDescriptor,
@@ -29,7 +28,7 @@ use crate::{StandardMaterial, StandardMaterialUniformData};
 
 pub struct PbrShaders {
     pipeline: RenderPipeline,
-    vertex_shader_module: ShaderModule,
+    shader_module: ShaderModule,
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
     mesh_layout: BindGroupLayout,
@@ -41,26 +40,9 @@ pub struct PbrShaders {
 impl FromWorld for PbrShaders {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let vertex_shader = Shader::from_glsl(ShaderStage::VERTEX, include_str!("pbr.vert"))
-            .get_spirv_shader(None)
-            .unwrap();
-        let fragment_shader = Shader::from_glsl(ShaderStage::FRAGMENT, include_str!("pbr.frag"))
-            .get_spirv_shader(None)
-            .unwrap();
-
-        let vertex_spirv = vertex_shader.get_spirv(None).unwrap();
-        let fragment_spirv = fragment_shader.get_spirv(None).unwrap();
-
-        let vertex_shader_module = render_device.create_shader_module(&ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
-            label: None,
-            source: ShaderSource::SpirV(Cow::Borrowed(&vertex_spirv)),
-        });
-        let fragment_shader_module = render_device.create_shader_module(&ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
-            label: None,
-            source: ShaderSource::SpirV(Cow::Borrowed(&fragment_spirv)),
-        });
+        let shader = Shader::from_wgsl(include_str!("pbr.wgsl"));
+        let shader_module = render_device.create_shader_module(&shader);
+        println!("{}", GpuLights::std140_size_static());
 
         // TODO: move this into ViewMeta?
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -72,8 +54,9 @@ impl FromWorld for PbrShaders {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: verify this is correct
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                        // Context: https://github.com/LPGhatguy/crevice/issues/29
+                        min_binding_size: BufferSize::new(80),
                     },
                     count: None,
                 },
@@ -84,7 +67,9 @@ impl FromWorld for PbrShaders {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(GpuLights::std140_size_static() as u64),
+                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                        // Context: https://github.com/LPGhatguy/crevice/issues/29
+                        min_binding_size: BufferSize::new(1264),
                     },
                     count: None,
                 },
@@ -262,12 +247,12 @@ impl FromWorld for PbrShaders {
                         },
                     ],
                 }],
-                module: &&vertex_shader_module,
-                entry_point: "main",
+                module: &shader_module,
+                entry_point: "vertex",
             },
             fragment: Some(FragmentState {
-                module: &&fragment_shader_module,
-                entry_point: "main",
+                module: &shader_module,
+                entry_point: "fragment",
                 targets: &[ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState {
@@ -359,7 +344,7 @@ impl FromWorld for PbrShaders {
             view_layout,
             material_layout,
             mesh_layout,
-            vertex_shader_module,
+            shader_module,
             dummy_white_gpu_image,
         }
     }
@@ -473,7 +458,9 @@ fn image_handle_to_view_sampler<'a>(
             &pbr_shaders.dummy_white_gpu_image.sampler,
         ),
         |image_handle| {
-        let gpu_image = gpu_images.get(image_handle).expect("only materials with valid textures should be drawn");
+            let gpu_image = gpu_images
+                .get(image_handle)
+                .expect("only materials with valid textures should be drawn");
             (&gpu_image.texture_view, &gpu_image.sampler)
         },
     )
