@@ -10,7 +10,7 @@ fn main() {
 
 enum Direction {
     UP,
-    DOWN
+    DOWN,
 }
 
 fn setup(
@@ -30,7 +30,6 @@ fn setup(
 
 fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in sprite_position.iter_mut() {
-        
         match *logo {
             Direction::UP => transform.translation.y += 150. * time.delta_seconds(),
             Direction::DOWN => transform.translation.y -= 150. * time.delta_seconds(),
