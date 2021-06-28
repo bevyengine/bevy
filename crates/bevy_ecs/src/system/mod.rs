@@ -32,14 +32,12 @@
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`Local`]
-//! - [`NonSend`]
-//! - [`NonSendMut`]
-//! - `Option<Res>`
-//! - `Option<ResMut>`
+//! - [`NonSend`] and `Option<NonSend>`
+//! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`Query`]
 //! - [`RemovedComponents`]
-//! - [`Res`]
-//! - [`ResMut`]
+//! - [`Res`] and `Option<Res>`
+//! - [`ResMut`] and `Option<ResMut>`
 //! - [`SystemChangeTick`]
 mod commands;
 mod exclusive_system;
