@@ -737,9 +737,11 @@ impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendState<T> {
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSend {
                 value: &*column.get_data_ptr().cast::<T>().as_ptr(),
-                ticks: column.get_ticks_unchecked(0).clone(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
+                ticks: Ticks {
+                    component_ticks: *column.get_ticks_unchecked(0),
+                    last_change_tick: system_meta.last_change_tick,
+                    change_tick,
+                },
             })
     }
 }
@@ -854,7 +856,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendMutState<T> {
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSendMut {
                 value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
-                ticks: Ticks {
+                ticks: TicksMut {
                     component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
