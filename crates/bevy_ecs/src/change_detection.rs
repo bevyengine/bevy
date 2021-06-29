@@ -25,8 +25,8 @@ pub trait DetectChanges {
     /// system.
     fn is_added(&self) -> bool;
 
-    /// Returns true if (and only if) this value has been mutably accesses since the last execution
-    /// of this system.
+    /// Returns true if (and only if) this value has been added or mutably accessed since
+    /// the last execution of this system.
     fn is_changed(&self) -> bool;
 }
 
@@ -41,8 +41,8 @@ pub trait SetChanged {
 }
 
 macro_rules! detect_changes_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:tt)?) => {
-        impl<$($generics),* $(: $traits)?> DetectChanges for $name<$($generics),*> {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($bounds:tt)?) => {
+        impl<$($generics),* $(: $bounds)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
@@ -58,7 +58,7 @@ macro_rules! detect_changes_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> Deref for $name<$($generics),*> {
+        impl<$($generics),* $(: $bounds)?> Deref for $name<$($generics),*> {
             type Target = $target;
 
             #[inline]
@@ -67,7 +67,7 @@ macro_rules! detect_changes_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*> {
+        impl<$($generics),* $(: $bounds)?> AsRef<$target> for $name<$($generics),*> {
             #[inline]
             fn as_ref(&self) -> &$target {
                 self.deref()
@@ -77,8 +77,8 @@ macro_rules! detect_changes_impl {
 }
 
 macro_rules! set_changed_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:tt)?) => {
-        impl<$($generics),* $(: $traits)?> SetChanged for $name<$($generics),*> {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($bounds:tt)?) => {
+        impl<$($generics),* $(: $bounds)?> SetChanged for $name<$($generics),*> {
             #[inline]
             fn set_changed(&mut self) {
                 self.ticks
@@ -87,7 +87,7 @@ macro_rules! set_changed_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> DerefMut for $name<$($generics),*> {
+        impl<$($generics),* $(: $bounds)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
@@ -95,7 +95,7 @@ macro_rules! set_changed_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> AsMut<$target> for $name<$($generics),*> {
+        impl<$($generics),* $(: $bounds)?> AsMut<$target> for $name<$($generics),*> {
             #[inline]
             fn as_mut(&mut self) -> &mut $target {
                 self.deref_mut()
@@ -105,8 +105,8 @@ macro_rules! set_changed_impl {
 }
 
 macro_rules! impl_into_inner {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:tt)?) => {
-        impl<$($generics),* $(: $traits)?> $name<$($generics),*> {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($bounds:tt)?) => {
+        impl<$($generics),* $(: $bounds)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
@@ -119,8 +119,8 @@ macro_rules! impl_into_inner {
 }
 
 macro_rules! impl_debug {
-    ($name:ident < $( $generics:tt ),+ >, $($traits:tt)?) => {
-        impl<$($generics),* $(: $traits)?> std::fmt::Debug for $name<$($generics),*>
+    ($name:ident < $( $generics:tt ),+ >, $($bounds:tt)?) => {
+        impl<$($generics),* $(: $bounds)?> std::fmt::Debug for $name<$($generics),*>
             where T: std::fmt::Debug
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -274,6 +274,8 @@ impl_debug!(NonSendMut<'a, T>, 'static);
 /// # Panics
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
+///
+/// Use `Option<NonSend<T>>` instead if the resource might not always exist.
 pub struct NonSend<'a, T: 'static> {
     pub(crate) value: &'a T,
     pub(crate) ticks: Ticks,
