@@ -141,14 +141,7 @@ macro_rules! impl_fallible_commands {
             #[inline]
             #[allow(dead_code)]
             fn return_unit(&self) {}
-        }
 
-        impl<'a, C, T> $name<'a, C, T>
-        where
-            C: FallibleCommand,
-            C::Error: Debug,
-            T: AddCommand,
-        {
             /// If the command failed, run the provided `error_handler`.
             ///
             /// ## Note
@@ -167,6 +160,7 @@ macro_rules! impl_fallible_commands {
             ///     commands.spawn().insert(42).on_err(|error, ctx| {});
             /// }
             /// ```
+            #[inline]
             pub fn on_err(
                 &mut self,
                 error_handler: impl FnOnce(C::Error, CommandContext) + Send + Sync + 'static,
@@ -188,9 +182,13 @@ macro_rules! impl_fallible_commands {
             C: FallibleCommand,
             T: AddCommand,
         {
+            #[inline]
             fn drop(&mut self) {
-                if self.command.is_some() {
-                    self.on_err(CommandErrorHandler::log);
+                if let Some(command) = self.command.take() {
+                    self.inner.add_command(HandledErrorCommand {
+                        command,
+                        error_handler: CommandErrorHandler::log,
+                    });
                 }
             }
         }
