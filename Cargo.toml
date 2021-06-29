@@ -104,6 +104,10 @@ name = "mesh"
 path = "examples/2d/mesh.rs"
 
 [[example]]
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
+
+[[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
@@ -299,10 +303,13 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+<<<<<<< refs/remotes/bevyengine/trying
 name = "system_graph"
 path = "examples/ecs/system_graph.rs"
 
 [[example]]
+=======
+>>>>>>> fixed line endings
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
