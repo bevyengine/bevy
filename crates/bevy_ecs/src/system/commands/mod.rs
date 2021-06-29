@@ -1,15 +1,26 @@
+mod config;
+pub use config::*;
+
 use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// A [`World`] mutation.
+/// If this could potentially fail, use [`FallibleCommand`].
 pub trait Command: Send + Sync + 'static {
     fn write(self: Box<Self>, world: &mut World);
+}
+
+/// A [`World`] mutation that can potentially fail.
+/// For an infallible variant, use [`Command`].
+pub trait FallibleCommand: Send + Sync + 'static {
+    type Error: Debug;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error>;
 }
 
 /// A queue of [`Command`]s.
@@ -76,7 +87,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+    pub fn spawn<'this>(&'this mut self) -> EntityCommands<'a, 'this> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -124,7 +135,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn_bundle<'b, T: Bundle>(&'b mut self, bundle: T) -> EntityCommands<'a, 'b> {
+    pub fn spawn_bundle<'this, T: Bundle>(&'this mut self, bundle: T) -> EntityCommands<'a, 'this> {
         let mut e = self.spawn();
         e.insert_bundle(bundle);
         e
@@ -149,7 +160,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
+    pub fn entity<'this>(&'this mut self, entity: Entity) -> EntityCommands<'a, 'this> {
         EntityCommands {
             entity,
             commands: self,
@@ -172,15 +183,34 @@ impl<'a> Commands<'a> {
     }
 
     /// Queue a resource removal.
-    pub fn remove_resource<T: Component>(&mut self) {
-        self.queue.push(RemoveResource::<T> {
-            phantom: PhantomData,
-        });
+    pub fn remove_resource<T: Component>(
+        &mut self,
+    ) -> FinalFallibleCommandConfig<'_, RemoveResource<T>, Self> {
+        FinalFallibleCommandConfig::new(
+            RemoveResource {
+                phantom: PhantomData,
+            },
+            self,
+        )
     }
 
     /// Adds a command directly to the command list.
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
+    }
+
+    /// Adds a fallible command to the command list.
+    pub fn add_fallible<C>(&mut self, command: C) -> FinalFallibleCommandConfig<'_, C, Self>
+    where
+        C: FallibleCommand,
+    {
+        FinalFallibleCommandConfig::new(command, self)
+    }
+}
+
+impl<'a> AddCommand for Commands<'a> {
+    fn add_command(&mut self, command: impl Command) {
+        self.add(command);
     }
 }
 
@@ -198,12 +228,17 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     }
 
     /// Adds a [`Bundle`] of components to the current entity.
-    pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(InsertBundle {
-            entity: self.entity,
-            bundle,
-        });
-        self
+    pub fn insert_bundle<T: Bundle>(
+        &mut self,
+        bundle: T,
+    ) -> FallibleCommandConfig<'_, InsertBundle<T>, Self> {
+        FallibleCommandConfig::new(
+            InsertBundle {
+                entity: self.entity,
+                bundle,
+            },
+            self,
+        )
     }
 
     /// Adds a single [`Component`] to the current entity.
@@ -238,48 +273,66 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn insert(&mut self, component: impl Component) -> &mut Self {
-        self.commands.add(Insert {
-            entity: self.entity,
-            component,
-        });
-        self
+    pub fn insert<T: Component>(
+        &mut self,
+        component: T,
+    ) -> FallibleCommandConfig<'_, Insert<T>, Self> {
+        FallibleCommandConfig::new(
+            Insert {
+                entity: self.entity,
+                component,
+            },
+            self,
+        )
     }
 
     /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle).
-    pub fn remove_bundle<T>(&mut self) -> &mut Self
+    pub fn remove_bundle<T>(&mut self) -> FallibleCommandConfig<'_, RemoveBundle<T>, Self>
     where
         T: Bundle,
     {
-        self.commands.add(RemoveBundle::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
-        self
+        FallibleCommandConfig::new(
+            RemoveBundle {
+                entity: self.entity,
+                phantom: PhantomData,
+            },
+            self,
+        )
     }
 
     /// See [`EntityMut::remove`](crate::world::EntityMut::remove).
-    pub fn remove<T>(&mut self) -> &mut Self
+    pub fn remove<T>(&mut self) -> FallibleCommandConfig<'_, Remove<T>, Self>
     where
         T: Component,
     {
-        self.commands.add(Remove::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
-        self
+        FallibleCommandConfig::new(
+            Remove {
+                entity: self.entity,
+                phantom: PhantomData,
+            },
+            self,
+        )
     }
 
     /// Despawns only the specified entity, not including its children.
-    pub fn despawn(&mut self) {
-        self.commands.add(Despawn {
-            entity: self.entity,
-        })
+    pub fn despawn(&mut self) -> FinalFallibleCommandConfig<'_, Despawn, Self> {
+        FinalFallibleCommandConfig::new(
+            Despawn {
+                entity: self.entity,
+            },
+            self,
+        )
     }
 
     /// Returns the underlying `[Commands]`.
     pub fn commands(&mut self) -> &mut Commands<'a> {
         self.commands
+    }
+}
+
+impl<'a, 'b> AddCommand for EntityCommands<'a, 'b> {
+    fn add_command(&mut self, command: impl Command) {
+        self.commands.add_command(command);
     }
 }
 
@@ -320,10 +373,22 @@ pub struct Despawn {
     pub entity: Entity,
 }
 
-impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World) {
-        if !world.despawn(self.entity) {
-            debug!("Failed to despawn non-existent entity {:?}", self.entity);
+/// The error resulting from [`EntityCommands::despawn`]
+#[derive(Debug)]
+pub struct DespawnError {
+    pub entity: Entity,
+}
+
+impl FallibleCommand for Despawn {
+    type Error = DespawnError;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
+        if world.despawn(self.entity) {
+            Ok(())
+        } else {
+            Err(DespawnError {
+                entity: self.entity,
+            })
         }
     }
 }
@@ -333,12 +398,38 @@ pub struct InsertBundle<T> {
     pub bundle: T,
 }
 
-impl<T> Command for InsertBundle<T>
+/// The error resulting from [`EntityCommands::insert_bundle`]
+/// Contains both the failed to insert bundle and the relative entity.
+pub struct InsertBundleError<T> {
+    pub entity: Entity,
+    pub bundle: T,
+}
+
+impl<T> Debug for InsertBundleError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InsertBundleError")
+            .field("entity", &self.entity)
+            .field("bundle_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for InsertBundle<T>
 where
     T: Bundle + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
-        world.entity_mut(self.entity).insert_bundle(self.bundle);
+    type Error = InsertBundleError<T>;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.insert_bundle(self.bundle);
+            Ok(())
+        } else {
+            Err(InsertBundleError {
+                entity: self.entity,
+                bundle: self.bundle,
+            })
+        }
     }
 }
 
@@ -348,12 +439,39 @@ pub struct Insert<T> {
     pub component: T,
 }
 
-impl<T> Command for Insert<T>
+/// The error resulting from [`EntityCommands::insert`]
+/// Contains both the failed to insert component and the relative entity.
+pub struct InsertError<T> {
+    pub entity: Entity,
+    pub component: T,
+}
+
+impl<T> Debug for InsertError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InsertError")
+            .field("entity", &self.entity)
+            .field("component_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for Insert<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
-        world.entity_mut(self.entity).insert(self.component);
+    type Error = InsertError<T>;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
+        match world.get_entity_mut(self.entity) {
+            Some(mut entity) => {
+                entity.insert(self.component);
+                Ok(())
+            }
+            None => Err(InsertError {
+                entity: self.entity,
+                component: self.component,
+            }),
+        }
     }
 }
 
@@ -363,13 +481,36 @@ pub struct Remove<T> {
     phantom: PhantomData<T>,
 }
 
-impl<T> Command for Remove<T>
+/// The error resulting from [`EntityCommands::remove`]
+pub struct RemoveError<T> {
+    pub entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Debug for RemoveError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveError")
+            .field("entity", &self.entity)
+            .field("component_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for Remove<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    type Error = RemoveError<T>;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
+            Ok(())
+        } else {
+            Err(RemoveError {
+                entity: self.entity,
+                phantom: PhantomData,
+            })
         }
     }
 }
@@ -380,15 +521,38 @@ pub struct RemoveBundle<T> {
     pub phantom: PhantomData<T>,
 }
 
-impl<T> Command for RemoveBundle<T>
+/// The error resulting from [`EntityCommands::remove_bundle`]
+pub struct RemoveBundleError<T> {
+    pub entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Debug for RemoveBundleError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveBundleError")
+            .field("entity", &self.entity)
+            .field("bundle_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for RemoveBundle<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    type Error = RemoveBundleError<T>;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             // remove intersection to gracefully handle components that were removed before running
             // this command
             entity_mut.remove_bundle_intersection::<T>();
+            Ok(())
+        } else {
+            Err(RemoveBundleError {
+                entity: self.entity,
+                phantom: PhantomData,
+            })
         }
     }
 }
@@ -407,18 +571,42 @@ pub struct RemoveResource<T: Component> {
     pub phantom: PhantomData<T>,
 }
 
-impl<T: Component> Command for RemoveResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
-        world.remove_resource::<T>();
+/// The error resulting from [`Commands::remove_resource`]
+pub struct RemoveResourceError<T> {
+    phantom: PhantomData<T>,
+}
+
+impl<T> Debug for RemoveResourceError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveResourceError")
+            .field("resource_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T: Component> FallibleCommand for RemoveResource<T> {
+    type Error = RemoveResourceError<T>;
+
+    fn try_write(self, world: &mut World) -> Result<(), Self::Error> {
+        if world.remove_resource::<T>().is_some() {
+            Ok(())
+        } else {
+            Err(RemoveResourceError {
+                phantom: PhantomData,
+            })
+        }
     }
 }
 
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
+    use crate as bevy_ecs;
     use crate::{
+        bundle::Bundle,
         component::{ComponentDescriptor, StorageType},
-        system::{CommandQueue, Commands},
+        entity::Entity,
+        system::{CommandErrorHandler, CommandQueue, Commands, FallibleCommand},
         world::World,
     };
     use std::sync::{
@@ -545,5 +733,158 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<i32>());
         assert!(world.contains_resource::<f64>());
+    }
+
+    struct FailingCommand;
+    impl FallibleCommand for FailingCommand {
+        type Error = ();
+
+        fn try_write(self, _: &mut World) -> Result<(), Self::Error> {
+            Err(())
+        }
+    }
+
+    struct SuccessfulCommand;
+    impl FallibleCommand for SuccessfulCommand {
+        type Error = ();
+
+        fn try_write(self, _: &mut World) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_commands_error_handler() {
+        let invoked = Arc::new(AtomicUsize::new(0));
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+
+            commands.insert_resource(42u32);
+            let invoked_clone = invoked.clone();
+            // should succeed
+            commands.remove_resource::<u32>().on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should fail
+            commands.remove_resource::<u32>().on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should fail
+            commands.add_fallible(FailingCommand).on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should succeed
+            commands
+                .add_fallible(SuccessfulCommand)
+                .on_err(move |_, _| {
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+        }
+        queue.apply(&mut world);
+
+        assert_eq!(invoked.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_entity_commands_error_handler() {
+        #[derive(Bundle)]
+        struct TestBundle {
+            value: u32,
+        }
+
+        let invoked = Arc::new(AtomicUsize::new(0));
+
+        let mut world = World::default();
+
+        let valid_entity = world.spawn().id();
+        let invalid_entity = Entity::new(42);
+
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+
+            // EntityCommands::despawn
+            let mut try_despawn = |e| {
+                let invoked_clone = invoked.clone();
+                commands.entity(e).despawn().on_err(move |error, _| {
+                    assert_eq!(error.entity, e);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+            };
+
+            try_despawn(invalid_entity);
+            try_despawn(valid_entity);
+
+            // EntityCommands::insert
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(invalid_entity)
+                .insert(42)
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, invalid_entity);
+                    assert_eq!(error.component, 42);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+
+            // EntityCommands::insert_bundle
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(invalid_entity)
+                .insert_bundle(TestBundle { value: 42 })
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, invalid_entity);
+                    assert_eq!(error.bundle.value, 42);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+
+            // EntityCommands::remove
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(invalid_entity)
+                .remove::<u32>()
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, invalid_entity);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+
+            // EntityCommands::remove_resource
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(invalid_entity)
+                .remove_bundle::<TestBundle>()
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, invalid_entity);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+        }
+        queue.apply(&mut world);
+
+        assert_eq!(invoked.load(Ordering::Relaxed), 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_panicking_error_handler() {
+        std::panic::set_hook(Box::new(|_| {})); // prevents printing of stack trace.
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            let invalid_entity = Entity::new(42);
+            commands
+                .entity(invalid_entity)
+                .despawn()
+                .on_err(CommandErrorHandler::panic);
+        }
+        queue.apply(&mut world);
     }
 }

@@ -263,6 +263,10 @@ name = "change_detection"
 path = "examples/ecs/change_detection.rs"
 
 [[example]]
+name = "command_error_handling"
+path = "examples/ecs/command_error_handling.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
