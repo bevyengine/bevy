@@ -43,9 +43,10 @@ pub struct GpuLight {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, AsStd140)]
 pub struct GpuLights {
+    // TODO: this comes first to work around a WGSL alignment issue. We need to solve this issue before releasing the renderer rework
+    lights: [GpuLight; MAX_OMNI_LIGHTS],
     ambient_color: Vec4,
     len: u32,
-    lights: [GpuLight; MAX_OMNI_LIGHTS],
 }
 
 // NOTE: this must be kept in sync MAX_OMNI_LIGHTS in pbr.frag

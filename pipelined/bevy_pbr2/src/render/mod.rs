@@ -42,7 +42,6 @@ impl FromWorld for PbrShaders {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let shader = Shader::from_wgsl(include_str!("pbr.wgsl"));
         let shader_module = render_device.create_shader_module(&shader);
-        println!("{}", GpuLights::std140_size_static());
 
         // TODO: move this into ViewMeta?
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {

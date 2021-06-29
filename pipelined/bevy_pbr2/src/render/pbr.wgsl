@@ -22,9 +22,10 @@ struct Vertex {
 };
 
 struct VertexOutput {
-    [[builtin(position)]] world_position: vec4<f32>;
-    [[location(0)]] world_normal: vec3<f32>;
-    [[location(1)]] uv: vec2<f32>;
+    [[builtin(position)]] clip_position: vec4<f32>;
+    [[location(0)]] world_position: vec4<f32>;
+    [[location(1)]] world_normal: vec3<f32>;
+    [[location(2)]] uv: vec2<f32>;
 };
 
 [[stage(vertex)]]
@@ -33,7 +34,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     var out: VertexOutput;
     out.uv = vertex.uv;
-    out.world_position = view.view_proj * world_position;
+    out.world_position = world_position;
+    out.clip_position = view.view_proj * world_position;
     // FIXME: The inverse transpose of the model matrix should be used to correctly handle scaling
     // of normals
     out.world_normal = mat3x3<f32>(mesh.transform.x.xyz, mesh.transform.y.xyz, mesh.transform.z.xyz) * vertex.normal;
@@ -95,11 +97,11 @@ struct OmniLight {
 
 [[block]]
 struct Lights {
-    ambient_color: vec4<f32>;
-    num_lights: u32;
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     // TODO: this can be removed if we move to storage buffers for light arrays
     omni_lights: array<OmniLight, 10>;
+    ambient_color: vec4<f32>;
+    num_lights: u32;
 };
 
 let FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -359,9 +361,9 @@ fn fetch_shadow(light_id: i32, homogeneous_coords: vec4<f32>) -> f32 {
 
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
-    [[builtin(position)]] world_position: vec4<f32>;
-    [[location(0)]] world_normal: vec3<f32>;
-    [[location(1)]] uv: vec2<f32>;
+    [[location(0)]] world_position: vec4<f32>;
+    [[location(1)]] world_normal: vec3<f32>;
+    [[location(2)]] uv: vec2<f32>;
 };
 
 [[stage(fragment)]]
