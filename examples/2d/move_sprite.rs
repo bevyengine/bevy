@@ -23,6 +23,7 @@ fn setup(
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.into()),
+            transform: Transform::from_xyz(100., 0., 0.),
             ..Default::default()
         })
         .insert(Direction::Up);
