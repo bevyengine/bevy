@@ -11,6 +11,10 @@ use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
+// Token to ensure a system runs on the main thread.
+#[derive(Default)]
+pub struct NonSendMarker;
+
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
@@ -18,6 +22,7 @@ impl Plugin for WindowRenderPlugin {
         let render_app = app.sub_app_mut(0);
         render_app
             .init_resource::<WindowSurfaces>()
+            .init_resource::<NonSendMarker>()
             .add_system_to_stage(RenderStage::Extract, extract_windows.system())
             .add_system_to_stage(RenderStage::Prepare, prepare_windows.system());
     }
@@ -77,6 +82,9 @@ pub struct WindowSurfaces {
 }
 
 pub fn prepare_windows(
+    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
+    // which is necessary for some OS s
+    _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
@@ -88,6 +96,7 @@ pub fn prepare_windows(
             .surfaces
             .entry(window.id)
             .or_insert_with(|| unsafe {
+                // NOTE: On some OSes this MUST be called from the main thread.
                 render_instance.create_surface(&window.handle.get_handle())
             });
 
