@@ -464,7 +464,7 @@ impl<'w> EntityMut<'w> {
     /// Adds a single [`Component`] to the current entity, if (and only if) the current entity
     /// does not already have a [`Component`] of the same type.
     ///
-    /// Returns `Ok(())` if the component was added, and `Err(value)` if the componet was not added.
+    /// Returns `Ok(())` if the component was inserted, and `Err(value)` if the component was not inserted.
     pub fn try_insert<T: Component>(&mut self, value: T) -> Result<(), T> {
         if self.get::<T>().is_some() {
             Err(value)
