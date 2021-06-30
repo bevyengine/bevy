@@ -17,6 +17,7 @@ use crate::{
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
+    schedule::SystemDescriptor,
     storage::{Column, SparseSet, Storages},
 };
 use std::{
@@ -914,6 +915,49 @@ impl World {
         let resource_archetype = self.archetypes.resource_mut();
         for column in resource_archetype.unique_components.values_mut() {
             column.check_change_ticks(change_tick);
+        }
+    }
+
+    /// Runs a system in a sequential, blocking fashion on the `World`
+    ///
+    /// Use [System::run_unsafe] directly for manual unsafe execution
+    /// of simultaneous systems in parallel.
+    ///
+    /// The `system` parameter here can be any function
+    /// that could be added as a system to a standard `App`.
+    ///
+    /// This system cannot have an input or output;
+    /// use [World::run_system_chainable] instead
+    /// if this behavior is desired.
+    ///
+    /// #Examples
+    ///
+    /// ```rust
+    /// #[derive(Default)]
+    /// struct Counter(u8);
+    /// let mut world = World::new();
+    ///
+    /// fn count_up(mut counter: ResMut<Counter>){
+    ///    counter += 1;
+    /// }
+    ///
+    /// world.insert_resource::<Counter>(Counter(0));
+    /// world.run_system(count_up);
+    /// let counter = world.get_resource::<Counter>().unwrap();
+    /// assert_eq!(counter.0, 1);
+    /// ```
+    pub fn run_system(&mut self, system: impl Into<SystemDescriptor>) {
+        let system_descriptor: SystemDescriptor = system.into();
+
+        match system_descriptor {
+            SystemDescriptor::Parallel(par_system_descriptor) => {
+                let mut boxed_system = par_system_descriptor.system;
+                boxed_system.run((), self);
+            }
+            SystemDescriptor::Exclusive(exc_system_descriptor) => {
+                let mut boxed_system = exc_system_descriptor.system;
+                boxed_system.run(self);
+            }
         }
     }
 }
