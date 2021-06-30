@@ -934,12 +934,11 @@ impl World {
     /// #Examples
     ///
     /// ```rust
-    /// #[derive(Default)]
     /// struct Counter(u8);
     /// let mut world = World::new();
     ///
     /// fn count_up(mut counter: ResMut<Counter>){
-    ///    counter += 1;
+    ///    counter.0 += 1;
     /// }
     ///
     /// world.insert_resource::<Counter>(Counter(0));
@@ -1008,5 +1007,40 @@ impl Default for MainThreadValidator {
         Self {
             main_thread: std::thread::current().id(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+
+    struct Counter(u8);
+
+    fn count_up(mut counter: ResMut<Counter>) {
+        counter.0 += 1;
+    }
+
+    fn count_up_exclusive(world: &mut World) {
+        let mut counter = world.get_resource_mut::<Counter>().unwrap();
+        counter.0 += 1;
+    }
+
+    #[test]
+    fn run_parallel_system_from_world() {
+        let mut world = World::new();
+        world.insert_resource::<Counter>(Counter(0));
+        world.run_system(count_up.system());
+        let counter = world.get_resource::<Counter>().unwrap();
+        assert_eq!(counter.0, 1);
+    }
+
+    #[test]
+    fn run_exclusive_system_from_world() {
+        let mut world = World::new();
+        world.insert_resource::<Counter>(Counter(0));
+        world.run_system(count_up_exclusive.exclusive_system());
+        let counter = world.get_resource::<Counter>().unwrap();
+        assert_eq!(counter.0, 1);
     }
 }
