@@ -461,6 +461,15 @@ impl<'w> EntityMut<'w> {
         entities.meta[self.entity.id as usize].location = new_location;
     }
 
+    pub fn try_insert<T: Component>(&mut self, value: T) -> Result<(), T> {
+        if self.get::<T>().is_some() {
+            Err(value)
+        } else {
+            self.insert(value);
+            Ok(())
+        }
+    }
+
     pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
         self.insert_bundle((value,))
     }

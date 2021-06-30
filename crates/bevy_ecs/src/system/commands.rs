@@ -207,6 +207,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     }
 
     /// Adds a single [`Component`] to the current entity.
+    /// This will overwrite an existing [`Component`] of the same type.
     ///
     ///
     /// # Warning
@@ -240,6 +241,16 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// ```
     pub fn insert(&mut self, component: impl Component) -> &mut Self {
         self.commands.add(Insert {
+            entity: self.entity,
+            component,
+        });
+        self
+    }
+
+    /// Adds a single [`Component`] to the current entity, if (and only if) the current entity
+    /// does not already have a [`Component`] of the same type.
+    pub fn try_insert(&mut self, component: impl Component) -> &mut Self {
+        self.commands.add(TryInsert {
             entity: self.entity,
             component,
         });
@@ -354,6 +365,21 @@ where
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.entity_mut(self.entity).insert(self.component);
+    }
+}
+
+#[derive(Debug)]
+pub struct TryInsert<T> {
+    pub entity: Entity,
+    pub component: T,
+}
+
+impl<T> Command for TryInsert<T>
+where
+    T: Component,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        let _ = world.entity_mut(self.entity).try_insert(self.component);
     }
 }
 
