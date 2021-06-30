@@ -18,7 +18,7 @@ use crate::{
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
-    schedule::SystemDescriptor,
+    schedule::{IntoSystemDescriptor, SystemDescriptor},
     storage::{Column, SparseSet, Storages},
 };
 use std::{
@@ -946,8 +946,8 @@ impl World {
     /// let counter = world.get_resource::<Counter>().unwrap();
     /// assert_eq!(counter.0, 1);
     /// ```
-    pub fn run_system(&mut self, system: impl Into<SystemDescriptor>) {
-        let system_descriptor: SystemDescriptor = system.into();
+    pub fn run_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) {
+        let system_descriptor: SystemDescriptor = system.into_descriptor();
 
         match system_descriptor {
             SystemDescriptor::Parallel(par_system_descriptor) => {
