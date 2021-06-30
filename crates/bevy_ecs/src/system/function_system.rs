@@ -221,10 +221,10 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 pub struct In<In>(pub In);
 pub struct InputMarker;
 
-/// The [`System`] counter part of an ordinary function.
+/// The [`System`] counterpart of an ordinary function.
 ///
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
-/// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
+/// [`SystemParam`]s. The output of the system becomes the function's return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
