@@ -919,7 +919,7 @@ impl World {
         }
     }
 
-    /// Runs a system in a sequential, blocking fashion on the `World`
+    /// Runs a system in a blocking fashion on the `World`
     ///
     /// Use [System::run_unsafe] directly for manual unsafe execution
     /// of simultaneous systems in parallel.
@@ -927,8 +927,9 @@ impl World {
     /// The `system` parameter here can be any function
     /// that could be added as a system to a standard `App`.
     ///
-    /// #Examples
-    ///
+    /// # Examples
+    ///  
+    /// Here's an example of how to directly run an ordinary parallel system.
     /// ```rust
     /// use bevy_ecs::prelude::*;
     ///
@@ -944,7 +945,7 @@ impl World {
     /// let counter = world.get_resource::<Counter>().unwrap();
     /// assert_eq!(counter.0, 1);
     /// ```
-    ///
+    /// And here's how you directly run an exclusive system.
     /// ```rust
     /// use bevy_ecs::prelude::*;
     ///
