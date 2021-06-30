@@ -958,6 +958,7 @@ impl World {
             }
             SystemDescriptor::Exclusive(exc_system_descriptor) => {
                 let mut boxed_system = exc_system_descriptor.system;
+                boxed_system.initialize(self);
                 boxed_system.run(self);
             }
         }
