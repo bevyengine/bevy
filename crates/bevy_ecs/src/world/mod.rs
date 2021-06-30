@@ -952,7 +952,10 @@ impl World {
         match system_descriptor {
             SystemDescriptor::Parallel(par_system_descriptor) => {
                 let mut boxed_system = par_system_descriptor.system;
+                boxed_system.initialize(self);
                 boxed_system.run((), self);
+                // Immediately flushes any Commands or similar buffers created
+                boxed_system.apply_buffers(self);
             }
             SystemDescriptor::Exclusive(exc_system_descriptor) => {
                 let mut boxed_system = exc_system_descriptor.system;
