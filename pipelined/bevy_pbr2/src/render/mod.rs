@@ -488,6 +488,10 @@ pub fn queue_meshes(
 ) {
     let mesh_meta = mesh_meta.into_inner();
 
+    if view_meta.uniforms.len() == 0 {
+        return;
+    }
+
     light_meta.shadow_view_bind_group.get_or_insert_with(|| {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
