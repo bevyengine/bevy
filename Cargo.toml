@@ -418,6 +418,10 @@ path = "examples/tools/bevymark.rs"
 
 # Transforms
 [[example]]
+name = "rotation"
+path = "examples/transforms/rotation.rs"
+
+[[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
 
