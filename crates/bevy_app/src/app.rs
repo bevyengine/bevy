@@ -40,6 +40,8 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
+    #[cfg(feature = "trace")]
+    frame_count: u32,
 }
 
 impl Default for App {
@@ -71,13 +73,16 @@ impl App {
             world: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
+            #[cfg(feature = "trace")]
+            frame_count: 0,
         }
     }
 
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         {
-            let bevy_frame_update_span = info_span!("frame");
+            self.frame_count = self.frame_count.wrapping_add(1);
+            let bevy_frame_update_span = info_span!("frame", frame_count = self.frame_count);
             let _bevy_frame_update_guard = bevy_frame_update_span.enter();
             self.schedule
                 .run_in_span(&mut self.world, Some(&bevy_frame_update_span));
