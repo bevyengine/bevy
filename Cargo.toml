@@ -416,6 +416,11 @@ path = "examples/shader/shader_defs.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+# Transforms
+[[example]]
+name = "translation"
+path = "examples/transforms/translation.rs"
+
 # UI (User Interface)
 [[example]]
 name = "button"
