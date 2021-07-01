@@ -356,7 +356,12 @@ fn fetch_shadow(light_id: i32, homogeneous_coords: vec4<f32>) -> f32 {
     // compute texture coordinates for shadow lookup
     let light_local = homogeneous_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
     // do the lookup, using HW PCF and comparison
-    return textureSampleCompare(shadow_textures, shadow_textures_sampler, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
+    // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
+    //       textureSampleCompare to avoid undefined behaviour due to some of the fragments in
+    //       a quad (2x2 fragments) being processed not being sampled, and this messing with
+    //       mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
+    //       from LOD 0.
+    return textureSampleCompareLevel(shadow_textures, shadow_textures_sampler, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
 }
 
 struct FragmentInput {

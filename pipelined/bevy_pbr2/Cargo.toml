@@ -29,4 +29,4 @@ bitflags = "1.2"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 crevice = { path = "../../crates/crevice" }
-wgpu = "0.8"
+wgpu = "0.9"

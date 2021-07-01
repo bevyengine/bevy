@@ -29,7 +29,7 @@ bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
 image = { version = "0.23.12", default-features = false }
 
 # misc
-wgpu = "0.8"
+wgpu = "0.9"
 naga = { git = "https://github.com/gfx-rs/naga", rev = "0cf5484bba530f1134badbd2a1c1a8e9daf2e9c3", features = ["glsl-in", "spv-out", "spv-in", "wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
