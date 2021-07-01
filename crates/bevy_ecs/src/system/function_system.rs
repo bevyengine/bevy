@@ -263,6 +263,40 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
         self
     }
 }
+
+pub trait ConfigurableSystem<In, Out, Param: SystemParam, Marker>:
+    IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
+{
+    fn config(
+        self,
+        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
+    ) -> Self::System;
+}
+
+impl<In, Out, Param: SystemParam, Marker, F> ConfigurableSystem<In, Out, Param, Marker> for F
+where
+    In: 'static,
+    Out: 'static,
+    Param: SystemParam + 'static,
+    Marker: 'static,
+    F: SystemParamFunction<In, Out, Param, Marker>
+        + IntoSystem<
+            In,
+            Out,
+            (IsFunctionSystem, Param, Marker),
+            System = FunctionSystem<In, Out, Param, Marker, F>,
+        > + Send
+        + Sync
+        + 'static,
+{
+    fn config(
+        self,
+        f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
+    ) -> Self::System {
+        self.system().config(f)
+    }
+}
+
 pub struct IsFunctionSystem;
 
 impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
