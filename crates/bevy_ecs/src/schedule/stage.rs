@@ -11,7 +11,10 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{info, Span},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -21,7 +24,11 @@ use super::IntoSystemDescriptor;
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
-    fn run(&mut self, world: &mut World);
+    fn run(&mut self, world: &mut World) {
+        self.run_in_span(world, None);
+    }
+
+    fn run_in_span(&mut self, world: &mut World, span: Option<&Span>);
 }
 
 impl_downcast!(Stage);
@@ -738,7 +745,7 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
 }
 
 impl Stage for SystemStage {
-    fn run(&mut self, world: &mut World) {
+    fn run_in_span(&mut self, world: &mut World, span: Option<&Span>) {
         if let Some(world_id) = self.world_id {
             assert!(
                 world.id() == world_id,
@@ -821,7 +828,8 @@ impl Stage for SystemStage {
                     container.should_run =
                         should_run(container, &self.run_criteria, default_should_run);
                 }
-                self.executor.run_systems(&mut self.parallel, world);
+                self.executor
+                    .run_systems_in_span(&mut self.parallel, world, span);
 
                 // Run systems that want to be between parallel systems and their command buffers.
                 for container in &mut self.exclusive_before_commands {
