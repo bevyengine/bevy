@@ -26,7 +26,7 @@ use crate::{
     system::{IntoSystem, System},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::Span, HashMap};
 
 #[derive(Default)]
 pub struct Schedule {
@@ -198,13 +198,28 @@ impl Schedule {
     }
 
     pub fn run_once(&mut self, world: &mut World) {
+        self.run_once_in_span(world, None);
+    }
+
+    #[allow(unused)]
+    pub fn run_once_in_span(&mut self, world: &mut World, span: Option<&Span>) {
         for label in self.stage_order.iter() {
-            #[cfg(feature = "trace")]
-            let stage_span =
-                bevy_utils::tracing::info_span!("stage", name = &format!("{:?}", label) as &str);
-            #[cfg(feature = "trace")]
-            let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
+            #[cfg(feature = "trace")]
+            {
+                let stage_span = if let Some(span) = span {
+                    bevy_utils::tracing::info_span!(
+                        parent: span,
+                        "stage",
+                        name = &format!("{:?}", label) as &str
+                    )
+                } else {
+                    bevy_utils::tracing::info_span!("stage", name = &format!("{:?}", label) as &str)
+                };
+                let _stage_guard = stage_span.enter();
+                stage.run_in_span(world, Some(&stage_span));
+            }
+            #[cfg(not(feature = "trace"))]
             stage.run(world);
         }
     }
@@ -218,16 +233,16 @@ impl Schedule {
 }
 
 impl Stage for Schedule {
-    fn run(&mut self, world: &mut World) {
+    fn run_in_span(&mut self, world: &mut World, span: Option<&Span>) {
         loop {
             match self.run_criteria.should_run(world) {
                 ShouldRun::No => return,
                 ShouldRun::Yes => {
-                    self.run_once(world);
+                    self.run_once_in_span(world, span);
                     return;
                 }
                 ShouldRun::YesAndCheckAgain => {
-                    self.run_once(world);
+                    self.run_once_in_span(world, span);
                 }
                 ShouldRun::NoAndCheckAgain => {
                     panic!("`NoAndCheckAgain` would loop infinitely in this situation.")
