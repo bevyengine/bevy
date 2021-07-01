@@ -264,9 +264,11 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     }
 }
 
+/// Provides `my_system.config(...)` API.
 pub trait ConfigurableSystem<In, Out, Param: SystemParam, Marker>:
     IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
 {
+    /// See [`FunctionSystem::config()`](crate::system::FunctionSystem::config).
     fn config(
         self,
         f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
