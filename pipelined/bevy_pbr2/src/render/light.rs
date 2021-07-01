@@ -433,12 +433,13 @@ impl Draw for DrawShadowMesh {
             &[view_uniform_offset.offset],
         );
 
+        let transform_bindgroup_key = mesh_meta.mesh_transform_bind_group_key.unwrap();
         pass.set_bind_group(
             1,
             mesh_meta
                 .into_inner()
                 .mesh_transform_bind_group
-                .as_ref()
+                .get_value(transform_bindgroup_key)
                 .unwrap(),
             &[extracted_mesh.transform_binding_offset],
         );
