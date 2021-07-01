@@ -427,7 +427,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // #    endif
 
         var V: vec3<f32>;
-        if (view.view_proj.z.z != 1.0) { // If the projection is not orthographic
+        if (view.view_proj.w.w != 1.0) { // If the projection is not orthographic
             // Only valid for a perpective projection
             V = normalize(view.world_position.xyz - in.world_position.xyz);
         } else {
