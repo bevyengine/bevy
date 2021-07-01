@@ -87,7 +87,7 @@ struct StandardMaterial {
     flags: u32;
 };
 
-struct OmniLight {
+struct PointLight {
     color: vec4<f32>;
     // projection: mat4x4<f32>;
     position: vec3<f32>;
@@ -101,7 +101,7 @@ struct OmniLight {
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     // TODO: this can be removed if we move to storage buffers for light arrays
-    omni_lights: array<OmniLight, 10>;
+    point_lights: array<PointLight, 10>;
     ambient_color: vec4<f32>;
     num_lights: u32;
 };
@@ -296,8 +296,8 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
-fn omni_light(
-    world_position: vec3<f32>, light: OmniLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
+fn point_light(
+    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     let light_to_frag = light.position.xyz - world_position.xyz;
@@ -349,7 +349,7 @@ fn omni_light(
 }
 
 fn fetch_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
-    let light = lights.omni_lights[light_id];
+    let light = lights.point_lights[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -472,8 +472,8 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // accumulate color
         var light_accum: vec3<f32> = vec3<f32>(0.0);
         for (var i: i32 = 0; i < i32(lights.num_lights); i = i + 1) {
-            let light = lights.omni_lights[i];
-            let light_contrib = omni_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
+            let light = lights.point_lights[i];
+            let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             let shadow = fetch_shadow(i, in.world_position);
             light_accum = light_accum + light_contrib * shadow;
         }

@@ -1,7 +1,7 @@
 use bevy::{
     ecs::prelude::*,
     math::Vec3,
-    pbr2::{OmniLight, OmniLightBundle, PbrBundle, StandardMaterial},
+    pbr2::{PbrBundle, PointLight, PointLightBundle, StandardMaterial},
     prelude::{App, Assets, Transform},
     render2::{
         camera::{OrthographicCameraBundle, OrthographicProjection},
@@ -64,9 +64,9 @@ fn setup(
         ..Default::default()
     });
     // light
-    commands.spawn_bundle(OmniLightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(50.0, 50.0, 50.0)),
-        omni_light: OmniLight {
+        point_light: PointLight {
             intensity: 50000.,
             range: 100.,
             ..Default::default()

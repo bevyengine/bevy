@@ -2,19 +2,19 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::Reflect;
 use bevy_render2::color::Color;
 
-/// An omnidirectional light
+/// A light that emits light in all directions from a central point.
 #[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Component)]
-pub struct OmniLight {
+pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
 }
 
-impl Default for OmniLight {
+impl Default for PointLight {
     fn default() -> Self {
-        OmniLight {
+        PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             intensity: 200.0,
             range: 20.0,

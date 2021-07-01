@@ -4,7 +4,7 @@ use bevy::{
     ecs::prelude::*,
     input::Input,
     math::{Quat, Vec3},
-    pbr2::{OmniLight, OmniLightBundle, PbrBundle, StandardMaterial},
+    pbr2::{PbrBundle, PointLight, PointLightBundle, StandardMaterial},
     prelude::{App, Assets, BuildChildren, KeyCode, Transform},
     render2::{
         camera::PerspectiveCameraBundle,
@@ -98,10 +98,10 @@ fn setup(
 
     // light
     commands
-        .spawn_bundle(OmniLightBundle {
+        .spawn_bundle(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
-            omni_light: OmniLight {
+            point_light: PointLight {
                 color: Color::RED,
                 ..Default::default()
             },
@@ -124,10 +124,10 @@ fn setup(
 
     // light
     commands
-        .spawn_bundle(OmniLightBundle {
+        .spawn_bundle(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(-1.0, 2.0, 0.0),
-            omni_light: OmniLight {
+            point_light: PointLight {
                 color: Color::GREEN,
                 ..Default::default()
             },
@@ -150,10 +150,10 @@ fn setup(
 
     // light
     commands
-        .spawn_bundle(OmniLightBundle {
+        .spawn_bundle(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
-            omni_light: OmniLight {
+            point_light: PointLight {
                 color: Color::BLUE,
                 ..Default::default()
             },

@@ -1,4 +1,4 @@
-use crate::{AmbientLight, ExtractedMeshes, MeshMeta, OmniLight, PbrShaders};
+use crate::{AmbientLight, ExtractedMeshes, MeshMeta, PbrShaders, PointLight};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
 use bevy_render2::{
@@ -11,7 +11,7 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::*,
-    view::{ExtractedView, ViewUniform, ViewUniformOffset},
+    view::{ExtractedView, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -46,17 +46,17 @@ pub struct GpuLight {
 #[derive(Copy, Clone, Debug, AsStd140)]
 pub struct GpuLights {
     // TODO: this comes first to work around a WGSL alignment issue. We need to solve this issue before releasing the renderer rework
-    lights: [GpuLight; MAX_OMNI_LIGHTS],
+    lights: [GpuLight; MAX_POINT_LIGHTS],
     ambient_color: Vec4,
     len: u32,
 }
 
-// NOTE: this must be kept in sync MAX_OMNI_LIGHTS in pbr.frag
-pub const MAX_OMNI_LIGHTS: usize = 10;
+// NOTE: this must be kept in sync MAX_POINT_LIGHTS in pbr.frag
+pub const MAX_POINT_LIGHTS: usize = 10;
 pub const SHADOW_SIZE: Extent3d = Extent3d {
     width: 1024,
     height: 1024,
-    depth_or_array_layers: 6 * MAX_OMNI_LIGHTS as u32,
+    depth_or_array_layers: 6 * MAX_POINT_LIGHTS as u32,
 };
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -178,7 +178,7 @@ impl FromWorld for ShadowShaders {
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
-    lights: Query<(Entity, &OmniLight, &GlobalTransform)>,
+    lights: Query<(Entity, &PointLight, &GlobalTransform)>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
         color: ambient_light.color,
@@ -290,11 +290,11 @@ pub fn prepare_lights(
         let mut gpu_lights = GpuLights {
             ambient_color: ambient_color.into(),
             len: lights.iter().len() as u32,
-            lights: [GpuLight::default(); MAX_OMNI_LIGHTS],
+            lights: [GpuLight::default(); MAX_POINT_LIGHTS],
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for (light_index, light) in lights.iter().enumerate().take(MAX_OMNI_LIGHTS) {
+        for (light_index, light) in lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
             let projection =
                 Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1, light.range);
 
