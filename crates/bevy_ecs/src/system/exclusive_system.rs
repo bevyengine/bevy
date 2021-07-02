@@ -10,8 +10,18 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
 
     fn id(&self) -> SystemId;
 
+    /// Runs the exclusive system in the world.
+    ///
+    /// Use [`run_direct`] instead if you are manually running a system outside of a schedule
     fn run(&mut self, world: &mut World);
 
+    /// Runs the exclusive system directly on the world, initializing the world correctly
+    fn run_direct(&mut self, world: &mut World) {
+        self.initialize(world);
+        self.run(world);
+    }
+
+    /// Initialize the World, so that the system can safely run
     fn initialize(&mut self, world: &mut World);
 
     fn check_change_tick(&mut self, change_tick: u32);
