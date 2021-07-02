@@ -96,7 +96,7 @@ pub trait System: Send + Sync + 'static {
         self.initialize(world);
         let output = self.run(input, world);
         self.apply_buffers(world);
-        return output;
+        output
     }
     /// Applies any buffers (such as `Commands`) created by this system's parameters to the world
     fn apply_buffers(&mut self, world: &mut World);
