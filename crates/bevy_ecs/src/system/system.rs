@@ -65,8 +65,9 @@ pub trait System: Send + Sync + 'static {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world) }
     }
+    /// Applies any buffers (such as `Commands`) created by this system's parameters to the world
     fn apply_buffers(&mut self, world: &mut World);
-    /// Initialize the system.
+    /// Initialize the World, so that the system can safely run
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
 }
