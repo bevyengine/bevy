@@ -209,6 +209,7 @@ pub struct SystemGraphNode {
 }
 
 impl SystemGraphNode {
+    #[inline]
     pub fn graph(&self) -> SystemGraph {
         self.graph.clone()
     }
@@ -227,6 +228,7 @@ impl SystemGraphNode {
     /// systems will not run until the original node's system finishes running.
     ///
     /// Functionally equivalent to calling `SystemGraphNode::then` multiple times.
+    #[inline]
     pub fn fork<Param, T: SystemGroup<Param>>(&self, system_group: T) -> T::Output {
         system_group.fork_from(self)
     }
@@ -235,10 +237,21 @@ impl SystemGraphNode {
 pub trait SystemGroup<Param> {
     type Output;
     fn fork_from(self, src: &SystemGraphNode) -> Self::Output;
+    fn join_from<J: SystemJoin>(self, src: &J) -> Self::Output;
 }
 
-pub trait SystemJoin {
-    fn join<Param>(self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode;
+pub trait SystemJoin: Sized {
+    /// Adds a system to the graph dependent on all of the nodes contained within the join.
+    fn join<Param>(&self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode;
+
+    /// Adds a `SystemGroup` to the graph that is dependent on all of nodes contained within
+    /// the join.
+    ///
+    /// Functionally equivalent to calling `join` on every node created from the group.
+    #[inline]
+    fn par_join<Param, G: SystemGroup<Param>>(&self, next: G) -> G::Output {
+        next.join_from(self)
+    }
 }
 
 impl<Param, T: IntoSystemDescriptor<Param>> SystemGroup<Param> for Vec<T> {
@@ -246,11 +259,15 @@ impl<Param, T: IntoSystemDescriptor<Param>> SystemGroup<Param> for Vec<T> {
     fn fork_from(self, src: &SystemGraphNode) -> Self::Output {
         self.into_iter().map(|sys| src.then(sys)).collect()
     }
+
+    fn join_from<J: SystemJoin>(self, src: &J) -> Self::Output {
+        self.into_iter().map(|sys| src.join(sys)).collect()
+    }
 }
 
 impl SystemJoin for Vec<SystemGraphNode> {
-    fn join<Param>(self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode {
-        let mut nodes = self.into_iter().peekable();
+    fn join<Param>(&self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode {
+        let mut nodes = self.iter().peekable();
         let output = nodes
             .peek()
             .map(|node| node.graph.create_node(next.into_descriptor()))
@@ -287,12 +304,19 @@ macro_rules! impl_system_tuple {
                 let ($($param,)*) = self;
                 ($(src.then($param),)*)
             }
+
+            #[inline]
+            #[allow(non_snake_case)]
+            fn join_from<J: SystemJoin>(self, src: &J) -> Self::Output {
+                let ($($param,)*) = self;
+                ($(src.join($param),)*)
+            }
         }
 
         impl SystemJoin for ($(ignore_first!($param, SystemGraphNode),)*) {
             #[inline]
             #[allow(non_snake_case)]
-            fn join<Param>(self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode {
+            fn join<Param>(&self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode {
                 let output = self.0.graph.create_node(next.into_descriptor());
                 let ($($param,)*) = self;
                 $(
