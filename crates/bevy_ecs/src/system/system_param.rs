@@ -23,7 +23,8 @@ use std::{
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro.
+/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requisite
+/// is that every struct field must also implement `SystemParam`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
