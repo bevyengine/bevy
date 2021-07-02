@@ -13,9 +13,29 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     /// Runs the exclusive system in the world.
     ///
     /// Use [`run_direct`] instead if you are manually running a system outside of a schedule
+
     fn run(&mut self, world: &mut World);
 
     /// Runs the exclusive system directly on the world, initializing the world correctly
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// struct Counter(u8);
+    /// let mut world = World::new();
+    ///
+    /// fn count_up(world: &mut World){
+    ///     let mut counter = world.get_resource_mut::<Counter>().unwrap();
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.insert_resource::<Counter>(Counter(0));
+    /// count_up.exclusive_system().run_direct(world);
+    /// let counter = world.get_resource::<Counter>().unwrap();
+    /// assert_eq!(counter.0, 1);
+    ///```
     fn run_direct(&mut self, world: &mut World) {
         self.initialize(world);
         self.run(world);
