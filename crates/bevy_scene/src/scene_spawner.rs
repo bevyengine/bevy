@@ -33,7 +33,7 @@ pub struct SceneSpawner {
     spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
-    dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
+    dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
@@ -54,7 +54,21 @@ pub enum SceneSpawnError {
 
 impl SceneSpawner {
     pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) {
-        self.dynamic_scenes_to_spawn.push(scene_handle);
+        let instance_id = InstanceId::new();
+        self.dynamic_scenes_to_spawn
+            .push((scene_handle, instance_id));
+    }
+
+    pub fn spawn_dynamic_as_child(
+        &mut self,
+        scene_handle: Handle<DynamicScene>,
+        parent: Entity,
+    ) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.dynamic_scenes_to_spawn
+            .push((scene_handle, instance_id));
+        self.scenes_with_parent.push((instance_id, parent));
+        instance_id
     }
 
     pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
@@ -258,11 +272,22 @@ impl SceneSpawner {
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
-        for scene_handle in scenes_to_spawn {
-            match self.spawn_dynamic_sync(world, &scene_handle) {
-                Ok(_) => {}
+        for (scene_handle, instance_id) in scenes_to_spawn {
+            let mut entity_map = EntityMap::default();
+
+            match Self::spawn_dynamic_internal(world, &scene_handle, &mut entity_map) {
+                Ok(_) => {
+                    self.spawned_instances
+                        .insert(instance_id, InstanceInfo { entity_map });
+                    let spawned = self
+                        .spawned_dynamic_scenes
+                        .entry(scene_handle.clone())
+                        .or_insert_with(Vec::new);
+                    spawned.push(instance_id);
+                }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn.push(scene_handle);
+                    self.dynamic_scenes_to_spawn
+                        .push((scene_handle, instance_id));
                 }
                 Err(err) => return Err(err),
             }

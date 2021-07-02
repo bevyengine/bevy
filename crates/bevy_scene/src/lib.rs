@@ -16,8 +16,8 @@ pub use scene_spawner::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, Scene, SceneBundle, SceneSpawner, SpawnSceneAsChildCommands,
-        SpawnSceneCommands,
+        DynamicScene, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner,
+        SpawnSceneAsChildCommands, SpawnSceneCommands,
     };
 }
 
@@ -38,6 +38,8 @@ impl Plugin for ScenePlugin {
                 CoreStage::PreUpdate,
                 scene_spawner_system.exclusive_system().at_end(),
             )
-            .add_system_to_stage(CoreStage::PreUpdate, scene_bundle_spawner);
+            // Systems `*_bundle_spawner` must run before `scene_spawner_system`
+            .add_system_to_stage(CoreStage::PreUpdate, scene_bundle_spawner)
+            .add_system_to_stage(CoreStage::PreUpdate, dynamic_scene_bundle_spawner);
     }
 }
