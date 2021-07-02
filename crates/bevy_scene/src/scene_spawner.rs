@@ -98,7 +98,7 @@ impl SceneSpawner {
     }
 
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
-        if let Some(instance) = self.spawned_instances.get(instance_id) {
+        if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for entity in instance.entity_map.values() {
                 let _ = world.despawn(entity);
             }
