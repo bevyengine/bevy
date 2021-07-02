@@ -1,10 +1,9 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{EventWriter, Events, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     reflect::{ReflectComponent, ReflectMapEntities},
-    system::SystemState,
     world::{Mut, World},
 };
 use bevy_reflect::TypeRegistryArc;
