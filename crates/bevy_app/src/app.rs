@@ -58,6 +58,8 @@ impl App {
     }
 
     /// Advances the execution of the [`Schedule`] by one cycle.
+    ///
+    /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_frame_update_span = info_span!("frame");
