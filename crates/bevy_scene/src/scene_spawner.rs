@@ -26,6 +26,7 @@ impl InstanceId {
     }
 }
 
+#[derive(Debug)]
 pub struct SceneSpawnedEvent {
     pub instance_id: InstanceId,
 }
