@@ -70,7 +70,11 @@ pub trait System: Send + Sync + 'static {
     /// Runs the system directly on the world, initializing the world correctly;
     /// immediately applying buffers (such as `Commands`) modified by its system parameters
     ///
-    /// Use () as the `input` parameter for systems which do not take any chained input
+    /// Use () as the `input` parameter for systems which do not take any chained input.
+    ///
+    /// Only one system will run at a time when executed in this way;
+    /// use a [`Schedule`] (or a custom abstraction created with [`run_unsafe`])
+    /// when system parallelism is desired.
     ///
     /// # Examples
     /// ```rust
