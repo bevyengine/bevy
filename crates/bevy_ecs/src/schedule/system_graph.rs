@@ -43,7 +43,7 @@ static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(0);
 /// let graph = SystemGraph::new();
 ///
 /// // Fork out from one original node.
-/// let (c, b, d) = graph.root(sys_a.system())
+/// let (c, b, d) = graph.root(sys_a)
 ///     .fork((
 ///         sys_b,
 ///         sys_c,
@@ -213,7 +213,7 @@ impl SystemGraphNode {
         self.graph.clone()
     }
 
-    /// Creates a new node in the graph and adds the current node as it's dependency.
+    /// Creates a new node in the graph and adds the current node as its dependency.
     ///
     /// This function can be called multiple times to add mulitple systems to the graph,
     /// all of which will not execute until original node's system has finished running.
@@ -297,7 +297,7 @@ macro_rules! impl_system_tuple {
                 let ($($param,)*) = self;
                 $(
                     assert!(output.graph.is_same_graph(&$param.graph),
-                            "Joined graph nodes should be from the same graph.");
+                            "Joined graph nodes must be from the same graph.");
                     output.graph.add_dependency($param.id, output.id);
                 )*
                 output
