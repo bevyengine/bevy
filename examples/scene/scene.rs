@@ -10,7 +10,7 @@ fn main() {
         .add_startup_system(load_scene_system.system())
         .add_startup_system(infotext_system.system())
         .add_system(log_system.system())
-        .add_system(event_listener_system.system())
+        .add_system(scene_spawned_listener.system())
         .run();
 }
 
@@ -123,8 +123,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn event_listener_system(mut events: EventReader<SceneSpawnedEvent>) {
-    for my_event in events.iter() {
-        info!("{:?}", my_event.instance_id);
+fn scene_spawned_listener(mut events: EventReader<SceneSpawnedEvent>) {
+    for event in events.iter() {
+        info!("{:?}", event);
     }
 }
