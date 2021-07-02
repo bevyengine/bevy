@@ -36,6 +36,7 @@ pub struct SceneSpawner {
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,
+    instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
 }
 
@@ -73,24 +74,35 @@ impl SceneSpawner {
         self.scenes_to_despawn.push(scene_handle);
     }
 
+    pub fn despawn_instance(&mut self, instance_id: InstanceId) {
+        self.instances_to_despawn.push(instance_id);
+    }
+
     pub fn despawn_sync(
         &mut self,
         world: &mut World,
         scene_handle: Handle<DynamicScene>,
     ) -> Result<(), SceneSpawnError> {
-        if let Some(instance_ids) = self.spawned_dynamic_scenes.get(&scene_handle) {
+        if let Some(instance_ids) = self.spawned_dynamic_scenes.remove(&scene_handle) {
             for instance_id in instance_ids {
-                if let Some(instance) = self.spawned_instances.get(instance_id) {
+                if let Some(instance) = self.spawned_instances.get(&instance_id) {
                     for entity in instance.entity_map.values() {
                         let _ = world.despawn(entity); // Ignore the result, despawn only cares if
                                                        // it exists.
                     }
                 }
+                self.despawn_instance_sync(world, &instance_id);
             }
-
-            self.spawned_dynamic_scenes.remove(&scene_handle);
         }
         Ok(())
+    }
+
+    pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
+        if let Some(instance) = self.spawned_instances.get(instance_id) {
+            for entity in instance.entity_map.values() {
+                let _ = world.despawn(entity);
+            }
+        }
     }
 
     pub fn spawn_dynamic_sync(
@@ -235,6 +247,14 @@ impl SceneSpawner {
         Ok(())
     }
 
+    pub fn despawn_queued_instances(&mut self, world: &mut World) {
+        let instances_to_despawn = std::mem::take(&mut self.instances_to_despawn);
+
+        for instance_id in instances_to_despawn {
+            self.despawn_instance_sync(world, &instance_id);
+        }
+    }
+
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
@@ -327,6 +347,7 @@ pub fn scene_spawner_system(world: &mut World) {
         }
 
         scene_spawner.despawn_queued_scenes(world).unwrap();
+        scene_spawner.despawn_queued_instances(world);
         scene_spawner
             .spawn_queued_scenes(world)
             .unwrap_or_else(|err| panic!("{}", err));
