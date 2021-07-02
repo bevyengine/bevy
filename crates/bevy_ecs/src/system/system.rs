@@ -71,6 +71,23 @@ pub trait System: Send + Sync + 'static {
     /// immediately applying buffers (such as `Commands`) modified by its system parameters
     ///
     /// Use () as the `input` parameter for systems which do not take any chained input
+    ///
+    /// # Examples
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// struct Counter(u8);
+    /// let mut world = World::new();
+    ///
+    /// fn count_up(mut counter: ResMut<Counter>){
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.insert_resource::<Counter>(Counter(0));
+    /// count_up.run_direct((), world);
+    /// let counter = world.get_resource::<Counter>().unwrap();
+    /// assert_eq!(counter.0, 1);
+    /// ```
     fn run_direct(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.initialize(world);
         let output = self.run(input, world);
