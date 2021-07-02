@@ -194,15 +194,12 @@ impl RenderGraph {
                 let output_slot = output_node_state
                     .output_slots
                     .get_slot(output_index)
-                    .ok_or_else(|| {
-                        RenderGraphError::InvalidOutputNodeSlot(SlotLabel::Index(output_index))
-                    })?;
-                let input_slot = input_node_state
-                    .input_slots
-                    .get_slot(input_index)
-                    .ok_or_else(|| {
-                        RenderGraphError::InvalidInputNodeSlot(SlotLabel::Index(input_index))
-                    })?;
+                    .ok_or(RenderGraphError::InvalidOutputNodeSlot(SlotLabel::Index(
+                        output_index,
+                    )))?;
+                let input_slot = input_node_state.input_slots.get_slot(input_index).ok_or(
+                    RenderGraphError::InvalidInputNodeSlot(SlotLabel::Index(input_index)),
+                )?;
 
                 if let Some(Edge::SlotEdge {
                     output_node: current_output_node,

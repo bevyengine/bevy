@@ -15,7 +15,7 @@ impl RawWindowHandleWrapper {
     /// have constraints on where/how this handle can be used. For example, some platforms don't support doing window
     /// operations off of the main thread. The caller must ensure the [`RawWindowHandle`] is only used in valid contexts.
     pub unsafe fn get_handle(&self) -> HasRawWindowHandleWrapper {
-        HasRawWindowHandleWrapper(self.0.clone())
+        HasRawWindowHandleWrapper(self.0)
     }
 }
 
@@ -32,6 +32,6 @@ pub struct HasRawWindowHandleWrapper(RawWindowHandle);
 // SAFE: the caller has validated that this is a valid context to get RawWindowHandle
 unsafe impl HasRawWindowHandle for HasRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0.clone()
+        self.0
     }
 }

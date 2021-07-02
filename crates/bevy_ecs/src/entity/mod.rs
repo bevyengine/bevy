@@ -428,6 +428,11 @@ impl Entities {
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
     /// `reserve_entities`, then initializes each one using the supplied function.
+    ///
+    /// # Safety
+    /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
+    /// each time init is called. This _can_ be ArchetypeId::invalid(), provided the Entity has
+    /// not been assigned to an Archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;

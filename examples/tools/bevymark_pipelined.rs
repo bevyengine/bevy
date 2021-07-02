@@ -13,7 +13,7 @@ use bevy::{
 use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 10000;
-const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
+const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
@@ -66,8 +66,8 @@ struct BirdTexture(Handle<Image>);
 
 fn setup(
     mut commands: Commands,
-    window: Res<WindowDescriptor>,
-    mut counter: ResMut<BevyCounter>,
+    _window: Res<WindowDescriptor>,
+    _counter: ResMut<BevyCounter>,
     asset_server: Res<AssetServer>,
 ) {
     // spawn_birds(&mut commands, &window, &mut counter, 10);
@@ -129,7 +129,7 @@ fn setup(
 #[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,

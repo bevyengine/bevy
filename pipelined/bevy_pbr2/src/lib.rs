@@ -19,7 +19,7 @@ use bevy_render2::{
 
 pub mod draw_3d_graph {
     pub mod node {
-        pub const SHADOW_PASS: &'static str = "shadow_pass";
+        pub const SHADOW_PASS: &str = "shadow_pass";
     }
 }
 

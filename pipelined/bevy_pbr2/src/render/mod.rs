@@ -340,10 +340,10 @@ impl FromWorld for PbrShaders {
         };
         PbrShaders {
             pipeline,
+            shader_module,
             view_layout,
             material_layout,
             mesh_layout,
-            shader_module,
             dummy_white_gpu_image,
         }
     }
@@ -466,6 +466,7 @@ fn image_handle_to_view_sampler<'a>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_meshes(
     mut commands: Commands,
     draw_functions: Res<DrawFunctions>,
@@ -488,7 +489,7 @@ pub fn queue_meshes(
 ) {
     let mesh_meta = mesh_meta.into_inner();
 
-    if view_meta.uniforms.len() == 0 {
+    if view_meta.uniforms.is_empty() {
         return;
     }
 

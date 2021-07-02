@@ -493,6 +493,13 @@ impl Indices {
             Indices::U32(vec) => vec.len(),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Indices::U16(vec) => vec.is_empty(),
+            Indices::U32(vec) => vec.is_empty(),
+        }
+    }
 }
 enum IndicesIter<'a> {
     U16(std::slice::Iter<'a, u16>),

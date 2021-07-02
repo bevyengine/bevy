@@ -190,7 +190,7 @@ pub fn extract_lights(
             intensity: light.intensity,
             range: light.range,
             radius: light.radius,
-            transform: transform.clone(),
+            transform: *transform,
         });
     }
 }
@@ -341,8 +341,8 @@ pub fn prepare_lights(
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: (light.color.as_rgba_linear() * light.intensity).into(),
-                radius: light.radius.into(),
-                position: light.transform.translation.into(),
+                radius: light.radius,
+                position: light.transform.translation,
                 inverse_square_range: 1.0 / (light.range * light.range),
                 near: 0.1,
                 far: light.range,
@@ -360,7 +360,7 @@ pub fn prepare_lights(
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
                     mip_level_count: None,
-                    base_array_layer: 0 as u32,
+                    base_array_layer: 0,
                     array_layer_count: None,
                 });
 
@@ -412,7 +412,7 @@ impl Node for ShadowPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        if let Some(view_lights) = self.main_view_query.get_manual(world, view_entity).ok() {
+        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self
                     .view_light_query

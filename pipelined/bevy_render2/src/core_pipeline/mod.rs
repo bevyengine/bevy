@@ -26,31 +26,31 @@ use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, Texture
 // 3. "sub graph" modules should be nested beneath their parent graph module
 
 pub mod node {
-    pub const MAIN_PASS_DEPENDENCIES: &'static str = "main_pass_dependencies";
-    pub const MAIN_PASS_DRIVER: &'static str = "main_pass_driver";
-    pub const VIEW: &'static str = "view";
+    pub const MAIN_PASS_DEPENDENCIES: &str = "main_pass_dependencies";
+    pub const MAIN_PASS_DRIVER: &str = "main_pass_driver";
+    pub const VIEW: &str = "view";
 }
 
 pub mod draw_2d_graph {
-    pub const NAME: &'static str = "draw_2d";
+    pub const NAME: &str = "draw_2d";
     pub mod input {
-        pub const VIEW_ENTITY: &'static str = "view_entity";
-        pub const RENDER_TARGET: &'static str = "render_target";
+        pub const VIEW_ENTITY: &str = "view_entity";
+        pub const RENDER_TARGET: &str = "render_target";
     }
     pub mod node {
-        pub const MAIN_PASS: &'static str = "main_pass";
+        pub const MAIN_PASS: &str = "main_pass";
     }
 }
 
 pub mod draw_3d_graph {
-    pub const NAME: &'static str = "draw_3d";
+    pub const NAME: &str = "draw_3d";
     pub mod input {
-        pub const VIEW_ENTITY: &'static str = "view_entity";
-        pub const RENDER_TARGET: &'static str = "render_target";
-        pub const DEPTH: &'static str = "depth";
+        pub const VIEW_ENTITY: &str = "view_entity";
+        pub const RENDER_TARGET: &str = "render_target";
+        pub const DEPTH: &str = "depth";
     }
     pub mod node {
-        pub const MAIN_PASS: &'static str = "main_pass";
+        pub const MAIN_PASS: &str = "main_pass";
     }
 }
 

@@ -57,8 +57,10 @@ impl Image {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        let mut image = Self::default();
-        image.data = data;
+        let mut image = Self {
+            data,
+            ..Default::default()
+        };
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;

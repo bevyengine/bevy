@@ -65,7 +65,7 @@ impl<'a> RenderGraphContext<'a> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::TextureView(value) => Ok(value),
-            value @ _ => Err(InputSlotError::MismatchedSlotType {
+            value => Err(InputSlotError::MismatchedSlotType {
                 label,
                 actual: value.slot_type(),
                 expected: SlotType::TextureView,
@@ -80,7 +80,7 @@ impl<'a> RenderGraphContext<'a> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::Sampler(value) => Ok(value),
-            value @ _ => Err(InputSlotError::MismatchedSlotType {
+            value => Err(InputSlotError::MismatchedSlotType {
                 label,
                 actual: value.slot_type(),
                 expected: SlotType::Sampler,
@@ -92,7 +92,7 @@ impl<'a> RenderGraphContext<'a> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::Buffer(value) => Ok(value),
-            value @ _ => Err(InputSlotError::MismatchedSlotType {
+            value => Err(InputSlotError::MismatchedSlotType {
                 label,
                 actual: value.slot_type(),
                 expected: SlotType::Buffer,
@@ -104,7 +104,7 @@ impl<'a> RenderGraphContext<'a> {
         let label = label.into();
         match self.get_input(label.clone())? {
             SlotValue::Entity(value) => Ok(*value),
-            value @ _ => Err(InputSlotError::MismatchedSlotType {
+            value => Err(InputSlotError::MismatchedSlotType {
                 label,
                 actual: value.slot_type(),
                 expected: SlotType::Entity,
@@ -122,7 +122,7 @@ impl<'a> RenderGraphContext<'a> {
         let slot_index = self
             .output_info()
             .get_slot_index(label.clone())
-            .ok_or(OutputSlotError::InvalidSlot(label.clone()))?;
+            .ok_or_else(|| OutputSlotError::InvalidSlot(label.clone()))?;
         let slot = self
             .output_info()
             .get_slot(slot_index)
@@ -147,7 +147,7 @@ impl<'a> RenderGraphContext<'a> {
         let sub_graph = self
             .graph
             .get_sub_graph(&name)
-            .ok_or(RunSubGraphError::MissingSubGraph(name.clone()))?;
+            .ok_or_else(|| RunSubGraphError::MissingSubGraph(name.clone()))?;
         if let Some(input_node) = sub_graph.input_node() {
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
@@ -168,10 +168,8 @@ impl<'a> RenderGraphContext<'a> {
                     });
                 }
             }
-        } else {
-            if !inputs.is_empty() {
-                return Err(RunSubGraphError::SubGraphHasNoInputs(name));
-            }
+        } else if !inputs.is_empty() {
+            return Err(RunSubGraphError::SubGraphHasNoInputs(name));
         }
 
         self.run_sub_graphs.push(RunSubGraph { name, inputs });

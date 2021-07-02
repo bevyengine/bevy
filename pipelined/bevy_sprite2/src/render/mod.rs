@@ -212,7 +212,7 @@ pub fn prepare_sprites(
     extracted_sprites: Res<ExtractedSprites>,
 ) {
     // dont create buffers when there are no sprites
-    if extracted_sprites.sprites.len() == 0 {
+    if extracted_sprites.sprites.is_empty() {
         return;
     }
 
@@ -277,6 +277,7 @@ pub fn prepare_sprites(
     sprite_meta.indices.write_to_staging_buffer(&render_device);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
     draw_functions: Res<DrawFunctions>,
     render_device: Res<RenderDevice>,
@@ -287,7 +288,7 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     mut views: Query<&mut RenderPhase<Transparent2dPhase>>,
 ) {
-    if view_meta.uniforms.len() == 0 {
+    if view_meta.uniforms.is_empty() {
         return;
     }
 

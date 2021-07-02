@@ -80,7 +80,7 @@ fn extract_cameras(
                     },
                     ExtractedView {
                         projection: camera.projection_matrix,
-                        transform: transform.clone(),
+                        transform: *transform,
                         width: window.physical_width(),
                         height: window.physical_height(),
                     },
