@@ -917,68 +917,6 @@ impl World {
             column.check_change_ticks(change_tick);
         }
     }
-
-    /// Runs a system in a blocking fashion on the `World`
-    ///
-    /// Use [System::run_unsafe] directly for manual unsafe execution
-    /// of simultaneous systems in parallel.
-    ///
-    /// The `system` parameter here can be any function
-    /// that could be added as a system to a standard `App`.
-    ///
-    /// # Examples
-    ///  
-    /// Here's an example of how to directly run an ordinary parallel system.
-    /// ```rust
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// struct Counter(u8);
-    /// let mut world = World::new();
-    ///
-    /// fn count_up(mut counter: ResMut<Counter>){
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// world.insert_resource::<Counter>(Counter(0));
-    /// world.run_system(count_up);
-    /// let counter = world.get_resource::<Counter>().unwrap();
-    /// assert_eq!(counter.0, 1);
-    /// ```
-    /// And here's how you directly run an exclusive system.
-    /// ```rust
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// struct Counter(u8);
-    /// let mut world = World::new();
-    ///
-    /// fn count_up_exclusive(world: &mut World){
-    ///     let mut counter = world.get_resource_mut::<Counter>().unwrap();
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// world.insert_resource::<Counter>(Counter(0));
-    /// world.run_system(count_up_exclusive.exclusive_system());
-    /// let counter = world.get_resource::<Counter>().unwrap();
-    /// assert_eq!(counter.0, 1);
-    /// ```
-    pub fn run_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) {
-        let system_descriptor: SystemDescriptor = system.into_descriptor();
-
-        match system_descriptor {
-            SystemDescriptor::Parallel(par_system_descriptor) => {
-                let mut boxed_system = par_system_descriptor.system;
-                boxed_system.initialize(self);
-                boxed_system.run((), self);
-                // Immediately flushes any Commands or similar buffers created
-                boxed_system.apply_buffers(self);
-            }
-            SystemDescriptor::Exclusive(exc_system_descriptor) => {
-                let mut boxed_system = exc_system_descriptor.system;
-                boxed_system.initialize(self);
-                boxed_system.run(self);
-            }
-        }
-    }
 }
 
 impl fmt::Debug for World {
