@@ -29,8 +29,9 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,
-            Local, NonSend, NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            Commands, ConfigurableSystem, ExclusiveSystem, In, IntoChainSystem,
+            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System,
         },
         world::{FromWorld, Mut, World},
     };

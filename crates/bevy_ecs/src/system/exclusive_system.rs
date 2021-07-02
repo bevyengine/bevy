@@ -32,7 +32,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     /// }
     ///
     /// world.insert_resource::<Counter>(Counter(0));
-    /// count_up.exclusive_system().run_direct(world);
+    /// count_up.exclusive_system().run_direct(&mut world);
     /// let counter = world.get_resource::<Counter>().unwrap();
     /// assert_eq!(counter.0, 1);
     ///```
@@ -76,6 +76,11 @@ impl ExclusiveSystem for ExclusiveSystemFn {
         *change_tick += 1;
 
         world.last_change_tick = saved_last_tick;
+    }
+
+    fn run_direct(&mut self, world: &mut World) {
+        self.initialize(world);
+        self.run(world);
     }
 
     fn initialize(&mut self, _: &mut World) {}
