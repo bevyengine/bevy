@@ -34,7 +34,7 @@ use bevy_utils::HashMap;
 
 /// A container of [`Stage`]s set to be run in a certain order.
 ///
-/// Since `Schedule` implements the `Stage` trait, it can be inserted into another schedule.
+/// Since `Schedule` implements the [`Stage`] trait, it can be inserted into another schedule.
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<BoxedStageLabel, Box<dyn Stage>>,
