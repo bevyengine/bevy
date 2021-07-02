@@ -7,7 +7,7 @@ use crate::{
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 pub struct EntityRef<'w> {
     world: &'w World,
@@ -461,16 +461,18 @@ impl<'w> EntityMut<'w> {
         entities.meta[self.entity.id as usize].location = new_location;
     }
 
-    /// Adds a single [`Component`] to the current entity, if (and only if) the current entity
-    /// does not already have a [`Component`] of the same type.
-    ///
-    /// Returns `Ok(())` if the component was inserted, and `Err(value)` if the component was not inserted.
-    pub fn try_insert<T: Component>(&mut self, value: T) -> Result<(), T> {
-        if self.get::<T>().is_some() {
-            Err(value)
+    /// Gets the current entity's [`ComponentEntry`] for in-place manipulation.
+    pub fn component<T: Component>(&mut self) -> ComponentEntry<'_, 'w, T> {
+        if let Some(c) = self.get_mut::<T>() {
+            ComponentEntry::Occupied(OccupiedComponentEntry {
+                entity: self,
+                component: c,
+            })
         } else {
-            self.insert(value);
-            Ok(())
+            ComponentEntry::Vacant(VacantComponentEntry {
+                entity: self,
+                _phantom: PhantomData,
+            })
         }
     }
 
@@ -888,6 +890,136 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
             true
         }
     })
+}
+
+/// A view into an occupied entity's component entry.
+/// It is part of the [`ComponentEntry`] enum.
+pub struct OccupiedComponentEntry<'e, 'w, T> {
+    entity: &'e mut EntityMut<'w>,
+    component: Mut<'w, T>,
+}
+
+impl<'e, 'w, T> OccupiedComponentEntry<'e, 'w, T>
+where
+    T: Component,
+{
+    /// Gets a reference to the entity's component.
+    #[inline]
+    fn get(&self) -> &T {
+        self.component.as_ref()
+    }
+
+    /// Gets a mutable reference to the entity's component.
+    ///
+    /// ## Note
+    /// This triggers change detection.
+    #[inline]
+    fn get_mut(&mut self) -> &mut T {
+        self.component.as_mut()
+    }
+
+    /// Sets the value of the component, and returns the old component.
+    #[inline]
+    fn insert(&mut self, component: T) -> T {
+        std::mem::replace(self.component.as_mut(), component)
+    }
+
+    /// Gets a [`Mut`] for the entity's component.
+    #[inline]
+    fn into_mut(self) -> Mut<'w, T> {
+        self.component
+    }
+
+    /// Removes the entity's component, and returns it.
+    #[inline]
+    fn remove(mut self) -> T {
+        self.entity.remove::<T>().unwrap()
+    }
+}
+
+/// A view into a vacant entity's component entry.
+/// It is part of the [`ComponentEntry`] enum.
+pub struct VacantComponentEntry<'e, 'w, T> {
+    entity: &'e mut EntityMut<'w>,
+    _phantom: PhantomData<T>,
+}
+
+impl<'e, 'w, T> VacantComponentEntry<'e, 'w, T>
+where
+    T: Component,
+{
+    /// Inserts the component for the current entity, and returns
+    /// a [`Mut`] of the component.
+    #[inline]
+    fn insert(mut self, component: T) -> Mut<'w, T> {
+        self.entity.insert(component);
+        self.entity.get_mut().unwrap()
+    }
+}
+
+/// A view into a single entity's component in the [`World`], which may either
+/// be vacant or occupied.
+/// This `enum` is constructed from the [`component`] method on [`EntityMut`]
+///
+/// This is analogous to [`entry`] for [`HashMap`]
+///
+/// [`entry`]: std::collections::hash_map::Entry
+/// [`HashMap`]: std::collections::HashMap
+/// [`component`]: EntityMut::component
+pub enum ComponentEntry<'e, 'w, T: Component> {
+    /// An occupied component entry..
+    Occupied(OccupiedComponentEntry<'e, 'w, T>),
+    /// A vacant component entry.
+    Vacant(VacantComponentEntry<'e, 'w, T>),
+}
+
+impl<'e, 'w, T: Component> ComponentEntry<'e, 'w, T> {
+    /// Provides in-place mutable access to the current entity's component
+    /// before any potential inserts into the world.
+    ///
+    /// ## Note
+    /// If the component exists, this triggers change detection.
+    #[inline]
+    fn and_modify(self, f: impl FnOnce(&mut T)) -> Self {
+        match self {
+            ComponentEntry::Occupied(mut o) => {
+                f(o.get_mut());
+                ComponentEntry::Occupied(o)
+            }
+            ComponentEntry::Vacant(v) => ComponentEntry::Vacant(v),
+        }
+    }
+
+    /// Ensures a component is in the entry by inserting the default if empty, and returns
+    /// a [`Mut`] to the component in the entry.
+    ///
+    /// The `component` passed to `or_insert` is eagerly evaluated; if you are passing the result of
+    /// a function call, it is recommended to use [`or_insert_with`], which is lazily evaluated.
+    ///
+    /// [`or_insert_with`]: ComponentEntry::or_insert_with
+    #[inline]
+    fn or_insert(self, component: T) -> Mut<'w, T> {
+        self.or_insert_with(|| component)
+    }
+
+    /// Ensures a component is in the entry by inserting the result of the `default` function
+    /// if empty, and returns a [`Mut`] to the component in the entry.
+    #[inline]
+    fn or_insert_with(self, default: impl FnOnce() -> T) -> Mut<'w, T> {
+        match self {
+            ComponentEntry::Occupied(o) => o.component,
+            ComponentEntry::Vacant(v) => v.insert(default()),
+        }
+    }
+}
+
+impl<'e, 'w, T: Component + Default> ComponentEntry<'e, 'w, T> {
+    /// Ensures a component is in the entry by inserting the default value if empty, and returns
+    /// a [`Mut`] to the component in the entry.
+    #[inline]
+    fn or_default(self) -> Mut<'w, T> {
+        self.or_insert_with(T::default)
+    }
 }
 
 #[cfg(test)]
