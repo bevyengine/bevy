@@ -379,7 +379,10 @@ where
     T: Component,
 {
     fn write(self: Box<Self>, world: &mut World) {
-        let _ = world.entity_mut(self.entity).try_insert(self.component);
+        world
+            .entity_mut(self.entity)
+            .component::<T>()
+            .or_insert(self.component);
     }
 }
 

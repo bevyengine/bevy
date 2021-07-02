@@ -905,7 +905,7 @@ where
 {
     /// Gets a reference to the entity's component.
     #[inline]
-    fn get(&self) -> &T {
+    pub fn get(&self) -> &T {
         self.component.as_ref()
     }
 
@@ -914,25 +914,25 @@ where
     /// ## Note
     /// This triggers change detection.
     #[inline]
-    fn get_mut(&mut self) -> &mut T {
+    pub fn get_mut(&mut self) -> &mut T {
         self.component.as_mut()
     }
 
     /// Sets the value of the component, and returns the old component.
     #[inline]
-    fn insert(&mut self, component: T) -> T {
+    pub fn insert(&mut self, component: T) -> T {
         std::mem::replace(self.component.as_mut(), component)
     }
 
     /// Gets a [`Mut`] for the entity's component.
     #[inline]
-    fn into_mut(self) -> Mut<'w, T> {
+    pub fn into_mut(self) -> Mut<'w, T> {
         self.component
     }
 
     /// Removes the entity's component, and returns it.
     #[inline]
-    fn remove(mut self) -> T {
+    pub fn remove(mut self) -> T {
         self.entity.remove::<T>().unwrap()
     }
 }
@@ -951,7 +951,7 @@ where
     /// Inserts the component for the current entity, and returns
     /// a [`Mut`] of the component.
     #[inline]
-    fn insert(mut self, component: T) -> Mut<'w, T> {
+    pub fn insert(mut self, component: T) -> Mut<'w, T> {
         self.entity.insert(component);
         self.entity.get_mut().unwrap()
     }
@@ -980,7 +980,7 @@ impl<'e, 'w, T: Component> ComponentEntry<'e, 'w, T> {
     /// ## Note
     /// If the component exists, this triggers change detection.
     #[inline]
-    fn and_modify(self, f: impl FnOnce(&mut T)) -> Self {
+    pub fn and_modify(self, f: impl FnOnce(&mut T)) -> Self {
         match self {
             ComponentEntry::Occupied(mut o) => {
                 f(o.get_mut());
@@ -998,14 +998,14 @@ impl<'e, 'w, T: Component> ComponentEntry<'e, 'w, T> {
     ///
     /// [`or_insert_with`]: ComponentEntry::or_insert_with
     #[inline]
-    fn or_insert(self, component: T) -> Mut<'w, T> {
+    pub fn or_insert(self, component: T) -> Mut<'w, T> {
         self.or_insert_with(|| component)
     }
 
     /// Ensures a component is in the entry by inserting the result of the `default` function
     /// if empty, and returns a [`Mut`] to the component in the entry.
     #[inline]
-    fn or_insert_with(self, default: impl FnOnce() -> T) -> Mut<'w, T> {
+    pub fn or_insert_with(self, default: impl FnOnce() -> T) -> Mut<'w, T> {
         match self {
             ComponentEntry::Occupied(o) => o.component,
             ComponentEntry::Vacant(v) => v.insert(default()),
@@ -1017,7 +1017,7 @@ impl<'e, 'w, T: Component + Default> ComponentEntry<'e, 'w, T> {
     /// Ensures a component is in the entry by inserting the default value if empty, and returns
     /// a [`Mut`] to the component in the entry.
     #[inline]
-    fn or_default(self) -> Mut<'w, T> {
+    pub fn or_default(self) -> Mut<'w, T> {
         self.or_insert_with(T::default)
     }
 }
