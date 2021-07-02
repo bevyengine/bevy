@@ -932,7 +932,7 @@ where
 
     /// Removes the entity's component, and returns it.
     #[inline]
-    pub fn remove(mut self) -> T {
+    pub fn remove(self) -> T {
         self.entity.remove::<T>().unwrap()
     }
 }
@@ -951,7 +951,7 @@ where
     /// Inserts the component for the current entity, and returns
     /// a [`Mut`] of the component.
     #[inline]
-    pub fn insert(mut self, component: T) -> Mut<'w, T> {
+    pub fn insert(self, component: T) -> Mut<'w, T> {
         self.entity.insert(component);
         self.entity.get_mut().unwrap()
     }
