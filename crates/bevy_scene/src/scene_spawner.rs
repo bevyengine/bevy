@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::{EventWriter, Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
@@ -24,6 +24,10 @@ impl InstanceId {
     fn new() -> Self {
         InstanceId(Uuid::new_v4())
     }
+}
+
+pub struct SceneSpawnedEvent {
+    instance_id: InstanceId,
 }
 
 #[derive(Default)]
@@ -96,7 +100,7 @@ impl SceneSpawner {
         &mut self,
         world: &mut World,
         scene_handle: &Handle<DynamicScene>,
-    ) -> Result<(), SceneSpawnError> {
+    ) -> Result<InstanceId, SceneSpawnError> {
         let mut entity_map = EntityMap::default();
         Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
         let instance_id = InstanceId::new();
@@ -107,7 +111,7 @@ impl SceneSpawner {
             .entry(scene_handle.clone())
             .or_insert_with(Vec::new);
         spawned.push(instance_id);
-        Ok(())
+        Ok(instance_id)
     }
 
     fn spawn_dynamic_internal(
@@ -235,31 +239,39 @@ impl SceneSpawner {
     }
 
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
+        world.resource_scope(
+            |world, mut scene_spawned_event_writer: Mut<EventWriter<SceneSpawnedEvent>>| {
+                let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
-        for scene_handle in scenes_to_spawn {
-            match self.spawn_dynamic_sync(world, &scene_handle) {
-                Ok(_) => {}
-                Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn.push(scene_handle)
+                for scene_handle in scenes_to_spawn {
+                    match self.spawn_dynamic_sync(world, &scene_handle) {
+                        Ok(instance_id) => {
+                            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
+                        }
+                        Err(SceneSpawnError::NonExistentScene { .. }) => {
+                            self.dynamic_scenes_to_spawn.push(scene_handle);
+                        }
+                        Err(err) => return Err(err),
+                    }
                 }
-                Err(err) => return Err(err),
-            }
-        }
 
-        let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
+                let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
 
-        for (scene_handle, instance_id) in scenes_to_spawn {
-            match self.spawn_sync_internal(world, scene_handle, instance_id) {
-                Ok(_) => {}
-                Err(SceneSpawnError::NonExistentRealScene { handle }) => {
-                    self.scenes_to_spawn.push((handle, instance_id))
+                for (scene_handle, instance_id) in scenes_to_spawn {
+                    match self.spawn_sync_internal(world, scene_handle, instance_id) {
+                        Ok(instance_id) => {
+                            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
+                        }
+                        Err(SceneSpawnError::NonExistentRealScene { handle }) => {
+                            self.scenes_to_spawn.push((handle, instance_id))
+                        }
+                        Err(err) => return Err(err),
+                    }
                 }
-                Err(err) => return Err(err),
-            }
-        }
 
-        Ok(())
+                Ok(())
+            },
+        )
     }
 
     pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
