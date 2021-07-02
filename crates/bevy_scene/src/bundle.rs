@@ -23,9 +23,8 @@ pub fn scene_bundle_spawner(
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     for (entity, scene, mut instance) in scene_to_spawn.iter_mut() {
-        if let Some(id) = *instance {
+        if let Some(id) = instance.replace(scene_spawner.spawn_as_child(scene.clone(), entity)) {
             scene_spawner.despawn_instance(id);
         }
-        *instance = Some(scene_spawner.spawn_as_child(scene.clone(), entity));
     }
 }
