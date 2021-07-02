@@ -463,10 +463,10 @@ impl<'w> EntityMut<'w> {
 
     /// Gets the current entity's [`ComponentEntry`] for in-place manipulation.
     pub fn component<T: Component>(&mut self) -> ComponentEntry<'_, 'w, T> {
-        if let Some(c) = self.get_mut::<T>() {
+        if let Some(component) = self.get_mut::<T>() {
             ComponentEntry::Occupied(OccupiedComponentEntry {
                 entity: self,
-                component: c,
+                component,
             })
         } else {
             ComponentEntry::Vacant(VacantComponentEntry {
