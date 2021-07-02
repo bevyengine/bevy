@@ -61,9 +61,21 @@ pub trait System: Send + Sync + 'static {
     ///        [`System::archetype_component_access()`].
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
     /// Runs the system with the given input in the world.
+    ///
+    /// Use [`run_direct`] instead if you are manually running a system outside of a schedule
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world) }
+    }
+    /// Runs the system directly on the world, initializing the world correctly;
+    /// immediately applying buffers (such as `Commands`) modified by its system parameters
+    ///
+    /// Use () as the `input` parameter for systems which do not take any chained input
+    fn run_direct(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        self.initialize(world);
+        let output = self.run(input, world);
+        self.apply_buffers(world);
+        return output;
     }
     /// Applies any buffers (such as `Commands`) created by this system's parameters to the world
     fn apply_buffers(&mut self, world: &mut World);
