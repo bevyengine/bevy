@@ -12,16 +12,12 @@ fn main() {
     sequential
         .root(print_system("Sequential 1"))
         .then(print_system("Sequential 2"))
-        .then(
-            print_system("Sequential 3")
-                .system()
-                .label("Sequential End"),
-        );
+        .then(print_system("Sequential 3").label("Sequential End"));
 
     // Graphs nodes can fork into multiple dependencies.
     let wide = SystemGraph::new();
     let (mid_1, mid_2, mid_3) = wide
-        .root(print_system("Wide Start").system().after("Sequential End"))
+        .root(print_system("Wide Start").after("Sequential End"))
         .fork((
             print_system("Wide 1"),
             print_system("Wide 2"),
