@@ -27,7 +27,7 @@ impl InstanceId {
 }
 
 pub struct SceneSpawnedEvent {
-    instance_id: InstanceId,
+    pub instance_id: InstanceId,
 }
 
 #[derive(Default)]
