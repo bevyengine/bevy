@@ -422,6 +422,10 @@ name = "rotation"
 path = "examples/transforms/rotation.rs"
 
 [[example]]
+name = "scale"
+path = "examples/transforms/scale.rs"
+
+[[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
 
