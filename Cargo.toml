@@ -426,6 +426,10 @@ name = "scale"
 path = "examples/transforms/scale.rs"
 
 [[example]]
+name = "transform"
+path = "examples/transforms/transform.rs"
+
+[[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
 
