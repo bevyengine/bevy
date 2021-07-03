@@ -185,7 +185,10 @@ fn setup_pipeline(
     // SETUP SCENE
 
     // add entities to the world
-    commands.spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
+        ..Default::default()
+    });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
