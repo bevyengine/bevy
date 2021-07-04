@@ -101,7 +101,7 @@ impl SceneSpawner {
         &mut self,
         world: &mut World,
         scene_handle: &Handle<DynamicScene>,
-    ) -> Result<InstanceId, SceneSpawnError> {
+    ) -> Result<(), SceneSpawnError> {
         let mut entity_map = EntityMap::default();
         Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
         let instance_id = InstanceId::new();
@@ -116,7 +116,7 @@ impl SceneSpawner {
             .get_resource_mut::<Events<SceneSpawnedEvent>>()
             .expect("events exist");
         scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
-        Ok(instance_id)
+        Ok(())
     }
 
     fn spawn_dynamic_internal(
