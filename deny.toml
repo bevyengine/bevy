@@ -44,22 +44,15 @@ skip = [
     { name = "core-foundation-sys", version = "0.6" },
     { name = "core-foundation-sys", version = "0.7" },
     { name = "core-graphics", version = "0.19" },
-    { name = "crossbeam-channel", version = "0.4" },
-    { name = "crossbeam-utils", version = "0.7" },
     { name = "fixedbitset", version = "0.2" },
-    { name = "getrandom", version = "0.1" },
+    { name = "hashbrown", version = "0.9" },
     { name = "libm", version = "0.1" },
     { name = "mach", version = "0.2" },
     { name = "ndk", version = "0.2" },
     { name = "ndk-glue", version = "0.2" },
     { name = "num_enum", version = "0.4" },
     { name = "num_enum_derive", version = "0.4" },
-    { name = "rand", version = "0.7" },
-    { name = "rand_chacha", version = "0.2" },
-    { name = "rand_core", version = "0.5" },
-    { name = "rand_hc", version = "0.2" },
     { name = "stdweb", version = "0.1" },
-    { name = "wasi", version = "0.9" },
 ]
 
 [sources]
