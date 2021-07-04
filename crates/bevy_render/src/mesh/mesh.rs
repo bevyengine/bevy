@@ -18,6 +18,7 @@ use bevy_reflect::TypeUuid;
 use bevy_utils::EnumVariantMeta;
 use std::{borrow::Cow, collections::BTreeMap};
 
+use crate::mesh::shape::shapegen::Interpolator;
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
 
@@ -390,6 +391,103 @@ impl Mesh {
         }
 
         attributes_interleaved_buffer
+    }
+
+    /// Duplicates the vertex attributes so that no vertices are shared.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [Indices] are set.
+    pub fn duplicate_vertices(&mut self) {
+        fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
+            indices.map(|i| values[i]).collect()
+        }
+
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "can only duplicate vertices for `TriangleList`s"
+        );
+
+        let indices = match self.indices.take() {
+            Some(indices) => indices,
+            None => return,
+        };
+        for (_, attributes) in self.attributes.iter_mut() {
+            let indices = indices.iter();
+            match attributes {
+                VertexAttributeValues::Float32(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint32(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint32(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float32x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint32x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint32x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float32x3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint32x3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint32x3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint32x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint32x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float32x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint16x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Snorm16x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint16x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Unorm16x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint16x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Snorm16x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint16x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Unorm16x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint8x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Snorm8x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint8x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Unorm8x2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Sint8x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(&vec, indices),
+            }
+        }
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    ///
+    /// Panics if [`Indices`] are set.
+    /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
+    pub fn compute_flat_normals(&mut self) {
+        if self.indices().is_some() {
+            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
+        }
+
+        let positions = self
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .unwrap()
+            .as_float3()
+            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
+
+        let normals: Vec<_> = positions
+            .chunks_exact(3)
+            .map(|p| face_normal(p[0], p[1], p[2]))
+            .flat_map(|normal| std::array::IntoIter::new([normal, normal, normal]))
+            .collect();
+
+        self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    pub fn subdivide<I: Interpolator>(
+        &mut self,
+        subdivisions: usize,
+        interpolator: I,
+    ) -> Option<()> {
+        crate::shape::shapegen::subdivide(self, subdivisions, interpolator)
+    }
+
+    pub fn attribute_iter(&self) -> impl Iterator<Item = (&str, &VertexAttributeValues)> {
+        self.attributes.iter().map(|(name, attr)| (&**name, attr))
+    }
+
+    pub fn attribute_iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (&str, &mut VertexAttributeValues)> {
+        self.attributes
+            .iter_mut()
+            .map(|(name, attr)| (&**name, attr))
     }
 }
 
