@@ -166,16 +166,18 @@ impl SystemGraph {
         }
     }
 
-    fn add_dependency(&self, src: NodeId, dst: NodeId) {
-        if let Some(system) = self.nodes.borrow_mut().get_mut(&dst) {
+    fn add_dependency(&self, origin: NodeId, dependent: NodeId) {
+        if let Some(system) = self.nodes.borrow_mut().get_mut(&dependent) {
             match system {
-                SystemDescriptor::Parallel(descriptor) => descriptor.after.push(src.dyn_clone()),
-                SystemDescriptor::Exclusive(descriptor) => descriptor.after.push(src.dyn_clone()),
+                SystemDescriptor::Parallel(descriptor) => descriptor.after.push(origin.dyn_clone()),
+                SystemDescriptor::Exclusive(descriptor) => {
+                    descriptor.after.push(origin.dyn_clone())
+                }
             }
         } else {
             panic!(
                 "Attempted to add dependency for {:?}, which doesn't exist.",
-                dst
+                dependent
             );
         }
     }
@@ -202,6 +204,7 @@ impl From<SystemGraph> for SystemSet {
     }
 }
 
+/// A single `SystemGraph` node that represents a system within the group.
 #[derive(Clone)]
 pub struct SystemGraphNode {
     id: NodeId,
@@ -209,6 +212,10 @@ pub struct SystemGraphNode {
 }
 
 impl SystemGraphNode {
+    /// Gets the underlying `SystemGraph` that the node belongs to.
+    ///
+    /// `SystemGraph` is internally ref counted, so the returned value will always point to the
+    /// same graph even if the node itself is dropped.
     #[inline]
     pub fn graph(&self) -> SystemGraph {
         self.graph.clone()
@@ -234,12 +241,16 @@ impl SystemGraphNode {
     }
 }
 
+/// Represents a collection of systems. Used for grouping systems together for making
+/// `SystemGraph`s.
 pub trait SystemGroup<Param> {
     type Output;
     fn fork_from(self, src: &SystemGraphNode) -> Self::Output;
     fn join_from<J: SystemJoin>(self, src: &J) -> Self::Output;
 }
 
+/// A collection of `SystemGraphNode`s that can be joined together into one or more dependent
+/// systems.
 pub trait SystemJoin: Sized {
     /// Adds a system to the graph dependent on all of the nodes contained within the join.
     fn join<Param>(&self, next: impl IntoSystemDescriptor<Param>) -> SystemGraphNode;
@@ -249,7 +260,7 @@ pub trait SystemJoin: Sized {
     ///
     /// Functionally equivalent to calling `join` on every node created from the group.
     #[inline]
-    fn par_join<Param, G: SystemGroup<Param>>(&self, next: G) -> G::Output {
+    fn join_all<Param, G: SystemGroup<Param>>(&self, next: G) -> G::Output {
         next.join_from(self)
     }
 }
