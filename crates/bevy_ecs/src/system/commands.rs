@@ -7,17 +7,20 @@ use crate::{
 use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
-/// A [World] mutation
+/// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self: Box<Self>, world: &mut World);
 }
 
+/// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
     commands: Vec<Box<dyn Command>>,
 }
 
 impl CommandQueue {
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
         for command in self.commands.drain(..) {
@@ -25,24 +28,27 @@ impl CommandQueue {
         }
     }
 
+    /// Push a boxed [`Command`] onto the queue.
     #[inline]
     pub fn push_boxed(&mut self, command: Box<dyn Command>) {
         self.commands.push(command);
     }
 
+    /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<T: Command>(&mut self, command: T) {
         self.push_boxed(Box::new(command));
     }
 }
 
-/// A list of commands that will be run to modify a `World`
+/// A list of commands that will be run to modify a [`World`].
 pub struct Commands<'a> {
     queue: &'a mut CommandQueue,
     entities: &'a Entities,
 }
 
 impl<'a> Commands<'a> {
+    /// Create a new `Commands` from a queue and a world.
     pub fn new(queue: &'a mut CommandQueue, world: &'a World) -> Self {
         Self {
             queue,
@@ -50,7 +56,7 @@ impl<'a> Commands<'a> {
         }
     }
 
-    /// Creates a new empty entity and returns an [EntityCommands] builder for it.
+    /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
     /// # Example
     ///
@@ -80,10 +86,10 @@ impl<'a> Commands<'a> {
 
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// This returns an [EntityCommands] builder, which enables inserting more components and bundles
-    /// using a "builder pattern".
+    /// This returns an [`EntityCommands`] builder, which enables inserting more components and
+    /// bundles using a "builder pattern".
     ///
-    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is
+    /// Note that `bundle` is a [`Bundle`], which is a collection of components. [`Bundle`] is
     /// automatically implemented for tuples of components. You can also create your own bundle
     /// types by deriving [`derive@Bundle`].
     ///
@@ -124,7 +130,7 @@ impl<'a> Commands<'a> {
         e
     }
 
-    /// Returns an [EntityCommands] builder for the requested `entity`.
+    /// Returns an [`EntityCommands`] builder for the requested [`Entity`].
     ///
     /// # Example
     ///
@@ -160,39 +166,38 @@ impl<'a> Commands<'a> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// See [World::insert_resource].
+    /// See [`World::insert_resource`].
     pub fn insert_resource<T: Component>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
     }
 
+    /// Queue a resource removal.
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
         });
     }
 
-    /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if
-    /// the type of `command` is statically known.
+    /// Adds a command directly to the command list.
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
 }
 
+/// A list of commands that will be run to modify an [`Entity`].
 pub struct EntityCommands<'a, 'b> {
     entity: Entity,
     commands: &'b mut Commands<'a>,
 }
 
 impl<'a, 'b> EntityCommands<'a, 'b> {
-    /// Retrieves the current entity's unique [Entity] id.
+    /// Retrieves the current entity's unique [`Entity`] id.
     #[inline]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
-    /// Adds a bundle of components to the current entity.
-    ///
-    /// See [`Self::with`], [`Self::current_entity`].
+    /// Adds a [`Bundle`] of components to the current entity.
     pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(InsertBundle {
             entity: self.entity,
@@ -201,20 +206,19 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// Adds a single component to the current entity.
+    /// Adds a single [`Component`] to the current entity.
     ///
-    /// See [`Self::insert_bundle`], [`Self::id`].
     ///
     /// # Warning
     ///
     /// It's possible to call this with a bundle, but this is likely not intended and
-    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the bundle
-    /// itself will be added as a component instead of the bundles' inner components each being
-    /// added.
+    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the
+    /// bundle itself will be added as a component instead of the bundles' inner components each
+    /// being added.
     ///
     /// # Example
     ///
-    /// [`Self::insert`] can be chained with [`Self::spawn`].
+    /// `Self::insert` can be chained with [`Commands::spawn`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -242,7 +246,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// See [crate::world::EntityMut::remove_bundle].
+    /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle).
     pub fn remove_bundle<T>(&mut self) -> &mut Self
     where
         T: Bundle,
@@ -254,7 +258,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// See [crate::world::EntityMut::remove].
+    /// See [`EntityMut::remove`](crate::world::EntityMut::remove).
     pub fn remove<T>(&mut self) -> &mut Self
     where
         T: Component,
@@ -273,14 +277,15 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         })
     }
 
+    /// Returns the underlying `[Commands]`.
     pub fn commands(&mut self) -> &mut Commands<'a> {
         self.commands
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct Spawn<T> {
-    bundle: T,
+pub struct Spawn<T> {
+    pub bundle: T,
 }
 
 impl<T> Command for Spawn<T>
@@ -292,12 +297,12 @@ where
     }
 }
 
-pub(crate) struct SpawnBatch<I>
+pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
 {
-    bundles_iter: I,
+    pub bundles_iter: I,
 }
 
 impl<I> Command for SpawnBatch<I>
@@ -311,8 +316,8 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Despawn {
-    entity: Entity,
+pub struct Despawn {
+    pub entity: Entity,
 }
 
 impl Command for Despawn {
@@ -324,8 +329,8 @@ impl Command for Despawn {
 }
 
 pub struct InsertBundle<T> {
-    entity: Entity,
-    bundle: T,
+    pub entity: Entity,
+    pub bundle: T,
 }
 
 impl<T> Command for InsertBundle<T>
@@ -338,9 +343,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Insert<T> {
-    entity: Entity,
-    component: T,
+pub struct Insert<T> {
+    pub entity: Entity,
+    pub component: T,
 }
 
 impl<T> Command for Insert<T>
@@ -353,7 +358,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Remove<T> {
+pub struct Remove<T> {
     entity: Entity,
     phantom: PhantomData<T>,
 }
@@ -370,9 +375,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct RemoveBundle<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+pub struct RemoveBundle<T> {
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for RemoveBundle<T>
@@ -389,7 +394,7 @@ where
 }
 
 pub struct InsertResource<T: Component> {
-    resource: T,
+    pub resource: T,
 }
 
 impl<T: Component> Command for InsertResource<T> {
@@ -399,7 +404,7 @@ impl<T: Component> Command for InsertResource<T> {
 }
 
 pub struct RemoveResource<T: Component> {
-    phantom: PhantomData<T>,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T: Component> Command for RemoveResource<T> {
@@ -412,9 +417,29 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
+        component::{ComponentDescriptor, StorageType},
         system::{CommandQueue, Commands},
         world::World,
     };
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn commands() {
@@ -449,10 +474,20 @@ mod tests {
     #[test]
     fn remove_components() {
         let mut world = World::default();
+
+        struct DenseDropCk(DropCk);
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+
         let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let dense_dropck = DenseDropCk(dense_dropck);
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64))
+            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
@@ -466,8 +501,14 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<u32>()
-            .remove_bundle::<(u32, u64)>();
+            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
         command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
         let results_after = world
             .query::<(&u32, &u64)>()
             .iter(&world)

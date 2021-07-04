@@ -10,25 +10,41 @@ use std::{
 };
 use thiserror::Error;
 
-/// A component is data associated with an `Entity`. Each entity can have multiple different types
-/// of components, but only one of them per type.
+/// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
+/// multiple different types of components, but only one of them per type.
 ///
 /// Any type that is `Send + Sync + 'static` automatically implements `Component`.
 ///
-/// Components are added with new entities using [Commands::spawn](crate::system::Commands::spawn),
-/// or to existing entities with [Commands::insert](crate::system::Commands::insert),
-/// or their [World](crate::world::World) equivalents.
+/// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
+/// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
+/// or their [`World`](crate::world::World) equivalents.
 ///
-/// Components can be accessed in systems by using a [Query](crate::system::Query)
+/// Components can be accessed in systems by using a [`Query`](crate::system::Query)
 /// as one of the arguments.
 ///
-/// Components can be grouped together into a [Bundle](crate::bundle::Bundle).
+/// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
+/// The storage used for a specific component type.
+///
+/// # Examples
+/// The [`StorageType`] for a component is normally configured via `World::register_component`.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, component::*};
+///
+/// struct A;
+///
+/// let mut world = World::default();
+/// world.register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet));
+/// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
+    /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
+    /// This is the default storage type.
     Table,
+    /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
 }
 
@@ -241,6 +257,7 @@ impl Components {
     }
 
     /// # Safety
+    ///
     /// `id` must be a valid [ComponentId]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
@@ -305,7 +322,7 @@ impl Components {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
     pub(crate) changed: u32,
@@ -344,7 +361,8 @@ impl ComponentTicks {
     }
 
     /// Manually sets the change tick.
-    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
     ///
     /// # Example
     /// ```rust,no_run

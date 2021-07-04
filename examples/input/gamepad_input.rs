@@ -26,11 +26,11 @@ fn connection_system(
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
                 lobby.gamepads.insert(*gamepad);
-                println!("{:?} Connected", gamepad);
+                info!("{:?} Connected", gamepad);
             }
             GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
                 lobby.gamepads.remove(gamepad);
-                println!("{:?} Disconnected", gamepad);
+                info!("{:?} Disconnected", gamepad);
             }
             _ => (),
         }
@@ -45,23 +45,23 @@ fn gamepad_system(
 ) {
     for gamepad in lobby.gamepads.iter().cloned() {
         if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
-            println!("{:?} just pressed South", gamepad);
+            info!("{:?} just pressed South", gamepad);
         } else if button_inputs.just_released(GamepadButton(gamepad, GamepadButtonType::South)) {
-            println!("{:?} just released South", gamepad);
+            info!("{:?} just released South", gamepad);
         }
 
         let right_trigger = button_axes
             .get(GamepadButton(gamepad, GamepadButtonType::RightTrigger2))
             .unwrap();
         if right_trigger.abs() > 0.01 {
-            println!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
+            info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
         }
 
         let left_stick_x = axes
             .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
             .unwrap();
         if left_stick_x.abs() > 0.01 {
-            println!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
+            info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
         }
     }
 }

@@ -68,7 +68,8 @@ where
     #[reflect(ignore)]
     handle_type: HandleType,
     #[reflect(ignore)]
-    marker: PhantomData<T>,
+    // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
+    marker: PhantomData<fn() -> T>,
 }
 
 enum HandleType {
@@ -228,10 +229,6 @@ impl<T: Asset> Clone for Handle<T> {
         }
     }
 }
-
-// SAFE: T is phantom data and Handle::id is an integer
-unsafe impl<T: Asset> Send for Handle<T> {}
-unsafe impl<T: Asset> Sync for Handle<T> {}
 
 /// A non-generic version of [Handle]
 ///

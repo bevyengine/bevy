@@ -21,4 +21,4 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-smallvec = { version = "1.4", features = ["serde"] }
+smallvec = { version = "1.6", features = ["serde", "union", "const_generics"] }

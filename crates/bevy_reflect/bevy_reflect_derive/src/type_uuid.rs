@@ -1,20 +1,23 @@
 extern crate proc_macro;
 
-use quote::quote;
+use bevy_macro_utils::BevyManifest;
+use quote::{quote, ToTokens};
 use syn::{parse::*, *};
 use uuid::Uuid;
-
-use crate::modules::{get_modules, get_path};
 
 pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
     let ast: DeriveInput = syn::parse(input).unwrap();
-    let modules = get_modules();
-    let bevy_reflect_path: Path = get_path(&modules.bevy_reflect);
+    let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
 
     // Build the trait implementation
     let name = &ast.ident;
+
+    let (impl_generics, type_generics, _) = &ast.generics.split_for_impl();
+    if !impl_generics.to_token_stream().is_empty() || !type_generics.to_token_stream().is_empty() {
+        panic!("#[derive(TypeUuid)] is not supported for generics.");
+    }
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {

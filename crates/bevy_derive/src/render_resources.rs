@@ -1,4 +1,4 @@
-use crate::modules::{get_modules, get_path};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -21,9 +21,8 @@ static RENDER_RESOURCE_ATTRIBUTE_NAME: &str = "render_resources";
 
 pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast.attrs);
 
-    let bevy_render_path: Path = get_path(&modules.bevy_render);
+    let bevy_render_path: Path = BevyManifest::default().get_path(crate::modules::BEVY_RENDER);
     let attributes = ast
         .attrs
         .iter()
@@ -42,11 +41,12 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             attributes
         });
     let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let struct_name_string = struct_name.to_string();
 
     if attributes.from_self {
         TokenStream::from(quote! {
-            impl #bevy_render_path::renderer::RenderResources for #struct_name {
+            impl #impl_generics #bevy_render_path::renderer::RenderResources for #struct_name #type_generics #where_clause {
                 fn render_resources_len(&self) -> usize {
                     1
                 }
@@ -154,7 +154,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 #(#render_resource_hints,)*
             ];
 
-            impl #bevy_render_path::renderer::RenderResources for #struct_name {
+            impl #impl_generics #bevy_render_path::renderer::RenderResources for #struct_name #type_generics #where_clause {
                 fn render_resources_len(&self) -> usize {
                     #render_resource_count
                 }

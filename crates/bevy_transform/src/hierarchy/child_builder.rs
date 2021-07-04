@@ -23,15 +23,9 @@ impl Command for InsertChildren {
                 .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
         }
         {
-            let mut added = false;
             if let Some(mut children) = world.get_mut::<Children>(self.parent) {
                 children.0.insert_from_slice(self.index, &self.children);
-                added = true;
-            }
-
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails
-            // borrow-checking
-            if !added {
+            } else {
                 world
                     .entity_mut(self.parent)
                     .insert(Children(self.children));

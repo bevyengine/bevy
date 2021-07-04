@@ -12,6 +12,8 @@
 		442540D056ADB9AE61A0A590 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F1B41978FA53999AA836D0F /* Security.framework */; };
 		55892F1396056740E1AF9685 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = AF7DE91055EBD05ED77E57F9 /* main.m */; };
 		55B7188F81C3C4183F81D3AE /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A39528EB2CCB182F5328223A /* libc++.tbd */; };
+		57CD6306253C7A940098CD4A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57CD6305253C7A940098CD4A /* AudioToolbox.framework */; };
+		57CD630E253C80EC0098CD4A /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 57CD630A253C7F5F0098CD4A /* assets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,6 +29,8 @@
 /* Begin PBXFileReference section */
 		160DB77300A3F1806F024D47 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		55EAC02897847195D2F44C15 /* bevy_ios_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bevy_ios_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57CD6305253C7A940098CD4A /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		57CD630A253C7F5F0098CD4A /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = ../../../assets; sourceTree = "<group>"; };
 		8EE7F1E3B0303533925D7E33 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		96A1E5B62F48B379829E8A0D /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		9F1B41978FA53999AA836D0F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -44,6 +48,7 @@
 				134866208A035F8615C99114 /* Metal.framework in Frameworks */,
 				2604C99FAB5A8322EDCABB9F /* UIKit.framework in Frameworks */,
 				55B7188F81C3C4183F81D3AE /* libc++.tbd in Frameworks */,
+				57CD6306253C7A940098CD4A /* AudioToolbox.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,6 +66,7 @@
 		4F1D6F28B8A5D1927AB0ADED /* ios-src */ = {
 			isa = PBXGroup;
 			children = (
+				57CD630A253C7F5F0098CD4A /* assets */,
 				160DB77300A3F1806F024D47 /* bindings.h */,
 				8EE7F1E3B0303533925D7E33 /* Info.plist */,
 				AF7DE91055EBD05ED77E57F9 /* main.m */,
@@ -80,6 +86,7 @@
 		EB028409C2D0655412DA6E44 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				57CD6305253C7A940098CD4A /* AudioToolbox.framework */,
 				A39528EB2CCB182F5328223A /* libc++.tbd */,
 				96A1E5B62F48B379829E8A0D /* Metal.framework */,
 				9F1B41978FA53999AA836D0F /* Security.framework */,
@@ -115,6 +122,7 @@
 			buildPhases = (
 				9F13800790AD9DBC2BC0F116 /* Sources */,
 				D5A822CB2D6847BA8800BE4C /* Frameworks */,
+				57CD630D253C80E60098CD4A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -132,7 +140,7 @@
 		8DBF1E2B5C613DA41701F6D9 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1020;
+				LastUpgradeCheck = 1240;
 			};
 			buildConfigurationList = 9D43D41707A5C30B227B83F9 /* Build configuration list for PBXProject "bevy_ios_example" */;
 			compatibilityVersion = "Xcode 10.0";
@@ -150,6 +158,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		57CD630D253C80E60098CD4A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57CD630E253C80EC0098CD4A /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		9F13800790AD9DBC2BC0F116 /* Sources */ = {
@@ -203,6 +222,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -296,6 +316,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;

@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
+        ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -38,12 +38,23 @@ where
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
-        let mut component_access = Default::default();
+
+        let mut component_access = FilteredAccess::default();
         fetch_state.update_component_access(&mut component_access);
-        filter_state.update_component_access(&mut component_access);
+
+        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
+        // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
+        // because they are evaluated *before* a specific reference is constructed.
+        let mut filter_component_access = FilteredAccess::default();
+        filter_state.update_component_access(&mut filter_component_access);
+
+        // Merge the temporary filter access with the main access. This ensures that filter access is
+        // properly considered in a global "cross-query" context (both within systems and across systems).
+        component_access.extend(&filter_component_access);
+
         let mut state = Self {
             world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
             fetch_state,
@@ -57,23 +68,26 @@ where
         state
     }
 
+    #[inline]
+    pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
+        // SAFE: the iterator is instantly consumed via `none_remaining` and the implementation of
+        // `QueryIter::none_remaining` never creates any references to the `<Q::Fetch as Fetch<'w>>::Item`.
+        unsafe {
+            self.iter_unchecked_manual(world, last_change_tick, change_tick)
+                .none_remaining()
+        }
+    }
+
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
         if world.id() != self.world_id {
             panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
                 std::any::type_name::<Self>());
         }
         let archetypes = world.archetypes();
-        let old_generation = self.archetype_generation;
-        let archetype_index_range = if old_generation == archetypes.generation() {
-            0..0
-        } else {
-            self.archetype_generation = archetypes.generation();
-            if old_generation.value() == usize::MAX {
-                0..archetypes.len()
-            } else {
-                old_generation.value()..archetypes.len()
-            }
-        };
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
@@ -111,7 +125,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe { self.get_unchecked(world, entity) }
     }
 
@@ -121,11 +135,12 @@ where
         world: &'w mut World,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -183,17 +198,39 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe { self.iter_unchecked(world) }
     }
 
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe { self.iter_unchecked(world) }
     }
 
+    #[inline]
+    pub fn iter_combinations<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: query is read only
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
+    #[inline]
+    pub fn iter_combinations_mut<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        // SAFE: query has unique world access
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -206,10 +243,27 @@ where
     }
 
     /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        self.validate_world_and_update_archetypes(world);
+        self.iter_combinations_unchecked_manual(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
+
+    /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
@@ -220,6 +274,21 @@ where
         QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        QueryCombinationIter::new(world, self, last_change_tick, change_tick)
+    }
+
     #[inline]
     pub fn for_each<'w>(
         &mut self,
@@ -228,7 +297,7 @@ where
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe {
             self.for_each_unchecked(world, func);
         }
@@ -240,13 +309,14 @@ where
         world: &'w mut World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
     ) {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe {
             self.for_each_unchecked(world, func);
         }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -274,7 +344,7 @@ where
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe {
             self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
@@ -288,13 +358,14 @@ where
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe {
             self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -317,10 +388,11 @@ where
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
@@ -328,6 +400,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch =
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
@@ -366,10 +440,11 @@ where
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     pub unsafe fn par_for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
@@ -379,6 +454,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
             let fetch =
                 <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
@@ -446,7 +523,8 @@ where
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            for archetype_index in 0..archetype.len() {
+                            let len = batch_size.min(archetype.len() - offset);
+                            for archetype_index in offset..offset + len {
                                 if !filter.archetype_filter_fetch(archetype_index) {
                                     continue;
                                 }
@@ -461,7 +539,7 @@ where
     }
 }
 
-/// An error that occurs when retrieving a specific [Entity]'s query result.
+/// An error that occurs when retrieving a specific [`Entity`]'s query result.
 #[derive(Error, Debug)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]

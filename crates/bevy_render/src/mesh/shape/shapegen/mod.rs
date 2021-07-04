@@ -9,8 +9,17 @@ mod slice;
 use bevy_utils::HashMap;
 pub use interpolation::*;
 
+<<<<<<< HEAD
 struct Edge {
     points: Vec<u32>,
+=======
+/// Describes an edge on the original mesh.
+struct Edge {
+    /// Indices of points along the edge.
+    points: Vec<u32>,
+    /// Whether or not this edge has already been
+    /// subdivided in this pass.
+>>>>>>> temp
     done: bool,
 }
 
@@ -23,6 +32,7 @@ impl Default for Edge {
     }
 }
 
+<<<<<<< HEAD
 #[derive(Clone, Debug)]
 enum TriangleContents {
     None,
@@ -32,6 +42,30 @@ enum TriangleContents {
         b: u32,
         c: u32,
     },
+=======
+/// Describes a "layer" of a triangle in terms
+/// of the indices of the points inside.
+#[derive(Clone, Debug)]
+enum TriangleContents {
+    /// No contents.
+    None,
+
+    /// One point inside.
+    One(u32),
+
+    /// Three points inside, in a triangle.
+    ///
+    /// `a`, `b`, and `c` go in the same winding
+    /// as the rest of the mesh.
+    Three { a: u32, b: u32, c: u32 },
+
+    /// Six points, one on each vertex of a triangle,
+    /// and one in the middle of each edge of a triangle.
+    ///
+    /// Once again, `a`, `b` and `c`, along with their
+    /// intermediaries go in the same winding as the rest
+    /// of the mesh.
+>>>>>>> temp
     Six {
         a: u32,
         b: u32,
@@ -40,26 +74,52 @@ enum TriangleContents {
         bc: u32,
         ca: u32,
     },
+<<<<<<< HEAD
+=======
+
+    /// More than 6 points in a layer. The contents of this
+    /// layer are the next element in the `Vec` which it was
+    /// stored in.
+>>>>>>> temp
     More {
         a: u32,
         b: u32,
         c: u32,
+<<<<<<< HEAD
         // Separated into three `my_side_length` segments
         // to save on extra allocations.
         sides: Vec<u32>,
+=======
+        /// Contains the indices of the sides adjacent to eachother
+        /// in memory:
+        ///
+        /// ```ignore
+        /// [ab1, ab2, ... abN, bc1, bc2, ... bcN, ca1, ca2, ... caN]
+        /// ```
+        ///
+        /// Where `N` is `my_side_length`.
+        sides: Vec<u32>,
+        /// The number of points inside an edge.
+>>>>>>> temp
         my_side_length: u32,
     },
 }
 
 impl TriangleContents {
+<<<<<<< HEAD
     fn one(ab: Slice<u32>, bc: Slice<u32>, points: &mut Attributes) -> Self {
         assert_eq!(ab.len(), bc.len());
         assert_eq!(ab.len(), 2);
+=======
+    /// Creates a `One` variant.
+    fn one(points: &mut Attributes) -> Self {
+>>>>>>> temp
         let index = points.len() as u32;
         points.extend_default(1);
         TriangleContents::One(index)
     }
 
+<<<<<<< HEAD
     fn three(&mut self, ab: Slice<u32>, bc: Slice<u32>, ca: Slice<u32>, points: &mut Attributes) {
         use TriangleContents::*;
 
@@ -67,6 +127,13 @@ impl TriangleContents {
         assert_eq!(ab.len(), ca.len());
         assert_eq!(ab.len(), 3);
 
+=======
+    /// Turns the current `One` variant into a `Three`
+    /// variant, reusing the previous point.
+    fn three(&mut self, points: &mut Attributes) {
+        use TriangleContents::*;
+
+>>>>>>> temp
         match self {
             One(x) => {
                 points.extend_default(2);
@@ -81,6 +148,7 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     fn six(&mut self, ab: Slice<u32>, bc: Slice<u32>, ca: Slice<u32>, points: &mut Attributes) {
         use TriangleContents::*;
 
@@ -88,6 +156,13 @@ impl TriangleContents {
         assert_eq!(ab.len(), ca.len());
         assert_eq!(ab.len(), 4);
 
+=======
+    /// Turns the current `Three` variant into a `Six`
+    /// variant, reusing the previous points.
+    fn six(&mut self, points: &mut Attributes) {
+        use TriangleContents::*;
+
+>>>>>>> temp
         match self {
             Three {
                 a: a_index,
@@ -109,7 +184,23 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     pub fn calculate<I: AttributeInterpolator<A>, A: Copy>(
+=======
+    /// Actually performs the calculation of the new points
+    /// for a single attribute, assuming there are no more
+    /// subdivisions left to perform.
+    ///
+    /// `ab`, `bc`, and `ca` are the edge indices of the previous
+    /// layer.
+    ///
+    /// `interpolator` performs the interpolation between
+    /// vertices as necessary.
+    ///
+    /// This returns the next set of `ab`, `bc` and `ca`, or
+    /// `None` if there should not be a next layer after this.
+    fn calculate<I: AttributeInterpolator<A>, A: Copy>(
+>>>>>>> temp
         &self,
         ab: Slice<u32>,
         bc: Slice<u32>,
@@ -225,6 +316,7 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     pub fn subdivide(
         &mut self,
         ab: Slice<u32>,
@@ -249,6 +341,24 @@ impl TriangleContents {
                 self.six(ab, bc, ca, points);
                 Option::None
             }
+=======
+    /// Should this layer have another layer after
+    /// it?
+    fn should_have_next(&self) -> bool {
+        use TriangleContents::*;
+
+        matches!(self, More { .. })
+    }
+
+    /// Performs subdivision, only recording indices,
+    /// without actually calculating the new attributes.
+    fn subdivide(&mut self, points: &mut Attributes) {
+        use TriangleContents::*;
+        match self {
+            None => *self = Self::one(points),
+            One(_) => self.three(points),
+            Three { .. } => self.six(points),
+>>>>>>> temp
             &mut Six {
                 a,
                 b,
@@ -264,7 +374,11 @@ impl TriangleContents {
                     sides: vec![ab_idx, bc_idx, ca_idx],
                     my_side_length: 1,
                 };
+<<<<<<< HEAD
                 self.subdivide(ab, bc, ca, points)
+=======
+                self.subdivide(points)
+>>>>>>> temp
             }
             &mut More {
                 a: _,
@@ -277,6 +391,7 @@ impl TriangleContents {
                 let len = points.len() as u32;
                 sides.extend_from_slice(&[len - 3, len - 2, len - 1]);
                 *my_side_length += 1;
+<<<<<<< HEAD
 
                 let side_length = *my_side_length as usize;
 
@@ -285,11 +400,21 @@ impl TriangleContents {
                 let ca = &sides[side_length * 2..];
 
                 Option::Some((Forward(ab), Forward(bc), Forward(ca)))
+=======
+>>>>>>> temp
             }
         }
     }
 
+<<<<<<< HEAD
     pub fn idx_ab(&self, idx: usize) -> u32 {
+=======
+    /// Useful when constructing the new indices.
+    ///
+    /// This indexes the whole edge, including ending
+    /// vertices.
+    fn idx_ab(&self, idx: usize) -> u32 {
+>>>>>>> temp
         use TriangleContents::*;
         match self {
             None => panic!("Invalid Index, len is 0, but got {}", idx),
@@ -321,7 +446,12 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     pub fn idx_bc(&self, idx: usize) -> u32 {
+=======
+    /// See `idx_ab`.
+    fn idx_bc(&self, idx: usize) -> u32 {
+>>>>>>> temp
         use TriangleContents::*;
         match self {
             None => panic!("Invalid Index, len is 0, but got {}", idx),
@@ -355,7 +485,12 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     pub fn idx_ca(&self, idx: usize) -> u32 {
+=======
+    /// See `idx_ab`.
+    fn idx_ca(&self, idx: usize) -> u32 {
+>>>>>>> temp
         use TriangleContents::*;
         match self {
             None => panic!("Invalid Index, len is 0, but got {}", idx),
@@ -389,7 +524,17 @@ impl TriangleContents {
         }
     }
 
+<<<<<<< HEAD
     pub fn add_indices(&self, buffer: &mut Vec<u32>, next: Option<&Self>) {
+=======
+    /// Adds the indices of the triangles mostly associated with
+    /// this layer into the buffer.
+    ///
+    /// Although this takes an optional reference to the next
+    /// layer, it does not add the triangles associated mostly with
+    /// that layer.
+    fn add_indices(&self, buffer: &mut Vec<u32>, next: Option<&Self>) {
+>>>>>>> temp
         use TriangleContents::*;
         match self {
             None | One(_) => {}
@@ -402,11 +547,22 @@ impl TriangleContents {
                 bc,
                 ca,
             } => {
+<<<<<<< HEAD
                 buffer.extend_from_slice(&[a, ab, ca]);
                 buffer.extend_from_slice(&[ab, b, bc]);
                 buffer.extend_from_slice(&[bc, c, ca]);
 
                 buffer.extend_from_slice(&[ab, bc, ca]);
+=======
+                #[rustfmt::skip]
+                buffer.extend_from_slice(&[
+                    a, ab, ca,
+                    ab, b, bc,
+                    bc, c, ca,
+
+                    ab, bc, ca,
+                ]);
+>>>>>>> temp
             }
             &More {
                 a,
@@ -457,6 +613,7 @@ fn add_indices_triangular(
         buffer.extend_from_slice(&[a, b, c]);
         return;
     } else if subdivisions == 1 {
+<<<<<<< HEAD
         buffer.extend_from_slice(&[a, ab[0], ca[0]]);
         buffer.extend_from_slice(&[b, bc[0], ab[0]]);
         buffer.extend_from_slice(&[c, ca[0], bc[0]]);
@@ -474,11 +631,38 @@ fn add_indices_triangular(
         buffer.extend_from_slice(&[ab[0], contents.idx_ab(0), ca[1]]);
         buffer.extend_from_slice(&[bc[0], contents.idx_ab(0), ab[1]]);
         buffer.extend_from_slice(&[ca[0], contents.idx_ab(0), bc[1]]);
+=======
+        #[rustfmt::skip]
+        buffer.extend_from_slice(&[
+            a, ab[0], ca[0],
+            b, bc[0], ab[0],
+            c, ca[0], bc[0],
+            ab[0], bc[0], ca[0],
+        ]);
+        return;
+    } else if subdivisions == 2 {
+        let center = contents.idx_ab(0);
+        #[rustfmt::skip]
+        buffer.extend_from_slice(&[
+            a, ab[0], ca[1],
+            b, bc[0], ab[1],
+            c, ca[0], bc[1],
+
+            ab[1], center, ab[0],
+            bc[1], center, bc[0],
+            ca[1], center, ca[0],
+
+            ab[0], center, ca[1],
+            bc[0], center, ab[1],
+            ca[0], center, bc[1],
+        ]);
+>>>>>>> temp
         return;
     }
 
     let last_idx = ab.len() - 1;
 
+<<<<<<< HEAD
     buffer.extend_from_slice(&[a, ab[0], ca[last_idx]]);
     buffer.extend_from_slice(&[b, bc[0], ab[last_idx]]);
     buffer.extend_from_slice(&[c, ca[0], bc[last_idx]]);
@@ -501,10 +685,44 @@ fn add_indices_triangular(
     }
 
     // Deal with special case: last_idx - 1
+=======
+    #[rustfmt::skip]
+    buffer.extend_from_slice(&[
+        a, ab[0], ca[last_idx],
+        b, bc[0], ab[last_idx],
+        c, ca[0], bc[last_idx],
+
+        ab[0], contents.idx_ab(0), ca[last_idx],
+        bc[0], contents.idx_bc(0), ab[last_idx],
+        ca[0], contents.idx_ca(0), bc[last_idx],
+    ]);
+
+    for i in 0..last_idx - 1 {
+        #[rustfmt::skip]
+        buffer.extend_from_slice(&[
+            // Exclude special case: last_idx - 1.
+            // AB
+            ab[i], ab[i + 1], contents.idx_ab(i),
+            ab[i + 1], contents.idx_ab(i + 1), contents.idx_ab(i),
+
+            // BC
+            bc[i], bc[i + 1], contents.idx_bc(i),
+            bc[i + 1], contents.idx_bc(i + 1), contents.idx_bc(i),
+
+            // CA
+            ca[i], ca[i + 1], contents.idx_ca(i),
+            ca[i + 1], contents.idx_ca(i + 1), contents.idx_ca(i),
+        ]);
+    }
+
+    // Deal with special case: last_idx - 1
+    #[rustfmt::skip]
+>>>>>>> temp
     buffer.extend_from_slice(&[
         ab[last_idx],
         contents.idx_ab(last_idx - 1),
         ab[last_idx - 1],
+<<<<<<< HEAD
     ]);
 
     buffer.extend_from_slice(&[
@@ -514,6 +732,13 @@ fn add_indices_triangular(
     ]);
 
     buffer.extend_from_slice(&[
+=======
+
+        bc[last_idx],
+        contents.idx_bc(last_idx - 1),
+        bc[last_idx - 1],
+
+>>>>>>> temp
         ca[last_idx],
         contents.idx_ca(last_idx - 1),
         ca[last_idx - 1],
@@ -541,6 +766,7 @@ struct Triangle {
 }
 
 impl Triangle {
+<<<<<<< HEAD
     pub const fn new(
         a: u32,
         b: u32,
@@ -565,6 +791,9 @@ impl Triangle {
         }
     }
 
+=======
+    /// Subdivides the edges, adding indices to them.
+>>>>>>> temp
     fn subdivide_edges(&mut self, edges: &mut [Edge], points: &mut Attributes) -> usize {
         let mut divide = |edge_idx: usize| {
             if !edges[edge_idx].done {
@@ -582,10 +811,20 @@ impl Triangle {
         edges[self.ab_edge].points.len()
     }
 
+<<<<<<< HEAD
+=======
+    /// Subdivides the edges and contents of the triangle,
+    /// without calculating the new values for the points inside.
+    ///
+    /// To calculate the values for the various attributes of the
+    /// points inside, call the `calculate` function with the
+    /// adequate interpolator and attribute list.
+>>>>>>> temp
     fn subdivide(&mut self, edges: &mut [Edge], points: &mut Attributes) {
         let side_length = self.subdivide_edges(edges, points) + 1;
 
         if side_length > 2 {
+<<<<<<< HEAD
             let abbcca = self.get_edge_slices(edges);
 
             let result = self
@@ -600,12 +839,37 @@ impl Triangle {
                 let mut last = TriangleContents::None;
                 let result = last.subdivide(ab, bc, ca, points);
                 debug_assert!(result.is_none());
+=======
+            self.contents
+                .iter_mut()
+                .for_each(|layer| layer.subdivide(points));
+
+            if self
+                .contents
+                .last()
+                .map(|x| x.should_have_next())
+                // For when starting the contents, we
+                // will have to assume true. Remember `side_length > 2`.
+                .unwrap_or(true)
+            {
+                let mut last = TriangleContents::None;
+                last.subdivide(points);
+>>>>>>> temp
                 self.contents.push(last);
             }
         }
     }
 
+<<<<<<< HEAD
     pub fn calculate<I: AttributeInterpolator<A>, A: Copy>(
+=======
+    /// Calculates the values for the attributes of the vertices along
+    /// the edges of the triangle, and the contents of the triangle.
+    ///
+    /// Will skip edges on the triangle which have already had their
+    /// attributes interpolated.
+    fn calculate<I: AttributeInterpolator<A>, A: Copy>(
+>>>>>>> temp
         &mut self,
         interpolator: &mut I,
         attributes: &mut [A],
@@ -635,11 +899,22 @@ impl Triangle {
             layer.calculate(ab, bc, ca, interpolator, attributes)
         });
 
+<<<<<<< HEAD
         if self.contents.len() != 0 {
+=======
+        if !self.contents.is_empty() {
+>>>>>>> temp
             assert!(result.is_none());
         }
     }
 
+<<<<<<< HEAD
+=======
+    /// Adds the resulting indices associated with the triangles
+    /// inside of this "chunk" triangle into the buffer.
+    ///
+    /// Preserves winding from the source mesh.
+>>>>>>> temp
     fn add_indices(&self, buffer: &mut Vec<u32>, edges: &[Edge]) {
         let (ab, bc, ca) = self.get_edge_slices(edges);
 
@@ -660,6 +935,13 @@ impl Triangle {
         }
     }
 
+<<<<<<< HEAD
+=======
+    /// Gets the `Slice`s associated with the edges
+    /// of this triangle. `Slice` is used instead of
+    /// `[T]` since sometimes we need the data to be
+    /// read backwards instead of forwards.
+>>>>>>> temp
     fn get_edge_slices<'a>(
         &'_ self,
         edges: &'a [Edge],
@@ -686,7 +968,10 @@ impl Triangle {
 
 /// Deals with the attributes in an attribute-agnostic way.
 struct Attributes<'a> {
+<<<<<<< HEAD
 
+=======
+>>>>>>> temp
     /// The current length of the attributes.
     pub len: usize,
 
@@ -729,6 +1014,7 @@ impl<'a> Attributes<'a> {
 
         for (_, i) in &mut self.attributes {
             match i {
+<<<<<<< HEAD
                 VertexAttributeValues::Int(x) => fill_default!(self.tail, x, i32),
                 VertexAttributeValues::Int2(x) => fill_default!(self.tail, x, [i32; 2]),
                 VertexAttributeValues::Int3(x) => fill_default!(self.tail, x, [i32; 3]),
@@ -742,6 +1028,36 @@ impl<'a> Attributes<'a> {
                 VertexAttributeValues::Float3(x) => fill_default!(self.tail, x, [f32; 3]),
                 VertexAttributeValues::Float4(x) => fill_default!(self.tail, x, [f32; 4]),
                 VertexAttributeValues::Uchar4Norm(x) => fill_default!(self.tail, x, [u8; 4]),
+=======
+                VertexAttributeValues::Float32(x) => fill_default!(self.tail, x, f32),
+                VertexAttributeValues::Sint32(x) => fill_default!(self.tail, x, i32),
+                VertexAttributeValues::Uint32(x) => fill_default!(self.tail, x, u32),
+                VertexAttributeValues::Float32x2(x) => fill_default!(self.tail, x, [f32; 2]),
+                VertexAttributeValues::Sint32x2(x) => fill_default!(self.tail, x, [i32; 2]),
+                VertexAttributeValues::Uint32x2(x) => fill_default!(self.tail, x, [u32; 2]),
+                VertexAttributeValues::Float32x3(x) => fill_default!(self.tail, x, [f32; 3]),
+                VertexAttributeValues::Sint32x3(x) => fill_default!(self.tail, x, [i32; 3]),
+                VertexAttributeValues::Uint32x3(x) => fill_default!(self.tail, x, [u32; 3]),
+                VertexAttributeValues::Float32x4(x) => fill_default!(self.tail, x, [f32; 4]),
+                VertexAttributeValues::Sint32x4(x) => fill_default!(self.tail, x, [i32; 4]),
+                VertexAttributeValues::Uint32x4(x) => fill_default!(self.tail, x, [u32; 4]),
+                VertexAttributeValues::Sint16x2(x) => fill_default!(self.tail, x, [i16; 2]),
+                VertexAttributeValues::Snorm16x2(x) => fill_default!(self.tail, x, [i16; 2]),
+                VertexAttributeValues::Uint16x2(x) => fill_default!(self.tail, x, [u16; 2]),
+                VertexAttributeValues::Unorm16x2(x) => fill_default!(self.tail, x, [u16; 2]),
+                VertexAttributeValues::Sint16x4(x) => fill_default!(self.tail, x, [i16; 4]),
+                VertexAttributeValues::Snorm16x4(x) => fill_default!(self.tail, x, [i16; 4]),
+                VertexAttributeValues::Uint16x4(x) => fill_default!(self.tail, x, [u16; 4]),
+                VertexAttributeValues::Unorm16x4(x) => fill_default!(self.tail, x, [u16; 4]),
+                VertexAttributeValues::Sint8x2(x) => fill_default!(self.tail, x, [i8; 2]),
+                VertexAttributeValues::Snorm8x2(x) => fill_default!(self.tail, x, [i8; 2]),
+                VertexAttributeValues::Uint8x2(x) => fill_default!(self.tail, x, [u8; 2]),
+                VertexAttributeValues::Unorm8x2(x) => fill_default!(self.tail, x, [u8; 2]),
+                VertexAttributeValues::Sint8x4(x) => fill_default!(self.tail, x, [i8; 4]),
+                VertexAttributeValues::Snorm8x4(x) => fill_default!(self.tail, x, [i8; 4]),
+                VertexAttributeValues::Uint8x4(x) => fill_default!(self.tail, x, [u8; 4]),
+                VertexAttributeValues::Unorm8x4(x) => fill_default!(self.tail, x, [u8; 4]),
+>>>>>>> temp
             }
         }
 
@@ -772,6 +1088,7 @@ impl<'a> Attributes<'a> {
             edges.iter_mut().for_each(|Edge { done, .. }| *done = false);
         }
 
+<<<<<<< HEAD
         for (name, attr) in &mut self.attributes {
             match attr {
                 VertexAttributeValues::Int(x) => {
@@ -815,6 +1132,52 @@ impl<'a> Attributes<'a> {
                 }
             }
         }
+=======
+        macro_rules! select_right_type {
+            ($val:ident; $triangles:ident; $edges:ident; $interpolator:ident; $name:ident; $(($type_name:ident: $fn_name:ident)),*$(,)?) => {
+                match $val {
+                    $(
+                        VertexAttributeValues::$type_name(x) => {
+                            calculate_specific($triangles, $edges, $interpolator.$fn_name($name), x)
+                        }
+                    ),*
+                }
+            }
+        }
+        for (name, attr) in &mut self.attributes {
+            select_right_type! {
+                attr; triangles; edges; interpolator; name;
+                (Float32: float32),
+                (Sint32: sint32),
+                (Uint32: uint32),
+                (Float32x2: float32x2),
+                (Sint32x2: sint32x2),
+                (Uint32x2: uint32x2),
+                (Float32x3: float32x3),
+                (Sint32x3: sint32x3),
+                (Uint32x3: uint32x3),
+                (Float32x4: float32x4),
+                (Sint32x4: sint32x4),
+                (Uint32x4: uint32x4),
+                (Sint16x2: sint16x2),
+                (Snorm16x2: snorm16x2),
+                (Uint16x2: uint16x2),
+                (Unorm16x2: unorm16x2),
+                (Sint16x4: sint16x4),
+                (Snorm16x4: snorm16x4),
+                (Uint16x4: uint16x4),
+                (Unorm16x4: unorm16x4),
+                (Sint8x2: sint8x2),
+                (Snorm8x2: snorm8x2),
+                (Uint8x2: uint8x2),
+                (Unorm8x2: unorm8x2),
+                (Sint8x4: sint8x4),
+                (Snorm8x4: snorm8x4),
+                (Uint8x4: uint8x4),
+                (Unorm8x4: unorm8x4),
+            }
+        }
+>>>>>>> temp
     }
 }
 
@@ -842,6 +1205,7 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
     if is_iota {
         let triangles = indices
             .chunks(3)
+<<<<<<< HEAD
             .map(|x| {
                 Triangle {
                     a: x[0],
@@ -855,6 +1219,19 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
                     ca_forward: true,
                     contents: vec![],
                 }
+=======
+            .map(|x| Triangle {
+                a: x[0],
+                b: x[1],
+                c: x[2],
+                ab_edge: x[0] as usize,
+                bc_edge: x[1] as usize,
+                ca_edge: x[2] as usize,
+                ab_forward: true,
+                bc_forward: true,
+                ca_forward: true,
+                contents: vec![],
+>>>>>>> temp
             })
             .collect::<Vec<_>>();
         let edges = indices
@@ -907,7 +1284,11 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
                     ab_forward,
                     bc_forward,
                     ca_forward,
+<<<<<<< HEAD
                     contents: vec![]
+=======
+                    contents: vec![],
+>>>>>>> temp
                 }
             })
             .collect::<Vec<_>>();

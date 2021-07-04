@@ -2,7 +2,7 @@ use super::{BufferId, SamplerId, TextureId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
 
-use bevy_core::{Byteable, Bytes};
+use bevy_core::{cast_slice, Bytes, Pod};
 pub use bevy_derive::{RenderResource, RenderResources};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 use bevy_transform::components::GlobalTransform;
@@ -118,7 +118,14 @@ impl<'a> Iterator for RenderResourceIterator<'a> {
             Some(render_resource)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.render_resources.render_resources_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for RenderResourceIterator<'a> {}
 
 #[macro_export]
 macro_rules! impl_render_resource_bytes {
@@ -159,20 +166,62 @@ impl_render_resource_bytes!(i64);
 impl_render_resource_bytes!(f32);
 impl_render_resource_bytes!(f64);
 
+impl<T> RenderResource for Box<T>
+where
+    T: RenderResource,
+{
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        self.as_ref().resource_type()
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.as_ref().write_buffer_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        self.as_ref().buffer_byte_len()
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        self.as_ref().texture()
+    }
+}
+
 impl<T> RenderResource for Vec<T>
 where
-    T: Sized + Byteable,
+    T: Sized + Pod,
 {
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Buffer)
     }
 
     fn write_buffer_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes(buffer);
+        buffer.copy_from_slice(cast_slice(self));
     }
 
     fn buffer_byte_len(&self) -> Option<usize> {
-        Some(self.byte_len())
+        Some(std::mem::size_of_val(&self[..]))
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
+    }
+}
+
+impl<T, const N: usize> RenderResource for [T; N]
+where
+    T: Sized + Pod,
+{
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        buffer.copy_from_slice(cast_slice(self));
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(std::mem::size_of_val(self))
     }
 
     fn texture(&self) -> Option<&Handle<Texture>> {
@@ -222,5 +271,52 @@ impl RenderResources for bevy_transform::prelude::GlobalTransform {
 
     fn iter(&self) -> RenderResourceIterator {
         RenderResourceIterator::new(self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_render;
+
+    #[derive(RenderResource, Bytes)]
+    struct GenericRenderResource<T>
+    where
+        T: Bytes + Send + Sync + 'static,
+    {
+        value: T,
+    }
+
+    #[derive(RenderResources)]
+    struct GenericRenderResources<T>
+    where
+        T: RenderResource + Send + Sync + 'static,
+    {
+        resource: T,
+    }
+
+    #[derive(Bytes, RenderResource, RenderResources)]
+    #[render_resources(from_self)]
+    struct FromSelfGenericRenderResources<T>
+    where
+        T: Bytes + Send + Sync + 'static,
+    {
+        value: T,
+    }
+
+    fn test_impl_render_resource(_: &impl RenderResource) {}
+    fn test_impl_render_resources(_: &impl RenderResources) {}
+
+    #[test]
+    fn test_generic_render_resource_derive() {
+        let resource = GenericRenderResource { value: 42 };
+        test_impl_render_resource(&resource);
+
+        let resources = GenericRenderResources { resource };
+        test_impl_render_resources(&resources);
+
+        let from_self_resources = FromSelfGenericRenderResources { value: 42 };
+        test_impl_render_resource(&from_self_resources);
+        test_impl_render_resources(&from_self_resources);
     }
 }

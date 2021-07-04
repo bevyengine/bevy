@@ -149,7 +149,14 @@ impl<'a> Iterator for ListIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.list.len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 #[inline]
 pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {

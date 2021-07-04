@@ -16,8 +16,8 @@ There are often large differences and incompatible API changes between the lates
 
 If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
 
- - Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
- - Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
+- Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
+- Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
 
 When you clone the repo locally to run the examples, use `git checkout` to get the correct version:
 
@@ -32,6 +32,8 @@ git checkout v0.4.0
 
 ## Table of Contents
 
+- [Examples](#examples)
+  - [Table of Contents](#table-of-contents)
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
 - [Cross-Platform Examples](#cross-platform-examples)
@@ -39,6 +41,7 @@ git checkout v0.4.0
   - [3D Rendering](#3d-rendering)
   - [Application](#application)
   - [Assets](#assets)
+  - [Async Tasks](#async-tasks)
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -47,13 +50,21 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Tests](#tests)
   - [Tools](#tools)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
+    - [Setup](#setup)
+    - [Build & Run](#build--run)
+    - [Old phones](#old-phones)
   - [iOS](#ios)
+    - [Setup](#setup-1)
+    - [Build & Run](#build--run-1)
   - [WASM](#wasm)
+    - [Setup](#setup-2)
+    - [Build & Run](#build--run-2)
 
 # The Bare Minimum
 
@@ -61,7 +72,7 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
@@ -69,10 +80,11 @@ Example | Main | Description
 
 ## 2D Rendering
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`mesh` | [`2d/mesh.rs`](./2d/mesh.rs) | Renders a custom mesh
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
@@ -88,7 +100,8 @@ Example | File | Description
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
-`pbr` | [`3d/pbr.rs`](./3d/[pbr].rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
@@ -119,6 +132,12 @@ Example | File | Description
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
+## Async Tasks
+
+Example | File | Description
+--- | --- | ---
+`async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+
 ## Audio
 
 Example | File | Description
@@ -129,8 +148,8 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics to the console
 `custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
+`log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console
 
 ## ECS (Entity Component System)
 
@@ -141,12 +160,15 @@ Example | File | Description
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
+`iter_combinations` | [`ecs/iter_combinations.rs`](./ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results.
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+`query_bundle` | [`ecs/query_bundle.rs`](./ecs/query_bundle.rs) | Shows how to query entities that contain components in a `Bundle`
 `removal_detection` | [`ecs/removal_detection.rs`](./ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame.
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 `system_chaining` | [`ecs/system_chaining.rs`](./ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
 `system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
+`system_sets` | [`ecs/system_sets.rs`](./ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
@@ -169,16 +191,16 @@ Example | File | Description
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
-`touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_input_events.rs) | Prints out all touch inputs
+`touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
 ## Reflection
 
 Example | File | Description
 --- | --- | ---
-`reflection` | [`reflection/reflection.rs`](reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
-`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
-`reflection_types` | [`reflection/reflection_types.rs`](reflection/reflection_types.rs) | Illustrates the various reflection types available
-`trait_reflection` | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs) | Allows reflection with trait objects
+`reflection` | [`reflection/reflection.rs`](./reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+`generic_reflection` | [`reflection/generic_reflection.rs`](./reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+`reflection_types` | [`reflection/reflection_types.rs`](./reflection/reflection_types.rs) | Illustrates the various reflection types available
+`trait_reflection` | [`reflection/trait_reflection.rs`](./reflection/trait_reflection.rs) | Allows reflection with trait objects
 
 ## Scene
 
@@ -190,11 +212,18 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to animate a shader by accessing a time uniform variable
 `array_texture` | [`shader/array_texture.rs`](./shader/array_texture.rs) | Illustrates how to create a texture for use with a texture2DArray shader uniform variable
 `hot_shader_reloading` | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs) | Illustrates how to load shaders such that they can be edited while the example is still running
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+
+## Tests
+
+Example | File | Description
+--- | --- | ---
+`how_to_test_systems` | [`../tests/how_to_test_systems.rs`](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 ## Tools
 
@@ -259,7 +288,9 @@ Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for ot
 
 ### Old phones
 
-Bevy by default targets Android API level 29 in its examples which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
+Bevy by default targets Android API level 29 in its examples which is the <!-- markdown-link-check-disable -->
+[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 

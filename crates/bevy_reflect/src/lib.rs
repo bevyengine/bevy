@@ -23,6 +23,7 @@ mod impls {
 
 pub mod serde;
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
         TupleStruct,
@@ -53,9 +54,9 @@ mod tests {
         Deserializer,
     };
 
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
-
     use super::*;
+    use crate as bevy_reflect;
+    use crate::serde::{ReflectDeserializer, ReflectSerializer};
 
     #[test]
     fn reflect_struct() {

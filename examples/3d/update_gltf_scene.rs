@@ -24,7 +24,7 @@ fn setup(
     mut scene_spawner: ResMut<SceneSpawner>,
     mut scene_instance: ResMut<SceneInstance>,
 ) {
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..Default::default()
     });

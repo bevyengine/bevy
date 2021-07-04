@@ -13,6 +13,7 @@ pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
 }
 

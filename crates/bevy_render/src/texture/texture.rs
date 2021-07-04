@@ -1,13 +1,11 @@
-use super::{
-    image_texture_conversion::image_to_texture, Extent3d, SamplerDescriptor, TextureDescriptor,
-    TextureDimension, TextureFormat,
-};
+use std::convert::TryInto;
+
+use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
-use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::Res;
+use bevy_ecs::{event::EventReader, system::Res};
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 use thiserror::Error;
@@ -32,7 +30,7 @@ impl Default for Texture {
             size: Extent3d {
                 width: 1,
                 height: 1,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             format: TextureFormat::Rgba8UnormSrgb,
             dimension: TextureDimension::D2,
@@ -120,13 +118,13 @@ impl Texture {
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.dimension == TextureDimension::D2);
-        assert!(self.size.depth == 1);
+        assert!(self.size.depth_or_array_layers == 1);
         assert_eq!(self.size.height % layers, 0);
 
         self.reinterpret_size(Extent3d {
             width: self.size.width,
             height: self.size.height / layers,
-            depth: layers,
+            depth_or_array_layers: layers,
         });
     }
 
@@ -136,9 +134,10 @@ impl Texture {
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
-    pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
-            .and_then(|img| match new_format {
+    pub fn convert(self, new_format: TextureFormat) -> Option<Self> {
+        self.try_into()
+            .ok()
+            .and_then(|img: image::DynamicImage| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {
                     Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
@@ -151,7 +150,7 @@ impl Texture {
                 }
                 _ => None,
             })
-            .map(super::image_texture_conversion::image_to_texture)
+            .map(|image| image.into())
     }
 
     pub fn texture_resource_system(
@@ -244,7 +243,7 @@ impl Texture {
         // cases.
 
         let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-        Ok(image_to_texture(dyn_img))
+        Ok(dyn_img.into())
     }
 }
 
@@ -287,7 +286,7 @@ pub enum TextureError {
     InvalidImageMimeType(String),
     #[error("invalid image extension")]
     InvalidImageExtension(String),
-    #[error("failed to load an image")]
+    #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
 }
 

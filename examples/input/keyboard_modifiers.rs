@@ -16,6 +16,6 @@ fn keyboard_input_system(input: Res<Input<KeyCode>>) {
     let ctrl = input.pressed(KeyCode::LControl) || input.pressed(KeyCode::RControl);
 
     if ctrl && shift && input.just_pressed(KeyCode::A) {
-        println!("Just pressed Ctrl + Shift + A!");
+        info!("Just pressed Ctrl + Shift + A!");
     }
 }

@@ -16,7 +16,12 @@ use bevy_render::{
 use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
-use std::{borrow::Cow, num::NonZeroU64, ops::Range, sync::Arc};
+use std::{
+    borrow::Cow,
+    num::{NonZeroU32, NonZeroU64},
+    ops::Range,
+    sync::Arc,
+};
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Debug)]
@@ -81,7 +86,7 @@ impl WgpuRenderResourceContext {
         let source = textures.get(&source_texture).unwrap();
         let destination = textures.get(&destination_texture).unwrap();
         command_encoder.copy_texture_to_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: source,
                 mip_level: source_mip_level,
                 origin: wgpu::Origin3d {
@@ -90,7 +95,7 @@ impl WgpuRenderResourceContext {
                     z: source_origin[2],
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: destination,
                 mip_level: destination_mip_level,
                 origin: wgpu::Origin3d {
@@ -121,7 +126,7 @@ impl WgpuRenderResourceContext {
         let source = textures.get(&source_texture).unwrap();
         let destination = buffers.get(&destination_buffer).unwrap();
         command_encoder.copy_texture_to_buffer(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: source,
                 mip_level: source_mip_level,
                 origin: wgpu::Origin3d {
@@ -130,12 +135,12 @@ impl WgpuRenderResourceContext {
                     z: source_origin[2],
                 },
             },
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: destination,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: destination_offset,
-                    bytes_per_row: destination_bytes_per_row,
-                    rows_per_image: size.height,
+                    bytes_per_row: NonZeroU32::new(destination_bytes_per_row),
+                    rows_per_image: NonZeroU32::new(size.height),
                 },
             },
             size.wgpu_into(),
@@ -160,15 +165,15 @@ impl WgpuRenderResourceContext {
         let source = buffers.get(&source_buffer).unwrap();
         let destination = textures.get(&destination_texture).unwrap();
         command_encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: source,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: source_offset,
-                    bytes_per_row: source_bytes_per_row,
-                    rows_per_image: size.height,
+                    bytes_per_row: NonZeroU32::new(source_bytes_per_row),
+                    rows_per_image: NonZeroU32::new(size.height),
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: destination,
                 mip_level: destination_mip_level,
                 origin: wgpu::Origin3d {
@@ -562,11 +567,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
                             let size = NonZeroU64::new(range.end - range.start)
                                 .expect("Size of the buffer needs to be greater than 0!");
-                            wgpu::BindingResource::Buffer {
+                            wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                                 buffer: wgpu_buffer,
                                 offset: range.start,
                                 size: Some(size),
-                            }
+                            })
                         }
                     };
                     wgpu::BindGroupEntry {

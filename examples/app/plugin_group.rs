@@ -34,7 +34,7 @@ impl Plugin for PrintHelloPlugin {
 }
 
 fn print_hello_system() {
-    println!("hello");
+    info!("hello");
 }
 
 pub struct PrintWorldPlugin;
@@ -46,5 +46,5 @@ impl Plugin for PrintWorldPlugin {
 }
 
 fn print_world_system() {
-    println!("world");
+    info!("world");
 }

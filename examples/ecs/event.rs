@@ -44,6 +44,6 @@ fn event_trigger_system(
 // prints events as they come in
 fn event_listener_system(mut events: EventReader<MyEvent>) {
     for my_event in events.iter() {
-        println!("{}", my_event.message);
+        info!("{}", my_event.message);
     }
 }

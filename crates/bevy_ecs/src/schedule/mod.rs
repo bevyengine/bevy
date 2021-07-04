@@ -20,6 +20,8 @@ pub use system_container::*;
 pub use system_descriptor::*;
 pub use system_set::*;
 
+use std::fmt::Debug;
+
 use crate::{
     system::{IntoSystem, System},
     world::World,
@@ -64,10 +66,10 @@ impl Schedule {
         self
     }
 
-    pub fn with_system_in_stage(
+    pub fn with_system_in_stage<Params>(
         mut self,
         stage_label: impl StageLabel,
-        system: impl Into<SystemDescriptor>,
+        system: impl IntoSystemDescriptor<Params>,
     ) -> Self {
         self.add_system_to_stage(stage_label, system);
         self
@@ -139,19 +141,24 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage(
+    pub fn add_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
-        system: impl Into<SystemDescriptor>,
+        system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
+        // Use a function instead of a closure to ensure that it is codegend inside bevy_ecs instead
+        // of the game. Closures inherit generic parameters from their enclosing function.
+        #[cold]
+        fn stage_not_found(stage_label: &dyn Debug) -> ! {
+            panic!(
+                "Stage '{:?}' does not exist or is not a SystemStage",
+                stage_label
+            )
+        }
+
         let stage = self
             .get_stage_mut::<SystemStage>(&stage_label)
-            .unwrap_or_else(move || {
-                panic!(
-                    "Stage '{:?}' does not exist or is not a SystemStage",
-                    stage_label
-                )
-            });
+            .unwrap_or_else(move || stage_not_found(&stage_label));
         stage.add_system(system);
         self
     }

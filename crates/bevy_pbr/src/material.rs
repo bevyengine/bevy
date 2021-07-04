@@ -7,20 +7,20 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
-    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything in between
-    /// If used together with a base_color_texture, this is factored into the final base color
-    /// as `base_color * base_color_texture_value`
+    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
+    /// in between If used together with a base_color_texture, this is factored into the final
+    /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
     #[shader_def]
     pub base_color_texture: Option<Handle<Texture>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
-    /// If used together with a roughness/metallic texture, this is factored into the final base color
-    /// as `roughness * roughness_texture_value`
+    /// If used together with a roughness/metallic texture, this is factored into the final base
+    /// color as `roughness * roughness_texture_value`
     pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
-    /// If used together with a roughness/metallic texture, this is factored into the final base color
-    /// as `metallic * metallic_texture_value`
+    /// If used together with a roughness/metallic texture, this is factored into the final base
+    /// color as `metallic * metallic_texture_value`
     pub metallic: f32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
@@ -51,8 +51,9 @@ impl Default for StandardMaterial {
             base_color_texture: None,
             // This is the minimum the roughness is clamped to in shader code
             // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
-            // It's the minimum floating point value that won't be rounded down to 0 in the calculations used.
-            // Although technically for 32-bit floats, 0.045 could be used.
+            // It's the minimum floating point value that won't be rounded down to 0 in the
+            // calculations used. Although technically for 32-bit floats, 0.045 could be
+            // used.
             roughness: 0.089,
             // Few materials are purely dielectric or metallic
             // This is just a default for mostly-dielectric

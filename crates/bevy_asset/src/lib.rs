@@ -13,6 +13,7 @@ mod loader;
 mod path;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
 }
 

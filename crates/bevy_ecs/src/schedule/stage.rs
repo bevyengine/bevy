@@ -16,6 +16,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
+use super::IntoSystemDescriptor;
+
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
@@ -105,7 +107,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single(system: impl Into<SystemDescriptor>) -> Self {
+    pub fn single<Params>(system: impl IntoSystemDescriptor<Params>) -> Self {
         Self::single_threaded().with_system(system)
     }
 
@@ -131,23 +133,19 @@ impl SystemStage {
         self.executor = executor;
     }
 
-    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+    pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_inner(system, None);
+    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
+        self.add_system_inner(system.into_descriptor(), None);
         self
     }
 
-    fn add_system_inner(
-        &mut self,
-        system: impl Into<SystemDescriptor>,
-        default_run_criteria: Option<usize>,
-    ) {
+    fn add_system_inner(&mut self, system: SystemDescriptor, default_run_criteria: Option<usize>) {
         self.systems_modified = true;
-        match system.into() {
+        match system {
             SystemDescriptor::Exclusive(mut descriptor) => {
                 let insertion_point = descriptor.insertion_point;
                 let criteria = descriptor.run_criteria.take();
@@ -416,9 +414,9 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        fn unwrap_dependency_cycle_error<Output, Label, Labels: Debug>(
+        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: Debug>(
             result: Result<Output, DependencyGraphError<Labels>>,
-            nodes: &[impl GraphNode<Label>],
+            nodes: &[Node],
             nodes_description: &'static str,
         ) -> Output {
             match result {
@@ -891,8 +889,7 @@ impl Stage for SystemStage {
 mod tests {
     use crate::{
         entity::Entity,
-        query::ChangeTrackers,
-        query::Changed,
+        query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,

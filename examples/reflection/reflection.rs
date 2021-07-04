@@ -75,7 +75,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     let serializer = ReflectSerializer::new(&value, &type_registry);
     let ron_string =
         ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
-    println!("{}\n", ron_string);
+    info!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
     let reflect_deserializer = ReflectDeserializer::new(&type_registry);

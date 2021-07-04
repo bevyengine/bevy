@@ -103,7 +103,11 @@ impl From<Icosphere> for Mesh {
             .attribute_mut(Mesh::ATTRIBUTE_POSITION)
             .unwrap();
 
+<<<<<<< HEAD
         if let VertexAttributeValues::Float3(positions) = positions {
+=======
+        if let VertexAttributeValues::Float32x3(positions) = positions {
+>>>>>>> temp
             positions.iter_mut().for_each(|p| {
                 *p = [
                     p[0] * sphere.radius,

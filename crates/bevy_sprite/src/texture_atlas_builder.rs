@@ -113,7 +113,7 @@ impl TextureAtlasBuilder {
     ) {
         if self.format == texture.format {
             Self::copy_texture_to_atlas(atlas_texture, texture, packed_location);
-        } else if let Some(converted_texture) = texture.convert(self.format) {
+        } else if let Some(converted_texture) = texture.clone().convert(self.format) {
             debug!(
                 "Converting texture from '{:?}' to '{:?}'",
                 texture.format, self.format

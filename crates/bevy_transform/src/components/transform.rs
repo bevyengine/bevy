@@ -130,16 +130,52 @@ impl Transform {
         self.rotation * Vec3::X
     }
 
+    /// Equivalent to -local_x()
+    #[inline]
+    pub fn left(&self) -> Vec3 {
+        -self.local_x()
+    }
+
+    /// Equivalent to local_x()
+    #[inline]
+    pub fn right(&self) -> Vec3 {
+        self.local_x()
+    }
+
     /// Get the unit vector in the local y direction.
     #[inline]
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
     }
 
+    /// Equivalent to local_y()
+    #[inline]
+    pub fn up(&self) -> Vec3 {
+        self.local_y()
+    }
+
+    /// Equivalent to -local_y()
+    #[inline]
+    pub fn down(&self) -> Vec3 {
+        -self.local_y()
+    }
+
     /// Get the unit vector in the local z direction.
     #[inline]
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
+    }
+
+    /// Equivalent to -local_z()
+    #[inline]
+    pub fn forward(&self) -> Vec3 {
+        -self.local_z()
+    }
+
+    /// Equivalent to local_z()
+    #[inline]
+    pub fn back(&self) -> Vec3 {
+        self.local_z()
     }
 
     /// Rotates the transform by the given rotation.
@@ -185,7 +221,7 @@ impl Transform {
         let forward = Vec3::normalize(self.translation - target);
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
-        self.rotation = Quat::from_rotation_mat3(&Mat3::from_cols(right, up, forward));
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
     }
 }
 

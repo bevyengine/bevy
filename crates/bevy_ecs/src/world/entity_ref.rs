@@ -1,8 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
+    change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
-    entity::{Entity, EntityLocation},
+    entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
@@ -80,9 +81,11 @@ impl<'w> EntityRef<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick,
-                change_tick,
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick,
+                    change_tick,
+                },
             })
     }
 }
@@ -161,9 +164,11 @@ impl<'w> EntityMut<'w> {
             )
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick: self.world.last_change_tick(),
-                change_tick: self.world.change_tick(),
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick: self.world.last_change_tick(),
+                    change_tick: self.world.change_tick(),
+                },
             })
         }
     }
@@ -176,38 +181,38 @@ impl<'w> EntityMut<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick: self.world.last_change_tick(),
-                change_tick: self.world.read_change_tick(),
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick: self.world.last_change_tick(),
+                    change_tick: self.world.read_change_tick(),
+                },
             })
     }
 
-    // TODO: factor out non-generic part to cut down on monomorphization (just check perf)
     // TODO: move relevant methods to World (add/remove bundle)
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        let entity = self.entity;
-        let change_tick = self.world.change_tick();
-        let entities = &mut self.world.entities;
-        let archetypes = &mut self.world.archetypes;
-        let components = &mut self.world.components;
-        let storages = &mut self.world.storages;
-
-        let bundle_info = self.world.bundles.init_info::<T>(components);
-        let current_location = self.location;
-
-        let (archetype, bundle_status, archetype_index) = unsafe {
+        // Use a non-generic function to cut down on monomorphization
+        unsafe fn get_insert_bundle_info<'a>(
+            entities: &mut Entities,
+            archetypes: &'a mut Archetypes,
+            components: &mut Components,
+            storages: &mut Storages,
+            bundle_info: &BundleInfo,
+            current_location: EntityLocation,
+            entity: Entity,
+        ) -> (&'a Archetype, &'a Vec<ComponentStatus>, EntityLocation) {
             // SAFE: component ids in `bundle_info` and self.location are valid
             let new_archetype_id = add_bundle_to_archetype(
                 archetypes,
                 storages,
                 components,
-                self.location.archetype_id,
+                current_location.archetype_id,
                 bundle_info,
             );
             if new_archetype_id == current_location.archetype_id {
                 let archetype = &archetypes[current_location.archetype_id];
                 let edge = archetype.edges().get_add_bundle(bundle_info.id).unwrap();
-                (archetype, &edge.bundle_status, current_location.index)
+                (archetype, &edge.bundle_status, current_location)
             } else {
                 let (old_table_row, old_table_id) = {
                     let old_archetype = &mut archetypes[current_location.archetype_id];
@@ -241,27 +246,45 @@ impl<'w> EntityMut<'w> {
                     new_location
                 };
 
-                self.location = new_location;
-                entities.meta[self.entity.id as usize].location = new_location;
+                entities.meta[entity.id as usize].location = new_location;
                 let (old_archetype, new_archetype) =
                     archetypes.get_2_mut(current_location.archetype_id, new_archetype_id);
                 let edge = old_archetype
                     .edges()
                     .get_add_bundle(bundle_info.id)
                     .unwrap();
-                (&*new_archetype, &edge.bundle_status, new_location.index)
+                (&*new_archetype, &edge.bundle_status, new_location)
 
                 // Sparse set components are intentionally ignored here. They don't need to move
             }
-        };
+        }
 
-        let table = &storages.tables[archetype.table_id()];
-        let table_row = archetype.entity_table_row(archetype_index);
+        let change_tick = self.world.change_tick();
+        let bundle_info = self
+            .world
+            .bundles
+            .init_info::<T>(&mut self.world.components);
+
+        let (archetype, bundle_status, new_location) = unsafe {
+            get_insert_bundle_info(
+                &mut self.world.entities,
+                &mut self.world.archetypes,
+                &mut self.world.components,
+                &mut self.world.storages,
+                bundle_info,
+                self.location,
+                self.entity,
+            )
+        };
+        self.location = new_location;
+
+        let table = &mut self.world.storages.tables[archetype.table_id()];
+        let table_row = archetype.entity_table_row(new_location.index);
         // SAFE: table row is valid
         unsafe {
             bundle_info.write_components(
-                &mut storages.sparse_sets,
-                entity,
+                &mut self.world.storages.sparse_sets,
+                self.entity,
                 table,
                 table_row,
                 bundle_status,
@@ -305,7 +328,7 @@ impl<'w> EntityMut<'w> {
             T::from_components(|| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFE: entity location is valid and table row is removed below
-                remove_component(
+                take_component(
                     components,
                     storages,
                     old_archetype,
@@ -386,17 +409,18 @@ impl<'w> EntityMut<'w> {
         let entity = self.entity;
         for component_id in bundle_info.component_ids.iter().cloned() {
             if old_archetype.contains(component_id) {
-                // SAFE: entity location is valid and table row is removed below
-                unsafe {
-                    remove_component(
-                        components,
-                        storages,
-                        old_archetype,
-                        removed_components,
-                        component_id,
-                        entity,
-                        old_location,
-                    );
+                removed_components
+                    .get_or_insert_with(component_id, Vec::new)
+                    .push(entity);
+
+                // Make sure to drop components stored in sparse sets.
+                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                    storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        .unwrap()
+                        .remove(entity);
                 }
             }
         }
@@ -526,7 +550,7 @@ unsafe fn get_component(
             let components = table.get_column(component_id)?;
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_unchecked(table_row))
+            Some(components.get_data_unchecked(table_row))
         }
         StorageType::SparseSet => world
             .storages
@@ -554,8 +578,8 @@ unsafe fn get_component_and_ticks(
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_unchecked(table_row),
-                components.get_ticks_unchecked(table_row),
+                components.get_data_unchecked(table_row),
+                components.get_ticks_mut_ptr_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => world
@@ -566,13 +590,18 @@ unsafe fn get_component_and_ticks(
     }
 }
 
+/// Moves component data out of storage.
+///
+/// This function leaves the underlying memory unchanged, but the component behind
+/// returned pointer is semantically owned by the caller and will not be dropped in its original location.
+/// Caller is responsible to drop component data behind returned pointer.
+///
 /// # Safety
-// `entity_location` must be within bounds of the given archetype and `entity` must exist inside the
-// archetype
-/// The relevant table row must be removed separately
-/// `component_id` must be valid
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+/// - `component_id` must be valid
+/// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
-unsafe fn remove_component(
+unsafe fn take_component(
     components: &Components,
     storages: &mut Storages,
     archetype: &Archetype,
@@ -591,7 +620,7 @@ unsafe fn remove_component(
             let components = table.get_column(component_id).unwrap();
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            components.get_unchecked(table_row)
+            components.get_data_unchecked(table_row)
         }
         StorageType::SparseSet => storages
             .sparse_sets
