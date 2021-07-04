@@ -4,8 +4,8 @@ use bevy::{prelude::*, utils::Duration};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn.system())
-        .add_system(trigger_sync.system())
+        .add_startup_system(spawn)
+        .add_system(trigger_sync)
         .run();
 }
 
@@ -19,11 +19,8 @@ fn spawn(mut commands: Commands) {
 
 fn trigger_sync(mut commands: Commands, mut last_sync: Local<f64>, time: Res<Time>) {
     if time.seconds_since_startup() - *last_sync > 5.0 {
-        commands.run_system(
-            sync_system
-                .system()
-                .config(|config| config.1 = Some(time.time_since_startup())),
-        );
+        commands
+            .run_system(sync_system.config(|config| config.1 = Some(time.time_since_startup())));
         *last_sync = time.seconds_since_startup();
     }
 }

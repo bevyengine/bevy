@@ -7,7 +7,7 @@ use crate::{
 use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
-use super::System;
+use super::{IntoSystem, System};
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
@@ -181,9 +181,9 @@ impl<'a> Commands<'a> {
     }
 
     /// Run a one-off [`System`].
-    pub fn run_system(&mut self, system: impl System<In = (), Out = ()>) {
+    pub fn run_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) {
         self.queue.push(RunSystem {
-            system: Box::new(system),
+            system: Box::new(system.system()),
         });
     }
 
