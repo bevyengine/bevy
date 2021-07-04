@@ -27,8 +27,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res,
-            ResMut, System, SystemState,
+            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -372,7 +372,13 @@ mod tests {
 
         // ensure the system actually ran
         assert!(*world.get_resource::<bool>().unwrap());
+
+        // Now do the same with omitted `.system()`.
+        world.insert_resource(false);
+        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
+        assert!(*world.get_resource::<bool>().unwrap());
     }
+
     #[test]
     fn world_collections_system() {
         let mut world = World::default();

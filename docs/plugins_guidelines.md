@@ -26,7 +26,7 @@ You are free to use a `bevy_xxx` name for your plugin, but please be reasonable.
 You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
 
 * Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy).
-* Announce it on [Discord](https://discord.gg/gMUk5Ph), in the `#showcase` channel.
+* Announce it on [Discord](https://discord.gg/bevy), in the `#showcase` channel.
 * Announce it on [Reddit](https://reddit.com/r/bevy).
 
 ## Bevy Version Supported

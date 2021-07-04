@@ -17,6 +17,11 @@ path = "benches/bevy_ecs/stages.rs"
 harness = false
 
 [[bench]]
+name = "commands"
+path = "benches/bevy_ecs/commands.rs"
+harness = false
+
+[[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
 harness = false
