@@ -1,4 +1,4 @@
-//! The behavior building block of an ECS application.
+//! Tools for controlling behavior in an ECS application.
 //!
 //! Systems define how an ECS based application behave. They have to be registered to a
 //! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually written as a normal function,

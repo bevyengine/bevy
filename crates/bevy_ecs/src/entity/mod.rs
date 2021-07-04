@@ -1,4 +1,4 @@
-//! The handle to an object stored in a [`World`](crate::world::World).
+//! Entity handling types.
 //!
 //! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
 //! `struct` is just an identification number that [`Component`s](crate::component::Component)

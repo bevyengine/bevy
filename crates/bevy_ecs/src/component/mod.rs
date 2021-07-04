@@ -1,3 +1,4 @@
+//! Types for declaring and storing [`Component`]s.
 mod type_info;
 
 pub use type_info::*;
