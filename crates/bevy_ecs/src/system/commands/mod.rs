@@ -155,6 +155,23 @@ impl<'a> Commands<'a> {
     }
 
     /// Run a one-off [`System`].
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # struct MyComponent;
+    ///
+    /// # fn my_system(_components: Query<&MyComponent>) {}
+    ///
+    /// # fn main_system(mut commands: Commands) {
+    /// // Can take a standard system function
+    /// commands.run_system(my_system);
+    /// // Can take a closure system
+    /// commands.run_system(|query: Query<&MyComponent>| {
+    ///     println!("count: {}", query.iter().len());
+    /// });
+    /// # }
+    /// # main_system.system();
+    /// ```
     pub fn run_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) {
         self.queue.push(RunSystem {
             system: Box::new(system.system()),
