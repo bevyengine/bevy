@@ -192,6 +192,10 @@ impl_query_set!();
 
 /// Shared borrow of a resource.
 ///
+/// See the [`World`] documentation to see the usage of a resource.
+///
+/// If you need a unique mutable borrow, use [`ResMut`] instead.
+///
 /// # Panics
 ///
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.

@@ -137,6 +137,10 @@ pub(crate) struct Ticks<'a> {
 
 /// Unique mutable borrow of a resource.
 ///
+/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+///
+/// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
+///
 /// # Panics
 ///
 /// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.

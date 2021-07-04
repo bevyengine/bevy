@@ -36,11 +36,45 @@ impl Default for WorldId {
     }
 }
 
-/// [World] stores and exposes operations on [entities](Entity), [components](Component),
+/// Stores and exposes operations on [entities](Entity), [components](Component),
 /// and their associated metadata.
 /// Each [Entity] has a set of components. Each component can have up to one instance of each
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
+///
+/// # Resources
+///
+/// The world can store *resources*, a special kind of components, not associated to any entity.
+///
+/// ## Usage
+///
+/// 1. Insert the resource into the `World`, using [`World::insert_resource`].
+/// 2. Fetch the resource from a system, using [`Res`](crate::system::Res) or [`ResMut`](crate::system::ResMut).
+///
+/// ```
+/// # let mut world = World::default();
+/// # let mut schedule = Schedule::default();
+/// # schedule.add_stage("update", SystemStage::parallel());
+/// # use bevy_ecs::prelude::*;
+/// #
+/// struct MyResource { value: u32 }
+///
+/// world.insert_resource(MyResource { value: 42 });
+///
+/// fn read_resource_system(resource: Res<MyResource>) {
+///     assert_eq!(resource.value, 42);
+/// }
+///
+/// fn write_resource_system(mut resource: ResMut<MyResource>) {
+///     assert_eq!(resource.value, 42);
+///     resource.value = 0;
+///     assert_eq!(resource.value, 0);
+/// }
+/// #
+/// # schedule.add_system_to_stage("update", read_resource_system.system().label("first"));
+/// # schedule.add_system_to_stage("update", write_resource_system.system().after("first"));
+/// # schedule.run_once(&mut world);
+/// ```
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
