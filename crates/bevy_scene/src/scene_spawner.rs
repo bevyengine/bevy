@@ -112,6 +112,10 @@ impl SceneSpawner {
             .entry(scene_handle.clone())
             .or_insert_with(Vec::new);
         spawned.push(instance_id);
+        let mut scene_spawned_event_writer = world
+            .get_resource_mut::<Events<SceneSpawnedEvent>>()
+            .expect("events exist");
+        scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
         Ok(instance_id)
     }
 
@@ -205,6 +209,11 @@ impl SceneSpawner {
                 .entry(scene_handle)
                 .or_insert_with(Vec::new);
             spawned.push(instance_id);
+            let mut scene_spawned_event_writer = world
+                .get_resource_mut::<Events<SceneSpawnedEvent>>()
+                .expect("events exist");
+            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
+
             Ok(instance_id)
         })
     }
@@ -240,39 +249,31 @@ impl SceneSpawner {
     }
 
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        world.resource_scope(
-            |world, mut scene_spawned_event_writer: Mut<Events<SceneSpawnedEvent>>| {
-                let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
+        let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
-                for scene_handle in scenes_to_spawn {
-                    match self.spawn_dynamic_sync(world, &scene_handle) {
-                        Ok(instance_id) => {
-                            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
-                        }
-                        Err(SceneSpawnError::NonExistentScene { .. }) => {
-                            self.dynamic_scenes_to_spawn.push(scene_handle);
-                        }
-                        Err(err) => return Err(err),
-                    }
+        for scene_handle in scenes_to_spawn {
+            match self.spawn_dynamic_sync(world, &scene_handle) {
+                Ok(_) => {}
+                Err(SceneSpawnError::NonExistentScene { .. }) => {
+                    self.dynamic_scenes_to_spawn.push(scene_handle);
                 }
+                Err(err) => return Err(err),
+            }
+        }
 
-                let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
+        let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
 
-                for (scene_handle, instance_id) in scenes_to_spawn {
-                    match self.spawn_sync_internal(world, scene_handle, instance_id) {
-                        Ok(instance_id) => {
-                            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
-                        }
-                        Err(SceneSpawnError::NonExistentRealScene { handle }) => {
-                            self.scenes_to_spawn.push((handle, instance_id))
-                        }
-                        Err(err) => return Err(err),
-                    }
+        for (scene_handle, instance_id) in scenes_to_spawn {
+            match self.spawn_sync_internal(world, scene_handle, instance_id) {
+                Ok(_) => {}
+                Err(SceneSpawnError::NonExistentRealScene { handle }) => {
+                    self.scenes_to_spawn.push((handle, instance_id))
                 }
+                Err(err) => return Err(err),
+            }
+        }
 
-                Ok(())
-            },
-        )
+        Ok(())
     }
 
     pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
