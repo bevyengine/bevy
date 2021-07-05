@@ -418,6 +418,10 @@ path = "examples/tools/bevymark.rs"
 
 # Transforms
 [[example]]
+name = "global_vs_local"
+path = "examples/transforms/global_vs_local_translation.rs"
+
+[[example]]
 name = "rotation"
 path = "examples/transforms/rotation.rs"
 
