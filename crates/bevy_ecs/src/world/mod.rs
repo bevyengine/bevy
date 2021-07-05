@@ -71,8 +71,8 @@ impl Default for WorldId {
 ///     assert_eq!(resource.value, 0);
 /// }
 /// #
-/// # schedule.add_system_to_stage("update", read_resource_system.system().label("first"));
-/// # schedule.add_system_to_stage("update", write_resource_system.system().after("first"));
+/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
+/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
 pub struct World {
