@@ -25,7 +25,7 @@
 //! This crate is subdivided into different modules based on the role of each item. The most
 //! important items for an end user are found in [`world`], [`schedule`] and [`system`] modules.
 //!
-//! This is an API documentation, designed to be consulted, and not to be read like a book.
+//! This is an API documentation designed to be consulted, and not to be read like a book.
 //! To learn the fundamentals of ECS, read Chapter 2 of the
 //! [Bevy Book](https://bevyengine.org/learn/book), or follow one of the Quick Start Guides.
 pub mod archetype;
