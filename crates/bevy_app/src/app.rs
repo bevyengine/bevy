@@ -1,5 +1,5 @@
 use crate::{
-    CoreSchedule, CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage,
+    CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -209,7 +209,7 @@ impl App {
     /// ```
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule
-            .stage(CoreSchedule::Startup, |schedule: &mut Schedule| {
+            .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_stage(label, stage)
             });
         self
@@ -240,7 +240,7 @@ impl App {
         stage: S,
     ) -> &mut Self {
         self.schedule
-            .stage(CoreSchedule::Startup, |schedule: &mut Schedule| {
+            .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_stage_after(target, label, stage)
             });
         self
@@ -271,7 +271,7 @@ impl App {
         stage: S,
     ) -> &mut Self {
         self.schedule
-            .stage(CoreSchedule::Startup, |schedule: &mut Schedule| {
+            .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_stage_before(target, label, stage)
             });
         self
@@ -485,7 +485,7 @@ impl App {
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
         self.schedule
-            .stage(CoreSchedule::Startup, |schedule: &mut Schedule| {
+            .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_system_to_stage(stage_label, system)
             });
         self
@@ -521,7 +521,7 @@ impl App {
         system_set: SystemSet,
     ) -> &mut Self {
         self.schedule
-            .stage(CoreSchedule::Startup, |schedule: &mut Schedule| {
+            .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_system_set_to_stage(stage_label, system_set)
             });
         self
@@ -590,7 +590,7 @@ impl App {
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
             .add_stage(
-                CoreSchedule::Startup,
+                StartupSchedule,
                 Schedule::default()
                     .with_run_criteria(RunOnce::default())
                     .with_stage(StartupStage::PreStartup, SystemStage::parallel())

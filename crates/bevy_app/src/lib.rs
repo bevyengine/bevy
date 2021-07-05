@@ -21,7 +21,7 @@ pub use schedule_runner::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::App, CoreSchedule, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage,
+        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupStage,
     };
 }
 
@@ -46,11 +46,9 @@ pub enum CoreStage {
 }
 
 /// The names of the default App schedules
+/// Runs once at the beginning of the app.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum CoreSchedule {
-    /// Runs once at the beginning of the app.
-    Startup,
-}
+pub struct StartupSchedule;
 
 /// The names of the default App startup stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
