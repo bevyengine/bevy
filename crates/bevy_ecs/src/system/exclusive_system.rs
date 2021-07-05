@@ -16,7 +16,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
 
     fn run(&mut self, world: &mut World);
 
-    /// Runs the exclusive system directly on the world, initializing the world correctly
+    /// Runs the exclusive system directly on the world, correctly initializing its state first
     ///
     /// # Example
     ///
