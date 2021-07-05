@@ -103,3 +103,9 @@ mkShell {
 And enter it by just running `nix-shell`.
 
 You should be able compile bevy programms using `cargo` within this nix-shell.
+
+## Opensuse Tumbleweed
+
+```bash
+   sudo zypper install libudev-devel gcc-c++
+```
