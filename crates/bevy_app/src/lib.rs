@@ -45,8 +45,11 @@ pub enum CoreStage {
     Last,
 }
 
-/// The names of the default App schedules
-/// Runs once at the beginning of the app.
+/// The label for the Startup [`Schedule`](bevy_ecs::schedule::Schedule),
+/// which runs once at the beginning of the app.
+///
+/// When targeting a [`Stage`](bevy_ecs::schedule::Stage) inside this Schedule,
+/// you need to use [`StartupStage`] instead.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub struct StartupSchedule;
 
