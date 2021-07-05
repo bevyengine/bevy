@@ -18,8 +18,8 @@ pub use schedule_runner::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::App, app_builder::AppBuilder, CoreStage, DynamicPlugin, Plugin, PluginGroup,
-        StartupStage,
+        app::App, app_builder::AppBuilder, CoreSchedule, CoreStage, DynamicPlugin, Plugin,
+        PluginGroup, StartupStage,
     };
 }
 
@@ -28,8 +28,6 @@ use bevy_ecs::schedule::StageLabel;
 /// The names of the default App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
-    /// Runs once at the beginning of the app.
-    Startup,
     /// Name of app stage that runs before all other app stages
     First,
     /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
@@ -42,6 +40,14 @@ pub enum CoreStage {
     /// Name of app stage that runs after all other app stages
     Last,
 }
+
+/// The names of the default App schedules
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum CoreSchedule {
+    /// Runs once at the beginning of the app.
+    Startup,
+}
+
 /// The names of the default App startup stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum StartupStage {
