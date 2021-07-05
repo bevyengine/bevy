@@ -100,7 +100,7 @@ pub trait System: Send + Sync + 'static {
     }
     /// Applies any buffers (such as `Commands`) created by this system's parameters to the world
     fn apply_buffers(&mut self, world: &mut World);
-    /// Initialize the World, so that the system can safely run
+    /// Initializes the system from the world, so that it may be run successfully
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
 }
