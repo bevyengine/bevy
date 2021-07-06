@@ -14,12 +14,12 @@
 //! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
 //! - **Spawning an entity with components:** use
 //!   [`Commands::spawn_bundle`](crate::system::Commands::spawn_bundle).
-//! - **Adding multiple components to an entity:** use
-//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
 //! - **Despawning an entity:** use
 //!   [`EntityCommands::despawn`](crate::system::EntityCommands::despawn).
 //! - **Inserting a component to an entity:** use
 //!   [`EntityCommands::insert`](crate::system::EntityCommands::insert).
+//! - **Adding multiple components to an entity:** use
+//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
 //! - **Removing a component to an entity:** use
 //!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
 mod map_entities;
