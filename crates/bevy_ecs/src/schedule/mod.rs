@@ -32,7 +32,7 @@ use crate::{
 };
 use bevy_utils::HashMap;
 
-/// A container of [`Stage`]s set to be run in a certain order.
+/// A container of [`Stage`]s set to be run in a linear order.
 ///
 /// Since `Schedule` implements the [`Stage`] trait, it can be inserted into another schedule.
 #[derive(Default)]
