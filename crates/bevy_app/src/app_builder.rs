@@ -412,6 +412,8 @@ impl AppBuilder {
 
     /// Initialize a resource in the current [`App`], if it does not exist yet
     ///
+    /// If the resource already exists, nothing happens.
+    ///
     /// Adds a resource that implements `Default` or `FromResources` trait.
     ///
     /// ## Example
