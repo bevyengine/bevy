@@ -19,8 +19,8 @@ use std::{any::TypeId, collections::HashMap};
 /// is a very convenient shorthand when working with one-off collections of components. Note
 /// that both `()` and `(ComponentA, )` are valid tuples.
 ///
-/// In order to query for components in a bundle use
-/// [`query::WithBundle`](crate::query::WithBundle).
+/// To query components that belong to a particular bundle, use
+/// [`WithBundle`](crate::query::WithBundle) query filter.
 ///
 /// # Examples
 ///
