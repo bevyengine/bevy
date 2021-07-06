@@ -1,18 +1,22 @@
 use anyhow::Result;
+use bevy_animation_rig::{SkinnedMesh, SkinnedMeshInverseBindposes, SKINNED_MESH_PIPELINE_HANDLE};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
-use bevy_ecs::world::World;
+use bevy_ecs::{entity::Entity, world::World};
 use bevy_log::warn;
 use bevy_math::Mat4;
-use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
+use bevy_pbr::{
+    prelude::{PbrBundle, StandardMaterial},
+    render_graph::PBR_PIPELINE_HANDLE,
+};
 use bevy_render::{
     camera::{
         Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
     },
     mesh::{Indices, Mesh, VertexAttributeValues},
-    pipeline::PrimitiveTopology,
+    pipeline::{PrimitiveTopology, RenderPipeline, RenderPipelines},
     prelude::{Color, Texture},
     render_graph::base,
     texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError, TextureFormat},
@@ -155,6 +159,20 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             }
 
+            if let Some(vertex_attribute) = reader
+                .read_joints(0)
+                .map(|v| VertexAttributeValues::Uint16x4(v.into_u16().collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, vertex_attribute);
+            }
+
+            if let Some(vertex_attribute) = reader
+                .read_weights(0)
+                .map(|v| VertexAttributeValues::Float32x4(v.into_f32().collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, vertex_attribute);
+            }
+
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
@@ -273,17 +291,44 @@ async fn load_gltf<'a, 'b>(
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         });
 
+    let skinned_mesh_inverse_bindposes: Vec<_> = gltf
+        .skins()
+        .map(|gltf_skin| {
+            let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
+            let inverse_bindposes = reader
+                .read_inverse_bind_matrices()
+                .unwrap()
+                .map(|mat| Mat4::from_cols_array_2d(&mat))
+                .collect();
+
+            load_context.set_labeled_asset(
+                &skin_label(&gltf_skin),
+                LoadedAsset::new(SkinnedMeshInverseBindposes(inverse_bindposes)),
+            )
+        })
+        .collect();
+
     let mut scenes = vec![];
     let mut named_scenes = HashMap::new();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
+        let mut node_index_to_entity_map = HashMap::new();
+        let mut entity_to_skin_index_map = HashMap::new();
+
         world
             .spawn()
             .insert_bundle((Transform::identity(), GlobalTransform::identity()))
             .with_children(|parent| {
                 for node in scene.nodes() {
-                    let result = load_node(&node, parent, load_context, &buffer_data);
+                    let result = load_node(
+                        &node,
+                        parent,
+                        load_context,
+                        &buffer_data,
+                        &mut node_index_to_entity_map,
+                        &mut entity_to_skin_index_map,
+                    );
                     if result.is_err() {
                         err = Some(result);
                         return;
@@ -293,6 +338,21 @@ async fn load_gltf<'a, 'b>(
         if let Some(Err(err)) = err {
             return Err(err);
         }
+
+        for (&entity, &skin_index) in &entity_to_skin_index_map {
+            let mut entity = world.entity_mut(entity);
+            let skin = gltf.skins().nth(skin_index).unwrap();
+            let joint_entities: Vec<_> = skin
+                .joints()
+                .map(|node| node_index_to_entity_map[&node.index()])
+                .collect();
+
+            entity.insert(SkinnedMesh::new(
+                skinned_mesh_inverse_bindposes[skin_index].clone(),
+                joint_entities,
+            ));
+        }
+
         let scene_handle = load_context
             .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
 
@@ -447,6 +507,8 @@ fn load_node(
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     buffer_data: &[Vec<u8>],
+    node_index_to_entity_map: &mut HashMap<usize, Entity>,
+    entity_to_skin_index_map: &mut HashMap<Entity, usize>,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
@@ -508,6 +570,9 @@ fn load_node(
         }
     }
 
+    // Map node index to entity
+    node_index_to_entity_map.insert(gltf_node.index(), node.id());
+
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
@@ -522,23 +587,44 @@ fn load_node(
                     load_material(&material, load_context);
                 }
 
+                let mut node = parent.spawn();
+
+                let mut pipeline = PBR_PIPELINE_HANDLE.typed();
+
+                // Mark for adding skinned mesh
+                if let Some(skin) = gltf_node.skin() {
+                    entity_to_skin_index_map.insert(node.id(), skin.index());
+                    pipeline = SKINNED_MESH_PIPELINE_HANDLE.typed();
+                }
+
                 let primitive_label = primitive_label(&mesh, &primitive);
                 let mesh_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&primitive_label));
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                parent.spawn_bundle(PbrBundle {
+                node.insert_bundle(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
+                    render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                        pipeline,
+                    )]),
                     ..Default::default()
                 });
+                node.insert(Name::new("PBR Renderer"));
             }
         }
 
         // append other nodes
         for child in gltf_node.children() {
-            if let Err(err) = load_node(&child, parent, load_context, buffer_data) {
+            if let Err(err) = load_node(
+                &child,
+                parent,
+                load_context,
+                buffer_data,
+                node_index_to_entity_map,
+                entity_to_skin_index_map,
+            ) {
                 gltf_error = Some(err);
                 return;
             }
@@ -577,6 +663,10 @@ fn node_label(node: &gltf::Node) -> String {
 
 fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
+}
+
+fn skin_label(skin: &gltf::Skin) -> String {
+    format!("Skin{}", skin.index())
 }
 
 fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
@@ -647,6 +737,7 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
+    const GLTF_BUFFER_URI: &str = "application/gltf-buffer";
     const OCTET_STREAM_URI: &str = "application/octet-stream";
 
     let mut buffer_data = Vec::new();
@@ -658,6 +749,7 @@ async fn load_buffers(
                     .unwrap();
                 let uri = uri.as_ref();
                 let buffer_bytes = match DataUri::parse(uri) {
+                    Ok(data_uri) if data_uri.mime_type == GLTF_BUFFER_URI => data_uri.decode()?,
                     Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
