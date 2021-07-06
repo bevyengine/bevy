@@ -10,7 +10,7 @@
 //!
 //! If you are already using Bevy Engine for your project, Bevy ECS is already set up.
 //!
-//! If you are using this crate as standalone, add it as a dependency to your package's
+//! If you are using this crate by itself, add it as a dependency to your package's
 //! `Cargo.toml` file:
 //!
 //! ```toml
