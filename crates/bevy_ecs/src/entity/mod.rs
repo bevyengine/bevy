@@ -8,7 +8,7 @@
 //!
 //! # Usage
 //!
-//! In the following list there are links to the methods used to perform common operations
+//! Here are links to the methods used to perform common operations
 //! involving entities:
 //!
 //! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
