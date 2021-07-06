@@ -68,7 +68,7 @@ impl App {
         self.schedule.run(&mut self.world);
     }
 
-    /// Calls the runner function of the `App`.
+    /// Calls the runner function of the `App`, executing its [`Schedule`] to run systems
     pub fn run(mut self) {
         #[cfg(feature = "trace")]
         let bevy_app_run_span = info_span!("bevy_app");
