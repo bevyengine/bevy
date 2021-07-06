@@ -10,7 +10,7 @@ use bevy_utils::tracing::info_span;
 /// Containers of app logic and data
 ///
 /// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
-/// an ECS based application. It also stores a pointer to a
+/// an ECS-based application. It also stores a pointer to a
 /// [runner function](AppBuilder::set_runner), which by default executes the App schedule
 /// once. Apps are constructed with the builder pattern, using the [`AppBuilder`] struct.
 ///
