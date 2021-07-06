@@ -6,7 +6,7 @@
 //! into a Bevy system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS
-//! states. Some limitations on allowed parameters apply (See [`SystemParam`]).
+//! state. Only types that implement [`SystemParam`] can be used, automatically fetching data from the [`World`].
 //!
 //! # System ordering
 //!
