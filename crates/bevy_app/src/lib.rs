@@ -32,7 +32,7 @@ use bevy_ecs::schedule::StageLabel;
 pub enum CoreStage {
     /// Runs only once at the beginning of the app.
     ///
-    /// Consists in more sub-stages defined in [`StartupStage`]. Systems added here are
+    /// Consists of the sub-stages defined in [`StartupStage`]. Systems added here are
     /// referred to as "startup systems".
     Startup,
     /// Name of app stage that runs before all other app stages
