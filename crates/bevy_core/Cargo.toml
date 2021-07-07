@@ -12,6 +12,10 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
+[features]
+default = ["rng"]
+rng = ["getrandom", "rand"]
+
 
 [dependencies]
 # bevy
@@ -25,3 +29,5 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 bytemuck = "1.5"
+getrandom = { version = "0.2", features = ["js"], optional = true }
+rand = { version = "0.8", features = ["getrandom", "small_rng", "std_rng"], optional = true }

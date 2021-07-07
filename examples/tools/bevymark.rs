@@ -115,10 +115,10 @@ fn mouse_handler(
     mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut rnd: ResMut<InsecureRng>,
+    mut rng: ResMut<InsecureRng>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        let color = gen_color(&mut rnd);
+        let color = gen_color(&mut rng);
 
         let texture_handle = asset_server.load("branding/icon.png");
 
