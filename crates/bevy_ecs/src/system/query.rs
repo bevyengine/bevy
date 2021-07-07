@@ -99,6 +99,22 @@ use thiserror::Error;
 /// # system.system();
 /// ```
 ///
+/// If you need to apply more filters in a single query, group them into a tuple:
+///
+/// ```
+/// # use bevy_ecs::query::{Changed, With};
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # struct ComponentC;
+/// # fn system(
+/// // Similar to the previous query, but with the addition of a `Changed` filter.
+/// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Changed<ComponentA>)>
+/// # ) {}
+/// # system.system();
+/// ```
+///
 /// See the [`query`](crate::query) module for a full list of available filters.
 ///
 /// ## Optional component access
