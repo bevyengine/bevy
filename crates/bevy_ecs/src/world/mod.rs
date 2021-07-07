@@ -44,9 +44,11 @@ impl Default for WorldId {
 ///
 /// # Resources
 ///
-/// The world can store *resources*, a special kind of components, not associated to any entity.
+/// The world can store information not associated to entity data, called *resources*. They
+/// exist on many different forms, where the most common ones are global and
+/// [system local](crate::system::Local) resources.
 ///
-/// ## Usage
+/// ## Usage of global resources
 ///
 /// 1. Insert the resource into the `World`, using [`World::insert_resource`].
 /// 2. Fetch the resource from a system, using [`Res`](crate::system::Res) or [`ResMut`](crate::system::ResMut).
