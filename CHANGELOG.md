@@ -92,6 +92,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Added `set_minimized` and `set_position` to `Window`][1292]
 - [Example for 2D Frustum Culling][1503]
 - [Add remove resource to commands][1478]
+- [Random number generation][2355]
 
 ### Changed
 
@@ -246,6 +247,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [1703]: https://github.com/bevyengine/bevy/pull/1703
 [1728]: https://github.com/bevyengine/bevy/pull/1728
 [1762]: https://github.com/bevyengine/bevy/pull/1762
+[2355]: https://github.com/bevyengine/bevy/pull/2355
 
 ## Version 0.4.0 (2020-12-19)
 
