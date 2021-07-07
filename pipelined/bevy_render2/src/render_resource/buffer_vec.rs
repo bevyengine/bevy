@@ -85,7 +85,8 @@ impl<T: Pod> BufferVec<T> {
 
     pub fn write_to_staging_buffer(&self, render_device: &RenderDevice) {
         if let Some(staging_buffer) = &self.staging_buffer {
-            let slice = staging_buffer.slice(..);
+            let end = (self.values.len() * self.item_size) as u64;
+            let slice = staging_buffer.slice(0..end);
             render_device.map_buffer(&slice, wgpu::MapMode::Write);
             {
                 let mut data = slice.get_mapped_range_mut();

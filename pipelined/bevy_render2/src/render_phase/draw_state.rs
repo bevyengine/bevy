@@ -182,6 +182,14 @@ impl<'a> TrackedRenderPass<'a> {
             .set_index_buffer(buffer_slice.id(), offset, index_format);
     }
 
+    pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
+        debug!(
+            "draw: {:?} {:?}",
+            vertices, instances
+        );
+        self.pass.draw(vertices, instances);
+    }
+
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         debug!(
             "draw indexed: {:?} {} {:?}",
