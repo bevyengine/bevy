@@ -126,8 +126,8 @@ use thiserror::Error;
 ///
 /// ## Single component access
 ///
-/// The use of the tuple as the type parameter of `Query` can be omitted if just a single
-/// component needs to be accessed.
+///  If just a single component needs to be accessed, using a tuple as the first type parameter
+/// of `Query` can be omitted.
 ///
 /// ```
 /// # use bevy_ecs::system::IntoSystem;
