@@ -30,7 +30,8 @@ impl Default for DefaultRngOptions {
         let mut seed: [u8; 32] = [0; 32];
         getrandom(&mut seed).expect("failed to get cryptographic seed for rng");
 
-        // The default is t o use the same secure / cryptographic seed for both Rngs.
+        // The default is to use the same secure / cryptographic seed for both rngs, so 
+        // we do not specify an insecure seed.
         DefaultRngOptions {
             secure_seed: seed,
             insecure_seed: None,

@@ -16,7 +16,6 @@ keywords = ["bevy"]
 default = ["rng"]
 rng = ["getrandom", "rand"]
 
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
