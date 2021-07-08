@@ -14,7 +14,7 @@ pub struct CurveFixed<T> {
     frame_rate: f32,
     /// Negative number of frames before the curve starts, it's stored
     /// in a `f32` to avoid castings in the when sampling the curve and also
-    /// negated so [`std::f32::mul_add`]
+    /// negated to use [`std::f32::mul_add`]
     negative_frame_offset: f32,
     pub keyframes: Vec<T>,
 }
