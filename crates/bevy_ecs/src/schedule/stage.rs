@@ -16,6 +16,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
+use super::IntoSystemDescriptor;
+
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
@@ -105,7 +107,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single(system: impl Into<SystemDescriptor>) -> Self {
+    pub fn single<Params>(system: impl IntoSystemDescriptor<Params>) -> Self {
         Self::single_threaded().with_system(system)
     }
 
@@ -131,13 +133,13 @@ impl SystemStage {
         self.executor = executor;
     }
 
-    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+    pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_inner(system.into(), None);
+    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
+        self.add_system_inner(system.into_descriptor(), None);
         self
     }
 
@@ -1168,7 +1170,7 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().before("1"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criteria(every_other_time.system())
+                    .with_run_criteria(every_other_time)
                     .with_system(make_exclusive(1).exclusive_system().label("1")),
             )
             .with_system(make_exclusive(2).exclusive_system().after("1"));
@@ -1390,7 +1392,7 @@ mod tests {
                 make_parallel!(0)
                     .system()
                     .label("0")
-                    .with_run_criteria(every_other_time.system()),
+                    .with_run_criteria(every_other_time),
             )
             .with_system(make_parallel!(1).system().after("0"));
         stage.run(&mut world);
@@ -1425,7 +1427,7 @@ mod tests {
         // Reusing criteria.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system_run_criteria(every_other_time.system().label("every other time"))
+            .with_system_run_criteria(every_other_time.label("every other time"))
             .with_system(make_parallel!(0).system().before("1"))
             .with_system(
                 make_parallel!(1)

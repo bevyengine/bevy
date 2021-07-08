@@ -45,3 +45,7 @@ js-sys = "0.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-glue = { version = "0.2" }
+
+[dev-dependencies]
+futures-lite = "1.4.0"
+tempfile = "3.2.0"

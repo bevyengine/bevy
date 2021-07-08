@@ -1,4 +1,4 @@
-pub use crate::change_detection::ResMut;
+pub use crate::change_detection::{NonSendMut, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -180,7 +180,7 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Allowing this would break Rust's mutability rules. Consider merging conflicting Queries into a QuerySet.",
+    panic!("Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
                 query_type, filter_type, system_name, accesses);
 }
 
@@ -683,7 +683,9 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 /// # Panics
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
-pub struct NonSend<'w, T> {
+///
+/// Use `Option<NonSend<T>>` instead if the resource might not always exist.
+pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
     last_change_tick: u32,
@@ -702,7 +704,7 @@ where
     }
 }
 
-impl<'w, T: Component> NonSend<'w, T> {
+impl<'w, T: 'static> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
@@ -798,58 +800,45 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     }
 }
 
-/// Unique borrow of a non-[`Send`] resource.
-///
-/// Only `Send` resources may be accessed with the [`ResMut`] [`SystemParam`]. In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// # Panics
-///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-pub struct NonSendMut<'a, T: 'static> {
-    pub(crate) value: &'a mut T,
-    ticks: &'a mut ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
+/// The [`SystemParamState`] of `Option<NonSend<T>>`.
+pub struct OptionNonSendState<T>(NonSendState<T>);
+
+impl<'a, T: Component> SystemParam for Option<NonSend<'a, T>> {
+    type Fetch = OptionNonSendState<T>;
 }
 
-impl<'w, T: Component> NonSendMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+// SAFE: Only reads a single non-send resource
+unsafe impl<T: 'static> ReadOnlySystemParamFetch for OptionNonSendState<T> {}
+
+unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
+    type Config = ();
+
+    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+        Self(NonSendState::init(world, system_meta, ()))
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
-    pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
-    }
+    fn default_config() {}
 }
 
-impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
-    type Target = T;
+impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendState<T> {
+    type Item = Option<NonSend<'a, T>>;
 
     #[inline]
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut T {
-        self.ticks.set_changed(self.change_tick);
-        self.value
-    }
-}
-
-impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("NonSendMut").field(&self.value).finish()
+    unsafe fn get_param(
+        state: &'a mut Self,
+        system_meta: &SystemMeta,
+        world: &'a World,
+        change_tick: u32,
+    ) -> Self::Item {
+        world.validate_non_send_access::<T>();
+        world
+            .get_populated_resource_column(state.0.component_id)
+            .map(|column| NonSend {
+                value: &*column.get_data_ptr().cast::<T>().as_ptr(),
+                ticks: column.get_ticks_unchecked(0).clone(),
+                last_change_tick: system_meta.last_change_tick,
+                change_tick,
+            })
     }
 }
 
@@ -922,10 +911,53 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
             });
         NonSendMut {
             value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
-            ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
+            ticks: Ticks {
+                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                last_change_tick: system_meta.last_change_tick,
+                change_tick,
+            },
         }
+    }
+}
+
+/// The [`SystemParamState`] of `Option<NonSendMut<T>>`.
+pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
+
+impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
+    type Fetch = OptionNonSendMutState<T>;
+}
+
+unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
+    type Config = ();
+
+    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+        Self(NonSendMutState::init(world, system_meta, ()))
+    }
+
+    fn default_config() {}
+}
+
+impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendMutState<T> {
+    type Item = Option<NonSendMut<'a, T>>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        system_meta: &SystemMeta,
+        world: &'a World,
+        change_tick: u32,
+    ) -> Self::Item {
+        world.validate_non_send_access::<T>();
+        world
+            .get_populated_resource_column(state.0.component_id)
+            .map(|column| NonSendMut {
+                value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+                ticks: Ticks {
+                    component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                    last_change_tick: system_meta.last_change_tick,
+                    change_tick,
+                },
+            })
     }
 }
 

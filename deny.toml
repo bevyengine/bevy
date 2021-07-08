@@ -6,7 +6,6 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0016", # net2 deprecated - https://github.com/deprecrated/net2-rs/commit/3350e3819adf151709047e93f25583a5df681091
     "RUSTSEC-2020-0056", # stdweb unmaintained - https://github.com/koute/stdweb/issues/403
     "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
 ]
@@ -23,7 +22,6 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
-    "MPL-2.0",
 ]
 default = "deny"
 
@@ -46,22 +44,15 @@ skip = [
     { name = "core-foundation-sys", version = "0.6" },
     { name = "core-foundation-sys", version = "0.7" },
     { name = "core-graphics", version = "0.19" },
-    { name = "crossbeam-channel", version = "0.4" },
-    { name = "crossbeam-utils", version = "0.7" },
     { name = "fixedbitset", version = "0.2" },
-    { name = "getrandom", version = "0.1" },
+    { name = "hashbrown", version = "0.9" },
     { name = "libm", version = "0.1" },
     { name = "mach", version = "0.2" },
     { name = "ndk", version = "0.2" },
     { name = "ndk-glue", version = "0.2" },
     { name = "num_enum", version = "0.4" },
     { name = "num_enum_derive", version = "0.4" },
-    { name = "rand", version = "0.7" },
-    { name = "rand_chacha", version = "0.2" },
-    { name = "rand_core", version = "0.5" },
-    { name = "rand_hc", version = "0.2" },
     { name = "stdweb", version = "0.1" },
-    { name = "wasi", version = "0.9" },
 ]
 
 [sources]

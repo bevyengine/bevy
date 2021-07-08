@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, System, SystemId},
+    system::{BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
 use std::borrow::Cow;
@@ -197,12 +197,14 @@ impl IntoRunCriteria<BoxedSystem<(), ShouldRun>> for BoxedSystem<(), ShouldRun> 
     }
 }
 
-impl<S> IntoRunCriteria<BoxedSystem<(), ShouldRun>> for S
+impl<S, Param> IntoRunCriteria<(BoxedSystem<(), ShouldRun>, Param)> for S
 where
-    S: System<In = (), Out = ShouldRun>,
+    S: IntoSystem<(), ShouldRun, Param>,
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(self)))
+        RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(
+            self.system(),
+        )))
     }
 }
 
@@ -227,7 +229,7 @@ impl IntoRunCriteria<RunCriteria> for RunCriteria {
     }
 }
 
-pub trait RunCriteriaDescriptorCoercion {
+pub trait RunCriteriaDescriptorCoercion<Param> {
     /// Assigns a label to the criteria. Must be unique.
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
 
@@ -242,7 +244,7 @@ pub trait RunCriteriaDescriptorCoercion {
     fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
 }
 
-impl RunCriteriaDescriptorCoercion for RunCriteriaDescriptor {
+impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
     fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
         self.label = Some(Box::new(label));
         self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
@@ -276,7 +278,7 @@ fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteri
     }
 }
 
-impl RunCriteriaDescriptorCoercion for BoxedSystem<(), ShouldRun> {
+impl RunCriteriaDescriptorCoercion<()> for BoxedSystem<(), ShouldRun> {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).label(label)
     }
@@ -294,24 +296,24 @@ impl RunCriteriaDescriptorCoercion for BoxedSystem<(), ShouldRun> {
     }
 }
 
-impl<S> RunCriteriaDescriptorCoercion for S
+impl<S, Param> RunCriteriaDescriptorCoercion<Param> for S
 where
-    S: System<In = (), Out = ShouldRun>,
+    S: IntoSystem<(), ShouldRun, Param>,
 {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self)).label(label)
+        new_run_criteria_descriptor(Box::new(self.system())).label(label)
     }
 
     fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self)).label_discard_if_duplicate(label)
+        new_run_criteria_descriptor(Box::new(self.system())).label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self)).before(label)
+        new_run_criteria_descriptor(Box::new(self.system())).before(label)
     }
 
     fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self)).after(label)
+        new_run_criteria_descriptor(Box::new(self.system())).after(label)
     }
 }
 

@@ -150,6 +150,27 @@ change_detection_impl!(ResMut<'a, T>, T, Component);
 impl_into_inner!(ResMut<'a, T>, T, Component);
 impl_debug!(ResMut<'a, T>, Component);
 
+/// Unique borrow of a non-[`Send`] resource.
+///
+/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`]. In case that the
+/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
+/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
+/// over to another thread.
+///
+/// # Panics
+///
+/// Panics when used as a `SystemParameter` if the resource does not exist.
+///
+/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
+pub struct NonSendMut<'a, T: 'static> {
+    pub(crate) value: &'a mut T,
+    pub(crate) ticks: Ticks<'a>,
+}
+
+change_detection_impl!(NonSendMut<'a, T>, T,);
+impl_into_inner!(NonSendMut<'a, T>, T,);
+impl_debug!(NonSendMut<'a, T>,);
+
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
