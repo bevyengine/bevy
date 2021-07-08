@@ -1,10 +1,11 @@
 use std::ops::{Add, Div, Mul, Sub};
 
+// TODO: evaluate the more accurate algorithm of (Walcyzk et al. 2018.)[https://arxiv.org/abs/1802.06302]
 /// Quake 3 fast inverse sqrt
 ///
-/// Implementation borrowed from Piston under the MIT License: https://github.com/PistonDevelopers/skeletal_animation
+/// Implementation borrowed from Piston under the MIT License: [https://github.com/PistonDevelopers/skeletal_animation]
 #[inline]
-pub fn inv_sqrt(x: f32) -> f32 {
+pub fn fast_inv_sqrt(x: f32) -> f32 {
     let x2: f32 = x * 0.5;
     let mut y: f32 = x;
 
