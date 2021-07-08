@@ -181,7 +181,7 @@ impl Transform {
     /// Rotates the transform by the given rotation.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
-        self.rotation *= rotation;
+        self.rotation = rotation * self.rotation;
     }
 
     /// Multiplies `self` with `transform` component by component, returning the

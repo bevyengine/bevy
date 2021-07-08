@@ -4,10 +4,13 @@ use bevy::{
     ecs::prelude::*,
     input::Input,
     math::{Quat, Vec3},
-    pbr2::{PbrBundle, PointLight, PointLightBundle, StandardMaterial},
+    pbr2::{
+        AmbientLight, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight,
+        PointLightBundle, StandardMaterial,
+    },
     prelude::{App, Assets, BuildChildren, KeyCode, Transform},
     render2::{
-        camera::PerspectiveCameraBundle,
+        camera::{OrthographicProjection, PerspectiveCameraBundle},
         color::Color,
         mesh::{shape, Mesh},
     },
@@ -21,6 +24,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_system(movement.system())
+        .add_system(animate_light_direction.system())
         .run();
 }
 
@@ -32,11 +36,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    commands.insert_resource(AmbientLight {
+        color: Color::ORANGE_RED,
+        brightness: 0.02,
+    });
     // plane
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
         material: materials.add(StandardMaterial {
-            base_color: Color::INDIGO,
+            base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..Default::default()
         }),
@@ -46,7 +54,7 @@ fn setup(
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
     transform.rotate(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2));
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
@@ -59,7 +67,7 @@ fn setup(
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
     transform.rotate(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
@@ -76,7 +84,7 @@ fn setup(
                 base_color: Color::PINK,
                 ..Default::default()
             }),
-            transform: Transform::from_xyz(0.0, 1.0, 0.0),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         })
         .insert(Movable);
@@ -174,12 +182,43 @@ fn setup(
             });
         });
 
-    // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 5.0, 7.5)
-            .looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
+    const HALF_SIZE: f32 = 10.0;
+    commands.spawn_bundle(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            // Configure the projection to better fit the scene
+            shadow_projection: OrthographicProjection {
+                left: -HALF_SIZE,
+                right: HALF_SIZE,
+                bottom: -HALF_SIZE,
+                top: HALF_SIZE,
+                near: -10.0 * HALF_SIZE,
+                far: 10.0 * HALF_SIZE,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        transform: Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-1.2),
+            ..Default::default()
+        },
         ..Default::default()
     });
+
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
+}
+
+fn animate_light_direction(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, With<DirectionalLight>>,
+) {
+    for mut transform in query.iter_mut() {
+        transform.rotate(Quat::from_rotation_y(time.delta_seconds() * 0.5));
+    }
 }
 
 fn movement(

@@ -1,4 +1,4 @@
-use crate::{PointLight, StandardMaterial};
+use crate::{DirectionalLight, PointLight, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::mesh::Mesh;
@@ -23,10 +23,18 @@ impl Default for PbrBundle {
     }
 }
 
-/// A component bundle for "light" entities
+/// A component bundle for "point light" entities
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+/// A component bundle for "directional light" entities
+#[derive(Debug, Bundle, Default)]
+pub struct DirectionalLightBundle {
+    pub directional_light: DirectionalLight,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

@@ -66,13 +66,13 @@ impl FromWorld for PbrShaders {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                        // TODO: change this to GpuLights::std140_size_static once crevice fixes this!
                         // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(512),
+                        min_binding_size: BufferSize::new(1024),
                     },
                     count: None,
                 },
-                // Shadow Texture Array
+                // Point Shadow Texture Cube Array
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStage::FRAGMENT,
@@ -83,9 +83,30 @@ impl FromWorld for PbrShaders {
                     },
                     count: None,
                 },
-                // Shadow Texture Array Sampler
+                // Point Shadow Texture Array Sampler
                 BindGroupLayoutEntry {
                     binding: 3,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: true,
+                        filtering: true,
+                    },
+                    count: None,
+                },
+                // Directional Shadow Texture Array
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+                // Directional Shadow Texture Array Sampler
+                BindGroupLayoutEntry {
+                    binding: 5,
                     visibility: ShaderStage::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: true,
@@ -379,7 +400,6 @@ pub fn extract_meshes(
                     continue;
                 }
             }
-
             if let Some(ref image) = material.emissive_texture {
                 if !images.contains(image) {
                     continue;
@@ -537,11 +557,23 @@ pub fn queue_meshes(
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::TextureView(&view_lights.light_depth_texture_view),
+                    resource: BindingResource::TextureView(
+                        &view_lights.point_light_depth_texture_view,
+                    ),
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(&shadow_shaders.light_sampler),
+                    resource: BindingResource::Sampler(&shadow_shaders.point_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &view_lights.directional_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&shadow_shaders.directional_light_sampler),
                 },
             ],
             label: None,

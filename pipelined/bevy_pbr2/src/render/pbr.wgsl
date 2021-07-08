@@ -95,6 +95,16 @@ struct PointLight {
     radius: f32;
     near: f32;
     far: f32;
+    shadow_bias_min: f32;
+    shadow_bias_max: f32;
+};
+
+struct DirectionalLight {
+    view_projection: mat4x4<f32>;
+    color: vec4<f32>;
+    direction_to_light: vec3<f32>;
+    shadow_bias_min: f32;
+    shadow_bias_max: f32;
 };
 
 [[block]]
@@ -102,8 +112,10 @@ struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     // TODO: this can be removed if we move to storage buffers for light arrays
     point_lights: array<PointLight, 10>;
+    directional_lights: array<DirectionalLight, 1>;
     ambient_color: vec4<f32>;
-    num_lights: u32;
+    n_point_lights: u32;
+    n_directional_lights: u32;
 };
 
 let FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -117,9 +129,13 @@ let FLAGS_UNLIT_BIT: u32                      = 32u;
 [[group(0), binding(1)]]
 var lights: Lights;
 [[group(0), binding(2)]]
-var shadow_textures: texture_depth_cube_array;
+var point_shadow_textures: texture_depth_cube_array;
 [[group(0), binding(3)]]
-var shadow_textures_sampler: sampler_comparison;
+var point_shadow_textures_sampler: sampler_comparison;
+[[group(0), binding(4)]]
+var directional_shadow_textures: texture_depth_2d_array;
+[[group(0), binding(5)]]
+var directional_shadow_textures_sampler: sampler_comparison;
 
 [[group(2), binding(0)]]
 var material: StandardMaterial;
@@ -348,7 +364,22 @@ fn point_light(
     return ((diffuse + specular_light) * light.color.rgb) * (rangeAttenuation * NoL);
 }
 
-fn fetch_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
+fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+    let incident_light = light.direction_to_light.xyz;
+
+    let half_vector = normalize(incident_light + view);
+    let NoL = saturate(dot(normal, incident_light));
+    let NoH = saturate(dot(normal, half_vector));
+    let LoH = saturate(dot(incident_light, half_vector));
+
+    let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
+    let specularIntensity = 1.0;
+    let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
+
+    return (specular_light + diffuse) * light.color.rgb * NoL;
+}
+
+fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, shadow_bias: f32) -> f32 {
     let light = lights.point_lights[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -382,7 +413,22 @@ fn fetch_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
     //       mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     //       from LOD 0.
     let bias = 0.0001;
-    return textureSampleCompareLevel(shadow_textures, shadow_textures_sampler, frag_ls, i32(light_id), depth - bias);
+    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth - shadow_bias);
+}
+
+fn fetch_directional_shadow(light_id: i32, homogeneous_coords: vec4<f32>, shadow_bias: f32) -> f32 {
+    if (homogeneous_coords.w <= 0.0) {
+        return 1.0;
+    }
+    // compensate for the Y-flip difference between the NDC and texture coordinates
+    let flip_correction = vec2<f32>(0.5, -0.5);
+    let proj_correction = 1.0 / homogeneous_coords.w;
+    // compute texture coordinates for shadow lookup
+    let light_local = homogeneous_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
+    // do the lookup, using HW PCF and comparison
+    // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
+    //       sampler to avoid use of implicit derivatives causing possible undefined behavior.
+    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), homogeneous_coords.z * proj_correction - shadow_bias);
 }
 
 struct FragmentInput {
@@ -471,10 +517,27 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
         // accumulate color
         var light_accum: vec3<f32> = vec3<f32>(0.0);
-        for (var i: i32 = 0; i < i32(lights.num_lights); i = i + 1) {
+        let n_point_lights = i32(lights.n_point_lights);
+        let n_directional_lights = i32(lights.n_directional_lights);
+        for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
             let light = lights.point_lights[i];
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
-            let shadow = fetch_shadow(i, in.world_position);
+            let dir_to_light = normalize(light.position.xyz - in.world_position.xyz);
+            let shadow_bias = max(
+                light.shadow_bias_max * (1.0 - dot(in.world_normal, dir_to_light)),
+                light.shadow_bias_min
+            );
+            let shadow = fetch_point_shadow(i, in.world_position, shadow_bias);
+            light_accum = light_accum + light_contrib * shadow;
+        }
+        for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
+            let light = lights.directional_lights[i];
+            let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
+            let shadow_bias = max(
+                light.shadow_bias_max * (1.0 - dot(in.world_normal, light.direction_to_light.xyz)),
+                light.shadow_bias_min
+            );
+            let shadow = fetch_directional_shadow(i, light.view_projection * in.world_position, shadow_bias);
             light_accum = light_accum + light_contrib * shadow;
         }
 

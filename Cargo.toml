@@ -147,6 +147,10 @@ name = "3d_scene_pipelined"
 path = "examples/3d/3d_scene_pipelined.rs"
 
 [[example]]
+name = "cornell_box_pipelined"
+path = "examples/3d/cornell_box_pipelined.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 

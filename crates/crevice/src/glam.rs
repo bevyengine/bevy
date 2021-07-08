@@ -42,6 +42,7 @@ macro_rules! glam_vectors {
 }
 
 glam_vectors! {
+    glam::UVec4, UVec4, (x, y, z, w),
     glam::Vec2, Vec2, (x, y),
     glam::Vec3, Vec3, (x, y, z),
     glam::Vec4, Vec4, (x, y, z, w),
