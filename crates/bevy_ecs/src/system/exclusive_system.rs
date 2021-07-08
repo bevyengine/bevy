@@ -1,5 +1,5 @@
 use crate::{
-    system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId},
+    system::{check_system_change_tick, BoxedSystem, IntoSystem, SystemId},
     world::World,
 };
 use std::borrow::Cow;
@@ -99,10 +99,9 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 }
 
-impl<S, Params, SystemType> IntoExclusiveSystem<(Params, SystemType), ExclusiveSystemCoerced> for S
+impl<S, Params> IntoExclusiveSystem<Params, ExclusiveSystemCoerced> for S
 where
-    S: IntoSystem<Params, SystemType>,
-    SystemType: System<In = (), Out = ()>,
+    S: IntoSystem<(), (), Params>,
 {
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {

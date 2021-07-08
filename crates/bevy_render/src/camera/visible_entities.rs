@@ -110,7 +110,7 @@ impl RenderLayers {
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
     pub fn without(mut self, layer: Layer) -> Self {
         assert!(usize::from(layer) < Self::TOTAL_LAYERS);
-        self.0 |= 0 << layer;
+        self.0 &= !(1 << layer);
         self
     }
 
@@ -146,6 +146,11 @@ mod rendering_mask_tests {
         assert_eq!(RenderLayers::layer(0).0, 1, "layer 0 is mask 1");
         assert_eq!(RenderLayers::layer(1).0, 2, "layer 1 is mask 2");
         assert_eq!(RenderLayers::layer(0).with(1).0, 3, "layer 0 + 1 is mask 3");
+        assert_eq!(
+            RenderLayers::layer(0).with(1).without(0).0,
+            2,
+            "layer 0 + 1 - 0 is mask 2"
+        );
         assert!(
             RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
             "layers match like layers"
