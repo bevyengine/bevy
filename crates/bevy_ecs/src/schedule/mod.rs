@@ -204,9 +204,9 @@ impl Schedule {
     /// # use bevy_ecs::system::IntoSystem;
     /// #
     /// # let mut schedule = Schedule::default();
-    /// # schedule.add_stage("update", SystemStage::parallel());
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
-    /// schedule.stage("update", |stage: &mut SystemStage| {
+    /// schedule.stage("my_stage", |stage: &mut SystemStage| {
     ///     stage.add_system(quit_game_keyboard_shortcuts_system.system())
     /// });
     /// #
