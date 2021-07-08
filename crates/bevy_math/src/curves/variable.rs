@@ -227,6 +227,7 @@ where
         }
     }
 
+    /// Removes the keyframe at the index specified
     pub fn remove(&mut self, index: CurveCursor) {
         let i = index as usize;
 
