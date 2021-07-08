@@ -9,6 +9,11 @@ pub use variable::*;
 pub use variable_linear::*;
 
 /// Points to a keyframe inside a given curve.
+///
+/// When sampling curves with variable framerate like [`CurveVariable`] and [`CurveVariableLinear`]
+/// is useful to keep track of a particular keyframe near the last sampling time, this keyframe index
+/// is referred as cursor and speeds up sampling when the next time is close to the previous on, that
+/// happens very often when playing a animation for instance.
 pub type KeyframeIndex = u16;
 
 pub trait Curve {
