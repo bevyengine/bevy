@@ -327,7 +327,14 @@ impl AppBuilder {
     ///   startup stage.
     /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
     ///   when the app starts.
-    /// - **Update:** Stage intended for user defined logic.
+    ///     - **Pre-startup:** Intended for systems that need to run before other startup systems.
+    ///     - **Startup:** The main startup stage. Startup systems are added here by default.
+    ///     - **Post-startup:** Intended for systems that need to run after other startup systems.
+    /// - **Pre-update:** Often used by plugins to prepare their internal state before the
+    ///   update stage begins.
+    /// - **Update:** Intended for user defined logic. Systems are added here by default.
+    /// - **Post-update:** Often used by plugins to finalize their internal state after the
+    ///   world changes that happened during the update stage.
     /// - **Last:** Runs right before the end of the schedule execution cycle.
     ///
     /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`]
