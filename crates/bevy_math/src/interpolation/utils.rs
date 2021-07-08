@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 /// Quake 3 fast inverse sqrt
 ///
-/// Took this one from piston: https://github.com/PistonDevelopers/skeletal_animation
+/// Implementation borrowed from Piston under the MIT License: https://github.com/PistonDevelopers/skeletal_animation
 #[inline]
 pub fn inv_sqrt(x: f32) -> f32 {
     let x2: f32 = x * 0.5;
