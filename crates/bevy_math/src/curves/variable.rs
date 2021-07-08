@@ -238,9 +238,12 @@ where
         self.tangents_in.remove(i);
         self.tangents_out.remove(i);
 
+        // Adjusts the tangents of the neighbors keyframes left
+        // Checks if next keyframe exists, now with the same index of `i` since the keyframe was removed
         if i < self.keyframes.len() {
             self.adjust_tangents(i);
         }
+        // Checks if previous keyframe exists
         if i > 0 {
             self.adjust_tangents(i - 1);
         }
