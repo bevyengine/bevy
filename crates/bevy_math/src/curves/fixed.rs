@@ -102,10 +102,9 @@ where
         T::lerp_unclamped(&self.keyframes[f], &self.keyframes[f + 1], t)
     }
 
-    /// Same as `sample` function
+    /// Same as the [`sample`] function
     #[inline]
-    fn sample_with_cursor(&self, cursor: CurveCursor, time: f32) -> (CurveCursor, Self::Output) {
-        let _ = cursor;
+    fn sample_with_cursor(&self, _: CurveCursor, time: f32) -> (CurveCursor, Self::Output) {
         (0, self.sample(time))
     }
 }
