@@ -26,9 +26,25 @@ use thiserror::Error;
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
+/// The storage used for a specific component type.
+///
+/// # Examples
+/// The [`StorageType`] for a component is normally configured via `World::register_component`.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, component::*};
+///
+/// struct A;
+///
+/// let mut world = World::default();
+/// world.register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet));
+/// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
+    /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
+    /// This is the default storage type.
     Table,
+    /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
 }
 
@@ -306,7 +322,7 @@ impl Components {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
     pub(crate) changed: u32,

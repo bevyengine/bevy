@@ -11,6 +11,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
+    change_detection::Ticks,
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
         StorageType,
@@ -593,14 +594,16 @@ impl World {
     pub fn is_resource_added<T: Component>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
-        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        // SAFE: resources table always have row 0
+        let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
     pub fn is_resource_changed<T: Component>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
-        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        // SAFE: resources table always have row 0
+        let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -708,9 +711,11 @@ impl World {
         // SAFE: pointer is of type T
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
-            component_ticks: &mut ticks,
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.change_tick(),
+            ticks: Ticks {
+                component_ticks: &mut ticks,
+                last_change_tick: self.last_change_tick(),
+                change_tick: self.change_tick(),
+            },
         };
         let result = f(self, value);
         let resource_archetype = self.archetypes.resource_mut();
@@ -718,12 +723,10 @@ impl World {
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
-        // SAFE: new location is immediately written to below
-        let row = unsafe { column.push_uninit() };
-        // SAFE: row was just allocated above
-        unsafe { column.set_unchecked(row, ptr) };
-        // SAFE: row was just allocated above
-        unsafe { *column.get_ticks_unchecked_mut(row) = ticks };
+        unsafe {
+            // SAFE: pointer is of type T
+            column.push(ptr, ticks);
+        }
         result
     }
 
@@ -735,7 +738,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<&T> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_ptr().as_ptr().cast::<T>())
+        Some(&*column.get_data_ptr().as_ptr().cast::<T>())
     }
 
     /// # Safety
@@ -748,10 +751,12 @@ impl World {
     ) -> Option<Mut<'_, T>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            component_ticks: &mut *column.get_ticks_mut_ptr(),
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
+            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            ticks: Ticks {
+                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                last_change_tick: self.last_change_tick(),
+                change_tick: self.read_change_tick(),
+            },
         })
     }
 
@@ -787,16 +792,11 @@ impl World {
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
             let data = (&mut value as *mut T).cast::<u8>();
-            // SAFE: new location is immediately written to below
-            let row = column.push_uninit();
-            // SAFE: index was just allocated above
-            column.set_unchecked(row, data);
             std::mem::forget(value);
-            // SAFE: index was just allocated above
-            *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
+            column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
-            *column.get_unchecked(0).cast::<T>() = value;
+            *column.get_data_unchecked(0).cast::<T>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }

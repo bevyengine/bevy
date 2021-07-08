@@ -1,3 +1,5 @@
+use downcast_rs::{impl_downcast, Downcast};
+
 use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
@@ -5,7 +7,7 @@ use crate::{
     texture::Extent3d,
 };
 
-pub trait RenderContext {
+pub trait RenderContext: Downcast {
     fn resources(&self) -> &dyn RenderResourceContext;
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext;
     fn copy_buffer_to_buffer(
@@ -56,3 +58,5 @@ pub trait RenderContext {
         run_pass: &mut dyn FnMut(&mut dyn RenderPass),
     );
 }
+
+impl_downcast!(RenderContext);

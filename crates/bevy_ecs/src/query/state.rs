@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
+        ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -54,7 +54,7 @@ where
 
         let mut state = Self {
             world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
             fetch_state,
@@ -68,23 +68,26 @@ where
         state
     }
 
+    #[inline]
+    pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
+        // SAFE: the iterator is instantly consumed via `none_remaining` and the implementation of
+        // `QueryIter::none_remaining` never creates any references to the `<Q::Fetch as Fetch<'w>>::Item`.
+        unsafe {
+            self.iter_unchecked_manual(world, last_change_tick, change_tick)
+                .none_remaining()
+        }
+    }
+
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
         if world.id() != self.world_id {
             panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
                 std::any::type_name::<Self>());
         }
         let archetypes = world.archetypes();
-        let old_generation = self.archetype_generation;
-        let archetype_index_range = if old_generation == archetypes.generation() {
-            0..0
-        } else {
-            self.archetype_generation = archetypes.generation();
-            if old_generation.value() == usize::MAX {
-                0..archetypes.len()
-            } else {
-                old_generation.value()..archetypes.len()
-            }
-        };
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
@@ -205,6 +208,27 @@ where
         unsafe { self.iter_unchecked(world) }
     }
 
+    #[inline]
+    pub fn iter_combinations<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: query is read only
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
+    #[inline]
+    pub fn iter_combinations_mut<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        // SAFE: query has unique world access
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -222,6 +246,22 @@ where
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        self.validate_world_and_update_archetypes(world);
+        self.iter_combinations_unchecked_manual(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsound.
     #[inline]
@@ -232,6 +272,21 @@ where
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
@@ -345,6 +400,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch =
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
@@ -397,6 +454,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
             let fetch =
                 <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);

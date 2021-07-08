@@ -59,6 +59,7 @@ impl From<Handle<Texture>> for ColorMaterial {
 
 // Temporary solution for sub-assets change handling, see https://github.com/bevyengine/bevy/issues/1161#issuecomment-780467768
 // TODO: should be removed when pipelined rendering is done
+#[allow(clippy::type_complexity)]
 pub(crate) fn material_texture_detection_system(
     mut texture_to_material: Local<HashMap<Handle<Texture>, HashSet<Handle<ColorMaterial>>>>,
     mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,

@@ -32,3 +32,19 @@ downcast-rs = "1.2"
 parking_lot = "0.11"
 rand = "0.8"
 serde = "1"
+
+[[example]]
+name = "events"
+path = "examples/events.rs"
+
+[[example]]
+name = "component_storage"
+path = "examples/component_storage.rs"
+
+[[example]]
+name = "resources"
+path = "examples/resources.rs"
+
+[[example]]
+name = "change_detection"
+path = "examples/change_detection.rs"

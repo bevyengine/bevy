@@ -39,6 +39,7 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
+#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     windows: Res<Windows>,

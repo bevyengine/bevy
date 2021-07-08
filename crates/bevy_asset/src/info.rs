@@ -41,8 +41,15 @@ impl SourceInfo {
 /// The load state of an asset
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LoadState {
+    /// The asset has not be loaded.
     NotLoaded,
+    /// The asset in the the process of loading.
     Loading,
+    /// The asset has loaded and is living inside an [`Assets`](crate::Assets) collection.
     Loaded,
+    /// The asset failed to load.
     Failed,
+    /// The asset was previously loaded, however all handles were dropped and
+    /// the asset was removed from the [`Assets`](crate::Assets) collection.
+    Unloaded,
 }
