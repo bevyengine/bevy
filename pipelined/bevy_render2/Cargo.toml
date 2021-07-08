@@ -30,7 +30,7 @@ image = { version = "0.23.12", default-features = false }
 
 # misc
 wgpu = "0.9"
-naga = { git = "https://github.com/gfx-rs/naga", rev = "0cf5484bba530f1134badbd2a1c1a8e9daf2e9c3", features = ["glsl-in", "spv-out", "spv-in", "wgsl-in"] }
+naga = { git = "https://github.com/gfx-rs/naga", rev = "0cf5484bba530f1134badbd2a1c1a8e9daf2e9c3", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }

@@ -1,8 +1,8 @@
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
-use naga::{valid::ModuleInfo, Module};
-use std::{borrow::Cow, marker::Copy};
+use naga::{valid::ModuleInfo, Module, ShaderStage};
+use std::{borrow::Cow, collections::HashMap, marker::Copy};
 use thiserror::Error;
 use wgpu::{ShaderFlags, ShaderModuleDescriptor, ShaderSource};
 
@@ -21,6 +21,8 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
     #[error(transparent)]
+    GlslParse(#[from] naga::front::glsl::ParseError),
+    #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
     Validation(#[from] naga::valid::ValidationError),
@@ -31,6 +33,7 @@ pub enum ShaderReflectError {
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub enum Shader {
     Wgsl(Cow<'static, str>),
+    Glsl(Cow<'static, str>),
     SpirV(Vec<u8>),
     // TODO: consider the following
     // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
@@ -53,6 +56,10 @@ impl ShaderReflection {
             },
         )
     }
+
+    pub fn get_wgsl(&self) -> Result<String, naga::back::wgsl::Error> {
+        naga::back::wgsl::write_string(&self.module, &self.module_info)
+    }
 }
 
 impl Shader {
@@ -60,6 +67,18 @@ impl Shader {
         let module = match &self {
             // TODO: process macros here
             Shader::Wgsl(source) => naga::front::wgsl::parse_str(&source)?,
+            Shader::Glsl(source) => {
+                let mut entry_points = HashMap::default();
+                entry_points.insert("vertex".to_string(), ShaderStage::Vertex);
+                entry_points.insert("fragment".to_string(), ShaderStage::Fragment);
+                naga::front::glsl::parse_str(
+                    &source,
+                    &naga::front::glsl::Options {
+                        entry_points,
+                        ..Default::default()
+                    },
+                )?
+            }
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 &source,
                 &naga::front::spv::Options {
@@ -82,6 +101,10 @@ impl Shader {
 
     pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
         Shader::Wgsl(source.into())
+    }
+
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>) -> Shader {
+        Shader::Glsl(source.into())
     }
 
     pub fn from_spirv(source: Vec<u8>) -> Shader {
@@ -124,10 +147,15 @@ impl<'a> From<&'a Shader> for ShaderModuleDescriptor<'a> {
             label: None,
             source: match shader {
                 Shader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
+                Shader::Glsl(source) => {
+                    let reflection = shader.reflect().unwrap();
+                    let wgsl = reflection.get_wgsl().unwrap();
+                    ShaderSource::Wgsl(wgsl.into())
+                }
                 Shader::SpirV(_) => {
                     // TODO: we can probably just transmute the u8 array to u32?
-                    let x = shader.reflect().unwrap();
-                    let spirv = x.get_spirv().unwrap();
+                    let reflection = shader.reflect().unwrap();
+                    let spirv = reflection.get_spirv().unwrap();
                     ShaderSource::SpirV(Cow::Owned(spirv))
                 }
             },
