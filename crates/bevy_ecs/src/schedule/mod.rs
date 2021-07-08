@@ -35,6 +35,9 @@ use bevy_utils::HashMap;
 /// A container of [`Stage`]s set to be run in a linear order.
 ///
 /// Since `Schedule` implements the [`Stage`] trait, it can be inserted into another schedule.
+/// In this way, the properties of the child schedule can be set differently from the parent.
+/// For example, it can be set to run only once during app execution, while the parent schedule
+/// runs indefinitely.
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<BoxedStageLabel, Box<dyn Stage>>,
