@@ -329,6 +329,7 @@ pub struct LightMeta {
     pub shadow_view_bind_group: Option<BindGroup>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,

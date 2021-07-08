@@ -183,10 +183,7 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        debug!(
-            "draw: {:?} {:?}",
-            vertices, instances
-        );
+        debug!("draw: {:?} {:?}", vertices, instances);
         self.pass.draw(vertices, instances);
     }
 

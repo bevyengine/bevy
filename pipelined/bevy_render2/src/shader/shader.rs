@@ -147,7 +147,7 @@ impl<'a> From<&'a Shader> for ShaderModuleDescriptor<'a> {
             label: None,
             source: match shader {
                 Shader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
-                Shader::Glsl(source) => {
+                Shader::Glsl(_source) => {
                     let reflection = shader.reflect().unwrap();
                     let wgsl = reflection.get_wgsl().unwrap();
                     ShaderSource::Wgsl(wgsl.into())
