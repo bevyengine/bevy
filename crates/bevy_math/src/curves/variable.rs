@@ -39,7 +39,7 @@ impl Default for TangentControl {
 /// Interpolation is based on this [article](http://archive.gamedev.net/archive/reference/articles/article1497.html),
 /// it's very similar to the implementation used by Unity, except that tangents doesn't have weighted mode;
 ///
-/// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
+/// **NOTE**: The maximum number of keyframes is limited by the capacity of [`CurveCursor`] (a `u16`)
 #[derive(Default, Debug)]
 pub struct CurveVariable<T: Interpolate> {
     time_stamps: Vec<f32>,
