@@ -40,7 +40,7 @@ impl Default for TangentControl {
 /// it's very similar to the implementation used by Unity, except that tangents doesn't have weighted mode;
 ///
 /// **NOTE**: The maximum number of keyframes is limited by the capacity of [`CurveCursor`] (a `u16`)
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct CurveVariable<T: Interpolate> {
     time_stamps: Vec<f32>,
     keyframes: Vec<T>,
@@ -48,23 +48,6 @@ pub struct CurveVariable<T: Interpolate> {
     tangents_control: Vec<TangentControl>,
     tangents_in: Vec<T::Tangent>,
     tangents_out: Vec<T::Tangent>,
-}
-
-impl<T> Clone for CurveVariable<T>
-where
-    T: Interpolate + Clone,
-    <T as Interpolate>::Tangent: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            time_stamps: self.time_stamps.clone(),
-            keyframes: self.keyframes.clone(),
-            modes: self.modes.clone(),
-            tangents_control: self.tangents_control.clone(),
-            tangents_in: self.tangents_in.clone(),
-            tangents_out: self.tangents_out.clone(),
-        }
-    }
 }
 
 impl<T> CurveVariable<T>

@@ -16,19 +16,10 @@ use crate::{
 /// It can't handle discontinuities, as in two keyframes with the same timestamp.
 ///
 /// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct CurveVariableLinear<T> {
     time_stamps: Vec<f32>,
     keyframes: Vec<T>,
-}
-
-impl<T: Clone> Clone for CurveVariableLinear<T> {
-    fn clone(&self) -> Self {
-        Self {
-            time_stamps: self.time_stamps.clone(),
-            keyframes: self.keyframes.clone(),
-        }
-    }
 }
 
 impl<T> CurveVariableLinear<T> {

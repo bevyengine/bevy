@@ -8,22 +8,12 @@ use crate::{
 ///
 /// This curve maintains the faster sampling rate over a wide range of frame rates, because
 /// it doesn't rely on keyframe cursor. As a downside, it will have a bigger memory foot print.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct CurveFixed<T> {
     frame_rate: f32,
     /// Negative number of frames before the curve starts
     negative_offset: f32,
     pub keyframes: Vec<T>,
-}
-
-impl<T: Clone> Clone for CurveFixed<T> {
-    fn clone(&self) -> Self {
-        Self {
-            frame_rate: self.frame_rate,
-            negative_offset: self.negative_offset,
-            keyframes: self.keyframes.clone(),
-        }
-    }
 }
 
 impl<T> CurveFixed<T> {
