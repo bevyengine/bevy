@@ -1,5 +1,5 @@
 use crate::{
-    curves::{Curve, CurveCursor, CurveError},
+    curves::{Curve, CurveError, KeyframeIndex},
     interpolation::Lerp,
 };
 
@@ -15,7 +15,7 @@ use crate::{
 ///
 /// It can't handle discontinuities, as in two keyframes with the same timestamp.
 ///
-/// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
+/// **NOTE** Keyframes count is limited by the [`KeyframeIndex`] size.
 #[derive(Default, Debug, Clone)]
 pub struct CurveVariableLinear<T> {
     time_stamps: Vec<f32>,
@@ -31,8 +31,10 @@ impl<T> CurveVariableLinear<T> {
             return Err(CurveError::MismatchedLength);
         }
 
-        if values.len() > CurveCursor::MAX as usize {
-            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
+        if values.len() > KeyframeIndex::MAX as usize {
+            return Err(CurveError::KeyframeLimitReached(
+                KeyframeIndex::MAX as usize,
+            ));
         }
 
         // Make sure the
@@ -74,7 +76,7 @@ impl<T> CurveVariableLinear<T> {
     pub fn insert(&mut self, time: f32, value: T) {
         // Keyframe length is limited by the cursor size yype that is 2 bytes,
         assert!(
-            self.keyframes.len() < CurveCursor::MAX as usize,
+            self.keyframes.len() < KeyframeIndex::MAX as usize,
             "reached keyframe limit"
         );
 
@@ -132,16 +134,16 @@ where
             self.time_stamps.len() - 1
         };
 
-        self.sample_with_cursor(index as CurveCursor, time).1
+        self.sample_with_cursor(index as KeyframeIndex, time).1
     }
 
     fn sample_with_cursor(
         &self,
-        mut cursor: CurveCursor,
+        mut cursor: KeyframeIndex,
         time: f32,
-    ) -> (CurveCursor, Self::Output) {
+    ) -> (KeyframeIndex, Self::Output) {
         // Adjust for the current keyframe index
-        let last_cursor = (self.time_stamps.len() - 1) as CurveCursor;
+        let last_cursor = (self.time_stamps.len() - 1) as KeyframeIndex;
 
         cursor = cursor.max(0).min(last_cursor);
         if self.time_stamps[cursor as usize] < time {

@@ -1,5 +1,5 @@
 use crate::{
-    curves::{Curve, CurveCursor},
+    curves::{Curve, KeyframeIndex},
     interpolation::Lerp,
 };
 
@@ -112,7 +112,7 @@ where
 
     /// Same as the [`sample`] function
     #[inline]
-    fn sample_with_cursor(&self, _: CurveCursor, time: f32) -> (CurveCursor, Self::Output) {
+    fn sample_with_cursor(&self, _: KeyframeIndex, time: f32) -> (KeyframeIndex, Self::Output) {
         (0, self.sample(time))
     }
 }

@@ -1,5 +1,5 @@
 use bevy::math::{
-    curves::{Curve, CurveCursor, CurveVariable},
+    curves::{Curve, KeyframeIndex, CurveVariable},
     Vec4,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -11,7 +11,7 @@ criterion_main!(benches);
 const SAMPLES_COUNT: usize = 100;
 
 fn curve_sampling<T>(samples: &[f32], curve: &impl Curve<Output = T>) {
-    let mut c: CurveCursor = 0;
+    let mut c: KeyframeIndex = 0;
     for t in samples {
         let (nc, v) = curve.sample_with_cursor(c, *t);
         black_box(v);

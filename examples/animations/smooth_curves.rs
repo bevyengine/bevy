@@ -1,6 +1,6 @@
 use bevy::{
     math::{
-        curves::{Curve, CurveCursor, CurveVariable, TangentControl},
+        curves::{Curve, KeyframeIndex, CurveVariable, TangentControl},
         interpolation::Interpolation,
     },
     prelude::*,
@@ -100,7 +100,7 @@ fn setup(
                     })
                     .with_children(|parent| {
                         // tangents
-                        let (a, b) = curve_mesh.curve.get_in_out_tangent(index as CurveCursor);
+                        let (a, b) = curve_mesh.curve.get_in_out_tangent(index as KeyframeIndex);
                         let (ay, ax) = a.atan().sin_cos();
                         let (by, bx) = b.atan().sin_cos();
                         parent.spawn_bundle(PbrBundle {

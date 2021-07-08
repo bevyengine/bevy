@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::{
-    curves::{Curve, CurveCursor, CurveError},
+    curves::{Curve, CurveError, KeyframeIndex},
     interpolation::{Interpolate, Interpolation},
 };
 
@@ -39,7 +39,7 @@ impl Default for TangentControl {
 /// Interpolation is based on this [article](http://archive.gamedev.net/archive/reference/articles/article1497.html),
 /// it's very similar to the implementation used by Unity, except that tangents doesn't have weighted mode;
 ///
-/// **NOTE**: The maximum number of keyframes is limited by the capacity of [`CurveCursor`] (a `u16`)
+/// **NOTE**: The maximum number of keyframes is limited by the capacity of [`KeyframeIndex`] (a `u16`)
 #[derive(Default, Debug, Clone)]
 pub struct CurveVariable<T: Interpolate> {
     time_stamps: Vec<f32>,
@@ -87,8 +87,10 @@ where
             return Err(CurveError::MismatchedLength);
         }
 
-        if values.len() > CurveCursor::MAX as usize {
-            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
+        if values.len() > KeyframeIndex::MAX as usize {
+            return Err(CurveError::KeyframeLimitReached(
+                KeyframeIndex::MAX as usize,
+            ));
         }
 
         // Make sure the
@@ -211,7 +213,7 @@ where
     }
 
     /// Removes the keyframe at the index specified
-    pub fn remove(&mut self, index: CurveCursor) {
+    pub fn remove(&mut self, index: KeyframeIndex) {
         let i = index as usize;
 
         self.time_stamps.remove(i);
@@ -232,13 +234,13 @@ where
         }
     }
 
-    pub fn set_value(&mut self, index: CurveCursor, value: T) {
+    pub fn set_value(&mut self, index: KeyframeIndex, value: T) {
         let i = index as usize;
         self.keyframes[i] = value;
         self.adjust_tangents_with_neighbors(i);
     }
 
-    pub fn set_time(&mut self, index: CurveCursor, time: f32) -> Option<CurveCursor> {
+    pub fn set_time(&mut self, index: KeyframeIndex, time: f32) -> Option<KeyframeIndex> {
         let i = index as usize;
 
         let mut j = i;
@@ -308,37 +310,37 @@ where
             }
         }
 
-        Some(j as CurveCursor)
+        Some(j as KeyframeIndex)
     }
 
     #[inline]
-    pub fn set_interpolation(&mut self, index: CurveCursor, interpolation: Interpolation) {
+    pub fn set_interpolation(&mut self, index: KeyframeIndex, interpolation: Interpolation) {
         self.modes[index as usize] = interpolation;
     }
 
     #[inline]
-    pub fn set_in_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+    pub fn set_in_tangent(&mut self, index: KeyframeIndex, tangent: T::Tangent) {
         let i = index as usize;
         self.tangents_control[i] = TangentControl::Broken;
         self.tangents_in[i] = tangent;
     }
 
     #[inline]
-    pub fn set_out_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+    pub fn set_out_tangent(&mut self, index: KeyframeIndex, tangent: T::Tangent) {
         let i = index as usize;
         self.tangents_control[i] = TangentControl::Broken;
         self.tangents_out[i] = tangent;
     }
 
     #[inline]
-    pub fn set_in_out_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+    pub fn set_in_out_tangent(&mut self, index: KeyframeIndex, tangent: T::Tangent) {
         let i = index as usize;
         self.tangents_control[i] = TangentControl::Free;
         self.tangents_in[i] = tangent;
         self.tangents_out[i] = tangent;
     }
 
-    pub fn set_tangent_control(&mut self, index: CurveCursor, tangent_control: TangentControl) {
+    pub fn set_tangent_control(&mut self, index: KeyframeIndex, tangent_control: TangentControl) {
         let i = index as usize;
         self.tangents_control[i] = tangent_control;
         self.adjust_tangents(i);
@@ -402,27 +404,27 @@ where
     }
 
     #[inline]
-    pub fn get_value(&self, index: CurveCursor) -> &T {
+    pub fn get_value(&self, index: KeyframeIndex) -> &T {
         &self.keyframes[index as usize]
     }
 
     #[inline]
-    pub fn get_time(&self, index: CurveCursor) -> f32 {
+    pub fn get_time(&self, index: KeyframeIndex) -> f32 {
         self.time_stamps[index as usize]
     }
 
     #[inline]
-    pub fn get_interpolation(&self, index: CurveCursor) -> Interpolation {
+    pub fn get_interpolation(&self, index: KeyframeIndex) -> Interpolation {
         self.modes[index as usize]
     }
 
     #[inline]
-    pub fn get_tangent_control(&self, index: CurveCursor) -> TangentControl {
+    pub fn get_tangent_control(&self, index: KeyframeIndex) -> TangentControl {
         self.tangents_control[index as usize]
     }
 
     #[inline]
-    pub fn get_in_out_tangent(&self, index: CurveCursor) -> (T::Tangent, T::Tangent) {
+    pub fn get_in_out_tangent(&self, index: KeyframeIndex) -> (T::Tangent, T::Tangent) {
         let i = index as usize;
         (self.tangents_in[i], self.tangents_out[i])
     }
@@ -475,9 +477,9 @@ where
 
     fn sample_with_cursor(
         &self,
-        mut cursor: CurveCursor,
+        mut cursor: KeyframeIndex,
         time: f32,
-    ) -> (CurveCursor, Self::Output) {
+    ) -> (KeyframeIndex, Self::Output) {
         // Adjust for the current keyframe cursor
         let last_cursor = (self.time_stamps.len() - 1) as u16;
 
@@ -599,11 +601,13 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
         self.tangent_out = tangent;
     }
 
-    pub fn done(self) -> Result<CurveCursor, CurveError> {
+    pub fn done(self) -> Result<KeyframeIndex, CurveError> {
         let index;
 
-        if self.curve.len() >= (CurveCursor::MAX - 1) as usize {
-            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
+        if self.curve.len() >= (KeyframeIndex::MAX - 1) as usize {
+            return Err(CurveError::KeyframeLimitReached(
+                KeyframeIndex::MAX as usize,
+            ));
         }
 
         if let Some(i) = self.curve.time_stamps.iter().position(|t| *t > self.time) {
@@ -628,7 +632,7 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
         }
 
         self.curve.adjust_tangents_with_neighbors(index);
-        Ok(index as CurveCursor)
+        Ok(index as KeyframeIndex)
     }
 }
 
