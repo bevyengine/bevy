@@ -28,10 +28,8 @@ pub struct SpriteShaders {
 impl FromWorld for SpriteShaders {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let shader_vert = Shader::from_glsl(include_str!("sprite.vert"));
-        let shader_frag = Shader::from_glsl(include_str!("sprite.frag"));
-        let shader_module_vert = render_device.create_shader_module(&shader_vert);
-        let shader_module_frag = render_device.create_shader_module(&shader_frag);
+        let shader = Shader::from_wgsl(include_str!("sprite.wgsl"));
+        let shader_module = render_device.create_shader_module(&shader);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -98,11 +96,11 @@ impl FromWorld for SpriteShaders {
                         },
                     ],
                 }],
-                module: &shader_module_vert,
+                module: &shader_module,
                 entry_point: "vertex",
             },
             fragment: Some(FragmentState {
-                module: &shader_module_frag,
+                module: &shader_module,
                 entry_point: "fragment",
                 targets: &[ColorTargetState {
                     format: TextureFormat::bevy_default(),
