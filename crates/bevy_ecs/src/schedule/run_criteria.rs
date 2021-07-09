@@ -44,6 +44,19 @@ pub enum ShouldRun {
     NoAndCheckAgain,
 }
 
+impl std::ops::Not for ShouldRun {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        match self {
+            ShouldRun::Yes => ShouldRun::No,
+            ShouldRun::No => ShouldRun::Yes,
+            ShouldRun::YesAndCheckAgain => ShouldRun::NoAndCheckAgain,
+            ShouldRun::NoAndCheckAgain => ShouldRun::YesAndCheckAgain,
+        }
+    }
+}
+
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
