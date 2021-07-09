@@ -4,7 +4,6 @@ use bevy::{
     prelude::*,
     render::{camera::Camera, render_graph::base::camera::CAMERA_3D},
 };
-use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
@@ -98,7 +97,12 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     commands.spawn_bundle(UiCameraBundle::default());
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut game: ResMut<Game>,
+    mut rng: ResMut<InsecureRng>,
+) {
     // reset the game state
     game.cake_eaten = 0;
     game.score = 0;
@@ -116,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rand::thread_rng().gen_range(-0.1..0.1);
+                    let height = rng.gen_range(-0.1..0.1);
                     commands
                         .spawn_bundle((
                             Transform::from_xyz(i as f32, height - 0.2, j as f32),
@@ -296,6 +300,7 @@ fn spawn_bonus(
     mut state: ResMut<State<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
+    mut rng: ResMut<InsecureRng>,
 ) {
     if *state.current() != GameState::Playing {
         return;
@@ -312,8 +317,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }

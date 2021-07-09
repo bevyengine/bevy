@@ -182,6 +182,10 @@ name = "custom_loop"
 path = "examples/app/custom_loop.rs"
 
 [[example]]
+name = "custom_rng_seeds"
+path = "examples/app/custom_rng_seeds.rs"
+
+[[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
 

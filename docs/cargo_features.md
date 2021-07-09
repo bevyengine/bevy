@@ -11,6 +11,7 @@
 |bevy_winit|GUI support.|
 |bevy_wgpu|Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.|
 |render|The render pipeline and all render related plugins.|
+|rng|Support for random number generators.|
 |png|PNG picture format support.|
 |hdr|[HDR](https://en.wikipedia.org/wiki/High_dynamic_range) support.|
 |mp3|MP3 audio format support.|

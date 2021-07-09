@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use rand::Rng;
 
 // This example illustrates how to react to component change
 fn main() {
@@ -20,9 +19,13 @@ fn setup(mut commands: Commands) {
     commands.spawn().insert(Transform::identity());
 }
 
-fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
+fn change_component(
+    time: Res<Time>,
+    mut rng: ResMut<InsecureRng>,
+    mut query: Query<(Entity, &mut MyComponent)>,
+) {
     for (entity, mut component) in query.iter_mut() {
-        if rand::thread_rng().gen_bool(0.1) {
+        if rng.gen_bool(0.1) {
             info!("changing component {:?}", entity);
             component.0 = time.seconds_since_startup();
         }
