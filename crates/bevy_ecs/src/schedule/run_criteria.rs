@@ -6,6 +6,7 @@ use crate::{
     system::{BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
+use bevy_ecs_macros::all_tuples;
 use std::borrow::Cow;
 
 /// Determines whether a system should be executed or not, and how many times it should be ran each
@@ -79,47 +80,106 @@ impl BoxedRunCriteria {
     }
 }
 
-pub(crate) enum RunCriteriaInner {
-    Single(BoxedSystem<(), ShouldRun>),
-    Piped {
-        input: usize,
-        system: BoxedSystem<ShouldRun, ShouldRun>,
-    },
-}
-
 pub(crate) struct RunCriteriaContainer {
     pub should_run: ShouldRun,
-    pub inner: RunCriteriaInner,
+    pub inner: Box<dyn RunCriteriaTrait>,
     pub label: Option<BoxedRunCriteriaLabel>,
     pub before: Vec<BoxedRunCriteriaLabel>,
     pub after: Vec<BoxedRunCriteriaLabel>,
 }
 
+pub(crate) struct RunCriteriaInner<In> {
+    parents: Vec<usize>,
+    system: BoxedSystem<In, ShouldRun>,
+}
+
+pub(crate) trait RunCriteriaTrait: Send + Sync {
+    fn evaluate_criteria(
+        &mut self,
+        world: &mut World,
+        parents: &[RunCriteriaContainer],
+    ) -> ShouldRun;
+
+    fn name(&self) -> Cow<'static, str>;
+
+    fn initialize(&mut self, world: &mut World);
+
+    fn set_parents(&mut self, indices: Vec<usize>);
+}
+
+impl RunCriteriaTrait for RunCriteriaInner<ShouldRun> {
+    fn evaluate_criteria(
+        &mut self,
+        world: &mut World,
+        parents: &[RunCriteriaContainer],
+    ) -> ShouldRun {
+        self.system.run(parents[self.parents[0]].should_run, world)
+    }
+
+    fn name(&self) -> Cow<'static, str> {
+        self.system.name()
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.system.initialize(world)
+    }
+
+    fn set_parents(&mut self, indices: Vec<usize>) {
+        self.parents = indices;
+    }
+}
+
+macro_rules! into_should_run {
+    ($input: ident) => {
+        ShouldRun
+    };
+}
+
+macro_rules! into_iter_next {
+    ($iterator: ident, $input: ident) => {
+        $iterator.next().unwrap()
+    };
+}
+
+macro_rules! impl_criteria_running {
+    ($($input: ident), *) => {
+        impl RunCriteriaTrait for RunCriteriaInner<($(into_should_run!($input),) *)> {
+            #[allow(unused_variables, unused_mut)]
+            fn evaluate_criteria(
+                &mut self,
+                world: &mut World,
+                parents: &[RunCriteriaContainer],
+            ) -> ShouldRun {
+                let mut parent_iter = self.parents.iter().cloned();
+                let input = ($(parents[into_iter_next!(parent_iter, $input)].should_run,) *);
+                self.system.run(input, world)
+            }
+
+            fn name(&self) -> Cow<'static, str> {
+                self.system.name()
+            }
+
+            fn initialize(&mut self, world: &mut World) {
+                self.system.initialize(world)
+            }
+
+            fn set_parents(&mut self, indices: Vec<usize>) {
+                self.parents = indices;
+            }
+        }
+    }
+}
+
+all_tuples!(impl_criteria_running, 0, 16, I);
+
 impl RunCriteriaContainer {
     pub fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
         Self {
             should_run: ShouldRun::Yes,
-            inner: match descriptor.system {
-                RunCriteriaSystem::Single(system) => RunCriteriaInner::Single(system),
-                RunCriteriaSystem::Piped(system) => RunCriteriaInner::Piped { input: 0, system },
-            },
+            inner: descriptor.system,
             label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
-        }
-    }
-
-    pub fn name(&self) -> Cow<'static, str> {
-        match &self.inner {
-            RunCriteriaInner::Single(system) => system.name(),
-            RunCriteriaInner::Piped { system, .. } => system.name(),
-        }
-    }
-
-    pub fn initialize(&mut self, world: &mut World) {
-        match &mut self.inner {
-            RunCriteriaInner::Single(system) => system.initialize(world),
-            RunCriteriaInner::Piped { system, .. } => system.initialize(world),
         }
     }
 }
@@ -128,10 +188,7 @@ impl GraphNode for RunCriteriaContainer {
     type Label = BoxedRunCriteriaLabel;
 
     fn name(&self) -> Cow<'static, str> {
-        match &self.inner {
-            RunCriteriaInner::Single(system) => system.name(),
-            RunCriteriaInner::Piped { system, .. } => system.name(),
-        }
+        self.inner.name()
     }
 
     fn labels(&self) -> &[BoxedRunCriteriaLabel] {
@@ -163,16 +220,11 @@ pub(crate) enum DuplicateLabelStrategy {
 }
 
 pub struct RunCriteriaDescriptor {
-    pub(crate) system: RunCriteriaSystem,
+    pub(crate) system: Box<dyn RunCriteriaTrait>,
     pub(crate) label: Option<BoxedRunCriteriaLabel>,
     pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
     pub(crate) before: Vec<BoxedRunCriteriaLabel>,
     pub(crate) after: Vec<BoxedRunCriteriaLabel>,
-}
-
-pub(crate) enum RunCriteriaSystem {
-    Single(BoxedSystem<(), ShouldRun>),
-    Piped(BoxedSystem<ShouldRun, ShouldRun>),
 }
 
 pub trait IntoRunCriteria<Marker> {
@@ -270,7 +322,10 @@ impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
 
 fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteriaDescriptor {
     RunCriteriaDescriptor {
-        system: RunCriteriaSystem::Single(system),
+        system: Box::new(RunCriteriaInner {
+            parents: vec![],
+            system,
+        }),
         label: None,
         duplicate_label_strategy: DuplicateLabelStrategy::Panic,
         before: vec![],
@@ -332,15 +387,42 @@ impl RunCriteria {
     }
 }
 
-pub trait RunCriteriaPiping {
+pub trait RunCriteriaPiping<In> {
     /// See [`RunCriteria::pipe()`].
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
+    fn pipe<Param>(self, system: impl IntoSystem<In, ShouldRun, Param>) -> RunCriteriaDescriptor;
 }
 
-impl RunCriteriaPiping for BoxedRunCriteriaLabel {
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
+impl<L> RunCriteriaPiping<ShouldRun> for L
+where
+    L: RunCriteriaLabel,
+{
+    fn pipe<Param>(
+        self,
+        system: impl IntoSystem<ShouldRun, ShouldRun, Param>,
+    ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Piped(Box::new(system)),
+            system: Box::new(RunCriteriaInner {
+                parents: vec![0],
+                system: Box::new(system.system()),
+            }),
+            label: None,
+            duplicate_label_strategy: DuplicateLabelStrategy::Panic,
+            before: vec![],
+            after: vec![Box::new(self)],
+        }
+    }
+}
+
+impl RunCriteriaPiping<ShouldRun> for BoxedRunCriteriaLabel {
+    fn pipe<Param>(
+        self,
+        system: impl IntoSystem<ShouldRun, ShouldRun, Param>,
+    ) -> RunCriteriaDescriptor {
+        RunCriteriaDescriptor {
+            system: Box::new(RunCriteriaInner {
+                parents: vec![0],
+                system: Box::new(system.system()),
+            }),
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
@@ -349,20 +431,59 @@ impl RunCriteriaPiping for BoxedRunCriteriaLabel {
     }
 }
 
-impl<L> RunCriteriaPiping for L
-where
-    L: RunCriteriaLabel,
-{
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Piped(Box::new(system)),
-            label: None,
-            duplicate_label_strategy: DuplicateLabelStrategy::Panic,
-            before: vec![],
-            after: vec![Box::new(self)],
-        }
-    }
+macro_rules! into_boxed_label {
+    ($label: ident) => {
+        BoxedRunCriteriaLabel
+    };
 }
+
+macro_rules! impl_criteria_piping {
+    ($($label: ident), *) => {
+        impl<$($label: RunCriteriaLabel), *> RunCriteriaPiping<($(into_should_run!($label),) *)>
+        for ($($label,) *) {
+            #[allow(non_snake_case)]
+            fn pipe<Param>(
+                self,
+                system: impl IntoSystem<($(into_should_run!($label),) *), ShouldRun, Param>,
+            ) -> RunCriteriaDescriptor {
+                let ($($label,) *) = self;
+                RunCriteriaDescriptor {
+                    system: Box::new(RunCriteriaInner {
+                        parents: vec![0],
+                        system: Box::new(system.system()),
+                    }),
+                    label: None,
+                    duplicate_label_strategy: DuplicateLabelStrategy::Panic,
+                    before: vec![],
+                    after: vec![$(Box::new($label),) *],
+                }
+            }
+        }
+
+        impl RunCriteriaPiping<($(into_should_run!($label),) *)>
+        for ($(into_boxed_label!($label),) *) {
+            #[allow(non_snake_case)]
+            fn pipe<Param>(
+                self,
+                system: impl IntoSystem<($(into_should_run!($label),) *), ShouldRun, Param>,
+            ) -> RunCriteriaDescriptor {
+                let ($($label,) *) = self;
+                RunCriteriaDescriptor {
+                    system: Box::new(RunCriteriaInner {
+                        parents: vec![0],
+                        system: Box::new(system.system()),
+                    }),
+                    label: None,
+                    duplicate_label_strategy: DuplicateLabelStrategy::Panic,
+                    before: vec![],
+                    after: vec![$($label,) *],
+                }
+            }
+        }
+    };
+}
+
+all_tuples!(impl_criteria_piping, 1, 16, L);
 
 pub struct RunOnce {
     ran: bool,
