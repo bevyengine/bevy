@@ -41,7 +41,7 @@ impl Default for TangentControl {
 ///
 /// **NOTE**: The maximum number of keyframes is limited by the capacity of [`KeyframeIndex`] (a `u16`)
 #[derive(Default, Debug, Clone)]
-pub struct CurveVariable<T: Interpolate> {
+pub struct CurveVariable<T: Interpolate + Clone> {
     time_stamps: Vec<f32>,
     keyframes: Vec<T>,
     modes: Vec<Interpolation>,
@@ -52,7 +52,7 @@ pub struct CurveVariable<T: Interpolate> {
 
 impl<T> CurveVariable<T>
 where
-    T: Interpolate,
+    T: Interpolate + Clone,
 {
     #[inline]
     pub fn with_flat_tangents(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveError> {
@@ -93,7 +93,7 @@ where
             ));
         }
 
-        // Make sure the
+        // Make sure time stamps are ordered
         if !samples
             .iter()
             .zip(samples.iter().skip(1))
@@ -417,11 +417,13 @@ where
         }
     }
 
+    /// Gets keyframe value at the given index
     #[inline]
     pub fn get_value(&self, at: KeyframeIndex) -> &T {
         &self.keyframes[at as usize]
     }
 
+    /// Gets keyframe time at the given index
     #[inline]
     pub fn get_time(&self, at: KeyframeIndex) -> f32 {
         self.time_stamps[at as usize]
@@ -445,11 +447,6 @@ where
         (self.tangents_in[i], self.tangents_out[i])
     }
 
-    /// Number of keyframes
-    pub fn len(&self) -> usize {
-        self.keyframes.len()
-    }
-
     /// `true` when this `CurveFixed` doesn't have any keyframe
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -460,11 +457,6 @@ where
         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
     }
 
-    #[inline]
-    pub fn time_offset(&self) -> f32 {
-        self.time_stamps[0]
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
         self.time_stamps.iter().copied().zip(self.keyframes.iter())
     }
@@ -472,12 +464,22 @@ where
 
 impl<T> Curve for CurveVariable<T>
 where
-    T: Interpolate + Clone + 'static,
+    T: Interpolate + Clone,
 {
     type Output = T;
 
     fn duration(&self) -> f32 {
         self.time_stamps.last().copied().unwrap_or(0.0)
+    }
+
+    #[inline]
+    fn time_offset(&self) -> f32 {
+        self.time_stamps[0]
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.keyframes.len()
     }
 
     fn sample(&self, time: f32) -> Self::Output {

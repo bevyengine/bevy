@@ -9,7 +9,7 @@ use crate::{
 /// This curve maintains the faster sampling rate over a wide range of frame rates, because
 /// it doesn't rely on keyframe cursor. As a downside, it will have a bigger memory foot print.
 #[derive(Default, Debug, Clone)]
-pub struct CurveFixed<T> {
+pub struct CurveFixed<T: Lerp + Clone> {
     /// Frames per second
     frame_rate: f32,
     /// Negative number of frames before the curve starts, it's stored
@@ -19,7 +19,7 @@ pub struct CurveFixed<T> {
     pub keyframes: Vec<T>,
 }
 
-impl<T> CurveFixed<T> {
+impl<T: Lerp + Clone> CurveFixed<T> {
     pub fn from_keyframes(frame_rate: f32, frame_offset: i32, keyframes: Vec<T>) -> Self {
         Self {
             frame_rate,
@@ -56,11 +56,6 @@ impl<T> CurveFixed<T> {
         -self.negative_frame_offset as i32
     }
 
-    /// Number of keyframes
-    pub fn len(&self) -> usize {
-        self.keyframes.len()
-    }
-
     /// `true` when this `CurveFixed` doesn't have any keyframe
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -75,15 +70,21 @@ impl<T> CurveFixed<T> {
     }
 }
 
-impl<T> Curve for CurveFixed<T>
-where
-    T: Lerp + Clone,
-{
+impl<T: Lerp + Clone> Curve for CurveFixed<T> {
     type Output = T;
 
     fn duration(&self) -> f32 {
-        ((self.keyframes.len() as f32 - 1.0 - self.negative_frame_offset) / self.frame_rate)
-            .max(0.0)
+        ((self.len() as f32 - 1.0 - self.negative_frame_offset) / self.frame_rate).max(0.0)
+    }
+
+    #[inline]
+    fn time_offset(&self) -> f32 {
+        -self.negative_frame_offset / self.frame_rate
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.keyframes.len()
     }
 
     fn sample(&self, time: f32) -> Self::Output {
@@ -100,7 +101,7 @@ where
         let t = t - f;
 
         let f = f as usize;
-        let f_n = self.keyframes.len() - 1;
+        let f_n = self.len() - 1;
         if f >= f_n {
             // Overflow clamp
             return self.keyframes[f_n].clone();

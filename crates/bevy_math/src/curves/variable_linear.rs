@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::{
     curves::{Curve, CurveError, KeyframeIndex},
     interpolation::Lerp,
@@ -37,7 +39,7 @@ impl<T> CurveVariableLinear<T> {
             ));
         }
 
-        // Make sure the
+        // Make sure time stamps are ordered
         if !samples
             .iter()
             .zip(samples.iter().skip(1))
@@ -94,9 +96,81 @@ impl<T> CurveVariableLinear<T> {
         (self.time_stamps.remove(index), self.keyframes.remove(index))
     }
 
+    /// Sets the given keyframe value
     #[inline]
-    pub fn time_offset(&self) -> f32 {
-        self.time_stamps[0]
+    pub fn set_value(&mut self, at: KeyframeIndex, value: T) {
+        self.keyframes[at as usize] = value;
+    }
+
+    /// Moves the given keyframe to a different point in time
+    pub fn set_time(&mut self, at: KeyframeIndex, time: f32) -> Option<KeyframeIndex> {
+        let i = at as usize;
+
+        let mut j = i;
+        let last = self.time_stamps.len() - 1;
+        if self.time_stamps[j] < time {
+            // Forward search
+            loop {
+                if j == last {
+                    break;
+                }
+
+                let temp = j + 1;
+                if self.time_stamps[temp] > time {
+                    break;
+                }
+
+                j = temp;
+            }
+        } else {
+            // Backward search
+            loop {
+                if j == 0 {
+                    break;
+                }
+
+                let temp = j - 1;
+                if self.time_stamps[temp] < time {
+                    break;
+                }
+
+                j = temp;
+            }
+        }
+
+        match i.cmp(&j) {
+            Ordering::Greater => {
+                // Move backward
+                let k = i + 1;
+                self.time_stamps[j..k].rotate_right(1);
+                self.keyframes[j..k].rotate_right(1);
+            }
+            Ordering::Less => {
+                // Move forward
+                let k = j + 1;
+                self.time_stamps[i..k].rotate_left(1);
+                self.keyframes[i..k].rotate_left(1);
+            }
+            Ordering::Equal => {
+                // Just update the keyframe time
+                self.time_stamps[i] = time;
+                return None;
+            }
+        }
+
+        Some(j as KeyframeIndex)
+    }
+
+    /// Gets keyframe value at the given index
+    #[inline]
+    pub fn get_value(&self, at: KeyframeIndex) -> &T {
+        &self.keyframes[at as usize]
+    }
+
+    /// Gets keyframe time at the given index
+    #[inline]
+    pub fn get_time(&self, at: KeyframeIndex) -> f32 {
+        self.time_stamps[at as usize]
     }
 
     pub fn set_time_offset(&mut self, time_offset: f32) {
@@ -123,6 +197,16 @@ where
 
     fn duration(&self) -> f32 {
         self.time_stamps.last().copied().unwrap_or(0.0)
+    }
+
+    #[inline]
+    fn time_offset(&self) -> f32 {
+        self.time_stamps[0]
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.keyframes.len()
     }
 
     fn sample(&self, time: f32) -> Self::Output {
