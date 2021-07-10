@@ -377,13 +377,60 @@ pub struct RunCriteria {
 }
 
 impl RunCriteria {
-    /// Constructs a new run criteria that will retrieve the result of the criteria `label`
-    /// and pipe it as input to `system`.
-    pub fn pipe(
-        label: impl RunCriteriaLabel,
-        system: impl System<In = ShouldRun, Out = ShouldRun>,
+    /// Constructs a new run criteria that will retrieve the result(s) of the criteria `labels`
+    /// and pipe that as input to `system`.
+    ///
+    /// `labels` can be a single run criteria label, or a tuple of them.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::{prelude::*, schedule::ShouldRun};
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn system_c() {}
+    /// # fn system_d() {}
+    /// # fn some_simple_criteria() -> ShouldRun { ShouldRun::Yes }
+    /// # fn another_simple_criteria() -> ShouldRun { ShouldRun::Yes }
+    ///
+    /// #[derive(RunCriteriaLabel, Debug, Clone, PartialEq, Eq, Hash)]
+    /// enum MyCriteriaLabel {
+    ///     Alpha,
+    ///     Beta,
+    /// }
+    /// use MyCriteriaLabel::*;
+    ///
+    /// SystemStage::parallel()
+    ///     .with_system_run_criteria(some_simple_criteria.label(Alpha))
+    ///     .with_system(system_a.with_run_criteria(another_simple_criteria.label(Beta)))
+    ///     .with_system(system_b.with_run_criteria(RunCriteria::pipe(
+    ///         Alpha,
+    ///         |In(piped): In<ShouldRun>| if piped == ShouldRun::No {
+    ///             ShouldRun::Yes
+    ///         } else {
+    ///             ShouldRun::No
+    ///         }
+    ///     )))
+    ///     .with_system(system_c.with_run_criteria(RunCriteria::pipe(
+    ///         (Alpha, Beta),
+    ///         |piped: In<(ShouldRun, ShouldRun)>| match piped {
+    ///             In((ShouldRun::Yes, ShouldRun::Yes)) => ShouldRun::Yes,
+    ///             _ => ShouldRun::No,
+    ///         },
+    ///     )))
+    ///     // Alternative, short-hand syntax.
+    ///     .with_system(system_d.with_run_criteria((Alpha, Beta).pipe(
+    ///         |piped: In<(ShouldRun, ShouldRun)>| match piped {
+    ///             In((ShouldRun::No, ShouldRun::No)) => ShouldRun::Yes,
+    ///             _ => ShouldRun::No,
+    ///         },
+    ///     )));
+    /// ```
+    pub fn pipe<In, Param>(
+        labels: impl RunCriteriaPiping<In>,
+        system: impl IntoSystem<In, ShouldRun, Param>,
     ) -> RunCriteriaDescriptor {
-        label.pipe(system)
+        labels.pipe(system)
     }
 }
 
@@ -402,7 +449,7 @@ where
     ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
             system: Box::new(RunCriteriaInner {
-                parents: vec![0],
+                parents: vec![],
                 system: Box::new(system.system()),
             }),
             label: None,
@@ -420,7 +467,7 @@ impl RunCriteriaPiping<ShouldRun> for BoxedRunCriteriaLabel {
     ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
             system: Box::new(RunCriteriaInner {
-                parents: vec![0],
+                parents: vec![],
                 system: Box::new(system.system()),
             }),
             label: None,
@@ -449,7 +496,7 @@ macro_rules! impl_criteria_piping {
                 let ($($label,) *) = self;
                 RunCriteriaDescriptor {
                     system: Box::new(RunCriteriaInner {
-                        parents: vec![0],
+                        parents: vec![],
                         system: Box::new(system.system()),
                     }),
                     label: None,
@@ -470,7 +517,7 @@ macro_rules! impl_criteria_piping {
                 let ($($label,) *) = self;
                 RunCriteriaDescriptor {
                     system: Box::new(RunCriteriaInner {
-                        parents: vec![0],
+                        parents: vec![],
                         system: Box::new(system.system()),
                     }),
                     label: None,

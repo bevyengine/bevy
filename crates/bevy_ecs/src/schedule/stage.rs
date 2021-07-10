@@ -1517,14 +1517,25 @@ mod tests {
                     .label("every third time"),
                 ),
             )
-            .with_system(make_parallel!(3).after("2").with_run_criteria(
+            .with_system(make_parallel!(3).after("2").label("3").with_run_criteria(
                 ("every other time", "every third time").pipe(
                     |input: In<(ShouldRun, ShouldRun)>| match input {
                         In((ShouldRun::Yes, ShouldRun::Yes)) => ShouldRun::Yes,
                         _ => ShouldRun::No,
                     },
                 ),
-            ));
+            ))
+            .with_system(
+                make_parallel!(4)
+                    .after("3")
+                    .with_run_criteria(RunCriteria::pipe(
+                        ("every other time", "every third time"),
+                        |input: In<(ShouldRun, ShouldRun)>| match input {
+                            In((ShouldRun::Yes, ShouldRun::Yes)) => ShouldRun::Yes,
+                            _ => ShouldRun::No,
+                        },
+                    )),
+            );
         for _ in 0..4 {
             stage.run(&mut world);
         }
@@ -1534,9 +1545,9 @@ mod tests {
         }
         assert_eq!(
             *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 3, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 2, 3, 0,]
+            vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 2, 3, 4, 0,]
         );
-        assert_eq!(stage.run_criteria.len(), 3);
+        assert_eq!(stage.run_criteria.len(), 4);
 
         // Discarding extra criteria with matching labels.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
