@@ -94,13 +94,12 @@ impl<T> CurveVariableLinear<T> {
         (self.time_stamps.remove(index), self.keyframes.remove(index))
     }
 
-    /// Make sure the first keyframe starts at time `0.0`
     #[inline]
-    pub fn remove_time_offset(&mut self) {
-        self.apply_time_offset(-self.time_stamps[0]);
+    pub fn time_offset(&self) -> f32 {
+        self.time_stamps[0]
     }
 
-    pub fn apply_time_offset(&mut self, time_offset: f32) {
+    pub fn set_time_offset(&mut self, time_offset: f32) {
         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
     }
 

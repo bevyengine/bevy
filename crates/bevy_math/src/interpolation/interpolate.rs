@@ -6,6 +6,7 @@ use crate::{Quat, Vec2, Vec3, Vec3A, Vec4};
 #[derive(Debug, Copy, Clone)]
 pub struct TangentIgnore;
 
+/// Defines which function will be used to interpolate from the current keyframe to the next one
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Interpolation {
     Step,
