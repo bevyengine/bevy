@@ -355,7 +355,7 @@ impl SystemStage {
                             }
                         }
                     }
-                    container.inner.initialize(world);
+                    container.initialize(world);
                 }
                 if let Some(label) = label {
                     criteria_labels.insert(label, new_index);
@@ -590,20 +590,18 @@ impl SystemStage {
             })
             .collect();
         for criteria in self.run_criteria.iter_mut() {
-            criteria.inner.set_parents(
-                criteria
-                    .after
-                    .iter()
-                    .map(|label| {
-                        *labels.get(label).unwrap_or_else(|| {
-                            panic!(
-                                "Couldn't find run criteria labelled {:?} to pipe from.",
-                                label
-                            )
-                        })
+            criteria.parents = criteria
+                .after
+                .iter()
+                .map(|label| {
+                    *labels.get(label).unwrap_or_else(|| {
+                        panic!(
+                            "Couldn't find run criteria labelled {:?} to pipe from.",
+                            label
+                        )
                     })
-                    .collect(),
-            );
+                })
+                .collect();
         }
 
         fn update_run_criteria_indices<T: SystemContainer>(
@@ -780,7 +778,7 @@ impl Stage for SystemStage {
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
                 let criteria = &mut tail[0];
-                criteria.should_run = criteria.inner.evaluate_criteria(world, run_criteria);
+                criteria.run(world, run_criteria);
             }
 
             let mut run_system_loop = true;
@@ -850,8 +848,7 @@ impl Stage for SystemStage {
                         ShouldRun::No => (),
                         ShouldRun::Yes => criteria.should_run = ShouldRun::No,
                         ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
-                            criteria.should_run =
-                                criteria.inner.evaluate_criteria(world, run_criteria);
+                            criteria.run(world, run_criteria);
                             match criteria.should_run {
                                 ShouldRun::Yes => {
                                     run_system_loop = true;

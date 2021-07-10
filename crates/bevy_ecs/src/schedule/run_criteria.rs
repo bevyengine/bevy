@@ -82,50 +82,67 @@ impl BoxedRunCriteria {
 
 pub(crate) struct RunCriteriaContainer {
     pub should_run: ShouldRun,
-    pub inner: Box<dyn RunCriteriaTrait>,
+    inner: Box<dyn RunCriteriaTrait>,
+    pub parents: Vec<usize>,
     pub label: Option<BoxedRunCriteriaLabel>,
     pub before: Vec<BoxedRunCriteriaLabel>,
     pub after: Vec<BoxedRunCriteriaLabel>,
 }
 
-pub(crate) struct RunCriteriaInner<In> {
-    parents: Vec<usize>,
-    system: BoxedSystem<In, ShouldRun>,
+impl RunCriteriaContainer {
+    pub fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
+        Self {
+            should_run: ShouldRun::Yes,
+            inner: descriptor.system,
+            parents: vec![],
+            label: descriptor.label,
+            before: descriptor.before,
+            after: descriptor.after,
+        }
+    }
+
+    pub fn initialize(&mut self, world: &mut World) {
+        self.inner.initialize(world)
+    }
+
+    pub fn run(&mut self, world: &mut World, run_criteria: &[RunCriteriaContainer]) {
+        self.should_run = self
+            .inner
+            .evaluate_criteria(world, &self.parents, run_criteria)
+    }
 }
 
-pub(crate) trait RunCriteriaTrait: Send + Sync {
+struct RunCriteriaInner<In>(BoxedSystem<In, ShouldRun>);
+
+trait RunCriteriaTrait: Send + Sync {
     fn evaluate_criteria(
         &mut self,
         world: &mut World,
-        parents: &[RunCriteriaContainer],
+        parents: &[usize],
+        run_criteria: &[RunCriteriaContainer],
     ) -> ShouldRun;
 
     fn name(&self) -> Cow<'static, str>;
 
     fn initialize(&mut self, world: &mut World);
-
-    fn set_parents(&mut self, indices: Vec<usize>);
 }
 
 impl RunCriteriaTrait for RunCriteriaInner<ShouldRun> {
     fn evaluate_criteria(
         &mut self,
         world: &mut World,
-        parents: &[RunCriteriaContainer],
+        parents: &[usize],
+        run_criteria: &[RunCriteriaContainer],
     ) -> ShouldRun {
-        self.system.run(parents[self.parents[0]].should_run, world)
+        self.0.run(run_criteria[parents[0]].should_run, world)
     }
 
     fn name(&self) -> Cow<'static, str> {
-        self.system.name()
+        self.0.name()
     }
 
     fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world)
-    }
-
-    fn set_parents(&mut self, indices: Vec<usize>) {
-        self.parents = indices;
+        self.0.initialize(world)
     }
 }
 
@@ -148,41 +165,26 @@ macro_rules! impl_criteria_running {
             fn evaluate_criteria(
                 &mut self,
                 world: &mut World,
-                parents: &[RunCriteriaContainer],
+                parents: &[usize],
+                run_criteria: &[RunCriteriaContainer],
             ) -> ShouldRun {
-                let mut parent_iter = self.parents.iter().cloned();
-                let input = ($(parents[into_iter_next!(parent_iter, $input)].should_run,) *);
-                self.system.run(input, world)
+                let mut parent_iter = parents.iter().cloned();
+                let input = ($(run_criteria[into_iter_next!(parent_iter, $input)].should_run,) *);
+                self.0.run(input, world)
             }
 
             fn name(&self) -> Cow<'static, str> {
-                self.system.name()
+                self.0.name()
             }
 
             fn initialize(&mut self, world: &mut World) {
-                self.system.initialize(world)
-            }
-
-            fn set_parents(&mut self, indices: Vec<usize>) {
-                self.parents = indices;
+                self.0.initialize(world)
             }
         }
     }
 }
 
 all_tuples!(impl_criteria_running, 0, 16, I);
-
-impl RunCriteriaContainer {
-    pub fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
-        Self {
-            should_run: ShouldRun::Yes,
-            inner: descriptor.system,
-            label: descriptor.label,
-            before: descriptor.before,
-            after: descriptor.after,
-        }
-    }
-}
 
 impl GraphNode for RunCriteriaContainer {
     type Label = BoxedRunCriteriaLabel;
@@ -220,7 +222,7 @@ pub(crate) enum DuplicateLabelStrategy {
 }
 
 pub struct RunCriteriaDescriptor {
-    pub(crate) system: Box<dyn RunCriteriaTrait>,
+    system: Box<dyn RunCriteriaTrait>,
     pub(crate) label: Option<BoxedRunCriteriaLabel>,
     pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
     pub(crate) before: Vec<BoxedRunCriteriaLabel>,
@@ -322,10 +324,7 @@ impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
 
 fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteriaDescriptor {
     RunCriteriaDescriptor {
-        system: Box::new(RunCriteriaInner {
-            parents: vec![],
-            system,
-        }),
+        system: Box::new(RunCriteriaInner(system)),
         label: None,
         duplicate_label_strategy: DuplicateLabelStrategy::Panic,
         before: vec![],
@@ -448,10 +447,7 @@ where
         system: impl IntoSystem<ShouldRun, ShouldRun, Param>,
     ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: Box::new(RunCriteriaInner {
-                parents: vec![],
-                system: Box::new(system.system()),
-            }),
+            system: Box::new(RunCriteriaInner(Box::new(system.system()))),
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
@@ -466,10 +462,7 @@ impl RunCriteriaPiping<ShouldRun> for BoxedRunCriteriaLabel {
         system: impl IntoSystem<ShouldRun, ShouldRun, Param>,
     ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: Box::new(RunCriteriaInner {
-                parents: vec![],
-                system: Box::new(system.system()),
-            }),
+            system: Box::new(RunCriteriaInner(Box::new(system.system()))),
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
@@ -495,10 +488,7 @@ macro_rules! impl_criteria_piping {
             ) -> RunCriteriaDescriptor {
                 let ($($label,) *) = self;
                 RunCriteriaDescriptor {
-                    system: Box::new(RunCriteriaInner {
-                        parents: vec![],
-                        system: Box::new(system.system()),
-                    }),
+                    system: Box::new(RunCriteriaInner(Box::new(system.system()))),
                     label: None,
                     duplicate_label_strategy: DuplicateLabelStrategy::Panic,
                     before: vec![],
@@ -516,10 +506,7 @@ macro_rules! impl_criteria_piping {
             ) -> RunCriteriaDescriptor {
                 let ($($label,) *) = self;
                 RunCriteriaDescriptor {
-                    system: Box::new(RunCriteriaInner {
-                        parents: vec![],
-                        system: Box::new(system.system()),
-                    }),
+                    system: Box::new(RunCriteriaInner(Box::new(system.system()))),
                     label: None,
                     duplicate_label_strategy: DuplicateLabelStrategy::Panic,
                     before: vec![],
