@@ -88,6 +88,37 @@ impl<'a, 'b> ChildBuilder<'a, 'b> {
         self.push_children.parent
     }
 
+    /// Return a mutable reference to the [`Commands`] the `ChildBuilder` was constructed with.
+    ///
+    /// Calling [`spawn`][Commands::spawn] or [`spawn_bundle`][Commands::spawn_bundle] on the
+    /// returned value will **not** insert the parent and children components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::components::{Transform, GlobalTransform};
+    /// # use bevy_transform::hierarchy::BuildChildren;
+    /// struct ImportantLocation(Entity);
+    ///
+    /// fn setup_locations(mut commands: Commands) {
+    ///    commands.spawn()
+    ///        .insert(Transform::from_xyz(1.0, 0.0, 0.0))
+    ///        .insert(GlobalTransform::default())
+    ///        .with_children(|parent| {
+    ///            let entity = parent.spawn()
+    ///                .insert(Transform::from_xyz(1.0, 0.0, 0.0))
+    ///                .insert(GlobalTransform::default())
+    ///                .id();
+    ///
+    ///            parent.commands().insert_resource(ImportantLocation(entity));
+    ///        });
+    /// }
+    /// ```
+    pub fn commands(&mut self) -> &mut Commands<'a> {
+        self.commands
+    }
+
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
