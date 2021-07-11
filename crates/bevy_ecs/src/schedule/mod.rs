@@ -192,8 +192,12 @@ impl Schedule {
         })
     }
 
-    /// Fetches the [`Stage`] of type `T` marked with `label`, then executes `func` using the
-    /// stage as parameter.
+    /// Fetches the [`Stage`] of type `T` marked with `label`, then executes the provided
+    /// `func` passing the fetched stage to it as an argument.
+    ///
+    /// The `func` argument should be a function or a closure that accepts a mutable reference
+    /// to a struct implementing `Stage`. That means that it should also assume that the stage
+    /// has already been fetched successfully.
     ///
     /// # Example
     ///

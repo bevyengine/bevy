@@ -165,7 +165,11 @@ impl AppBuilder {
     }
 
     /// Fetches the [`Stage`] of type `T` marked with `label` from the [`Schedule`], then
-    /// executes `func` using the stage as parameter.
+    /// executes the provided `func` passing the fetched stage to it as an argument.
+    ///
+    /// The `func` argument should be a function or a closure that accepts a mutable reference
+    /// to a struct implementing `Stage`. That means that it should also assume that the stage
+    /// has already been fetched successfully.
     ///
     /// See [`Schedule::stage`] for more details.
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
