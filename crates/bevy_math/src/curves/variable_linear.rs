@@ -77,9 +77,8 @@ impl<T> CurveVariableLinear<T> {
 
     /// Inserts a new keyframe
     ///
-    /// Panics if `at` is out of bounds.
+    /// Panics if the keyframe limit given by `KeyframeIndex::MAX` is reached.
     pub fn insert(&mut self, time: f32, value: T) {
-        // Keyframe length is limited by the cursor size yype that is 2 bytes,
         assert!(
             self.keyframes.len() < KeyframeIndex::MAX as usize,
             "reached keyframe limit"
