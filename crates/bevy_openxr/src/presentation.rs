@@ -1,107 +1,249 @@
-use std::ffi::c_void;
-
-use crate::{FrameStream, OpenXrContext, SessionBackend};
-use bevy_ecs::prelude::World;
-use bevy_xr::presentation::{
-    GraphicsContextHandles, VkGetInstanceProcAddr, XrPresentationContext, XrPresentationError,
-    XrSessionHandle,
+use ash::{
+    version::{EntryV1_0, InstanceV1_0},
+    vk::{self, Handle},
 };
+use bevy_xr::presentation::XrGraphicsContext;
 use openxr as xr;
+use std::{error::Error, ffi::CString, sync::Arc};
+use wgpu_hal as hal;
+#[cfg(windows)]
+use winapi::um::d3d11::ID3D11Device;
 
-impl XrPresentationContext for OpenXrContext {
-    unsafe fn create_vulkan_instance(
-        &self,
-        get_instance_proc_addr: VkGetInstanceProcAddr,
-        instance_create_info: *const c_void,
-    ) -> Result<*const c_void, XrPresentationError> {
-        if self.instance.exts().khr_vulkan_enable2.is_none() {
-            return Err(XrPresentationError(
-                "The active OpenXR runtime does not support khr_vulkan_enable2".into(),
-            ));
+#[derive(Clone)]
+pub enum GraphicsContextHandles {
+    Vulkan {
+        instance: ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: ash::Device,
+        queue_family_index: u32,
+        queue_index: u32,
+    },
+    #[cfg(windows)]
+    D3D11 { device: *const ID3D11Device },
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Error creating HAL adapter")]
+pub struct AdapterError;
+
+pub fn create_graphics_context(
+    instance: &xr::Instance,
+    system: xr::SystemId,
+) -> Result<(GraphicsContextHandles, XrGraphicsContext), Box<dyn Error>> {
+    let device_descriptor = wgpu::DeviceDescriptor::default();
+
+    let vulkan_ext1 = instance.exts().khr_vulkan_enable.is_some();
+    let vulkan_ext2 = instance.exts().khr_vulkan_enable2.is_some();
+    if vulkan_ext1 || vulkan_ext2 {
+        let vk_entry = unsafe { ash::Entry::new().map_err(Box::new)? };
+
+        // Vulkan 1.0 fixed by the Oculus Go support.
+        // todo: multiview support will require Vulkan 1.1 or specific extensions
+        let vk_version = vk::make_version(1, 0, 0);
+
+        // todo: check requirements
+        let requirements = instance
+            .graphics_requirements::<xr::Vulkan>(system)
+            .unwrap();
+
+        let vk_app_info = vk::ApplicationInfo::builder()
+            .application_version(0)
+            .engine_version(0)
+            .api_version(vk_version);
+
+        let mut flags = hal::InstanceFlags::empty();
+        if cfg!(debug_assertions) {
+            flags |= hal::InstanceFlags::VALIDATION;
+            flags |= hal::InstanceFlags::DEBUG;
         }
 
-        Ok(self
-            .instance
-            .create_vulkan_instance(self.system_id, get_instance_proc_addr, instance_create_info)
-            .unwrap()
-            .unwrap())
-    }
+        let instance_extensions = <hal::api::Vulkan as hal::Api>::Instance::required_extensions(
+            &vk_entry, vk_version, flags,
+        )
+        .map_err(Box::new)?;
+        let mut instance_extensions_ptrs = instance_extensions
+            .iter()
+            .map(|x| x.as_ptr())
+            .collect::<Vec<_>>();
 
-    unsafe fn vulkan_graphics_device(&self, instance: *const c_void) -> *const c_void {
-        self.instance
-            .vulkan_graphics_device(self.system_id, instance)
-            .unwrap()
-    }
+        let vk_instance = if vulkan_ext2 {
+            let vk_instance = unsafe {
+                instance
+                    .create_vulkan_instance(
+                        system,
+                        std::mem::transmute(vk_entry.static_fn().get_instance_proc_addr),
+                        &vk::InstanceCreateInfo::builder()
+                            .application_info(&vk_app_info)
+                            .enabled_extension_names(&instance_extensions_ptrs)
+                            as *const _ as *const _,
+                    )
+                    .map_err(Box::new)?
+                    .map_err(|e| Box::new(vk::Result::from_raw(e)))?
+            };
 
-    unsafe fn create_vulkan_device(
-        &self,
-        get_instance_proc_addr: VkGetInstanceProcAddr,
-        physical_device: *const c_void,
-        device_create_info: *const c_void,
-    ) -> *const c_void {
-        self.instance
-            .create_vulkan_device(
-                self.system_id,
-                get_instance_proc_addr,
-                physical_device,
-                device_create_info,
+            unsafe {
+                ash::Instance::load(
+                    vk_entry.static_fn(),
+                    vk::Instance::from_raw(vk_instance as _),
+                )
+            }
+        } else {
+            let extra_exts = instance
+                .vulkan_legacy_instance_extensions(system)
+                .unwrap()
+                .split(' ')
+                .map(|x| CString::new(x).unwrap())
+                .collect::<Vec<_>>();
+            instance_extensions_ptrs
+                .extend_from_slice(&extra_exts.iter().map(|x| x.as_ptr()).collect::<Vec<_>>());
+
+            unsafe {
+                vk_entry
+                    .create_instance(
+                        &vk::InstanceCreateInfo::builder()
+                            .application_info(&vk_app_info)
+                            .enabled_extension_names(&instance_extensions_ptrs),
+                        None,
+                    )
+                    .map_err(Box::new)?
+            }
+        };
+        let hal_instance = unsafe {
+            <hal::api::Vulkan as hal::Api>::Instance::from_raw(
+                vk_entry,
+                vk_instance.clone(),
+                vk_version,
+                instance_extensions,
+                flags,
+                Box::new(instance.clone()),
             )
-            .unwrap()
-            .unwrap()
-    }
-
-    unsafe fn initialize_session_from_graphics_handles(
-        &self,
-        world: &mut World,
-        context_handles: GraphicsContextHandles,
-    ) -> Result<Box<dyn XrSessionHandle>, XrPresentationError> {
-        let (session_backend, frame_waiter, frame_stream) = match context_handles {
-            GraphicsContextHandles::Vulkan {
-                instance,
-                physical_device,
-                device,
-                queue_family_index,
-                queue_index,
-            } => {
-                let (session, frame_waiter, frame_stream) = self
-                    .instance
-                    .create_session(
-                        self.system_id,
-                        &xr::vulkan::SessionCreateInfo {
-                            instance,
-                            physical_device,
-                            device,
-                            queue_family_index,
-                            queue_index,
-                        },
-                    )
-                    .unwrap();
-                (
-                    SessionBackend::Vulkan(session),
-                    frame_waiter,
-                    FrameStream::Vulkan(frame_stream),
-                )
-            }
-            #[cfg(windows)]
-            GraphicsContextHandles::D3D11 { device } => {
-                let (session, frame_waiter, frame_stream) = self
-                    .instance
-                    .create_session(
-                        self.system_id,
-                        &xr::d3d::SessionCreateInfo {
-                            device: device as _,
-                        },
-                    )
-                    .unwrap();
-                (
-                    SessionBackend::D3D11(session),
-                    frame_waiter,
-                    FrameStream::D3D11(frame_stream),
-                )
-            }
-            _ => return Err(XrPresentationError("Unsupported backend".into())),
+            .map_err(Box::new)?
         };
 
-        todo!()
+        let vk_physical_device = vk::PhysicalDevice::from_raw(
+            instance
+                .vulkan_graphics_device(system, vk_instance.handle().as_raw() as _)
+                .map_err(Box::new)? as _,
+        );
+        let hal_exposed_adapter = hal_instance
+            .expose_adapter(vk_physical_device)
+            .ok_or_else(|| Box::new(AdapterError))?;
+
+        let queue_family_index = unsafe {
+            vk_instance
+                .get_physical_device_queue_family_properties(vk_physical_device)
+                .into_iter()
+                .enumerate()
+                .find_map(|(queue_family_index, info)| {
+                    if info.queue_flags.contains(vk::QueueFlags::GRAPHICS) {
+                        Some(queue_family_index as u32)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap()
+        };
+        let queue_index = 0;
+
+        let device_extensions = hal_exposed_adapter
+            .adapter
+            .required_device_extensions(device_descriptor.features);
+
+        let physical_features = hal_exposed_adapter
+            .adapter
+            .physical_device_features(&device_extensions, device_descriptor.features);
+
+        let family_info = vk::DeviceQueueCreateInfo::builder()
+            .queue_family_index(queue_family_index)
+            .queue_priorities(&[1.0])
+            .build();
+        let family_infos = [family_info];
+
+        let mut device_extensions_ptrs = instance_extensions
+            .iter()
+            .map(|x| x.as_ptr())
+            .collect::<Vec<_>>();
+
+        let vk_device = if vulkan_ext2 {
+            let info = vk::DeviceCreateInfo::builder()
+                .queue_create_infos(&family_infos)
+                .enabled_extension_names(&device_extensions_ptrs);
+            let info = physical_features.add_to_device_create_builder(info).build();
+
+            unsafe {
+                let vk_device = instance
+                    .create_vulkan_device(
+                        system,
+                        std::mem::transmute(vk_entry.static_fn().get_instance_proc_addr),
+                        vk_physical_device.as_raw() as _,
+                        &info as *const _ as *const _,
+                    )
+                    .map_err(Box::new)?
+                    .map_err(|e| Box::new(vk::Result::from_raw(e)))?;
+
+                ash::Device::load(vk_instance.fp_v1_0(), vk::Device::from_raw(vk_device as _))
+            }
+        } else {
+            let extra_exts = instance
+                .vulkan_legacy_device_extensions(system)
+                .map_err(Box::new)?
+                .split(' ')
+                .map(|x| CString::new(x).unwrap())
+                .collect::<Vec<_>>();
+            device_extensions_ptrs
+                .extend_from_slice(&extra_exts.iter().map(|x| x.as_ptr()).collect::<Vec<_>>());
+
+            let info = vk::DeviceCreateInfo::builder()
+                .queue_create_infos(&family_infos)
+                .enabled_extension_names(&device_extensions_ptrs);
+            let info = physical_features.add_to_device_create_builder(info).build();
+
+            unsafe {
+                vk_instance
+                    .create_device(vk_physical_device, &info, None)
+                    .map_err(Box::new)?
+            }
+        };
+        let hal_device = unsafe {
+            hal_exposed_adapter
+                .adapter
+                .device_from_raw(
+                    vk_device,
+                    &device_extensions,
+                    queue_family_index,
+                    queue_index,
+                )
+                .map_err(Box::new)?
+        };
+
+        let wgpu_instance = unsafe { wgpu::Instance::from_hal::<hal::api::Vulkan>(hal_instance) };
+        let wgpu_adapter = unsafe { wgpu_instance.adapter_from_hal(hal_exposed_adapter) };
+        let (wgpu_device, wgpu_queue) = unsafe {
+            wgpu_adapter
+                .device_from_hal(hal_device, &device_descriptor, None)
+                .map_err(Box::new)?
+        };
+
+        Ok((
+            GraphicsContextHandles::Vulkan {
+                instance: vk_instance,
+                physical_device: vk_physical_device,
+                device: vk_device,
+                queue_family_index,
+                queue_index,
+            },
+            XrGraphicsContext {
+                instance: wgpu_instance,
+                device: Arc::new(wgpu_device),
+                queue: wgpu_queue,
+            },
+        ))
+    } else {
+        #[cfg(windows)]
+        if instance.exts().khr_d3d11_enable {
+            todo!()
+        }
+
+        Err(Box::new(xr::sys::Result::ERROR_EXTENSION_NOT_PRESENT))
     }
 }

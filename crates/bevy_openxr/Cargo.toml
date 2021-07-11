@@ -22,5 +22,21 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_xr = { path = "../bevy_xr", version = "0.5.0" }
 
 # other
-openxr = "0.15.2"
+openxr = { path = "../../../openxrs-fork/openxr"}
 serde = "1"
+ash = "0.32.1"
+wgpu = { path = "../../../wgpu/wgpu" }
+thiserror = "1.0"
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.3.0"
+
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
+
+# [target.'cfg(windows)'.dependencies]
+# wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["dx11"] }
+
+#test
+[target.'cfg(target_os = "macos")'.dependencies]
+wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }

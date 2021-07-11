@@ -1,10 +1,10 @@
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_utils::Duration;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 // Note: indices follow WebXR convention. OpenXR's palm joint is missing, but it can be retrieved
-// using `XrState::hand_motion(..., HandAction::Grip)`.
+// using `XrState::hand_pose()`.
 pub const XR_HAND_JOINT_WRIST: usize = 0;
 pub const XR_HAND_JOINT_THUMB_METACARPAL: usize = 1;
 pub const XR_HAND_JOINT_THUMB_PROXIMAL: usize = 2;
@@ -228,8 +228,8 @@ pub struct VibrationEvent {
 /// available or not.
 #[derive(Default)]
 pub struct XrProfiles {
-    left_hand: Option<String>,
-    right_hand: Option<String>,
+    pub left_hand: Option<String>,
+    pub right_hand: Option<String>,
 }
 
 pub mod implementation {
@@ -252,18 +252,32 @@ pub mod implementation {
 /// precision possible. Poses are predicted for the next V-Sync. To obtain poses for an arbitrary
 /// point in time, `bevy_openxr` backend provides this functionality with OpenXrTrackingState.
 pub struct XrTrackingState {
-    inner: Arc<dyn implementation::XrTrackingStateBackend>,
+    reference_space_type: XrReferenceSpaceType,
+    inner: Box<dyn implementation::XrTrackingStateBackend>,
 }
 
 impl XrTrackingState {
+    pub fn new(backend: Box<dyn implementation::XrTrackingStateBackend>) -> Self {
+        Self {
+            reference_space_type: XrReferenceSpaceType::Local,
+            inner: backend,
+        }
+    }
+
     pub fn get_reference_space_type(&self) -> XrReferenceSpaceType {
-        self.inner.get_reference_space_type()
+        self.reference_space_type
     }
 
     // Returns true if the tracking mode has been set correctly. If false is returned the tracking
     // mode is not supported and another one must be chosen.
     pub fn set_reference_space_type(&mut self, reference_space_type: XrReferenceSpaceType) -> bool {
-        self.inner.set_reference_space_type(reference_space_type)
+        if self.inner.set_reference_space_type(reference_space_type) {
+            self.reference_space_type = reference_space_type;
+
+            true
+        } else {
+            false
+        }
     }
 
     pub fn tracking_area_bounds(&self) -> Option<(f32, f32)> {

@@ -1,30 +1,45 @@
 use bevy::{
+    app::AppExit,
     prelude::*,
     utils::Duration,
-    xr::interaction::{
+    xr::{
         HandType, VibrationEvent, VibrationEventType, XrButtonType, XrButtons,
-        XrReferenceSpaceType, XrTrackingState,
+        XrReferenceSpaceType, XrSessionMode, XrSystem, XrTrackingState,
     },
     DefaultPlugins,
 };
 
+#[bevy_main]
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(startup.system())
-        .add_system(interaction.system())
+        .add_startup_system(startup)
+        .add_system(interaction)
         .run();
 }
 
-fn startup(mut xr_state: ResMut<XrTrackingState>) {
-    xr_state.set_reference_space_type(XrReferenceSpaceType::GravityAligned);
+fn startup(mut xr_system: ResMut<XrSystem>, mut app_exit_events: EventWriter<AppExit>) {
+    if xr_system
+        .available_session_modes()
+        .contains(XrSessionMode::ImmersiveVR)
+    {
+        xr_system.request_session_mode(XrSessionMode::ImmersiveVR)
+    } else {
+        bevy::log::error!("The XR device does not support immersive VR mode");
+        app_exit_events.send(AppExit)
+    }
 }
 
 fn interaction(
+    mut tracking_state: ResMut<XrTrackingState>,
     buttons: Res<XrButtons>,
     mut vibration_events: EventWriter<VibrationEvent>,
     xr_state: Res<XrTrackingState>,
 ) {
+    if !tracking_state.get_reference_space_type(XrReferenceSpaceType::Local) {
+        tracking_state.set_reference_space_type(XrReferenceSpaceType::Local)
+    }
+
     for hand in [HandType::Left, HandType::Right] {
         if buttons.just_pressed(hand, XrButtonType::Trigger) {
             // Short haptic click
