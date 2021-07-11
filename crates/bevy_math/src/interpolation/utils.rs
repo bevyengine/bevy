@@ -18,51 +18,61 @@ pub fn fast_inv_sqrt(x: f32) -> f32 {
 }
 
 #[inline]
-pub fn step_unclamped<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
+pub fn step_unclamped<T: Clone>(value0: &T, value1: &T, u: f32) -> T {
     if u < (1.0 - 1e-9) {
-        k0.clone()
+        value0.clone()
     } else {
-        k1.clone()
+        value1.clone()
     }
 }
 
 #[inline]
-pub fn lerp_unclamped<T>(k0: T, k1: T, u: f32) -> T
+pub fn lerp_unclamped<T>(value0: T, value1: T, u: f32) -> T
 where
     T: Add<Output = T> + Mul<f32, Output = T>,
 {
-    k0 * (1.0 - u) + k1 * u
+    value0 * (1.0 - u) + value1 * u
 }
 
-/// Cubic hermite spline
+/// Performs the cubic hermite spline interpolation based on the factor `u` whiting the 0 to 1 range.
+/// The curve shape is defined by the keyframes values, tangents and by the delta time between the keyframes.
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn hermite_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32, dx: f32) -> T
+pub fn hermite_unclamped<T>(
+    value0: T,
+    tangent0: T,
+    value1: T,
+    tangent1: T,
+    u: f32,
+    delta_time: f32,
+) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {
-    let v_u2 = u * u;
-    let v_u3 = v_u2 * u;
-    let v_3u2 = 3.0 * v_u2;
-    let v_2u3 = 2.0 * v_u3;
+    let u2 = u * u;
+    let u3 = u2 * u;
+    let _3u2 = 3.0 * u2;
+    let _2u3 = 2.0 * u3;
 
-    k0 * (v_2u3 - v_3u2 + 1.0)
-        + k1 * (v_3u2 - v_2u3)
-        + t0 * dx * (v_u3 - 2.0 * v_u2 + u)
-        + t1 * dx * (v_u3 - v_u2)
+    value0 * (_2u3 - _3u2 + 1.0)
+        + value1 * (_3u2 - _2u3)
+        + tangent0 * delta_time * (u3 - 2.0 * u2 + u)
+        + tangent1 * delta_time * (u3 - u2)
 }
 
-/// Finds the tangent gradients for the hermite spline
+/// Finds the tangent gradients for `k1` the hermite spline, takes the a keyframe value his point in time
+/// as well as the surrounding keyframes values and time stamps.
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn auto_tangent<T>(t0: f32, t1: f32, t2: f32, k0: T, k1: T, k2: T) -> T
+pub fn auto_tangent<T>(time0: f32, time1: f32, time2: f32, value0: T, value1: T, value2: T) -> T
 where
     T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T> + Div<f32, Output = T>,
 {
     // k'(t) = ½[k(t) - k(t-1)]/δx1 + ½[k(t+1) - k(t)]/δx2
-    ((k1 - k0) / (t1 - t0).max(1e-9) + (k2 - k1) / (t2 - t1).max(1e-9)) * 0.5
+    ((value1 - value0) / (time1 - time0).max(1e-9) + (value2 - value1) / (time2 - time1).max(1e-9))
+        * 0.5
 }
 
 // https://www.cubic.org/docs/hermite.htm

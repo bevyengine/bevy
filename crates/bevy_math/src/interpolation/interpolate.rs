@@ -20,30 +20,53 @@ pub trait Interpolate: Lerp + Clone {
 
     const FLAT_TANGENT: Self::Tangent;
 
+    /// Interpolates between two keyframes using a predefined function
+    /// controlled by the factor `u` clamped in the range from 0 to 1.
+    ///
+    /// **NOTE** `delta_time` refers to the time difference between the keyframes.
     #[inline]
     fn interpolate(
-        k0: &Self,
-        t0: &Self::Tangent,
-        k1: &Self,
-        t1: &Self::Tangent,
+        value0: &Self,
+        tangent0: &Self::Tangent,
+        value1: &Self,
+        tangent1: &Self::Tangent,
         interp: Interpolation,
-        t: f32,
-        dt: f32,
+        u: f32,
+        delta_time: f32,
     ) -> Self {
-        Self::interpolate_unclamped(k0, t0, k1, t1, interp, t.clamp(0.0, 1.0), dt)
+        Self::interpolate_unclamped(
+            value0,
+            tangent0,
+            value1,
+            tangent1,
+            interp,
+            u.clamp(0.0, 1.0),
+            delta_time,
+        )
     }
 
+    /// Interpolates between two keyframes using a predefined function
+    /// controlled by the factor `u` whiting the 0 to 1 range.
+    ///
+    /// **NOTE** `delta_time` refers to the time difference between the keyframes.
     fn interpolate_unclamped(
-        k0: &Self,
-        t0: &Self::Tangent,
-        k1: &Self,
-        t1: &Self::Tangent,
+        value0: &Self,
+        tangent0: &Self::Tangent,
+        value1: &Self,
+        tangent1: &Self::Tangent,
         interp: Interpolation,
-        t: f32,
-        dt: f32,
+        u: f32,
+        delta_time: f32,
     ) -> Self;
 
-    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: &Self, k1: &Self, k2: &Self) -> Self::Tangent;
+    fn auto_tangent(
+        time0: f32,
+        time1: f32,
+        time2: f32,
+        value0: &Self,
+        value1: &Self,
+        value2: &Self,
+    ) -> Self::Tangent;
 }
 
 impl Interpolate for bool {
@@ -52,15 +75,15 @@ impl Interpolate for bool {
 
     #[inline]
     fn interpolate_unclamped(
-        k0: &Self,
+        value0: &Self,
         _: &Self::Tangent,
-        k1: &Self,
+        value1: &Self,
         _: &Self::Tangent,
         _: Interpolation,
-        t: f32,
+        u: f32,
         _: f32,
     ) -> Self {
-        utils::step_unclamped(k0, k1, t)
+        utils::step_unclamped(value0, value1, u)
     }
 
     fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
@@ -75,31 +98,33 @@ macro_rules! interpolate {
             const FLAT_TANGENT: Self::Tangent = $flat;
 
             fn interpolate_unclamped(
-                k0: &Self,
-                t0: &Self::Tangent,
-                k1: &Self,
-                t1: &Self::Tangent,
+                value0: &Self,
+                tangent0: &Self::Tangent,
+                value1: &Self,
+                tangent1: &Self::Tangent,
                 interp: Interpolation,
-                t: f32,
-                dt: f32,
+                u: f32,
+                delta_time: f32,
             ) -> Self {
                 match interp {
-                    Interpolation::Step => utils::step_unclamped(k0, k1, t),
-                    Interpolation::Linear => utils::lerp_unclamped(*k0, *k1, t),
-                    Interpolation::Hermite => utils::hermite_unclamped(*k0, *t0, *k1, *t1, t, dt),
+                    Interpolation::Step => utils::step_unclamped(value0, value1, u),
+                    Interpolation::Linear => utils::lerp_unclamped(*value0, *value1, u),
+                    Interpolation::Hermite => utils::hermite_unclamped(
+                        *value0, *tangent0, *value1, *tangent1, u, delta_time,
+                    ),
                 }
             }
 
             #[inline]
             fn auto_tangent(
-                t0: f32,
-                t1: f32,
-                t2: f32,
-                k0: &Self,
-                k1: &Self,
-                k2: &Self,
+                time0: f32,
+                time1: f32,
+                time2: f32,
+                value0: &Self,
+                value1: &Self,
+                value2: &Self,
             ) -> Self::Tangent {
-                utils::auto_tangent(t0, t1, t2, *k0, *k1, *k2)
+                utils::auto_tangent(time0, time1, time2, *value0, *value1, *value2)
             }
         }
     };
@@ -115,23 +140,24 @@ interpolate!(Vec4, Vec4::ZERO);
 // impl Interpolate for Color {
 //     type Tangent = Self;
 
-//     fn interpolate(k0: &Self, k1: &Self, interp: Interpolation, t: f32) -> Self {
+//     fn interpolate(value0: &Self, value1: &Self, interp: Interpolation, u: f32, delta_time: f32) -> Self {
 //         match interp {
-//             Interpolation::Step => utils::step(k0, k1, t),
-//             Interpolation::Linear => utils::lerp(*k0, *k1, t),
-//             Interpolation::Smooth { right, left } => utils::catmull_rom::<Vec4>(
-//                 (*k0).into(),
+//             Interpolation::Step => utils::step(value0, value1, u),
+//             Interpolation::Linear => utils::lerp(*value0, *value1, u),
+//             Interpolation::Smooth { right, left } => utils::hermite_unclamped::<Vec4>(
+//                 (*value0).into(),
 //                 (*right).into(),
-//                 (*k1).into(),
+//                 (*value1).into(),
 //                 (*left).into(),
-//                 t,
+//                 u,
+//                 delta_time,
 //             )
 //             .into(),
 //         }
 //     }
 
-//     fn auto_tangent<T>(t0: f32, t1: f32, t2: f32, k0: Self, k1: Self, k2: Self) -> Self::Tangent {
-//         utils::auto_tangent(t0, t1, t2, k0, k1, k2)
+//     fn auto_tangent<T>(time0: f32, time1: f32, time2: f32, value0: Self, value1: Self, value2: Self) -> Self::Tangent {
+//         utils::auto_tangent(time0, time1, time2, value0, value1, value2)
 //     }
 // }
 
@@ -142,41 +168,41 @@ impl Interpolate for Quat {
     /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
     fn interpolate_unclamped(
-        k0: &Self,
-        t0: &Self::Tangent,
-        k1: &Self,
-        t1: &Self::Tangent,
+        value0: &Self,
+        tangent0: &Self::Tangent,
+        value1: &Self,
+        tangent1: &Self::Tangent,
         interp: Interpolation,
-        t: f32,
-        dt: f32,
+        u: f32,
+        delta_time: f32,
     ) -> Self {
         match interp {
-            Interpolation::Step => utils::step_unclamped(k0, k1, t),
+            Interpolation::Step => utils::step_unclamped(value0, value1, u),
             Interpolation::Linear => {
                 // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
-                let mut k1 = *k1;
-                if k0.dot(k1) < 0.0 {
-                    k1 = -k1;
+                let mut value1 = *value1;
+                if value0.dot(value1) < 0.0 {
+                    value1 = -value1;
                 }
 
-                let q = utils::lerp_unclamped::<Vec4>((*k0).into(), k1.into(), t);
+                let q = utils::lerp_unclamped::<Vec4>((*value0).into(), value1.into(), u);
                 let d = utils::fast_inv_sqrt(q.dot(q));
                 Quat::from_vec4(q * d)
             }
             Interpolation::Hermite => {
                 // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
-                let mut k1 = *k1;
-                if k0.dot(k1) < 0.0 {
-                    k1 = -k1;
+                let mut value1 = *value1;
+                if value0.dot(value1) < 0.0 {
+                    value1 = -value1;
                 }
 
                 let q = utils::hermite_unclamped::<Vec4>(
-                    (*k0).into(),
-                    (*t0).into(),
-                    k1.into(),
-                    (*t1).into(),
-                    t,
-                    dt,
+                    (*value0).into(),
+                    (*tangent0).into(),
+                    value1.into(),
+                    (*tangent1).into(),
+                    u,
+                    delta_time,
                 );
                 let d = utils::fast_inv_sqrt(q.dot(q));
                 Quat::from_vec4(q * d)
@@ -185,7 +211,14 @@ impl Interpolate for Quat {
     }
 
     #[inline]
-    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: &Self, k1: &Self, k2: &Self) -> Self::Tangent {
-        utils::auto_tangent(t0, t1, t2, *k0, *k1, *k2)
+    fn auto_tangent(
+        time0: f32,
+        time1: f32,
+        time2: f32,
+        value0: &Self,
+        value1: &Self,
+        value2: &Self,
+    ) -> Self::Tangent {
+        utils::auto_tangent(time0, time1, time2, *value0, *value1, *value2)
     }
 }
