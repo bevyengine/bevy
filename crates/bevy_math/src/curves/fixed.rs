@@ -36,10 +36,12 @@ impl<T: Lerp + Clone> CurveFixed<T> {
         }
     }
 
+    #[inline]
     pub fn frame_rate(&self) -> f32 {
         self.frame_rate
     }
 
+    #[inline]
     pub fn set_frame_rate(&mut self, frame_rate: f32) {
         self.frame_rate = frame_rate;
     }
@@ -47,24 +49,29 @@ impl<T: Lerp + Clone> CurveFixed<T> {
     /// Sets the start keyframe index.
     ///
     /// Adds a starting delay in multiples of the frame duration `(1 / frame_rate)`
+    #[inline]
     pub fn set_frame_offset(&mut self, offset: i32) {
         self.negative_frame_offset = -offset as f32;
     }
 
     /// Number of the start keyframe
+    #[inline]
     pub fn frame_offset(&self) -> i32 {
         -self.negative_frame_offset as i32
     }
 
     /// `true` when this `CurveFixed` doesn't have any keyframe
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.keyframes.iter()
     }
 
+    #[inline]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.keyframes.iter_mut()
     }
