@@ -138,7 +138,7 @@ where
         })
     }
 
-    pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
+    pub fn from_line(time0: f32, time1: f32, value0: T, value1: T) -> Self {
         let mut modes = Vec::with_capacity(2);
         modes.resize(2, Interpolation::Linear);
 
@@ -148,10 +148,10 @@ where
         let mut tangents = Vec::with_capacity(2);
         tangents.resize(2, T::FLAT_TANGENT);
 
-        if t0 < t1 {
+        if time0 < time1 {
             Self {
-                time_stamps: vec![t0, t1],
-                keyframes: vec![v0, v1],
+                time_stamps: vec![time0, time1],
+                keyframes: vec![value0, value1],
                 modes,
                 tangents_control,
                 tangents_in: tangents.clone(),
@@ -159,8 +159,8 @@ where
             }
         } else {
             Self {
-                time_stamps: vec![t1, t0],
-                keyframes: vec![v1, v0],
+                time_stamps: vec![time1, time0],
+                keyframes: vec![value1, value0],
                 modes,
                 tangents_control,
                 tangents_in: tangents.clone(),
@@ -169,10 +169,10 @@ where
         }
     }
 
-    pub fn from_constant(v: T) -> Self {
+    pub fn from_constant(value: T) -> Self {
         Self {
             time_stamps: vec![0.0],
-            keyframes: vec![v],
+            keyframes: vec![value],
             modes: vec![Interpolation::Hermite],
             tangents_control: vec![TangentControl::Auto],
             tangents_in: vec![T::FLAT_TANGENT],
@@ -212,7 +212,11 @@ where
         }
     }
 
-    /// Removes the keyframe at the index specified
+    /// Removes the keyframe at the index specified.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     pub fn remove(&mut self, at: KeyframeIndex) {
         let i = at as usize;
 
@@ -235,7 +239,11 @@ where
     }
 
     /// Sets the given keyframe value then update tangents for self and neighboring keyframes
-    /// that are set with [`TangentControl::Auto`] mode
+    /// that are set with [`TangentControl::Auto`] mode.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     pub fn set_value(&mut self, at: KeyframeIndex, value: T) {
         let i = at as usize;
         self.keyframes[i] = value;
@@ -244,6 +252,10 @@ where
 
     /// Moves the given keyframe to a different point in time then update
     /// tangents for self and neighboring keyframes that are set with [`TangentControl::Auto`] mode
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     pub fn set_time(&mut self, at: KeyframeIndex, time: f32) -> Option<KeyframeIndex> {
         let i = at as usize;
 
@@ -317,13 +329,21 @@ where
         Some(j as KeyframeIndex)
     }
 
-    /// Sets the function used to interpolate from the given keyframe to the next one
+    /// Sets the function used to interpolate from the given keyframe to the next one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_interpolation(&mut self, at: KeyframeIndex, interpolation: Interpolation) {
         self.modes[at as usize] = interpolation;
     }
 
-    /// Sets the keyframe in tangent and sets the tangent control mode to [`TangentControl::Broken`]
+    /// Sets the keyframe in tangent and sets the tangent control mode to [`TangentControl::Broken`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_in_tangent(&mut self, at: KeyframeIndex, tangent: T::Tangent) {
         let i = at as usize;
@@ -331,7 +351,11 @@ where
         self.tangents_in[i] = tangent;
     }
 
-    /// Sets the keyframe out tangent and sets the tangent control mode to [`TangentControl::Broken`]
+    /// Sets the keyframe out tangent and sets the tangent control mode to [`TangentControl::Broken`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_out_tangent(&mut self, at: KeyframeIndex, tangent: T::Tangent) {
         let i = at as usize;
@@ -339,7 +363,11 @@ where
         self.tangents_out[i] = tangent;
     }
 
-    /// Sets both in and out tangents for the given keyframe and sets the tangent control mode to [`TangentControl::Free`]
+    /// Sets both in and out tangents for the given keyframe and sets the tangent control mode to [`TangentControl::Free`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_in_out_tangent(&mut self, at: KeyframeIndex, tangent: T::Tangent) {
         let i = at as usize;
@@ -348,7 +376,11 @@ where
         self.tangents_out[i] = tangent;
     }
 
-    /// Sets how tangents behave when editing the given keyframe and also updates the tangents when necessary
+    /// Sets how tangents behave when editing the given keyframe and also updates the tangents when necessary.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_tangent_control(&mut self, at: KeyframeIndex, tangent_control: TangentControl) {
         let i = at as usize;
@@ -356,7 +388,7 @@ where
         self.adjust_tangents(i);
     }
 
-    /// Adjust tangents for self and neighbors keyframes
+    /// Adjust tangents for self and neighbors keyframes.
     fn adjust_tangents_with_neighbors(&mut self, at: usize) {
         if at > 0 {
             self.adjust_tangents(at - 1);
@@ -369,7 +401,7 @@ where
         }
     }
 
-    /// Adjust tangents for a single keyframe according with their [`TangentControl`]
+    /// Adjust tangents for a single keyframe according with their [`TangentControl`].
     fn adjust_tangents(&mut self, at: usize) {
         let length = self.keyframes.len();
         let mut tangent = T::FLAT_TANGENT;
@@ -410,44 +442,65 @@ where
         self.tangents_out[at] = tangent;
     }
 
-    /// Rebuilds tangents for the entire curve based on each keyframe [`TangentControl`] mode
+    /// Rebuilds tangents for the entire curve based on each keyframe [`TangentControl`] mode.
     pub fn rebuild_curve_tangents(&mut self) {
         for i in 0..self.len() {
             self.adjust_tangents(i);
         }
     }
 
-    /// Gets keyframe value at the given index
+    /// Gets keyframe value at the given index.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_value(&self, at: KeyframeIndex) -> &T {
         &self.keyframes[at as usize]
     }
 
-    /// Gets keyframe time at the given index
+    /// Gets keyframe time at the given index.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_time(&self, at: KeyframeIndex) -> f32 {
         self.time_stamps[at as usize]
     }
 
-    /// Gets the function used to interpolate from the given keyframe to the next one
+    /// Gets the function used to interpolate from the given keyframe to the next one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_interpolation(&self, at: KeyframeIndex) -> Interpolation {
         self.modes[at as usize]
     }
 
-    /// Gets how tangents behave when editing the given keyframe
+    /// Gets how tangents behave when editing the given keyframe.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_tangent_control(&self, at: KeyframeIndex) -> TangentControl {
         self.tangents_control[at as usize]
     }
 
+    /// Gets both in and out tangents for the given keyframe.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_in_out_tangent(&self, at: KeyframeIndex) -> (T::Tangent, T::Tangent) {
         let i = at as usize;
         (self.tangents_in[i], self.tangents_out[i])
     }
 
-    /// `true` when this `CurveFixed` doesn't have any keyframe
+    /// `true` when this `CurveFixed` doesn't have any keyframe.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -472,9 +525,8 @@ where
         self.time_stamps.last().copied().unwrap_or(0.0)
     }
 
-    #[inline]
     fn time_offset(&self) -> f32 {
-        self.time_stamps[0]
+        self.time_stamps.first().copied().unwrap_or(0.0)
     }
 
     #[inline]

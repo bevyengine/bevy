@@ -54,27 +54,30 @@ impl<T> CurveVariableLinear<T> {
         })
     }
 
-    pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
-        if t0 < t1 {
+    pub fn from_line(time0: f32, time1: f32, value0: T, value1: T) -> Self {
+        if time0 < time1 {
             Self {
-                time_stamps: vec![t0, t1],
-                keyframes: vec![v0, v1],
+                time_stamps: vec![time0, time1],
+                keyframes: vec![value0, value1],
             }
         } else {
             Self {
-                time_stamps: vec![t1, t0],
-                keyframes: vec![v1, v0],
+                time_stamps: vec![time1, time0],
+                keyframes: vec![value1, value0],
             }
         }
     }
 
-    pub fn from_constant(v: T) -> Self {
+    pub fn from_constant(value: T) -> Self {
         Self {
             time_stamps: vec![0.0],
-            keyframes: vec![v],
+            keyframes: vec![value],
         }
     }
 
+    /// Inserts a new keyframe
+    ///
+    /// Panics if `at` is out of bounds.
     pub fn insert(&mut self, time: f32, value: T) {
         // Keyframe length is limited by the cursor size yype that is 2 bytes,
         assert!(
@@ -91,18 +94,31 @@ impl<T> CurveVariableLinear<T> {
         }
     }
 
-    pub fn remove(&mut self, index: usize) -> (f32, T) {
-        assert!(self.time_stamps.len() > 1, "curve can't be empty");
+    /// Removes a keyframe at the given index
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
+    pub fn remove(&mut self, at: KeyframeIndex) -> (f32, T) {
+        let index = at as usize;
         (self.time_stamps.remove(index), self.keyframes.remove(index))
     }
 
     /// Sets the given keyframe value
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn set_value(&mut self, at: KeyframeIndex, value: T) {
         self.keyframes[at as usize] = value;
     }
 
     /// Moves the given keyframe to a different point in time
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     pub fn set_time(&mut self, at: KeyframeIndex, time: f32) -> Option<KeyframeIndex> {
         let i = at as usize;
 
@@ -162,12 +178,20 @@ impl<T> CurveVariableLinear<T> {
     }
 
     /// Gets keyframe value at the given index
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_value(&self, at: KeyframeIndex) -> &T {
         &self.keyframes[at as usize]
     }
 
     /// Gets keyframe time at the given index
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at` is out of bounds.
     #[inline]
     pub fn get_time(&self, at: KeyframeIndex) -> f32 {
         self.time_stamps[at as usize]

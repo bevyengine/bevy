@@ -16,6 +16,8 @@ use crate::interpolation::Lerp;
 /// is useful to keep track of a particular keyframe near the last sampling time, this keyframe index
 /// is referred as cursor and speeds up sampling when the next time is close to the previous on, that
 /// happens very often when playing a animation for instance.
+///
+/// **NOTE** By default each keyframe is indexed using a `u16` to reduce memory usage for the curve cursor cache when implemented
 pub type KeyframeIndex = u16;
 
 /// Defines a curve function usually made of keyframes
@@ -35,9 +37,15 @@ pub trait Curve {
     /// but is more expensive in some types of curve, been always `O(n)`.
     ///
     /// This means sampling is more expensive to evaluate as the `time` gets bigger;
+    ///
+    /// # Panics
+    ///
+    /// Panics when the curve is empty, e.i. has no keyframes
     fn sample(&self, time: f32) -> Self::Output;
 
     /// Samples the curve starting from some keyframe cursor, this make the common case `O(1)`
+    ///
+    /// # Example
     ///
     /// ```rust,ignore
     /// let mut time = 0.0;
@@ -50,7 +58,9 @@ pub trait Curve {
     /// }
     /// ```
     ///
-    /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
+    /// # Panics
+    ///
+    /// Panics when the curve is empty, e.i. has no keyframes
     fn sample_with_cursor(&self, cursor: KeyframeIndex, time: f32)
         -> (KeyframeIndex, Self::Output);
 }
