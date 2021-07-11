@@ -49,8 +49,8 @@ use thiserror::Error;
 /// The following example is similar to the previous one, with the exception of `ComponentA`
 /// being accessed mutably here. Both mutable and immutable accesses are allowed in the same
 /// query. Two systems cannot be executed in parallel if both access a certain component and
-/// at least one of the accesses is mutable, unless, for table-based storage type, said component
-/// lives in different archetypes.
+/// at least one of the accesses is mutable, unless Bevy can verify that no entity could be
+/// found in both queries.
 ///
 /// ```
 /// # use bevy_ecs::system::IntoSystem;
