@@ -5,7 +5,7 @@
 |feature name|description|
 |-|-|
 |bevy_audio|Audio support. Support for all audio formats depends on this.|
-|bevy_dynamic_plugins|Plugins for dynamic loading (libloading).|
+|bevy_dynamic_plugin|Plugin for dynamic loading (libloading).|
 |bevy_gilrs|Adds gamepad support.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
 |bevy_winit|GUI support.|

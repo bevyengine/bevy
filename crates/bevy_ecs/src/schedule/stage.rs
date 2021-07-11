@@ -1170,7 +1170,7 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().before("1"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criteria(every_other_time.system())
+                    .with_run_criteria(every_other_time)
                     .with_system(make_exclusive(1).exclusive_system().label("1")),
             )
             .with_system(make_exclusive(2).exclusive_system().after("1"));
@@ -1392,7 +1392,7 @@ mod tests {
                 make_parallel!(0)
                     .system()
                     .label("0")
-                    .with_run_criteria(every_other_time.system()),
+                    .with_run_criteria(every_other_time),
             )
             .with_system(make_parallel!(1).system().after("0"));
         stage.run(&mut world);
@@ -1427,7 +1427,7 @@ mod tests {
         // Reusing criteria.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system_run_criteria(every_other_time.system().label("every other time"))
+            .with_system_run_criteria(every_other_time.label("every other time"))
             .with_system(make_parallel!(0).system().before("1"))
             .with_system(
                 make_parallel!(1)

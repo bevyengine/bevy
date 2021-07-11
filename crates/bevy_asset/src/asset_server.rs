@@ -134,11 +134,13 @@ impl AssetServer {
         &self,
         extension: &str,
     ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
-        self.server
-            .extension_to_loader_index
-            .read()
-            .get(extension)
-            .map(|index| self.server.loaders.read()[*index].clone())
+        let index = {
+            // scope map to drop lock as soon as possible
+            let map = self.server.extension_to_loader_index.read();
+            map.get(extension).copied()
+        };
+        index
+            .map(|index| self.server.loaders.read()[index].clone())
             .ok_or_else(|| AssetServerError::MissingAssetLoader {
                 extensions: vec![extension.to_string()],
             })
