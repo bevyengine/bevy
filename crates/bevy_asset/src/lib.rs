@@ -103,6 +103,7 @@ impl Plugin for AssetPlugin {
             AssetStage::AssetEvents,
             SystemStage::parallel(),
         )
+        .add_event::<AssetEventUntyped>()
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::CoreStage::PreUpdate,
