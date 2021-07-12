@@ -52,6 +52,7 @@ skip = [
     { name = "ndk-glue", version = "0.2" },
     { name = "num_enum", version = "0.4" },
     { name = "num_enum_derive", version = "0.4" },
+    { name = "proc-macro-crate", version = "0.1" },
     { name = "stdweb", version = "0.1" },
 ]
 
