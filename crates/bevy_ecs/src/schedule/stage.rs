@@ -590,18 +590,7 @@ impl SystemStage {
             })
             .collect();
         for criteria in self.run_criteria.iter_mut() {
-            criteria.parents = criteria
-                .after
-                .iter()
-                .map(|label| {
-                    *labels.get(label).unwrap_or_else(|| {
-                        panic!(
-                            "Couldn't find run criteria labelled {:?} to pipe from.",
-                            label
-                        )
-                    })
-                })
-                .collect();
+            criteria.update_parent_indices(&labels);
         }
 
         fn update_run_criteria_indices<T: SystemContainer>(

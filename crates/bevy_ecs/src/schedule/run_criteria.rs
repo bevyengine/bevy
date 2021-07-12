@@ -7,6 +7,7 @@ use crate::{
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
+use bevy_utils::HashMap;
 use std::borrow::Cow;
 
 /// Determines whether a system should be executed or not, and how many times it should be ran each
@@ -101,6 +102,22 @@ impl RunCriteriaContainer {
         }
     }
 
+    pub fn update_parent_indices(&mut self, labels: &HashMap<BoxedRunCriteriaLabel, usize>) {
+        self.parents = self
+            .after
+            .iter()
+            .take(self.inner.parents_len())
+            .map(|label| {
+                *labels.get(label).unwrap_or_else(|| {
+                    panic!(
+                        "Couldn't find run criteria labelled {:?} to pipe from.",
+                        label
+                    )
+                })
+            })
+            .collect();
+    }
+
     pub fn initialize(&mut self, world: &mut World) {
         self.inner.initialize(world)
     }
@@ -122,6 +139,8 @@ trait RunCriteriaTrait: Send + Sync {
         run_criteria: &[RunCriteriaContainer],
     ) -> ShouldRun;
 
+    fn parents_len(&self) -> usize;
+
     fn name(&self) -> Cow<'static, str>;
 
     fn initialize(&mut self, world: &mut World);
@@ -137,6 +156,10 @@ impl RunCriteriaTrait for RunCriteriaInner<ShouldRun> {
         self.0.run(run_criteria[parents[0]].should_run, world)
     }
 
+    fn parents_len(&self) -> usize {
+        1
+    }
+
     fn name(&self) -> Cow<'static, str> {
         self.0.name()
     }
@@ -150,6 +173,11 @@ macro_rules! into_should_run {
     ($input: ident) => {
         ShouldRun
     };
+}
+
+macro_rules! count {
+    () => {0usize};
+    ($head:tt $($tail:tt)*) => {1usize + count!($($tail)*)};
 }
 
 macro_rules! into_iter_next {
@@ -171,6 +199,10 @@ macro_rules! impl_criteria_running {
                 let mut parent_iter = parents.iter().cloned();
                 let input = ($(run_criteria[into_iter_next!(parent_iter, $input)].should_run,) *);
                 self.0.run(input, world)
+            }
+
+            fn parents_len(&self) -> usize {
+                count!($($input)*)
             }
 
             fn name(&self) -> Cow<'static, str> {
