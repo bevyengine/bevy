@@ -259,8 +259,8 @@ name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
-name = "change_detection"
-path = "examples/ecs/change_detection.rs"
+name = "component_change_detection"
+path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
 name = "event"
