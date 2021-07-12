@@ -14,7 +14,9 @@ mod path;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{
+        AddAsset, AssetEvent, AssetEventUntyped, AssetServer, Assets, Handle, HandleUntyped,
+    };
 }
 
 pub use asset_server::*;
