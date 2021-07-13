@@ -301,11 +301,7 @@ impl ParallelExecutor {
 
     #[cfg(test)]
     fn emit_event(&self, event: SchedulingEvent) {
-        self.events_sender
-            .as_ref()
-            .unwrap()
-            .try_send(event)
-            .unwrap();
+        let _ = self.events_sender.as_ref().unwrap().try_send(event);
     }
 }
 
