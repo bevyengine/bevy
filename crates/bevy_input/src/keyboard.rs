@@ -1,9 +1,9 @@
 use crate::{ElementState, Input};
 use bevy_app::EventReader;
-use bevy_ecs::system::ResMut;
+use bevy_ecs::{event::Event, system::ResMut};
 
 /// A key input event from a keyboard device
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct KeyboardInput {
     pub scan_code: u32,
     pub key_code: Option<KeyCode>,

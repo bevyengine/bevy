@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
-    event::Events,
+    event::{Event, Events},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
     },
@@ -312,7 +312,7 @@ impl AppBuilder {
     /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Event,
     {
         self.insert_resource(Events::<T>::default())
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())

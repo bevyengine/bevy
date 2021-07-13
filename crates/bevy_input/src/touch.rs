@@ -1,4 +1,4 @@
-use bevy_app::EventReader;
+use bevy_app::{Event, EventReader};
 use bevy_ecs::system::ResMut;
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
@@ -19,7 +19,7 @@ use bevy_utils::HashMap;
 /// A `Cancelled` event is emitted when the system has canceled tracking this
 /// touch, such as when the window loses focus, or on iOS if the user moves the
 /// device against their face.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Event)]
 pub struct TouchInput {
     pub phase: TouchPhase,
     pub position: Vec2,

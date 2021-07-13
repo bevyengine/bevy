@@ -1,9 +1,12 @@
 use crate::{ElementState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{
+    event::{Event, EventReader},
+    system::ResMut,
+};
 use bevy_math::Vec2;
 
 /// A mouse button input event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseButtonInput {
     pub button: MouseButton,
     pub state: ElementState,
@@ -20,7 +23,7 @@ pub enum MouseButton {
 }
 
 /// A mouse motion event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseMotion {
     pub delta: Vec2,
 }
@@ -34,7 +37,7 @@ pub enum MouseScrollUnit {
 
 /// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical
 /// scroll.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,
     pub x: f32,
