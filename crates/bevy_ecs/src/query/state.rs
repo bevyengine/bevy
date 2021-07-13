@@ -36,7 +36,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    /// Creates a new [`QueryState`].
+    /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
@@ -86,7 +86,7 @@ where
     ///
     /// # Panics
     ///
-    /// Panics if the `world.id()` is not equal to the query's `world_id`.
+    /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
         if world.id() != self.world_id {
             panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
@@ -256,6 +256,11 @@ where
 
     /// Iterates over all possible combinations of `K` query results for the given [`World`]
     /// without repetition.
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
     #[inline]
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
