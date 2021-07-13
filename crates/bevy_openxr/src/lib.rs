@@ -394,7 +394,7 @@ fn runner(mut app: App) {
     app.world.insert_resource(session.clone());
 
     session
-        .attach_action_sets(&[&interaction_context.action_set])
+        .attach_action_sets(&[&interaction_context.action_set.lock()])
         .unwrap();
 
     let tracking_context = Arc::new(OpenXrTrackingContext::new(
@@ -410,7 +410,7 @@ fn runner(mut app: App) {
         view_type,
         action_set: interaction_context.action_set.clone(),
         session: session.clone(),
-        tracking_context: tracking_context.clone(),
+        context: tracking_context.clone(),
         next_vsync_time: next_vsync_time.clone(),
     };
 
@@ -473,7 +473,7 @@ fn runner(mut app: App) {
                     reference_ref.space_type = e.reference_space_type();
                     reference_ref.change_time = e.change_time();
                     reference_ref.previous_pose_offset =
-                        openxr_pose_to_rigid_transform(e.pose_in_previous_space(), e.pose_valid())
+                        openxr_pose_to_rigid_transform(e.pose_in_previous_space())
                 }
                 xr::Event::PerfSettingsEXT(e) => {
                     let sub_domain = match e.sub_domain() {

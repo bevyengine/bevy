@@ -12,6 +12,8 @@ use bevy_xr::{
     XrButtons,
 };
 use openxr as xr;
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 fn hand_str(hand_type: HandType) -> &'static str {
     match hand_type {
@@ -54,7 +56,11 @@ struct ButtonActions {
 }
 
 pub(crate) struct InteractionContext {
-    pub action_set: xr::ActionSet,
+    // Every time `session.sync_action` is called, the result of `locate_space` can change. In case
+    // of concurrent use, this becomes unpredictable. Use a Mutex on the `action_set` to allow
+    // proper synchronization. (NB: synchronization is not ensured: the lock must be held until all
+    // `locate_space` calls have been performed)
+    pub action_set: Arc<Mutex<xr::ActionSet>>,
     button_actions: HashMap<(HandType, XrButtonType), ButtonActions>,
     axes_actions: HashMap<(HandType, XrAxisType), xr::Action<f32>>,
     grip_actions: HashMap<HandType, xr::Action<xr::Posef>>,
@@ -331,7 +337,7 @@ impl InteractionContext {
         }
 
         InteractionContext {
-            action_set,
+            action_set: Arc::new(Mutex::new(action_set)),
             button_actions,
             axes_actions,
             grip_actions,
@@ -347,9 +353,10 @@ pub(crate) fn handle_input(
     buttons: &mut XrButtons,
     axes: &mut XrAxes,
 ) {
-    session
-        .sync_actions(&[(&context.action_set).into()])
-        .unwrap();
+    // NB: hold the lock
+    let action_set = &*context.action_set.lock();
+
+    session.sync_actions(&[action_set.into()]).unwrap();
 
     for (&(hand, button), actions) in &context.button_actions {
         let touched = actions

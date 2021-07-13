@@ -4,27 +4,27 @@ use crate::{
 };
 use bevy_math::Vec3;
 use bevy_xr::{
-    interaction::implementation::XrTrackingSourceBackend, HandType, XrPose, XrReferenceSpaceType,
-    XrRigidTransform, XR_HAND_JOINT_COUNT,
+    interaction::implementation::XrTrackingSourceBackend, HandType, XrJointPose, XrPose,
+    XrReferenceSpaceType, XrRigidTransform,
 };
 use openxr as xr;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::sync::Arc;
 
-pub fn openxr_pose_to_rigid_transform(pose: xr::Posef, position_valid: bool) -> XrRigidTransform {
+pub fn openxr_pose_to_rigid_transform(pose: xr::Posef) -> XrRigidTransform {
     XrRigidTransform {
-        position: position_valid.then(|| to_vec3(pose.position)),
+        position: to_vec3(pose.position),
         orientation: to_quat(pose.orientation),
     }
 }
 
+/// Usage: `prediction_time` must be the same time used to obtain `pose`.
 pub fn openxr_pose_to_corrected_rigid_transform(
     pose: xr::Posef,
-    position_valid: bool,
     reference: &OpenXrTrackingReference,
     prediction_time: xr::Time,
 ) -> XrRigidTransform {
-    let transform = openxr_pose_to_rigid_transform(pose, position_valid);
+    let transform = openxr_pose_to_rigid_transform(pose);
 
     if reference.change_time.as_nanos() > prediction_time.as_nanos() {
         reference.previous_pose_offset * transform
@@ -39,10 +39,14 @@ pub fn predict_pose(
     prediction_time: xr::Time,
 ) -> Option<XrPose> {
     let (location, velocity) = space.relate(&reference.space, prediction_time).ok()?;
-    let location_flags = location.location_flags;
-    let valocity_falgs = velocity.velocity_flags;
+    if !location.location_flags.contains(
+        xr::SpaceLocationFlags::ORIENTATION_VALID | xr::SpaceLocationFlags::POSITION_VALID,
+    ) {
+        return None;
+    }
 
-    let linear_velocity = valocity_falgs
+    let linear_velocity = velocity
+        .velocity_flags
         .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
         .then(|| to_vec3(velocity.linear_velocity));
     let angular_velocity = velocity
@@ -50,18 +54,64 @@ pub fn predict_pose(
         .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
         .then(|| to_vec3(velocity.angular_velocity));
 
-    location_flags
-        .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
-        .then(|| XrPose {
-            transform: openxr_pose_to_corrected_rigid_transform(
-                location.pose,
-                location_flags.contains(xr::SpaceLocationFlags::POSITION_VALID),
-                reference,
-                prediction_time,
-            ),
-            linear_velocity,
-            angular_velocity,
-        })
+    Some(XrPose {
+        transform: openxr_pose_to_corrected_rigid_transform(
+            location.pose,
+            reference,
+            prediction_time,
+        ),
+        linear_velocity,
+        angular_velocity,
+        emulated_position: location
+            .location_flags
+            .contains(xr::SpaceLocationFlags::POSITION_TRACKED),
+    })
+}
+
+pub fn predict_skeleton_pose(
+    hand_tracker: &xr::HandTracker,
+    reference: &OpenXrTrackingReference,
+    prediction_time: xr::Time,
+) -> Option<Vec<XrJointPose>> {
+    let (poses, velocities) = reference
+        .space
+        .relate_hand_joints(&hand_tracker, prediction_time)
+        .ok()
+        .flatten()?;
+
+    Some(
+        poses
+            .iter()
+            .zip(velocities.iter())
+            .skip(1) // exclude palm joint
+            .map(|(location, velocity)| {
+                let linear_velocity = velocity
+                    .velocity_flags
+                    .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
+                    .then(|| to_vec3(velocity.linear_velocity));
+                let angular_velocity = velocity
+                    .velocity_flags
+                    .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
+                    .then(|| to_vec3(velocity.angular_velocity));
+
+                XrJointPose {
+                    pose: XrPose {
+                        transform: openxr_pose_to_corrected_rigid_transform(
+                            location.pose,
+                            reference,
+                            prediction_time,
+                        ),
+                        linear_velocity,
+                        angular_velocity,
+                        emulated_position: location
+                            .location_flags
+                            .contains(xr::SpaceLocationFlags::POSITION_TRACKED),
+                    },
+                    radius: location.radius,
+                }
+            })
+            .collect(),
+    )
 }
 
 pub struct OpenXrTrackingReference {
@@ -153,18 +203,18 @@ impl OpenXrTrackingContext {
 
 pub(crate) struct TrackingSource {
     pub view_type: xr::ViewConfigurationType,
-    pub action_set: xr::ActionSet,
+    pub action_set: Arc<Mutex<xr::ActionSet>>,
     pub session: OpenXrSession,
-    pub tracking_context: Arc<OpenXrTrackingContext>,
+    pub context: Arc<OpenXrTrackingContext>,
     pub next_vsync_time: Arc<RwLock<xr::Time>>,
 }
 
 impl XrTrackingSourceBackend for TrackingSource {
     fn reference_space_type(&self) -> XrReferenceSpaceType {
-        match self.tracking_context.reference.read().space_type {
+        match self.context.reference.read().space_type {
             xr::ReferenceSpaceType::VIEW => XrReferenceSpaceType::Viewer,
             xr::ReferenceSpaceType::LOCAL => XrReferenceSpaceType::Local,
-            xr::ReferenceSpaceType::STAGE => XrReferenceSpaceType::BoundedFloor,
+            xr::ReferenceSpaceType::STAGE => XrReferenceSpaceType::Stage,
             _ => unreachable!(),
         }
     }
@@ -173,13 +223,13 @@ impl XrTrackingSourceBackend for TrackingSource {
         let reference_type = match mode {
             XrReferenceSpaceType::Viewer => xr::ReferenceSpaceType::VIEW,
             XrReferenceSpaceType::Local => xr::ReferenceSpaceType::LOCAL,
-            XrReferenceSpaceType::BoundedFloor => xr::ReferenceSpaceType::STAGE,
+            XrReferenceSpaceType::Stage => xr::ReferenceSpaceType::STAGE,
         };
         if let Ok(space) = self
             .session
             .create_reference_space(reference_type, xr::Posef::IDENTITY)
         {
-            let reference_ref = &mut self.tracking_context.reference.write();
+            let reference_ref = &mut self.context.reference.write();
             reference_ref.space_type = reference_type;
             reference_ref.space = space;
 
@@ -192,7 +242,7 @@ impl XrTrackingSourceBackend for TrackingSource {
     fn bounds_geometry(&self) -> Option<Vec<Vec3>> {
         let rect = self
             .session
-            .reference_space_bounds_rect(self.tracking_context.reference.read().space_type)
+            .reference_space_bounds_rect(self.context.reference.read().space_type)
             .ok()
             .flatten()?;
         let half_width = rect.width / 2_f32;
@@ -207,80 +257,76 @@ impl XrTrackingSourceBackend for TrackingSource {
     }
 
     fn views_poses(&self) -> Vec<XrPose> {
-        self.session
-            .sync_actions(&[(&self.action_set).into()])
-            .unwrap();
-        let reference = &self.tracking_context.reference.read();
+        // NB: hold the lock
+        let action_set = &*self.action_set.lock();
+
+        self.session.sync_actions(&[action_set.into()]).unwrap();
+        let reference = &self.context.reference.read();
         let display_time = *self.next_vsync_time.read();
 
         let (flags, views) = self
             .session
             .locate_views(self.view_type, display_time, &reference.space)
             .unwrap();
-        let position_valid = flags.contains(xr::ViewStateFlags::POSITION_VALID);
 
         views
             .into_iter()
             .map(|view| XrPose {
                 transform: openxr_pose_to_corrected_rigid_transform(
                     view.pose,
-                    position_valid,
                     reference,
                     display_time,
                 ),
                 linear_velocity: None,
                 angular_velocity: None,
+                emulated_position: flags.contains(xr::ViewStateFlags::POSITION_TRACKED),
             })
             .collect()
     }
 
     fn hands_pose(&self) -> [Option<XrPose>; 2] {
-        self.session
-            .sync_actions(&[(&self.action_set).into()])
-            .unwrap();
-        let reference = &self.tracking_context.reference.read();
+        // NB: hold the lock
+        let action_set = &*self.action_set.lock();
+
+        self.session.sync_actions(&[action_set.into()]).unwrap();
+        let reference = &self.context.reference.read();
         let display_time = *self.next_vsync_time.read();
 
         [
-            predict_pose(
-                &self.tracking_context.grip_spaces[0],
-                reference,
-                display_time,
-            ),
-            predict_pose(
-                &self.tracking_context.grip_spaces[1],
-                reference,
-                display_time,
-            ),
+            predict_pose(&self.context.grip_spaces[0], reference, display_time),
+            predict_pose(&self.context.grip_spaces[1], reference, display_time),
         ]
     }
 
-    fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2] {
-        self.session
-            .sync_actions(&[(&self.action_set).into()])
-            .unwrap();
+    fn hands_skeleton_pose(&self) -> [Option<Vec<XrJointPose>>; 2] {
+        if let Some(hand_trackers) = &self.context.hand_trackers {
+            // NB: hold the lock
+            let action_set = &*self.action_set.lock();
 
-        todo!()
+            self.session.sync_actions(&[action_set.into()]).unwrap();
+            let display_time = *self.next_vsync_time.read();
+            let reference = &self.context.reference.read();
+
+            [
+                predict_skeleton_pose(&hand_trackers[0], reference, display_time),
+                predict_skeleton_pose(&hand_trackers[1], reference, display_time),
+            ]
+        } else {
+            [None, None]
+        }
     }
 
     fn hands_target_ray(&self) -> [Option<XrPose>; 2] {
-        self.session
-            .sync_actions(&[(&self.action_set).into()])
-            .unwrap();
+        // NB: hold the lock
+        let action_set = &*self.action_set.lock();
+
+        self.session.sync_actions(&[action_set.into()]).unwrap();
         let display_time = *self.next_vsync_time.read();
-        let reference = &self.tracking_context.reference.read();
+        let reference = &self.context.reference.read();
 
         [
-            predict_pose(
-                &self.tracking_context.target_ray_spaces[0],
-                reference,
-                display_time,
-            ),
-            predict_pose(
-                &self.tracking_context.target_ray_spaces[1],
-                reference,
-                display_time,
-            ),
+            predict_pose(&self.context.target_ray_spaces[0], reference, display_time),
+            predict_pose(&self.context.target_ray_spaces[1], reference, display_time),
         ]
     }
 
@@ -289,14 +335,15 @@ impl XrTrackingSourceBackend for TrackingSource {
         let poses_count = poses.len() as f32;
 
         // fixme: this is wrong when views point outwards (Pimax)
-        let orientation = poses.first().unwrap().transform.orientation;
+        // todo: quaternion averaging
+        let orientation = poses[0].transform.orientation;
 
         let position = poses
-            .into_iter()
+            .iter()
             .map(|pose| pose.transform.position)
-            .reduce(|pos1, pos2| Some(pos1? + pos2?))
+            .reduce(std::ops::Add::add)
             .unwrap()
-            .map(|sum| sum / poses_count);
+            / poses_count;
 
         XrPose {
             transform: XrRigidTransform {
@@ -305,6 +352,7 @@ impl XrTrackingSourceBackend for TrackingSource {
             },
             linear_velocity: None,
             angular_velocity: None,
+            emulated_position: poses[0].emulated_position,
         }
     }
 }

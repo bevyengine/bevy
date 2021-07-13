@@ -7,7 +7,7 @@ use std::{
 };
 
 // Note: indices follow WebXR convention. OpenXR's palm joint is missing, but it can be retrieved
-// using `XrState::hand_pose()`.
+// using `XrTrackingSource::hands_pose()`.
 pub const XR_HAND_JOINT_WRIST: usize = 0;
 pub const XR_HAND_JOINT_THUMB_METACARPAL: usize = 1;
 pub const XR_HAND_JOINT_THUMB_PROXIMAL: usize = 2;
@@ -33,12 +33,13 @@ pub const XR_HAND_JOINT_LITTLE_PROXIMAL: usize = 21;
 pub const XR_HAND_JOINT_LITTLE_INTERMEDIATE: usize = 22;
 pub const XR_HAND_JOINT_LITTLE_DISTAL: usize = 23;
 pub const XR_HAND_JOINT_LITTLE_TIP: usize = 24;
-pub const XR_HAND_JOINT_COUNT: usize = 25;
 
-#[derive(Clone, Copy, Debug, Default)]
+// To be verified: in all useful instances, when the orientation is valid, the position is also
+// valid. In case of 3DOF headsets, position should always be emulated using a neck and arm model.
+// In case of hand tracking, when a joint is estimated, both pose and orientation are available.
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct XrRigidTransform {
-    // todo: for OpenXR, provide a neck/arm model if needed and remove `Option`
-    pub position: Option<Vec3>,
+    pub position: Vec3,
     pub orientation: Quat,
 }
 
@@ -56,11 +57,12 @@ impl XrRigidTransform {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct XrPose {
     pub transform: XrRigidTransform,
     pub linear_velocity: Option<Vec3>,
     pub angular_velocity: Option<Vec3>,
+    pub emulated_position: bool,
 }
 
 impl Deref for XrPose {
@@ -71,7 +73,24 @@ impl Deref for XrPose {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct XrJointPose {
+    pub pose: XrPose,
+
+    /// Radius of a sphere placed at the center of the joint that roughly touches the skin on both
+    /// sides of the hand.
+    pub radius: f32,
+}
+
+impl Deref for XrJointPose {
+    type Target = XrPose;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pose
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum XrReferenceSpaceType {
     /// The coordinate system (position and orientation) is set as the headset pose at startup or
     /// after a recenter. This should be used only for experiences where the user is laid down.
@@ -83,16 +102,16 @@ pub enum XrReferenceSpaceType {
 
     /// The coordinate system (position and orientation) corresponds to the center of a rectangle at
     /// floor level, with +Y up. This is for stading or room-scale experiences.
-    BoundedFloor,
+    Stage,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum HandType {
     Left,
     Right,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum XrButtonState {
     Default,
     Touched,
@@ -224,7 +243,7 @@ impl Default for XrAxes {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum VibrationEventType {
     Apply {
         duration: Duration,
@@ -234,7 +253,7 @@ pub enum VibrationEventType {
     Stop,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct VibrationEvent {
     pub hand: HandType,
     pub command: VibrationEventType,
@@ -245,7 +264,7 @@ pub struct VibrationEvent {
 /// Note: in case skeletal hand tracking is active, the profiles still point to controller profiles.
 /// The correct 3D model to display can be decided depending on if skeletal hand tracking data is
 /// available or not.
-#[derive(Default)]
+#[derive(Clone, PartialEq, Default, Debug, Serialize, Deserialize)]
 pub struct XrProfiles {
     pub left_hand: Option<String>,
     pub right_hand: Option<String>,
@@ -253,7 +272,7 @@ pub struct XrProfiles {
 
 pub mod implementation {
     use super::XrReferenceSpaceType;
-    use crate::interaction::{XrPose, XR_HAND_JOINT_COUNT};
+    use crate::{interaction::XrPose, XrJointPose};
     use bevy_math::Vec3;
 
     pub trait XrTrackingSourceBackend: Send + Sync {
@@ -262,7 +281,7 @@ pub mod implementation {
         fn bounds_geometry(&self) -> Option<Vec<Vec3>>;
         fn views_poses(&self) -> Vec<XrPose>;
         fn hands_pose(&self) -> [Option<XrPose>; 2];
-        fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2];
+        fn hands_skeleton_pose(&self) -> [Option<Vec<XrJointPose>>; 2];
         fn hands_target_ray(&self) -> [Option<XrPose>; 2];
         fn viewer_target_ray(&self) -> XrPose;
     }
@@ -310,7 +329,7 @@ impl XrTrackingSource {
     }
 
     /// Index 0 corresponds to the left hand, index 1 corresponds to the right hand.
-    pub fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2] {
+    pub fn hands_skeleton_pose(&self) -> [Option<Vec<XrJointPose>>; 2] {
         self.inner.hands_skeleton_pose()
     }
 
