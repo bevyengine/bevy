@@ -516,10 +516,10 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
-/// fn write_to_local(mut local: Local<usize>) {
+/// fn write_to_local(mut local: Local<usize, true>) {
 ///     *local = 42;
 /// }
-/// fn read_from_local(local: Local<usize>) -> usize {
+/// fn read_from_local(local: Local<usize, true>) -> usize {
 ///     *local
 /// }
 /// let mut write_system = write_to_local.system();
