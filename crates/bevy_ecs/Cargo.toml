@@ -31,6 +31,9 @@ downcast-rs = "1.2"
 rand = "0.8"
 serde = "1"
 
+[dev-dependencies]
+parking_lot = "0.11"
+
 [[example]]
 name = "events"
 path = "examples/events.rs"
