@@ -1,31 +1,172 @@
+use crate::{
+    conversion::{to_quat, to_vec3},
+    InteractionContext, OpenXrSession,
+};
+use bevy_math::Vec3;
 use bevy_xr::{
-    interaction::implementation::XrTrackingStateBackend, HandType, XrPose, XrReferenceSpaceType,
+    interaction::implementation::XrTrackingSourceBackend, HandType, XrPose, XrReferenceSpaceType,
     XrRigidTransform, XR_HAND_JOINT_COUNT,
 };
 use openxr as xr;
-use std::sync::Mutex;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
-use crate::conversion::{to_quat, to_vec3};
-
-pub struct Spaces {
-    pub reference: Mutex<(XrReferenceSpaceType, xr::Space)>,
-    pub left_grip: xr::Space,
-    pub right_grip: xr::Space,
-    pub left_target_ray: xr::Space,
-    pub right_target_ray: xr::Space,
+pub fn openxr_pose_to_rigid_transform(pose: xr::Posef, position_valid: bool) -> XrRigidTransform {
+    XrRigidTransform {
+        position: position_valid.then(|| to_vec3(pose.position)),
+        orientation: to_quat(pose.orientation),
+    }
 }
 
-pub(crate) struct TrackingState {
-    view_type: xr::ViewConfigurationType,
-    action_set: xr::ActionSet,
-    pub(crate) session: xr::Session<xr::AnyGraphics>,
-    spaces: Spaces,
-    pub(crate) next_vsync_time: xr::Time,
+pub fn openxr_pose_to_corrected_rigid_transform(
+    pose: xr::Posef,
+    position_valid: bool,
+    reference: &OpenXrTrackingReference,
+    prediction_time: xr::Time,
+) -> XrRigidTransform {
+    let transform = openxr_pose_to_rigid_transform(pose, position_valid);
+
+    if reference.change_time.as_nanos() > prediction_time.as_nanos() {
+        reference.previous_pose_offset * transform
+    } else {
+        transform
+    }
 }
 
-impl XrTrackingStateBackend for TrackingState {
-    fn get_reference_space_type(&self) -> XrReferenceSpaceType {
-        self.spaces.reference.lock().unwrap().0
+pub fn predict_pose(
+    space: &xr::Space,
+    reference: &OpenXrTrackingReference,
+    prediction_time: xr::Time,
+) -> Option<XrPose> {
+    let (location, velocity) = space.relate(&reference.space, prediction_time).ok()?;
+    let location_flags = location.location_flags;
+    let valocity_falgs = velocity.velocity_flags;
+
+    let linear_velocity = valocity_falgs
+        .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
+        .then(|| to_vec3(velocity.linear_velocity));
+    let angular_velocity = velocity
+        .velocity_flags
+        .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
+        .then(|| to_vec3(velocity.angular_velocity));
+
+    location_flags
+        .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
+        .then(|| XrPose {
+            transform: openxr_pose_to_corrected_rigid_transform(
+                location.pose,
+                location_flags.contains(xr::SpaceLocationFlags::POSITION_VALID),
+                reference,
+                prediction_time,
+            ),
+            linear_velocity,
+            angular_velocity,
+        })
+}
+
+pub struct OpenXrTrackingReference {
+    pub space_type: xr::ReferenceSpaceType,
+    pub space: xr::Space,
+    pub change_time: xr::Time,
+    pub previous_pose_offset: XrRigidTransform,
+}
+
+pub struct OpenXrTrackingContext {
+    pub reference: RwLock<OpenXrTrackingReference>,
+    pub grip_spaces: [xr::Space; 2],
+    pub target_ray_spaces: [xr::Space; 2],
+    pub hand_trackers: Option<[xr::HandTracker; 2]>,
+}
+
+impl OpenXrTrackingContext {
+    pub(crate) fn new(
+        instance: &xr::Instance,
+        system: xr::SystemId,
+        interaction_context: &InteractionContext,
+        session: OpenXrSession,
+    ) -> Self {
+        // Select the most immersive type available
+        let reference = [
+            xr::ReferenceSpaceType::STAGE,
+            xr::ReferenceSpaceType::LOCAL,
+            xr::ReferenceSpaceType::VIEW,
+        ]
+        .iter()
+        .cloned()
+        .find_map(|space_type| {
+            let space = session
+                .create_reference_space(space_type, xr::Posef::IDENTITY)
+                .ok()?;
+
+            Some(OpenXrTrackingReference {
+                space_type,
+                space,
+                change_time: xr::Time::from_nanos(0),
+                previous_pose_offset: XrRigidTransform::default(),
+            })
+        })
+        .unwrap();
+
+        let grip_spaces = [
+            interaction_context
+                .grip_actions
+                .get(&HandType::Left)
+                .unwrap()
+                .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
+                .unwrap(),
+            interaction_context
+                .grip_actions
+                .get(&HandType::Right)
+                .unwrap()
+                .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
+                .unwrap(),
+        ];
+        let target_ray_spaces = [
+            interaction_context
+                .target_ray_actions
+                .get(&HandType::Left)
+                .unwrap()
+                .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
+                .unwrap(),
+            interaction_context
+                .target_ray_actions
+                .get(&HandType::Right)
+                .unwrap()
+                .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
+                .unwrap(),
+        ];
+        let hand_trackers = instance.supports_hand_tracking(system).unwrap().then(|| {
+            [
+                session.create_hand_tracker(xr::Hand::LEFT).unwrap(),
+                session.create_hand_tracker(xr::Hand::RIGHT).unwrap(),
+            ]
+        });
+
+        Self {
+            reference: RwLock::new(reference),
+            grip_spaces,
+            target_ray_spaces,
+            hand_trackers,
+        }
+    }
+}
+
+pub(crate) struct TrackingSource {
+    pub view_type: xr::ViewConfigurationType,
+    pub action_set: xr::ActionSet,
+    pub session: OpenXrSession,
+    pub tracking_context: Arc<OpenXrTrackingContext>,
+    pub next_vsync_time: Arc<RwLock<xr::Time>>,
+}
+
+impl XrTrackingSourceBackend for TrackingSource {
+    fn reference_space_type(&self) -> XrReferenceSpaceType {
+        match self.tracking_context.reference.read().space_type {
+            xr::ReferenceSpaceType::VIEW => XrReferenceSpaceType::Viewer,
+            xr::ReferenceSpaceType::LOCAL => XrReferenceSpaceType::Local,
+            xr::ReferenceSpaceType::STAGE => XrReferenceSpaceType::BoundedFloor,
+            _ => unreachable!(),
+        }
     }
 
     fn set_reference_space_type(&self, mode: XrReferenceSpaceType) -> bool {
@@ -38,7 +179,9 @@ impl XrTrackingStateBackend for TrackingState {
             .session
             .create_reference_space(reference_type, xr::Posef::IDENTITY)
         {
-            *self.spaces.reference.lock().unwrap() = (mode, space);
+            let reference_ref = &mut self.tracking_context.reference.write();
+            reference_ref.space_type = reference_type;
+            reference_ref.space = space;
 
             true
         } else {
@@ -46,101 +189,73 @@ impl XrTrackingStateBackend for TrackingState {
         }
     }
 
-    fn tracking_area_bounds(&self) -> Option<(f32, f32)> {
-        todo!()
+    fn bounds_geometry(&self) -> Option<Vec<Vec3>> {
+        let rect = self
+            .session
+            .reference_space_bounds_rect(self.tracking_context.reference.read().space_type)
+            .ok()
+            .flatten()?;
+        let half_width = rect.width / 2_f32;
+        let half_height = rect.height / 2_f32;
+
+        Some(vec![
+            Vec3::new(-half_width, 0_f32, -half_height),
+            Vec3::new(half_width, 0_f32, -half_height),
+            Vec3::new(half_width, 0_f32, half_height),
+            Vec3::new(-half_width, 0_f32, half_height),
+        ])
     }
 
     fn views_poses(&self) -> Vec<XrPose> {
         self.session
             .sync_actions(&[(&self.action_set).into()])
             .unwrap();
+        let reference = &self.tracking_context.reference.read();
+        let display_time = *self.next_vsync_time.read();
 
         let (flags, views) = self
             .session
-            .locate_views(
-                self.view_type,
-                self.next_vsync_time,
-                &self.spaces.reference.lock().unwrap().1,
-            )
+            .locate_views(self.view_type, display_time, &reference.space)
             .unwrap();
+        let position_valid = flags.contains(xr::ViewStateFlags::POSITION_VALID);
 
         views
             .into_iter()
             .map(|view| XrPose {
-                transform: XrRigidTransform {
-                    position: if flags.contains(xr::ViewStateFlags::POSITION_VALID) {
-                        Some(to_vec3(view.pose.position))
-                    } else {
-                        None
-                    },
-                    orientation: to_quat(view.pose.orientation),
-                },
+                transform: openxr_pose_to_corrected_rigid_transform(
+                    view.pose,
+                    position_valid,
+                    reference,
+                    display_time,
+                ),
                 linear_velocity: None,
                 angular_velocity: None,
             })
             .collect()
     }
 
-    fn hand_pose(&self, hand_type: HandType) -> Option<XrPose> {
+    fn hands_pose(&self) -> [Option<XrPose>; 2] {
         self.session
             .sync_actions(&[(&self.action_set).into()])
             .unwrap();
+        let reference = &self.tracking_context.reference.read();
+        let display_time = *self.next_vsync_time.read();
 
-        let space = match hand_type {
-            HandType::Left => &self.spaces.left_grip,
-            HandType::Right => &self.spaces.right_grip,
-        };
-
-        let (location, velocity) = space
-            .relate(
-                &self.spaces.reference.lock().unwrap().1,
-                self.next_vsync_time,
-            )
-            .unwrap();
-
-        let position = if location
-            .location_flags
-            .contains(xr::SpaceLocationFlags::POSITION_VALID)
-        {
-            Some(to_vec3(location.pose.position))
-        } else {
-            None
-        };
-        let linear_velocity = if velocity
-            .velocity_flags
-            .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
-        {
-            Some(to_vec3(velocity.linear_velocity))
-        } else {
-            None
-        };
-        let angular_velocity = if velocity
-            .velocity_flags
-            .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
-        {
-            Some(to_vec3(velocity.angular_velocity))
-        } else {
-            None
-        };
-
-        if location
-            .location_flags
-            .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
-        {
-            Some(XrPose {
-                transform: XrRigidTransform {
-                    position,
-                    orientation: to_quat(location.pose.orientation),
-                },
-                linear_velocity,
-                angular_velocity,
-            })
-        } else {
-            None
-        }
+        [
+            predict_pose(
+                &self.tracking_context.grip_spaces[0],
+                reference,
+                display_time,
+            ),
+            predict_pose(
+                &self.tracking_context.grip_spaces[1],
+                reference,
+                display_time,
+            ),
+        ]
     }
 
-    fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
+    fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2] {
         self.session
             .sync_actions(&[(&self.action_set).into()])
             .unwrap();
@@ -148,69 +263,32 @@ impl XrTrackingStateBackend for TrackingState {
         todo!()
     }
 
-    fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose> {
+    fn hands_target_ray(&self) -> [Option<XrPose>; 2] {
         self.session
             .sync_actions(&[(&self.action_set).into()])
             .unwrap();
+        let display_time = *self.next_vsync_time.read();
+        let reference = &self.tracking_context.reference.read();
 
-        let space = match hand_type {
-            HandType::Left => &self.spaces.left_target_ray,
-            HandType::Right => &self.spaces.right_target_ray,
-        };
-
-        let (location, velocity) = space
-            .relate(
-                &self.spaces.reference.lock().unwrap().1,
-                self.next_vsync_time,
-            )
-            .unwrap();
-
-        let position = if location
-            .location_flags
-            .contains(xr::SpaceLocationFlags::POSITION_VALID)
-        {
-            Some(to_vec3(location.pose.position))
-        } else {
-            None
-        };
-        let linear_velocity = if velocity
-            .velocity_flags
-            .contains(xr::SpaceVelocityFlags::LINEAR_VALID)
-        {
-            Some(to_vec3(velocity.linear_velocity))
-        } else {
-            None
-        };
-        let angular_velocity = if velocity
-            .velocity_flags
-            .contains(xr::SpaceVelocityFlags::ANGULAR_VALID)
-        {
-            Some(to_vec3(velocity.angular_velocity))
-        } else {
-            None
-        };
-
-        if location
-            .location_flags
-            .contains(xr::SpaceLocationFlags::ORIENTATION_VALID)
-        {
-            Some(XrPose {
-                transform: XrRigidTransform {
-                    position,
-                    orientation: to_quat(location.pose.orientation),
-                },
-                linear_velocity,
-                angular_velocity,
-            })
-        } else {
-            None
-        }
+        [
+            predict_pose(
+                &self.tracking_context.target_ray_spaces[0],
+                reference,
+                display_time,
+            ),
+            predict_pose(
+                &self.tracking_context.target_ray_spaces[1],
+                reference,
+                display_time,
+            ),
+        ]
     }
 
     fn viewer_target_ray(&self) -> XrPose {
         let poses = self.views_poses();
         let poses_count = poses.len() as f32;
 
+        // fixme: this is wrong when views point outwards (Pimax)
         let orientation = poses.first().unwrap().transform.orientation;
 
         let position = poses

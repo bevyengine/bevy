@@ -27,6 +27,7 @@ serde = "1"
 ash = "0.32.1"
 wgpu = { path = "../../../wgpu/wgpu" }
 thiserror = "1.0"
+parking_lot = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-glue = "0.3.0"
@@ -37,6 +38,6 @@ wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
 # [target.'cfg(windows)'.dependencies]
 # wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["dx11"] }
 
-#test
+#dev
 [target.'cfg(target_os = "macos")'.dependencies]
 wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }

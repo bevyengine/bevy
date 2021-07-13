@@ -1,7 +1,10 @@
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_utils::Duration;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{Deref, Mul},
+};
 
 // Note: indices follow WebXR convention. OpenXR's palm joint is missing, but it can be retrieved
 // using `XrState::hand_pose()`.
@@ -32,11 +35,19 @@ pub const XR_HAND_JOINT_LITTLE_DISTAL: usize = 23;
 pub const XR_HAND_JOINT_LITTLE_TIP: usize = 24;
 pub const XR_HAND_JOINT_COUNT: usize = 25;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct XrRigidTransform {
     // todo: for OpenXR, provide a neck/arm model if needed and remove `Option`
     pub position: Option<Vec3>,
     pub orientation: Quat,
+}
+
+impl Mul for XrRigidTransform {
+    type Output = XrRigidTransform;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        todo!()
+    }
 }
 
 impl XrRigidTransform {
@@ -50,6 +61,14 @@ pub struct XrPose {
     pub transform: XrRigidTransform,
     pub linear_velocity: Option<Vec3>,
     pub angular_velocity: Option<Vec3>,
+}
+
+impl Deref for XrPose {
+    type Target = XrRigidTransform;
+
+    fn deref(&self) -> &Self::Target {
+        &self.transform
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -233,17 +252,18 @@ pub struct XrProfiles {
 }
 
 pub mod implementation {
-    use super::{HandType, XrReferenceSpaceType};
+    use super::XrReferenceSpaceType;
     use crate::interaction::{XrPose, XR_HAND_JOINT_COUNT};
+    use bevy_math::Vec3;
 
-    pub trait XrTrackingStateBackend: Send + Sync {
-        fn get_reference_space_type(&self) -> XrReferenceSpaceType;
+    pub trait XrTrackingSourceBackend: Send + Sync {
+        fn reference_space_type(&self) -> XrReferenceSpaceType;
         fn set_reference_space_type(&self, reference_space_type: XrReferenceSpaceType) -> bool;
-        fn tracking_area_bounds(&self) -> Option<(f32, f32)>;
+        fn bounds_geometry(&self) -> Option<Vec<Vec3>>;
         fn views_poses(&self) -> Vec<XrPose>;
-        fn hand_pose(&self, hand_type: HandType) -> Option<XrPose>;
-        fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]>;
-        fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose>;
+        fn hands_pose(&self) -> [Option<XrPose>; 2];
+        fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2];
+        fn hands_target_ray(&self) -> [Option<XrPose>; 2];
         fn viewer_target_ray(&self) -> XrPose;
     }
 }
@@ -251,55 +271,54 @@ pub mod implementation {
 /// Component used to poll tracking data. Tracking data is obtained "on-demand" to get the best
 /// precision possible. Poses are predicted for the next V-Sync. To obtain poses for an arbitrary
 /// point in time, `bevy_openxr` backend provides this functionality with OpenXrTrackingState.
-pub struct XrTrackingState {
-    reference_space_type: XrReferenceSpaceType,
-    inner: Box<dyn implementation::XrTrackingStateBackend>,
+pub struct XrTrackingSource {
+    inner: Box<dyn implementation::XrTrackingSourceBackend>,
 }
 
-impl XrTrackingState {
-    pub fn new(backend: Box<dyn implementation::XrTrackingStateBackend>) -> Self {
-        Self {
-            reference_space_type: XrReferenceSpaceType::Local,
-            inner: backend,
-        }
+impl XrTrackingSource {
+    pub fn new(backend: Box<dyn implementation::XrTrackingSourceBackend>) -> Self {
+        Self { inner: backend }
     }
 
-    pub fn get_reference_space_type(&self) -> XrReferenceSpaceType {
-        self.reference_space_type
+    pub fn reference_space_type(&self) -> XrReferenceSpaceType {
+        self.inner.reference_space_type()
     }
 
-    // Returns true if the tracking mode has been set correctly. If false is returned the tracking
-    // mode is not supported and another one must be chosen.
+    /// Returns true if the tracking mode has been set correctly. If false is returned the tracking
+    /// mode is not supported and another one must be chosen.
     pub fn set_reference_space_type(&mut self, reference_space_type: XrReferenceSpaceType) -> bool {
-        if self.inner.set_reference_space_type(reference_space_type) {
-            self.reference_space_type = reference_space_type;
-
-            true
-        } else {
-            false
-        }
+        self.inner.set_reference_space_type(reference_space_type)
     }
 
-    pub fn tracking_area_bounds(&self) -> Option<(f32, f32)> {
-        self.inner.tracking_area_bounds()
+    pub fn just_reset_reference_space(&mut self) -> bool {
+        todo!()
+    }
+
+    /// Returns a list of points, ordered clockwise, that define the playspace boundary. Only
+    /// available when the reference space is set to `BoundedFloor`. Y component is always 0.
+    pub fn bounds_geometry(&self) -> Option<Vec<Vec3>> {
+        self.inner.bounds_geometry()
     }
 
     pub fn views_poses(&self) -> Vec<XrPose> {
         self.inner.views_poses()
     }
 
-    pub fn hand_pose(&self, hand_type: HandType) -> Option<XrPose> {
-        self.inner.hand_pose(hand_type)
+    /// Index 0 corresponds to the left hand, index 1 corresponds to the right hand.
+    pub fn hands_pose(&self) -> [Option<XrPose>; 2] {
+        self.inner.hands_pose()
     }
 
-    pub fn hand_skeleton_pose(&self, hand_type: HandType) -> Option<[XrPose; XR_HAND_JOINT_COUNT]> {
-        self.inner.hand_skeleton_pose(hand_type)
+    /// Index 0 corresponds to the left hand, index 1 corresponds to the right hand.
+    pub fn hands_skeleton_pose(&self) -> [Option<[XrPose; XR_HAND_JOINT_COUNT]>; 2] {
+        self.inner.hands_skeleton_pose()
     }
 
-    /// Returns a pose that can be used to render a target ray or cursor. The ray is along -Z. The
-    /// behavior is vendor-specific.
-    pub fn hand_target_ray(&self, hand_type: HandType) -> Option<XrPose> {
-        self.inner.hand_target_ray(hand_type)
+    /// Returns poses that can be used to render a target ray or cursor. The ray is along -Z. The
+    /// behavior is vendor-specific. Index 0 corresponds to the left hand, index 1 corresponds to
+    /// the right hand.
+    pub fn hand_target_ray(&self) -> [Option<XrPose>; 2] {
+        self.inner.hands_target_ray()
     }
 
     /// Returns a pose that can be used to render a target ray or cursor. The ray is along -Z. The

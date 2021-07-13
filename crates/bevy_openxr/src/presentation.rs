@@ -42,7 +42,7 @@ pub fn create_graphics_context(
         let vk_version = vk::make_version(1, 0, 0);
 
         // todo: check requirements
-        let requirements = instance
+        let _requirements = instance
             .graphics_requirements::<xr::Vulkan>(system)
             .unwrap();
 
@@ -110,7 +110,7 @@ pub fn create_graphics_context(
         };
         let hal_instance = unsafe {
             <hal::api::Vulkan as hal::Api>::Instance::from_raw(
-                vk_entry,
+                vk_entry.clone(),
                 vk_instance.clone(),
                 vk_version,
                 instance_extensions,
@@ -149,7 +149,7 @@ pub fn create_graphics_context(
             .adapter
             .required_device_extensions(device_descriptor.features);
 
-        let physical_features = hal_exposed_adapter
+        let mut physical_features = hal_exposed_adapter
             .adapter
             .physical_device_features(&device_extensions, device_descriptor.features);
 
@@ -159,7 +159,7 @@ pub fn create_graphics_context(
             .build();
         let family_infos = [family_info];
 
-        let mut device_extensions_ptrs = instance_extensions
+        let mut device_extensions_ptrs = device_extensions
             .iter()
             .map(|x| x.as_ptr())
             .collect::<Vec<_>>();
@@ -208,7 +208,7 @@ pub fn create_graphics_context(
             hal_exposed_adapter
                 .adapter
                 .device_from_raw(
-                    vk_device,
+                    vk_device.clone(),
                     &device_extensions,
                     queue_family_index,
                     queue_index,
@@ -216,13 +216,14 @@ pub fn create_graphics_context(
                 .map_err(Box::new)?
         };
 
-        let wgpu_instance = unsafe { wgpu::Instance::from_hal::<hal::api::Vulkan>(hal_instance) };
-        let wgpu_adapter = unsafe { wgpu_instance.adapter_from_hal(hal_exposed_adapter) };
-        let (wgpu_device, wgpu_queue) = unsafe {
-            wgpu_adapter
-                .device_from_hal(hal_device, &device_descriptor, None)
-                .map_err(Box::new)?
-        };
+        // VVVV commented for working on macos
+        // let wgpu_instance = unsafe { wgpu::Instance::from_hal::<hal::api::Vulkan>(hal_instance) };
+        // let wgpu_adapter = unsafe { wgpu_instance.adapter_from_hal(hal_exposed_adapter) };
+        // let (wgpu_device, wgpu_queue) = unsafe {
+        //     wgpu_adapter
+        //         .device_from_hal(hal_device, &device_descriptor, None)
+        //         .map_err(Box::new)?
+        // };
 
         Ok((
             GraphicsContextHandles::Vulkan {
@@ -232,11 +233,12 @@ pub fn create_graphics_context(
                 queue_family_index,
                 queue_index,
             },
-            XrGraphicsContext {
-                instance: wgpu_instance,
-                device: Arc::new(wgpu_device),
-                queue: wgpu_queue,
-            },
+            todo!()
+            // XrGraphicsContext {
+            //     instance: wgpu_instance,
+            //     device: Arc::new(wgpu_device),
+            //     queue: wgpu_queue,
+            // },
         ))
     } else {
         #[cfg(windows)]

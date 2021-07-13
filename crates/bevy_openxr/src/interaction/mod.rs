@@ -4,9 +4,8 @@ mod tracking;
 pub use bindings::*;
 pub use tracking::*;
 
-use crate::conversion::from_duration;
-use bevy_app::EventReader;
-use bevy_ecs::system::Res;
+use crate::{conversion::from_duration, OpenXrSession};
+use bevy_app::{Events, ManualEventReader};
 use bevy_utils::HashMap;
 use bevy_xr::{
     HandType, VibrationEvent, VibrationEventType, XrAxes, XrAxisType, XrButtonState, XrButtonType,
@@ -55,7 +54,7 @@ struct ButtonActions {
 }
 
 pub(crate) struct InteractionContext {
-    action_set: xr::ActionSet,
+    pub action_set: xr::ActionSet,
     button_actions: HashMap<(HandType, XrButtonType), ButtonActions>,
     axes_actions: HashMap<(HandType, XrAxisType), xr::Action<f32>>,
     grip_actions: HashMap<HandType, xr::Action<xr::Posef>>,
@@ -64,7 +63,7 @@ pub(crate) struct InteractionContext {
 }
 
 impl InteractionContext {
-    pub(crate) fn new(instance: &xr::Instance, bindings: OpenXrBindings) -> Self {
+    pub fn new(instance: &xr::Instance, bindings: OpenXrBindings) -> Self {
         let action_set = instance
             .create_action_set("bevy_controller_bindings", "bevy controller bindings", 0)
             .unwrap();
@@ -344,12 +343,10 @@ impl InteractionContext {
 
 pub(crate) fn handle_input(
     context: &InteractionContext,
-    tracking_state: &TrackingState,
+    session: &OpenXrSession,
     buttons: &mut XrButtons,
     axes: &mut XrAxes,
 ) {
-    let session = &tracking_state.session;
-
     session
         .sync_actions(&[(&context.action_set).into()])
         .unwrap();
@@ -391,14 +388,13 @@ pub(crate) fn handle_input(
     }
 }
 
-pub(crate) fn output_system(
+pub(crate) fn handle_output(
     context: &InteractionContext,
-    tracking_state: Res<TrackingState>,
-    vibration_events: &mut EventReader<VibrationEvent>,
+    session: &OpenXrSession,
+    vibration_event_reader: &mut ManualEventReader<VibrationEvent>,
+    vibration_events: &mut Events<VibrationEvent>,
 ) {
-    let session = &tracking_state.session;
-
-    for event in vibration_events.iter() {
+    for event in vibration_event_reader.iter(&vibration_events) {
         let action = context.vibration_actions.get(&event.hand);
         if let Some(action) = action {
             match &event.command {
@@ -420,4 +416,6 @@ pub(crate) fn output_system(
             }
         }
     }
+
+    vibration_events.update();
 }

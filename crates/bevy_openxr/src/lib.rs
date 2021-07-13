@@ -8,12 +8,15 @@ pub use interaction::*;
 use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, Plugin};
 use bevy_ecs::schedule::Schedule;
 use bevy_xr::{
-    presentation::XrGraphicsContext, XrProfiles, XrSessionMode, XrSystem, XrVisibilityState,
+    presentation::{XrEnvironmentBlendMode, XrGraphicsContext, XrInteractionMode},
+    VibrationEvent, XrAxes, XrButtons, XrProfiles, XrSessionMode, XrSystem, XrTrackingSource,
+    XrVisibilityState,
 };
 use openxr::{self as xr, sys};
+use parking_lot::RwLock;
 use presentation::GraphicsContextHandles;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, sync::Arc, thread, time::Duration};
+use std::{error::Error, ops::Deref, sync::Arc, thread, time::Duration};
 
 // The form-factor is selected at plugin-creation-time and cannot be changed anymore for the entire
 // lifetime of the app. This will restrict which XrSessionMode can be selected.
@@ -35,19 +38,24 @@ enum FrameStream {
     D3D11(xr::FrameStream<xr::D3D11>),
 }
 
+#[derive(Clone)]
 pub struct OpenXrSession {
-    backend: Option<SessionBackend>,
-    frame_stream: Option<FrameStream>,
-    frame_waiter: Option<xr::FrameWaiter>,
+    inner: Option<xr::Session<xr::AnyGraphics>>,
     _wgpu_device: Arc<wgpu::Device>,
+}
+
+impl Deref for OpenXrSession {
+    type Target = xr::Session<xr::AnyGraphics>;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref().unwrap()
+    }
 }
 
 impl Drop for OpenXrSession {
     fn drop(&mut self) {
-        // Drop OpenXR session objects before wgpu::Device.
-        self.backend.take();
-        self.frame_stream.take();
-        self.frame_waiter.take();
+        // Drop OpenXR session before wgpu::Device.
+        self.inner.take();
     }
 }
 
@@ -169,10 +177,6 @@ impl OpenXrContext {
             graphics_context: Some(graphics_context),
         })
     }
-
-    pub fn instance(&self) -> &xr::Instance {
-        &self.instance
-    }
 }
 
 fn get_system_info(
@@ -245,25 +249,10 @@ impl Plugin for OpenXrPlugin {
             app.world_mut().insert_resource(context);
         }
 
-        let context = app.world().get_resource_mut::<OpenXrContext>().unwrap();
+        let mut context = app.world_mut().get_resource_mut::<OpenXrContext>().unwrap();
+        let graphics_context = context.graphics_context.take().unwrap();
 
-        let bindings = app
-            .world()
-            .get_resource::<OpenXrBindings>()
-            .cloned()
-            .unwrap_or_default();
-
-        app
-            // .insert_resource(Arc::new(OpenXrInteractionContext::new(
-            //     &context.instance,
-            //     bindings,
-            // )))
-            .insert_resource::<XrGraphicsContext>(context.graphics_context.take().unwrap())
-            // .add_system_to_stage(CoreStage::PreUpdate, interaction::handl_input)
-            // .add_system_to_stage(CoreStage::PostUpdate, interaction::output_system)
-            // .insert_resource(XrSystem::new(Box::new(System {
-            //     instance: context.instance,
-            // })))
+        app.insert_resource::<XrGraphicsContext>(graphics_context)
             .set_runner(runner);
     }
 }
@@ -272,12 +261,25 @@ impl Plugin for OpenXrPlugin {
 // create, the app will exit.
 // todo: Implement the instance loop when the the lifecycle API is implemented.
 fn runner(mut app: App) {
-    let context = app.world.remove_resource::<OpenXrContext>().unwrap();
-    let instance = context.instance;
-    let system = context.system;
-    let graphics_handles = context.graphics_handles;
+    let ctx = app.world.remove_resource::<OpenXrContext>().unwrap();
 
-    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+    app.world.insert_resource(ctx.instance.clone());
+
+    let mut app_exit_event_reader = ManualEventReader::default();
+
+    let interaction_mode = if ctx.form_factor == xr::FormFactor::HEAD_MOUNTED_DISPLAY {
+        XrInteractionMode::WorldSpace
+    } else {
+        XrInteractionMode::ScreenSpace
+    };
+    app.world.insert_resource(interaction_mode);
+
+    let bindings = app
+        .world
+        .remove_resource::<OpenXrBindings>()
+        .unwrap_or_default();
+
+    let interaction_context = InteractionContext::new(&ctx.instance, bindings);
 
     // Find the available session modes
     let available_session_modes = [
@@ -287,7 +289,7 @@ fn runner(mut app: App) {
         XrSessionMode::InlineAR,
     ]
     .iter()
-    .filter_map(|mode| get_system_info(&instance, system, *mode).map(|_| *mode))
+    .filter_map(|mode| get_system_info(&ctx.instance, ctx.system, *mode).map(|_| *mode))
     .collect();
 
     app.world
@@ -300,6 +302,14 @@ fn runner(mut app: App) {
         .unwrap()
         .run_once(&mut app.world);
 
+    if app_exit_event_reader
+        .iter(&app.world.get_resource_mut::<Events<AppExit>>().unwrap())
+        .next_back()
+        .is_some()
+    {
+        return;
+    }
+
     let mode = app
         .world
         .get_resource::<XrSystem>()
@@ -311,22 +321,30 @@ fn runner(mut app: App) {
     // moment.
     app.world.remove_resource::<XrSystem>();
 
-    let (view_type, blend_mode) = get_system_info(&instance, system, mode).unwrap();
+    let (view_type, blend_mode) = get_system_info(&ctx.instance, ctx.system, mode).unwrap();
 
-    let (session_backend, mut frame_waiter, frame_stream) = match graphics_handles {
+    let environment_blend_mode = match blend_mode {
+        xr::EnvironmentBlendMode::OPAQUE => XrEnvironmentBlendMode::Opaque,
+        xr::EnvironmentBlendMode::ALPHA_BLEND => XrEnvironmentBlendMode::AlphaBlend,
+        xr::EnvironmentBlendMode::ADDITIVE => XrEnvironmentBlendMode::Additive,
+        _ => unreachable!(),
+    };
+    app.world.insert_resource(environment_blend_mode);
+
+    let (session_backend, mut frame_waiter, mut frame_stream) = match ctx.graphics_handles {
         GraphicsContextHandles::Vulkan {
-            instance: vk_instance,
+            instance,
             physical_device,
             device,
             queue_family_index,
             queue_index,
         } => {
             let (session, frame_waiter, frame_stream) = unsafe {
-                instance
+                ctx.instance
                     .create_session(
-                        system,
+                        ctx.system,
                         &xr::vulkan::SessionCreateInfo {
-                            instance: vk_instance.handle().as_raw() as *const _,
+                            instance: instance.handle().as_raw() as *const _,
                             physical_device: physical_device.as_raw() as *const _,
                             device: device.handle().as_raw() as *const _,
                             queue_family_index,
@@ -366,11 +384,53 @@ fn runner(mut app: App) {
         SessionBackend::D3D11(backend) => backend.clone().into_any_graphics(),
     };
 
+    let session = OpenXrSession {
+        inner: Some(session),
+        _wgpu_device: ctx.wgpu_device,
+    };
+
+    // The user can have a limited access to the OpenXR session using OpenXrSession, which is
+    // clonable but safe because of the _wgpu_device internal handle.
+    app.world.insert_resource(session.clone());
+
+    session
+        .attach_action_sets(&[&interaction_context.action_set])
+        .unwrap();
+
+    let tracking_context = Arc::new(OpenXrTrackingContext::new(
+        &ctx.instance,
+        ctx.system,
+        &interaction_context,
+        session.clone(),
+    ));
+
+    let next_vsync_time = Arc::new(RwLock::new(xr::Time::from_nanos(0)));
+
+    let tracking_source = TrackingSource {
+        view_type,
+        action_set: interaction_context.action_set.clone(),
+        session: session.clone(),
+        tracking_context: tracking_context.clone(),
+        next_vsync_time: next_vsync_time.clone(),
+    };
+
+    app.world.insert_resource(tracking_context.clone());
+    app.world
+        .insert_resource(XrTrackingSource::new(Box::new(tracking_source)));
+
+    // todo: use these views limits and recommendations
+    let views = ctx
+        .instance
+        .enumerate_view_configuration_views(ctx.system, view_type)
+        .unwrap();
+
+    let mut vibration_event_reader = ManualEventReader::default();
+
     let mut event_storage = xr::EventDataBuffer::new();
 
     let mut running = false;
     'session_loop: loop {
-        while let Some(event) = instance.poll_event(&mut event_storage).unwrap() {
+        while let Some(event) = ctx.instance.poll_event(&mut event_storage).unwrap() {
             match event {
                 xr::Event::EventsLost(e) => {
                     bevy_log::error!("OpenXR: Lost {} events", e.lost_event_count());
@@ -391,11 +451,11 @@ fn runner(mut app: App) {
                         xr::SessionState::SYNCHRONIZED => {
                             app.world.insert_resource(XrVisibilityState::Hidden)
                         }
-                        xr::SessionState::VISIBLE => {
-                            app.world.insert_resource(XrVisibilityState::Visible)
-                        }
+                        xr::SessionState::VISIBLE => app
+                            .world
+                            .insert_resource(XrVisibilityState::VisibleUnfocused),
                         xr::SessionState::FOCUSED => {
-                            app.world.insert_resource(XrVisibilityState::Focused)
+                            app.world.insert_resource(XrVisibilityState::VisibleFocused)
                         }
                         xr::SessionState::STOPPING => {
                             session.end().unwrap();
@@ -407,8 +467,13 @@ fn runner(mut app: App) {
                         _ => unreachable!(),
                     }
                 }
-                xr::Event::ReferenceSpaceChangePending(_) => {
-                    // todo: handle recentering event
+                xr::Event::ReferenceSpaceChangePending(e) => {
+                    let reference_ref = &mut tracking_context.reference.write();
+
+                    reference_ref.space_type = e.reference_space_type();
+                    reference_ref.change_time = e.change_time();
+                    reference_ref.previous_pose_offset =
+                        openxr_pose_to_rigid_transform(e.pose_in_previous_space(), e.pose_valid())
                 }
                 xr::Event::PerfSettingsEXT(e) => {
                     let sub_domain = match e.sub_domain() {
@@ -446,20 +511,22 @@ fn runner(mut app: App) {
                 }
                 xr::Event::VisibilityMaskChangedKHR(_) => (), // todo: update visibility mask
                 xr::Event::InteractionProfileChanged(_) => {
-                    let left_hand = instance
+                    let left_hand = ctx
+                        .instance
                         .path_to_string(
                             session
                                 .current_interaction_profile(
-                                    instance.string_to_path("/user/hand/left").unwrap(),
+                                    ctx.instance.string_to_path("/user/hand/left").unwrap(),
                                 )
                                 .unwrap(),
                         )
                         .ok();
-                    let right_hand = instance
+                    let right_hand = ctx
+                        .instance
                         .path_to_string(
                             session
                                 .current_interaction_profile(
-                                    instance.string_to_path("/user/hand/right").unwrap(),
+                                    ctx.instance.string_to_path("/user/hand/right").unwrap(),
                                 )
                                 .unwrap(),
                         )
@@ -485,25 +552,52 @@ fn runner(mut app: App) {
 
         let frame_state = frame_waiter.wait().unwrap();
 
-        // app.world
-        //     .get_resource_mut::<OpenXrTrackingState>()
-        //     .unwrap()
-        //     .next_vsync_time = frame_state.predicted_display_time;
+        *next_vsync_time.write() = frame_state.predicted_display_time;
+
+        {
+            let world_cell = app.world.cell();
+            handle_input(
+                &interaction_context,
+                &session,
+                &mut world_cell.get_resource_mut::<XrButtons>().unwrap(),
+                &mut world_cell.get_resource_mut::<XrAxes>().unwrap(),
+            );
+        }
+
+        match &mut frame_stream {
+            FrameStream::Vulkan(frame_stream) => frame_stream.begin().unwrap(),
+            #[cfg(windows)]
+            FrameStream::D3D11(frame_stream) => frame_stream.begin().unwrap(),
+        }
 
         app.update();
 
-        if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
-            if app_exit_event_reader
-                .iter(&app_exit_events)
-                .next_back()
-                .is_some()
-            {
-                match session.request_exit() {
-                    Ok(()) => (),
-                    Err(xr::sys::Result::ERROR_SESSION_NOT_RUNNING) => break,
-                    Err(e) => panic!("{}", e),
-                }
-            }
+        // match &mut frame_stream {
+        //     FrameStream::Vulkan(frame_stream) => frame_stream
+        //         .end(frame_state.predicted_display_time, blend_mode, todo!())
+        //         .unwrap(),
+        //     #[cfg(windows)]
+        //     FrameStream::D3D11(frame_stream) => frame_stream
+        //         .end(frame_state.predicted_display_time, blend_mode, todo!())
+        //         .unwrap(),
+        // }
+
+        handle_output(
+            &interaction_context,
+            &session,
+            &mut vibration_event_reader,
+            &mut app
+                .world
+                .get_resource_mut::<Events<VibrationEvent>>()
+                .unwrap(),
+        );
+
+        if app_exit_event_reader
+            .iter(&app.world.get_resource_mut::<Events<AppExit>>().unwrap())
+            .next_back()
+            .is_some()
+        {
+            session.request_exit().unwrap();
         }
     }
 }

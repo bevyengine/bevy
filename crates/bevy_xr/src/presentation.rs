@@ -1,9 +1,23 @@
 use std::sync::Arc;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum XrEnvironmentBlendMode {
+    Opaque,
+    AlphaBlend,
+    Additive,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum XrInteractionMode {
+    ScreenSpace,
+    WorldSpace,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum XrVisibilityState {
+    VisibleFocused,
+    VisibleUnfocused,
     Hidden,
-    Visible,
-    Focused,
 }
 
 pub struct XrGraphicsContext {

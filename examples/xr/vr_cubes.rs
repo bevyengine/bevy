@@ -4,7 +4,7 @@ use bevy::{
     utils::Duration,
     xr::{
         HandType, VibrationEvent, VibrationEventType, XrButtonType, XrButtons,
-        XrReferenceSpaceType, XrSessionMode, XrSystem, XrTrackingState,
+        XrReferenceSpaceType, XrSessionMode, XrSystem, XrTrackingSource,
     },
     DefaultPlugins,
 };
@@ -31,10 +31,10 @@ fn startup(mut xr_system: ResMut<XrSystem>, mut app_exit_events: EventWriter<App
 }
 
 fn interaction(
-    mut tracking_state: ResMut<XrTrackingState>,
+    mut tracking_state: ResMut<XrTrackingSource>,
     buttons: Res<XrButtons>,
     mut vibration_events: EventWriter<VibrationEvent>,
-    xr_state: Res<XrTrackingState>,
+    tracking_source: Res<XrTrackingSource>,
 ) {
     if !tracking_state.get_reference_space_type(XrReferenceSpaceType::Local) {
         tracking_state.set_reference_space_type(XrReferenceSpaceType::Local)
@@ -65,11 +65,12 @@ fn interaction(
         }
     }
 
-    if let Some(pose) = xr_state.hand_pose(HandType::Left) {
-        let left_pose = pose.transform.to_mat4();
+    let [left_pose, right_pose] = tracking_source.hands_pose();
+    if let Some(pose) = left_pose {
+        let left_pose = pose.to_mat4();
     }
-    if let Some(pose) = xr_state.hand_pose(HandType::Right) {
-        let right_pose = pose.transform.to_mat4();
+    if let Some(pose) = right_pose {
+        let right_pose = pose.to_mat4();
     }
 
     todo!() // Draw hands
