@@ -11,7 +11,7 @@ pub struct CiTestingConfig {
 }
 
 fn ci_testing_exit_after(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
+    mut current_frame: bevy_ecs::prelude::Local<u32, true>,
     ci_testing_config: bevy_ecs::prelude::Res<CiTestingConfig>,
     mut app_exit_events: crate::EventWriter<AppExit>,
 ) {
