@@ -532,12 +532,12 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
-pub struct Local<'a, T: Component>(&'a mut T);
+pub struct Local<'a, T: Component, const DEFAULT: bool>(&'a mut T);
 
 // SAFE: Local only accesses internal state
-unsafe impl<T: Component> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Component, const DEFAULT: bool> ReadOnlySystemParamFetch for LocalState<T, DEFAULT> {}
 
-impl<'a, T: Component> Debug for Local<'a, T>
+impl<'a, T: Component, const DEFAULT: bool> Debug for Local<'a, T, DEFAULT>
 where
     T: Debug,
 {
@@ -546,7 +546,7 @@ where
     }
 }
 
-impl<'a, T: Component> Deref for Local<'a, T> {
+impl<'a, T: Component, const DEFAULT: bool> Deref for Local<'a, T, DEFAULT> {
     type Target = T;
 
     #[inline]
@@ -555,7 +555,7 @@ impl<'a, T: Component> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: Component> DerefMut for Local<'a, T> {
+impl<'a, T: Component, const DEFAULT: bool> DerefMut for Local<'a, T, DEFAULT> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -563,14 +563,18 @@ impl<'a, T: Component> DerefMut for Local<'a, T> {
 }
 
 /// The [`SystemParamState`] of [`Local`].
-pub struct LocalState<T: Component>(T);
+pub struct LocalState<T: Component, const DEFAULT: bool>(T);
 
-impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T> {
-    type Fetch = LocalState<T>;
+impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T, true> {
+    type Fetch = LocalState<T, true>;
+}
+
+impl<'a, T: Component> SystemParam for Local<'a, T, false> {
+    type Fetch = LocalState<T, false>;
 }
 
 // SAFE: only local state is accessed
-unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
+unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T, true> {
     type Config = Option<T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
@@ -581,9 +585,34 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
         None
     }
 }
+unsafe impl<T: Component> SystemParamState for LocalState<T, false> {
+    type Config = Option<T>;
 
-impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
-    type Item = Local<'a, T>;
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+        Self(config.expect("Local must be initialized using config!"))
+    }
+
+    fn default_config() -> Option<T> {
+        None
+    }
+}
+
+impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T, true> {
+    type Item = Local<'a, T, true>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'a World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        Local(&mut state.0)
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for LocalState<T, false> {
+    type Item = Local<'a, T, false>;
 
     #[inline]
     unsafe fn get_param(

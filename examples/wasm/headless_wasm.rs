@@ -21,7 +21,7 @@ fn hello_world_system() {
     info!("hello wasm");
 }
 
-fn counter(mut state: Local<CounterState>) {
+fn counter(mut state: Local<CounterState, true>) {
     if state.count % 60 == 0 {
         info!("counter system: {}", state.count);
     }

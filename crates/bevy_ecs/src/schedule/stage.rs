@@ -913,7 +913,7 @@ mod tests {
         }};
     }
 
-    fn every_other_time(mut has_ran: Local<bool>) -> ShouldRun {
+    fn every_other_time(mut has_ran: Local<bool, true>) -> ShouldRun {
         *has_ran = !*has_ran;
         if *has_ran {
             ShouldRun::Yes
@@ -1456,7 +1456,7 @@ mod tests {
 
         // Piping criteria.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
-        fn eot_piped(input: In<ShouldRun>, has_ran: Local<bool>) -> ShouldRun {
+        fn eot_piped(input: In<ShouldRun>, has_ran: Local<bool, true>) -> ShouldRun {
             if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
                 every_other_time(has_ran)
             } else {

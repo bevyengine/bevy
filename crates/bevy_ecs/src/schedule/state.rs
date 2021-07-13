@@ -94,7 +94,7 @@ where
     T: Component + Debug + Clone + Eq + Hash,
 {
     pub fn on_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>, true>| {
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .system()
@@ -105,9 +105,9 @@ where
     }
 
     pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+        (|state: Res<State<T>>,
+          mut is_inactive: Local<bool, true>,
+          pred: Local<Option<T>, true>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
@@ -126,9 +126,9 @@ where
     }
 
     pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+        (|state: Res<State<T>>,
+          mut is_in_stack: Local<bool, true>,
+          pred: Local<Option<T>, true>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
@@ -159,7 +159,7 @@ where
     }
 
     pub fn on_enter(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>, true>| {
             state
                 .transition
                 .as_ref()
@@ -179,7 +179,7 @@ where
     }
 
     pub fn on_exit(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>, true>| {
             state
                 .transition
                 .as_ref()
@@ -197,7 +197,7 @@ where
     }
 
     pub fn on_pause(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>, true>| {
             state
                 .transition
                 .as_ref()
@@ -214,7 +214,7 @@ where
     }
 
     pub fn on_resume(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>, true>| {
             state
                 .transition
                 .as_ref()
@@ -410,7 +410,7 @@ fn should_run_adapter<T: Component + Clone + Eq>(
 
 fn state_cleaner<T: Component + Clone + Eq>(
     mut state: ResMut<State<T>>,
-    mut prep_exit: Local<bool>,
+    mut prep_exit: Local<bool, true>,
 ) -> ShouldRun {
     if *prep_exit {
         *prep_exit = false;

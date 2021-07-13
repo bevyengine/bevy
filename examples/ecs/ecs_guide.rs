@@ -239,7 +239,7 @@ struct State {
 
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) {
+fn local_state_system(mut state: Local<State, true>, query: Query<(&Player, &Score)>) {
     for (player, score) in query.iter() {
         println!("processed: {} {}", player.name, score.value);
     }

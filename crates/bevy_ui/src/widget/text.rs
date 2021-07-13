@@ -44,8 +44,8 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 /// new computed glyphs from the layout
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
-    mut queued_text: Local<QueuedText>,
-    mut last_scale_factor: Local<f64>,
+    mut queued_text: Local<QueuedText, true>,
+    mut last_scale_factor: Local<f64, true>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,

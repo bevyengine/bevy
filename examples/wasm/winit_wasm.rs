@@ -27,7 +27,7 @@ fn hello_wasm_system() {
     info!("hello wasm");
 }
 
-fn counter(mut state: Local<CounterState>, time: Res<Time>) {
+fn counter(mut state: Local<CounterState, true>, time: Res<Time>) {
     if state.count % 60 == 0 {
         info!(
             "tick {} @ {:?} [Δ{}]",

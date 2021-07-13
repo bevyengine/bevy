@@ -58,7 +58,7 @@ fn scene_update(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
     scene_instance: Res<SceneInstance>,
-    mut done: Local<bool>,
+    mut done: Local<bool, true>,
 ) {
     if !*done {
         if let Some(instance_id) = scene_instance.0 {
