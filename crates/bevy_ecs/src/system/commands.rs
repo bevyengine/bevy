@@ -359,8 +359,8 @@ where
 
 #[derive(Debug)]
 pub struct Remove<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
