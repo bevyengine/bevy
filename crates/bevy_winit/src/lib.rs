@@ -479,10 +479,10 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
             }
             event::Event::Suspended => {
                 active = false;
-            },
+            }
             event::Event::Resumed => {
                 active = true;
-            },
+            }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
                     &mut app.world,
