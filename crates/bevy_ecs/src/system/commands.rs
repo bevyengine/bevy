@@ -7,6 +7,8 @@ use crate::{
 use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
+use super::{IntoSystem, System};
+
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self: Box<Self>, world: &mut World);
@@ -175,6 +177,30 @@ impl<'a> Commands<'a> {
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
+        });
+    }
+
+    /// Run a one-off [`System`].
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # struct MyComponent;
+    ///
+    /// # fn my_system(_components: Query<&MyComponent>) {}
+    ///
+    /// # fn main_system(mut commands: Commands) {
+    /// // Can take a standard system function
+    /// commands.run_system(my_system);
+    /// // Can take a closure system
+    /// commands.run_system(|query: Query<&MyComponent>| {
+    ///     println!("count: {}", query.iter().len());
+    /// });
+    /// # }
+    /// # main_system.system();
+    /// ```
+    pub fn run_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) {
+        self.queue.push(RunSystem {
+            system: Box::new(system.system()),
         });
     }
 
@@ -410,6 +436,18 @@ pub struct RemoveResource<T: Component> {
 impl<T: Component> Command for RemoveResource<T> {
     fn write(self: Box<Self>, world: &mut World) {
         world.remove_resource::<T>();
+    }
+}
+
+pub struct RunSystem {
+    pub system: Box<dyn System<In = (), Out = ()>>,
+}
+
+impl Command for RunSystem {
+    fn write(mut self: Box<Self>, world: &mut World) {
+        self.system.initialize(world);
+        self.system.run((), world);
+        self.system.apply_buffers(world);
     }
 }
 
