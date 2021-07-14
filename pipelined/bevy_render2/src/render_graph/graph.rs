@@ -261,6 +261,18 @@ impl RenderGraph {
         self.nodes.values_mut()
     }
 
+    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (&str, &RenderGraph)> {
+        self.sub_graphs
+            .iter()
+            .map(|(name, graph)| (name.as_ref(), graph))
+    }
+
+    pub fn iter_sub_graphs_mut(&mut self) -> impl Iterator<Item = (&str, &mut RenderGraph)> {
+        self.sub_graphs
+            .iter_mut()
+            .map(|(name, graph)| (name.as_ref(), graph))
+    }
+
     pub fn iter_node_inputs(
         &self,
         label: impl Into<NodeLabel>,
