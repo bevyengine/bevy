@@ -375,7 +375,11 @@ impl RenderAsset for Image {
                     )
                     .unwrap(),
                 ),
-                rows_per_image: None,
+                rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
+                    std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                } else {
+                    None
+                },
             },
             image.texture_descriptor.size,
         );
