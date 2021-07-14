@@ -1,4 +1,3 @@
-// TODO: try merging this block with the binding?
 [[block]]
 struct View {
     view_proj: mat4x4<f32>;

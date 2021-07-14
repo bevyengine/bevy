@@ -1,9 +1,10 @@
 use super::image_texture_conversion::image_to_texture;
 use crate::{
-    render_asset::RenderAsset,
+    render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
 use wgpu::{
@@ -346,6 +347,7 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
+    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
@@ -353,9 +355,8 @@ impl RenderAsset for Image {
 
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        render_device: &RenderDevice,
-        render_queue: &RenderQueue,
-    ) -> Self::PreparedAsset {
+        (render_device, render_queue): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = render_device.create_texture(&image.texture_descriptor);
         let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
@@ -385,10 +386,10 @@ impl RenderAsset for Image {
         );
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        GpuImage {
+        Ok(GpuImage {
             texture,
             texture_view,
             sampler,
-        }
+        })
     }
 }

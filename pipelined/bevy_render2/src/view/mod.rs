@@ -1,34 +1,25 @@
 pub mod window;
 
-use bevy_transform::components::GlobalTransform;
 pub use window::*;
 
 use crate::{
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::DynamicUniformVec,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
+use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 
 pub struct ViewPlugin;
 
-impl ViewPlugin {
-    pub const VIEW_NODE: &'static str = "view";
-}
-
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app(RenderApp);
-        render_app
-            .init_resource::<ViewMeta>()
+        app.sub_app(RenderApp)
+            .init_resource::<ViewUniforms>()
             .add_system_to_stage(RenderStage::Prepare, prepare_views);
-
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
-        graph.add_node(ViewPlugin::VIEW_NODE, ViewNode);
     }
 }
 
@@ -47,7 +38,7 @@ pub struct ViewUniform {
 }
 
 #[derive(Default)]
-pub struct ViewMeta {
+pub struct ViewUniforms {
     pub uniforms: DynamicUniformVec<ViewUniform>,
 }
 
@@ -57,17 +48,18 @@ pub struct ViewUniformOffset {
 
 fn prepare_views(
     mut commands: Commands,
-    render_resources: Res<RenderDevice>,
-    mut view_meta: ResMut<ViewMeta>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut view_uniforms: ResMut<ViewUniforms>,
     mut extracted_views: Query<(Entity, &ExtractedView)>,
 ) {
-    view_meta
+    view_uniforms
         .uniforms
-        .reserve_and_clear(extracted_views.iter_mut().len(), &render_resources);
+        .reserve_and_clear(extracted_views.iter_mut().len(), &render_device);
     for (entity, camera) in extracted_views.iter() {
         let projection = camera.projection;
         let view_uniforms = ViewUniformOffset {
-            offset: view_meta.uniforms.push(ViewUniform {
+            offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * camera.transform.compute_matrix().inverse(),
                 projection,
                 world_position: camera.transform.translation,
@@ -77,24 +69,5 @@ fn prepare_views(
         commands.entity(entity).insert(view_uniforms);
     }
 
-    view_meta
-        .uniforms
-        .write_to_staging_buffer(&render_resources);
-}
-
-pub struct ViewNode;
-
-impl Node for ViewNode {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_meta = world.get_resource::<ViewMeta>().unwrap();
-        view_meta
-            .uniforms
-            .write_to_uniform_buffer(&mut render_context.command_encoder);
-        Ok(())
-    }
+    view_uniforms.uniforms.write_buffer(&render_queue);
 }

@@ -5,41 +5,29 @@ pub use draw::*;
 pub use draw_state::*;
 
 use bevy_ecs::prelude::Query;
-use std::marker::PhantomData;
 
-// TODO: make this configurable per phase?
-pub struct Drawable {
-    pub draw_function: DrawFunctionId,
-    pub draw_key: usize,
-    pub sort_key: usize,
+pub struct RenderPhase<I: PhaseItem> {
+    pub items: Vec<I>,
 }
 
-pub struct RenderPhase<T> {
-    pub drawn_things: Vec<Drawable>,
-    marker: PhantomData<fn() -> T>,
-}
-
-impl<T> Default for RenderPhase<T> {
+impl<I: PhaseItem> Default for RenderPhase<I> {
     fn default() -> Self {
-        Self {
-            drawn_things: Vec::new(),
-            marker: PhantomData,
-        }
+        Self { items: Vec::new() }
     }
 }
 
-impl<T> RenderPhase<T> {
+impl<I: PhaseItem> RenderPhase<I> {
     #[inline]
-    pub fn add(&mut self, drawable: Drawable) {
-        self.drawn_things.push(drawable);
+    pub fn add(&mut self, item: I) {
+        self.items.push(item);
     }
 
     pub fn sort(&mut self) {
-        self.drawn_things.sort_by_key(|d| d.sort_key);
+        self.items.sort_by_key(|d| d.sort_key());
     }
 }
 
-pub fn sort_phase_system<T: 'static>(mut render_phases: Query<&mut RenderPhase<T>>) {
+pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
     for mut phase in render_phases.iter_mut() {
         phase.sort();
     }

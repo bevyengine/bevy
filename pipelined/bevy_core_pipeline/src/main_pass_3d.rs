@@ -1,4 +1,4 @@
-use crate::{ClearColor, Transparent3dPhase};
+use crate::{ClearColor, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -12,7 +12,7 @@ use bevy_render2::{
 };
 
 pub struct MainPass3dNode {
-    query: QueryState<&'static RenderPhase<Transparent3dPhase>, With<ExtractedView>>,
+    query: QueryState<&'static RenderPhase<Transparent3d>, With<ExtractedView>>,
 }
 
 impl MainPass3dNode {
@@ -70,7 +70,9 @@ impl Node for MainPass3dNode {
         };
 
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
+        let draw_functions = world
+            .get_resource::<DrawFunctions<Transparent3d>>()
+            .unwrap();
 
         let transparent_phase = self
             .query
@@ -82,15 +84,9 @@ impl Node for MainPass3dNode {
             .begin_render_pass(&pass_descriptor);
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for drawable in transparent_phase.drawn_things.iter() {
-            let draw_function = draw_functions.get_mut(drawable.draw_function).unwrap();
-            draw_function.draw(
-                world,
-                &mut tracked_pass,
-                view_entity,
-                drawable.draw_key,
-                drawable.sort_key,
-            );
+        for item in transparent_phase.items.iter() {
+            let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+            draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
         Ok(())
     }
