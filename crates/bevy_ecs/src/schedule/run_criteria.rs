@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration},
     component::ComponentId,
     query::Access,
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
@@ -47,6 +47,7 @@ pub enum ShouldRun {
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
+    archetype_generation: ArchetypeGeneration,
 }
 
 impl Default for BoxedRunCriteria {
@@ -54,6 +55,7 @@ impl Default for BoxedRunCriteria {
         Self {
             criteria_system: None,
             initialized: false,
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 }
@@ -70,6 +72,15 @@ impl BoxedRunCriteria {
                 run_criteria.initialize(world);
                 self.initialized = true;
             }
+            let archetypes = world.archetypes();
+            let new_generation = archetypes.generation();
+            let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+            let archetype_index_range = old_generation.value()..new_generation.value();
+
+            for archetype in archetypes.archetypes[archetype_index_range].iter() {
+                run_criteria.new_archetype(archetype);
+            }
+
             let should_run = run_criteria.run((), world);
             run_criteria.apply_buffers(world);
             should_run
@@ -93,6 +104,7 @@ pub(crate) struct RunCriteriaContainer {
     pub label: Option<BoxedRunCriteriaLabel>,
     pub before: Vec<BoxedRunCriteriaLabel>,
     pub after: Vec<BoxedRunCriteriaLabel>,
+    archetype_generation: ArchetypeGeneration,
 }
 
 impl RunCriteriaContainer {
@@ -106,6 +118,7 @@ impl RunCriteriaContainer {
             label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 
@@ -121,6 +134,25 @@ impl RunCriteriaContainer {
             RunCriteriaInner::Single(system) => system.initialize(world),
             RunCriteriaInner::Piped { system, .. } => system.initialize(world),
         }
+    }
+
+    pub fn update_archetypes(&mut self, world: &World) {
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+            match &mut self.inner {
+                RunCriteriaInner::Single(system) => {
+                    system.new_archetype(archetype);
+                }
+
+                RunCriteriaInner::Piped { system, .. } => {
+                    system.new_archetype(archetype);
+                }
+            }
+        }
+        self.archetype_generation = new_generation;
     }
 }
 

@@ -32,6 +32,9 @@ mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
 
+# WASM support for audio
+wasm_audio = ["bevy_audio/wasm_audio"]
+
 serialize = ["bevy_input/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
