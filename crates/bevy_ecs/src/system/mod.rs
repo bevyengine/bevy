@@ -1,12 +1,35 @@
 //! Tools for controlling behavior in an ECS application.
 //!
 //! Systems define how an ECS based application behave. They have to be registered to a
-//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually written as a normal function,
-//! on which the [`.system()`](IntoSystem::system) trait extension method is used, to turn it
-//! into a Bevy system.
+//! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually
+//! written as a normal function that will be automatically converted into a system.
 //!
-//! System functions can have parameters, through which one can query and mutate Bevy ECS
-//! state. Only types that implement [`SystemParam`] can be used, automatically fetching data from the [`World`].
+//! System functions can have parameters, through which one can query and mutate Bevy ECS state.
+//! Only types that implement [`SystemParam`] can be used, automatically fetching data from
+//! the [`World`](crate::world::World).
+//!
+//! System functions often look like this:
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! #
+//! # struct Player { alive: bool }
+//! # struct Score(u32);
+//! # struct Round(u32);
+//! #
+//! fn update_score_system(
+//!     mut query: Query<(&Player, &mut Score)>,
+//!     mut round: ResMut<Round>,
+//! ) {
+//!     for (player, mut score) in query.iter_mut() {
+//!         if player.alive {
+//!             score.0 += round.0;
+//!         }
+//!     }
+//!     round.0 += 1;
+//! }
+//! # my_system.system();
+//! ```
 //!
 //! # System ordering
 //!
