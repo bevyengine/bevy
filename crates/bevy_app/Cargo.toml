@@ -14,7 +14,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
-bevy_ci_testing = ["ron"]
+bevy_ci_testing = ["serde", "ron"]
 default = ["bevy_reflect"]
 
 [dependencies]
@@ -25,7 +25,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.6.2", optional = true }
 
 
