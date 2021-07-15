@@ -135,7 +135,7 @@ impl RunCriteriaContainer {
         self.inner.initialize(world)
     }
 
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub fn run(&mut self, world: &mut World, run_criteria: &[RunCriteriaContainer]) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -144,9 +144,6 @@ impl RunCriteriaContainer {
             self.inner.new_archetype(archetype);
         }
         self.archetype_generation = new_generation;
-    }
-
-    pub fn run(&mut self, world: &mut World, run_criteria: &[RunCriteriaContainer]) {
         self.should_run = self
             .inner
             .evaluate_criteria(world, &self.parents, run_criteria)
