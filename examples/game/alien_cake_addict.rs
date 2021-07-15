@@ -117,14 +117,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             (0..BOARD_SIZE_I)
                 .map(|i| {
                     let height = rand::thread_rng().gen_range(-0.1..0.1);
-                    commands
-                        .spawn_bundle((
-                            Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                            GlobalTransform::identity(),
-                        ))
-                        .with_children(|cell| {
-                            cell.spawn_scene(cell_scene.clone());
-                        });
+                    commands.spawn_bundle(SceneBundle {
+                        transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
+                        scene: cell_scene.clone(),
+                        ..Default::default()
+                    });
                     Cell { height }
                 })
                 .collect()
@@ -134,8 +131,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
+            .spawn_bundle(SceneBundle {
+                transform: Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
                         game.board[game.player.j][game.player.i].height,
@@ -144,10 +141,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
                     ..Default::default()
                 },
-                GlobalTransform::identity(),
-            ))
-            .with_children(|cell| {
-                cell.spawn_scene(asset_server.load("models/AlienCake/alien.glb#Scene0"));
+                scene: asset_server.load("models/AlienCake/alien.glb#Scene0"),
+                ..Default::default()
             })
             .id(),
     );
@@ -320,8 +315,8 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
+            .spawn_bundle(SceneBundle {
+                transform: Transform {
                     translation: Vec3::new(
                         game.bonus.i as f32,
                         game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -329,10 +324,8 @@ fn spawn_bonus(
                     ),
                     ..Default::default()
                 },
-                GlobalTransform::identity(),
-            ))
-            .with_children(|cell| {
-                cell.spawn_scene(game.bonus.handle.clone());
+                scene: game.bonus.handle.clone(),
+                ..Default::default()
             })
             .id(),
     );
