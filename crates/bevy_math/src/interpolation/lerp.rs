@@ -80,7 +80,7 @@ impl Lerp for Quat {
         let b: Vec4 = b.into();
 
         let rot = Vec4::lerp_unclamped(&a, &b, v);
-        let inv_mag = fast_inv_sqrt(rot.dot(rot));
+        let inv_mag = approx_rsqrt(rot.dot(rot));
         Quat::from_vec4(rot * inv_mag)
     }
 }

@@ -1,20 +1,34 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-// TODO: evaluate the more accurate algorithm of (Walcyzk et al. 2018.)[https://arxiv.org/abs/1802.06302]
-/// Quake 3 fast inverse sqrt
-///
-/// Implementation borrowed from Piston under the MIT License: [https://github.com/PistonDevelopers/skeletal_animation]
+/// Fast approximated reciprocal square root
 #[inline]
-pub fn fast_inv_sqrt(x: f32) -> f32 {
-    let x2: f32 = x * 0.5;
-    let mut y: f32 = x;
+pub fn approx_rsqrt(x: f32) -> f32 {
+    #[cfg(target_feature = "sse")]
+    {
+        // use SEE _mm_rsqrt_ss intrinsic which has a better accuracy and
+        #[cfg(target_arch = "x86")]
+        use core::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use core::arch::x86_64::*;
+        unsafe {
+            let y = _mm_rsqrt_ss(_mm_set1_ps(x));
+            *(&y as *const _ as *const f32)
+        }
+    }
+    #[cfg(not(target_feature = "sse"))]
+    {
+        // Fall back to Quake 3 fast inverse sqrt, is has a higher error but still good enough and faster than `.sqrt().recip()`,
+        // implementation borrowed from Piston under the MIT License: [https://github.com/PistonDevelopers/skeletal_animation]
+        let x2: f32 = x * 0.5;
+        let mut y: f32 = x;
 
-    let mut i: i32 = y.to_bits() as i32;
-    i = 0x5f3759df - (i >> 1);
-    y = f32::from_bits(i as u32);
+        let mut i: i32 = y.to_bits() as i32;
+        i = 0x5f3759df - (i >> 1);
+        y = f32::from_bits(i as u32);
 
-    y = y * (1.5 - (x2 * y * y));
-    y
+        y = y * (1.5 - (x2 * y * y));
+        y
+    }
 }
 
 #[inline]

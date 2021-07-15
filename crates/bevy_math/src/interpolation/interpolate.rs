@@ -186,7 +186,7 @@ impl Interpolate for Quat {
                 }
 
                 let q = utils::lerp_unclamped::<Vec4>((*value0).into(), value1.into(), u);
-                let d = utils::fast_inv_sqrt(q.dot(q));
+                let d = utils::approx_rsqrt(q.dot(q));
                 Quat::from_vec4(q * d)
             }
             Interpolation::Hermite => {
@@ -204,7 +204,7 @@ impl Interpolate for Quat {
                     u,
                     delta_time,
                 );
-                let d = utils::fast_inv_sqrt(q.dot(q));
+                let d = utils::approx_rsqrt(q.dot(q));
                 Quat::from_vec4(q * d)
             }
         }
