@@ -196,8 +196,8 @@ impl Schedule {
     /// `func` passing the fetched stage to it as an argument.
     ///
     /// The `func` argument should be a function or a closure that accepts a mutable reference
-    /// to a struct implementing `Stage`. That means that it should also assume that the stage
-    /// has already been fetched successfully.
+    /// to a struct implementing `Stage` and returns the same type. That means that it should
+    /// also assume that the stage has already been fetched successfully.
     ///
     /// # Example
     ///
