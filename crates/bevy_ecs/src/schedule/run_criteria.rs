@@ -135,6 +135,17 @@ impl RunCriteriaContainer {
         self.inner.initialize(world)
     }
 
+    pub fn update_archetypes(&mut self, world: &World) {
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+            self.inner.new_archetype(archetype);
+        }
+        self.archetype_generation = new_generation;
+    }
+
     pub fn run(&mut self, world: &mut World, run_criteria: &[RunCriteriaContainer]) {
         self.should_run = self
             .inner
@@ -156,6 +167,8 @@ trait RunCriteriaTrait: Send + Sync {
 
     fn name(&self) -> Cow<'static, str>;
 
+    fn new_archetype(&mut self, archetype: &Archetype);
+
     fn initialize(&mut self, world: &mut World);
 }
 
@@ -175,6 +188,10 @@ impl RunCriteriaTrait for RunCriteriaInner<ShouldRun> {
 
     fn name(&self) -> Cow<'static, str> {
         self.0.name()
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        self.0.new_archetype(archetype)
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -222,29 +239,14 @@ macro_rules! impl_criteria_running {
                 self.0.name()
             }
 
+            fn new_archetype(&mut self, archetype: &Archetype) {
+                self.0.new_archetype(archetype)
+            }
+
             fn initialize(&mut self, world: &mut World) {
                 self.0.initialize(world)
             }
         }
-    }
-
-    pub fn update_archetypes(&mut self, world: &World) {
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
-            match &mut self.inner {
-                RunCriteriaInner::Single(system) => {
-                    system.new_archetype(archetype);
-                }
-
-                RunCriteriaInner::Piped { system, .. } => {
-                    system.new_archetype(archetype);
-                }
-            }
-        }
-        self.archetype_generation = new_generation;
     }
 }
 
