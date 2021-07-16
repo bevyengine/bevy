@@ -29,8 +29,8 @@ pub struct ExtractedPointLight {
     range: f32,
     radius: f32,
     transform: GlobalTransform,
-    shadow_bias_min: f32,
-    shadow_bias_max: f32,
+    shadow_depth_bias: f32,
+    shadow_normal_bias: f32,
 }
 
 pub struct ExtractedDirectionalLight {
@@ -38,8 +38,8 @@ pub struct ExtractedDirectionalLight {
     illuminance: f32,
     direction: Vec3,
     projection: Mat4,
-    shadow_bias_min: f32,
-    shadow_bias_max: f32,
+    shadow_depth_bias: f32,
+    shadow_normal_bias: f32,
 }
 
 #[repr(C)]
@@ -52,8 +52,8 @@ pub struct GpuPointLight {
     radius: f32,
     near: f32,
     far: f32,
-    shadow_bias_min: f32,
-    shadow_bias_max: f32,
+    shadow_depth_bias: f32,
+    shadow_normal_bias: f32,
 }
 
 #[repr(C)]
@@ -62,8 +62,8 @@ pub struct GpuDirectionalLight {
     view_projection: Mat4,
     color: Vec4,
     dir_to_light: Vec3,
-    shadow_bias_min: f32,
-    shadow_bias_max: f32,
+    shadow_depth_bias: f32,
+    shadow_normal_bias: f32,
 }
 
 #[repr(C)]
@@ -235,8 +235,8 @@ pub fn extract_lights(
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
-            shadow_bias_min: point_light.shadow_bias_min,
-            shadow_bias_max: point_light.shadow_bias_max,
+            shadow_depth_bias: point_light.shadow_depth_bias,
+            shadow_normal_bias: point_light.shadow_normal_bias,
         });
     }
     for (entity, directional_light, transform) in directional_lights.iter() {
@@ -247,8 +247,8 @@ pub fn extract_lights(
                 illuminance: directional_light.illuminance,
                 direction: transform.forward(),
                 projection: directional_light.shadow_projection.get_projection_matrix(),
-                shadow_bias_min: directional_light.shadow_bias_min,
-                shadow_bias_max: directional_light.shadow_bias_max,
+                shadow_depth_bias: directional_light.shadow_depth_bias,
+                shadow_normal_bias: directional_light.shadow_normal_bias,
             });
     }
 }
@@ -443,8 +443,8 @@ pub fn prepare_lights(
                 near: 0.1,
                 far: light.range,
                 // proj: projection,
-                shadow_bias_min: light.shadow_bias_min,
-                shadow_bias_max: light.shadow_bias_max,
+                shadow_depth_bias: light.shadow_depth_bias,
+                shadow_normal_bias: light.shadow_normal_bias,
             };
         }
 
@@ -482,8 +482,8 @@ pub fn prepare_lights(
                 dir_to_light,
                 // NOTE: * view is correct, it should not be view.inverse() here
                 view_projection: projection * view,
-                shadow_bias_min: light.shadow_bias_min,
-                shadow_bias_max: light.shadow_bias_max,
+                shadow_depth_bias: light.shadow_depth_bias,
+                shadow_normal_bias: light.shadow_normal_bias,
             };
 
             let depth_texture_view =

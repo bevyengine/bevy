@@ -136,8 +136,6 @@ fn setup(
             builder.spawn_bundle(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    shadow_bias_min: 0.00001,
-                    shadow_bias_max: 0.0001,
                     intensity: 25.0,
                     ..Default::default()
                 },
@@ -150,8 +148,6 @@ fn setup(
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 10000.0,
-            shadow_bias_min: 0.00001,
-            shadow_bias_max: 0.0001,
             shadow_projection: OrthographicProjection {
                 left: -HALF_SIZE,
                 right: HALF_SIZE,

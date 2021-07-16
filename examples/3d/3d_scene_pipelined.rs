@@ -199,7 +199,7 @@ fn setup(
         },
         transform: Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-1.2),
+            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
             ..Default::default()
         },
         ..Default::default()
