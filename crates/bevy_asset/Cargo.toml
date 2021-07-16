@@ -43,7 +43,7 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = { version = "0.2" }
+ndk-glue = { version = "0.3" }
 
 [dev-dependencies]
 futures-lite = "1.4.0"

@@ -233,6 +233,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
         .get_resource::<WinitConfig>()
         .map_or(false, |config| config.return_from_run);
 
+    let mut suspended = cfg!(target_os = "android");
+
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
@@ -481,8 +483,25 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                app.update();
+                if !suspended {
+                    app.update();
+                }
             }
+            event::Event::Resumed => {
+                suspended = false;
+                #[cfg(target_os = "android")]
+                {
+                    let mut window_created_events = app
+                        .world
+                        .get_resource_mut::<Events<WindowCreated>>()
+                        .unwrap();
+
+                    window_created_events.send(WindowCreated {
+                        id: bevy_window::WindowId::primary(),
+                    });
+                }
+            }
+            event::Event::Suspended => suspended = true,
             _ => (),
         }
     };
@@ -510,6 +529,7 @@ fn handle_create_window_events(
             &create_window_event.descriptor,
         );
         windows.add(window);
+        #[cfg(not(target_os = "android"))]
         window_created_events.send(WindowCreated {
             id: create_window_event.id,
         });
