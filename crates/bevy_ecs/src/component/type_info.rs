@@ -7,6 +7,8 @@ pub struct TypeInfo {
     layout: Layout,
     drop: unsafe fn(*mut u8),
     type_name: &'static str,
+    // SAFETY: This must remain private. It must only be set to "true" if this type is actually
+    // Send + Sync
     is_send_and_sync: bool,
 }
 
