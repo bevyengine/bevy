@@ -80,14 +80,14 @@ struct FakeCommandA;
 struct FakeCommandB(u64);
 
 impl Command for FakeCommandA {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         black_box(self);
         black_box(world);
     }
 }
 
 impl Command for FakeCommandB {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         black_box(self);
         black_box(world);
     }
