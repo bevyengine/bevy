@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: gaurav-nelson/github-action-markdown-link-check@0fe4911067fa322422f325b002d2038ba5602170
+    - uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
       with:
         use-quiet-mode: 'yes'
         use-verbose-mode: 'yes'
@@ -168,3 +168,22 @@ jobs:
           file-types: '[".rs"]'
           exclude-folders: '["./examples/ios"]'
           exclude-files: '[]'
+
+  check-unused-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Installs cargo-udeps
+        run: cargo install cargo-udeps
+
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+
+      - name: Run cargo udeps
+        run: cargo udeps

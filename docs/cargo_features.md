@@ -31,6 +31,7 @@
 |flac|FLAC audio format support. It's included in bevy_audio feature.|
 |wav|WAV audio format support.|
 |vorbis|Vorbis audio format support.|
+|wasm_audio|WASM audio support. (Currently only works with flac, wav and vorbis. Not with mp3)|
 |serialize|Enables serialization of `bevy_input` types.|
 |wayland|Enable this to use Wayland display server protocol other than X11.|
 |subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|

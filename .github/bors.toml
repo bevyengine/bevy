@@ -11,6 +11,7 @@ status = [
     "run-examples",
     "check-doc",
     "check-missing-examples-in-docs",
+    "check-unused-dependencies",
 ]
 
 use_squash_merge = true

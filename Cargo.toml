@@ -66,6 +66,9 @@ mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
 
+# WASM support for audio (Currently only works with flac, wav and vorbis. Not with mp3)
+wasm_audio = ["bevy_internal/wasm_audio"]
+
 serialize = ["bevy_internal/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
@@ -83,7 +86,7 @@ bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = 
 bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}
 
 [dev-dependencies]
-anyhow = "1.0"
+anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
@@ -259,8 +262,8 @@ name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
-name = "change_detection"
-path = "examples/ecs/change_detection.rs"
+name = "component_change_detection"
+path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
 name = "event"
