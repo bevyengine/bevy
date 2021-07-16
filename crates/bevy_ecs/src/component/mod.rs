@@ -56,15 +56,8 @@ impl Default for StorageType {
 
 #[derive(Debug)]
 pub struct ComponentInfo {
-    name: String,
     id: ComponentId,
-    type_id: Option<TypeId>,
-    // SAFETY: This must remain private. It must only be set to "true" if this component is
-    // actually Send + Sync
-    is_send_and_sync: bool,
-    layout: Layout,
-    drop: unsafe fn(*mut u8),
-    storage_type: StorageType,
+    descriptor: ComponentDescriptor,
 }
 
 impl ComponentInfo {
@@ -75,44 +68,36 @@ impl ComponentInfo {
 
     #[inline]
     pub fn name(&self) -> &str {
-        &self.name
+        &self.descriptor.name
     }
 
     #[inline]
     pub fn type_id(&self) -> Option<TypeId> {
-        self.type_id
+        self.descriptor.type_id
     }
 
     #[inline]
     pub fn layout(&self) -> Layout {
-        self.layout
+        self.descriptor.layout
     }
 
     #[inline]
     pub fn drop(&self) -> unsafe fn(*mut u8) {
-        self.drop
+        self.descriptor.drop
     }
 
     #[inline]
     pub fn storage_type(&self) -> StorageType {
-        self.storage_type
+        self.descriptor.storage_type
     }
 
     #[inline]
     pub fn is_send_and_sync(&self) -> bool {
-        self.is_send_and_sync
+        self.descriptor.is_send_and_sync
     }
 
     fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo {
-            id,
-            name: descriptor.name,
-            storage_type: descriptor.storage_type,
-            type_id: descriptor.type_id,
-            is_send_and_sync: descriptor.is_send_and_sync,
-            drop: descriptor.drop,
-            layout: descriptor.layout,
-        }
+        ComponentInfo { id, descriptor }
     }
 }
 
@@ -142,6 +127,7 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+#[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
     storage_type: StorageType,
