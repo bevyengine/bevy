@@ -19,6 +19,5 @@ proc-macro = true
 bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.5.0" }
 
 Inflector = { version = "0.11.4", default-features = false }
-proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"

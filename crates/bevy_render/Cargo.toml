@@ -31,11 +31,10 @@ image = { version = "0.23.12", default-features = false }
 # misc
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
 once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
 downcast-rs = "1.2.0"
 thiserror = "1.0"
-anyhow = "1.0"
+anyhow = "1.0.4"
 hex = "0.4.2"
 hexasphere = "4.0.0"
 parking_lot = "0.11.0"
