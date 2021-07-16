@@ -13,8 +13,10 @@ use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
 ///
-/// Queries are a powerful tool enabling the programmer to iterate over entities and their components
-/// as well as filtering them on certain conditions.
+/// Queries allow to iterate over entities and their components as well as filtering them
+/// on certain conditions. A query matches its parameters against the world to produce a series
+/// of results. Each *query result* is a tuple of components (the same components defined
+/// in the query) that belong to the same entity.
 ///
 /// Query functionality is based on the [`WorldQuery`] trait. Both tuples of components
 /// (up to 16 elements) and query filters implement this trait.
