@@ -1,9 +1,8 @@
-use std::{alloc::Layout, any::TypeId};
+use std::alloc::Layout;
 
 /// Metadata required to store a component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeInfo {
-    type_id: TypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
     type_name: &'static str,
@@ -16,7 +15,6 @@ impl TypeInfo {
     /// Metadata for `T`.
     pub fn of<T: Send + Sync + 'static>() -> Self {
         Self {
-            type_id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             is_send_and_sync: true,
             drop: Self::drop_ptr::<T>,
@@ -26,17 +24,11 @@ impl TypeInfo {
 
     pub fn of_non_send_and_sync<T: 'static>() -> Self {
         Self {
-            type_id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             is_send_and_sync: false,
             drop: Self::drop_ptr::<T>,
             type_name: core::any::type_name::<T>(),
         }
-    }
-
-    #[inline]
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
     }
 
     #[inline]

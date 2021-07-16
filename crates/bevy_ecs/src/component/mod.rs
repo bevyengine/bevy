@@ -151,6 +151,24 @@ impl ComponentDescriptor {
         }
     }
 
+    /// # Safety
+    ///
+    /// The [`TypeInfo`] must match the [`TypeId`]
+    pub unsafe fn from_type_info(
+        storage_type: StorageType,
+        type_id: Option<TypeId>,
+        type_info: TypeInfo,
+    ) -> Self {
+        Self {
+            name: type_info.type_name().to_string(),
+            storage_type,
+            is_send_and_sync: type_info.is_send_and_sync(),
+            type_id,
+            layout: type_info.layout(),
+            drop: type_info.drop(),
+        }
+    }
+
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.storage_type
@@ -164,19 +182,6 @@ impl ComponentDescriptor {
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
-    }
-}
-
-impl From<TypeInfo> for ComponentDescriptor {
-    fn from(type_info: TypeInfo) -> Self {
-        Self {
-            name: type_info.type_name().to_string(),
-            storage_type: StorageType::default(),
-            is_send_and_sync: type_info.is_send_and_sync(),
-            type_id: Some(type_info.type_id()),
-            drop: type_info.drop(),
-            layout: type_info.layout(),
-        }
     }
 }
 
@@ -217,7 +222,8 @@ impl Components {
 
     #[inline]
     pub fn get_or_insert_id<T: Component>(&mut self) -> ComponentId {
-        self.get_or_insert_with(TypeId::of::<T>(), TypeInfo::of::<T>)
+        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+        unsafe { self.get_or_insert_with(TypeId::of::<T>(), TypeInfo::of::<T>) }
     }
 
     #[inline]
@@ -265,16 +271,23 @@ impl Components {
 
     #[inline]
     pub fn get_or_insert_resource_id<T: Component>(&mut self) -> ComponentId {
-        self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of::<T>)
+        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+        unsafe { self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of::<T>) }
     }
 
     #[inline]
     pub fn get_or_insert_non_send_resource_id<T: Any>(&mut self) -> ComponentId {
-        self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of_non_send_and_sync::<T>)
+        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of_non_send_and_sync::<T>)
+        }
     }
 
+    /// # Safety
+    ///
+    /// The [`TypeInfo`] must match the [`TypeId`]
     #[inline]
-    fn get_or_insert_resource_with(
+    unsafe fn get_or_insert_resource_with(
         &mut self,
         type_id: TypeId,
         func: impl FnOnce() -> TypeInfo,
@@ -283,15 +296,25 @@ impl Components {
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
             let type_info = func();
             let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), type_info.into()));
+            components.push(ComponentInfo::new(
+                ComponentId(index),
+                ComponentDescriptor::from_type_info(
+                    StorageType::default(),
+                    Some(type_id),
+                    type_info,
+                ),
+            ));
             index
         });
 
         ComponentId(*index)
     }
 
+    /// # Safety
+    ///
+    /// The [`TypeInfo`] must match the [`TypeId`]
     #[inline]
-    pub(crate) fn get_or_insert_with(
+    pub(crate) unsafe fn get_or_insert_with(
         &mut self,
         type_id: TypeId,
         func: impl FnOnce() -> TypeInfo,
@@ -300,7 +323,14 @@ impl Components {
         let index = self.indices.entry(type_id).or_insert_with(|| {
             let type_info = func();
             let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), type_info.into()));
+            components.push(ComponentInfo::new(
+                ComponentId(index),
+                ComponentDescriptor::from_type_info(
+                    StorageType::default(),
+                    Some(type_id),
+                    type_info,
+                ),
+            ));
             index
         });
 

@@ -69,7 +69,10 @@ macro_rules! tuple_impl {
             #[allow(unused_variables)]
             fn component_id(components: &mut Components) -> Vec<ComponentId> {
                 vec![$(
-                    components.get_or_insert_with(TypeId::of::<$name>(), || TypeInfo::of::<$name>())
+                    // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+                    unsafe {
+                        components.get_or_insert_with(TypeId::of::<$name>(), || TypeInfo::of::<$name>())
+                    }
                 ),*]
             }
 

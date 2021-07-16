@@ -511,7 +511,9 @@ mod tests {
     fn table() {
         let mut components = Components::default();
         let type_info = TypeInfo::of::<usize>();
-        let component_id = components.get_or_insert_with(type_info.type_id(), || type_info);
+        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+        let component_id =
+            unsafe { components.get_or_insert_with(TypeId::of::<usize>(), || type_info) };
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
