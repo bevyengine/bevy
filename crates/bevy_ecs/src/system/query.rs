@@ -163,12 +163,17 @@ use thiserror::Error;
 /// # non_tuple_system.system();
 /// ```
 ///
-/// # Iteration
+/// # Usage of query results
 ///
-/// Inside the body function of the system, the `Query` is available as a function parameter.
-/// The most important methods are [`iter`](Self::iter) for read only queries, and
-/// [`iter_mut`](Self::iter_mut) for queries that contain at least one mutable accessed
-/// component.
+/// Inside the body of the system function, the `Query` is available as a function parameter.
+/// This section shows various methods to access query results.
+///
+/// ## Iteration over every query result
+///
+/// The [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) methods are used to iterate
+/// over every query result. Refer to the
+/// [`Iterator` API docs](https://doc.rust-lang.org/stable/std/iter/trait.Iterator.html)
+/// for advanced iterator usage.
 ///
 /// ```
 /// # use bevy_ecs::system::IntoSystem;
@@ -177,22 +182,33 @@ use thiserror::Error;
 /// # struct ComponentB;
 /// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
 ///     for (a, b) in query.iter() {
-///         // ...
+///         // Here, `a` and `b` are normal references to components, relatively of
+///         // `&ComponentA` and `&ComponentB` types.
 ///     }
 /// }
 /// # immutable_query_system.system();
 ///
 /// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
 ///     for (mut a, b) in query.iter_mut() {
-///         // ...
+///         // Similar to the above system, but this time `ComponentA` can be accessed mutably.
+///         // Note the usage of `mut` in the tuple and the call to `iter_mut` instead of `iter`.
 ///     }
 /// }
 /// # mutable_query_system.system();
 /// ```
 ///
-/// To get just the first result, use `iter.next()` or `iter_mut.next()`. You can use
-/// [`single`](Self::single) or [`single_mut`](Self::single_mut) instead if you want to
-/// get an error on non exactly single results.
+/// ## Getting the query result for a particular entity
+///
+/// If you have an [`Entity`] handle, you can use the [`get`](Self::get) or
+/// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
+///
+/// ## Getting a single query result
+///
+/// While it's possible to get a single result from a query by using `iter.next()`, a more
+/// idiomatic approach would use the [`single`](Self::single) or [`single_mut`](Self::single_mut)
+/// methods instead. Keep in mind though that they will return a [`QuerySingleError`] if the
+/// number of query results differ from being exactly one. If that's the case, use `iter.next()`
+/// (or `iter_mut.next()`) to only get the first query result.
 pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
