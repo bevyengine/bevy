@@ -1,7 +1,3 @@
-mod type_info;
-
-pub use type_info::*;
-
 use crate::storage::SparseSetIndex;
 use std::{
     alloc::Layout,
@@ -140,6 +136,11 @@ pub struct ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
+    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    unsafe fn drop_ptr<T>(x: *mut u8) {
+        x.cast::<T>().drop_in_place()
+    }
+
     pub fn new<T: Component>(storage_type: StorageType) -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
@@ -147,25 +148,18 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: TypeInfo::drop_ptr::<T>,
+            drop: Self::drop_ptr::<T>,
         }
     }
 
-    /// # Safety
-    ///
-    /// The [`TypeInfo`] must match the [`TypeId`]
-    pub unsafe fn from_type_info(
-        storage_type: StorageType,
-        type_id: Option<TypeId>,
-        type_info: TypeInfo,
-    ) -> Self {
+    fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: type_info.type_name().to_string(),
+            name: std::any::type_name::<T>().to_string(),
             storage_type,
-            is_send_and_sync: type_info.is_send_and_sync(),
-            type_id,
-            layout: type_info.layout(),
-            drop: type_info.drop(),
+            is_send_and_sync: false,
+            type_id: Some(TypeId::of::<T>()),
+            layout: Layout::new::<T>(),
+            drop: Self::drop_ptr::<T>,
         }
     }
 
@@ -222,8 +216,12 @@ impl Components {
 
     #[inline]
     pub fn get_or_insert_id<T: Component>(&mut self) -> ComponentId {
-        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
-        unsafe { self.get_or_insert_with(TypeId::of::<T>(), TypeInfo::of::<T>) }
+        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_insert_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new::<T>(StorageType::default())
+            })
+        }
     }
 
     #[inline]
@@ -271,39 +269,38 @@ impl Components {
 
     #[inline]
     pub fn get_or_insert_resource_id<T: Component>(&mut self) -> ComponentId {
-        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
-        unsafe { self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of::<T>) }
+        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new::<T>(StorageType::default())
+            })
+        }
     }
 
     #[inline]
     pub fn get_or_insert_non_send_resource_id<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
+        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), TypeInfo::of_non_send_and_sync::<T>)
+            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+            })
         }
     }
 
     /// # Safety
     ///
-    /// The [`TypeInfo`] must match the [`TypeId`]
+    /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
     unsafe fn get_or_insert_resource_with(
         &mut self,
         type_id: TypeId,
-        func: impl FnOnce() -> TypeInfo,
+        func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
-            let type_info = func();
+            let descriptor = func();
             let index = components.len();
-            components.push(ComponentInfo::new(
-                ComponentId(index),
-                ComponentDescriptor::from_type_info(
-                    StorageType::default(),
-                    Some(type_id),
-                    type_info,
-                ),
-            ));
+            components.push(ComponentInfo::new(ComponentId(index), descriptor));
             index
         });
 
@@ -312,25 +309,18 @@ impl Components {
 
     /// # Safety
     ///
-    /// The [`TypeInfo`] must match the [`TypeId`]
+    /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
     pub(crate) unsafe fn get_or_insert_with(
         &mut self,
         type_id: TypeId,
-        func: impl FnOnce() -> TypeInfo,
+        func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
         let index = self.indices.entry(type_id).or_insert_with(|| {
-            let type_info = func();
+            let descriptor = func();
             let index = components.len();
-            components.push(ComponentInfo::new(
-                ComponentId(index),
-                ComponentDescriptor::from_type_info(
-                    StorageType::default(),
-                    Some(type_id),
-                    type_info,
-                ),
-            ));
+            components.push(ComponentInfo::new(ComponentId(index), descriptor));
             index
         });
 
