@@ -252,7 +252,23 @@ where
 
     /// Returns an [`Iterator`] over the query results.
     ///
-    /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
+    /// bound). See [`Self::iter_mut`] for queries that contain at least one mutable component.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in query.iter() {
+    ///         println!("Say hello to {}!", player.name);
+    ///     }
+    /// }
+    /// # report_names_system.system();
+    /// ```
     #[inline]
     pub fn iter(&self) -> QueryIter<'_, '_, Q, F>
     where
@@ -290,6 +306,25 @@ where
     }
 
     /// Returns an [`Iterator`] over the query results.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// # struct Time;
+    /// # impl Time {
+    /// #     fn delta_seconds(&self) -> f32 { 1.0 / 60.0 }
+    /// # }
+    /// #
+    /// fn gravity_system(mut query: Query<&mut Velocity>, time: Res<Time> ) {
+    ///     for mut velocity in query.iter_mut() {
+    ///         velocity.y -= 9.8 * time.delta_seconds();
+    ///     }
+    /// }
+    /// # gravity_system.system();
+    /// ```
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
         // SAFE: system runs without conflicts with other systems.
