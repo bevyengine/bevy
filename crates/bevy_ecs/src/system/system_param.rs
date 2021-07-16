@@ -529,6 +529,26 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         Commands::new(state, world)
     }
 }
+pub mod local_value {
+
+    /// How should a [`Local`](crate::system::Local) system parameter be initialized.
+    pub trait LocalValue {}
+
+    /// [`Local`](crate::system::Local) should be initialized using the
+    /// [`Default`](std::default::Default) implementation.
+    pub struct Default;
+    impl LocalValue for Default {}
+
+    /// [`Local`](crate::system::Local) should be initialized from the
+    /// [`FromWorld`](crate::world::FromWorld) implementation.
+    pub struct FromWorld;
+    impl LocalValue for FromWorld {}
+
+    /// [`Local`](crate::system::Local) should be initialized by calling
+    /// [`FunctionSystem::config()`](crate::system::FunctionSystem::config) on the system.
+    pub struct NeedConfig;
+    impl LocalValue for NeedConfig {}
+}
 
 /// A system local [`SystemParam`].
 ///
@@ -556,49 +576,133 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
-pub struct Local<'a, T: Resource>(&'a mut T);
+///
+/// # Local value initialization
+///
+/// The value used to initialized `Local` can have several origins:
+///
+/// ## `Default` value
+///
+/// This is the default option if you don't explicitly set the `ValueFrom` type parameter.
+/// This is equivalent to setting it to [`Default`](local_value::Default).
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// #[derive(Default)]
+/// struct Foo(u32);
+/// fn default_local(local: Local<Foo>) {
+///     assert_eq!(local.0, 0);
+/// }
+/// let mut system = default_local.system();
+/// system.initialize(world);
+/// system.run((), world);
+/// ```
+///
+/// ## `FromWorld` value
+///
+/// The local value can be initialized from the `World` the system runs in by using
+/// [`FromWorld`](local_value::FromWorld).
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// world.insert_resource(1u32);
+/// struct Foo(u32);
+/// impl FromWorld for Foo {
+///     fn from_world(world: &mut World) -> Self {
+///         Foo(*world.get_resource::<u32>().unwrap() + 1)
+///     }
+/// }
+/// fn from_world_local(local: Local<Foo, local_value::FromWorld>) {
+///     assert_eq!(local.0, 2);
+/// }
+/// let mut system = from_world_local.system();
+/// system.initialize(world);
+/// system.run((), world);
+/// ```
+///
+/// ## `NeedConfig` value
+///
+/// With [`NeedConfig`](local_value::NeedConfig), the local value needs to be configured when
+/// setting up the system with [`FunctionSystem::config()`](crate::system::FunctionSystem::config).
+/// This will panic if the system using this `Local` value has not been properly configured before
+/// running.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// struct Foo(u32);
+/// fn need_config_local(local: Local<Foo, local_value::NeedConfig>) {
+///     assert_eq!(local.0, 7);
+/// }
+/// let mut system = need_config_local.system().config(|config| config.0 = Some(Foo(7)));
+/// system.initialize(world);
+/// system.run((), world);
+/// ```
+pub struct Local<'a, T: Resource, ValueFrom: local_value::LocalValue = local_value::Default> {
+    value: &'a mut T,
+    value_from: std::marker::PhantomData<ValueFrom>,
+}
 
 // SAFE: Local only accesses internal state
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Resource, ValueFrom: local_value::LocalValue> ReadOnlySystemParamFetch
+    for LocalState<T, ValueFrom>
+{
+}
 
-impl<'a, T: Resource> Debug for Local<'a, T>
+impl<'a, T: Resource, ValueFrom: local_value::LocalValue> Debug for Local<'a, T, ValueFrom>
 where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Local").field(&self.0).finish()
+        f.debug_tuple("Local").field(&self.value).finish()
     }
 }
 
-impl<'a, T: Resource> Deref for Local<'a, T> {
+impl<'a, T: Resource, ValueFrom: local_value::LocalValue> Deref for Local<'a, T, ValueFrom> {
     type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.0
+        self.value
     }
 }
 
-impl<'a, T: Resource> DerefMut for Local<'a, T> {
+impl<'a, T: Resource, ValueFrom: local_value::LocalValue> DerefMut for Local<'a, T, ValueFrom> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
+        self.value
     }
 }
 
 /// The [`SystemParamState`] of [`Local<T>`].
-pub struct LocalState<T: Resource>(T);
+pub struct LocalState<T: Resource, ValueFrom: local_value::LocalValue> {
+    value: T,
+    value_from: std::marker::PhantomData<ValueFrom>,
+}
 
-impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
-    type Fetch = LocalState<T>;
+impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T, local_value::FromWorld> {
+    type Fetch = LocalState<T, local_value::FromWorld>;
+}
+
+impl<'a, T: Resource + Default> SystemParam for Local<'a, T, local_value::Default> {
+    type Fetch = LocalState<T, local_value::Default>;
+}
+
+impl<'a, T: Resource> SystemParam for Local<'a, T, local_value::NeedConfig> {
+    type Fetch = LocalState<T, local_value::NeedConfig>;
 }
 
 // SAFE: only local state is accessed
-unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
+unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T, local_value::FromWorld> {
     type Config = Option<T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
-        Self(config.unwrap_or_else(|| T::from_world(world)))
+        Self {
+            value: config.unwrap_or_else(|| T::from_world(world)),
+            value_from: Default::default(),
+        }
     }
 
     fn default_config() -> Option<T> {
@@ -606,8 +710,42 @@ unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
     }
 }
 
-impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
-    type Item = Local<'s, T>;
+// SAFE: only local state is accessed
+unsafe impl<T: Resource + Default> SystemParamState for LocalState<T, local_value::Default> {
+    type Config = Option<T>;
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+        Self {
+            value: config.unwrap_or_else(|| T::default()),
+            value_from: Default::default(),
+        }
+    }
+
+    fn default_config() -> Option<T> {
+        None
+    }
+}
+
+// SAFE: only local state is accessed
+unsafe impl<T: Resource> SystemParamState for LocalState<T, local_value::NeedConfig> {
+    type Config = Option<T>;
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+        Self {
+            value: config.expect("Local must be initialized using config!"),
+            value_from: Default::default(),
+        }
+    }
+
+    fn default_config() -> Option<T> {
+        None
+    }
+}
+
+impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's>
+    for LocalState<T, local_value::FromWorld>
+{
+    type Item = Local<'s, T, local_value::FromWorld>;
 
     #[inline]
     unsafe fn get_param(
@@ -616,7 +754,46 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Local(&mut state.0)
+        Local {
+            value: &mut state.value,
+            value_from: Default::default(),
+        }
+    }
+}
+
+impl<'w, 's, T: Resource + Default> SystemParamFetch<'w, 's>
+    for LocalState<T, local_value::Default>
+{
+    type Item = Local<'s, T, local_value::Default>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        Local {
+            value: &mut state.value,
+            value_from: Default::default(),
+        }
+    }
+}
+
+impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for LocalState<T, local_value::NeedConfig> {
+    type Item = Local<'s, T, local_value::NeedConfig>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        Local {
+            value: &mut state.value,
+            value_from: Default::default(),
+        }
     }
 }
 

@@ -284,6 +284,10 @@ name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 
 [[example]]
+name = "local_parameter"
+path = "examples/ecs/local_parameter.rs"
+
+[[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 

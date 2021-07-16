@@ -225,28 +225,8 @@ fn thread_local_system(world: &mut World) {
     }
 }
 
-// Sometimes systems need their own unique "local" state. Bevy's ECS provides Local<T> resources for
-// this case. Local<T> resources are unique to their system and are automatically initialized on
-// your behalf (if they don't already exist). If you have a system's id, you can also access local
-// resources directly in the Resources collection using `Resources::get_local()`. In general you
-// should only need this feature in the following cases:  1. You have multiple instances of the same
-// system and they each need their own unique state  2. You already have a global version of a
-// resource that you don't want to overwrite for your current system  3. You are too lazy to
-// register the system's resource as a global resource
-
-#[derive(Default)]
 struct State {
-    counter: usize,
-}
-
-// NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
-#[allow(dead_code)]
-fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) {
-    for (player, score) in query.iter() {
-        println!("processed: {} {}", player.name, score.value);
-    }
-    println!("this system ran {} times", state.counter);
-    state.counter += 1;
+    _counter: usize,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -266,7 +246,7 @@ fn main() {
     // resources, and plugins to our app
     App::new()
         // Resources can be added to our app like this
-        .insert_resource(State { counter: 0 })
+        .insert_resource(State { _counter: 0 })
         // Some systems are configured by adding their settings as a resource
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
