@@ -689,7 +689,7 @@ unsafe impl<T: Component + Default> SystemParamState for LocalState<T, local_val
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
         Self {
-            value: config.unwrap_or_else(|| T::default()),
+            value: config.unwrap_or_else(T::default),
             value_from: Default::default(),
         }
     }
