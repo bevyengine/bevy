@@ -51,7 +51,7 @@ impl TypeInfo {
         self.type_name
     }
 
-    pub(crate) unsafe fn drop_ptr<T>(x: *mut u8) {
+    pub(super) unsafe fn drop_ptr<T>(x: *mut u8) {
         x.cast::<T>().drop_in_place()
     }
 }
