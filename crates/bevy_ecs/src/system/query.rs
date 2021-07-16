@@ -23,7 +23,7 @@ use thiserror::Error;
 ///
 /// `Query` accepts two type parameters:
 ///
-/// 1. **Component access:** the components that an entity must contemporarily have to return
+/// 1. **Component access:** the components that an entity must have at the same time to return
 ///    a query result.
 /// 2. **Query filters (optional):** a predicate that ignore query results that don't match
 ///    its conditions.
