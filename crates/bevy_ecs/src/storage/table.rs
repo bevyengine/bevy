@@ -505,6 +505,7 @@ mod tests {
         entity::Entity,
         storage::Table,
     };
+    use std::any::TypeId;
 
     #[test]
     fn table() {
