@@ -8,6 +8,7 @@ pub enum Collision {
     Right,
     Top,
     Bottom,
+    Inside,
 }
 
 // TODO: ideally we can remove this once bevy gets a physics system
@@ -31,7 +32,7 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         } else if a_min.x > b_min.x && a_min.x < b_max.x && a_max.x > b_max.x {
             (Some(Collision::Right), a_min.x - b_max.x)
         } else {
-            (None, 0.0)
+            (Some(Collision::Inside), -f32::INFINITY)
         };
 
         // check to see if we hit on the top or bottom side
@@ -41,7 +42,7 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         } else if a_min.y > b_min.y && a_min.y < b_max.y && a_max.y > b_max.y {
             (Some(Collision::Top), a_min.y - b_max.y)
         } else {
-            (None, 0.0)
+            (Some(Collision::Inside), -f32::INFINITY)
         };
 
         // if we had an "x" and a "y" collision, pick the "primary" side using penetration depth
