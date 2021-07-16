@@ -128,13 +128,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
         } else {
             field_component_ids.push(quote! {
-                // SAFE: The [`TypeInfo`] matches the [`TypeId`]
-                component_id.push(unsafe {
-                    components.get_or_insert_with(
-                        std::any::TypeId::of::<#field_type>(),
-                        || #ecs_path::component::TypeInfo::of::<#field_type>(),
-                    )
-                });
+                component_id.push(components.get_or_insert_id::<#field_type>());
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());

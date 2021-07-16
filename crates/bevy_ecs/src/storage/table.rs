@@ -500,20 +500,12 @@ impl IndexMut<TableId> for Tables {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        component::{Components, TypeInfo},
-        entity::Entity,
-        storage::Table,
-    };
-    use std::any::TypeId;
+    use crate::{component::Components, entity::Entity, storage::Table};
 
     #[test]
     fn table() {
         let mut components = Components::default();
-        let type_info = TypeInfo::of::<usize>();
-        // SAFE: The [`TypeInfo`] matches the [`TypeId`]
-        let component_id =
-            unsafe { components.get_or_insert_with(TypeId::of::<usize>(), || type_info) };
+        let component_id = components.get_or_insert_id::<usize>();
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());

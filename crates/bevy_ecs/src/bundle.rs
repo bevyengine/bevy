@@ -2,7 +2,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -68,12 +68,7 @@ macro_rules! tuple_impl {
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_id(components: &mut Components) -> Vec<ComponentId> {
-                vec![$(
-                    // SAFE: The [`TypeInfo`] matches the [`TypeId`]
-                    unsafe {
-                        components.get_or_insert_with(TypeId::of::<$name>(), || TypeInfo::of::<$name>())
-                    }
-                ),*]
+                vec![$(components.get_or_insert_id::<$name>()),*]
             }
 
             #[allow(unused_variables, unused_mut)]
