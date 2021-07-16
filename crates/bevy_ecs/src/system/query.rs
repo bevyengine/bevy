@@ -30,6 +30,9 @@ use thiserror::Error;
 ///
 /// # Usage as system parameter
 ///
+/// To define the structure of a query, it is declared as a system parameter. This section
+/// shows the various use cases of `Query` as a system parameter.
+///
 /// ## Immutable component access
 ///
 /// The following example defines a query that gives an iterator over `(&ComponentA, &ComponentB)`
