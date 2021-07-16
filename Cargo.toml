@@ -418,7 +418,7 @@ path = "examples/tools/bevymark.rs"
 
 # Transforms
 [[example]]
-name = "global_vs_local"
+name = "global_vs_local_translation"
 path = "examples/transforms/global_vs_local_translation.rs"
 
 [[example]]
