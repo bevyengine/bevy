@@ -11,7 +11,7 @@ use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
-/// Provides scoped access to a [`World`].
+/// Provides scoped access to components in a [`World`].
 ///
 /// Queries are a powerful tool enabling the programmer to iterate over entities and their components
 /// as well as filtering them on certain conditions.
