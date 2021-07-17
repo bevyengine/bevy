@@ -64,7 +64,7 @@ where
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
 /// }
-/// # compliment_entity_system;
+/// # compliment_entity_system.system();
 /// ```
 pub struct With<T>(PhantomData<T>);
 
@@ -183,7 +183,7 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }
-/// # no_permit_system;
+/// # no_permit_system.system();
 /// ```
 pub struct Without<T>(PhantomData<T>);
 
@@ -408,7 +408,7 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
 /// }
-/// # print_cool_entity_system;
+/// # print_cool_entity_system.system();
 /// ```
 pub struct Or<T>(pub T);
 
@@ -711,7 +711,7 @@ impl_tick_filter!(
     ///     }
     /// }
     ///
-    /// # print_add_name_component;
+    /// # print_add_name_component.system();
     /// ```
     Added,
     /// The [`FetchState`] of [`Added`].
@@ -752,7 +752,7 @@ impl_tick_filter!(
     ///     }
     /// }
     ///
-    /// # print_moving_objects_system;
+    /// # print_moving_objects_system.system();
     /// ```
     Changed,
     /// The [`FetchState`] of [`Changed`].

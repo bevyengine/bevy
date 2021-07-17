@@ -708,7 +708,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 ///         }
 ///     }
 /// }
-/// # print_moving_objects_system;
+/// # print_moving_objects_system.system();
 /// ```
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
