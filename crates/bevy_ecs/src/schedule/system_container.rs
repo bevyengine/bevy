@@ -169,7 +169,7 @@ impl GraphNode for ParallelSystemContainer {
     type Label = BoxedSystemLabel;
 
     fn name(&self) -> Cow<'static, str> {
-        self.name()
+        self.system().name()
     }
 
     fn labels(&self) -> &[BoxedSystemLabel] {
