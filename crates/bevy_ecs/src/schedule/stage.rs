@@ -1,5 +1,6 @@
 use crate::{
     component::ComponentId,
+    prelude::IntoSystem,
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
@@ -8,7 +9,6 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
         SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
-    system::System,
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
@@ -289,16 +289,19 @@ impl SystemStage {
         self
     }
 
-    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
-        self.set_run_criteria(system);
+    pub fn with_run_criteria<Param, S: IntoSystem<(), ShouldRun, Param>>(
+        mut self,
+        system: S,
+    ) -> Self {
+        self.set_run_criteria(system.system());
         self
     }
 
-    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
+    pub fn set_run_criteria<Param, S: IntoSystem<(), ShouldRun, Param>>(
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.stage_run_criteria.set(Box::new(system));
+        self.stage_run_criteria.set(Box::new(system.system()));
         self
     }
 
@@ -1458,21 +1461,18 @@ mod tests {
             .with_system(make_parallel!(0).label("0"))
             .with_system(
                 make_parallel!(1)
-                    .system()
                     .label("1")
                     .after("0")
                     .with_run_criteria(every_other_time.label("every other time")),
             )
             .with_system(
                 make_parallel!(2)
-                    .system()
                     .label("2")
                     .after("1")
                     .with_run_criteria(RunCriteria::pipe("every other time", eot_piped.system())),
             )
             .with_system(
                 make_parallel!(3)
-                    .system()
                     .label("3")
                     .after("2")
                     .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
@@ -2117,7 +2117,7 @@ mod tests {
         world.insert_resource(Vec::<usize>::new());
         let mut stage_spawn = SystemStage::parallel().with_system(spawn_entity);
         let mut stage_count = SystemStage::parallel()
-            .with_run_criteria(even_number_of_entities_critiera.system())
+            .with_run_criteria(even_number_of_entities_critiera)
             .with_system(count_entities);
         stage_count.run(&mut world);
         stage_spawn.run(&mut world);
