@@ -28,12 +28,8 @@ fn main() {
                 .with_system(scoreboard_system),
         )
         .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown))
-        .add_system_set(
-            SystemSet::on_enter(GameState::GameOver).with_system(display_score),
-        )
-        .add_system_set(
-            SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard),
-        )
+        .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
+        .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
         .add_system_set(
             SystemSet::new()

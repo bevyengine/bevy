@@ -25,11 +25,7 @@ fn main() {
     // Add systems to the Stage to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     update.add_system(spawn_entities.label(SimulationSystem::Spawn));
-    update.add_system(
-        print_counter_when_changed
-            
-            .after(SimulationSystem::Spawn),
-    );
+    update.add_system(print_counter_when_changed.after(SimulationSystem::Spawn));
     update.add_system(age_all_entities.label(SimulationSystem::Age));
     update.add_system(remove_old_entities.after(SimulationSystem::Age));
     update.add_system(print_changed_entities.after(SimulationSystem::Age));
