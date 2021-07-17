@@ -85,7 +85,7 @@ fn main() {
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

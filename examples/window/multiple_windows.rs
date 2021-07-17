@@ -19,9 +19,9 @@ fn main() {
         .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)
         .add_system_set(
-            SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
+            SystemSet::on_update(AppState::CreateWindow).with_system(setup_window),
         )
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline.system()))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline))
         .run();
 }
 

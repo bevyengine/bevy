@@ -13,8 +13,9 @@ use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     entity::Entity,
+    prelude::IntoSystem,
     query::{Changed, Or, With},
-    system::{BoxedSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
+    system::{BoxedSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
     world::World,
 };
 use bevy_utils::HashMap;

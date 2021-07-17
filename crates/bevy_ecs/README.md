@@ -131,7 +131,7 @@ fn main() {
     // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
     // before moving on to the next Stage
     schedule.add_stage("update", SystemStage::parallel()
-        .with_system(movement.system())
+        .with_system(movement)
     );
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop

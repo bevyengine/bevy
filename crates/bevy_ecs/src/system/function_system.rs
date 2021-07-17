@@ -171,7 +171,7 @@ impl<Param: SystemParam> SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = my_system_function.system();
+/// let system = my_system_function;
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
@@ -207,7 +207,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// use bevy_ecs::prelude::*;
 ///
 /// fn main() {
-///     let mut square_system = square.system();
+///     let mut square_system = square;
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
@@ -251,7 +251,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// fn local_is_42(local: Local<usize>) {
     ///     assert_eq!(*local, 42);
     /// }
-    /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));
+    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
     /// system.initialize(world);
     /// system.run((), world);
     /// ```

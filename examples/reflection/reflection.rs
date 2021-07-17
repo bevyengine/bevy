@@ -15,7 +15,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .register_type::<Foo>()
         .register_type::<Bar>()
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

@@ -7,9 +7,9 @@ fn main() {
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_startup_system(save_scene_system.exclusive_system())
-        .add_startup_system(load_scene_system.system())
-        .add_startup_system(infotext_system.system())
-        .add_system(log_system.system())
+        .add_startup_system(load_scene_system)
+        .add_startup_system(infotext_system)
+        .add_system(log_system)
         .run();
 }
 

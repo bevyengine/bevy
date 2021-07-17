@@ -16,13 +16,13 @@ fn main() {
     // called "second". In "first" we update the events and in "second" we run our systems
     // sending and receiving events.
     let mut first = SystemStage::parallel();
-    first.add_system(Events::<MyEvent>::update_system.system());
+    first.add_system(Events::<MyEvent>::update_system);
     schedule.add_stage("first", first);
 
     // Add systems sending and receiving events to a "second" Stage
     let mut second = SystemStage::parallel();
-    second.add_system(sending_system.system().label(EventSystem::Sending));
-    second.add_system(receiving_system.system().after(EventSystem::Sending));
+    second.add_system(sending_system.label(EventSystem::Sending));
+    second.add_system(receiving_system.after(EventSystem::Sending));
 
     // Run the "second" Stage after the "first" Stage, so our Events always get updated before we use them
     schedule.add_stage_after("first", "second", second);

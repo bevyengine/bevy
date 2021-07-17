@@ -1,7 +1,7 @@
 use bevy::ecs::{
-    world::World,
     schedule::{Stage, SystemStage},
     system::{IntoSystem, Query},
+    world::World,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -29,7 +29,7 @@ fn empty_systems(criterion: &mut Criterion) {
     for amount in 0..5 {
         let mut stage = SystemStage::parallel();
         for _ in 0..amount {
-            stage.add_system(empty.system());
+            stage.add_system(empty);
         }
         run_stage(&mut stage, &mut world);
         group.bench_function(&format!("{:03}_systems", amount), |bencher| {
@@ -42,11 +42,11 @@ fn empty_systems(criterion: &mut Criterion) {
         let mut stage = SystemStage::parallel();
         for _ in 0..amount {
             stage
-                .add_system(empty.system())
-                .add_system(empty.system())
-                .add_system(empty.system())
-                .add_system(empty.system())
-                .add_system(empty.system());
+                .add_system(empty)
+                .add_system(empty)
+                .add_system(empty)
+                .add_system(empty)
+                .add_system(empty);
         }
         run_stage(&mut stage, &mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount), |bencher| {
@@ -85,15 +85,9 @@ fn busy_systems(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
         for system_amount in 0..5 {
             let mut stage = SystemStage::parallel();
-            stage
-                .add_system(ab.system())
-                .add_system(cd.system())
-                .add_system(ce.system());
+            stage.add_system(ab).add_system(cd).add_system(ce);
             for _ in 0..system_amount {
-                stage
-                    .add_system(ab.system())
-                    .add_system(cd.system())
-                    .add_system(ce.system());
+                stage.add_system(ab).add_system(cd).add_system(ce);
             }
             run_stage(&mut stage, &mut world);
             group.bench_function(
@@ -142,15 +136,9 @@ fn contrived(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
         for system_amount in 0..5 {
             let mut stage = SystemStage::parallel();
-            stage
-                .add_system(s_0.system())
-                .add_system(s_1.system())
-                .add_system(s_2.system());
+            stage.add_system(s_0).add_system(s_1).add_system(s_2);
             for _ in 0..system_amount {
-                stage
-                    .add_system(s_0.system())
-                    .add_system(s_1.system())
-                    .add_system(s_2.system());
+                stage.add_system(s_0).add_system(s_1).add_system(s_2);
             }
             run_stage(&mut stage, &mut world);
             group.bench_function(
