@@ -315,7 +315,7 @@ where
     /// # Example
     ///
     /// In this example, the `gravity_system` iterates over the `Velocity` component of every
-    /// entity in the world that contains it to update it:
+    /// entity in the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -453,7 +453,7 @@ where
     /// # Example
     ///
     /// In this example, the `gravity_system` iterates over the `Velocity` component of every
-    /// entity in the world that contains it to update it:
+    /// entity in the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
