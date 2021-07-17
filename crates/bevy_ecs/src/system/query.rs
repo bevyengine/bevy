@@ -30,8 +30,8 @@ use thiserror::Error;
 ///
 /// # Usage as system parameter
 ///
-/// To define the structure of a query, it is declared as a system parameter. This section
-/// shows the various use cases of `Query` as a system parameter.
+/// A query is defined by declaring it as a system parameter. This section shows the various
+/// use cases of `Query` as a system parameter.
 ///
 /// ## Immutable component access
 ///
@@ -53,10 +53,8 @@ use thiserror::Error;
 /// ## Mutable component access
 ///
 /// The following example is similar to the previous one, with the exception of `ComponentA`
-/// being accessed mutably here. Both mutable and immutable accesses are allowed in the same
-/// query. Two systems cannot be executed in parallel if both access a certain component and
-/// at least one of the accesses is mutable, unless the schedule can verify that no entity
-/// could be found in both queries.
+/// being accessed mutably here. Note that both mutable and immutable accesses are allowed
+/// in the same query.
 ///
 /// ```
 /// # use bevy_ecs::system::IntoSystem;
@@ -70,10 +68,14 @@ use thiserror::Error;
 /// # system.system();
 /// ```
 ///
+/// Two systems cannot be executed in parallel if both access a certain component and
+/// at least one of the accesses is mutable, unless the schedule can verify that no entity
+/// could be found in both queries.
+///
 /// ## Entity handle access
 ///
-/// Inserting [`Entity`](crate::entity::Entity) in the type parameter tuple will give access
-/// to the entity handle.
+/// Inserting [`Entity`](crate::entity::Entity) at any position in the type parameter tuple
+/// will give access to the entity handle.
 ///
 /// ```
 /// # use bevy_ecs::entity::Entity;
@@ -89,8 +91,8 @@ use thiserror::Error;
 ///
 /// ## Query filtering
 ///
-/// From the second type parameter on, filters can be added to restrict the query results,
-/// filtering out the elements that don't satisfy the given condition.
+/// The second, optional type parameter of query, is used for filters can be added to filter
+/// out the query results that don't satisfy the given condition.
 ///
 /// ```
 /// # use bevy_ecs::query::With;
@@ -100,7 +102,7 @@ use thiserror::Error;
 /// # struct ComponentB;
 /// # struct ComponentC;
 /// # fn system(
-/// // `ComponentC` data won't be accessed, but only entities that contains it will be queried.
+/// // `ComponentC` data won't be accessed, but only entities that contain it will be queried.
 /// query: Query<(&ComponentA, &ComponentB), With<ComponentC>>
 /// # ) {}
 /// # system.system();
@@ -128,7 +130,7 @@ use thiserror::Error;
 ///
 /// A component can be made optional in a query by wrapping it into an [`Option`]. In the
 /// following example, the query will iterate over components of both entities that contain
-/// `ComponentA` and `ComponentB` and entities that contain `ComponentA` but not `ComponentB`.
+/// `ComponentA` and `ComponentB`, and entities that contain `ComponentA` but not `ComponentB`.
 ///
 /// ```
 /// # use bevy_ecs::system::IntoSystem;
@@ -144,12 +146,12 @@ use thiserror::Error;
 /// If an entity does not contain a component, its corresponding query result value will be
 /// `None`. Optional components increase the number of entities a query has to match against,
 /// therefore they can hurt iteration performance, especially in the worst case scenario where
-/// the query solely consists of only optional components, where all entities will be iterated
+/// the query solely consists of only optional components, since all entities will be iterated
 /// over.
 ///
 /// ## Single component access
 ///
-///  If just a single component needs to be accessed, using a tuple as the first type parameter
+/// If just a single component needs to be accessed, using a tuple as the first type parameter
 /// of `Query` can be omitted.
 ///
 /// ```
