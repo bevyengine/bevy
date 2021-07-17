@@ -1,5 +1,6 @@
 use crate::{
     component::Component,
+    prelude::ConfigurableSystem,
     schedule::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
@@ -97,7 +98,6 @@ where
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
-        .system()
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -118,7 +118,6 @@ where
             Some(_) => false,
             None => *is_inactive,
         })
-        .system()
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -151,7 +150,6 @@ where
             Some(_) => false,
             None => *is_in_stack,
         })
-        .system()
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -171,7 +169,6 @@ where
                     _ => false,
                 })
         })
-        .system()
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -189,7 +186,6 @@ where
                     _ => false,
                 })
         })
-        .system()
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -206,7 +202,6 @@ where
                     _ => false,
                 })
         })
-        .system()
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
@@ -223,7 +218,6 @@ where
                     _ => false,
                 })
         })
-        .system()
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())

@@ -13,7 +13,7 @@ use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     entity::Entity,
-    prelude::IntoSystem,
+    prelude::ConfigurableSystem,
     query::{Changed, Or, With},
     system::{BoxedSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
     world::World,
@@ -401,7 +401,7 @@ where
     T: renderer::RenderResources,
 {
     fn get_system(&self) -> BoxedSystem {
-        let system = render_resources_node_system::<T>.system().config(|config| {
+        let system = render_resources_node_system::<T>.config(|config| {
             config.0 = Some(RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
                 uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
@@ -584,15 +584,13 @@ where
     T: renderer::RenderResources + Asset,
 {
     fn get_system(&self) -> BoxedSystem {
-        let system = asset_render_resources_node_system::<T>
-            .system()
-            .config(|config| {
-                config.0 = Some(RenderResourcesNodeState {
-                    command_queue: self.command_queue.clone(),
-                    uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
-                    dynamic_uniforms: self.dynamic_uniforms,
-                })
-            });
+        let system = asset_render_resources_node_system::<T>.config(|config| {
+            config.0 = Some(RenderResourcesNodeState {
+                command_queue: self.command_queue.clone(),
+                uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
+                dynamic_uniforms: self.dynamic_uniforms,
+            })
+        });
 
         Box::new(system)
     }
