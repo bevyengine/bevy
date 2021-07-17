@@ -313,14 +313,10 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct Velocity { x: f32, y: f32, z: f32 }
-    /// # struct Time;
-    /// # impl Time {
-    /// #     fn delta_seconds(&self) -> f32 { 1.0 / 60.0 }
-    /// # }
-    /// #
-    /// fn gravity_system(mut query: Query<&mut Velocity>, time: Res<Time> ) {
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
     ///     for mut velocity in query.iter_mut() {
-    ///         velocity.y -= 9.8 * time.delta_seconds();
+    ///         velocity.y -= 9.8 * DELTA;
     ///     }
     /// }
     /// # gravity_system.system();
