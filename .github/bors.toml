@@ -15,3 +15,4 @@ status = [
 ]
 
 use_squash_merge = true
+block_labels = ["S-Pre-Relicense"]
