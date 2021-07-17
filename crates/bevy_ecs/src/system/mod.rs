@@ -369,11 +369,6 @@ mod tests {
 
         // ensure the system actually ran
         assert!(*world.get_resource::<bool>().unwrap());
-
-        // Now do the same with omitted ``.
-        world.insert_resource(false);
-        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
-        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]
