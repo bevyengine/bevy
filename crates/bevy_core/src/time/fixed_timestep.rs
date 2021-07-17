@@ -2,6 +2,7 @@ use crate::Time;
 use bevy_ecs::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
+    prelude::ConfigurableSystem,
     query::Access,
     schedule::ShouldRun,
     system::{IntoSystem, Local, Res, ResMut, System, SystemId},
@@ -179,11 +180,8 @@ impl System for FixedTimestep {
     }
 
     fn initialize(&mut self, world: &mut World) {
-        self.internal_system = Box::new(
-            Self::prepare_system
-                .system()
-                .config(|c| c.0 = Some(self.state.clone())),
-        );
+        self.internal_system =
+            Box::new(Self::prepare_system.config(|c| c.0 = Some(self.state.clone())));
         self.internal_system.initialize(world);
         if let Some(ref label) = self.state.label {
             let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
