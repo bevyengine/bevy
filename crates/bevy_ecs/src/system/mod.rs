@@ -28,7 +28,7 @@
 //!     }
 //!     round.0 += 1;
 //! }
-//! # my_system.system();
+//! # update_score_system.system();
 //! ```
 //!
 //! # System ordering
