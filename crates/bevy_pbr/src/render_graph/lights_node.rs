@@ -6,8 +6,7 @@ use crate::{
 };
 use bevy_core::{bytes_of, Pod, Zeroable};
 use bevy_ecs::{
-    prelude::ConfigurableSystem,
-    system::{BoxedSystem, Local, Query, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, Query, Res, ResMut},
     world::World,
 };
 use bevy_render::{

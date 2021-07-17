@@ -1,11 +1,10 @@
 use crate::{
     component::Component,
-    prelude::ConfigurableSystem,
     schedule::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{In, IntoChainSystem, Local, Res, ResMut},
+    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;

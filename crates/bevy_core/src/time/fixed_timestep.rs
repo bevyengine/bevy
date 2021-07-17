@@ -2,10 +2,9 @@ use crate::Time;
 use bevy_ecs::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
-    prelude::ConfigurableSystem,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
     world::World,
 };
 use bevy_utils::HashMap;
