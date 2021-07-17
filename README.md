@@ -78,7 +78,7 @@ Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/f
 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu](https://github.com/gfx-rs/wgpu): modern / low-level / cross-platform graphics library inspired by Vulkan
+* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library inspired by Vulkan
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
