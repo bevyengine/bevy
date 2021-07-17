@@ -157,7 +157,7 @@ impl AppBuilder {
     /// Adds a system that runs every time `app.update()` is called by the runner
     ///
     /// Systems are the main building block in the Bevy ECS app model. You can define
-    /// normal rust functions, and call `` to make them be Bevy systems.
+    /// normal rust functions, and use them as a Bevy systems.
     ///
     /// System functions can have parameters, through which one can query and
     /// mutate Bevy ECS states.
