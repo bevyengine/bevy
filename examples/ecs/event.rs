@@ -7,8 +7,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .init_resource::<EventTriggerState>()
-        .add_system(event_trigger_system.system())
-        .add_system(event_listener_system.system())
+        .add_system(event_trigger_system)
+        .add_system(event_listener_system)
         .run();
 }
 

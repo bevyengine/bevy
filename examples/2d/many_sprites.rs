@@ -24,8 +24,8 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(tick.system().label("Tick"))
-        .add_system(move_camera.system().after("Tick"))
+        .add_system(tick.label("Tick"))
+        .add_system(move_camera.after("Tick"))
         .run()
 }
 

@@ -3,9 +3,9 @@ use bevy::{log::LogPlugin, prelude::*};
 fn main() {
     App::new()
         .add_plugin(LogPlugin)
-        .add_startup_system(setup.system())
-        .add_system(log_names.system().label(LogNamesSystem))
-        .add_system(log_person_bundles.system().after(LogNamesSystem))
+        .add_startup_system(setup)
+        .add_system(log_names.label(LogNamesSystem))
+        .add_system(log_person_bundles.after(LogNamesSystem))
         .run();
 }
 

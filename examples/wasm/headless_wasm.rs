@@ -12,8 +12,8 @@ fn main() {
         )))
         .add_plugin(ScheduleRunnerPlugin::default())
         .add_plugin(LogPlugin::default())
-        .add_startup_system(hello_world_system.system())
-        .add_system(counter.system())
+        .add_startup_system(hello_world_system)
+        .add_system(counter)
         .run();
 }
 

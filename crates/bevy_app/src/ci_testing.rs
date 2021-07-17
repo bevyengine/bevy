@@ -32,7 +32,7 @@ pub(crate) fn setup_app(app_builder: &mut App) -> &mut App {
     .expect("error deserializing CI testing configuration file");
     app_builder
         .insert_resource(config)
-        .add_system(ci_testing_exit_after.system());
+        .add_system(ci_testing_exit_after);
 
     app_builder
 }

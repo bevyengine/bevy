@@ -8,7 +8,8 @@ use crate::{
 };
 use bevy_core::bytes_of;
 use bevy_ecs::{
-    system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
+    prelude::IntoSystem,
+    system::{BoxedSystem, Local, Query, Res, ResMut},
     world::World,
 };
 use bevy_transform::prelude::*;

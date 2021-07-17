@@ -35,7 +35,7 @@ use thiserror::Error;
 ///         println!("We got {} health points left!", health);
 ///     }
 /// }
-/// # system.system();
+/// # system;
 /// ```
 ///
 /// ### Multiple Component Access
@@ -61,7 +61,7 @@ use thiserror::Error;
 ///         println!("We got a {} colored {:?} and made it one unit big!", color.0, shape);
 ///     }
 /// }
-/// # system.system();
+/// # system;
 /// ```
 ///
 /// Note the use of [`Query::iter_mut`] here, as our query is not read-only anymore due to the use
@@ -85,7 +85,7 @@ use thiserror::Error;
 ///         println!("{} is tall enough!", person.0);
 ///     }
 /// }
-/// # system.system();
+/// # system;
 /// ```
 ///
 /// As shown above, the filter is a second type parameter of the query. It is optional (defaults to
@@ -507,7 +507,7 @@ where
     ///         }
     ///     }
     /// }
-    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// # let _check_that_its_a_system = player_scoring_system;
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.

@@ -29,7 +29,7 @@ impl Plugin for PrintMessagePlugin {
             timer: Timer::new(self.wait_duration, true),
         };
         app.insert_resource(state)
-            .add_system(print_message_system.system());
+            .add_system(print_message_system);
     }
 }
 

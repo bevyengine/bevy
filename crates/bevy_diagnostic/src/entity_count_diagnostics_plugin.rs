@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    system::{IntoExclusiveSystem, IntoSystem, ResMut},
+    system::{IntoExclusiveSystem, ResMut},
     world::World,
 };
 
@@ -12,7 +12,7 @@ pub struct EntityCountDiagnosticsPlugin;
 
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::setup_system.system())
+        app.add_startup_system(Self::setup_system)
             .add_system(Self::diagnostic_system.exclusive_system());
     }
 }

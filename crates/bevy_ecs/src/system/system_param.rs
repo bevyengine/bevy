@@ -38,7 +38,7 @@ use std::{
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # my_system.system();
+/// # my_system;
 /// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'a> SystemParamFetch<'a>;
@@ -522,8 +522,8 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// fn read_from_local(local: Local<usize>) -> usize {
 ///     *local
 /// }
-/// let mut write_system = write_to_local.system();
-/// let mut read_system = read_from_local.system();
+/// let mut write_system = write_to_local;
+/// let mut read_system = read_from_local;
 /// write_system.initialize(world);
 /// read_system.initialize(world);
 ///
@@ -612,7 +612,7 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
 ///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
 /// }
 ///
-/// # react_on_removal.system();
+/// # react_on_removal;
 /// ```
 pub struct RemovedComponents<'a, T> {
     world: &'a World,
