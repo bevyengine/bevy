@@ -20,6 +20,3 @@ bevy_core = { path = "../bevy_core", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_log = { path = "../bevy_log", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
-
-# other
-parking_lot = "0.11.0"

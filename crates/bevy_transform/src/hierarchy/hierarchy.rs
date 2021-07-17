@@ -37,7 +37,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
 }
 
 impl Command for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         despawn_with_children_recursive(world, self.entity);
     }
 }

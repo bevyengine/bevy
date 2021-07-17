@@ -14,5 +14,4 @@ keywords = ["bevy"]
 
 [dependencies]
 cargo-manifest = "0.2.3"
-proc-macro2 = "1.0"
 syn = "1.0"

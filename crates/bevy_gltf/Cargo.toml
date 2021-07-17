@@ -29,6 +29,6 @@ bevy_log = { path = "../bevy_log", version = "0.5.0" }
 # other
 gltf = { version = "0.16.0", default-features = false, features = ["utils", "names", "KHR_materials_unlit"] }
 thiserror = "1.0"
-anyhow = "1.0"
+anyhow = "1.0.4"
 base64 = "0.13.0"
 percent-encoding = "2.1"

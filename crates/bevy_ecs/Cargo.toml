@@ -24,14 +24,15 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_ecs_macros = { path = "macros", version = "0.5.0" }
 
 async-channel = "1.4"
-bitflags = "1.2"
 fixedbitset = "0.4"
 fxhash = "0.2"
 thiserror = "1.0"
 downcast-rs = "1.2"
-parking_lot = "0.11"
 rand = "0.8"
 serde = "1"
+
+[dev-dependencies]
+parking_lot = "0.11"
 
 [[example]]
 name = "events"

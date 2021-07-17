@@ -233,6 +233,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
         .get_resource::<WinitConfig>()
         .map_or(false, |config| config.return_from_run);
 
+    let mut active = true;
+
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
@@ -475,13 +477,21 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                 });
             }
+            event::Event::Suspended => {
+                active = false;
+            }
+            event::Event::Resumed => {
+                active = true;
+            }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
                     &mut app.world,
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                app.update();
+                if active {
+                    app.update();
+                }
             }
             _ => (),
         }
