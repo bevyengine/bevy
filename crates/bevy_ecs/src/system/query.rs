@@ -532,7 +532,32 @@ where
 
     /// Gets the query result for the given [`Entity`].
     ///
-    /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait bound).
+    /// see [`get_mut`](Self::get_mut) for queries that contain at least one mutable component.
+    ///
+    /// # Example
+    ///
+    /// In the following system, the `Entity` handle contained in the `target` resource is
+    /// used to get the `Person` component of that entity.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Person { name: String, credits: u32 }
+    /// # struct Target { entity: Entity }
+    /// #
+    /// fn check_credits_system(query: Query<&Person>, target: Res<Target>) {
+    ///     if let Ok(person) = query.get(target.entity) {
+    ///         if person.credits > 35000 {
+    ///             println!("{} won a prize!", person.name);
+    ///         }
+    ///     }
+    /// }
+    /// # check_credits_system.system();
+    /// ```
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
     where
