@@ -1,7 +1,6 @@
 use serde::Deserialize;
 
 use crate::{app::AppExit, App};
-use bevy_ecs::system::IntoSystem;
 
 /// Configuration for automated testing on CI
 #[derive(Deserialize)]
