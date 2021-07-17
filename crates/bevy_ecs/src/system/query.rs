@@ -259,6 +259,9 @@ where
     ///
     /// # Example
     ///
+    /// In this example, the `report_names_system` iterates over the `Player` component of
+    /// all the entities that contains it:
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
@@ -310,6 +313,9 @@ where
     /// Returns an [`Iterator`] over the query results.
     ///
     /// # Example
+    ///
+    /// In this example, the `gravity_system` iterates over the `Velocity` component of every
+    /// entity in the world that contains it to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -406,6 +412,24 @@ where
     /// be chained like a normal [`Iterator`].
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
+    ///
+    /// # Example
+    ///
+    /// In this example, the `report_names_system` iterates over the `Player` component of
+    /// all the entities that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     query.for_each(|player| {
+    ///         println!("Say hello to {}!", player.name);
+    ///     });
+    /// }
+    /// # report_names_system.system();
+    /// ```
     #[inline]
     pub fn for_each(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item))
     where
@@ -425,6 +449,24 @@ where
 
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
+    ///
+    /// # Example
+    ///
+    /// In this example, the `gravity_system` iterates over the `Velocity` component of every
+    /// entity in the world that contains it to update it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
+    ///     query.for_each_mut(|mut velocity| {
+    ///         velocity.y -= 9.8 * DELTA;
+    ///     });
+    /// }
+    /// # gravity_system.system();
+    /// ```
     #[inline]
     pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
