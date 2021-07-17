@@ -5,9 +5,9 @@ use ash::{
 use bevy_xr::presentation::XrGraphicsContext;
 use openxr as xr;
 use std::{error::Error, ffi::CString, sync::Arc};
-use wgpu_hal as hal;
-#[cfg(windows)]
-use winapi::um::d3d11::ID3D11Device;
+// use wgpu_hal as hal;
+// #[cfg(windows)]
+// use winapi::um::d3d11::ID3D11Device;
 
 #[derive(Clone)]
 pub enum GraphicsContextHandles {
@@ -51,20 +51,21 @@ pub fn create_graphics_context(
             .engine_version(0)
             .api_version(vk_version);
 
-        let mut flags = hal::InstanceFlags::empty();
-        if cfg!(debug_assertions) {
-            flags |= hal::InstanceFlags::VALIDATION;
-            flags |= hal::InstanceFlags::DEBUG;
-        }
+        // let mut flags = hal::InstanceFlags::empty();
+        // if cfg!(debug_assertions) {
+        //     flags |= hal::InstanceFlags::VALIDATION;
+        //     flags |= hal::InstanceFlags::DEBUG;
+        // }
 
-        let instance_extensions = <hal::api::Vulkan as hal::Api>::Instance::required_extensions(
-            &vk_entry, vk_version, flags,
-        )
-        .map_err(Box::new)?;
-        let mut instance_extensions_ptrs = instance_extensions
-            .iter()
-            .map(|x| x.as_ptr())
-            .collect::<Vec<_>>();
+        // let instance_extensions = <hal::api::Vulkan as hal::Api>::Instance::required_extensions(
+        //     &vk_entry, vk_version, flags,
+        // )
+        // .map_err(Box::new)?;
+        // let mut instance_extensions_ptrs = instance_extensions
+        //     .iter()
+        //     .map(|x| x.as_ptr())
+        //     .collect::<Vec<_>>();
+        let mut instance_extensions_ptrs = vec![];
 
         let vk_instance = if vulkan_ext2 {
             let vk_instance = unsafe {
@@ -108,26 +109,26 @@ pub fn create_graphics_context(
                     .map_err(Box::new)?
             }
         };
-        let hal_instance = unsafe {
-            <hal::api::Vulkan as hal::Api>::Instance::from_raw(
-                vk_entry.clone(),
-                vk_instance.clone(),
-                vk_version,
-                instance_extensions,
-                flags,
-                Box::new(instance.clone()),
-            )
-            .map_err(Box::new)?
-        };
+        // let hal_instance = unsafe {
+        //     <hal::api::Vulkan as hal::Api>::Instance::from_raw(
+        //         vk_entry.clone(),
+        //         vk_instance.clone(),
+        //         vk_version,
+        //         instance_extensions,
+        //         flags,
+        //         Box::new(instance.clone()),
+        //     )
+        //     .map_err(Box::new)?
+        // };
 
         let vk_physical_device = vk::PhysicalDevice::from_raw(
             instance
                 .vulkan_graphics_device(system, vk_instance.handle().as_raw() as _)
                 .map_err(Box::new)? as _,
         );
-        let hal_exposed_adapter = hal_instance
-            .expose_adapter(vk_physical_device)
-            .ok_or_else(|| Box::new(AdapterError))?;
+        // let hal_exposed_adapter = hal_instance
+        //     .expose_adapter(vk_physical_device)
+        //     .ok_or_else(|| Box::new(AdapterError))?;
 
         let queue_family_index = unsafe {
             vk_instance
@@ -145,13 +146,18 @@ pub fn create_graphics_context(
         };
         let queue_index = 0;
 
-        let device_extensions = hal_exposed_adapter
-            .adapter
-            .required_device_extensions(device_descriptor.features);
+        // let device_extensions = hal_exposed_adapter
+        //     .adapter
+        //     .required_device_extensions(device_descriptor.features);
+        // let mut device_extensions_ptrs = device_extensions
+        //     .iter()
+        //     .map(|x| x.as_ptr())
+        //     .collect::<Vec<_>>();
+        let mut device_extensions_ptrs = vec![];
 
-        let mut physical_features = hal_exposed_adapter
-            .adapter
-            .physical_device_features(&device_extensions, device_descriptor.features);
+        // let mut physical_features = hal_exposed_adapter
+        //     .adapter
+        //     .physical_device_features(&device_extensions, device_descriptor.features);
 
         let family_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_family_index)
@@ -159,16 +165,11 @@ pub fn create_graphics_context(
             .build();
         let family_infos = [family_info];
 
-        let mut device_extensions_ptrs = device_extensions
-            .iter()
-            .map(|x| x.as_ptr())
-            .collect::<Vec<_>>();
-
         let vk_device = if vulkan_ext2 {
             let info = vk::DeviceCreateInfo::builder()
                 .queue_create_infos(&family_infos)
                 .enabled_extension_names(&device_extensions_ptrs);
-            let info = physical_features.add_to_device_create_builder(info).build();
+            // let info = physical_features.add_to_device_create_builder(info).build();
 
             unsafe {
                 let vk_device = instance
@@ -196,7 +197,7 @@ pub fn create_graphics_context(
             let info = vk::DeviceCreateInfo::builder()
                 .queue_create_infos(&family_infos)
                 .enabled_extension_names(&device_extensions_ptrs);
-            let info = physical_features.add_to_device_create_builder(info).build();
+            // let info = physical_features.add_to_device_create_builder(info).build();
 
             unsafe {
                 vk_instance
@@ -204,19 +205,18 @@ pub fn create_graphics_context(
                     .map_err(Box::new)?
             }
         };
-        let hal_device = unsafe {
-            hal_exposed_adapter
-                .adapter
-                .device_from_raw(
-                    vk_device.clone(),
-                    &device_extensions,
-                    queue_family_index,
-                    queue_index,
-                )
-                .map_err(Box::new)?
-        };
+        // let hal_device = unsafe {
+        //     hal_exposed_adapter
+        //         .adapter
+        //         .device_from_raw(
+        //             vk_device.clone(),
+        //             &device_extensions,
+        //             queue_family_index,
+        //             queue_index,
+        //         )
+        //         .map_err(Box::new)?
+        // };
 
-        // VVVV commented for working on macos
         // let wgpu_instance = unsafe { wgpu::Instance::from_hal::<hal::api::Vulkan>(hal_instance) };
         // let wgpu_adapter = unsafe { wgpu_instance.adapter_from_hal(hal_exposed_adapter) };
         // let (wgpu_device, wgpu_queue) = unsafe {
@@ -233,7 +233,7 @@ pub fn create_graphics_context(
                 queue_family_index,
                 queue_index,
             },
-            todo!()
+            todo!(),
             // XrGraphicsContext {
             //     instance: wgpu_instance,
             //     device: Arc::new(wgpu_device),

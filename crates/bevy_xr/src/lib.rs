@@ -60,7 +60,7 @@ impl Plugin for XrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<XrButtons>()
             .init_resource::<XrAxes>()
-            .add_event::<VibrationEvent>()
+            .add_event::<XrVibrationEvent>()
             .init_resource::<XrProfiles>();
     }
 }

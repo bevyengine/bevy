@@ -47,7 +47,10 @@ impl Mul for XrRigidTransform {
     type Output = XrRigidTransform;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        todo!()
+        XrRigidTransform {
+            position: self.position + self.orientation * rhs.position,
+            orientation: self.orientation * rhs.orientation,
+        }
     }
 }
 
@@ -103,171 +106,6 @@ pub enum XrReferenceSpaceType {
     /// The coordinate system (position and orientation) corresponds to the center of a rectangle at
     /// floor level, with +Y up. This is for stading or room-scale experiences.
     Stage,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-pub enum HandType {
-    Left,
-    Right,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum XrButtonState {
-    Default,
-    Touched,
-    Pressed,
-}
-
-impl Default for XrButtonState {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum XrButtonType {
-    Menu,
-    Trigger,
-    Squeeze,
-    Touchpad,
-    Thumbstick,
-    FaceButton1,
-    FaceButton2,
-    Thumbrest,
-}
-
-pub struct XrButtons {
-    current_state: HashMap<(HandType, XrButtonType), XrButtonState>,
-    previous_state: HashMap<(HandType, XrButtonType), XrButtonState>,
-    values: HashMap<(HandType, XrButtonType), f32>,
-}
-
-impl Default for XrButtons {
-    fn default() -> Self {
-        Self {
-            current_state: HashMap::new(),
-            previous_state: HashMap::new(),
-            values: HashMap::new(),
-        }
-    }
-}
-
-impl XrButtons {
-    fn previous_state(&self, hand: HandType, button: XrButtonType) -> XrButtonState {
-        self.previous_state
-            .get(&(hand, button))
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub fn state(&self, hand: HandType, button: XrButtonType) -> XrButtonState {
-        self.current_state
-            .get(&(hand, button))
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub fn touched(&self, hand: HandType, button: XrButtonType) -> bool {
-        self.state(hand, button) != XrButtonState::Default
-    }
-
-    pub fn pressed(&self, hand: HandType, button: XrButtonType) -> bool {
-        self.state(hand, button) == XrButtonState::Pressed
-    }
-
-    pub fn just_touched(&self, hand: HandType, button: XrButtonType) -> bool {
-        self.touched(hand, button) && self.previous_state(hand, button) == XrButtonState::Default
-    }
-
-    pub fn just_untouched(&self, hand: HandType, button: XrButtonType) -> bool {
-        !self.touched(hand, button) && self.previous_state(hand, button) != XrButtonState::Default
-    }
-
-    pub fn just_pressed(&self, hand: HandType, button: XrButtonType) -> bool {
-        self.pressed(hand, button) && self.previous_state(hand, button) != XrButtonState::Pressed
-    }
-
-    pub fn just_unpressed(&self, hand: HandType, button: XrButtonType) -> bool {
-        !self.pressed(hand, button) && self.previous_state(hand, button) == XrButtonState::Pressed
-    }
-
-    // Returns a value between 0 and 1, where 1 is completely pressed.
-    pub fn value(&self, hand: HandType, button: XrButtonType) -> f32 {
-        self.values
-            .get(&(hand, button))
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub fn set(&mut self, hand: HandType, button: XrButtonType, state: XrButtonState, value: f32) {
-        self.previous_state
-            .insert((hand, button), self.state(hand, button));
-        self.current_state.insert((hand, button), state);
-        self.values.insert((hand, button), value);
-    }
-
-    pub fn clear(&mut self) {
-        self.current_state.clear();
-        self.previous_state.clear();
-        self.values.clear();
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum XrAxisType {
-    TouchpadX,
-    TouchpadY,
-    ThumbstickX,
-    ThumbstickY,
-}
-
-pub struct XrAxes(HashMap<(HandType, XrAxisType), f32>);
-
-impl XrAxes {
-    pub fn value(&self, hand: HandType, axis: XrAxisType) -> f32 {
-        self.0.get(&(hand, axis)).cloned().unwrap_or_default()
-    }
-
-    pub fn set(&mut self, hand: HandType, axis: XrAxisType, value: f32) {
-        self.0.insert((hand, axis), value);
-    }
-
-    pub fn clear(&mut self) {
-        self.0.clear()
-    }
-}
-
-impl Default for XrAxes {
-    fn default() -> Self {
-        Self(HashMap::new())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub enum VibrationEventType {
-    Apply {
-        duration: Duration,
-        frequency: f32,
-        amplitude: f32,
-    },
-    Stop,
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct VibrationEvent {
-    pub hand: HandType,
-    pub command: VibrationEventType,
-}
-
-/// Active interaction profiles. The format is backend-specific. They can be used to choose the
-/// controller 3D models to display.
-/// Note: in case skeletal hand tracking is active, the profiles still point to controller profiles.
-/// The correct 3D model to display can be decided depending on if skeletal hand tracking data is
-/// available or not.
-#[derive(Clone, PartialEq, Default, Debug, Serialize, Deserialize)]
-pub struct XrProfiles {
-    pub left_hand: Option<String>,
-    pub right_hand: Option<String>,
 }
 
 pub mod implementation {
@@ -353,4 +191,175 @@ impl XrTrackingSource {
     // * AR face tracking
     // * body/skeletal trackers
     // * scene understanding (anchors, planes, meshes)
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub enum XrHandType {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum XrButtonState {
+    Default,
+    Touched,
+    Pressed,
+}
+
+impl Default for XrButtonState {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum XrButtonType {
+    Menu,
+    Trigger,
+    Squeeze,
+    Touchpad,
+    Thumbstick,
+    FaceButton1,
+    FaceButton2,
+    Thumbrest,
+}
+
+pub struct XrButtons {
+    current_state: HashMap<(XrHandType, XrButtonType), XrButtonState>,
+    previous_state: HashMap<(XrHandType, XrButtonType), XrButtonState>,
+    values: HashMap<(XrHandType, XrButtonType), f32>,
+}
+
+impl Default for XrButtons {
+    fn default() -> Self {
+        Self {
+            current_state: HashMap::new(),
+            previous_state: HashMap::new(),
+            values: HashMap::new(),
+        }
+    }
+}
+
+impl XrButtons {
+    fn previous_state(&self, hand: XrHandType, button: XrButtonType) -> XrButtonState {
+        self.previous_state
+            .get(&(hand, button))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn state(&self, hand: XrHandType, button: XrButtonType) -> XrButtonState {
+        self.current_state
+            .get(&(hand, button))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn touched(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        self.state(hand, button) != XrButtonState::Default
+    }
+
+    pub fn pressed(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        self.state(hand, button) == XrButtonState::Pressed
+    }
+
+    pub fn just_touched(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        self.touched(hand, button) && self.previous_state(hand, button) == XrButtonState::Default
+    }
+
+    pub fn just_untouched(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        !self.touched(hand, button) && self.previous_state(hand, button) != XrButtonState::Default
+    }
+
+    pub fn just_pressed(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        self.pressed(hand, button) && self.previous_state(hand, button) != XrButtonState::Pressed
+    }
+
+    pub fn just_unpressed(&self, hand: XrHandType, button: XrButtonType) -> bool {
+        !self.pressed(hand, button) && self.previous_state(hand, button) == XrButtonState::Pressed
+    }
+
+    // Returns a value between 0 and 1, where 1 is completely pressed.
+    pub fn value(&self, hand: XrHandType, button: XrButtonType) -> f32 {
+        self.values
+            .get(&(hand, button))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn set(
+        &mut self,
+        hand: XrHandType,
+        button: XrButtonType,
+        state: XrButtonState,
+        value: f32,
+    ) {
+        self.previous_state
+            .insert((hand, button), self.state(hand, button));
+        self.current_state.insert((hand, button), state);
+        self.values.insert((hand, button), value);
+    }
+
+    pub fn clear(&mut self) {
+        self.current_state.clear();
+        self.previous_state.clear();
+        self.values.clear();
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum XrAxisType {
+    TouchpadX,
+    TouchpadY,
+    ThumbstickX,
+    ThumbstickY,
+}
+
+pub struct XrAxes(HashMap<(XrHandType, XrAxisType), f32>);
+
+impl XrAxes {
+    pub fn value(&self, hand: XrHandType, axis: XrAxisType) -> f32 {
+        self.0.get(&(hand, axis)).cloned().unwrap_or_default()
+    }
+
+    pub fn set(&mut self, hand: XrHandType, axis: XrAxisType, value: f32) {
+        self.0.insert((hand, axis), value);
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+}
+
+impl Default for XrAxes {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum XrVibrationEventType {
+    Apply {
+        duration: Duration,
+        frequency: f32,
+        amplitude: f32,
+    },
+    Stop,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct XrVibrationEvent {
+    pub hand: XrHandType,
+    pub command: XrVibrationEventType,
+}
+
+/// Active interaction profiles. The format is backend-specific. They can be used to choose the
+/// controller 3D models to display.
+/// Note: in case skeletal hand tracking is active, the profiles still point to controller profiles.
+/// The correct 3D model to display can be decided depending on if skeletal hand tracking data is
+/// available or not.
+#[derive(Clone, PartialEq, Default, Debug, Serialize, Deserialize)]
+pub struct XrProfiles {
+    pub left_hand: Option<String>,
+    pub right_hand: Option<String>,
 }

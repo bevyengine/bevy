@@ -8,17 +8,17 @@ use crate::{conversion::from_duration, OpenXrSession};
 use bevy_app::{Events, ManualEventReader};
 use bevy_utils::HashMap;
 use bevy_xr::{
-    HandType, VibrationEvent, VibrationEventType, XrAxes, XrAxisType, XrButtonState, XrButtonType,
+    XrHandType, XrVibrationEvent, XrVibrationEventType, XrAxes, XrAxisType, XrButtonState, XrButtonType,
     XrButtons,
 };
 use openxr as xr;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-fn hand_str(hand_type: HandType) -> &'static str {
+fn hand_str(hand_type: XrHandType) -> &'static str {
     match hand_type {
-        HandType::Left => "left",
-        HandType::Right => "right",
+        XrHandType::Left => "left",
+        XrHandType::Right => "right",
     }
 }
 
@@ -61,11 +61,11 @@ pub(crate) struct InteractionContext {
     // proper synchronization. (NB: synchronization is not ensured: the lock must be held until all
     // `locate_space` calls have been performed)
     pub action_set: Arc<Mutex<xr::ActionSet>>,
-    button_actions: HashMap<(HandType, XrButtonType), ButtonActions>,
-    axes_actions: HashMap<(HandType, XrAxisType), xr::Action<f32>>,
-    grip_actions: HashMap<HandType, xr::Action<xr::Posef>>,
-    target_ray_actions: HashMap<HandType, xr::Action<xr::Posef>>,
-    vibration_actions: HashMap<HandType, xr::Action<xr::Haptic>>,
+    button_actions: HashMap<(XrHandType, XrButtonType), ButtonActions>,
+    axes_actions: HashMap<(XrHandType, XrAxisType), xr::Action<f32>>,
+    grip_actions: HashMap<XrHandType, xr::Action<xr::Posef>>,
+    target_ray_actions: HashMap<XrHandType, xr::Action<xr::Posef>>,
+    vibration_actions: HashMap<XrHandType, xr::Action<xr::Haptic>>,
 }
 
 impl InteractionContext {
@@ -74,7 +74,7 @@ impl InteractionContext {
             .create_action_set("bevy_controller_bindings", "bevy controller bindings", 0)
             .unwrap();
 
-        let button_actions = [HandType::Left, HandType::Right]
+        let button_actions = [XrHandType::Left, XrHandType::Right]
             .iter()
             .flat_map(|hand| {
                 let hand_str = hand_str(*hand);
@@ -113,7 +113,7 @@ impl InteractionContext {
             })
             .collect::<HashMap<_, _>>();
 
-        let axes_actions = [HandType::Left, HandType::Right]
+        let axes_actions = [XrHandType::Left, XrHandType::Right]
             .iter()
             .flat_map(|hand| {
                 let hand_str = hand_str(*hand);
@@ -140,7 +140,7 @@ impl InteractionContext {
             })
             .collect::<HashMap<_, _>>();
 
-        let grip_actions = [HandType::Left, HandType::Right]
+        let grip_actions = [XrHandType::Left, XrHandType::Right]
             .iter()
             .map(|hand| {
                 let name = format!("{}_grip", hand_str(*hand));
@@ -148,7 +148,7 @@ impl InteractionContext {
             })
             .collect::<HashMap<_, _>>();
 
-        let target_ray_actions = [HandType::Left, HandType::Right]
+        let target_ray_actions = [XrHandType::Left, XrHandType::Right]
             .iter()
             .map(|hand| {
                 let name = format!("{}_target_ray", hand_str(*hand));
@@ -156,7 +156,7 @@ impl InteractionContext {
             })
             .collect::<HashMap<_, _>>();
 
-        let vibration_actions = [HandType::Left, HandType::Right]
+        let vibration_actions = [XrHandType::Left, XrHandType::Right]
             .iter()
             .map(|hand| {
                 let name = format!("{}_vibration", hand_str(*hand));
@@ -228,7 +228,7 @@ impl InteractionContext {
                     touchpad,
                     thumbstick,
                 } => {
-                    for hand in [HandType::Left, HandType::Right] {
+                    for hand in [XrHandType::Left, XrHandType::Right] {
                         let mut axes = vec![];
                         if touchpad {
                             axes.extend([XrAxisType::TouchpadX, XrAxisType::TouchpadY]);
@@ -267,7 +267,7 @@ impl InteractionContext {
             match profile.poses {
                 PosesBindings::None => (),
                 PosesBindings::Default => {
-                    for hand in [HandType::Left, HandType::Right] {
+                    for hand in [XrHandType::Left, XrHandType::Right] {
                         let path_prefix = format!("/user/hand/{}/input/", hand_str(hand));
 
                         let action = grip_actions.get(&hand).unwrap();
@@ -306,7 +306,7 @@ impl InteractionContext {
             match profile.vibration {
                 VibrationBindings::None => (),
                 VibrationBindings::Default => {
-                    for hand in [HandType::Left, HandType::Right] {
+                    for hand in [XrHandType::Left, XrHandType::Right] {
                         let action = vibration_actions.get(&hand).unwrap();
                         let path = format!("/user/hand/{}/output/haptic", hand_str(hand));
                         bindings.push(xr::Binding::new(
@@ -398,14 +398,14 @@ pub(crate) fn handle_input(
 pub(crate) fn handle_output(
     context: &InteractionContext,
     session: &OpenXrSession,
-    vibration_event_reader: &mut ManualEventReader<VibrationEvent>,
-    vibration_events: &mut Events<VibrationEvent>,
+    vibration_event_reader: &mut ManualEventReader<XrVibrationEvent>,
+    vibration_events: &mut Events<XrVibrationEvent>,
 ) {
     for event in vibration_event_reader.iter(&vibration_events) {
         let action = context.vibration_actions.get(&event.hand);
         if let Some(action) = action {
             match &event.command {
-                VibrationEventType::Apply {
+                XrVibrationEventType::Apply {
                     duration,
                     frequency,
                     amplitude,
@@ -419,7 +419,7 @@ pub(crate) fn handle_output(
                         .apply_feedback(&session, xr::Path::NULL, &haptic_vibration)
                         .unwrap();
                 }
-                VibrationEventType::Stop => action.stop_feedback(&session, xr::Path::NULL).unwrap(),
+                XrVibrationEventType::Stop => action.stop_feedback(&session, xr::Path::NULL).unwrap(),
             }
         }
     }

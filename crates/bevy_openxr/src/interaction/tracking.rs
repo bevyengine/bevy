@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_math::Vec3;
 use bevy_xr::{
-    interaction::implementation::XrTrackingSourceBackend, HandType, XrJointPose, XrPose,
+    interaction::implementation::XrTrackingSourceBackend, XrHandType, XrJointPose, XrPose,
     XrReferenceSpaceType, XrRigidTransform,
 };
 use openxr as xr;
@@ -160,13 +160,13 @@ impl OpenXrTrackingContext {
         let grip_spaces = [
             interaction_context
                 .grip_actions
-                .get(&HandType::Left)
+                .get(&XrHandType::Left)
                 .unwrap()
                 .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
                 .unwrap(),
             interaction_context
                 .grip_actions
-                .get(&HandType::Right)
+                .get(&XrHandType::Right)
                 .unwrap()
                 .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
                 .unwrap(),
@@ -174,13 +174,13 @@ impl OpenXrTrackingContext {
         let target_ray_spaces = [
             interaction_context
                 .target_ray_actions
-                .get(&HandType::Left)
+                .get(&XrHandType::Left)
                 .unwrap()
                 .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
                 .unwrap(),
             interaction_context
                 .target_ray_actions
-                .get(&HandType::Right)
+                .get(&XrHandType::Right)
                 .unwrap()
                 .create_space((*session).clone(), xr::Path::NULL, xr::Posef::IDENTITY)
                 .unwrap(),

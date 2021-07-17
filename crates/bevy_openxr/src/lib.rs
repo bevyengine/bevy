@@ -9,7 +9,7 @@ use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, P
 use bevy_ecs::schedule::Schedule;
 use bevy_xr::{
     presentation::{XrEnvironmentBlendMode, XrGraphicsContext, XrInteractionMode},
-    VibrationEvent, XrAxes, XrButtons, XrProfiles, XrSessionMode, XrSystem, XrTrackingSource,
+    XrVibrationEvent, XrAxes, XrButtons, XrProfiles, XrSessionMode, XrSystem, XrTrackingSource,
     XrVisibilityState,
 };
 use openxr::{self as xr, sys};
@@ -83,7 +83,6 @@ fn selected_extensions(entry: &xr::Entry) -> xr::ExtensionSet {
     exts.ext_eye_gaze_interaction = available.ext_eye_gaze_interaction;
     // todo: implement eye tracking
     exts.ext_hand_tracking = available.ext_hand_tracking;
-    // todo: implement hand tracking
     exts.ext_hp_mixed_reality_controller = available.ext_hp_mixed_reality_controller;
     exts.ext_performance_settings = available.ext_performance_settings;
     // todo: implement performance API
@@ -331,7 +330,8 @@ fn runner(mut app: App) {
     };
     app.world.insert_resource(environment_blend_mode);
 
-    let (session_backend, mut frame_waiter, mut frame_stream) = match ctx.graphics_handles {
+    let (session, graphics_session, mut frame_waiter, mut frame_stream) = match ctx.graphics_handles
+    {
         GraphicsContextHandles::Vulkan {
             instance,
             physical_device,
@@ -354,6 +354,7 @@ fn runner(mut app: App) {
                     .unwrap()
             };
             (
+                session.clone().into_any_graphics(),
                 SessionBackend::Vulkan(session),
                 frame_waiter,
                 FrameStream::Vulkan(frame_stream),
@@ -371,17 +372,12 @@ fn runner(mut app: App) {
                 )
                 .unwrap();
             (
+                backend.clone().into_any_graphics(),
                 SessionBackend::D3D11(session),
                 frame_waiter,
                 FrameStream::D3D11(frame_stream),
             )
         }
-    };
-
-    let session = match &session_backend {
-        SessionBackend::Vulkan(backend) => backend.clone().into_any_graphics(),
-        #[cfg(windows)]
-        SessionBackend::D3D11(backend) => backend.clone().into_any_graphics(),
     };
 
     let session = OpenXrSession {
@@ -539,9 +535,7 @@ fn runner(mut app: App) {
                 }
                 xr::Event::MainSessionVisibilityChangedEXTX(_) => (), // unused
                 xr::Event::DisplayRefreshRateChangedFB(_) => (),      // shouldn't be needed
-                _ => {
-                    bevy_log::debug!("OpenXR: Unhandled event")
-                }
+                _ => bevy_log::debug!("OpenXR: Unhandled event"),
             }
         }
 
@@ -588,7 +582,7 @@ fn runner(mut app: App) {
             &mut vibration_event_reader,
             &mut app
                 .world
-                .get_resource_mut::<Events<VibrationEvent>>()
+                .get_resource_mut::<Events<XrVibrationEvent>>()
                 .unwrap(),
         );
 

@@ -1,5 +1,5 @@
 use bevy_utils::HashMap;
-use bevy_xr::{HandType, XrAxisType, XrButtonType};
+use bevy_xr::{XrHandType, XrAxisType, XrButtonType};
 use serde::{Deserialize, Serialize};
 
 // Profiles
@@ -31,7 +31,7 @@ pub enum ButtonPaths {
 #[derive(Clone, Serialize, Deserialize)]
 pub enum AxesBindings {
     Default { touchpad: bool, thumbstick: bool },
-    Custom(HashMap<(HandType, XrAxisType), Vec<String>>),
+    Custom(HashMap<(XrHandType, XrAxisType), Vec<String>>),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ pub enum VibrationBindings {
     None,
     // `Default` uses "/user/hand/{hand}/output/haptic" paths
     Default,
-    Custom(HashMap<HandType, Vec<String>>),
+    Custom(HashMap<XrHandType, Vec<String>>),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -47,8 +47,8 @@ pub enum PosesBindings {
     None,
     Default,
     Custom {
-        grip: HashMap<HandType, String>,
-        target_ray: HashMap<HandType, String>,
+        grip: HashMap<XrHandType, String>,
+        target_ray: HashMap<XrHandType, String>,
     },
 }
 
@@ -56,7 +56,7 @@ pub enum PosesBindings {
 pub struct OpenXrProfileBindings {
     pub profile_path: String,
     /// The first action of each type is used. `force` and `value` are considered as the same type.
-    pub buttons: HashMap<(HandType, XrButtonType), ButtonPaths>,
+    pub buttons: HashMap<(XrHandType, XrButtonType), ButtonPaths>,
     pub axes: AxesBindings,
     pub poses: PosesBindings,
     pub vibration: VibrationBindings,
@@ -79,11 +79,11 @@ impl Default for OpenXrBindings {
                     profile_path: OCULUS_TOUCH_PROFILE.into(),
                     buttons: vec![
                         (
-                            (HandType::Left, XrButtonType::Menu),
+                            (XrHandType::Left, XrButtonType::Menu),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Menu),
+                            (XrHandType::Right, XrButtonType::Menu),
                             ButtonPaths::Custom {
                                 touch: vec![],
                                 click: vec!["/user/hand/right/input/system".into()],
@@ -91,31 +91,31 @@ impl Default for OpenXrBindings {
                             },
                         ),
                         (
-                            (HandType::Left, XrButtonType::Trigger),
+                            (XrHandType::Left, XrButtonType::Trigger),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Trigger),
+                            (XrHandType::Right, XrButtonType::Trigger),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Left, XrButtonType::Squeeze),
+                            (XrHandType::Left, XrButtonType::Squeeze),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Squeeze),
+                            (XrHandType::Right, XrButtonType::Squeeze),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Left, XrButtonType::Thumbstick),
+                            (XrHandType::Left, XrButtonType::Thumbstick),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Thumbstick),
+                            (XrHandType::Right, XrButtonType::Thumbstick),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Left, XrButtonType::FaceButton1),
+                            (XrHandType::Left, XrButtonType::FaceButton1),
                             ButtonPaths::Custom {
                                 touch: vec!["/user/hand/left/input/x/touch".into()],
                                 click: vec!["/user/hand/left/input/x".into()],
@@ -123,11 +123,11 @@ impl Default for OpenXrBindings {
                             },
                         ),
                         (
-                            (HandType::Right, XrButtonType::FaceButton1),
+                            (XrHandType::Right, XrButtonType::FaceButton1),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Left, XrButtonType::FaceButton2),
+                            (XrHandType::Left, XrButtonType::FaceButton2),
                             ButtonPaths::Custom {
                                 touch: vec!["/user/hand/left/input/y/touch".into()],
                                 click: vec!["/user/hand/left/input/y".into()],
@@ -135,11 +135,11 @@ impl Default for OpenXrBindings {
                             },
                         ),
                         (
-                            (HandType::Right, XrButtonType::FaceButton2),
+                            (XrHandType::Right, XrButtonType::FaceButton2),
                             ButtonPaths::Default { has_touch: true },
                         ),
                         (
-                            (HandType::Left, XrButtonType::Thumbrest),
+                            (XrHandType::Left, XrButtonType::Thumbrest),
                             ButtonPaths::Custom {
                                 touch: vec!["/user/hand/left/input/thumbrest/touch".into()],
                                 click: vec![],
@@ -147,7 +147,7 @@ impl Default for OpenXrBindings {
                             },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Thumbrest),
+                            (XrHandType::Right, XrButtonType::Thumbrest),
                             ButtonPaths::Custom {
                                 touch: vec!["/user/hand/right/input/thumbrest/touch".into()],
                                 click: vec![],
@@ -169,19 +169,19 @@ impl Default for OpenXrBindings {
                     profile_path: KHR_PROFILE.into(),
                     buttons: vec![
                         (
-                            (HandType::Left, XrButtonType::Menu),
+                            (XrHandType::Left, XrButtonType::Menu),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Menu),
+                            (XrHandType::Right, XrButtonType::Menu),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Left, XrButtonType::Trigger),
+                            (XrHandType::Left, XrButtonType::Trigger),
                             ButtonPaths::Default { has_touch: false },
                         ),
                         (
-                            (HandType::Right, XrButtonType::Trigger),
+                            (XrHandType::Right, XrButtonType::Trigger),
                             ButtonPaths::Default { has_touch: false },
                         ),
                     ]

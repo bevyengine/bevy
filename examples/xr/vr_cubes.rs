@@ -3,8 +3,8 @@ use bevy::{
     prelude::*,
     utils::Duration,
     xr::{
-        HandType, VibrationEvent, VibrationEventType, XrButtonType, XrButtons,
-        XrReferenceSpaceType, XrSessionMode, XrSystem, XrTrackingSource,
+        XrButtonType, XrButtons, XrHandType, XrReferenceSpaceType, XrSessionMode, XrSystem,
+        XrTrackingSource, XrVibrationEvent, XrVibrationEventType,
     },
     DefaultPlugins,
 };
@@ -19,11 +19,8 @@ fn main() {
 }
 
 fn startup(mut xr_system: ResMut<XrSystem>, mut app_exit_events: EventWriter<AppExit>) {
-    if xr_system
-        .available_session_modes()
-        .contains(XrSessionMode::ImmersiveVR)
-    {
-        xr_system.request_session_mode(XrSessionMode::ImmersiveVR)
+    if xr_system.is_session_mode_supported(XrSessionMode::ImmersiveVR) {
+        xr_system.request_session_mode(XrSessionMode::ImmersiveVR);
     } else {
         bevy::log::error!("The XR device does not support immersive VR mode");
         app_exit_events.send(AppExit)
@@ -31,21 +28,20 @@ fn startup(mut xr_system: ResMut<XrSystem>, mut app_exit_events: EventWriter<App
 }
 
 fn interaction(
-    mut tracking_state: ResMut<XrTrackingSource>,
     buttons: Res<XrButtons>,
-    mut vibration_events: EventWriter<VibrationEvent>,
-    tracking_source: Res<XrTrackingSource>,
+    mut tracking_source: ResMut<XrTrackingSource>,
+    mut vibration_events: EventWriter<XrVibrationEvent>,
 ) {
-    if !tracking_state.get_reference_space_type(XrReferenceSpaceType::Local) {
-        tracking_state.set_reference_space_type(XrReferenceSpaceType::Local)
+    if tracking_source.reference_space_type() != XrReferenceSpaceType::Local {
+        tracking_source.set_reference_space_type(XrReferenceSpaceType::Local);
     }
 
-    for hand in [HandType::Left, HandType::Right] {
+    for hand in [XrHandType::Left, XrHandType::Right] {
         if buttons.just_pressed(hand, XrButtonType::Trigger) {
             // Short haptic click
-            vibration_events.send(VibrationEvent {
+            vibration_events.send(XrVibrationEvent {
                 hand,
-                command: VibrationEventType::Apply {
+                command: XrVibrationEventType::Apply {
                     duration: Duration::from_millis(2),
                     frequency: 3000_f32, // Hz
                     amplitude: 1_f32,
@@ -53,9 +49,9 @@ fn interaction(
             });
         } else if buttons.pressed(hand, XrButtonType::Squeeze) {
             // Low frequency rumble
-            vibration_events.send(VibrationEvent {
+            vibration_events.send(XrVibrationEvent {
                 hand,
-                command: VibrationEventType::Apply {
+                command: XrVibrationEventType::Apply {
                     duration: Duration::from_millis(100),
                     frequency: 100_f32, // Hz
                     // haptics intensity depends on the squeeze force

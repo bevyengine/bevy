@@ -30,7 +30,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_xr = { path = "../bevy_xr", version = "0.5.0" }
 
 # other
-wgpu = { path = "../../../wgpu/wgpu" }
+# wgpu = { path = "../../../wgpu/wgpu" }
+wgpu = "0.9"
 futures-lite = "1.4.0"
 crossbeam-channel = "0.5.0"
 crossbeam-utils = "0.8.1"

@@ -22,22 +22,23 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_xr = { path = "../bevy_xr", version = "0.5.0" }
 
 # other
-openxr = { path = "../../../openxrs-fork/openxr"}
+openxr = { git = "https://github.com/Ralith/openxrs" }
 serde = "1"
 ash = "0.32.1"
-wgpu = { path = "../../../wgpu/wgpu" }
+# wgpu = { path = "../../../wgpu/wgpu" }
+wgpu = "0.9"
 thiserror = "1.0"
 parking_lot = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-glue = "0.3.0"
 
-[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
+# [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+# wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
 
 # [target.'cfg(windows)'.dependencies]
 # wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["dx11"] }
 
 #dev
-[target.'cfg(target_os = "macos")'.dependencies]
-wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
+# [target.'cfg(target_os = "macos")'.dependencies]
+# wgpu-hal = { path = "../../../wgpu/wgpu-hal", features = ["vulkan"] }
