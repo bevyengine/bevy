@@ -48,7 +48,7 @@ impl<'a> Commands<'a> {
     ///         // adds a single component to the entity
     ///         .insert("hello world");
     /// }
-    /// # example_system;
+    /// # example_system.system();
     /// ```
     pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
         let entity = self.entities.reserve_entity();
@@ -96,7 +96,7 @@ impl<'a> Commands<'a> {
     ///         // or insert single components like this:
     ///         .insert("hello world");
     /// }
-    /// # example_system;
+    /// # example_system.system();
     /// ```
     pub fn spawn_bundle<'b, T: Bundle>(&'b mut self, bundle: T) -> EntityCommands<'a, 'b> {
         let mut e = self.spawn();
@@ -121,7 +121,7 @@ impl<'a> Commands<'a> {
     ///         // adds a single component to the entity
     ///         .insert("hello world");
     /// }
-    /// # example_system;
+    /// # example_system.system();
     /// ```
     pub fn entity(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
         EntityCommands {
@@ -210,7 +210,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     ///     commands.spawn().insert_bundle((Component1, Component2));
     ///     commands.spawn_bundle((Component1, Component2));
     /// }
-    /// # example_system;
+    /// # example_system.system();
     /// ```
     pub fn insert(&mut self, component: impl Component) -> &mut Self {
         self.commands.add(Insert {
