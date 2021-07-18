@@ -547,7 +547,7 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct Person { name: String, credits: u32 }
-    /// # struct Target { entity: Entity }
+    /// # struct Winner { entity: Entity }
     /// #
     /// fn check_credits_system(query: Query<&Person>, target: Res<Target>) {
     ///     if let Ok(person) = query.get(target.entity) {
