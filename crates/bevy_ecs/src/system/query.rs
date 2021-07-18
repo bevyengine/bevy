@@ -540,23 +540,21 @@ where
     ///
     /// # Example
     ///
-    /// In the following system, the `Entity` handle contained in the `winner` resource is
-    /// used to get the `Person` component of that entity.
-    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # struct Person { name: String, credits: u32 }
-    /// # struct Winner { entity: Entity }
+    /// # struct SelectedCharacter { entity: Entity }
+    /// # struct Character { name: String }
     /// #
-    /// fn check_credits_system(query: Query<&Person>, winner: Res<Winner>) {
-    ///     if let Ok(person) = query.get(winner.entity) {
-    ///         if person.credits > 35000 {
-    ///             println!("{} won a prize!", person.name);
-    ///         }
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacter>
+    /// )
+    /// {
+    ///     if let Ok(selected_character) = query.get(selection.entity) {
+    ///         println!("{}", selected_character.name);
     ///     }
     /// }
-    /// # check_credits_system.system();
     /// ```
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
