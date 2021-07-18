@@ -658,9 +658,25 @@ where
         }
     }
 
-    /// Gets a mutable reference to the [`Entity`]'s [`Component`] of the given type. This will fail
-    /// if the entity does not have the given component type or if the given component type does not
-    /// match this query.
+    /// Gets a mutable reference to the [`Entity`]'s [`Component`] of the given type.
+    ///
+    /// This will fail if the entity does not have the given component type or if the given
+    /// component type does not match this query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct PoisonedCharacter { character_id: Entity }
+    /// # struct Health(u32);
+    /// #
+    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    ///     if let Ok(mut health) = query.get_component_mut::<Health>(poisoned.character_id) {
+    ///         health.0 -= 1;
+    ///     }
+    /// }
+    /// ```
     #[inline]
     pub fn get_component_mut<T: Component>(
         &mut self,
