@@ -10,7 +10,7 @@ use syn::{
     punctuated::Punctuated,
     token::Comma,
     Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Result, Token,
+    Member, Result, Token,
 };
 
 struct AllTuples {
@@ -77,25 +77,35 @@ static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+    let DeriveInput {
+        ident,
+        generics,
+        data,
+        ..
+    } = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let (num_fields, fields) = match data {
+        Data::Struct(DataStruct { fields, .. }) => (fields.len(), fields),
+        _ => panic!("Expected a struct."),
     };
 
-    let fields = named_fields.iter().map(|field| {
+    let fields = fields.into_iter().enumerate().map(|(idx, field)| {
         let is_bundle = field
             .attrs
             .iter()
             .flat_map(|attr| attr.path.get_ident())
             .any(|ident| ident == BUNDLE_ATTRIBUTE_NAME);
-        let ident = field.ident.as_ref().unwrap();
-        (is_bundle, ident, &field.ty)
+        let ident = field.ident.map_or_else(
+            || {
+                Member::Unnamed(syn::Index {
+                    index: idx as u32,
+                    span: Span::call_site(),
+                })
+            },
+            Member::Named,
+        );
+        (is_bundle, ident, field.ty)
     });
 
     let mut field_component_ids = Vec::new();
@@ -125,17 +135,16 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
         }
     }
-    let field_len = named_fields.len();
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    let struct_name = &ast.ident;
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #ident#ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
             ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = ::std::vec::Vec::with_capacity(#field_len);
+                let mut component_ids = ::std::vec::Vec::with_capacity(#num_fields);
                 #(#field_component_ids)*
                 component_ids
             }
