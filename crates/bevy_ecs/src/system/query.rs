@@ -25,7 +25,7 @@ use thiserror::Error;
 ///
 /// 1. **Component access:** the components that an entity must have at the same time to return
 ///    a query result.
-/// 2. **Query filters (optional):** a predicate that ignore query results that don't match
+/// 2. **Query filters (optional):** a predicate that ignores query results that don't match
 ///    its conditions.
 ///
 /// # Usage as system parameter
