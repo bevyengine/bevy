@@ -610,9 +610,29 @@ where
             .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
     }
 
-    /// Gets a reference to the [`Entity`]'s [`Component`] of the given type. This will fail if the
-    /// entity does not have the given component type or if the given component type does not match
-    /// this query.
+    /// Gets a reference to the [`Entity`]'s [`Component`] of the given type.
+    ///
+    /// This will fail if the entity does not have the given component type or if the given
+    /// component type does not match this query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct SelectedCharacter { entity: Entity }
+    /// # struct Character { name: String }
+    /// #
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacter>
+    /// )
+    /// {
+    ///     if let Ok(selected_character) = query.get_component::<Character>(selection.entity) {
+    ///         println!("{}", selected_character.name);
+    ///     }
+    /// }
+    /// ```
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
         let world = self.world;
