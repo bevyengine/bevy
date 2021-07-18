@@ -574,6 +574,22 @@ where
     }
 
     /// Gets the query result for the given [`Entity`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct PoisonedCharacter { character_id: Entity }
+    /// # struct Health(u32);
+    /// #
+    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    ///     if let Ok(mut health) = query.get_mut(poisoned.character_id) {
+    ///         health.0 -= 1;
+    ///     }
+    /// }
+    /// # poison_system.system();
+    /// ```
     #[inline]
     pub fn get_mut(
         &mut self,
