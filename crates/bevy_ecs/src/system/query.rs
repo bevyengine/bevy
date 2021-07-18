@@ -743,32 +743,35 @@ where
         }
     }
 
-    /// Gets the result of a single-result query.
+    /// Returns the single immutable query result.
     ///
-    /// If the query has exactly one result, returns the result inside `Ok`
-    /// otherwise returns either [`QuerySingleError::NoEntities`]
-    /// or [`QuerySingleError::MultipleEntities`], as appropriate.
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
+    /// bound). See [`single_mut`](Self::single_mut) for queries that contain at least one
+    /// mutable component.
     ///
-    /// # Examples
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Example
     ///
     /// ```
     ///  # use bevy_ecs::system::{Query, QuerySingleError};
     ///  # use bevy_ecs::prelude::IntoSystem;
-    /// struct PlayerScore(i32);
+    ///  # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
     ///     match query.single() {
     ///         Ok(PlayerScore(score)) => {
-    ///             // do something with score
+    ///             println!("Score: {}", score);
     ///         }
     ///         Err(QuerySingleError::NoEntities(_)) => {
-    ///             // no PlayerScore
+    ///             println!("Error: There is no player!");
     ///         }
     ///         Err(QuerySingleError::MultipleEntities(_)) => {
-    ///             // multiple PlayerScore
+    ///             println!("Error: There is more than one player!");
     ///         }
     ///     }
     /// }
-    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// # player_scoring_system.system();
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
@@ -789,8 +792,25 @@ where
         }
     }
 
-    /// Gets the query result if it is only a single result, otherwise returns a
-    /// [`QuerySingleError`].
+    /// Returns the single mutable query result.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Player;
+    /// # struct Health(u32);
+    /// #
+    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
+    ///     let mut health = query.single_mut().expect("Error: Could not find a single player.");
+    ///     health.0 += 1;
+    /// }
+    /// # regenerate_player_health_system.system();
+    /// ```
     pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
