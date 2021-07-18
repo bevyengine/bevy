@@ -576,6 +576,9 @@ where
 
     /// Returns the query result for the given [`Entity`].
     ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
     /// # Example
     ///
     /// ```
@@ -610,6 +613,9 @@ where
 
     /// Returns the query result for the given [`Entity`].
     ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
     /// # Safety
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees. You must make sure
@@ -627,8 +633,8 @@ where
 
     /// Returns a reference to the [`Entity`]'s [`Component`] of the given type.
     ///
-    /// This will fail if the entity does not have the given component type or if the given
-    /// component type does not match this query.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Example
     ///
@@ -678,8 +684,8 @@ where
 
     /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type.
     ///
-    /// This will fail if the entity does not have the given component type or if the given
-    /// component type does not match this query.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Example
     ///
@@ -705,9 +711,10 @@ where
         unsafe { self.get_component_unchecked_mut(entity) }
     }
 
-    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type. This will fail
-    /// if the entity does not have the given component type or the component does not match the
-    /// query.
+    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Safety
     ///
@@ -825,7 +832,7 @@ where
         }
     }
 
-    /// Returns `true` if this query contains no elements.
+    /// Returns `true` if there are no query results.
     ///
     /// # Example
     ///
