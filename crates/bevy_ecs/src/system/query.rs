@@ -540,7 +540,7 @@ where
     ///
     /// # Example
     ///
-    /// In the following system, the `Entity` handle contained in the `target` resource is
+    /// In the following system, the `Entity` handle contained in the `winner` resource is
     /// used to get the `Person` component of that entity.
     ///
     /// ```
@@ -549,8 +549,8 @@ where
     /// # struct Person { name: String, credits: u32 }
     /// # struct Winner { entity: Entity }
     /// #
-    /// fn check_credits_system(query: Query<&Person>, target: Res<Target>) {
-    ///     if let Ok(person) = query.get(target.entity) {
+    /// fn check_credits_system(query: Query<&Person>, winner: Res<Winner>) {
+    ///     if let Ok(person) = query.get(winner.entity) {
     ///         if person.credits > 35000 {
     ///             println!("{} won a prize!", person.name);
     ///         }
