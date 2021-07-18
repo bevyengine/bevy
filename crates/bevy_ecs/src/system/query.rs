@@ -555,6 +555,7 @@ where
     ///         println!("{}", selected_character.name);
     ///     }
     /// }
+    /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
@@ -646,6 +647,7 @@ where
     ///         println!("{}", selected_character.name);
     ///     }
     /// }
+    /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
@@ -692,6 +694,7 @@ where
     ///         health.0 -= 1;
     ///     }
     /// }
+    /// # poison_system.system();
     /// ```
     #[inline]
     pub fn get_component_mut<T: Component>(
