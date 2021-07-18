@@ -530,7 +530,7 @@ where
         };
     }
 
-    /// Gets the query result for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
@@ -574,7 +574,7 @@ where
         }
     }
 
-    /// Gets the query result for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
     /// # Example
     ///
@@ -608,7 +608,7 @@ where
         }
     }
 
-    /// Gets the query result for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
     /// # Safety
     ///
@@ -625,7 +625,7 @@ where
             .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
     }
 
-    /// Gets a reference to the [`Entity`]'s [`Component`] of the given type.
+    /// Returns a reference to the [`Entity`]'s [`Component`] of the given type.
     ///
     /// This will fail if the entity does not have the given component type or if the given
     /// component type does not match this query.
@@ -676,7 +676,7 @@ where
         }
     }
 
-    /// Gets a mutable reference to the [`Entity`]'s [`Component`] of the given type.
+    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type.
     ///
     /// This will fail if the entity does not have the given component type or if the given
     /// component type does not match this query.
@@ -705,7 +705,7 @@ where
         unsafe { self.get_component_unchecked_mut(entity) }
     }
 
-    /// Gets a mutable reference to the [`Entity`]'s [`Component`] of the given type. This will fail
+    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type. This will fail
     /// if the entity does not have the given component type or the component does not match the
     /// query.
     ///
