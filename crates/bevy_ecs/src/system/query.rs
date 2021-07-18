@@ -805,7 +805,25 @@ where
         }
     }
 
-    /// Returns true if this query contains no elements.
+    /// Returns `true` if this query contains no elements.
+    ///
+    /// # Example
+    ///
+    /// In the following example the score is increased only if an entity with a `Player`
+    /// component is present in the world:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Player;
+    /// # struct Score(u32);
+    /// fn update_score_system(query: Query<(), With<Player>>, mut score: ResMut<Score>) {
+    ///     if !query.is_empty() {
+    ///         score.0 += 1;
+    ///     }
+    /// }
+    /// # update_score_system.system();
+    /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         // TODO: This code can be replaced with `self.iter().next().is_none()` if/when
