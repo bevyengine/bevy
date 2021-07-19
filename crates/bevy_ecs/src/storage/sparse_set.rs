@@ -1,5 +1,7 @@
+use bevy_utils::HashMap;
+
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks},
+    component::{ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks},
     entity::Entity,
     storage::BlobVec,
 };
@@ -93,7 +95,7 @@ pub struct ComponentSparseSet {
 }
 
 impl ComponentSparseSet {
-    pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub fn new(component_info: &ComponentDescriptor, capacity: usize) -> Self {
         Self {
             dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
             ticks: Vec::with_capacity(capacity),
@@ -235,6 +237,18 @@ impl<I, V> SparseSet<I, V> {
 }
 
 impl<I: SparseSetIndex, V> SparseSet<I, V> {
+    pub fn dense_len(&self) -> usize {
+        self.dense.len()
+    }
+
+    pub fn indices_len(&self) -> usize {
+        self.indices.len()
+    }
+
+    pub fn sparse_len(&self) -> usize {
+        self.sparse.values.len()
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             dense: Vec::with_capacity(capacity),
@@ -377,32 +391,71 @@ impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
 #[derive(Default)]
 pub struct SparseSets {
-    sets: SparseSet<ComponentId, ComponentSparseSet>,
+    component_sets: SparseSet<ComponentId, ComponentSparseSet>,
+    targeted_component_sets: SparseSet<ComponentId, HashMap<Entity, ComponentSparseSet>>,
 }
 
 impl SparseSets {
-    pub fn get_or_insert(&mut self, component_info: &ComponentInfo) -> &mut ComponentSparseSet {
-        if !self.sets.contains(component_info.id()) {
-            self.sets.insert(
-                component_info.id(),
-                ComponentSparseSet::new(component_info, 64),
-            );
+    pub fn get_sets_of_component_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&HashMap<Entity, ComponentSparseSet>> {
+        self.targeted_component_sets.get(component_id)
+    }
+
+    // FIXME(Relationships): https://discord.com/channels/691052431525675048/749335865876021248/862199702825205760
+    // FIXME(Relationships): Deal with the ability to register components with a target, and relations without one
+    pub fn get_or_insert(
+        &mut self,
+        component_info: &ComponentInfo,
+        target: Option<Entity>,
+    ) -> &mut ComponentSparseSet {
+        match target {
+            None => self
+                .component_sets
+                .get_or_insert_with(component_info.id(), || {
+                    ComponentSparseSet::new(component_info.descriptor(), 64)
+                }),
+            Some(target) => self
+                .targeted_component_sets
+                .get_or_insert_with(component_info.id(), HashMap::default)
+                .entry(target)
+                .or_insert_with(|| ComponentSparseSet::new(component_info.descriptor(), 64)),
         }
-
-        self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.sets.get(component_id)
+    pub fn get(
+        &self,
+        component_id: ComponentId,
+        target: Option<Entity>,
+    ) -> Option<&ComponentSparseSet> {
+        match &target {
+            Some(target) => self.targeted_component_sets.get(component_id)?.get(target),
+            None => self.component_sets.get(component_id),
+        }
     }
 
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
-        self.sets.get_mut(component_id)
+    pub fn get_mut(
+        &mut self,
+        component_id: ComponentId,
+        target: Option<Entity>,
+    ) -> Option<&mut ComponentSparseSet> {
+        match &target {
+            Some(target) => self
+                .targeted_component_sets
+                .get_mut(component_id)?
+                .get_mut(target),
+            None => self.component_sets.get_mut(component_id),
+        }
     }
-
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for set in self.sets.values_mut() {
+        for set in self.component_sets.values_mut() {
             set.check_change_ticks(change_tick);
+        }
+        for targeted_sets in self.targeted_component_sets.values_mut() {
+            for set in targeted_sets.values_mut() {
+                set.check_change_ticks(change_tick);
+            }
         }
     }
 }

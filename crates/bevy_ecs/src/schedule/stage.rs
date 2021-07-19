@@ -487,7 +487,7 @@ impl SystemStage {
                 if !conflicts.is_empty() {
                     let names = conflicts
                         .iter()
-                        .map(|id| world.components().get_info(*id).unwrap().name())
+                        .map(|id| world.components().info(*id).unwrap().name())
                         .collect::<Vec<_>>();
                     writeln!(string, "    conflicts: {:?}", names).unwrap();
                 }

@@ -22,7 +22,10 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{
+            Added, ChangeTrackers, Changed, InData, InFilter, InTuple, Or, QueryState,
+            QueryTargetFilters, Relation, TargetFilter, With, WithBundle, Without,
+        },
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
@@ -41,7 +44,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -882,12 +885,13 @@ mod tests {
         world.insert_resource(123);
         let resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+            .resource_info(TypeId::of::<i32>())
+            .unwrap()
+            .id();
         let archetype_component_id = world
             .archetypes()
             .resource()
-            .get_archetype_component_id(resource_id)
+            .get_archetype_component_id(resource_id, None)
             .unwrap();
 
         assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
@@ -945,8 +949,9 @@ mod tests {
 
         let current_resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+            .resource_info(TypeId::of::<i32>())
+            .unwrap()
+            .id();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
@@ -955,7 +960,7 @@ mod tests {
         let current_archetype_component_id = world
             .archetypes()
             .resource()
-            .get_archetype_component_id(current_resource_id)
+            .get_archetype_component_id(current_resource_id, None)
             .unwrap();
 
         assert_eq!(
@@ -1156,9 +1161,17 @@ mod tests {
         let mut world = World::new();
         let query = world.query_filtered::<&mut i32, Changed<f64>>();
 
-        let mut expected = FilteredAccess::<ComponentId>::default();
-        let i32_id = world.components.get_id(TypeId::of::<i32>()).unwrap();
-        let f64_id = world.components.get_id(TypeId::of::<f64>()).unwrap();
+        let mut expected = FilteredAccess::default();
+        let i32_id = world
+            .components
+            .component_info(TypeId::of::<i32>())
+            .unwrap()
+            .id();
+        let f64_id = world
+            .components
+            .component_info(TypeId::of::<f64>())
+            .unwrap()
+            .id();
         expected.add_write(i32_id);
         expected.add_read(f64_id);
         assert!(
