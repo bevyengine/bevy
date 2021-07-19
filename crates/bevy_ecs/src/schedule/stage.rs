@@ -5,8 +5,8 @@ use crate::{
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
         ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, ShouldRun, SingleThreadedExecutor,
+        SystemContainer, SystemDescriptor, SystemSet,
     },
     system::System,
     world::{World, WorldId},
@@ -590,15 +590,7 @@ impl SystemStage {
             })
             .collect();
         for criteria in self.run_criteria.iter_mut() {
-            if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
-                let label = &criteria.after[0];
-                *parent = *labels.get(label).unwrap_or_else(|| {
-                    panic!(
-                        "Couldn't find run criteria labelled {:?} to pipe from.",
-                        label
-                    )
-                });
-            }
+            criteria.update_parent_indices(&labels);
         }
 
         fn update_run_criteria_indices<T: SystemContainer>(
@@ -774,16 +766,8 @@ impl Stage for SystemStage {
             // Evaluate system run criteria.
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
-                let mut criteria = &mut tail[0];
-                criteria.update_archetypes(world);
-                match &mut criteria.inner {
-                    RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
-                    RunCriteriaInner::Piped {
-                        input: parent,
-                        system,
-                        ..
-                    } => criteria.should_run = system.run(run_criteria[*parent].should_run, world),
-                }
+                let criteria = &mut tail[0];
+                criteria.run(world, run_criteria);
             }
 
             let mut run_system_loop = true;
@@ -849,24 +833,11 @@ impl Stage for SystemStage {
                 for index in 0..run_criteria.len() {
                     let (run_criteria, tail) = run_criteria.split_at_mut(index);
                     let criteria = &mut tail[0];
-                    criteria.update_archetypes(world);
                     match criteria.should_run {
                         ShouldRun::No => (),
                         ShouldRun::Yes => criteria.should_run = ShouldRun::No,
                         ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
-                            match &mut criteria.inner {
-                                RunCriteriaInner::Single(system) => {
-                                    criteria.should_run = system.run((), world)
-                                }
-                                RunCriteriaInner::Piped {
-                                    input: parent,
-                                    system,
-                                    ..
-                                } => {
-                                    criteria.should_run =
-                                        system.run(run_criteria[*parent].should_run, world)
-                                }
-                            }
+                            criteria.run(world, run_criteria);
                             match criteria.should_run {
                                 ShouldRun::Yes => {
                                     run_system_loop = true;
@@ -897,7 +868,7 @@ mod tests {
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
             SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
-        system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
+        system::{ConfigurableSystem, In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,
     };
 
@@ -1486,7 +1457,7 @@ mod tests {
                     .system()
                     .label("3")
                     .after("2")
-                    .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
+                    .with_run_criteria("every other time".pipe(eot_piped).label("piped")),
             )
             .with_system(
                 make_parallel!(4)
@@ -1506,6 +1477,63 @@ mod tests {
             vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4]
         );
         assert_eq!(stage.run_criteria.len(), 3);
+
+        // Multipiping.
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(0).label("0"))
+            .with_system(
+                make_parallel!(1)
+                    .after("0")
+                    .label("1")
+                    .with_run_criteria(every_other_time.label("every other time")),
+            )
+            .with_system(
+                make_parallel!(2).after("1").label("2").with_run_criteria(
+                    (|mut iteration: Local<usize>| {
+                        *iteration += 1;
+                        if *iteration == 3 {
+                            *iteration = 0;
+                            ShouldRun::Yes
+                        } else {
+                            ShouldRun::No
+                        }
+                    })
+                    .config(|config| config.0 = Some(2))
+                    .label("every third time"),
+                ),
+            )
+            .with_system(make_parallel!(3).after("2").label("3").with_run_criteria(
+                ("every other time", "every third time").pipe(
+                    |input: In<(ShouldRun, ShouldRun)>| match input {
+                        In((ShouldRun::Yes, ShouldRun::Yes)) => ShouldRun::Yes,
+                        _ => ShouldRun::No,
+                    },
+                ),
+            ))
+            .with_system(
+                make_parallel!(4)
+                    .after("3")
+                    .with_run_criteria(RunCriteria::pipe(
+                        ("every other time", "every third time"),
+                        |input: In<(ShouldRun, ShouldRun)>| match input {
+                            In((ShouldRun::Yes, ShouldRun::Yes)) => ShouldRun::Yes,
+                            _ => ShouldRun::No,
+                        },
+                    )),
+            );
+        for _ in 0..4 {
+            stage.run(&mut world);
+        }
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        for _ in 0..4 {
+            stage.run(&mut world);
+        }
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 2, 3, 4, 0,]
+        );
+        assert_eq!(stage.run_criteria.len(), 4);
 
         // Discarding extra criteria with matching labels.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
