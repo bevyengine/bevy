@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_core::{bytes_of, Pod, Zeroable};
 use bevy_ecs::{
-    system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, Query, Res, ResMut},
     world::World,
 };
 use bevy_render::{
@@ -59,7 +59,7 @@ struct LightCount {
 
 impl SystemNode for LightsNode {
     fn get_system(&self) -> BoxedSystem {
-        let system = lights_node_system.system().config(|config| {
+        let system = lights_node_system.config(|config| {
             config.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 max_point_lights: self.max_point_lights,

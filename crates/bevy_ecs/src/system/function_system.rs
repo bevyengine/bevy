@@ -251,7 +251,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// fn local_is_42(local: Local<usize>) {
     ///     assert_eq!(*local, 42);
     /// }
-    /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));
+    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
     /// system.initialize(world);
     /// system.run((), world);
     /// ```

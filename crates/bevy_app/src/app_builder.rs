@@ -9,7 +9,7 @@ use bevy_ecs::{
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
     },
-    system::{IntoExclusiveSystem, IntoSystem},
+    system::IntoExclusiveSystem,
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
@@ -157,7 +157,7 @@ impl AppBuilder {
     /// Adds a system that runs every time `app.update()` is called by the runner
     ///
     /// Systems are the main building block in the Bevy ECS app model. You can define
-    /// normal rust functions, and call `.system()` to make them be Bevy systems.
+    /// normal rust functions, and use them as a Bevy system.
     ///
     /// System functions can have parameters, through which one can query and
     /// mutate Bevy ECS states.
@@ -178,7 +178,7 @@ impl AppBuilder {
     /// }
     ///
     /// App::build()
-    ///     .add_system(my_system.system());
+    ///     .add_system(my_system);
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
         self.add_system_to_stage(CoreStage::Update, system)
@@ -226,7 +226,7 @@ impl AppBuilder {
     /// }
     ///
     /// App::build()
-    ///     .add_startup_system(my_startup_system.system());
+    ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<Params>(
         &mut self,
@@ -315,7 +315,7 @@ impl AppBuilder {
         T: Component,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.

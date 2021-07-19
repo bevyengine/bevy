@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -179,11 +179,8 @@ impl System for FixedTimestep {
     }
 
     fn initialize(&mut self, world: &mut World) {
-        self.internal_system = Box::new(
-            Self::prepare_system
-                .system()
-                .config(|c| c.0 = Some(self.state.clone())),
-        );
+        self.internal_system =
+            Box::new(Self::prepare_system.config(|c| c.0 = Some(self.state.clone())));
         self.internal_system.initialize(world);
         if let Some(ref label) = self.state.label {
             let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();

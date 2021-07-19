@@ -22,7 +22,7 @@ fn main() {
     // Setup a schedule and stage to add a system querying for the just spawned entities
     let mut schedule = Schedule::default();
     let mut update = SystemStage::parallel();
-    update.add_system(query_entities.system());
+    update.add_system(query_entities);
     schedule.add_stage("update", update);
 
     schedule.run(&mut world);

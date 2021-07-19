@@ -21,7 +21,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::Entity,
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::{IntoExclusiveSystem, IntoSystem},
+    system::IntoExclusiveSystem,
 };
 use bevy_utils::HashSet;
 use std::ops::Range;
@@ -62,8 +62,8 @@ impl Plugin for CorePlugin {
                 CoreStage::First,
                 time_system.exclusive_system().label(CoreSystem::Time),
             )
-            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system.system())
-            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system.system());
+            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system)
+            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system);
 
         register_rust_types(app);
         register_math_types(app);

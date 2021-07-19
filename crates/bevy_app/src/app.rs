@@ -21,7 +21,7 @@ use bevy_utils::tracing::info_span;
 ///
 /// fn main() {
 ///    App::build()
-///        .add_system(hello_world_system.system())
+///        .add_system(hello_world_system)
 ///        .run();
 /// }
 ///

@@ -60,7 +60,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<S: System<In = (), Out = ()>>(world: &mut World, system: S) {
+    fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(system);
@@ -121,7 +121,7 @@ mod tests {
         world.spawn().insert_bundle((A, C));
         world.spawn().insert_bundle((A, D));
 
-        run_system(&mut world, query_system.system());
+        run_system(&mut world, query_system);
 
         assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
@@ -149,7 +149,7 @@ mod tests {
         world.insert_resource(false);
         world.spawn().insert_bundle((A, B));
 
-        run_system(&mut world, query_system.system());
+        run_system(&mut world, query_system);
 
         assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
@@ -179,7 +179,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip.system());
+        update.add_system(incr_e_on_flip);
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
@@ -206,7 +206,7 @@ mod tests {
         fn sys(_q1: Query<&mut A>, _q2: Query<&mut A>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -214,7 +214,7 @@ mod tests {
         fn sys(_q1: Query<&mut A, With<B>>, _q2: Query<&mut A, Without<B>>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
         fn sys(_q1: Query<(&mut A, &B)>, _q2: Query<&mut A, Without<B>>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -231,14 +231,14 @@ mod tests {
         fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
     fn query_set_system() {
         fn sys(mut _set: QuerySet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -247,7 +247,7 @@ mod tests {
         fn sys(_query: Query<&mut A>, _set: QuerySet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod tests {
         fn sys(_set_1: QuerySet<(Query<&mut A>,)>, _set_2: QuerySet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[derive(Default)]
@@ -264,39 +264,39 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<S: System<In = (), Out = ()>>(sys: S) {
+    fn test_for_conflicting_resources<Param, S: IntoSystem<(), (), Param>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
         world.insert_resource(A);
         world.insert_resource(B);
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
@@ -321,7 +321,7 @@ mod tests {
             *modified = true;
         }
 
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
 
         // ensure the system actually ran
         assert!(*world.get_resource::<bool>().unwrap());
@@ -352,7 +352,7 @@ mod tests {
             *ran = true;
         }
 
-        run_system(&mut world, validate_removed.system());
+        run_system(&mut world, validate_removed);
         assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
 
@@ -365,17 +365,9 @@ mod tests {
             *modified = true;
         }
 
-        run_system(
-            &mut world,
-            sys.system().config(|config| config.0 = Some(42)),
-        );
+        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
-
-        // Now do the same with omitted `.system()`.
-        world.insert_resource(false);
-        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
         assert!(*world.get_resource::<bool>().unwrap());
     }
 
@@ -417,7 +409,7 @@ mod tests {
             *modified = true;
         }
 
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
 
         // ensure the system actually ran
         assert!(*world.get_resource::<bool>().unwrap());
