@@ -5,10 +5,10 @@ use crate::{
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
         ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner,
+        ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
-    system::System,
+    system::{System, ExclusiveSystem},
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
@@ -16,12 +16,13 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
-use super::IntoSystemDescriptor;
+use super::{IntoSystemDescriptor, ScheduleCommandQueue};
 
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
     fn run(&mut self, world: &mut World);
+    fn commands(&mut self) -> Option<ScheduleCommandQueue>;
 }
 
 impl_downcast!(Stage);
@@ -83,6 +84,8 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    // Contains commands for the schedule
+    schedule_commands: ScheduleCommandQueue,
 }
 
 impl SystemStage {
@@ -104,6 +107,7 @@ impl SystemStage {
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
+            schedule_commands: Default::default(),
         }
     }
 
@@ -805,10 +809,17 @@ impl Stage for SystemStage {
                     )
                 }
 
+                fn run_exclusive(world: &mut World, system: &mut Box<dyn ExclusiveSystem>, commands: &mut ScheduleCommandQueue) {
+                    system.run(world);
+                    if let Some(mut c) = system.schedule_commands() {
+                        c.transfer(commands);
+                    }
+                }
+
                 // Run systems that want to be at the start of stage.
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
-                        container.system_mut().run(world);
+                        run_exclusive(world, container.system_mut(), &mut self.schedule_commands);
                     }
                 }
 
@@ -823,21 +834,25 @@ impl Stage for SystemStage {
                 // Run systems that want to be between parallel systems and their command buffers.
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
-                        container.system_mut().run(world);
+                        run_exclusive(world, container.system_mut(), &mut self.schedule_commands);
                     }
                 }
 
                 // Apply parallel systems' buffers.
                 for container in &mut self.parallel {
                     if container.should_run {
-                        container.system_mut().apply_buffers(world);
+                        let system = container.system_mut();
+                        system.apply_buffers(world);
+                        if let Some(mut commands) = system.schedule_commands() {
+                            commands.transfer(&mut self.schedule_commands);
+                        }
                     }
                 }
 
                 // Run systems that want to be at the end of stage.
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
-                        container.system_mut().run(world);
+                        run_exclusive(world, container.system_mut(), &mut self.schedule_commands);
                     }
                 }
 
@@ -884,6 +899,16 @@ impl Stage for SystemStage {
                 default_should_run = ShouldRun::No;
             }
         }
+    }
+
+    fn commands(&mut self) -> Option<ScheduleCommandQueue> {
+        if self.schedule_commands.is_empty() {
+            return None;
+        }
+
+        let mut commands = Default::default();
+        self.schedule_commands.transfer(&mut commands);
+        Some(commands)
     }
 }
 

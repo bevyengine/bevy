@@ -7,6 +7,7 @@ use crate::{
         SystemParamFetch, SystemParamState,
     },
     world::{World, WorldId},
+    schedule::ScheduleCommandQueue,
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
@@ -381,6 +382,11 @@ where
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().unwrap();
         param_state.apply(world);
+    }
+
+    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+        let param_state = self.param_state.as_mut().unwrap();
+        param_state.schedule_commands()
     }
 
     #[inline]

@@ -8,6 +8,7 @@ use crate::{
     query::{
         FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
     },
+    schedule::{ScheduleCommandQueue, ScheduleCommands},
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -71,6 +72,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
+    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> { None }
     fn default_config() -> Self::Config;
 }
 
@@ -503,6 +505,48 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
         _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
+    }
+}
+
+impl<'a> SystemParam for ScheduleCommands<'a> {
+    type Fetch = ScheduleCommandQueue;
+}
+
+// SAFE: ScheduleCommands only accesses internal state
+unsafe impl ReadOnlySystemParamFetch for ScheduleCommandQueue {}
+
+// SAFE: only local state is accessed
+unsafe impl SystemParamState for ScheduleCommandQueue {
+    type Config = ();
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+        Default::default()
+    }
+
+    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let mut commands = Default::default();
+        self.transfer(&mut commands);
+        Some(commands)
+    }
+
+    fn default_config() {}
+}
+
+impl<'a> SystemParamFetch<'a> for ScheduleCommandQueue {
+    type Item = ScheduleCommands<'a>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'a World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        ScheduleCommands::new(state)
     }
 }
 
@@ -1190,6 +1234,22 @@ macro_rules! impl_system_param_tuple {
             fn apply(&mut self, _world: &mut World) {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
+            }
+
+            #[allow(unused_mut)] // needed for zero parameters
+            fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+                let ($($param,)*) = self;
+                let mut commands = ScheduleCommandQueue::default();
+                $(
+                    if let Some(mut c) = $param.schedule_commands() {
+                        c.transfer(&mut commands);
+                    }
+                )*
+                if commands.is_empty() {
+                    None
+                } else {
+                    Some(commands)
+                }
             }
 
             fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {

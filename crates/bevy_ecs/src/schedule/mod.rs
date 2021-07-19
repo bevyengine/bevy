@@ -8,6 +8,7 @@ mod state;
 mod system_container;
 mod system_descriptor;
 mod system_set;
+mod commands;
 
 pub use executor::*;
 pub use executor_parallel::*;
@@ -19,6 +20,7 @@ pub use state::*;
 pub use system_container::*;
 pub use system_descriptor::*;
 pub use system_set::*;
+pub use commands::*;
 
 use std::fmt::Debug;
 
@@ -198,6 +200,7 @@ impl Schedule {
     }
 
     pub fn run_once(&mut self, world: &mut World) {
+        let mut commands = ScheduleCommandQueue::default();
         for label in self.stage_order.iter() {
             #[cfg(feature = "trace")]
             let stage_span =
@@ -206,7 +209,12 @@ impl Schedule {
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
             stage.run(world);
+            if let Some(mut stage_commands) = stage.commands() {
+                stage_commands.transfer(&mut commands);
+            }
         }
+
+        commands.apply(self);
     }
 
     /// Iterates over all of schedule's stages and their labels, in execution order.
@@ -234,5 +242,9 @@ impl Stage for Schedule {
                 }
             }
         }
+    }
+
+    fn commands(&mut self) -> Option<ScheduleCommandQueue> {
+        None
     }
 }
