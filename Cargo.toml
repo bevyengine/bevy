@@ -179,6 +179,10 @@ name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 
 [[example]]
+name = "shadow_biases_pipelined"
+path = "examples/3d/shadow_biases_pipelined.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 

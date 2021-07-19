@@ -379,12 +379,24 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
     return (specular_light + diffuse) * light.color.rgb * NoL;
 }
 
-fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
+fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = lights.point_lights[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
-    let frag_ls = light.position.xyz - frag_position.xyz;
+    let surface_to_light = light.position.xyz - frag_position.xyz;
+    let surface_to_light_abs = abs(surface_to_light);
+    let distance_to_light = max(surface_to_light_abs.x, max(surface_to_light_abs.y, surface_to_light_abs.z));
+
+    // The normal bias here is already scaled by the texel size at 1 world unit from the light.
+    // The texel size increases proportionally with distance from the light so multiplying by
+    // distance to light scales the normal bias to the texel size at the fragment distance.
+    let normal_offset = light.shadow_normal_bias * distance_to_light * surface_normal.xyz;
+    let depth_offset = light.shadow_depth_bias * normalize(surface_to_light.xyz);
+    let offset_position = frag_position.xyz + normal_offset + depth_offset;
+
+    // similar largest-absolute-axis trick as above, but now with the offset fragment position
+    let frag_ls = light.position.xyz - offset_position.xyz;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
@@ -398,14 +410,6 @@ fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
     let w = major_axis_magnitude;
     let depth = z / w;
 
-    // let shadow = texture(samplerCubeArrayShadow(t_Shadow, s_Shadow), vec4(frag_ls, i), depth - bias);
-
-    // manual depth testing
-    // float shadow = texture(samplerCubeArray(t_Shadow, s_Shadow), vec4(-frag_ls, 6 * i)).r;
-    // shadow = depth > shadow ? 0.0 : 1.0;
-    // o_Target = vec4(vec3(shadow * 20 - 19, depth * 20 - 19, 0.0), 1.0);
-    // o_Target = vec4(vec3(shadow * 20 - 19), 1.0);
-
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
     //       textureSampleCompare to avoid undefined behaviour due to some of the fragments in
@@ -415,21 +419,35 @@ fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
 }
 
-fn fetch_directional_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
+fn fetch_directional_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = lights.directional_lights[light_id];
-    let homogeneous_coords = light.view_projection * frag_position;
-    if (homogeneous_coords.w <= 0.0) {
+
+    // The normal bias is scaled to the texel size.
+    let normal_offset = light.shadow_normal_bias * surface_normal.xyz;
+    let depth_offset = light.shadow_depth_bias * light.direction_to_light.xyz;
+    let offset_position = vec4<f32>(frag_position.xyz + normal_offset + depth_offset, frag_position.w);
+
+    let offset_position_clip = light.view_projection * offset_position;
+    if (offset_position_clip.w <= 0.0) {
         return 1.0;
     }
-    // compensate for the Y-flip difference between the NDC and texture coordinates
+    let offset_position_ndc = offset_position_clip.xyz / offset_position_clip.w;
+    // No shadow outside the orthographic projection volume
+    if (any(offset_position_ndc.xy < vec2<f32>(-1.0)) || offset_position_ndc.z < 0.0
+            || any(offset_position_ndc > vec3<f32>(1.0))) {
+        return 1.0;
+    }
+
+    // compute texture coordinates for shadow lookup, compensating for the Y-flip difference
+    // between the NDC and texture coordinates
     let flip_correction = vec2<f32>(0.5, -0.5);
-    let proj_correction = 1.0 / homogeneous_coords.w;
-    // compute texture coordinates for shadow lookup
-    let light_local = homogeneous_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
+    let light_local = offset_position_ndc.xy * flip_correction + vec2<f32>(0.5, 0.5);
+
+    let depth = offset_position_ndc.z;
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     //       sampler to avoid use of implicit derivatives causing possible undefined behavior.
-    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
+    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
 }
 
 struct FragmentInput {
@@ -522,26 +540,13 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let n_directional_lights = i32(lights.n_directional_lights);
         for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
             let light = lights.point_lights[i];
-
-            let dir_to_light = normalize(light.position.xyz - in.world_position.xyz);
-            let depth_bias = light.shadow_depth_bias * dir_to_light.xyz;
-            let NdotL = dot(dir_to_light.xyz, in.world_normal.xyz);
-            let normal_bias = light.shadow_normal_bias * (1.0 - NdotL) * in.world_normal.xyz;
-            let biased_position = vec4<f32>(in.world_position.xyz + depth_bias + normal_bias, in.world_position.w);
-
-            let shadow = fetch_point_shadow(i, biased_position);
+            let shadow = fetch_point_shadow(i, in.world_position, in.world_normal);
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
         for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
             let light = lights.directional_lights[i];
-
-            let depth_bias = light.shadow_depth_bias * light.direction_to_light.xyz;
-            let NdotL = dot(light.direction_to_light.xyz, in.world_normal.xyz);
-            let normal_bias = light.shadow_normal_bias * (1.0 - NdotL) * in.world_normal.xyz;
-            let biased_position = vec4<f32>(in.world_position.xyz + depth_bias + normal_bias, in.world_position.w);
-
-            let shadow = fetch_directional_shadow(i, biased_position);
+            let shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
             let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
