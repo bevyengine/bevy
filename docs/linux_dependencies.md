@@ -49,12 +49,6 @@ sudo dnf install alsa-lib-devel.x86_64
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
 
-## Solus
-
-```bash
-sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
-```
-
 ## Void
 
 ```bash
