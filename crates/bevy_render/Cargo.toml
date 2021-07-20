@@ -41,12 +41,16 @@ parking_lot = "0.11.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 spirv-reflect = "0.2.3"
+naga = { version = "0.4", features = ["spv-in"] }
 
 [target.'cfg(any(all(target_arch="x86_64", target_os="linux", target_env="gnu"), all(target_arch="x86_64", target_os="macos"), all(target_arch="aarch64", target_os="android"), all(target_arch="armv7", target_os="androidabi"), all(target_arch="x86_64", target_os="windows", target_env="msvc")))'.dependencies]
 bevy-glsl-to-spirv = "0.2.0"
 
 [target.'cfg(not(any(target_arch = "wasm32", all(target_arch="x86_64", target_os="linux", target_env="gnu"), all(target_arch="x86_64", target_os="macos"), all(target_arch="aarch64", target_os="android"), all(target_arch="armv7", target_os="androidabi"), all(target_arch="x86_64", target_os="windows", target_env="msvc"))))'.dependencies]
 shaderc = "0.7.0"
+
+[dev-dependencies]
+pretty_assertions = "0.7"
 
 [features]
 png = ["image/png"]

@@ -1,300 +1,397 @@
+use std::convert::TryInto;
+
+use bevy_core::cast_slice;
+use bevy_utils::HashMap;
+use naga::{ScalarKind, StorageClass, VectorSize};
+
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
-    shader::{ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
-    texture::{TextureSampleType, TextureViewDimension},
-};
-use bevy_core::cast_slice;
-use spirv_reflect::{
-    types::{
-        ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectShaderStageFlags, ReflectTypeDescription, ReflectTypeFlags,
-    },
-    ShaderModule,
+    shader::ShaderLayout,
+    texture::{StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension},
 };
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
-        match ShaderModule::load_u8_data(cast_slice(spirv_data)) {
-            Ok(ref mut module) => {
-                // init
-                let entry_point_name = module.get_entry_point_name();
-                let shader_stage = module.get_shader_stage();
-                let mut bind_groups = Vec::new();
-                for descriptor_set in module.enumerate_descriptor_sets(None).unwrap() {
-                    let bind_group = reflect_bind_group(&descriptor_set, shader_stage);
-                    bind_groups.push(bind_group);
-                }
+        let options = naga::front::spv::Options::default();
+        let module = naga::front::spv::parse_u8_slice(cast_slice(spirv_data), &options)
+            .expect("failed to parse");
 
-                // obtain attribute descriptors from reflection
-                let mut vertex_attributes = Vec::new();
-                for input_variable in module.enumerate_input_variables(None).unwrap() {
-                    if input_variable.name == GL_VERTEX_INDEX
-                        || input_variable.name == GL_INSTANCE_INDEX
-                        || input_variable.name == GL_FRONT_FACING
-                    {
-                        continue;
-                    }
-                    // reflect vertex attribute descriptor and record it
-                    vertex_attributes.push(VertexAttribute {
-                        name: input_variable.name.clone().into(),
-                        format: reflect_vertex_format(
-                            input_variable.type_description.as_ref().unwrap(),
-                        ),
-                        offset: 0,
-                        shader_location: input_variable.location,
-                    });
-                }
+        assert!(module.entry_points.len() == 1, "expected one entry point");
+        let entry_point = &module.entry_points[0];
+        let vertex_buffer_layout =
+            reflect_vertex_buffer_layout(&entry_point.function, &module, bevy_conventions);
 
-                vertex_attributes.sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
+        let shader_stage = match entry_point.stage {
+            naga::ShaderStage::Vertex => BindingShaderStage::VERTEX,
+            naga::ShaderStage::Fragment => BindingShaderStage::FRAGMENT,
+            naga::ShaderStage::Compute => BindingShaderStage::COMPUTE,
+        };
+        let bind_groups = reflect_bind_groups(&module, shader_stage);
 
-                let mut vertex_buffer_layout = Vec::new();
-                for vertex_attribute in vertex_attributes.drain(..) {
-                    let mut instance = false;
-                    // obtain buffer name and instancing flag
-                    let current_buffer_name = {
-                        if bevy_conventions {
-                            if vertex_attribute.name == GL_VERTEX_INDEX {
-                                GL_VERTEX_INDEX.to_string()
-                            } else {
-                                instance = vertex_attribute.name.starts_with("I_");
-                                vertex_attribute.name.to_string()
-                            }
-                        } else {
-                            "DefaultVertex".to_string()
-                        }
-                    };
+        ShaderLayout {
+            bind_groups,
+            vertex_buffer_layout,
+            entry_point: entry_point.name.clone(),
+        }
+    }
+}
 
-                    // create a new buffer descriptor, per attribute!
-                    vertex_buffer_layout.push(VertexBufferLayout {
-                        attributes: vec![vertex_attribute],
-                        name: current_buffer_name.into(),
-                        step_mode: if instance {
-                            InputStepMode::Instance
-                        } else {
-                            InputStepMode::Vertex
+fn reflect_vertex_buffer_layout(
+    function: &naga::Function,
+    module: &naga::Module,
+    bevy_conventions: bool,
+) -> Vec<VertexBufferLayout> {
+    let mut vertex_attribute_layouts: Vec<_> = function
+        .arguments
+        .iter()
+        .filter_map(|argument| {
+            let location = match argument.binding.as_ref()? {
+                naga::Binding::Location { location, .. } => *location,
+                _ => return None,
+            };
+            let name = argument
+                .name
+                .clone()
+                .expect("expected vertex attribute to have a name");
+
+            let current_buffer_name = if bevy_conventions {
+                name.clone()
+            } else {
+                "DefaultVertex".to_string()
+            };
+            let step_mode = if bevy_conventions && name.starts_with("I_") {
+                InputStepMode::Instance
+            } else {
+                InputStepMode::Vertex
+            };
+
+            let ty = module
+                .types
+                .try_get(argument.ty)
+                .expect("vertex attribute references inexistent type");
+            let attribute = VertexAttribute {
+                name: name.into(),
+                format: reflect_vertex_format(&ty.inner),
+                offset: 0,
+                shader_location: location,
+            };
+            let layout = VertexBufferLayout {
+                name: current_buffer_name.into(),
+                stride: 0,
+                step_mode,
+                attributes: vec![attribute],
+            };
+            Some(layout)
+        })
+        .collect();
+
+    vertex_attribute_layouts.sort_by_key(|layout| layout.attributes[0].shader_location);
+
+    vertex_attribute_layouts
+}
+
+fn reflect_vertex_format(type_description: &naga::TypeInner) -> VertexFormat {
+    match type_description {
+        naga::TypeInner::Scalar { kind, width } => match (kind, width) {
+            (ScalarKind::Float, 4) => VertexFormat::Float32,
+            (ScalarKind::Sint, 4) => VertexFormat::Sint32,
+            (ScalarKind::Uint, 4) => VertexFormat::Uint32,
+            (ScalarKind::Bool, _) => panic!("bool vertex format not supported"),
+            (kind, width) => panic!("unexpected vertex format: {:?}{}", kind, width),
+        },
+        naga::TypeInner::Vector { size, kind, width } => match (kind, size, width) {
+            (ScalarKind::Float, VectorSize::Bi, 2) => VertexFormat::Float16x2,
+            (ScalarKind::Float, VectorSize::Quad, 2) => VertexFormat::Float16x4,
+            (ScalarKind::Float, VectorSize::Bi, 4) => VertexFormat::Float32x2,
+            (ScalarKind::Float, VectorSize::Tri, 4) => VertexFormat::Float32x3,
+            (ScalarKind::Float, VectorSize::Quad, 4) => VertexFormat::Float32x4,
+            (ScalarKind::Sint, VectorSize::Bi, 8) => VertexFormat::Sint8x2,
+            (ScalarKind::Sint, VectorSize::Quad, 8) => VertexFormat::Sint8x4,
+            (ScalarKind::Sint, VectorSize::Bi, 2) => VertexFormat::Sint16x2,
+            (ScalarKind::Sint, VectorSize::Quad, 2) => VertexFormat::Sint16x4,
+            (ScalarKind::Sint, VectorSize::Bi, 4) => VertexFormat::Sint32x2,
+            (ScalarKind::Sint, VectorSize::Tri, 4) => VertexFormat::Sint32x3,
+            (ScalarKind::Sint, VectorSize::Quad, 4) => VertexFormat::Sint32x4,
+            (ScalarKind::Uint, VectorSize::Bi, 2) => VertexFormat::Uint16x2,
+            (ScalarKind::Uint, VectorSize::Quad, 2) => VertexFormat::Uint16x4,
+            (ScalarKind::Uint, VectorSize::Bi, 4) => VertexFormat::Uint32x2,
+            (ScalarKind::Uint, VectorSize::Tri, 4) => VertexFormat::Uint32x3,
+            (ScalarKind::Uint, VectorSize::Quad, 4) => VertexFormat::Uint32x4,
+            (ScalarKind::Bool, _, _) => panic!("bool vector vertex format not supported"),
+            (kind, size, width) => {
+                panic!(
+                    "expected vertex format vector: {:?}{}x{}",
+                    kind, width, *size as u8
+                )
+            }
+        },
+        naga::TypeInner::Matrix {
+            columns,
+            rows,
+            width: _,
+        } => panic!(
+            "matrix vertex format {}x{} not supported",
+            *columns as u8, *rows as u8
+        ),
+        other => panic!("unexpected vertex format {:?}", other),
+    }
+}
+
+fn reflect_bind_groups(
+    module: &naga::Module,
+    shader_stage: BindingShaderStage,
+) -> Vec<BindGroupDescriptor> {
+    let binding_descriptors = module
+        .global_variables
+        .iter()
+        .map(|(_, variable)| variable)
+        .filter(|variable| {
+            matches!(
+                variable.class,
+                StorageClass::Uniform | StorageClass::Storage | StorageClass::Handle
+            )
+        })
+        .filter_map(|variable| {
+            let binding = variable.binding.as_ref()?;
+            Some((variable, binding))
+        })
+        .map(|(variable, binding)| {
+            let ty = module
+                .types
+                .try_get(variable.ty)
+                .expect("resource binding references inexistent type");
+
+            let name = match variable.name.clone() {
+                Some(name) if !name.is_empty() => name,
+                _ => ty.name.clone().unwrap_or_default(),
+            };
+
+            let bind_type = reflect_bind_type(&module, variable, &ty.inner);
+            let binding_descriptor = BindingDescriptor {
+                index: binding.binding,
+                bind_type,
+                name,
+                shader_stage,
+            };
+            (binding, binding_descriptor)
+        });
+
+    let mut bind_groups = HashMap::<u32, Vec<_>>::default();
+    for (binding, binding_descriptor) in binding_descriptors {
+        bind_groups
+            .entry(binding.group)
+            .or_default()
+            .push(binding_descriptor);
+    }
+
+    let mut groups: Vec<_> = bind_groups
+        .into_iter()
+        .map(|(index, bindings)| BindGroupDescriptor::new(index, bindings))
+        .collect();
+
+    for group in &mut groups {
+        group.bindings.sort_by_key(|binding| binding.index);
+    }
+    groups.sort_by_key(|bind_group| bind_group.index);
+
+    groups
+}
+
+fn reflect_bind_type(
+    module: &naga::Module,
+    variable: &naga::GlobalVariable,
+    ty: &naga::TypeInner,
+) -> BindType {
+    match variable.class {
+        naga::StorageClass::Uniform => BindType::Uniform {
+            has_dynamic_offset: false,
+            property: reflect_uniform(module, ty),
+        },
+        naga::StorageClass::Handle => match *ty {
+            naga::TypeInner::Image {
+                dim,
+                arrayed,
+                class,
+            } => {
+                let view_dimension = reflect_dimension(dim, arrayed);
+                match class {
+                    naga::ImageClass::Sampled { kind, multi } => BindType::Texture {
+                        multisampled: multi,
+                        view_dimension,
+                        sample_type: match kind {
+                            ScalarKind::Sint => TextureSampleType::Sint,
+                            ScalarKind::Uint => TextureSampleType::Uint,
+                            ScalarKind::Float => TextureSampleType::Float { filterable: true },
+                            ScalarKind::Bool => panic!("invalid texture sample type: `bool`"),
                         },
-                        stride: 0,
-                    });
-                }
-
-                ShaderLayout {
-                    bind_groups,
-                    vertex_buffer_layout,
-                    entry_point: entry_point_name,
+                    },
+                    naga::ImageClass::Depth => BindType::Texture {
+                        multisampled: false,
+                        view_dimension,
+                        sample_type: TextureSampleType::Depth,
+                    },
+                    naga::ImageClass::Storage(format) => BindType::StorageTexture {
+                        access: StorageTextureAccess::ReadWrite,
+                        format: reflect_texture_format(format),
+                        view_dimension,
+                    },
                 }
             }
-            Err(err) => panic!("Failed to reflect shader layout: {:?}.", err),
-        }
-    }
-}
-
-fn reflect_bind_group(
-    descriptor_set: &ReflectDescriptorSet,
-    shader_stage: ReflectShaderStageFlags,
-) -> BindGroupDescriptor {
-    let mut bindings = Vec::new();
-    for descriptor_binding in descriptor_set.bindings.iter() {
-        let binding = reflect_binding(descriptor_binding, shader_stage);
-        bindings.push(binding);
-    }
-
-    BindGroupDescriptor::new(descriptor_set.set, bindings)
-}
-
-fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDimension {
-    match type_description.traits.image.dim {
-        ReflectDimension::Type1d => TextureViewDimension::D1,
-        ReflectDimension::Type2d => TextureViewDimension::D2,
-        ReflectDimension::Type3d => TextureViewDimension::D3,
-        ReflectDimension::Cube => TextureViewDimension::Cube,
-        dimension => panic!("Unsupported image dimension: {:?}.", dimension),
-    }
-}
-
-fn reflect_binding(
-    binding: &ReflectDescriptorBinding,
-    shader_stage: ReflectShaderStageFlags,
-) -> BindingDescriptor {
-    let type_description = binding.type_description.as_ref().unwrap();
-    let (name, bind_type) = match binding.descriptor_type {
-        ReflectDescriptorType::UniformBuffer => (
-            &type_description.type_name,
-            BindType::Uniform {
-                has_dynamic_offset: false,
-                property: reflect_uniform(type_description),
-            },
-        ),
-        ReflectDescriptorType::SampledImage => (
-            &binding.name,
-            BindType::Texture {
-                view_dimension: reflect_dimension(type_description),
-                sample_type: TextureSampleType::Float { filterable: true },
-                multisampled: false,
-            },
-        ),
-        ReflectDescriptorType::StorageBuffer => (
-            &type_description.type_name,
-            BindType::StorageBuffer {
-                has_dynamic_offset: false,
-                readonly: true,
-            },
-        ),
-        // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
-        // TODO: detect filtering "true" case
-        ReflectDescriptorType::Sampler => (
-            &binding.name,
-            BindType::Sampler {
-                comparison: false,
+            naga::TypeInner::Sampler { comparison } => BindType::Sampler {
+                comparison,
                 filtering: true,
             },
-        ),
-        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
-    };
 
-    let shader_stage = match shader_stage {
-        ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
-        ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
-        ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
-        _ => panic!("Only one specified shader stage is supported."),
-    };
+            naga::TypeInner::Array { base, size, .. } => match size {
+                naga::ArraySize::Constant(size) => {
+                    let inner_ty = module.types.try_get(base).unwrap();
+                    let len = get_constant_usize(module, size)
+                        .expect("expected integer constant for array length");
+                    panic!(
+                        "unsupported binding: sampler array [{:?}; {}]",
+                        inner_ty.inner, len
+                    );
+                }
+                naga::ArraySize::Dynamic => {
+                    panic!("unsupported binding: handle array with dynamic size")
+                }
+            },
 
-    BindingDescriptor {
-        index: binding.binding,
-        bind_type,
-        name: name.to_string(),
-        shader_stage,
-    }
-}
-
-#[derive(Debug)]
-enum NumberType {
-    Int,
-    UInt,
-    Float,
-}
-
-fn reflect_uniform(type_description: &ReflectTypeDescription) -> UniformProperty {
-    if type_description
-        .type_flags
-        .contains(ReflectTypeFlags::STRUCT)
-    {
-        reflect_uniform_struct(type_description)
-    } else {
-        reflect_uniform_numeric(type_description)
-    }
-}
-
-fn reflect_uniform_struct(type_description: &ReflectTypeDescription) -> UniformProperty {
-    let mut properties = Vec::new();
-    for member in type_description.members.iter() {
-        properties.push(reflect_uniform(member));
-    }
-
-    UniformProperty::Struct(properties)
-}
-
-fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> UniformProperty {
-    let traits = &type_description.traits;
-    let number_type = if type_description.type_flags.contains(ReflectTypeFlags::INT) {
-        match traits.numeric.scalar.signedness {
-            0 => NumberType::UInt,
-            1 => NumberType::Int,
-            signedness => panic!("Unexpected signedness {}.", signedness),
-        }
-    } else if type_description
-        .type_flags
-        .contains(ReflectTypeFlags::FLOAT)
-    {
-        NumberType::Float
-    } else {
-        panic!("Unexpected type flag {:?}.", type_description.type_flags);
-    };
-
-    // TODO: handle scalar width here
-
-    if type_description
-        .type_flags
-        .contains(ReflectTypeFlags::MATRIX)
-    {
-        match (
-            number_type,
-            traits.numeric.matrix.column_count,
-            traits.numeric.matrix.row_count,
-        ) {
-            (NumberType::Float, 3, 3) => UniformProperty::Mat3,
-            (NumberType::Float, 4, 4) => UniformProperty::Mat4,
-            (number_type, column_count, row_count) => panic!(
-                "unexpected uniform property matrix format {:?} {}x{}",
-                number_type, column_count, row_count
+            ref other => panic!(
+                "handle storage class not with image or sampler type: {:?}",
+                other
             ),
-        }
-    } else {
-        match (number_type, traits.numeric.vector.component_count) {
-            (NumberType::UInt, 0) => UniformProperty::UInt,
-            (NumberType::Int, 0) => UniformProperty::Int,
-            (NumberType::Int, 2) => UniformProperty::IVec2,
-            (NumberType::Float, 0) => UniformProperty::Float,
-            (NumberType::Float, 2) => UniformProperty::Vec2,
-            (NumberType::Float, 3) => UniformProperty::Vec3,
-            (NumberType::Float, 4) => UniformProperty::Vec4,
-            (NumberType::UInt, 4) => UniformProperty::UVec4,
-            (number_type, component_count) => panic!(
-                "unexpected uniform property format {:?} {}",
-                number_type, component_count
-            ),
-        }
+        },
+        naga::StorageClass::Storage => BindType::StorageBuffer {
+            has_dynamic_offset: false,
+            readonly: !variable.storage_access.contains(naga::StorageAccess::STORE),
+        },
+        other => panic!("unexpected storage type for shader binding: {:?}", other),
     }
 }
 
-fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFormat {
-    let traits = &type_description.traits;
-    let number_type = if type_description.type_flags.contains(ReflectTypeFlags::INT) {
-        match traits.numeric.scalar.signedness {
-            0 => NumberType::UInt,
-            1 => NumberType::Int,
-            signedness => panic!("Unexpected signedness {}.", signedness),
+fn reflect_texture_format(format: naga::StorageFormat) -> TextureFormat {
+    match format {
+        naga::StorageFormat::R8Unorm => TextureFormat::R8Unorm,
+        naga::StorageFormat::R8Snorm => TextureFormat::R8Snorm,
+        naga::StorageFormat::R8Uint => TextureFormat::R8Uint,
+        naga::StorageFormat::R8Sint => TextureFormat::R8Sint,
+        naga::StorageFormat::R16Uint => TextureFormat::R16Uint,
+        naga::StorageFormat::R16Sint => TextureFormat::R16Sint,
+        naga::StorageFormat::R16Float => TextureFormat::R16Float,
+        naga::StorageFormat::Rg8Unorm => TextureFormat::Rg8Unorm,
+        naga::StorageFormat::Rg8Snorm => TextureFormat::Rg8Snorm,
+        naga::StorageFormat::Rg8Uint => TextureFormat::Rg8Uint,
+        naga::StorageFormat::Rg8Sint => TextureFormat::Rg8Sint,
+        naga::StorageFormat::R32Uint => TextureFormat::R32Uint,
+        naga::StorageFormat::R32Sint => TextureFormat::R32Sint,
+        naga::StorageFormat::R32Float => TextureFormat::R32Float,
+        naga::StorageFormat::Rg16Uint => TextureFormat::Rg16Uint,
+        naga::StorageFormat::Rg16Sint => TextureFormat::Rg16Sint,
+        naga::StorageFormat::Rg16Float => TextureFormat::Rg16Float,
+        naga::StorageFormat::Rgba8Unorm => TextureFormat::Rgba8Unorm,
+        naga::StorageFormat::Rgba8Snorm => TextureFormat::Rgba8Snorm,
+        naga::StorageFormat::Rgba8Uint => TextureFormat::Rgba8Uint,
+        naga::StorageFormat::Rgba8Sint => TextureFormat::Rgba8Sint,
+        naga::StorageFormat::Rgb10a2Unorm => TextureFormat::Rgb10a2Unorm,
+        naga::StorageFormat::Rg11b10Float => TextureFormat::Rg11b10Float,
+        naga::StorageFormat::Rg32Uint => TextureFormat::Rg32Uint,
+        naga::StorageFormat::Rg32Sint => TextureFormat::Rg32Sint,
+        naga::StorageFormat::Rg32Float => TextureFormat::Rg32Float,
+        naga::StorageFormat::Rgba16Uint => TextureFormat::Rgba16Uint,
+        naga::StorageFormat::Rgba16Sint => TextureFormat::Rgba16Sint,
+        naga::StorageFormat::Rgba16Float => TextureFormat::Rgba16Float,
+        naga::StorageFormat::Rgba32Uint => TextureFormat::Rgba32Uint,
+        naga::StorageFormat::Rgba32Sint => TextureFormat::Rgba32Sint,
+        naga::StorageFormat::Rgba32Float => TextureFormat::Rgba32Float,
+    }
+}
+
+fn reflect_uniform(module: &naga::Module, ty: &naga::TypeInner) -> UniformProperty {
+    match ty {
+        naga::TypeInner::Struct { members, .. } => {
+            let members = members
+                .iter()
+                .map(|member| {
+                    let ty = module.types.try_get(member.ty).unwrap();
+                    reflect_uniform(module, &ty.inner)
+                })
+                .collect();
+            UniformProperty::Struct(members)
         }
-    } else if type_description
-        .type_flags
-        .contains(ReflectTypeFlags::FLOAT)
-    {
-        NumberType::Float
-    } else {
-        panic!("Unexpected type flag {:?}.", type_description.type_flags);
-    };
 
-    let width = traits.numeric.scalar.width;
+        naga::TypeInner::Scalar { kind, .. } => match kind {
+            naga::ScalarKind::Float => UniformProperty::Float,
+            naga::ScalarKind::Uint => UniformProperty::UInt,
+            naga::ScalarKind::Sint => UniformProperty::Int,
+            naga::ScalarKind::Bool => {
+                panic!("unsupported uniform property: {:?}", naga::ScalarKind::Bool)
+            }
+        },
+        naga::TypeInner::Vector { size, kind, .. } => match (kind, size) {
+            (ScalarKind::Sint, VectorSize::Bi) => UniformProperty::IVec2,
+            (ScalarKind::Uint, VectorSize::Quad) => UniformProperty::UVec4,
+            (ScalarKind::Float, VectorSize::Bi) => UniformProperty::Vec2,
+            (ScalarKind::Float, VectorSize::Tri) => UniformProperty::Vec3,
+            (ScalarKind::Float, VectorSize::Quad) => UniformProperty::Vec4,
+            (ScalarKind::Bool, size) => panic!(
+                "unsupported uniform property: {:?}x{}",
+                naga::ScalarKind::Bool,
+                *size as u8
+            ),
+            (kind, size) => panic!("unsupported uniform property: {:?}x{}", kind, *size as u8),
+        },
+        naga::TypeInner::Matrix { columns, rows, .. } => match (columns, rows) {
+            (VectorSize::Tri, VectorSize::Tri) => UniformProperty::Mat3,
+            (VectorSize::Quad, VectorSize::Quad) => UniformProperty::Mat4,
+            (columns, rows) => panic!(
+                "unsupported uniform property: {}x{} matrix",
+                *columns as u8, *rows as u8
+            ),
+        },
+        naga::TypeInner::Array { base, size, .. } => match size {
+            naga::ArraySize::Constant(size) => {
+                let inner_ty = module.types.try_get(*base).unwrap();
+                let inner = reflect_uniform(module, &inner_ty.inner);
+                let len = get_constant_usize(module, *size)
+                    .expect("expected integer constant for array length");
 
-    match (number_type, traits.numeric.vector.component_count, width) {
-        (NumberType::UInt, 2, 8) => VertexFormat::Uint8x2,
-        (NumberType::UInt, 4, 8) => VertexFormat::Uint8x4,
-        (NumberType::Int, 2, 8) => VertexFormat::Sint8x2,
-        (NumberType::Int, 4, 8) => VertexFormat::Sint8x4,
-        (NumberType::UInt, 2, 16) => VertexFormat::Uint16x2,
-        (NumberType::UInt, 4, 16) => VertexFormat::Uint16x4,
-        (NumberType::Int, 2, 16) => VertexFormat::Sint16x2,
-        (NumberType::Int, 8, 16) => VertexFormat::Sint16x4,
-        (NumberType::Float, 2, 16) => VertexFormat::Float16x2,
-        (NumberType::Float, 4, 16) => VertexFormat::Float16x4,
-        (NumberType::Float, 0, 32) => VertexFormat::Float32,
-        (NumberType::Float, 2, 32) => VertexFormat::Float32x2,
-        (NumberType::Float, 3, 32) => VertexFormat::Float32x3,
-        (NumberType::Float, 4, 32) => VertexFormat::Float32x4,
-        (NumberType::UInt, 0, 32) => VertexFormat::Uint32,
-        (NumberType::UInt, 2, 32) => VertexFormat::Uint32x2,
-        (NumberType::UInt, 3, 32) => VertexFormat::Uint32x3,
-        (NumberType::UInt, 4, 32) => VertexFormat::Uint32x4,
-        (NumberType::Int, 0, 32) => VertexFormat::Sint32,
-        (NumberType::Int, 2, 32) => VertexFormat::Sint32x2,
-        (NumberType::Int, 3, 32) => VertexFormat::Sint32x3,
-        (NumberType::Int, 4, 32) => VertexFormat::Sint32x4,
-        (number_type, component_count, width) => panic!(
-            "unexpected uniform property format {:?} {} {}",
-            number_type, component_count, width
-        ),
+                UniformProperty::Array(Box::new(inner), len)
+            }
+            naga::ArraySize::Dynamic => panic!("unsupported uniform property: dynamic array size"),
+        },
+        other => panic!("unsupported uniform property: {:?}", other),
+    }
+}
+
+fn reflect_dimension(dim: naga::ImageDimension, arrayed: bool) -> TextureViewDimension {
+    match (dim, arrayed) {
+        (naga::ImageDimension::D1, false) => TextureViewDimension::D1,
+        (naga::ImageDimension::D2, false) => TextureViewDimension::D2,
+        (naga::ImageDimension::D3, false) => TextureViewDimension::D3,
+        (naga::ImageDimension::Cube, false) => TextureViewDimension::Cube,
+        (naga::ImageDimension::D2, true) => TextureViewDimension::D2Array,
+        (naga::ImageDimension::Cube, true) => TextureViewDimension::CubeArray,
+        (other, true) => panic!("invalid image type: {:?} array", other),
+    }
+}
+
+fn get_constant_usize(
+    module: &naga::Module,
+    constant: naga::Handle<naga::Constant>,
+) -> Option<usize> {
+    let constant = module.constants.try_get(constant)?;
+    match (constant.specialization, &constant.inner) {
+        (Some(spec), _) => Some(spec as usize),
+        (None, naga::ConstantInner::Composite { .. }) => None,
+        (None, naga::ConstantInner::Scalar { value, .. }) => match *value {
+            naga::ScalarValue::Sint(int) => int.try_into().ok(),
+            naga::ScalarValue::Uint(int) => int.try_into().ok(),
+            naga::ScalarValue::Float(_) | naga::ScalarValue::Bool(_) => None,
+        },
     }
 }
 
@@ -325,6 +422,11 @@ mod tests {
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
+            layout(set = 2, binding = 0) uniform texture2D ColorMaterial_texture;
+            layout(set = 2, binding = 1) uniform sampler ColorMaterial_texture_sampler;
+            layout(set = 2, binding = 2) uniform samplerCubeArray arrayTextureSampler;
+            layout(set = 2, binding = 3) buffer TextureAtlas_textures { float data; };
+
             void main() {
                 v_Position = Vertex_Position;
                 gl_Position = ViewProj * v_Position;
@@ -335,7 +437,7 @@ mod tests {
         .unwrap();
 
         let layout = vertex_shader.reflect_layout(true).unwrap();
-        assert_eq!(
+        pretty_assertions::assert_eq!(
             layout,
             ShaderLayout {
                 entry_point: "main".into(),
@@ -397,6 +499,49 @@ mod tests {
                             shader_stage: BindingShaderStage::VERTEX,
                         }]
                     ),
+                    BindGroupDescriptor::new(
+                        2,
+                        vec![
+                            BindingDescriptor {
+                                index: 0,
+                                name: "ColorMaterial_texture".into(),
+                                bind_type: BindType::Texture {
+                                    multisampled: false,
+                                    view_dimension: TextureViewDimension::D2,
+                                    sample_type: TextureSampleType::Float { filterable: true }
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 1,
+                                name: "ColorMaterial_texture_sampler".into(),
+                                bind_type: BindType::Sampler {
+                                    filtering: true,
+                                    comparison: false,
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 2,
+                                name: "arrayTextureSampler".into(),
+                                bind_type: BindType::Texture {
+                                    multisampled: false,
+                                    view_dimension: TextureViewDimension::CubeArray,
+                                    sample_type: TextureSampleType::Float { filterable: true },
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 3,
+                                name: "TextureAtlas_textures".into(),
+                                bind_type: BindType::StorageBuffer {
+                                    has_dynamic_offset: false,
+                                    readonly: false,
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                        ]
+                    )
                 ]
             }
         );
