@@ -1,6 +1,6 @@
 use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
-    RefChange,
+    HandleUntyped, RefChange,
 };
 use bevy_app::{AppBuilder, EventWriter, Events};
 use bevy_ecs::{
@@ -10,6 +10,14 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
+
+/// Events tracking all assets regardless of type
+#[derive(Debug)]
+pub enum AssetEventUntyped {
+    Created { handle: HandleUntyped },
+    Modified { handle: HandleUntyped },
+    Removed { handle: HandleUntyped },
+}
 
 /// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Asset> {
@@ -175,11 +183,27 @@ impl<T: Asset> Assets<T> {
 
     pub fn asset_event_system(
         mut events: EventWriter<AssetEvent<T>>,
+        mut events_untyped: EventWriter<AssetEventUntyped>,
         mut assets: ResMut<Assets<T>>,
     ) {
         // Check if the events are empty before calling `drain`.
         // As `drain` triggers change detection.
         if !assets.events.is_empty() {
+            // Generate untyped events from our typed events
+            events_untyped.send_batch(assets.events.get_reader().iter(&assets.events).map(|ev| {
+                match ev {
+                    AssetEvent::Created { handle } => AssetEventUntyped::Created {
+                        handle: handle.clone_weak_untyped(),
+                    },
+                    AssetEvent::Modified { handle } => AssetEventUntyped::Modified {
+                        handle: handle.clone_weak_untyped(),
+                    },
+                    AssetEvent::Removed { handle } => AssetEventUntyped::Removed {
+                        handle: handle.clone_weak_untyped(),
+                    },
+                }
+            }));
+            // Drain our typed events
             events.send_batch(assets.events.drain())
         }
     }
