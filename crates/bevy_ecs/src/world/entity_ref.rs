@@ -264,6 +264,28 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
+    #[inline]
+    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
+        get_component_and_ticks(
+            self.world,
+            TypeId::of::<T>(),
+            None,
+            self.entity,
+            self.location,
+        )
+        .map(|(value, ticks)| Mut {
+            value: &mut *value.cast::<T>(),
+            ticks: Ticks {
+                component_ticks: &mut *ticks,
+                last_change_tick: self.world.last_change_tick(),
+                change_tick: self.world.read_change_tick(),
+            },
+        })
+    }
+
     #[inline]
     pub fn get_relation_mut<T: Component>(&mut self, target: Entity) -> Option<Mut<'w, T>> {
         // SAFE: world access is unique, entity location is valid, and returned component is of type
@@ -285,28 +307,6 @@ impl<'w> EntityMut<'w> {
                 },
             })
         }
-    }
-
-    /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
-    #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
-        get_component_and_ticks(
-            self.world,
-            TypeId::of::<T>(),
-            None,
-            self.entity,
-            self.location,
-        )
-        .map(|(value, ticks)| Mut {
-            value: &mut *value.cast::<T>(),
-            ticks: Ticks {
-                component_ticks: &mut *ticks,
-                last_change_tick: self.world.last_change_tick(),
-                change_tick: self.world.read_change_tick(),
-            },
-        })
     }
 
     /// # Safety
@@ -623,7 +623,6 @@ impl<'w> EntityMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
-        // SAFE: new archetype exists thanks to remove_bundle_from_archetype
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
