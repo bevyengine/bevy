@@ -1,9 +1,26 @@
 use super::{Camera, DepthCalculation};
 use crate::{draw::OutsideFrustum, prelude::Visible};
 use bevy_core::FloatOrd;
-use bevy_ecs::{entity::Entity, query::Without, reflect::ReflectComponent, system::Query};
+use bevy_ecs::{
+    entity::Entity,
+    query::{Changed, Or, With, Without},
+    reflect::ReflectComponent,
+    system::{Commands, Query},
+};
 use bevy_reflect::Reflect;
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::prelude::{Children, GlobalTransform, Parent};
+
+// This struct reflects Visible and is used to store the effective value.
+// The only one reason why it's not stored in the original struct is the `is_transparent` field.
+// Having both that field and the effective value in Visible complicates creation of that struct.
+#[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
+pub struct VisibleEffective {
+    #[reflect(ignore)]
+    pub is_visible: bool,
+    #[reflect(ignore)]
+    pub is_transparent: bool,
+}
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -200,6 +217,78 @@ mod rendering_mask_tests {
     }
 }
 
+//Computes effective visibility for entities.
+//
+//In hirerarchies the actual visiblity of an entity isn't only the current value,
+//but also depends on ancestors of the entity./ To avoid traversing each hierarchy
+//and determine the effective visibility for each entity, this system listens to
+//visiblity and hierarchy changes and only then computes a value to be cached and
+//used by other systems.
+pub fn visible_effective_system(
+    children_query: Query<&Children>,
+    changes_query: Query<
+        (Entity, Option<&Parent>),
+        (With<Visible>, Or<(Changed<Visible>, Changed<Parent>)>),
+    >,
+    mut visible_query: Query<(&Visible, Option<&mut VisibleEffective>)>,
+    mut commands: Commands,
+) {
+    fn update_effective(
+        entity: Entity,
+        is_visible_parent: bool,
+        children_query: &Query<&Children>,
+        mut visible_query: &mut Query<(&Visible, Option<&mut VisibleEffective>)>,
+        mut commands: &mut Commands,
+    ) {
+        if let Ok((visible, maybe_visible_effective)) = visible_query.get_mut(entity) {
+            let is_visible = visible.is_visible & is_visible_parent;
+            if let Some(mut visible_effective) = maybe_visible_effective {
+                visible_effective.is_transparent = visible.is_transparent;
+
+                if visible_effective.is_visible == is_visible {
+                    return;
+                }
+
+                visible_effective.is_visible = is_visible;
+            } else {
+                commands.entity(entity).insert(VisibleEffective {
+                    is_visible,
+                    is_transparent: visible.is_transparent,
+                });
+            }
+
+            if let Ok(children) = children_query.get(entity) {
+                for child in children.iter() {
+                    update_effective(
+                        *child,
+                        is_visible,
+                        &children_query,
+                        &mut visible_query,
+                        &mut commands,
+                    );
+                }
+            }
+        }
+    }
+
+    for (entity, maybe_parent) in changes_query.iter() {
+        if let Ok(is_visible) = match maybe_parent {
+            None => Ok(true),
+            Some(parent) => visible_query
+                .get_component::<VisibleEffective>(parent.0)
+                .map(|v| v.is_visible),
+        } {
+            update_effective(
+                entity,
+                is_visible,
+                &children_query,
+                &mut visible_query,
+                &mut commands,
+            );
+        }
+    }
+}
+
 pub fn visible_entities_system(
     mut camera_query: Query<(
         &Camera,
@@ -207,7 +296,10 @@ pub fn visible_entities_system(
         &mut VisibleEntities,
         Option<&RenderLayers>,
     )>,
-    visible_query: Query<(Entity, &Visible, Option<&RenderLayers>), Without<OutsideFrustum>>,
+    visible_query: Query<
+        (Entity, &VisibleEffective, Option<&RenderLayers>),
+        Without<OutsideFrustum>,
+    >,
     visible_transform_query: Query<&GlobalTransform, Without<OutsideFrustum>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
@@ -259,5 +351,103 @@ pub fn visible_entities_system(
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
         // to prevent holding unneeded memory
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::IntoSystem,
+        world::World,
+    };
+    use bevy_transform::hierarchy::{parent_update_system, BuildWorldChildren};
+
+    #[test]
+    fn propagates_visibility() {
+        let mut world = World::default();
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(visible_effective_system.system());
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        let mut child1 = Option::<Entity>::None;
+        let mut child2 = Option::<Entity>::None;
+        let parent = world
+            .spawn()
+            .insert(Visible {
+                is_visible: false,
+                is_transparent: false,
+            })
+            .with_children(|parent| {
+                child1 = Some(
+                    parent
+                        .spawn()
+                        .insert(Visible::default())
+                        .with_children(|parent| {
+                            child2 = Some(parent.spawn().insert(Visible::default()).id())
+                        })
+                        .id(),
+                )
+            })
+            .id();
+
+        let child1 = child1.unwrap();
+        let child2 = child2.unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(false, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(parent)
+            .map(|mut v| v.is_visible = true)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(true, is_visible(&world, child1));
+        assert_eq!(true, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(child1)
+            .map(|mut v| v.is_visible = false)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(parent)
+            .map(|mut v| v.is_visible = false)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(false, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        world
+            .get_mut::<Visible>(parent)
+            .map(|mut v| v.is_visible = true)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(true, is_visible(&world, parent));
+        assert_eq!(false, is_visible(&world, child1));
+        assert_eq!(false, is_visible(&world, child2));
+
+        fn is_visible(world: &World, entity: Entity) -> bool {
+            world
+                .get::<VisibleEffective>(entity)
+                .map(|v| v.is_visible)
+                .unwrap()
+        }
     }
 }
