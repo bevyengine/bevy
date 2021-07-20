@@ -61,12 +61,46 @@ pub trait System: Send + Sync + 'static {
     ///        [`System::archetype_component_access()`].
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
     /// Runs the system with the given input in the world.
+    ///
+    /// Use [`run_direct`] instead if you are manually running a system outside of a schedule
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world) }
     }
+    /// Runs the system directly on the world, initializing the world correctly;
+    /// immediately applying buffers (such as `Commands`) modified by its system parameters
+    ///
+    /// Use () as the `input` parameter for systems which do not take any chained input.
+    ///
+    /// Only one system will run at a time when executed in this way;
+    /// use a [`Schedule`] (or a custom abstraction created with [`run_unsafe`])
+    /// when system parallelism is desired.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// struct Counter(u8);
+    /// let mut world = World::new();
+    ///
+    /// fn count_up(mut counter: ResMut<Counter>){
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.insert_resource::<Counter>(Counter(0));
+    /// count_up.system().run_direct((), &mut world);
+    /// let counter = world.get_resource::<Counter>().unwrap();
+    /// assert_eq!(counter.0, 1);
+    /// ```
+    fn run_direct(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        self.initialize(world);
+        let output = self.run(input, world);
+        self.apply_buffers(world);
+        output
+    }
+    /// Applies any buffers (such as `Commands`) created by this system's parameters to the world
     fn apply_buffers(&mut self, world: &mut World);
-    /// Initialize the system.
+    /// Initializes the system from the world, so that it may be run successfully
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
 }
