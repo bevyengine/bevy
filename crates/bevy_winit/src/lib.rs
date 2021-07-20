@@ -19,10 +19,12 @@ use bevy_window::{
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
+
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::Icon,
 };
 
 use winit::dpi::LogicalSize;
@@ -157,6 +159,24 @@ fn change_window(world: &mut World) {
                     if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
+                }
+                bevy_window::WindowCommand::SetIcon { window_icon_bytes } => {
+                    let window = winit_windows.get_window(id).unwrap();
+
+                    /* Winit errors are replicated in the WindowIconBytes constructor, so it is safe to ignore here */
+                    window.set_window_icon(
+                        Icon::from_rgba(
+                            window_icon_bytes.bytes().to_vec(),
+                            window_icon_bytes.width(),
+                            window_icon_bytes.height(),
+                        )
+                        .ok(),
+                    );
+                }
+                bevy_window::WindowCommand::ClearIcon => {
+                    let window = winit_windows.get_window(id).unwrap();
+
+                    window.set_window_icon(None);
                 }
             }
         }

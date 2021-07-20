@@ -8,11 +8,13 @@ fn main() {
             width: 500.,
             height: 300.,
             vsync: true,
+            icon_path: Some("android-res/mipmap-mdpi/ic_launcher.png".into()),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .add_system(change_title.system())
         .add_system(toggle_cursor.system())
+        .add_system(toggle_icon.system())
         .run();
 }
 
@@ -31,5 +33,19 @@ fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if input.just_pressed(KeyCode::Space) {
         window.set_cursor_lock_mode(!window.cursor_locked());
         window.set_cursor_visibility(!window.cursor_visible());
+    }
+}
+
+/// This system toggles the windows' icon (on/off) when I is pressed
+fn toggle_icon(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+    let window = windows.get_primary_mut().unwrap();
+    if input.just_pressed(KeyCode::I) {
+        match window.icon() {
+            None => {
+                /* Alternatively you can construct a "buffer-based" WindowIcon and bypass the asset server */
+                window.set_icon("android-res/mipmap-mdpi/ic_launcher.png");
+            }
+            _ => window.clear_icon(),
+        }
     }
 }

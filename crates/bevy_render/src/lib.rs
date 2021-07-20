@@ -12,12 +12,19 @@ pub mod shader;
 pub mod texture;
 pub mod wireframe;
 
+use std::collections::hash_map::Entry;
+
 use bevy_ecs::{
+    prelude::{Local, ResMut},
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem, Res},
 };
 use bevy_transform::TransformSystem;
-use bevy_utils::tracing::warn;
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
+use bevy_window::{WindowIcon, WindowIconBytes, WindowId, Windows};
 use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
@@ -40,7 +47,7 @@ pub mod prelude {
 use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, AssetStage};
+use bevy_asset::{AddAsset, AssetServer, AssetStage, Assets, Handle, LoadState};
 use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
@@ -202,6 +209,7 @@ impl Plugin for RenderPlugin {
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
+        .add_system_to_stage(CoreStage::PostUpdate, window_icon_changed.system())
         .add_system_to_stage(
             RenderStage::RenderResource,
             shader::shader_update_system.system(),
@@ -246,5 +254,63 @@ fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceC
         warn!(
             "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
         );
+    }
+}
+
+fn window_icon_changed(
+    mut map: Local<HashMap<WindowId, Handle<Texture>>>,
+    textures: Res<Assets<Texture>>,
+    mut windows: ResMut<Windows>,
+    asset_server: Res<AssetServer>,
+) {
+    for window in windows.iter_mut() {
+        /* Insert new icon changed */
+        if let Some(WindowIcon::Path(path)) = window.icon() {
+            match map.entry(window.id()) {
+                Entry::Occupied(mut o) => {
+                    if let Some(handle_path) = asset_server.get_handle_path(o.get()) {
+                        if handle_path.path() != path {
+                            o.insert(asset_server.load(path.clone()));
+                        } /* else we are still attempting to load the initial asset */
+                    } /* else the path from the asset is not available yet */
+                }
+                Entry::Vacant(v) => {
+                    v.insert(asset_server.load(path.clone()));
+                }
+            }
+        }
+
+        /* Poll load state of handle and set the icon */
+        if let Entry::Occupied(o) = map.entry(window.id()) {
+            let handle = o.get();
+            match asset_server.get_load_state(handle) {
+                LoadState::Loaded => {
+                    let texture = textures.get(handle).unwrap(); /* Safe to unwrap here, because loadstate==loaded is checked */
+
+                    let window_icon_bytes = WindowIconBytes::from_rgba(
+                        texture.data.clone(),
+                        texture.size.width,
+                        texture.size.height,
+                    );
+
+                    match window_icon_bytes {
+                        Ok(window_icon_bytes) => {
+                            let window_icon = WindowIcon::from(window_icon_bytes);
+                            window.set_icon(window_icon);
+                        }
+                        Err(e) => error!(
+                            "For handle {:?} the following error was produced: {}",
+                            handle, e
+                        ),
+                    }
+
+                    o.remove();
+                }
+                LoadState::Failed => {
+                    o.remove();
+                }
+                _ => { /* Do nothing */ }
+            }
+        }
     }
 }
