@@ -26,6 +26,11 @@ impl InstanceId {
     }
 }
 
+#[derive(Debug)]
+pub struct SceneSpawnedEvent {
+    pub instance_id: InstanceId,
+}
+
 #[derive(Default)]
 pub struct SceneSpawner {
     spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
@@ -107,6 +112,10 @@ impl SceneSpawner {
             .entry(scene_handle.clone())
             .or_insert_with(Vec::new);
         spawned.push(instance_id);
+        let mut scene_spawned_event_writer = world
+            .get_resource_mut::<Events<SceneSpawnedEvent>>()
+            .expect("events exist");
+        scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
         Ok(())
     }
 
@@ -200,6 +209,11 @@ impl SceneSpawner {
                 .entry(scene_handle)
                 .or_insert_with(Vec::new);
             spawned.push(instance_id);
+            let mut scene_spawned_event_writer = world
+                .get_resource_mut::<Events<SceneSpawnedEvent>>()
+                .expect("events exist");
+            scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
+
             Ok(instance_id)
         })
     }
@@ -241,7 +255,7 @@ impl SceneSpawner {
             match self.spawn_dynamic_sync(world, &scene_handle) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn.push(scene_handle)
+                    self.dynamic_scenes_to_spawn.push(scene_handle);
                 }
                 Err(err) => return Err(err),
             }

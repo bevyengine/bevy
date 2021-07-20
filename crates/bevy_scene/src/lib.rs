@@ -29,6 +29,7 @@ impl Plugin for ScenePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<DynamicScene>()
             .add_asset::<Scene>()
+            .add_event::<SceneSpawnedEvent>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_system_to_stage(

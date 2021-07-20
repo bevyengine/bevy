@@ -1,4 +1,4 @@
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+use bevy::{prelude::*, reflect::TypeRegistry, scene::SceneSpawnedEvent, utils::Duration};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {
@@ -10,6 +10,7 @@ fn main() {
         .add_startup_system(load_scene_system.system())
         .add_startup_system(infotext_system.system())
         .add_system(log_system.system())
+        .add_system(scene_spawned_listener.system())
         .run();
 }
 
@@ -120,4 +121,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ),
         ..Default::default()
     });
+}
+
+fn scene_spawned_listener(mut events: EventReader<SceneSpawnedEvent>) {
+    for event in events.iter() {
+        info!("{:?}", event);
+    }
 }
