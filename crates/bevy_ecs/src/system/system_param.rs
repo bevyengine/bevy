@@ -1238,11 +1238,11 @@ macro_rules! impl_system_param_tuple {
                 $($param.apply(_world);)*
             }
 
-            #[allow(unused_mut)] // needed for zero parameters
             fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
                 let ($($param,)*) = self;
-                let mut commands = ScheduleCommandQueue::default();
+                let commands = ScheduleCommandQueue::default();
                 $(
+                    let mut commands = commands;
                     if let Some(mut c) = $param.schedule_commands() {
                         c.transfer(&mut commands);
                     }
