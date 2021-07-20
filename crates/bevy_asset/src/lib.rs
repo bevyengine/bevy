@@ -11,6 +11,7 @@ mod info;
 mod io;
 mod loader;
 mod path;
+mod ser;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -25,6 +26,7 @@ pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
+pub use ser::*;
 
 use bevy_app::{prelude::Plugin, AppBuilder};
 use bevy_ecs::{
