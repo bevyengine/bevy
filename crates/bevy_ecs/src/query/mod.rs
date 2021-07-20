@@ -3,12 +3,14 @@ mod fetch;
 mod filter;
 mod iter;
 mod state;
+mod target_filter;
 
 pub use access::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
 pub use state::*;
+pub use target_filter::*;
 
 #[cfg(test)]
 mod tests {

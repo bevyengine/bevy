@@ -36,11 +36,10 @@ impl DynamicScene {
                 });
             }
 
-            for component_id in archetype.components() {
-                let reflect_component = world
-                    .components()
-                    .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
+            for (component_id, _) in archetype.components() {
+                let component_info = world.components().info(component_id).unwrap();
+                let reflect_component = type_registry
+                    .get(component_info.type_id().unwrap())
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
@@ -83,7 +82,7 @@ impl DynamicScene {
                     })?;
                 if world
                     .entity(entity)
-                    .contains_type_id(registration.type_id())
+                    .contains_type_id(registration.type_id(), None)
                 {
                     reflect_component.apply_component(world, entity, &**component);
                 } else {

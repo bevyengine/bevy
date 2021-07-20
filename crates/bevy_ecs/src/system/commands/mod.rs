@@ -255,6 +255,24 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     pub fn commands(&mut self) -> &mut Commands<'a> {
         self.commands
     }
+
+    pub fn insert_relation<T: Component>(&mut self, relation: T, target: Entity) -> &mut Self {
+        self.commands.add(InsertRelation {
+            this: self.entity,
+            relation,
+            target,
+        });
+        self
+    }
+
+    pub fn remove_relation<T: Component>(&mut self, target: Entity) -> &mut Self {
+        self.commands.add(RemoveRelation::<T> {
+            this: self.entity,
+            target,
+            p: PhantomData,
+        });
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -384,6 +402,34 @@ pub struct RemoveResource<T: Component> {
 impl<T: Component> Command for RemoveResource<T> {
     fn write(self, world: &mut World) {
         world.remove_resource::<T>();
+    }
+}
+
+pub struct InsertRelation<T: Component> {
+    this: Entity,
+    relation: T,
+    target: Entity,
+}
+
+impl<T: Component> Command for InsertRelation<T> {
+    fn write(self, world: &mut World) {
+        world
+            .entity_mut(self.this)
+            .insert_relation(self.relation, self.target);
+    }
+}
+
+pub struct RemoveRelation<T: Component> {
+    this: Entity,
+    target: Entity,
+    p: PhantomData<T>,
+}
+
+impl<T: Component> Command for RemoveRelation<T> {
+    fn write(self, world: &mut World) {
+        world
+            .entity_mut(self.this)
+            .remove_relation::<T>(self.target);
     }
 }
 
@@ -519,5 +565,59 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<i32>());
         assert!(world.contains_resource::<f64>());
+    }
+
+    #[test]
+    #[allow(clippy::bool_assert_comparison)]
+    fn relations() {
+        struct MyRelation(bool);
+        struct MyRelationTwo(u32);
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        let t1 = world.spawn().id();
+        let t2 = world.spawn().id();
+        let t3 = world.spawn().id();
+
+        let mut commands = Commands::new(&mut queue, &world);
+        let e1 = commands
+            .spawn()
+            .insert_relation(MyRelation(true), t1)
+            .insert_relation(MyRelation(false), t2)
+            .insert_relation(MyRelationTwo(18), t3)
+            .id();
+        let e2 = commands
+            .spawn()
+            .insert_relation(MyRelation(true), t3)
+            .insert_relation(MyRelationTwo(10), t1)
+            .insert_relation(MyRelation(false), t1)
+            .insert_relation(MyRelation(false), t3)
+            .id();
+        drop(commands);
+        queue.apply(&mut world);
+
+        let e1 = world.entity(e1);
+        assert_eq!(e1.get_relation::<MyRelation>(t1).unwrap().0, true);
+        assert_eq!(e1.get_relation::<MyRelation>(t2).unwrap().0, false);
+        assert_eq!(e1.get_relation::<MyRelationTwo>(t3).unwrap().0, 18);
+        let e1 = e1.id();
+
+        let e2 = world.entity(e2);
+        assert_eq!(e2.get_relation::<MyRelation>(t3).unwrap().0, false);
+        assert_eq!(e2.get_relation::<MyRelationTwo>(t1).unwrap().0, 10);
+        assert_eq!(e2.get_relation::<MyRelation>(t1).unwrap().0, false);
+        let e2 = e2.id();
+
+        let mut commands = Commands::new(&mut queue, &world);
+
+        commands.entity(e1).remove_relation::<MyRelation>(t2);
+        commands.entity(e2).remove_relation::<MyRelation>(t3);
+
+        drop(commands);
+        queue.apply(&mut world);
+
+        assert!(world.entity(e1).get_relation::<MyRelation>(t2).is_none());
+        assert!(world.entity(e2).get_relation::<MyRelation>(t3).is_none());
     }
 }
