@@ -28,8 +28,12 @@ fn setup(
         ..Default::default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    let transform = Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y);
+    let directional_light = DirectionalLight::new(Color::WHITE, 10_000.0, transform.forward());
+
+    commands.spawn_bundle(DirectionalLightBundle {
+        directional_light,
+        transform,
         ..Default::default()
     });
     // camera
