@@ -419,6 +419,27 @@ path = "examples/shader/shader_defs.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+# Transforms
+[[example]]
+name = "global_vs_local_translation"
+path = "examples/transforms/global_vs_local_translation.rs"
+
+[[example]]
+name = "rotation"
+path = "examples/transforms/rotation.rs"
+
+[[example]]
+name = "scale"
+path = "examples/transforms/scale.rs"
+
+[[example]]
+name = "transform"
+path = "examples/transforms/transform.rs"
+
+[[example]]
+name = "translation"
+path = "examples/transforms/translation.rs"
+
 # UI (User Interface)
 [[example]]
 name = "button"
