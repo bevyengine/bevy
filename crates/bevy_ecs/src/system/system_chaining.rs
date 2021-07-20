@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
-    schedule::ScheduleCommandQueue,
+    schedule::SchedulerCommandQueue,
     system::{IntoSystem, System, SystemId},
     world::World,
 };
@@ -98,14 +98,14 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_b.apply_buffers(world);
     }
 
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
-        let mut commands = self.system_a.schedule_commands();
+    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
+        let mut commands = self.system_a.scheduler_commands();
         if let Some(commands) = &mut commands {
-            if let Some(mut c) = self.system_b.schedule_commands() {
+            if let Some(mut c) = self.system_b.scheduler_commands() {
                 c.transfer(commands);
             }
         } else {
-            commands = self.system_b.schedule_commands();
+            commands = self.system_b.scheduler_commands();
         }
 
         commands

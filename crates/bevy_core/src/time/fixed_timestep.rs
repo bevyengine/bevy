@@ -3,7 +3,7 @@ use bevy_ecs::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
-    schedule::{ScheduleCommandQueue, ShouldRun},
+    schedule::{SchedulerCommandQueue, ShouldRun},
     system::{IntoSystem, Local, Res, ResMut, System, SystemId},
     world::World,
 };
@@ -178,8 +178,8 @@ impl System for FixedTimestep {
         self.internal_system.apply_buffers(world)
     }
 
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
-        self.internal_system.schedule_commands()
+    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
+        self.internal_system.scheduler_commands()
     }
 
     fn initialize(&mut self, world: &mut World) {

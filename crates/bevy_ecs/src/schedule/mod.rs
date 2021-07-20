@@ -200,7 +200,7 @@ impl Schedule {
     }
 
     pub fn run_once(&mut self, world: &mut World) {
-        let mut commands = ScheduleCommandQueue::default();
+        let mut commands = SchedulerCommandQueue::default();
         for label in self.stage_order.iter() {
             #[cfg(feature = "trace")]
             let stage_span =
@@ -244,7 +244,7 @@ impl Stage for Schedule {
         }
     }
 
-    fn commands(&mut self) -> Option<ScheduleCommandQueue> {
+    fn commands(&mut self) -> Option<SchedulerCommandQueue> {
         None
     }
 }

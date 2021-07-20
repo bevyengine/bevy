@@ -8,7 +8,7 @@ use crate::{
     query::{
         FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
     },
-    schedule::{ScheduleCommandQueue, ScheduleCommands},
+    schedule::{SchedulerCommandQueue, SchedulerCommands},
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -72,7 +72,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
         None
     }
     fn default_config() -> Self::Config;
@@ -510,22 +510,22 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
     }
 }
 
-impl<'a> SystemParam for ScheduleCommands<'a> {
-    type Fetch = ScheduleCommandQueue;
+impl<'a> SystemParam for SchedulerCommands<'a> {
+    type Fetch = SchedulerCommandQueue;
 }
 
-// SAFE: ScheduleCommands only accesses internal state
-unsafe impl ReadOnlySystemParamFetch for ScheduleCommandQueue {}
+// SAFE: SchedulerCommands only accesses internal state
+unsafe impl ReadOnlySystemParamFetch for SchedulerCommandQueue {}
 
 // SAFE: only local state is accessed
-unsafe impl SystemParamState for ScheduleCommandQueue {
+unsafe impl SystemParamState for SchedulerCommandQueue {
     type Config = ();
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         Default::default()
     }
 
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
         if self.is_empty() {
             return None;
         }
@@ -538,8 +538,8 @@ unsafe impl SystemParamState for ScheduleCommandQueue {
     fn default_config() {}
 }
 
-impl<'a> SystemParamFetch<'a> for ScheduleCommandQueue {
-    type Item = ScheduleCommands<'a>;
+impl<'a> SystemParamFetch<'a> for SchedulerCommandQueue {
+    type Item = SchedulerCommands<'a>;
 
     #[inline]
     unsafe fn get_param(
@@ -548,7 +548,7 @@ impl<'a> SystemParamFetch<'a> for ScheduleCommandQueue {
         _world: &'a World,
         _change_tick: u32,
     ) -> Self::Item {
-        ScheduleCommands::new(state)
+        SchedulerCommands::new(state)
     }
 }
 
@@ -1238,12 +1238,12 @@ macro_rules! impl_system_param_tuple {
                 $($param.apply(_world);)*
             }
 
-            fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+            fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
                 let ($($param,)*) = self;
-                let commands = ScheduleCommandQueue::default();
+                let commands = SchedulerCommandQueue::default();
                 $(
                     let mut commands = commands;
-                    if let Some(mut c) = $param.schedule_commands() {
+                    if let Some(mut c) = $param.scheduler_commands() {
                         c.transfer(&mut commands);
                     }
                 )*

@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
-    schedule::ScheduleCommandQueue,
+    schedule::SchedulerCommandQueue,
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
         SystemParamFetch, SystemParamState,
@@ -384,9 +384,9 @@ where
         param_state.apply(world);
     }
 
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
         let param_state = self.param_state.as_mut().unwrap();
-        param_state.schedule_commands()
+        param_state.scheduler_commands()
     }
 
     #[inline]
