@@ -1,6 +1,4 @@
-use std::marker::PhantomData;
-
-use super::{IntoSystemDescriptor, Schedule, StageLabel};
+use super::{IntoSystemDescriptor, Schedule, StageLabel, SystemDescriptor};
 
 #[derive(Default)]
 pub struct ScheduleCommandQueue {
@@ -44,32 +42,28 @@ impl<'a> ScheduleCommands<'a> {
         Self { queue }
     }
 
-    pub fn insert_system<T: 'static, S, Params: 'static>(&mut self, system: T, stage_label: S)
+    pub fn insert_system<T, S, Params>(&mut self, system: T, stage_label: S)
     where
-        T: IntoSystemDescriptor<Params> + Send + Sync,
+        T: IntoSystemDescriptor<Params>,
         S: StageLabel,
     {
         self.queue.push(InsertSystem {
-            system,
+            system: system.into_descriptor(),
             stage_label,
-            phantom: Default::default(),
         });
     }
 }
 
-pub struct InsertSystem<T, S, Params>
+pub struct InsertSystem<S>
 where
-    T: IntoSystemDescriptor<Params>,
     S: StageLabel,
 {
-    pub system: T,
+    pub system: SystemDescriptor,
     pub stage_label: S,
-    phantom: PhantomData<fn() -> Params>,
 }
 
-impl<T: 'static, S, Params: 'static> ScheduleCommand for InsertSystem<T, S, Params>
+impl<S> ScheduleCommand for InsertSystem<S>
 where
-    T: IntoSystemDescriptor<Params> + Send + Sync,
     S: StageLabel,
 {
     fn write(self: Box<Self>, schedule: &mut Schedule) {
