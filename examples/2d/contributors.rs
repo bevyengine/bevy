@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::{prelude::SliceRandom, Rng};
+use rand::{prelude::SliceRandom, rngs::SmallRng, Rng, SeedableRng};
 use std::{
     collections::BTreeSet,
     io::{BufRead, BufReader},
@@ -7,7 +7,10 @@ use std::{
 };
 
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(velocity_system)
@@ -52,6 +55,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut entropy: ResMut<Entropy>,
 ) {
     let contribs = contributors();
 
@@ -65,7 +69,7 @@ fn setup(
         idx: 0,
     };
 
-    let mut rnd = rand::thread_rng();
+    let mut rnd = SmallRng::from_seed(entropy.get());
 
     for name in contribs {
         let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
@@ -246,8 +250,9 @@ fn velocity_system(time: Res<Time>, mut q: Query<&mut Velocity>) {
 fn collision_system(
     wins: Res<Windows>,
     mut q: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    mut entropy: ResMut<Entropy>,
 ) {
-    let mut rnd = rand::thread_rng();
+    let mut rnd = SmallRng::from_seed(entropy.get());
 
     let win = wins.get_primary().unwrap();
 

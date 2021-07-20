@@ -2,7 +2,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 /// This example spawns a large number of cubes, each with its own changing position and material
 /// This is intended to be a stress test of bevy's ability to render many objects with different
@@ -13,7 +13,10 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 /// NOTE: Bevy still has a number of optimizations to do in this area. Expect the
 /// performance here to go way up in the future
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -39,6 +42,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut entropy: ResMut<Entropy>,
 ) {
     // light
     commands.spawn_bundle(PointLightBundle {
@@ -51,7 +55,7 @@ fn setup(
         ..Default::default()
     });
 
-    let mut rng = StdRng::from_entropy();
+    let mut rng = SmallRng::from_seed(entropy.get());
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     for _ in 0..10000 {
         commands.spawn_bundle(PbrBundle {

@@ -1,9 +1,12 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 // This example illustrates how to react to component change
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(change_component.system())
@@ -15,14 +18,23 @@ fn main() {
 #[derive(Debug)]
 struct MyComponent(f64);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut entropy: ResMut<Entropy>) {
+    let seed = entropy.get();
+    let rng = SmallRng::from_seed(seed);
+    commands.insert_resource(rng);
+    info!("inserted rng resource with seed: {:?}", seed);
+
     commands.spawn().insert(MyComponent(0.));
     commands.spawn().insert(Transform::identity());
 }
 
-fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
+fn change_component(
+    time: Res<Time>,
+    mut rng: ResMut<SmallRng>,
+    mut query: Query<(Entity, &mut MyComponent)>,
+) {
     for (entity, mut component) in query.iter_mut() {
-        if rand::thread_rng().gen_bool(0.1) {
+        if rng.gen_bool(0.1) {
             info!("changing component {:?}", entity);
             component.0 = time.seconds_since_startup();
         }

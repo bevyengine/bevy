@@ -5,7 +5,7 @@ use bevy::{
     sprite::SpriteSettings,
 };
 
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -15,7 +15,10 @@ pub struct Position(Transform);
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(SpriteSettings {
@@ -33,8 +36,9 @@ fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut entropy: ResMut<Entropy>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = SmallRng::from_seed(entropy.get());
 
     let tile_size = Vec2::splat(64.0);
     let map_size = Vec2::splat(320.0);
