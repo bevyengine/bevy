@@ -18,6 +18,7 @@ use std::fmt::Debug;
 
 use super::IntoSystemDescriptor;
 
+/// A type that can run as a step of a [`Schedule`](super::Schedule).
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.

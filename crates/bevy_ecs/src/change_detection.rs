@@ -1,3 +1,4 @@
+//! Types that detect when their internal data mutate.
 use crate::component::{Component, ComponentTicks};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
@@ -135,6 +136,10 @@ pub(crate) struct Ticks<'a> {
 }
 
 /// Unique mutable borrow of a resource.
+///
+/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+///
+/// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
 ///
 /// # Panics
 ///

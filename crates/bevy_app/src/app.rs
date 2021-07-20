@@ -9,9 +9,10 @@ use bevy_utils::tracing::info_span;
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
-/// of the App, which by default executes the App schedule once. Apps are constructed using the
-/// builder pattern.
+/// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
+/// an ECS-based application. It also stores a pointer to a
+/// [runner function](AppBuilder::set_runner), which by default executes the App schedule
+/// once. Apps are constructed with the builder pattern, using the [`AppBuilder`] struct.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
@@ -50,10 +51,15 @@ fn run_once(mut app: App) {
 }
 
 impl App {
+    /// Returns an [`AppBuilder`] with a basic structure that can be configured further
+    /// to create an `App`.
     pub fn build() -> AppBuilder {
         AppBuilder::default()
     }
 
+    /// Advances the execution of the [`Schedule`] by one cycle.
+    ///
+    /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_frame_update_span = info_span!("frame");
@@ -62,6 +68,7 @@ impl App {
         self.schedule.run(&mut self.world);
     }
 
+    /// Calls the runner function of the `App`, executing its [`Schedule`] to run systems
     pub fn run(mut self) {
         #[cfg(feature = "trace")]
         let bevy_app_run_span = info_span!("bevy_app");

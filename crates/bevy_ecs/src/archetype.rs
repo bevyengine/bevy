@@ -1,3 +1,4 @@
+//! Helper types for the archetype based [`Table`](crate::storage::Table) storage.
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},

@@ -282,6 +282,7 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     }
 }
 
+/// Query filter that includes only components that belong to the specified [`Bundle`].
 pub struct WithBundle<T: Bundle>(PhantomData<T>);
 
 impl<T: Bundle> WorldQuery for WithBundle<T> {

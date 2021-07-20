@@ -1,3 +1,14 @@
+//! Helper types for [`Query`](crate::system::Query).
+//!
+//! # Query filters
+//! Query filters restrict query results by filtering out entities that do not meet the criteria. The following is a full list of filters:
+//!
+//! - [`Added`]
+//! - [`Changed`]
+//! - [`With`]
+//! - [`Without`]
+//! - [`WithBundle`]
+//! - [`Or`]
 mod access;
 mod fetch;
 mod filter;

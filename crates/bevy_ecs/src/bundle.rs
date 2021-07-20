@@ -1,3 +1,6 @@
+//! Types for handling [`Bundle`]s.
+//!
+//! This module contains the `Bundle` trait and some other helper types.
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -9,17 +12,36 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components, commonly used for spawning entities, and adding and
-/// removing components in bulk.
+/// An ordered collection of components.
 ///
-/// In order to query for components in a bundle use [crate::query::WithBundle].
+/// Commonly used for spawning entities and adding and removing components in bulk. This
+/// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
+/// is a very convenient shorthand when working with one-off collections of components. Note
+/// that both `()` and `(ComponentA, )` are valid tuples.
 ///
-/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
-/// The `Bundle` trait is automatically implemented for tuples of components:
-/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections
-/// of components. Note that both `()` and `(ComponentA, )` are valid tuples.
+/// To query components that belong to a particular bundle, use
+/// [`WithBundle`](crate::query::WithBundle) query filter.
 ///
-/// You can nest bundles like so:
+/// # Examples
+///
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
+/// struct field is a component:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # struct ComponentC;
+/// #
+/// #[derive(Bundle)]
+/// struct MyBundle {
+///     a: ComponentA,
+///     b: ComponentB,
+///     c: ComponentC,
+/// }
+/// ```
+///
+/// You can nest bundles using the `#[bundle]` attribute:
 /// ```
 /// # use bevy_ecs::bundle::Bundle;
 ///
@@ -38,10 +60,10 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the
-/// _exact_ order that [Bundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by
-/// [Bundle::type_info]
+/// [`Bundle::type_info`] must return the TypeInfo for each component type in the bundle, in the
+/// _exact_ order that [`Bundle::get_components`] is called.
+/// [`Bundle::from_components`] must call `func` exactly once for each [`TypeInfo`] returned by
+/// [`Bundle::type_info`]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn type_info() -> Vec<TypeInfo>;
