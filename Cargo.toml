@@ -114,7 +114,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-
 
 [dev-dependencies]
 anyhow = "1.0.4"
-rand = "0.8.0"
+rand = { version = "0.8.0", features = ["small_rng"] }
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
@@ -562,6 +562,10 @@ name = "Plugin Group"
 description = "Demonstrates the creation and registration of a custom plugin group"
 category = "Application"
 wasm = true
+
+[[example]]
+name = "random"
+path = "examples/app/random.rs"
 
 [[example]]
 name = "return_after_run"

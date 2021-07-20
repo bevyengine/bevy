@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
-use rand::Rng;
+use bevy_entropy::Entropy;
+use rand::{prelude::SmallRng, Rng, SeedableRng};
 use std::ops::Deref;
 
 // In this example we add a counter resource and increase it's value in one system,
@@ -7,6 +8,10 @@ use std::ops::Deref;
 fn main() {
     // Create a world
     let mut world = World::new();
+
+    // Add the entropy resource
+    let world_seed = [1; 32];
+    world.insert_resource(Entropy::from(world_seed));
 
     // Add the counter resource
     world.insert_resource(Counter { value: 0 });
@@ -32,8 +37,11 @@ struct Counter {
     pub value: i32,
 }
 
-fn increase_counter(mut counter: ResMut<Counter>) {
-    if rand::thread_rng().gen_bool(0.5) {
+fn increase_counter(mut counter: ResMut<Counter>, mut entropy: ResMut<Entropy>) {
+    // Note that in a real system it would be better to create this once
+    // as a resource.
+    let mut rng = SmallRng::from_seed(entropy.get());
+    if rng.gen_bool(0.5) {
         counter.value += 1;
         println!("    Increased counter value");
     }

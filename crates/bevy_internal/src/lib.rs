@@ -32,6 +32,11 @@ pub mod ecs {
     pub use bevy_ecs::*;
 }
 
+pub mod entropy {
+    //! Resources for entropy.
+    pub use bevy_entropy::*;
+}
+
 pub mod input {
     //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
     pub use bevy_input::*;

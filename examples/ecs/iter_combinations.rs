@@ -1,7 +1,7 @@
 //! Shows how to iterate over combinations of query results.
 
 use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
-use rand::{thread_rng, Rng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
@@ -9,7 +9,10 @@ struct FixedUpdateStage;
 const DELTA_TIME: f64 = 0.01;
 
 fn main() {
+    let world_seed = [1; 32];
+
     App::new()
+        .insert_resource(Entropy::from(world_seed))
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,
@@ -52,6 +55,7 @@ struct BodyBundle {
 
 fn generate_bodies(
     mut commands: Commands,
+    mut entropy: ResMut<Entropy>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -63,7 +67,7 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
+    let mut rng = SmallRng::from_seed(entropy.get());
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;

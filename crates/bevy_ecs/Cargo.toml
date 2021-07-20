@@ -28,7 +28,8 @@ downcast-rs = "1.2"
 serde = "1"
 
 [dev-dependencies]
-rand = "0.8"
+bevy_entropy = { path = "../bevy_entropy", version = "0.8.0-dev" }
+rand = { version = "0.8", features = ["small_rng"] }
 
 [[example]]
 name = "events"

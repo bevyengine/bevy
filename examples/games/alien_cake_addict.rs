@@ -1,7 +1,7 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
 use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
-use rand::Rng;
+use rand::{prelude::SmallRng, Rng, SeedableRng};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
@@ -10,7 +10,10 @@ enum GameState {
 }
 
 fn main() {
+    let world_seed: [u8; 32] = [1; 32];
+
     App::new()
+        .insert_resource(Entropy::from(world_seed))
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
@@ -90,7 +93,12 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     });
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut game: ResMut<Game>,
+    mut entropy: ResMut<Entropy>,
+) {
     // reset the game state
     game.cake_eaten = 0;
     game.score = 0;
@@ -109,13 +117,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         ..default()
     });
 
+    let mut rng = SmallRng::from_seed(entropy.get());
+
     // spawn the game board
     let cell_scene = asset_server.load("models/AlienCake/tile.glb#Scene0");
     game.board = (0..BOARD_SIZE_J)
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rand::thread_rng().gen_range(-0.1..0.1);
+                    let height = rng.gen_range(-0.1..0.1);
                     commands.spawn_bundle(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
@@ -294,7 +304,10 @@ fn spawn_bonus(
     mut state: ResMut<State<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
+    mut entropy: ResMut<Entropy>,
 ) {
+    let mut rng = SmallRng::from_seed(entropy.get());
+
     if *state.current() != GameState::Playing {
         return;
     }
@@ -311,8 +324,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }

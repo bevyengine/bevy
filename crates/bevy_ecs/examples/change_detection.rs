@@ -1,9 +1,10 @@
-use bevy_ecs::prelude::*;
-use rand::Rng;
+use bevy_ecs::{prelude::*, schedule::ShouldRun};
+use bevy_entropy::Entropy;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::ops::Deref;
 
 // In this example we will simulate a population of entities. In every tick we will:
-// 1. spawn a new entity with a certain possibility
+// 1. spawn a new entity with a certain deterministic probability
 // 2. age all entities
 // 3. despawn entities with age > 2
 //
@@ -13,17 +14,33 @@ fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
     let mut world = World::new();
 
+    // Add the entropy resource for future random number generators to use.
+    // This makes execution deterministic.
+    let world_seed = [1; 32];
+    world.insert_resource(Entropy::from(world_seed));
+
     // Add the counter resource to remember how many entities where spawned
     world.insert_resource(EntityCounter { value: 0 });
 
-    // Create a new Schedule, which defines an execution strategy for Systems
+    // Create a new Schedule, which defines an execution strategy for Systems.
     let mut schedule = Schedule::default();
-    // Create a Stage to add to our Schedule. Each Stage in a schedule runs all of its systems
-    // before moving on to the next Stage
-    let mut update = SystemStage::parallel();
 
-    // Add systems to the Stage to execute our app logic
+    // Create a Stage to add to our Schedule. Each Stage in a schedule runs all of its systems
+    // before moving on to the next Stage.
+    // Here, we are creating a "startup" Stage with a schedule that runs once.
+    let mut startup = SystemStage::parallel();
+    startup.add_system(create_rng);
+    schedule.add_stage(
+        "startup",
+        Schedule::default()
+            .with_run_criteria(ShouldRun::once)
+            .with_stage("only_once", startup),
+    );
+
+    // Add systems to another Stage to execute our app logic.
     // We can label our systems to force a specific run-order between some of them
+    // within the Stage.
+    let mut update = SystemStage::parallel();
     update.add_system(spawn_entities.label(SimulationSystem::Spawn));
     update.add_system(print_counter_when_changed.after(SimulationSystem::Spawn));
     update.add_system(age_all_entities.label(SimulationSystem::Age));
@@ -58,11 +75,23 @@ enum SimulationSystem {
     Age,
 }
 
+// This system creates a random number generator resource from [`Entropy`].
+fn create_rng(mut commands: Commands, mut entropy: ResMut<Entropy>) {
+    let seed = entropy.get();
+    println!("    seeding rng from entropy: {:?}", seed);
+    let rng = SmallRng::from_seed(seed);
+    commands.insert_resource(rng);
+}
+
 // This system randomly spawns a new entity in 60% of all frames
 // The entity will start with an age of 0 frames
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
-fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
-    if rand::thread_rng().gen_bool(0.6) {
+fn spawn_entities(
+    mut commands: Commands,
+    mut entity_counter: ResMut<EntityCounter>,
+    mut rng: ResMut<SmallRng>,
+) {
+    if rng.gen_bool(0.6) {
         let entity_id = commands.spawn().insert(Age::default()).id();
         println!("    spawning {:?}", entity_id);
         entity_counter.value += 1;

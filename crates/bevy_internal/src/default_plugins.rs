@@ -38,6 +38,7 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "debug_asset_server")]
         group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
         group.add(bevy_scene::ScenePlugin::default());
+        group.add(bevy_entropy::EntropyPlugin::default());
 
         #[cfg(feature = "bevy_winit")]
         group.add(bevy_winit::WinitPlugin::default());
