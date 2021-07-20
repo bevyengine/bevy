@@ -72,7 +72,9 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> { None }
+    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+        None
+    }
     fn default_config() -> Self::Config;
 }
 

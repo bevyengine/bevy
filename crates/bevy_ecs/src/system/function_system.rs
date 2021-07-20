@@ -2,12 +2,12 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
+    schedule::ScheduleCommandQueue,
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
         SystemParamFetch, SystemParamState,
     },
     world::{World, WorldId},
-    schedule::ScheduleCommandQueue,
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};

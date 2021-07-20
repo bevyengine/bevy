@@ -1,6 +1,12 @@
 use bevy_utils::tracing::warn;
 
-use crate::{archetype::{Archetype, ArchetypeComponentId}, component::ComponentId, query::Access, schedule::ScheduleCommandQueue, world::World};
+use crate::{
+    archetype::{Archetype, ArchetypeComponentId},
+    component::ComponentId,
+    query::Access,
+    schedule::ScheduleCommandQueue,
+    world::World,
+};
 use std::borrow::Cow;
 
 /// A [`System`] identifier.

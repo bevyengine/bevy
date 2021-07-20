@@ -4,12 +4,12 @@ use super::{IntoSystemDescriptor, Schedule, StageLabel};
 
 #[derive(Default)]
 pub struct ScheduleCommandQueue {
-    items: Vec<Box<dyn ScheduleCommand>>
+    items: Vec<Box<dyn ScheduleCommand>>,
 }
 
 impl ScheduleCommandQueue {
     pub fn push<C>(&mut self, command: C)
-    where 
+    where
         C: ScheduleCommand,
     {
         self.items.push(Box::new(command));
@@ -36,24 +36,22 @@ pub trait ScheduleCommand: Send + Sync + 'static {
 }
 
 pub struct ScheduleCommands<'a> {
-    queue: &'a mut ScheduleCommandQueue
+    queue: &'a mut ScheduleCommandQueue,
 }
 
 impl<'a> ScheduleCommands<'a> {
     pub fn new(queue: &'a mut ScheduleCommandQueue) -> Self {
-        Self {
-            queue
-        }
+        Self { queue }
     }
 
     pub fn insert_system<T: 'static, S, Params: 'static>(&mut self, system: T, stage_label: S)
     where
         T: IntoSystemDescriptor<Params> + Send + Sync,
-        S: StageLabel
+        S: StageLabel,
     {
         self.queue.push(InsertSystem {
-            system: system,
-            stage_label: stage_label,
+            system,
+            stage_label,
             phantom: Default::default(),
         });
     }
@@ -62,7 +60,7 @@ impl<'a> ScheduleCommands<'a> {
 pub struct InsertSystem<T, S, Params>
 where
     T: IntoSystemDescriptor<Params>,
-    S: StageLabel
+    S: StageLabel,
 {
     pub system: T,
     pub stage_label: S,
@@ -72,7 +70,7 @@ where
 impl<T: 'static, S, Params: 'static> ScheduleCommand for InsertSystem<T, S, Params>
 where
     T: IntoSystemDescriptor<Params> + Send + Sync,
-    S: StageLabel
+    S: StageLabel,
 {
     fn write(self: Box<Self>, schedule: &mut Schedule) {
         schedule.add_system_to_stage(self.stage_label, self.system);
@@ -82,16 +80,14 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        schedule::{Schedule, ScheduleCommands, ScheduleCommandQueue, SystemStage},
+        schedule::{Schedule, ScheduleCommandQueue, ScheduleCommands, SystemStage},
         system::Commands,
         world::World,
     };
 
     #[test]
     fn insert_system() {
-        fn sample_system(mut _commands: Commands) {
-
-        }
+        fn sample_system(mut _commands: Commands) {}
         let mut schedule = Schedule::default();
         schedule.add_stage("test", SystemStage::parallel());
         let mut queue = ScheduleCommandQueue::default();

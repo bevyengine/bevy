@@ -450,7 +450,9 @@ impl System for RunOnce {
     }
 
     fn apply_buffers(&mut self, _world: &mut World) {}
-    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> { None }
+    fn schedule_commands(&mut self) -> Option<ScheduleCommandQueue> {
+        None
+    }
 
     fn initialize(&mut self, _world: &mut World) {}
 

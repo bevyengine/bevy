@@ -5,10 +5,10 @@ use crate::{
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
         ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner,
-        ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
+        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
-    system::{System, ExclusiveSystem},
+    system::{ExclusiveSystem, System},
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
@@ -809,7 +809,11 @@ impl Stage for SystemStage {
                     )
                 }
 
-                fn run_exclusive(world: &mut World, system: &mut Box<dyn ExclusiveSystem>, commands: &mut ScheduleCommandQueue) {
+                fn run_exclusive(
+                    world: &mut World,
+                    system: &mut Box<dyn ExclusiveSystem>,
+                    commands: &mut ScheduleCommandQueue,
+                ) {
                     system.run(world);
                     if let Some(mut c) = system.schedule_commands() {
                         c.transfer(commands);

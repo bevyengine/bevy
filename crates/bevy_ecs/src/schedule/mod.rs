@@ -1,3 +1,4 @@
+mod commands;
 mod executor;
 mod executor_parallel;
 pub mod graph_utils;
@@ -8,8 +9,8 @@ mod state;
 mod system_container;
 mod system_descriptor;
 mod system_set;
-mod commands;
 
+pub use commands::*;
 pub use executor::*;
 pub use executor_parallel::*;
 pub use graph_utils::GraphNode;
@@ -20,7 +21,6 @@ pub use state::*;
 pub use system_container::*;
 pub use system_descriptor::*;
 pub use system_set::*;
-pub use commands::*;
 
 use std::fmt::Debug;
 
