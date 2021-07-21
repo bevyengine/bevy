@@ -27,8 +27,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            local_value, ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query,
+            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -316,7 +316,7 @@ mod tests {
             }
         }
 
-        fn sys(local: Local<Foo>, mut modified: ResMut<bool>) {
+        fn sys(local: Local<Foo, local_value::FromWorld>, mut modified: ResMut<bool>) {
             assert_eq!(local.value, 2);
             *modified = true;
         }
