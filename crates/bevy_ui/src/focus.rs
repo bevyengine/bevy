@@ -10,8 +10,17 @@ use bevy_window::Windows;
 use smallvec::SmallVec;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ClickedWith {
+    MouseLeftButton,
+    MouseMiddleButton,
+    MouseRightButton,
+    MouseOtherButton(u16),
+    Touch,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
-    Clicked,
+    Clicked(ClickedWith),
     Hovered,
     None,
 }
@@ -70,20 +79,28 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.get_just_released().last().is_some() || touches_input.just_released(0);
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
+                if matches!(*interaction, Interaction::Clicked(_)) {
                     *interaction = Interaction::None;
                 }
             }
         }
     }
 
-    let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
+    let interacting_from = mouse_button_input
+        .get_just_pressed()
+        .last()
+        .map(|button| match button {
+            MouseButton::Left => ClickedWith::MouseLeftButton,
+            MouseButton::Middle => ClickedWith::MouseMiddleButton,
+            MouseButton::Right => ClickedWith::MouseRightButton,
+            MouseButton::Other(button) => ClickedWith::MouseOtherButton(*button),
+        })
+        .or_else(|| touches_input.just_released(0).then(|| ClickedWith::Touch));
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
@@ -118,10 +135,10 @@ pub fn ui_focus_system(
     // set Clicked or Hovered on top nodes
     for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
         if let Some(mut interaction) = interaction {
-            if mouse_clicked {
+            if let Some(interacting_from) = interacting_from {
                 // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
+                if !matches!(*interaction, Interaction::Clicked(_)) {
+                    *interaction = Interaction::Clicked(interacting_from);
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {

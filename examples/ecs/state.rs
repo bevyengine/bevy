@@ -79,7 +79,7 @@ fn menu(
 ) {
     for (interaction, mut material) in interaction_query.iter_mut() {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Clicked(_) => {
                 *material = button_materials.pressed.clone();
                 state.set(AppState::InGame).unwrap();
             }
