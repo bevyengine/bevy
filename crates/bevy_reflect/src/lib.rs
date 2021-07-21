@@ -1,3 +1,4 @@
+mod array;
 mod list;
 mod map;
 mod path;
@@ -30,6 +31,7 @@ pub mod prelude {
     };
 }
 
+pub use array::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -204,6 +206,7 @@ mod tests {
             d: HashMap<usize, i8>,
             e: Bar,
             f: (i32, Vec<isize>, Bar),
+            h: [u32; 2],
         }
 
         #[derive(Reflect, Eq, PartialEq, Debug)]
@@ -222,6 +225,7 @@ mod tests {
             d: hash_map,
             e: Bar { x: 1 },
             f: (1, vec![1, 2], Bar { x: 1 }),
+            h: [2; 2],
         };
 
         let mut foo_patch = DynamicStruct::default();
@@ -232,7 +236,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic());
+        foo_patch.insert("c", List::clone_dynamic(&list));
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -260,6 +264,7 @@ mod tests {
             d: hash_map,
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
+            h: [2; 2],
         };
 
         assert_eq!(foo, expected_foo);
@@ -277,6 +282,7 @@ mod tests {
             e: Bar,
             f: String,
             g: (i32, Vec<isize>, Bar),
+            h: [u32; 2],
         }
 
         #[derive(Reflect)]
@@ -295,6 +301,7 @@ mod tests {
             e: Bar { x: 1 },
             f: "hi".to_string(),
             g: (1, vec![1, 2], Bar { x: 1 }),
+            h: [2; 2],
         };
 
         let mut registry = TypeRegistry::default();
@@ -333,8 +340,12 @@ mod tests {
     #[test]
     fn dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic();
+        let dyn_list = List::clone_dynamic(&list);
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let array = [b'0'; 4];
+        let dyn_array = array.clone_dynamic();
+        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
