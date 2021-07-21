@@ -1,3 +1,4 @@
+use crate::TaskPoolThreadPanicPolicy;
 use std::{
     future::Future,
     mem,
@@ -23,6 +24,10 @@ impl TaskPoolBuilder {
     }
 
     pub fn thread_name(self, _thread_name: String) -> Self {
+        self
+    }
+
+    pub fn panic_policy(self, _policy: TaskPoolThreadPanicPolicy) -> Self {
         self
     }
 

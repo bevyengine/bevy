@@ -46,6 +46,24 @@ impl Plugin for CorePlugin {
             .unwrap_or_else(DefaultTaskPoolOptions::default)
             .create_default_pools(app.world_mut());
 
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<bevy_tasks::IoTaskPool>
+                .system(),
+        )
+        .add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<
+                bevy_tasks::ComputeTaskPool,
+            >
+                .system(),
+        )
+        .add_system(
+            task_pool_options::handle_task_pool_panicking_threads_system::<
+                bevy_tasks::AsyncComputeTaskPool,
+            >
+                .system(),
+        );
+
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
             .init_resource::<FixedTimesteps>()

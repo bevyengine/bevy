@@ -1,14 +1,17 @@
+use crate::{Task, TaskPoolThreadPanicPolicy};
+use bevy_utils::tracing::{error, warn};
+use futures_lite::{future, pin};
+use parking_lot::RwLock;
 use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     thread::{self, JoinHandle},
 };
-
-use futures_lite::{future, pin};
-
-use crate::Task;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -21,6 +24,8 @@ pub struct TaskPoolBuilder {
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
     /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
     thread_name: Option<String>,
+    /// Allows customizing the policy for when a [`TaskPool`]'s thread(s) panic.
+    panic_policy: Option<TaskPoolThreadPanicPolicy>,
 }
 
 impl TaskPoolBuilder {
@@ -49,19 +54,53 @@ impl TaskPoolBuilder {
         self
     }
 
+    pub fn panic_policy(mut self, policy: TaskPoolThreadPanicPolicy) -> Self {
+        self.panic_policy = Some(policy);
+        self
+    }
+
     /// Creates a new ThreadPoolBuilder based on the current options.
     pub fn build(self) -> TaskPool {
         TaskPool::new_internal(
             self.num_threads,
             self.stack_size,
             self.thread_name.as_deref(),
+            self.panic_policy,
         )
     }
 }
 
 #[derive(Debug)]
+struct ThreadState {
+    handle: JoinHandle<()>,
+    panicking: Arc<AtomicBool>,
+}
+
+impl ThreadState {
+    pub fn panicking(&self) -> bool {
+        self.panicking.load(Ordering::Acquire)
+    }
+
+    pub fn thread(&self) -> &std::thread::Thread {
+        self.handle.thread()
+    }
+}
+
+struct PanicState {
+    panicking: Arc<AtomicBool>,
+}
+
+impl Drop for PanicState {
+    fn drop(&mut self) {
+        if thread::panicking() {
+            self.panicking.store(true, Ordering::Release);
+        }
+    }
+}
+
+#[derive(Debug)]
 struct TaskPoolInner {
-    threads: Vec<JoinHandle<()>>,
+    threads: Vec<ThreadState>,
     shutdown_tx: async_channel::Sender<()>,
 }
 
@@ -70,8 +109,8 @@ impl Drop for TaskPoolInner {
         self.shutdown_tx.close();
 
         let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
+        for state in self.threads.drain(..) {
+            let res = state.handle.join();
             if !panicking {
                 res.expect("Task thread panicked while executing.");
             }
@@ -91,7 +130,14 @@ pub struct TaskPool {
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
-    inner: Arc<TaskPoolInner>,
+    inner: Arc<RwLock<TaskPoolInner>>,
+
+    /// Panic policy of the inner thread pool.
+    panic_policy: TaskPoolThreadPanicPolicy,
+
+    /// Receiving channel used when an inner thread panics and
+    /// another one is spawned in its place.
+    shutdown_rx: async_channel::Receiver<()>,
 }
 
 impl TaskPool {
@@ -104,10 +150,97 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
+    fn any_panicking_threads(&self) -> bool {
+        self.inner
+            .read()
+            .threads
+            .iter()
+            .any(|state| state.panicking())
+    }
+
+    pub(crate) fn handle_panicking_threads(&self) {
+        if self.any_panicking_threads() {
+            match self.panic_policy {
+                TaskPoolThreadPanicPolicy::Propagate => {
+                    for state in self.inner.write().threads.drain(..) {
+                        let thread = state.thread().clone();
+                        if let Err(err) = state.handle.join() {
+                            error!("TaskPool's inner thread '{:?}' panicked!", thread);
+                            std::panic::resume_unwind(err);
+                        }
+                    }
+                }
+                TaskPoolThreadPanicPolicy::Restart => {
+                    for (idx, state) in self
+                        .inner
+                        .write()
+                        .threads
+                        .iter_mut()
+                        .enumerate()
+                        .filter(|(_, state)| state.panicking())
+                    {
+                        let thread_name = match state.thread().name() {
+                            Some(name) => name.to_owned(),
+                            None => format!("TaskPool ({})", idx),
+                        };
+
+                        let old_state = std::mem::replace(
+                            state,
+                            Self::spawn_thread_internal(
+                                None,
+                                thread_name,
+                                self.executor.clone(),
+                                self.shutdown_rx.clone(),
+                            ),
+                        );
+
+                        warn!(
+                            "TaskPool's inner thread '{:?}' panicked!",
+                            old_state.thread()
+                        );
+
+                        // join the panicked thread handle
+                        old_state.handle.join().unwrap_err();
+                    }
+                }
+            }
+        }
+    }
+
+    fn spawn_thread_internal(
+        stack_size: Option<usize>,
+        thread_name: String,
+        executor: Arc<async_executor::Executor<'static>>,
+        shutdown_rx: async_channel::Receiver<()>,
+    ) -> ThreadState {
+        let mut thread_builder = thread::Builder::new().name(thread_name);
+
+        if let Some(stack_size) = stack_size {
+            thread_builder = thread_builder.stack_size(stack_size);
+        }
+
+        let panicking = Arc::new(AtomicBool::new(false));
+        let panicking_clone = panicking.clone();
+
+        let handle = thread_builder
+            .spawn(move || {
+                let _panic_state = PanicState {
+                    panicking: panicking_clone,
+                };
+                let shutdown_future = executor.run(shutdown_rx.recv());
+                // Use unwrap_err because we expect a Closed error
+                future::block_on(shutdown_future).unwrap_err();
+            })
+            .expect("Failed to spawn thread.");
+
+        ThreadState { handle, panicking }
+    }
+
     fn new_internal(
         num_threads: Option<usize>,
         stack_size: Option<usize>,
         thread_name: Option<&str>,
+        panic_policy: Option<TaskPoolThreadPanicPolicy>,
     ) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
@@ -117,43 +250,37 @@ impl TaskPool {
 
         let threads = (0..num_threads)
             .map(|i| {
-                let ex = Arc::clone(&executor);
-                let shutdown_rx = shutdown_rx.clone();
-
                 let thread_name = if let Some(thread_name) = thread_name {
                     format!("{} ({})", thread_name, i)
                 } else {
                     format!("TaskPool ({})", i)
                 };
 
-                let mut thread_builder = thread::Builder::new().name(thread_name);
-
-                if let Some(stack_size) = stack_size {
-                    thread_builder = thread_builder.stack_size(stack_size);
-                }
-
-                thread_builder
-                    .spawn(move || {
-                        let shutdown_future = ex.run(shutdown_rx.recv());
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
-                    })
-                    .expect("Failed to spawn thread.")
+                Self::spawn_thread_internal(
+                    stack_size,
+                    thread_name,
+                    executor.clone(),
+                    shutdown_rx.clone(),
+                )
             })
             .collect();
 
+        let panic_policy = panic_policy.unwrap_or(TaskPoolThreadPanicPolicy::Restart);
+
         Self {
             executor,
-            inner: Arc::new(TaskPoolInner {
+            inner: Arc::new(RwLock::new(TaskPoolInner {
                 threads,
                 shutdown_tx,
-            }),
+            })),
+            panic_policy,
+            shutdown_rx,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.inner.threads.len()
+        self.inner.read().threads.len()
     }
 
     /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
@@ -248,6 +375,11 @@ impl Default for TaskPool {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[doc(hidden)]
+pub fn handle_task_pool_panicking_threads(task_pool: &TaskPool) {
+    task_pool.handle_panicking_threads();
 }
 
 #[derive(Debug)]
@@ -389,5 +521,60 @@ mod tests {
         barrier.wait();
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    #[test]
+    fn test_restart_panic_policy() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let pool = Arc::new(
+            TaskPoolBuilder::new()
+                .panic_policy(TaskPoolThreadPanicPolicy::Restart)
+                .num_threads(1)
+                .build(),
+        );
+
+        pool.spawn(async {
+            panic!("oh no!");
+        })
+        .detach();
+
+        while !pool.any_panicking_threads() {}
+
+        // even though the first thread panicked, we can still queue up a task
+        // as the next call to `handle_panicking_threads` will replace the panicked
+        // thread with a new once.
+        let success = Arc::new(AtomicBool::new(false));
+        let success_clone = success.clone();
+        pool.spawn(async move {
+            success_clone.store(true, Ordering::Release);
+        })
+        .detach();
+
+        pool.handle_panicking_threads();
+        assert!(!pool.any_panicking_threads());
+
+        while !success.load(Ordering::Acquire) {}
+    }
+
+    #[test]
+    #[should_panic = "bevy"]
+    fn test_propagate_panic_policy() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let pool = Arc::new(
+            TaskPoolBuilder::new()
+                .panic_policy(TaskPoolThreadPanicPolicy::Propagate)
+                .num_threads(1)
+                .build(),
+        );
+
+        pool.spawn(async {
+            panic!("bevy");
+        })
+        .detach();
+
+        while !pool.any_panicking_threads() {}
+        pool.handle_panicking_threads();
     }
 }

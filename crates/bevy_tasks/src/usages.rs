@@ -50,3 +50,7 @@ impl Deref for IoTaskPool {
         &self.0
     }
 }
+
+pub trait DerefTaskPool: Deref<Target = TaskPool> {}
+
+impl<T> DerefTaskPool for T where T: Deref<Target = TaskPool> {}
