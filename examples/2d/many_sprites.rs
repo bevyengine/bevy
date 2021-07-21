@@ -65,7 +65,8 @@ fn setup(
                     translation,
                     rotation,
                     scale,
-                },
+                }
+                .into(),
                 sprite: Sprite::new(tile_size),
                 ..Default::default()
             });

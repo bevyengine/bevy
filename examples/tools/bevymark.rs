@@ -143,7 +143,8 @@ fn mouse_handler(
                         translation: Vec3::new(bird_x, bird_y, bird_z),
                         scale: Vec3::splat(BIRD_SCALE),
                         ..Default::default()
-                    },
+                    }
+                    .into(),
                     ..Default::default()
                 })
                 .insert(Bird {

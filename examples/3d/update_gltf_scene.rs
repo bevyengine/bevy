@@ -25,22 +25,22 @@ fn setup(
     mut scene_instance: ResMut<SceneInstance>,
 ) {
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).into(),
         ..Default::default()
     });
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(1.05, 0.9, 1.5)
-            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y)
+            .into(),
         ..Default::default()
     });
 
     // Spawn the scene as a child of another entity. This first scene will be translated backward
     // with its parent
     commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::identity(),
-        ))
+        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
+            0.0, 0.0, -1.0,
+        )))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
         });

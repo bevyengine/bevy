@@ -57,7 +57,8 @@ fn setup(
             translation: Vec3::new(0.0, 0.0, 1.5),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
-        },
+        }
+        .into(),
         visible: Visible {
             is_transparent: true,
             ..Default::default()
@@ -72,7 +73,8 @@ fn setup(
             translation: Vec3::new(0.0, 0.0, 0.0),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
-        },
+        }
+        .into(),
         visible: Visible {
             is_transparent: true,
             ..Default::default()
@@ -87,7 +89,8 @@ fn setup(
             translation: Vec3::new(0.0, 0.0, -1.5),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
-        },
+        }
+        .into(),
         visible: Visible {
             is_transparent: true,
             ..Default::default()
@@ -96,7 +99,9 @@ fn setup(
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(3.0, 5.0, 8.0)
+            .looking_at(Vec3::ZERO, Vec3::Y)
+            .into(),
         ..Default::default()
     });
 }
