@@ -121,7 +121,7 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError>
+    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -134,7 +134,7 @@ where
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
         // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
@@ -148,7 +148,7 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
         self.get_unchecked_manual(
             world,
@@ -167,7 +167,7 @@ where
         entity: Entity,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
         let location = world
             .entities
             .get(entity)
@@ -290,10 +290,10 @@ where
     }
 
     #[inline]
-    pub fn for_each<'w>(
-        &mut self,
+    pub fn for_each<'w, 's>(
+        &'s mut self,
         world: &'w World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -304,10 +304,10 @@ where
     }
 
     #[inline]
-    pub fn for_each_mut<'w>(
-        &mut self,
+    pub fn for_each_mut<'w, 's>(
+        &'s mut self,
         world: &'w mut World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
     ) {
         // SAFETY: query has unique world access
         unsafe {
@@ -320,10 +320,10 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn for_each_unchecked<'w>(
-        &mut self,
+    pub unsafe fn for_each_unchecked<'w, 's>(
+        &'s mut self,
         world: &'w World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
     ) {
         self.validate_world_and_update_archetypes(world);
         self.for_each_unchecked_manual(
@@ -335,12 +335,12 @@ where
     }
 
     #[inline]
-    pub fn par_for_each<'w>(
-        &mut self,
+    pub fn par_for_each<'w, 's>(
+        &'s mut self,
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -351,12 +351,12 @@ where
     }
 
     #[inline]
-    pub fn par_for_each_mut<'w>(
-        &mut self,
+    pub fn par_for_each_mut<'w, 's>(
+        &'s mut self,
         world: &'w mut World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) {
         // SAFETY: query has unique world access
         unsafe {
@@ -369,12 +369,12 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn par_for_each_unchecked<'w>(
-        &mut self,
+    pub unsafe fn par_for_each_unchecked<'w, 's>(
+        &'s mut self,
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) {
         self.validate_world_and_update_archetypes(world);
         self.par_for_each_unchecked_manual(
@@ -396,7 +396,7 @@ where
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        mut func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
         last_change_tick: u32,
         change_tick: u32,
     ) {
@@ -450,7 +450,7 @@ where
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
         last_change_tick: u32,
         change_tick: u32,
     ) {
