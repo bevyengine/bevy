@@ -4,7 +4,6 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
-    schedule::SchedulerCommandQueue,
     world::World,
 };
 use std::borrow::Cow;
@@ -67,7 +66,6 @@ pub trait System: Send + Sync + 'static {
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue>;
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);

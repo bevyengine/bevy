@@ -1,6 +1,5 @@
 use crate::{
     archetype::ArchetypeGeneration,
-    schedule::SchedulerCommandQueue,
     system::{check_system_change_tick, BoxedSystem, IntoSystem, SystemId},
     world::World,
 };
@@ -12,8 +11,6 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn id(&self) -> SystemId;
 
     fn run(&mut self, world: &mut World);
-
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue>;
 
     fn initialize(&mut self, world: &mut World);
 
@@ -49,10 +46,6 @@ impl ExclusiveSystem for ExclusiveSystemFn {
         *change_tick += 1;
 
         world.last_change_tick = saved_last_tick;
-    }
-
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-        None
     }
 
     fn initialize(&mut self, _: &mut World) {}
@@ -106,10 +99,6 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
 
         self.system.run((), world);
         self.system.apply_buffers(world);
-    }
-
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-        self.system.scheduler_commands()
     }
 
     fn initialize(&mut self, world: &mut World) {

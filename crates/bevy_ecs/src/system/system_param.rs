@@ -8,7 +8,6 @@ use crate::{
     query::{
         FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
     },
-    schedule::{SchedulerCommandQueue, SchedulerCommands},
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -72,9 +71,6 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-        None
-    }
     fn default_config() -> Self::Config;
 }
 
@@ -507,48 +503,6 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
         _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
-    }
-}
-
-impl<'a> SystemParam for SchedulerCommands<'a> {
-    type Fetch = SchedulerCommandQueue;
-}
-
-// SAFE: SchedulerCommands only accesses internal state
-unsafe impl ReadOnlySystemParamFetch for SchedulerCommandQueue {}
-
-// SAFE: only local state is accessed
-unsafe impl SystemParamState for SchedulerCommandQueue {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Default::default()
-    }
-
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-        if self.is_empty() {
-            return None;
-        }
-
-        let mut commands = Default::default();
-        self.transfer(&mut commands);
-        Some(commands)
-    }
-
-    fn default_config() {}
-}
-
-impl<'a> SystemParamFetch<'a> for SchedulerCommandQueue {
-    type Item = SchedulerCommands<'a>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'a mut Self,
-        _system_meta: &SystemMeta,
-        _world: &'a World,
-        _change_tick: u32,
-    ) -> Self::Item {
-        SchedulerCommands::new(state)
     }
 }
 
@@ -1236,22 +1190,6 @@ macro_rules! impl_system_param_tuple {
             fn apply(&mut self, _world: &mut World) {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
-            }
-
-            fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-                let ($($param,)*) = self;
-                let commands = SchedulerCommandQueue::default();
-                $(
-                    let mut commands = commands;
-                    if let Some(mut c) = $param.scheduler_commands() {
-                        c.transfer(&mut commands);
-                    }
-                )*
-                if commands.is_empty() {
-                    None
-                } else {
-                    Some(commands)
-                }
             }
 
             fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {

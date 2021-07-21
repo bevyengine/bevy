@@ -18,6 +18,7 @@ use crate::{
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
+    schedule::SchedulerCommandQueue,
     storage::{Column, SparseSet, Storages},
 };
 use std::{
@@ -53,6 +54,7 @@ pub struct World {
     main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
+    pub(crate) scheduler_commands: SchedulerCommandQueue,
 }
 
 impl Default for World {
@@ -71,6 +73,7 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
+            scheduler_commands: Default::default(),
         }
     }
 }

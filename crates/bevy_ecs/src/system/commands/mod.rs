@@ -4,6 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
+    schedule::{InsertSystem, IntoSystemDescriptor, StageLabel},
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -149,6 +150,18 @@ impl<'a> Commands<'a> {
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
+        });
+    }
+
+    // Insert a system into a stage.
+    pub fn insert_system<T, S, Params>(&mut self, system: T, stage_label: S)
+    where
+        T: IntoSystemDescriptor<Params>,
+        S: StageLabel,
+    {
+        self.queue.push(InsertSystem {
+            system: system.into_descriptor(),
+            stage_label,
         });
     }
 

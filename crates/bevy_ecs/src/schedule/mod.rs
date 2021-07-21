@@ -209,9 +209,7 @@ impl Schedule {
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
             stage.run(world);
-            if let Some(mut stage_commands) = stage.commands() {
-                stage_commands.transfer(&mut commands);
-            }
+            world.scheduler_commands.transfer(&mut commands);
         }
 
         commands.apply(self);
@@ -242,9 +240,5 @@ impl Stage for Schedule {
                 }
             }
         }
-    }
-
-    fn commands(&mut self) -> Option<SchedulerCommandQueue> {
-        None
     }
 }

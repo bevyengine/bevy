@@ -1,4 +1,6 @@
-use super::{IntoSystemDescriptor, Schedule, StageLabel, SystemDescriptor};
+use super::{Schedule, StageLabel, SystemDescriptor};
+use crate::system::Command;
+use crate::world::World;
 
 #[derive(Default)]
 pub struct SchedulerCommandQueue {
@@ -33,24 +35,12 @@ pub trait SchedulerCommand: Send + Sync + 'static {
     fn write(self: Box<Self>, schedule: &mut Schedule);
 }
 
-pub struct SchedulerCommands<'a> {
-    queue: &'a mut SchedulerCommandQueue,
-}
-
-impl<'a> SchedulerCommands<'a> {
-    pub fn new(queue: &'a mut SchedulerCommandQueue) -> Self {
-        Self { queue }
-    }
-
-    pub fn insert_system<T, S, Params>(&mut self, system: T, stage_label: S)
-    where
-        T: IntoSystemDescriptor<Params>,
-        S: StageLabel,
-    {
-        self.queue.push(InsertSystem {
-            system: system.into_descriptor(),
-            stage_label,
-        });
+impl<T> Command for T
+where
+    T: SchedulerCommand,
+{
+    fn write(self, world: &mut World) {
+        world.scheduler_commands.push(self);
     }
 }
 
@@ -74,7 +64,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        schedule::{Schedule, SchedulerCommandQueue, SchedulerCommands, SystemStage},
+        schedule::{
+            InsertSystem, IntoSystemDescriptor, Schedule, SchedulerCommandQueue, SystemStage,
+        },
         system::Commands,
         world::World,
     };
@@ -85,8 +77,10 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_stage("test", SystemStage::parallel());
         let mut queue = SchedulerCommandQueue::default();
-        let mut scheduler_commands = SchedulerCommands::new(&mut queue);
-        scheduler_commands.insert_system(sample_system, "test");
+        queue.push(InsertSystem {
+            system: sample_system.into_descriptor(),
+            stage_label: "test",
+        });
         queue.apply(&mut schedule);
 
         let stage = schedule.get_stage::<SystemStage>(&"test").unwrap();
@@ -95,8 +89,8 @@ mod tests {
 
     #[test]
     fn insert_system_from_system() {
-        fn sample_system(mut scheduler_commands: SchedulerCommands) {
-            scheduler_commands.insert_system(|| {}, "test");
+        fn sample_system(mut commands: Commands) {
+            commands.insert_system(|| {}, "test");
         }
 
         let mut world = World::default();

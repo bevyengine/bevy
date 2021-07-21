@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration},
     component::ComponentId,
     query::Access,
-    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel, SchedulerCommandQueue},
+    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
     system::{BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
@@ -450,9 +450,6 @@ impl System for RunOnce {
     }
 
     fn apply_buffers(&mut self, _world: &mut World) {}
-    fn scheduler_commands(&mut self) -> Option<SchedulerCommandQueue> {
-        None
-    }
 
     fn initialize(&mut self, _world: &mut World) {}
 
