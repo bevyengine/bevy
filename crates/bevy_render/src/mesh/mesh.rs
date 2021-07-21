@@ -193,6 +193,18 @@ impl Indices {
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),
         }
     }
+
+    /// Returns the number of indices.,
+    pub fn len(&self) -> usize {
+        match self {
+            Indices::U16(vec) => vec.len(),
+            Indices::U32(vec) => vec.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 enum IndicesIter<'a> {
     U16(std::slice::Iter<'a, u16>),
@@ -468,6 +480,16 @@ impl Mesh {
 
         self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     }
+
+    /// Generate tangents for the mesh using the `mikktspace` algorithm.
+    ///
+    /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
+        let tangents = generate_tangents_for_mesh(self)?;
+        self.set_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        Ok(())
+    }
 }
 
 fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
@@ -632,4 +654,122 @@ fn update_entity_mesh(
         // set index buffer into binding
         render_pipelines.bindings.vertex_attribute_buffer = Some(vertex_attribute_buffer_resource);
     }
+}
+
+struct MikktspaceGeometryHelper<'a> {
+    indices: &'a Indices,
+    positions: &'a Vec<[f32; 3]>,
+    normals: &'a Vec<[f32; 3]>,
+    uvs: &'a Vec<[f32; 2]>,
+    tangents: Vec<[f32; 4]>,
+}
+impl MikktspaceGeometryHelper<'_> {
+    fn index(&self, face: usize, vert: usize) -> usize {
+        let index_index = face * 3 + vert;
+
+        match self.indices {
+            Indices::U16(indices) => indices[index_index] as usize,
+            Indices::U32(indices) => indices[index_index] as usize,
+        }
+    }
+}
+impl mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
+    fn num_faces(&self) -> usize {
+        self.indices.len() / 3
+    }
+
+    fn num_vertices_of_face(&self, _: usize) -> usize {
+        3
+    }
+
+    fn position(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.positions[self.index(face, vert)]
+    }
+
+    fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.normals[self.index(face, vert)]
+    }
+
+    fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
+        self.uvs[self.index(face, vert)]
+    }
+
+    fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
+        let idx = self.index(face, vert);
+        self.tangents[idx] = tangent;
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+/// Failed to generate tangents for the mesh.
+pub enum GenerateTangentsError {
+    #[error("cannot generate tangents for {0:?}")]
+    UnsupportedTopology(PrimitiveTopology),
+    #[error("missing indices")]
+    MissingIndices,
+    #[error("missing vertex attributes '{0}'")]
+    MissingVertexAttribute(&'static str),
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
+    InvalidVertexAttributeFormat(&'static str, VertexFormat),
+    #[error("mesh not suitable for tangent generation")]
+    MikktspaceError,
+}
+fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
+    match mesh.primitive_topology() {
+        PrimitiveTopology::TriangleList => {}
+        other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
+    };
+
+    let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_POSITION,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_NORMAL,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0),
+    )? {
+        VertexAttributeValues::Float32x2(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_UV_0,
+                VertexFormat::Float32x2,
+            ))
+        }
+    };
+    let indices = mesh
+        .indices()
+        .ok_or(GenerateTangentsError::MissingIndices)?;
+
+    let len = positions.len();
+    let tangents = vec![[0., 0., 0., 0.]; len];
+    let mut mikktspace_mesh = MikktspaceGeometryHelper {
+        indices,
+        positions,
+        normals,
+        uvs,
+        tangents,
+    };
+    let success = mikktspace::generate_tangents(&mut mikktspace_mesh);
+    if !success {
+        return Err(GenerateTangentsError::MikktspaceError);
+    }
+
+    Ok(mikktspace_mesh.tangents)
 }
