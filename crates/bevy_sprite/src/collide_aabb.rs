@@ -8,6 +8,7 @@ pub enum Collision {
     Right,
     Top,
     Bottom,
+    Intersecting,
 }
 
 // TODO: ideally we can remove this once bevy gets a physics system
@@ -52,9 +53,82 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
             }
             (Some(x_collision), None) => Some(x_collision),
             (None, Some(y_collision)) => Some(y_collision),
-            (None, None) => None,
+            (None, None) => Some(Collision::Intersecting),
         }
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_intersection() {
+        let a_pos = Vec3::new(8.0, 0.0, 0.0);
+        let a_size = Vec2::new(10.0, 10.0);
+
+        let b_pos = Vec3::new(8.0, 0.0, 0.0);
+        let b_size = Vec2::new(6.0, 100.0);
+
+        let collision = collide(a_pos, a_size, b_pos, b_size);
+        assert!(
+            !collision.is_none(),
+            "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
+    }
+
+    #[test]
+    fn test_collision() {
+        let mut a_pos = Vec3::new(0.0, 0.0, 0.0);
+        let a_size = Vec2::new(10.0, 10.0);
+
+        let b_pos = Vec3::new(8.0, 0.0, 0.0);
+        let b_size = Vec2::new(6.0, 100.0);
+
+        let collision = collide(a_pos, a_size, b_pos, b_size);
+        // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
+        assert!(
+            collision.is_none(),
+            "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
+
+        loop {
+            a_pos.x += 1.0;
+            let collision = collide(a_pos, a_size, b_pos, b_size);
+            // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
+            assert!(
+                !collision.is_none(),
+                "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]",
+                a_pos,
+                a_size,
+                b_pos,
+                b_size
+            );
+            if a_pos.x > 14.0 {
+                break;
+            }
+        }
+
+        a_pos.x += 1.0;
+        let collision = collide(a_pos, a_size, b_pos, b_size);
+        // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
+        assert!(
+            collision.is_none(),
+            "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
     }
 }
