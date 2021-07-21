@@ -1,4 +1,4 @@
-use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
+use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer, Metadata};
 use anyhow::Result;
 use bevy_ecs::system::Res;
 use bevy_utils::{BoxedFuture, HashSet};
@@ -7,6 +7,7 @@ use fs::File;
 use io::Read;
 use parking_lot::RwLock;
 use std::{
+    convert::TryFrom,
     env, fs, io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -99,8 +100,18 @@ impl AssetIo for FileAssetIo {
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        self.root_path.join(path).is_dir()
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        let full_path = self.root_path.join(path);
+        full_path
+            .metadata()
+            .and_then(Metadata::try_from)
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }
 
