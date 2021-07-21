@@ -1,4 +1,8 @@
-use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
+use bevy::{
+    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    prelude::*,
+    utils::Duration,
+};
 
 // This example only enables a minimal set of plugins required for bevy to run.
 // You can also completely remove rendering / windowing Plugin code from bevy
@@ -7,6 +11,8 @@ use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
 // [dependencies]
 // bevy = { version = "*", default-features = false }
 // # replace "*" with the most recent version of bevy
+// Note that feature/plugin `winit` provides a scheduler, thus without it,
+// another scheduler must be provided.
 
 fn main() {
     // this app runs once
@@ -21,6 +27,13 @@ fn main() {
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
+        .add_plugins(MinimalPlugins)
+        .add_system(counter.system())
+        .run();
+
+    // this app loops without a fixed timestep
+    App::build()
+        .add_plugin(ScheduleRunnerPlugin::default())
         .add_plugins(MinimalPlugins)
         .add_system(counter.system())
         .run();
