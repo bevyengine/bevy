@@ -113,3 +113,9 @@ impl_label!(StageLabel);
 impl_label!(SystemLabel);
 impl_label!(AmbiguitySetLabel);
 impl_label!(RunCriteriaLabel);
+
+impl StageLabel for Box<dyn StageLabel> {
+    fn dyn_clone(&self) -> Box<dyn StageLabel> {
+        self.as_ref().dyn_clone()
+    }
+}

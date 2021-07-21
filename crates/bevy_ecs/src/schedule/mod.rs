@@ -105,7 +105,7 @@ impl Schedule {
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
+            .find(|(_i, stage_label)| stage_label.dyn_clone() == target.dyn_clone())
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
@@ -129,7 +129,7 @@ impl Schedule {
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
+            .find(|(_i, stage_label)| stage_label.dyn_clone() == target.dyn_clone())
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
