@@ -20,5 +20,7 @@ void main() {
         sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler),
         v_Uv);
 # endif
+    if(color.a < 0.5) discard;
+
     o_Target = color;
 }

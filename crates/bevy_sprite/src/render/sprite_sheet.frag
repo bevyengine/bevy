@@ -9,7 +9,11 @@ layout(set = 1, binding = 2) uniform texture2D TextureAtlas_texture;
 layout(set = 1, binding = 3) uniform sampler TextureAtlas_texture_sampler;
 
 void main() {
-    o_Target = v_Color * texture(
+    vec4 color = v_Color * texture(
         sampler2D(TextureAtlas_texture, TextureAtlas_texture_sampler),
         v_Uv);
+    
+    if(color.a < 0.5) discard;
+
+    o_Target = color;
 }
