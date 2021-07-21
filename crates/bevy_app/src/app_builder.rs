@@ -98,13 +98,7 @@ impl AppBuilder {
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
     ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// # let mut app_builder = App::build();
-    /// app_builder.run();
+    /// Finalizes the [`App`] configuration. For general usage, see the example on top.
     /// ```
     pub fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
