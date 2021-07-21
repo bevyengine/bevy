@@ -47,11 +47,11 @@
 //!
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
-//! - [`Archetypes`](crate::archetype::Archetypes)
-//! - [`Bundles`](crate::bundle::Bundles)
+//! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
+//! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
 //! - [`Commands`]
-//! - [`Components`](crate::component::Components)
-//! - [`Entities`](crate::entity::Entities)
+//! - [`Components`](crate::component::Components) (Provides Components metadata)
+//! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`Local`]
