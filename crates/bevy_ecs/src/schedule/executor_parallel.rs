@@ -6,6 +6,7 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
@@ -104,7 +105,12 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
     }
 
-    fn run_systems(&mut self, systems: &mut [ParallelSystemContainer], world: &mut World) {
+    fn run_systems_in_span(
+        &mut self,
+        systems: &mut [ParallelSystemContainer],
+        world: &mut World,
+        span: Option<&Span>,
+    ) {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
@@ -118,7 +124,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .get_resource_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
             .clone();
         compute_pool.scope(|scope| {
-            self.prepare_systems(scope, systems, world);
+            self.prepare_systems(scope, systems, world, span);
             scope.spawn(async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
@@ -168,11 +174,13 @@ impl ParallelExecutor {
 
     /// Populates `should_run` bitset, spawns tasks for systems that should run this iteration,
     /// queues systems with no dependencies to run (or skip) at next opportunity.
+    #[allow(unused)]
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
         systems: &'scope [ParallelSystemContainer],
         world: &'scope World,
+        span: Option<&'scope Span>,
     ) {
         self.should_run.clear();
         for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
@@ -188,8 +196,17 @@ impl ParallelExecutor {
                         .await
                         .unwrap_or_else(|error| unreachable!(error));
                     #[cfg(feature = "trace")]
-                    let system_span =
-                        bevy_utils::tracing::info_span!("system", name = &*system.name());
+                    let system_span = {
+                        if let Some(span) = span {
+                            bevy_utils::tracing::info_span!(
+                                parent: span,
+                                "system",
+                                name = &*system.name()
+                            )
+                        } else {
+                            bevy_utils::tracing::info_span!("system", name = &*system.name())
+                        }
+                    };
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
