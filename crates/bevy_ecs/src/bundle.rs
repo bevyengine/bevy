@@ -60,9 +60,9 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// [`Bundle::type_info`] must return the TypeInfo for each component type in the bundle, in the
+/// * [`Bundle::type_info`] must return the TypeInfo for each component type in the bundle, in the
 /// _exact_ order that [`Bundle::get_components`] is called.
-/// [`Bundle::from_components`] must call `func` exactly once for each [`TypeInfo`] returned by
+/// * [`Bundle::from_components`] must call `func` exactly once for each [`TypeInfo`] returned by
 /// [`Bundle::type_info`]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
