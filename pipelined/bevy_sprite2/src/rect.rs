@@ -19,4 +19,8 @@ impl Rect {
     pub fn height(&self) -> f32 {
         self.max.y - self.min.y
     }
+
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
+    }
 }

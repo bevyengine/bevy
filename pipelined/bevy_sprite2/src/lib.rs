@@ -2,11 +2,16 @@ mod bundle;
 mod rect;
 mod render;
 mod sprite;
+mod texture_atlas;
+mod texture_atlas_builder;
 
+use bevy_asset::AddAsset;
 pub use bundle::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;
+pub use texture_atlas::*;
+pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_render2::{
@@ -18,7 +23,7 @@ pub struct SpritePlugin;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Sprite>();
+        app.add_asset::<TextureAtlas>().register_type::<Sprite>();
         let render_app = app.sub_app_mut(0);
         render_app
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)

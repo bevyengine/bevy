@@ -1,4 +1,7 @@
-use crate::Sprite;
+use crate::{
+    texture_atlas::{TextureAtlas, TextureAtlasSprite},
+    Rect, Sprite,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
@@ -142,8 +145,9 @@ impl FromWorld for SpriteShaders {
 
 struct ExtractedSprite {
     transform: Mat4,
-    size: Vec2,
+    rect: Rect,
     handle: Handle<Image>,
+    atlas_size: Option<Vec2>,
 }
 
 pub struct ExtractedSprites {
@@ -153,19 +157,41 @@ pub struct ExtractedSprites {
 pub fn extract_sprites(
     mut commands: Commands,
     images: Res<Assets<Image>>,
-    query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    sprite_query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
+    atlas_query: Query<(&TextureAtlasSprite, &GlobalTransform, &Handle<TextureAtlas>)>,
 ) {
     let mut extracted_sprites = Vec::new();
-    for (sprite, transform, handle) in query.iter() {
+    for (sprite, transform, handle) in sprite_query.iter() {
         if !images.contains(handle) {
             continue;
         }
 
         extracted_sprites.push(ExtractedSprite {
+            atlas_size: None,
             transform: transform.compute_matrix(),
-            size: sprite.size,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: sprite.size,
+            },
             handle: handle.clone_weak(),
-        })
+        });
+    }
+
+    for (atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+        if !texture_atlases.contains(texture_atlas_handle) {
+            continue;
+        }
+
+        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+            let rect = texture_atlas.textures[atlas_sprite.index as usize];
+            extracted_sprites.push(ExtractedSprite {
+                atlas_size: Some(texture_atlas.size),
+                transform: transform.compute_matrix(),
+                rect: rect.clone(),
+                handle: texture_atlas.texture.clone_weak(),
+            });
+        }
     }
 
     commands.insert_resource(ExtractedSprites {
@@ -228,17 +254,6 @@ pub fn prepare_sprites(
         panic!("expected vec3");
     };
 
-    let quad_vertex_uvs = if let VertexAttributeValues::Float32x2(vertex_uvs) = sprite_meta
-        .quad
-        .attribute(Mesh::ATTRIBUTE_UV_0)
-        .unwrap()
-        .clone()
-    {
-        vertex_uvs
-    } else {
-        panic!("expected vec2");
-    };
-
     let quad_indices = if let Indices::U32(indices) = sprite_meta.quad.indices().unwrap() {
         indices.clone()
     } else {
@@ -255,14 +270,25 @@ pub fn prepare_sprites(
     );
 
     for (i, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
-        for (vertex_position, vertex_uv) in quad_vertex_positions.iter().zip(quad_vertex_uvs.iter())
-        {
+        let sprite_rect = extracted_sprite.rect;
+
+        // Specify the corners of the sprite
+        let bottom_left = Vec2::new(sprite_rect.min.x, sprite_rect.max.y);
+        let top_left = sprite_rect.min;
+        let top_right = Vec2::new(sprite_rect.max.x, sprite_rect.min.y);
+        let bottom_right = sprite_rect.max;
+
+        let atlas_positions: [Vec2; 4] = [bottom_left, top_left, top_right, bottom_right];
+
+        for (index, vertex_position) in quad_vertex_positions.iter().enumerate() {
             let mut final_position =
-                Vec3::from(*vertex_position) * extracted_sprite.size.extend(1.0);
+                Vec3::from(*vertex_position) * extracted_sprite.rect.size().extend(1.0);
             final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
             sprite_meta.vertices.push(SpriteVertex {
                 position: final_position.into(),
-                uv: *vertex_uv,
+                uv: (atlas_positions[index]
+                    / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max))
+                .into(),
             });
         }
 
