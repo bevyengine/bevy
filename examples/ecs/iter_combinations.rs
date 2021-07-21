@@ -1,5 +1,5 @@
 use bevy::{core::FixedTimestep, prelude::*};
-use rand::{thread_rng, Rng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
@@ -7,7 +7,10 @@ struct FixedUpdateStage;
 const DELTA_TIME: f64 = 0.01;
 
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(generate_bodies.system())
@@ -44,6 +47,7 @@ struct BodyBundle {
 
 fn generate_bodies(
     mut commands: Commands,
+    mut entropy: ResMut<Entropy>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -56,7 +60,7 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
+    let mut rng = SmallRng::from_seed(entropy.get());
     for _ in 0..NUM_BODIES {
         let mass_value_cube_root: f32 = rng.gen_range(0.5..4.0);
         let mass_value: f32 = mass_value_cube_root * mass_value_cube_root * mass_value_cube_root;

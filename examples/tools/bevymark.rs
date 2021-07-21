@@ -2,7 +2,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 const BIRDS_PER_SECOND: u32 = 1000;
 const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -31,7 +31,10 @@ impl FromWorld for BirdMaterial {
 }
 
 fn main() {
+    let world_seed = [1; 32];
+
     App::build()
+        .insert_resource(Entropy::from(world_seed))
         .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
@@ -52,7 +55,12 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut entropy: ResMut<Entropy>) {
+    let seed = entropy.get();
+    let rng = SmallRng::from_seed(seed);
+    commands.insert_resource(rng);
+    info!("inserted rng resource with seed: {:?}", seed);
+
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
@@ -113,13 +121,13 @@ fn mouse_handler(
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,
+    rng: ResMut<SmallRng>,
     mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        let mut rnd = rand::thread_rng();
-        let color = gen_color(&mut rnd);
+        let color = gen_color(&mut rng.into_inner());
 
         let texture_handle = asset_server.load("branding/icon.png");
 

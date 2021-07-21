@@ -32,7 +32,9 @@ rand = "0.8"
 serde = "1"
 
 [dev-dependencies]
+bevy_entropy = { path = "../bevy_entropy", version = "0.5.0" }
 parking_lot = "0.11"
+rand = { version = "0.8", features = ["small_rng"] }
 
 [[example]]
 name = "events"

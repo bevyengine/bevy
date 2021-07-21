@@ -87,7 +87,7 @@ bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-featu
 
 [dev-dependencies]
 anyhow = "1.0.4"
-rand = "0.8.0"
+rand = { version = "0.8.0", features = ["small_rng"] }
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
 # Needed to poll Task examples
@@ -211,6 +211,10 @@ path = "examples/app/plugin.rs"
 [[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
+
+[[example]]
+name = "random"
+path = "examples/app/random.rs"
 
 [[example]]
 name = "return_after_run"

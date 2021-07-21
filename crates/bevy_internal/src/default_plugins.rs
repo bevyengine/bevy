@@ -6,6 +6,7 @@ use bevy_asset::AssetPlugin;
 use bevy_audio::AudioPlugin;
 use bevy_core::CorePlugin;
 use bevy_diagnostic::DiagnosticsPlugin;
+use bevy_entropy::EntropyPlugin;
 #[cfg(feature = "bevy_gilrs")]
 use bevy_gilrs::GilrsPlugin;
 #[cfg(feature = "bevy_gltf")]
@@ -39,6 +40,7 @@ use bevy_winit::WinitPlugin;
 /// * [`WindowPlugin`]
 /// * [`AssetPlugin`]
 /// * [`ScenePlugin`]
+/// * [`EntropyPlugin`]
 /// * [`RenderPlugin`] - with feature `bevy_render`
 /// * [`SpritePlugin`] - with feature `bevy_sprite`
 /// * [`PbrPlugin`] - with feature `bevy_pbr`
@@ -61,6 +63,7 @@ impl PluginGroup for DefaultPlugins {
         group.add(WindowPlugin::default());
         group.add(AssetPlugin::default());
         group.add(ScenePlugin::default());
+        group.add(EntropyPlugin::default());
 
         #[cfg(feature = "bevy_render")]
         group.add(RenderPlugin::default());
