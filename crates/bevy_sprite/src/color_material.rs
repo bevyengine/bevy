@@ -61,12 +61,12 @@ impl From<Handle<Texture>> for ColorMaterial {
 // TODO: should be removed when pipelined rendering is done
 #[allow(clippy::type_complexity)]
 pub(crate) fn material_texture_detection_system(
-    mut texture_to_material: Local<HashMap<Handle<Texture>, HashSet<Handle<ColorMaterial>>>>,
-    mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,
+    mut texture_to_material: Local<HashMap<Handle<Texture>, HashSet<Handle<ColorMaterial>>>, true>,
+    mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>, true>,
     materials: Res<Assets<ColorMaterial>>,
     mut texture_events: EventReader<AssetEvent<Texture>>,
     (mut material_events_reader, mut material_events): (
-        Local<ManualEventReader<AssetEvent<ColorMaterial>>>,
+        Local<ManualEventReader<AssetEvent<ColorMaterial>>, true>,
         ResMut<Events<AssetEvent<ColorMaterial>>>,
     ),
 ) {

@@ -248,7 +248,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # let world = &mut World::default();
-    /// fn local_is_42(local: Local<usize>) {
+    /// fn local_is_42(local: Local<usize, false>) {
     ///     assert_eq!(*local, 42);
     /// }
     /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));

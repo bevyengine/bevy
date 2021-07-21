@@ -430,8 +430,8 @@ impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
 
 #[allow(clippy::type_complexity)]
 fn render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<Entity, T>>,
-    mut entities_waiting_for_textures: Local<Vec<Entity>>,
+    mut state: Local<RenderResourcesNodeState<Entity, T>, true>,
+    mut entities_waiting_for_textures: Local<Vec<Entity>, true>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     removed: RemovedComponents<T>,
     mut queries: QuerySet<(
@@ -613,8 +613,8 @@ impl<T: Asset> Default for AssetRenderNodeState<T> {
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn asset_render_resources_node_system<T: RenderResources + Asset>(
-    mut state: Local<RenderResourcesNodeState<HandleId, T>>,
-    mut asset_state: Local<AssetRenderNodeState<T>>,
+    mut state: Local<RenderResourcesNodeState<HandleId, T>, true>,
+    mut asset_state: Local<AssetRenderNodeState<T>, true>,
     assets: Res<Assets<T>>,
     mut asset_events: EventReader<AssetEvent<T>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,

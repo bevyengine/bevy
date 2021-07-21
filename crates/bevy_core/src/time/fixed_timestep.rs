@@ -89,7 +89,7 @@ impl FixedTimestep {
     }
 
     fn prepare_system(
-        mut state: Local<State>,
+        mut state: Local<State, true>,
         time: Res<Time>,
         mut fixed_timesteps: ResMut<FixedTimesteps>,
     ) -> ShouldRun {

@@ -30,7 +30,7 @@ fn hello_world_system() {
     println!("hello world");
 }
 
-fn counter(mut state: Local<CounterState>) {
+fn counter(mut state: Local<CounterState, true>) {
     if state.count % 60 == 0 {
         println!("{}", state.count);
     }

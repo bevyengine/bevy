@@ -41,7 +41,7 @@ pub struct State {
 
 #[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
-    mut state: Local<State>,
+    mut state: Local<State, true>,
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,

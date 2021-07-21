@@ -507,7 +507,7 @@ pub struct MeshResourceProviderState {
 
 #[allow(clippy::type_complexity)]
 pub fn mesh_resource_provider_system(
-    mut state: Local<MeshResourceProviderState>,
+    mut state: Local<MeshResourceProviderState, true>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,

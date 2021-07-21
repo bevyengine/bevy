@@ -29,12 +29,16 @@ fn main() {
         .run();
 }
 
-fn frame_update(mut last_time: Local<f64>, time: Res<Time>) {
+fn frame_update(mut last_time: Local<f64, true>, time: Res<Time>) {
     info!("update: {}", time.seconds_since_startup() - *last_time);
     *last_time = time.seconds_since_startup();
 }
 
-fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
+fn fixed_update(
+    mut last_time: Local<f64, true>,
+    time: Res<Time>,
+    fixed_timesteps: Res<FixedTimesteps>,
+) {
     info!(
         "fixed_update: {}",
         time.seconds_since_startup() - *last_time,

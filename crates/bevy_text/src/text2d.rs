@@ -128,7 +128,7 @@ pub struct QueuedText2d {
 /// Updates the TextGlyphs with the new computed glyphs from the layout
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
-    mut queued_text: Local<QueuedText2d>,
+    mut queued_text: Local<QueuedText2d, true>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,

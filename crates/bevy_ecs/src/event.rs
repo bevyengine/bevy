@@ -152,7 +152,7 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    last_event_count: Local<'a, (usize, PhantomData<T>), true>,
     events: Res<'a, Events<T>>,
 }
 

@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn nonconflicting_system_resources() {
-        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
+        fn sys(_: Local<BufferRes, true>, _: ResMut<BufferRes>, _: Local<A, true>, _: ResMut<A>) {}
         test_for_conflicting_resources(sys.system())
     }
 
@@ -316,7 +316,7 @@ mod tests {
             }
         }
 
-        fn sys(local: Local<Foo>, mut modified: ResMut<bool>) {
+        fn sys(local: Local<Foo, true>, mut modified: ResMut<bool>) {
             assert_eq!(local.value, 2);
             *modified = true;
         }
@@ -360,7 +360,7 @@ mod tests {
     fn configure_system_local() {
         let mut world = World::default();
         world.insert_resource(false);
-        fn sys(local: Local<usize>, mut modified: ResMut<bool>) {
+        fn sys(local: Local<usize, true>, mut modified: ResMut<bool>) {
             assert_eq!(*local, 42);
             *modified = true;
         }

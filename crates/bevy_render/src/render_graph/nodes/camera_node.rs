@@ -72,7 +72,7 @@ const MATRIX_SIZE: usize = std::mem::size_of::<[[f32; 4]; 4]>();
 const VEC4_SIZE: usize = std::mem::size_of::<[f32; 4]>();
 
 pub fn camera_node_system(
-    mut state: Local<CameraNodeState>,
+    mut state: Local<CameraNodeState, true>,
     mut active_cameras: ResMut<ActiveCameras>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&Camera, &GlobalTransform)>,

@@ -83,7 +83,7 @@ pub struct LightsNodeSystemState {
 }
 
 pub fn lights_node_system(
-    mut state: Local<LightsNodeSystemState>,
+    mut state: Local<LightsNodeSystemState, true>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     ambient_light_resource: Res<AmbientLight>,
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel
