@@ -163,7 +163,7 @@ impl AppBuilder {
     ///
     /// # Example
     ///
-    /// In this example a preexisting `World` created by its own is added to the app
+    /// In this example a preexisting `World` is created on its own and added to the app
     /// in course of building:
     ///
     /// ```
