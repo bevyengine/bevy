@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
-        ReadOnlyFetch, WorldQuery,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, ParQueryIter, QueryCombinationIter,
+        QueryIter, ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -203,12 +203,33 @@ where
     }
 
     #[inline]
+    pub fn par_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+        batch_size: usize,
+    ) -> ParQueryIter<'w, 's, Q, F>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFETY: query is read only
+        unsafe { self.par_iter_unchecked(world, batch_size) }
+    }
+
+    #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
         // SAFETY: query has unique world access
         unsafe { self.iter_unchecked(world) }
     }
 
     #[inline]
+    pub fn par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+        batch_size: usize,
+    ) -> ParQueryIter<'w, 's, Q, F> {
+        // SAFETY: query has unique world access
+        unsafe { self.par_iter_unchecked(world, batch_size) }
+    }
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
@@ -247,6 +268,19 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
+    pub unsafe fn par_iter_unchecked<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+        batch_size: usize,
+    ) -> ParQueryIter<'w, 's, Q, F> {
+        self.validate_world_and_update_archetypes(world);
+        self.par_iter_unchecked_manual(
+            world,
+            batch_size,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
     pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
@@ -280,6 +314,15 @@ where
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsound.
     #[inline]
+    pub(crate) unsafe fn par_iter_unchecked_manual<'w, 's>(
+        &'s self,
+        world: &'w World,
+        batch_size: usize,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> ParQueryIter<'w, 's, Q, F> {
+        ParQueryIter::new(world, self, batch_size, last_change_tick, change_tick)
+    }
     pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,
         world: &'w World,

@@ -59,7 +59,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: FnOnce(&mut Scope<'scope, T>) + 'scope,
         T: Send + 'static,
     {
         let executor = &async_executor::LocalExecutor::new();
