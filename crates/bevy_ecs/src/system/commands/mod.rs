@@ -153,7 +153,21 @@ impl<'a> Commands<'a> {
         });
     }
 
-    // Insert a system into a stage.
+    /// Inserts a [`crate::system::System`] into a [`crate::schedule::Stage`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn another_system() {
+    ///    // A normal system like any other
+    /// }
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     commands.insert_system(another_system, "some stage");
+    /// }
+    /// ```
     pub fn insert_system<T, S, Params>(&mut self, system: T, stage_label: S)
     where
         T: IntoSystemDescriptor<Params>,
