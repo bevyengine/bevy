@@ -70,8 +70,10 @@ use thiserror::Error;
 ///
 /// Two systems cannot be executed in parallel if both access a certain component and
 /// at least one of the accesses is mutable, unless the schedule can verify that no entity
-/// could be found in both queries.
+/// could be found in both queries, as otherwise Rusts mutability Rules would be broken.
 ///
+/// Similarly System cannot contain two Queries that would break Rusts mutability Rules.
+/// If you need such Queries, you can use Filters to make the Queries disjoint or use a [`QuerySet`](super::QuerySet).
 /// ## Entity handle access
 ///
 /// Inserting [`Entity`](crate::entity::Entity) at any position in the type parameter tuple
