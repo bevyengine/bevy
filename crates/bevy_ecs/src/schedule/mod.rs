@@ -85,6 +85,11 @@ impl Schedule {
 
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         let label: Box<dyn StageLabel> = Box::new(label);
+        self.add_stage_boxed(label, stage)
+    }
+
+    #[doc(hidden)]
+    pub fn add_stage_boxed<S: Stage>(&mut self, label: Box<dyn StageLabel>, stage: S) -> &mut Self {
         self.stage_order.push(label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
         if prev.is_some() {
@@ -101,11 +106,21 @@ impl Schedule {
     ) -> &mut Self {
         let label: Box<dyn StageLabel> = Box::new(label);
         let target = &target as &dyn StageLabel;
+        self.add_stage_after_boxed(target, label, stage)
+    }
+
+    #[doc(hidden)]
+    pub fn add_stage_after_boxed<S: Stage>(
+        &mut self,
+        target: &dyn StageLabel,
+        label: Box<dyn StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         let target_index = self
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
+            .find(|(_i, stage_label)| target == &***stage_label)
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
@@ -125,11 +140,21 @@ impl Schedule {
     ) -> &mut Self {
         let label: Box<dyn StageLabel> = Box::new(label);
         let target = &target as &dyn StageLabel;
+        self.add_stage_before_boxed(target, label, stage)
+    }
+
+    #[doc(hidden)]
+    pub fn add_stage_before_boxed<S: Stage>(
+        &mut self,
+        target: &dyn StageLabel,
+        label: Box<dyn StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         let target_index = self
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
+            .find(|(_i, stage_label)| target == &***stage_label)
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
