@@ -124,6 +124,22 @@ impl Transform {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
+    /// Returns the inverse of this transform.
+    ///
+    /// The inverse consists of applying the inverse rotation, scale, and
+    /// translation in reverse order.
+    #[inline]
+    pub fn inverse(&self) -> Transform {
+        let rotation = self.rotation.inverse();
+        let scale = rotation * -self.scale;
+        let translation = scale * -self.translation;
+        Transform {
+            rotation,
+            scale,
+            translation,
+        }
+    }
+
     /// Get the unit vector in the local x direction.
     #[inline]
     pub fn local_x(&self) -> Vec3 {
@@ -205,6 +221,24 @@ impl Transform {
         value = self.scale * value;
         value += self.translation;
         value
+    }
+
+    /// Returns the result of applying this [`Transform`] to a [`Vec3`] interpreted as a point.
+    ///
+    /// This applies rotation, scale, and translation. It's the equivalent of using w=1 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_point(&self, point: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point)
+    }
+
+    /// Returns the result of applying this [`Transform`] to a [`Vec3`] interpreted as a vector.
+    ///
+    /// This applies rotation and scale, but not translation. It's the equivalent of using w=0 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_vector(&self, vector: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point) + self.translation
     }
 
     /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
