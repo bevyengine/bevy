@@ -30,6 +30,11 @@ pub mod prelude {
     };
 }
 
+#[doc(hidden)]
+pub mod __macro_reexports {
+    pub use bevy_utils::HashMap;
+}
+
 pub use impls::*;
 pub use list::*;
 pub use map::*;

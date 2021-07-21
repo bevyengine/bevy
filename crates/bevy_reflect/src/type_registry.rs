@@ -103,11 +103,23 @@ impl TypeRegistryArc {
     }
 }
 
+#[derive(Clone)]
+pub enum TypeKind {
+    ReflectPrimitive,
+    TupleStruct(Vec<TypeId>),
+    Struct(HashMap<&'static str, TypeId>),
+    Vec(TypeId),
+    HashMap(TypeId, TypeId),
+    // enable once reflect supports enums
+    // Enum(HashMap<&'static str, TypeKind>)
+}
+
 pub struct TypeRegistration {
     type_id: TypeId,
     short_name: String,
     name: &'static str,
     data: HashMap<TypeId, Box<dyn TypeData>>,
+    kind: TypeKind,
 }
 
 impl TypeRegistration {
@@ -132,7 +144,7 @@ impl TypeRegistration {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
-    pub fn of<T: Reflect>() -> Self {
+    pub fn of<T: Reflect>(kind: TypeKind) -> Self {
         let ty = TypeId::of::<T>();
         let type_name = std::any::type_name::<T>();
         Self {
@@ -140,6 +152,7 @@ impl TypeRegistration {
             data: HashMap::default(),
             name: type_name,
             short_name: Self::get_short_name(type_name),
+            kind,
         }
     }
 
@@ -201,6 +214,7 @@ impl Clone for TypeRegistration {
             name: self.name,
             short_name: self.short_name.clone(),
             type_id: self.type_id,
+            kind: self.kind.clone(),
         }
     }
 }
