@@ -201,6 +201,7 @@ impl Schedule {
 
     pub fn run_once(&mut self, world: &mut World) {
         let mut commands = SchedulerCommandQueue::default();
+        let existing_commands = world.scheduler_commands.len();
         for label in self.stage_order.iter() {
             #[cfg(feature = "trace")]
             let stage_span =
@@ -209,7 +210,9 @@ impl Schedule {
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
             stage.run(world);
-            world.scheduler_commands.transfer(&mut commands);
+            world
+                .scheduler_commands
+                .transfer(&mut commands, existing_commands);
         }
 
         commands.apply(self);

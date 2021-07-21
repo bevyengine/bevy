@@ -21,8 +21,12 @@ impl SchedulerCommandQueue {
         }
     }
 
-    pub fn transfer(&mut self, queue: &mut SchedulerCommandQueue) {
-        queue.items.extend(self.items.drain(..));
+    pub fn transfer(&mut self, queue: &mut SchedulerCommandQueue, offset: usize) {
+        queue.items.extend(self.items.drain(offset..));
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
     }
 
     pub fn is_empty(&self) -> bool {
