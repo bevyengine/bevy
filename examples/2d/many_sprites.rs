@@ -2,15 +2,15 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
+    render::camera::Camera,
     sprite::SpriteSettings,
 };
 
 use rand::Rng;
 
-const CAMERA_SPEED: f32 = 1000.0;
+const CAMERA_SPEED: f32 = 1.0;
 
 pub struct PrintTimer(Timer);
-pub struct Position(Transform);
 
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
@@ -46,12 +46,13 @@ fn setup(
 
     commands
         .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(PrintTimer(Timer::from_seconds(1.0, true)))
-        .insert(Position(Transform::from_translation(Vec3::new(
-            0.0, 0.0, 1000.0,
-        ))));
+        .insert_bundle(OrthographicCameraBundle {
+            transform: Transform::from_xyz(map_size.x * tile_size.x / 4.0, 0.0, 1000.0),
+            ..OrthographicCameraBundle::new_2d()
+        })
+        .insert(PrintTimer(Timer::from_seconds(1.0, true)));
 
+    let mut sprites = Vec::with_capacity((map_size.x * map_size.y) as usize);
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
@@ -59,7 +60,7 @@ fn setup(
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
-            commands.spawn().insert_bundle(SpriteBundle {
+            sprites.push(SpriteBundle {
                 material: sprite_handle.clone(),
                 transform: Transform {
                     translation,
@@ -71,17 +72,17 @@ fn setup(
             });
         }
     }
+    commands.spawn_batch(sprites);
 }
 
-fn move_camera(time: Res<Time>, mut query: Query<(&mut Transform, &mut Position)>) {
-    for (mut transform, mut position) in query.iter_mut() {
-        position
-            .0
-            .rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
-        position.0 =
-            position.0 * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
-        transform.translation = position.0.translation;
-        transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 2.0);
+fn move_camera(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
+    if let Ok(mut transform) = query.single_mut() {
+        *transform =
+            Transform::from_rotation(Quat::from_rotation_z(CAMERA_SPEED * time.delta_seconds()))
+                * Transform::from_translation(transform.translation);
+        transform.rotate(Quat::from_rotation_z(
+            CAMERA_SPEED * time.seconds_since_startup() as f32,
+        ));
     }
 }
 
