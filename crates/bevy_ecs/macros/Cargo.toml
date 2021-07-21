@@ -7,7 +7,7 @@ authors = [
     "Carter Anderson <mcanders1@gmail.com>",
 ]
 edition = "2018"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 [lib]
 proc-macro = true

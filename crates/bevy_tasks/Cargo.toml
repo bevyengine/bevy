@@ -10,7 +10,7 @@ authors = [
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

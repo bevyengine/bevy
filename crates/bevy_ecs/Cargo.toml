@@ -9,7 +9,7 @@ authors = [
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
 
