@@ -12,6 +12,10 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+pub mod filter {
+    pub use crate::query::{Added, Changed, Or, With, WithBundle, Without};
+}
+
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
@@ -22,6 +26,7 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
+        filter,
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
