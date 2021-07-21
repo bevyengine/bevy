@@ -559,7 +559,7 @@ where
 pub enum QueryComponentError {
     #[error("This query does not have read access to the requested component.")]
     MissingReadAccess,
-    #[error("This query does not have read access to the requested component.")]
+    #[error("This query does not have write access to the requested component.")]
     MissingWriteAccess,
     #[error("The given entity does not have the requested component.")]
     MissingComponent,
