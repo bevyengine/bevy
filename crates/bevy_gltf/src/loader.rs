@@ -459,6 +459,12 @@ fn load_node(
         node.insert(Name::new(name.to_string()));
     }
 
+    if let Some(extras) = gltf_node.extras() {
+        node.insert(super::GltfExtras {
+            value: extras.get().to_string(),
+        });
+    }
+
     // create camera node
     if let Some(camera) = gltf_node.camera() {
         node.insert(VisibleEntities {
