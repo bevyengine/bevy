@@ -45,7 +45,7 @@
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
 //!
-//! - All tuples between 1 to 16 elements where each element implements `SystemParam`
+//! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 //! - [`Archetypes`](crate::archetype::Archetypes)
 //! - [`Bundles`](crate::bundle::Bundles)
