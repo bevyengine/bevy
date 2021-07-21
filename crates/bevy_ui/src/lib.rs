@@ -31,6 +31,7 @@ use bevy_math::{Rect, Size};
 use bevy_render::RenderStage;
 use bevy_transform::TransformSystem;
 use update::ui_z_system;
+use widget::DefaultButtonMaterials;
 
 #[derive(Default)]
 pub struct UiPlugin;
@@ -45,6 +46,7 @@ pub enum UiSystem {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
+            .init_resource::<DefaultButtonMaterials>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -89,6 +91,14 @@ impl Plugin for UiPlugin {
                     .system()
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::button_default_materials_system.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::button_materials_system.system(),
             )
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
