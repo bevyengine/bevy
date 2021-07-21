@@ -8,7 +8,7 @@ use std::{
 
 use futures_lite::{future, pin};
 
-use crate::Task;
+use crate::{Priority, PriorityExecutor, Task};
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -88,7 +88,7 @@ pub struct TaskPool {
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
     /// pass into the worker threads, and we must create the worker threads before we can create
     /// the Vec<Task<T>> contained within TaskPoolInner
-    executor: Arc<async_executor::Executor<'static>>,
+    executor: Arc<PriorityExecutor<'static>>,
 
     /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
@@ -111,7 +111,7 @@ impl TaskPool {
     ) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let executor = Arc::new(async_executor::Executor::new());
+        let executor = Arc::new(PriorityExecutor::new());
 
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
 
@@ -171,8 +171,8 @@ impl TaskPool {
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
             // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
-            let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
+            let executor: &PriorityExecutor = &*self.executor;
+            let executor: &'scope PriorityExecutor = unsafe { mem::transmute(executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
@@ -186,6 +186,7 @@ impl TaskPool {
             if scope.spawned.is_empty() {
                 Vec::default()
             } else if scope.spawned.len() == 1 {
+                self.executor.tick();
                 vec![future::block_on(&mut scope.spawned[0])]
             } else {
                 let fut = async move {
@@ -214,12 +215,13 @@ impl TaskPool {
                 // this thread pool, and we only have one thread in the pool, then
                 // simply calling future::block_on(spawned) would deadlock.)
                 let mut spawned = local_executor.spawn(fut);
+
                 loop {
                     if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
                         break result;
                     };
 
-                    self.executor.try_tick();
+                    self.executor.tick();
                     local_executor.try_tick();
                 }
             }
@@ -233,7 +235,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        Task::new(self.executor.spawn(Priority::IO, future))
     }
 
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
@@ -252,14 +254,14 @@ impl Default for TaskPool {
 
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
+    executor: &'scope PriorityExecutor<'scope>,
     local_executor: &'scope async_executor::LocalExecutor<'scope>,
     spawned: Vec<async_executor::Task<T>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.executor.spawn(f);
+        let task = self.executor.spawn(Priority::FinishWithinFrame, f);
         self.spawned.push(task);
     }
 
@@ -272,11 +274,12 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name)]
 mod tests {
-    use super::*;
     use std::sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
         Barrier,
     };
+
+    use super::*;
 
     #[test]
     fn test_spawn() {

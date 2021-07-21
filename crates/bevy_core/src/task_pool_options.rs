@@ -1,5 +1,5 @@
 use bevy_ecs::world::World;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
@@ -13,22 +13,6 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
-}
-
-impl TaskPoolThreadAssignmentPolicy {
-    /// Determine the number of threads to use for this task pool
-    fn get_number_of_threads(&self, remaining_threads: usize, total_threads: usize) -> usize {
-        assert!(self.percent >= 0.0);
-        let mut desired = (total_threads as f32 * self.percent).round() as usize;
-
-        // Limit ourselves to the number of cores available
-        desired = desired.min(remaining_threads);
-
-        // Clamp by min_threads, max_threads. (This may result in us using more threads than are
-        // available, this is intended. An example case where this might happen is a device with
-        // <= 2 threads.
-        desired.clamp(self.min_threads, self.max_threads)
-    }
 }
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
@@ -98,53 +82,10 @@ impl DefaultTaskPoolOptions {
             bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
-        let mut remaining_threads = total_threads;
-
-        if !world.contains_resource::<IoTaskPool>() {
-            // Determine the number of IO threads we will use
-            let io_threads = self
-                .io
-                .get_number_of_threads(remaining_threads, total_threads);
-
-            trace!("IO Threads: {}", io_threads);
-            remaining_threads = remaining_threads.saturating_sub(io_threads);
-
-            world.insert_resource(IoTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string())
-                    .build(),
-            ));
-        }
-
-        if !world.contains_resource::<AsyncComputeTaskPool>() {
-            // Determine the number of async compute threads we will use
-            let async_compute_threads = self
-                .async_compute
-                .get_number_of_threads(remaining_threads, total_threads);
-
-            trace!("Async Compute Threads: {}", async_compute_threads);
-            remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
-
-            world.insert_resource(AsyncComputeTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string())
-                    .build(),
-            ));
-        }
-
         if !world.contains_resource::<ComputeTaskPool>() {
-            // Determine the number of compute threads we will use
-            // This is intentionally last so that an end user can specify 1.0 as the percent
-            let compute_threads = self
-                .compute
-                .get_number_of_threads(remaining_threads, total_threads);
-
-            trace!("Compute Threads: {}", compute_threads);
             world.insert_resource(ComputeTaskPool(
                 TaskPoolBuilder::default()
-                    .num_threads(compute_threads)
+                    .num_threads(total_threads)
                     .thread_name("Compute Task Pool".to_string())
                     .build(),
             ));

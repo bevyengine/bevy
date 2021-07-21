@@ -31,7 +31,7 @@ use bevy_ecs::{
     schedule::{StageLabel, SystemStage},
     system::IntoSystem,
 };
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -81,8 +81,8 @@ impl Plugin for AssetPlugin {
         if app.world().get_resource::<AssetServer>().is_none() {
             let task_pool = app
                 .world()
-                .get_resource::<IoTaskPool>()
-                .expect("`IoTaskPool` resource not found.")
+                .get_resource::<ComputeTaskPool>()
+                .expect("`ComputeTaskPool` resource not found.")
                 .0
                 .clone();
 

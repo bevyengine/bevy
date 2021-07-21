@@ -5,7 +5,11 @@ mod task;
 pub use task::Task;
 
 #[cfg(not(target_arch = "wasm32"))]
+mod priority_executor;
+#[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
+#[cfg(not(target_arch = "wasm32"))]
+pub use priority_executor::{Priority, PriorityExecutor};
 #[cfg(not(target_arch = "wasm32"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
@@ -15,7 +19,7 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+pub use usages::ComputeTaskPool;
 
 mod countdown_event;
 pub use countdown_event::CountdownEvent;
