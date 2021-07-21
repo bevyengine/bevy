@@ -282,7 +282,35 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     }
 }
 
-/// Query filter that includes only components that belong to the specified [`Bundle`].
+/// Query filter that only includes Entities with components that belong to the specified [`Bundle`].
+///
+/// For this filter it makes no difference whether the Components were added through a [`Bundle`] or indiviualy.
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::query::WithBundle;
+/// # use bevy_ecs::world::World;
+/// # let mut world = World::default();
+///
+/// #[derive(Default)]
+/// struct FirstComponent;
+/// #[derive(Default)]
+/// struct SecondComponent;
+/// #[derive(Bundle, Default)]
+/// struct MyBundle {
+///     first_component: FirstComponent,
+///     second_Component: SecondComponent,
+/// }
+///
+/// world.spawn()
+///     .insert_bundle(MyBundle::default());
+/// world.spawn()
+///     .insert(FirstComponent::default())
+///     .insert(SecondComponent::default());
+///
+/// let matching_count = world.query_filtered::<(), WithBundle<MyBundle>>().iter(&world).count();
+///
+/// assert_eq!(matching_count, 2)
+/// ```
 pub struct WithBundle<T: Bundle>(PhantomData<T>);
 
 impl<T: Bundle> WorldQuery for WithBundle<T> {
