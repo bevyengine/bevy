@@ -64,6 +64,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
+        prelude::ResMut,
         schedule::{
             InsertSystem, IntoSystemDescriptor, Schedule, SchedulerCommandQueue, SystemStage,
         },
@@ -87,13 +88,23 @@ mod tests {
         assert_eq!(stage.parallel_systems().len(), 1);
     }
 
+    #[derive(Debug, Default, PartialEq)]
+    struct TestResource(Option<()>);
+
     #[test]
     fn insert_system_from_system() {
         fn sample_system(mut commands: Commands) {
-            commands.insert_system(|| {}, "test");
+            commands.insert_system(
+                |mut res: ResMut<TestResource>| {
+                    res.0 = Some(());
+                },
+                "test",
+            );
         }
 
         let mut world = World::default();
+        world.insert_resource(TestResource(None));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("test", SystemStage::parallel());
         schedule.add_system_to_stage("test", sample_system);
@@ -101,5 +112,11 @@ mod tests {
 
         let stage = schedule.get_stage::<SystemStage>(&"test").unwrap();
         assert_eq!(stage.parallel_systems().len(), 2);
+
+        schedule.run_once(&mut world);
+        assert_eq!(
+            world.get_resource::<TestResource>(),
+            Some(&TestResource(Some(())))
+        );
     }
 }
