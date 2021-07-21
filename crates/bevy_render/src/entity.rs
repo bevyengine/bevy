@@ -1,7 +1,7 @@
 use crate::{
     camera::{
         Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode,
-        VisibleEntities,
+        VisibleEntities, XrCameraGroup,
     },
     pipeline::RenderPipelines,
     prelude::Visible,
@@ -128,6 +128,34 @@ impl OrthographicCameraBundle {
                 ..Default::default()
             },
             orthographic_projection: Default::default(),
+            visible_entities: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct XrCameraBundle {
+    pub camera_group: XrCameraGroup,
+    pub visible_entities: VisibleEntities,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+impl XrCameraBundle {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for XrCameraBundle {
+    fn default() -> Self {
+        XrCameraBundle {
+            camera_group: XrCameraGroup {
+                name: Some(base::camera::CAMERA_XR.to_string()),
+                cameras: vec![],
+            },
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

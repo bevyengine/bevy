@@ -64,7 +64,7 @@ pub struct BaseRenderGraphConfig {
 }
 
 pub mod node {
-    pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
+    pub const PRIMARY_WINDOW_SWAP_CHAIN: &str = "swapchain";
     pub const CAMERA_3D: &str = "camera_3d";
     pub const CAMERA_2D: &str = "camera_2d";
     pub const TEXTURE_COPY: &str = "texture_copy";
@@ -77,6 +77,7 @@ pub mod node {
 pub mod camera {
     pub const CAMERA_3D: &str = "Camera3d";
     pub const CAMERA_2D: &str = "Camera2d";
+    pub const CAMERA_XR: &str = "CameraXr";
 }
 
 impl Default for BaseRenderGraphConfig {
@@ -186,14 +187,14 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     }
 
     graph.add_node(
-        node::PRIMARY_SWAP_CHAIN,
+        node::PRIMARY_WINDOW_SWAP_CHAIN,
         WindowSwapChainNode::new(WindowId::primary()),
     );
 
     if config.connect_main_pass_to_swapchain {
         graph
             .add_slot_edge(
-                node::PRIMARY_SWAP_CHAIN,
+                node::PRIMARY_WINDOW_SWAP_CHAIN,
                 WindowSwapChainNode::OUT_TEXTURE,
                 node::MAIN_PASS,
                 if msaa.samples > 1 {
