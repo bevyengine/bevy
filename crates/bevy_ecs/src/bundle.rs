@@ -249,3 +249,30 @@ unsafe fn initialize_bundle(
         storage_types,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Derive compilation tests
+    use bevy_ecs_macros::Bundle;
+
+    use crate as bevy_ecs;
+
+    #[derive(Bundle)]
+    struct Unit;
+
+    #[derive(Bundle)]
+    struct EmptyTuple();
+
+    #[derive(Bundle)]
+    struct Tuple(#[bundle] EmptyTuple, u32);
+
+    #[derive(Bundle)]
+    struct EmptyRecord {}
+
+    #[derive(Bundle)]
+    struct Record {
+        #[bundle]
+        field0: EmptyRecord,
+        field1: u32,
+    }
+}
