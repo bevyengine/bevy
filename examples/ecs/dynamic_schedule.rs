@@ -19,7 +19,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn dynamic(mut commands: Commands, mut system_counter: Local<u64>) {
-    let count = system_counter.clone();
+    let count = *system_counter;
     *system_counter += 1;
     let closure = move |mut commands: Commands,
                         asset_server: Res<AssetServer>,
