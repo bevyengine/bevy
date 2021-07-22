@@ -30,7 +30,11 @@ fn dynamic(mut commands: Commands, mut system_counter: Local<u64>) {
         let texture_handle = asset_server.load("branding/icon.png");
         commands.spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.into()),
-            transform: Transform::from_xyz(rng.gen_range(-400f32..400f32), rng.gen_range(-400f32..400f32), 0.0),
+            transform: Transform::from_xyz(
+                rng.gen_range(-400f32..400f32),
+                rng.gen_range(-400f32..400f32),
+                0.0,
+            ),
             ..Default::default()
         });
     };
