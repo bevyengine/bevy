@@ -317,6 +317,10 @@ path = "examples/ecs/timers.rs"
 name = "query_bundle"
 path = "examples/ecs/query_bundle.rs"
 
+[[example]]
+name = "dynamic_schedule"
+path = "examples/ecs/dynamic_schedule.rs"
+
 # Games
 [[example]]
 name = "alien_cake_addict"
