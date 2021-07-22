@@ -367,6 +367,7 @@ impl<'w> EntityMut<'w> {
         storages: &mut Storages,
         new_archetype_id: ArchetypeId,
     ) {
+        #![allow(unused_unsafe)]
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
@@ -383,7 +384,7 @@ impl<'w> EntityMut<'w> {
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFE: table_row exists. All "missing" components have been extracted into the bundle above and the caller takes ownership
+            // SAFE: table_row exists
             let move_result = match DROP {
                 true => old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table),
                 false => old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table),
