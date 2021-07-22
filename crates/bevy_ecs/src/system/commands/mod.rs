@@ -167,6 +167,16 @@ impl<'a> Commands<'a> {
     /// fn example_system(mut commands: Commands) {
     ///     commands.insert_system(another_system, "some stage");
     /// }
+    ///
+    /// let mut world = World::default();
+    /// let mut schedule = Schedule::default();
+    /// schedule.add_stage("some stage", SystemStage::parallel());
+    /// schedule.add_system_to_stage("some stage", example_system);
+    /// // When we run the schedule
+    /// schedule.run_once(&mut world);
+    /// // We should now have 2 systems in "test", the initial system and the inserted system
+    /// let stage = schedule.get_stage::<SystemStage>(&"some stage").unwrap();
+    /// assert_eq!(stage.parallel_systems().len(), 2);
     /// ```
     pub fn insert_system<T, S, Params>(&mut self, system: T, stage_label: S)
     where
