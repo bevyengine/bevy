@@ -15,22 +15,14 @@ impl SchedulerCommandQueue {
         self.items.push(Box::new(command));
     }
 
-    pub fn apply(&mut self, schedule: &mut Schedule) {
-        for command in self.items.drain(..) {
+    pub fn apply(&mut self, schedule: &mut Schedule, offset: usize) {
+        for command in self.items.drain(offset..) {
             command.write(schedule);
         }
     }
 
-    pub fn transfer(&mut self, queue: &mut SchedulerCommandQueue, offset: usize) {
-        queue.items.extend(self.items.drain(offset..));
-    }
-
     pub fn len(&self) -> usize {
         self.items.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
     }
 }
 
@@ -86,7 +78,7 @@ mod tests {
             system: sample_system.into_descriptor(),
             stage_label: "test",
         });
-        queue.apply(&mut schedule);
+        queue.apply(&mut schedule, 0);
 
         let stage = schedule.get_stage::<SystemStage>(&"test").unwrap();
         assert_eq!(stage.parallel_systems().len(), 1);
@@ -122,5 +114,24 @@ mod tests {
             world.get_resource::<TestResource>(),
             Some(&TestResource(Some(())))
         );
+    }
+
+    #[test]
+    fn insert_with_nested_schedule() {
+        fn sample_system(mut commands: Commands) {
+            commands.insert_system(|| {}, "test");
+        }
+
+        let mut world = World::default();
+
+        let nested_schedule = Schedule::default();
+        let mut schedule = Schedule::default();
+        schedule.add_stage("test", SystemStage::parallel());
+        schedule.add_system_to_stage("test", sample_system);
+        schedule.add_stage("nested", nested_schedule);
+        schedule.run_once(&mut world);
+
+        let stage = schedule.get_stage::<SystemStage>(&"test").unwrap();
+        assert_eq!(stage.parallel_systems().len(), 2);
     }
 }
