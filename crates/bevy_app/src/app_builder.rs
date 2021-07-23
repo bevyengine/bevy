@@ -99,7 +99,6 @@ impl AppBuilder {
     /// Starts the application by calling the app's [runner function](Self::set_runner).
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on top.
-    /// ```
     pub fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
         app.run();
