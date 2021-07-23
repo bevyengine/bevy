@@ -37,7 +37,7 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     shader_defs::derive_shader_defs(input)
 }
 
-/// Generates a dynamic plugin entry point function for the given `Plugin` type.  
+/// Generates a dynamic plugin entry point function for the given `Plugin` type.
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)

@@ -75,6 +75,23 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
 static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 
+/// Derives the Bundle trait for a struct.
+/// The #[bundle] attribute may be used on a field of the struct to flatten the field's fields into this bundle.
+///
+/// ```ignore
+/// #[derive(Bundle)]
+/// struct A {
+///     x: i32,
+///     y: u64,
+/// }
+///
+/// #[derive(Bundle)]
+/// struct B {
+///     #[bundle]
+///     a: A,
+///     z: String,
+/// }
+/// ```
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let DeriveInput {
