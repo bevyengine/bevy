@@ -101,7 +101,7 @@ Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/
 
 ## License
 
-Bevy is free and open source! It is dual-licensed under either:
+Bevy is free and open source! All code in this repository is dual-licensed under either:
 
 * MIT License ([LICENSE-MIT](docs/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
 * Apache License, Version 2.0 ([LICENSE-APACHE](docs/LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
