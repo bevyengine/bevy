@@ -825,14 +825,14 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendState<T> {
-    type Item = Option<NonSend<'a, T>>;
+impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for OptionNonSendState<T> {
+    type Item = Option<NonSend<'w, T>>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
@@ -942,14 +942,14 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
     fn default_config() {}
 }
 
-impl<'a, T: 'static> SystemParamFetch<'a> for OptionNonSendMutState<T> {
-    type Item = Option<NonSendMut<'a, T>>;
+impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for OptionNonSendMutState<T> {
+    type Item = Option<NonSendMut<'w, T>>;
 
     #[inline]
     unsafe fn get_param(
-        state: &'a mut Self,
+        state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'a World,
+        world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();

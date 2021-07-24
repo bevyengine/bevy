@@ -291,7 +291,7 @@ pub struct GetOrSpawn {
 }
 
 impl Command for GetOrSpawn {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.get_or_spawn(self.entity);
     }
 }

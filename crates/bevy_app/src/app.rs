@@ -3,7 +3,7 @@ use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     prelude::{FromWorld, IntoExclusiveSystem, IntoSystem},
     schedule::{
-        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
+        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
     },
     world::World,
 };
@@ -12,8 +12,6 @@ use std::{fmt::Debug, hash::Hash};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use std::fmt::Debug;
-use std::hash::Hash;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -278,8 +276,7 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        self.app
-            .schedule
+        self.schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_system_to_stage(stage_label, system)
             });
@@ -291,8 +288,7 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        self.app
-            .schedule
+        self.schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_system_set_to_stage(stage_label, system_set)
             });
