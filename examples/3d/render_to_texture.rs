@@ -21,6 +21,7 @@ use bevy::{
 
 pub struct FirstPass;
 
+// FIXME: Naughty pipeline handle should be typed
 pub const RENDER_TEXTURE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Texture::TYPE_UUID, 13378939762009864029);
 
@@ -186,7 +187,7 @@ fn setup(
 
     commands.spawn_bundle(first_pass_camera);
 
-    let texture_handle = RENDER_TEXTURE_HANDLE.typed();
+    let texture_handle = RENDER_TEXTURE_HANDLE.typed().unwrap();
 
     let cube_size = 4.0;
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));

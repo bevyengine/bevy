@@ -21,11 +21,16 @@ enum AppState {
 
 #[derive(Default)]
 struct RpgSpriteHandles {
-    handles: Vec<HandleUntyped>,
+    handles: Vec<Handle<Texture>>,
 }
 
 fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
-    rpg_sprite_handles.handles = asset_server.load_folder("textures/rpg").unwrap();
+    if let Ok(handles) = asset_server.load_folder("textures/rpg") {
+        rpg_sprite_handles.handles = handles
+            .into_iter()
+            .flat_map(|handle| handle.typed::<Texture>())
+            .collect();
+    }
 }
 
 fn check_textures(
@@ -51,7 +56,7 @@ fn setup(
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in rpg_sprite_handles.handles.iter() {
         let texture = textures.get(handle).unwrap();
-        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Texture>(), texture);
+        texture_atlas_builder.add_texture(handle.clone_weak(), texture);
     }
 
     let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();

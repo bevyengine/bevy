@@ -275,18 +275,21 @@ impl HandleUntyped {
         matches!(self.handle_type, HandleType::Strong(_))
     }
 
-    pub fn typed<T: Asset>(mut self) -> Result<Handle<T>, HandleUntyped> {
+    pub fn typed<T: Asset>(mut self) -> Result<Handle<T>, Self> {
         if let HandleId::Id(type_uuid, _) = self.id {
             if T::TYPE_UUID != type_uuid {
-                return Err(self)
+                return Err(self);
             }
         }
+
         let handle_type = match &self.handle_type {
             HandleType::Strong(sender) => HandleType::Strong(sender.clone()),
             HandleType::Weak => HandleType::Weak,
         };
+
         // ensure we don't send the RefChange event when "self" is dropped
         self.handle_type = HandleType::Weak;
+
         Ok(Handle {
             handle_type,
             id: self.id,
