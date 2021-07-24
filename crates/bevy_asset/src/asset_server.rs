@@ -229,8 +229,11 @@ impl AssetServer {
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
     /// `"assets"`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
-        self.load_untyped(path).typed()
+    pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
+        match self.load_untyped(path).typed() {
+            Ok(handle) => Ok(handle),
+            Err(_) => Err(AssetServerError::IncorrectHandleType)
+        }
     }
 
     async fn load_async(

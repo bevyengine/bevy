@@ -28,7 +28,7 @@ impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
         context.set_pipeline(
             draw,
-            &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
+            &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed().unwrap(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
                 vertex_buffer_layout: self.font_quad_vertex_layout.clone(),
@@ -40,7 +40,7 @@ impl<'a> Drawable for DrawableText<'a> {
 
         if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_id)) = render_resource_context
             .get_asset_resource(
-                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>(),
+                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>().unwrap(),
                 mesh::VERTEX_ATTRIBUTE_BUFFER_ID,
             )
         {
@@ -52,7 +52,7 @@ impl<'a> Drawable for DrawableText<'a> {
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
             .get_asset_resource(
-                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>(),
+                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>().unwrap(),
                 mesh::INDEX_BUFFER_ASSET_INDEX,
             )
         {

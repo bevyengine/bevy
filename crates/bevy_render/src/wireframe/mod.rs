@@ -18,6 +18,7 @@ use bevy_utils::HashSet;
 
 mod pipeline;
 
+// FIXME: Naughty pipeline handle should be typed
 pub const WIREFRAME_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
 
@@ -84,7 +85,7 @@ pub fn draw_wireframes_system(
         };
 
         let mut render_pipeline = RenderPipeline::specialized(
-            WIREFRAME_PIPELINE_HANDLE.typed(),
+            WIREFRAME_PIPELINE_HANDLE.typed().unwrap(),
             PipelineSpecialization {
                 sample_count: msaa.samples,
                 strip_index_format: None,

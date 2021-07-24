@@ -17,6 +17,7 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
+// FIXME: Naughty pipeline handle should be typed
 pub const UI_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
 

@@ -28,9 +28,9 @@ pub struct SpriteBundle {
 impl Default for SpriteBundle {
     fn default() -> Self {
         Self {
-            mesh: QUAD_HANDLE.typed(),
+            mesh: QUAD_HANDLE.typed().unwrap(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                SPRITE_PIPELINE_HANDLE.typed(),
+                SPRITE_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             visible: Visible {
                 is_transparent: true,
@@ -68,14 +68,14 @@ impl Default for SpriteSheetBundle {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                SPRITE_SHEET_PIPELINE_HANDLE.typed(),
+                SPRITE_SHEET_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
             main_pass: MainPass,
-            mesh: QUAD_HANDLE.typed(),
+            mesh: QUAD_HANDLE.typed().unwrap(),
             draw: Default::default(),
             sprite: Default::default(),
             texture_atlas: Default::default(),

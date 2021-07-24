@@ -33,9 +33,9 @@ pub struct NodeBundle {
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
-            mesh: QUAD_HANDLE.typed(),
+            mesh: QUAD_HANDLE.typed().unwrap(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
+                UI_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             visible: Visible {
                 is_transparent: true,
@@ -69,9 +69,9 @@ pub struct ImageBundle {
 impl Default for ImageBundle {
     fn default() -> Self {
         ImageBundle {
-            mesh: QUAD_HANDLE.typed(),
+            mesh: QUAD_HANDLE.typed().unwrap(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
+                UI_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             node: Default::default(),
             image: Default::default(),
@@ -143,9 +143,9 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         ButtonBundle {
             button: Button,
-            mesh: QUAD_HANDLE.typed(),
+            mesh: QUAD_HANDLE.typed().unwrap(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
+                UI_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),

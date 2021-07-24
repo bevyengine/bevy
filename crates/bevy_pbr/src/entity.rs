@@ -27,7 +27,7 @@ impl Default for PbrBundle {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                PBR_PIPELINE_HANDLE.typed(),
+                PBR_PIPELINE_HANDLE.typed().unwrap(),
             )]),
             mesh: Default::default(),
             visible: Default::default(),

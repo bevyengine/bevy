@@ -275,10 +275,10 @@ impl HandleUntyped {
         matches!(self.handle_type, HandleType::Strong(_))
     }
 
-    pub fn typed<T: Asset>(mut self) -> Handle<T> {
+    pub fn typed<T: Asset>(mut self) -> Result<Handle<T>, HandleUntyped> {
         if let HandleId::Id(type_uuid, _) = self.id {
             if T::TYPE_UUID != type_uuid {
-                panic!("Attempted to convert handle to invalid type.");
+                return Err(self)
             }
         }
         let handle_type = match &self.handle_type {
@@ -287,11 +287,11 @@ impl HandleUntyped {
         };
         // ensure we don't send the RefChange event when "self" is dropped
         self.handle_type = HandleType::Weak;
-        Handle {
+        Ok(Handle {
             handle_type,
             id: self.id,
             marker: PhantomData::default(),
-        }
+        })
     }
 }
 
