@@ -41,7 +41,8 @@ impl CommandQueue {
     }
 }
 
-/// A list of commands that will be run to modify a [`World`].
+/// A list of commands that modify a [`World`], running at the end of the stage where they
+/// have been invoked.
 pub struct Commands<'a> {
     queue: &'a mut CommandQueue,
     entities: &'a Entities,
@@ -156,8 +157,34 @@ impl<'a> Commands<'a> {
         }
     }
 
-    /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but
-    /// slightly more performant.
+    /// Spawns entities to the [`World`] according to the given iterator (or a type that can
+    /// be converted to it).
+    ///
+    /// The end result of this command is equivalent to iterating `bundles_iter` and calling
+    /// [`spawn`](Self::spawn) on each bundle, but it is slightly more performant.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Name(String);
+    /// # struct Score(u32);
+    /// #
+    /// # fn system(mut commands: Commands) {
+    ///     commands.spawn_batch(vec![
+    ///         (
+    ///             Name("Alice".to_string()),
+    ///             Score(0),
+    ///         ),
+    ///         (
+    ///             Name("Bob".to_string()),
+    ///             Score(0),
+    ///         ),
+    ///     ]);
+    /// # }
+    /// # system.system();
+    /// ```
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -166,12 +193,51 @@ impl<'a> Commands<'a> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// See [`World::insert_resource`].
+    /// Inserts a resource to the [`World`], overwriting a possible previous value.
+    ///
+    /// See [`World::insert_resource`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Scoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # fn system(mut commands: Commands) {
+    ///       commands.insert_resource(Scoreboard {
+    ///           current_score: 0,
+    ///           high_score: 0,
+    ///       });
+    /// # }
+    /// # system.system();
+    /// ```
     pub fn insert_resource<T: Component>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
     }
 
-    /// Queue a resource removal.
+    /// Removes a resource from the [`World`].
+    ///
+    /// See [`World::remove_resource`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Scoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # fn system(mut commands: Commands) {
+    ///       commands.remove_resource::<Scoreboard>();
+    /// # }
+    /// # system.system();
+    /// ```
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
@@ -179,6 +245,37 @@ impl<'a> Commands<'a> {
     }
 
     /// Adds a command directly to the command list.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::system::InsertBundle;
+    /// #
+    /// # struct PlayerEntity { entity: Entity }
+    /// # struct Health(u32);
+    /// # struct Strength(u32);
+    /// # struct Defense(u32);
+    /// #
+    /// # #[derive(Bundle)]
+    /// # struct CombatBundle {
+    /// #     health: Health,
+    /// #     strength: Strength,
+    /// #     defense: Defense,
+    /// # }
+    ///
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands.add(InsertBundle {
+    ///         entity: player.entity,
+    ///         bundle: CombatBundle {
+    ///             health: Health(100),
+    ///             strength: Strength(40),
+    ///             defense: Defense(20),
+    ///         },
+    ///     });
+    /// }
+    /// # add_combat_stats_system.system();
+    /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
