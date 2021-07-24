@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
