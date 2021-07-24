@@ -96,14 +96,19 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
+`3d_scene_pipelined` | [`3d/3d_scene_pipelined.rs`](./3d/3d_scene_pipelined.rs) | Simple 3D scene with basic shapes and lighting
+`cornell_box_pipelined` | [`3d/cornell_box_pipelined.rs`](./3d/cornell_box_pipelined.rs) | Re-production of the cornell box
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`pbr_pipelined` | [`3d/pbr_pipelined.rs`](./3d/pbr_pipelined.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
+`shadow_biases_pipelined` | [`3d/shadow_biases_pipelined.rs`](./3d/shadow_biases_pipelined.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
+`texture_pipelined` | [`3d/texture_pipelined.rs`](./3d/texture_pipelined.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
@@ -230,6 +235,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy workload to benchmark your system with Bevy
+`bevymark_pipelined` | [`tools/bevymark_pipelined.rs`](./tools/bevymark_pipelined.rs) | A heavy workload to benchmark your system with Bevy
 
 ## UI (User Interface)
 
