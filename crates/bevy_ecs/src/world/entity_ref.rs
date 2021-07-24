@@ -356,7 +356,7 @@ impl<'w> EntityMut<'w> {
         Some(result)
     }
 
-    /// if DROP is true we will drop removed components, if its false we will forget them
+    /// when DROP is true removed components will be dropped otherwise they will be forgotten
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::match_bool)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
