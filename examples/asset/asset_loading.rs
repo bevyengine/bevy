@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 /// This example illustrates various ways to load assets
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())

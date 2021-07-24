@@ -6,7 +6,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })

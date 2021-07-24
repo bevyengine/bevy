@@ -13,7 +13,7 @@ use bevy::{
 /// This example illustrates how to create a texture for use with a texture2DArray shader uniform
 /// variable.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyArrayTexture>()
         .add_startup_system(setup.system())

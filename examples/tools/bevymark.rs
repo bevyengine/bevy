@@ -31,7 +31,7 @@ impl FromWorld for BirdMaterial {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,

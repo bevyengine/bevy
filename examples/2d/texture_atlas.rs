@@ -3,7 +3,7 @@ use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing
 /// individual sprites
 fn main() {
-    App::build()
+    App::new()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Setup)

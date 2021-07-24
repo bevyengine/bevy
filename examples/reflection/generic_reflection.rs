@@ -3,7 +3,7 @@ use std::any::TypeId;
 
 /// You must manually register each instance of a generic type
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .register_type::<MyType<u32>>()
         .add_startup_system(setup.system())

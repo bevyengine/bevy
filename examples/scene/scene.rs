@@ -2,7 +2,7 @@ use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()

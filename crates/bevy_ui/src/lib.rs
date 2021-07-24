@@ -43,7 +43,7 @@ pub enum UiSystem {
 }
 
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<FlexSurface>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
@@ -92,6 +92,6 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
-        crate::render::add_ui_graph(app.world_mut());
+        crate::render::add_ui_graph(&mut app.world);
     }
 }

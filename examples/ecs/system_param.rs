@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// This example creates a SystemParam struct that counts the number of players
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(PlayerCount(0))
         .add_startup_system(spawn.system())
         .add_system(count_players.system())

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 /// This example shows how to configure Physically Based Rendering (PBR) parameters.
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())

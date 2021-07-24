@@ -15,7 +15,7 @@ pub struct Position(Transform);
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
-    App::build()
+    App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(SpriteSettings {

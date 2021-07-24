@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::WindowMode};
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             vsync: true,
             resizable: false,

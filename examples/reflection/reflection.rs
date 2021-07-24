@@ -11,7 +11,7 @@ use serde::de::DeserializeSeed;
 /// interact with Rust types, such as accessing fields by their string name. Reflection is a core
 /// part of Bevy and enables a number of interesting scenarios (like scenes).
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .register_type::<Foo>()
         .register_type::<Bar>()

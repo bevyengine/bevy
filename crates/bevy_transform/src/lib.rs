@@ -24,7 +24,7 @@ pub enum TransformSystem {
 }
 
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<PreviousParent>()
