@@ -356,7 +356,14 @@ impl<'w> EntityMut<'w> {
         Some(result)
     }
 
+    /// Safety: `new_archetype_id` must have the same or a subset of the components
+    /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
+    /// this fn as if the code here was written inline
+    ///
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
+    ///
+    // We use a const generic here so that we are less reliant on
+    // inlining for rustc to optimize out the `match DROP`
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::match_bool)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
@@ -369,7 +376,6 @@ impl<'w> EntityMut<'w> {
         storages: &mut Storages,
         new_archetype_id: ArchetypeId,
     ) {
-        #![allow(unused_unsafe)]
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
@@ -380,20 +386,20 @@ impl<'w> EntityMut<'w> {
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
-            unsafe { new_archetype.allocate(entity, old_table_row) }
+            new_archetype.allocate(entity, old_table_row)
         } else {
             let (old_table, new_table) = storages
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFE: table_row exists
+            // SAFE: old_table_row exists
             let move_result = match DROP {
                 true => old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table),
                 false => old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table),
             };
 
-            // SAFE: new_table_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
+            // SAFE: move_result.new_row is a valid position in new_archetype's table
+            let new_location = new_archetype.allocate(entity, move_result.new_row);
 
             // if an entity was moved into this entity's table spot, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
