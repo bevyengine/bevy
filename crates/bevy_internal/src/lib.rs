@@ -99,6 +99,12 @@ pub mod gltf {
     pub use bevy_gltf::*;
 }
 
+#[cfg(feature = "bevy_gltf2")]
+pub mod gltf2 {
+    //! Support for GLTF file loading.
+    pub use bevy_gltf2::*;
+}
+
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.

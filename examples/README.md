@@ -99,6 +99,7 @@ Example | File | Description
 `3d_scene_pipelined` | [`3d/3d_scene_pipelined.rs`](./3d/3d_scene_pipelined.rs) | Simple 3D scene with basic shapes and lighting
 `cornell_box_pipelined` | [`3d/cornell_box_pipelined.rs`](./3d/cornell_box_pipelined.rs) | Re-production of the cornell box
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
+`load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
