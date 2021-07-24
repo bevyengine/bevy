@@ -9,8 +9,8 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Member, Result, Token,
+    Data, DataStruct, DeriveInput, Error, Field, Fields, GenericParam, Ident, Index, Lifetime,
+    LitInt, Member, Result, Token,
 };
 
 struct AllTuples {
@@ -94,17 +94,22 @@ static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 /// ```
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
-    let DeriveInput {
-        ident,
-        generics,
-        data,
-        ..
-    } = parse_macro_input!(input as DeriveInput);
+    derive_bundle_impl(parse_macro_input!(input as DeriveInput))
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+fn derive_bundle_impl(input: DeriveInput) -> Result<TokenStream2> {
     let ecs_path = bevy_ecs_path();
 
-    let (num_fields, fields) = match data {
-        Data::Struct(DataStruct { fields, .. }) => (fields.len(), fields),
-        _ => panic!("Expected a struct."),
+    let (num_fields, fields) = match input.data {
+        Data::Struct(DataStruct { fields, .. }) if !fields.is_empty() => (fields.len(), fields),
+        _ => {
+            return Err(Error::new_spanned(
+                input,
+                "`Bundle` can only be derived on a struct with at least one field",
+            ));
+        }
     };
 
     let fields = fields.into_iter().enumerate().map(|(idx, field)| {
@@ -153,9 +158,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
     }
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let ident = input.ident;
 
-    TokenStream::from(quote! {
+    Ok(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #ident#ty_generics #where_clause {
             fn component_ids(

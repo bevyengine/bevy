@@ -258,21 +258,15 @@ mod tests {
     use crate as bevy_ecs;
 
     #[derive(Bundle)]
-    struct Unit;
+    struct Simple(u32);
 
     #[derive(Bundle)]
-    struct EmptyTuple();
-
-    #[derive(Bundle)]
-    struct Tuple(#[bundle] EmptyTuple, u32);
-
-    #[derive(Bundle)]
-    struct EmptyRecord {}
+    struct Tuple(#[bundle] Simple, u32);
 
     #[derive(Bundle)]
     struct Record {
         #[bundle]
-        field0: EmptyRecord,
+        field0: Simple,
         field1: u32,
     }
 }
