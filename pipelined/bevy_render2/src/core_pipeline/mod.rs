@@ -61,18 +61,15 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.sub_app_mut(0);
         render_app
-            .add_system_to_stage(
-                RenderStage::Extract,
-                extract_core_pipeline_camera_phases.system(),
-            )
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system.system())
+            .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system)
             .add_system_to_stage(
                 RenderStage::PhaseSort,
-                sort_phase_system::<Transparent2dPhase>.system(),
+                sort_phase_system::<Transparent2dPhase>,
             )
             .add_system_to_stage(
                 RenderStage::PhaseSort,
-                sort_phase_system::<Transparent3dPhase>.system(),
+                sort_phase_system::<Transparent3dPhase>,
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);

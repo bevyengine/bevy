@@ -9,7 +9,6 @@ pub use render::*;
 pub use sprite::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::IntoSystem;
 use bevy_render2::{
     core_pipeline, render_graph::RenderGraph, render_phase::DrawFunctions, RenderStage,
 };
@@ -22,9 +21,9 @@ impl Plugin for SpritePlugin {
         app.register_type::<Sprite>();
         let render_app = app.sub_app_mut(0);
         render_app
-            .add_system_to_stage(RenderStage::Extract, render::extract_sprites.system())
-            .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites.system())
-            .add_system_to_stage(RenderStage::Queue, queue_sprites.system())
+            .add_system_to_stage(RenderStage::Extract, render::extract_sprites)
+            .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
+            .add_system_to_stage(RenderStage::Queue, queue_sprites)
             .init_resource::<SpriteShaders>()
             .init_resource::<SpriteMeta>();
         let draw_sprite = DrawSprite::new(&mut render_app.world);

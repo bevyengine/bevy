@@ -35,8 +35,8 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
         render_app
             .init_resource::<ExtractedAssets<A>>()
             .init_resource::<RenderAssets<A>>()
-            .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>.system())
-            .add_system_to_stage(RenderStage::Prepare, prepare_render_asset::<A>.system());
+            .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
+            .add_system_to_stage(RenderStage::Prepare, prepare_render_asset::<A>);
     }
 }
 

@@ -16,7 +16,6 @@ pub use texture_cache::*;
 use crate::{render_asset::RenderAssetPlugin, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::AddAsset;
-use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?
 pub struct ImagePlugin;
@@ -34,7 +33,7 @@ impl Plugin for ImagePlugin {
         let render_app = app.sub_app_mut(0);
         render_app
             .init_resource::<TextureCache>()
-            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system.system());
+            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
     }
 }
 

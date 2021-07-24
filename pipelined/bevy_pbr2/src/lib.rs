@@ -33,20 +33,17 @@ impl Plugin for PbrPlugin {
 
         let render_app = app.sub_app_mut(0);
         render_app
-            .add_system_to_stage(RenderStage::Extract, render::extract_meshes.system())
-            .add_system_to_stage(RenderStage::Extract, render::extract_lights.system())
-            .add_system_to_stage(RenderStage::Prepare, render::prepare_meshes.system())
+            .add_system_to_stage(RenderStage::Extract, render::extract_meshes)
+            .add_system_to_stage(RenderStage::Extract, render::extract_lights)
+            .add_system_to_stage(RenderStage::Prepare, render::prepare_meshes)
             .add_system_to_stage(
                 RenderStage::Prepare,
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights.exclusive_system(),
             )
-            .add_system_to_stage(RenderStage::Queue, render::queue_meshes.system())
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<ShadowPhase>.system(),
-            )
+            .add_system_to_stage(RenderStage::Queue, render::queue_meshes)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<ShadowPhase>)
             // FIXME: Hack to ensure RenderCommandQueue is initialized when PbrShaders is being initialized
             // .init_resource::<RenderCommandQueue>()
             .init_resource::<PbrShaders>()
