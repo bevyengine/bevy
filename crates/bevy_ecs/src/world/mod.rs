@@ -77,7 +77,7 @@ pub struct World {
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
     /// Access cache used by [WorldCell].
-    pub(crate) archetype_component_access: ArchetypeComponentAccess,
+    pub(crate) world_cell_state: WorldCellState,
     main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
@@ -93,7 +93,7 @@ impl Default for World {
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
-            archetype_component_access: Default::default(),
+            world_cell_state: WorldCellState::new(),
             main_thread_validator: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
