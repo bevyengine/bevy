@@ -326,7 +326,7 @@ mod tests {
             bar: C,
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, FromReflect)]
         struct C {
             baz: f32,
         }
