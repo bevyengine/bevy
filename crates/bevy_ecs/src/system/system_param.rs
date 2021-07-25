@@ -27,11 +27,15 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'a> {
-///     foo: Res<'a, usize>,
+/// struct MyParam<'s, 'w> {
+///     foo: Res<'w, usize>,
+///     // TODO: this isn't ideal ... maybe the SystemParam derive can be smarter about world and state lifetimes?
+///     #[system_param(ignore)]
+///     marker: PhantomData<&'s usize>,
 /// }
 ///
 /// fn my_system(param: MyParam) {
