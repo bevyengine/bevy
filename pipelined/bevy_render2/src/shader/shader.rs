@@ -75,7 +75,7 @@ impl Shader {
                     &source,
                     &naga::front::glsl::Options {
                         entry_points,
-                        ..Default::default()
+                        defines: Default::default(),
                     },
                 )?
             }
