@@ -1,3 +1,5 @@
+mod command_queue;
+
 use crate::{
     bundle::Bundle,
     component::Component,
@@ -5,40 +7,12 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
+pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
-    fn write(self: Box<Self>, world: &mut World);
-}
-
-/// A queue of [`Command`]s.
-#[derive(Default)]
-pub struct CommandQueue {
-    commands: Vec<Box<dyn Command>>,
-}
-
-impl CommandQueue {
-    /// Execute the queued [`Command`]s in the world.
-    /// This clears the queue.
-    pub fn apply(&mut self, world: &mut World) {
-        world.flush();
-        for command in self.commands.drain(..) {
-            command.write(world);
-        }
-    }
-
-    /// Push a boxed [`Command`] onto the queue.
-    #[inline]
-    pub fn push_boxed(&mut self, command: Box<dyn Command>) {
-        self.commands.push(command);
-    }
-
-    /// Push a [`Command`] onto the queue.
-    #[inline]
-    pub fn push<T: Command>(&mut self, command: T) {
-        self.push_boxed(Box::new(command));
-    }
+    fn write(self, world: &mut World);
 }
 
 /// A list of commands that modify a [`World`], running at the end of the stage where they
@@ -489,7 +463,7 @@ impl<T> Command for Spawn<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn().insert_bundle(self.bundle);
     }
 }
@@ -507,7 +481,7 @@ where
     I: IntoIterator + Send + Sync + 'static,
     I::Item: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn_batch(self.bundles_iter);
     }
 }
@@ -518,7 +492,7 @@ pub struct Despawn {
 }
 
 impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if !world.despawn(self.entity) {
             debug!("Failed to despawn non-existent entity {:?}", self.entity);
         }
@@ -534,7 +508,7 @@ impl<T> Command for InsertBundle<T>
 where
     T: Bundle + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert_bundle(self.bundle);
     }
 }
@@ -549,7 +523,7 @@ impl<T> Command for Insert<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert(self.component);
     }
 }
@@ -564,7 +538,7 @@ impl<T> Command for Remove<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
         }
@@ -581,7 +555,7 @@ impl<T> Command for RemoveBundle<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             // remove intersection to gracefully handle components that were removed before running
             // this command
@@ -595,7 +569,7 @@ pub struct InsertResource<T: Component> {
 }
 
 impl<T: Component> Command for InsertResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
@@ -605,7 +579,7 @@ pub struct RemoveResource<T: Component> {
 }
 
 impl<T: Component> Command for RemoveResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.remove_resource::<T>();
     }
 }

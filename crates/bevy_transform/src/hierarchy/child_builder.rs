@@ -15,7 +15,7 @@ pub struct InsertChildren {
 }
 
 impl Command for InsertChildren {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
@@ -46,7 +46,7 @@ pub struct ChildBuilder<'a, 'b> {
 }
 
 impl Command for PushChildren {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)

@@ -6,7 +6,7 @@ authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcander
 description = "Gamepad system made using Gilrs for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
