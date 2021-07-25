@@ -59,6 +59,8 @@ impl<'a> Commands<'a> {
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
+    /// See [`World::spawn`] for more details.
+    ///
     /// # Example
     ///
     /// ```
