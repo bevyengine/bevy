@@ -34,20 +34,21 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Add an object (sphere) for visualizing scaling.
-    let center_sphere_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 3.0,
-            subdivisions: 32,
-        })),
-        material: materials.add(Color::YELLOW.into()),
-        transform: Transform::from_translation(Vec3::ZERO),
-        ..Default::default()
-    };
-    commands.spawn_bundle(center_sphere_mesh).insert(Center {
-        max_size: 1.0,
-        min_size: 0.1,
-        scale_factor: 0.05,
-    });
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Icosphere {
+                radius: 3.0,
+                subdivisions: 32,
+            })),
+            material: materials.add(Color::YELLOW.into()),
+            transform: Transform::from_translation(Vec3::ZERO),
+            ..Default::default()
+        })
+        .insert(Center {
+            max_size: 1.0,
+            min_size: 0.1,
+            scale_factor: 0.05,
+        });
 
     // Add the cube to visualize rotation and translation.
     // This cube will circle around the center_sphere
@@ -57,18 +58,18 @@ fn setup(
     let angle_90 = PI / 2.0;
     let mut cube_spawn = Transform::from_translation(Vec3::Z * -10.0);
     cube_spawn.rotation = Quat::from_rotation_y(angle_90);
-
-    let orbiting_cube_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::WHITE.into()),
-        transform: cube_spawn,
-        ..Default::default()
-    };
-    commands.spawn_bundle(orbiting_cube_mesh).insert(CubeState {
-        start_pos: cube_spawn.translation,
-        move_speed: 2.0,
-        turn_speed: 0.2,
-    });
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::WHITE.into()),
+            transform: cube_spawn,
+            ..Default::default()
+        })
+        .insert(CubeState {
+            start_pos: cube_spawn.translation,
+            move_speed: 2.0,
+            turn_speed: 0.2,
+        });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn_bundle(PerspectiveCameraBundle {

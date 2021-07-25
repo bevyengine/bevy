@@ -49,13 +49,14 @@ fn setup(
     let main_entity_spawn: Transform = Transform::from_translation(Vec3::ZERO);
 
     // Spawn a basic cube to have an entity as reference.
-    let mut main_entity = commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::YELLOW.into()),
-        transform: main_entity_spawn,
-        ..Default::default()
-    });
+    let mut main_entity = commands.spawn();
     main_entity
+        .insert_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::YELLOW.into()),
+            transform: main_entity_spawn,
+            ..Default::default()
+        })
         .insert(GlobalStop)
         .insert(EntityState::new(main_entity_spawn.translation));
 
