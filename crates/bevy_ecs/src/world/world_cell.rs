@@ -1,9 +1,10 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    component::ComponentId,
+    component::{Component, ComponentId},
+    prelude::{Bundle, Entity},
     query::{FilterFetch, FilteredAccess, QueryIter, QueryState, WorldQuery},
     storage::SparseSet,
-    system::Resource,
+    system::{CommandQueue, Despawn, Insert, InsertBundle, Remove, RemoveBundle, Resource},
     world::{Mut, World},
 };
 use std::{
@@ -24,6 +25,7 @@ pub struct WorldCell<'w> {
 
 struct QueryCacheEntry<Q: ?Sized + DynQueryState = dyn DynQueryState> {
     alive_count: Cell<u32>,
+    in_working_set: Cell<bool>,
     query: Q,
 }
 
@@ -56,8 +58,10 @@ where
 
 pub(crate) struct WorldCellState {
     resource_access: RefCell<ArchetypeComponentAccess>,
-    // component_access: RefCell<ComponentAccess>,
     query_cache: HashMap<TypeId, Rc<QueryCacheEntry>, fxhash::FxBuildHasher>,
+    /// Queries that were activated at least once in the current WorldCell session.
+    query_cache_working_set: RefCell<Vec<Rc<QueryCacheEntry>>>,
+    command_queue: RefCell<CommandQueue>,
 }
 
 impl WorldCellState {
@@ -68,6 +72,8 @@ impl WorldCellState {
             resource_access: RefCell::new(ArchetypeComponentAccess::new()),
             // component_access: RefCell::new(ComponentAccess::new()),
             query_cache: HashMap::default(),
+            query_cache_working_set: Default::default(),
+            command_queue: Default::default(),
         }
     }
 
@@ -75,7 +81,7 @@ impl WorldCellState {
         &self,
         filtered_access: &FilteredAccess<ComponentId>,
     ) -> Vec<ComponentId> {
-        for query in self.query_cache.values() {
+        for query in self.query_cache_working_set.borrow().iter() {
             if let Some(current_filtered_access) = query.alive_filtered_access() {
                 if !current_filtered_access.is_compatible(filtered_access) {
                     return current_filtered_access
@@ -134,6 +140,8 @@ impl ArchetypeComponentAccess {
 
 impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
+        self.maintain();
+
         // give world ArchetypeComponentAccess back to reuse allocations
         let _ = std::mem::swap(&mut self.world.world_cell_state, &mut self.state);
     }
@@ -245,6 +253,26 @@ impl<'w> WorldCell<'w> {
         Self { world, state }
     }
 
+    pub fn spawn(&self) -> CellEntityCommands<'_> {
+        self.entity(self.world.entities.reserve_entity())
+    }
+
+    pub fn entity(&self, entity: Entity) -> CellEntityCommands<'_> {
+        CellEntityCommands {
+            entity,
+            state: &self.state,
+        }
+    }
+
+    /// A WorldCell session "barrier". Applies world commands issued thus far, optimizing future query accesses.
+    pub fn maintain(&mut self) {
+        // Clear working set when the WorldCell session ends.
+        for entry in self.state.query_cache_working_set.get_mut().drain(..) {
+            entry.in_working_set.set(false);
+        }
+        self.state.command_queue.borrow_mut().apply(self.world);
+    }
+
     pub fn get_resource<T: Resource>(&self) -> Option<WorldCellRes<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.world.archetypes.resource();
@@ -313,14 +341,16 @@ impl<'w> WorldCell<'w> {
         self.state.query_cache.entry(key).or_insert_with(|| {
             Rc::new(QueryCacheEntry {
                 alive_count: Cell::new(0),
+                in_working_set: Cell::new(false),
                 query: world.query_filtered::<Q, F>(),
             })
         });
+
         QueryToken(PhantomData)
     }
 
     /// Requires `init_query` with the right type to be called beforehand
-    pub fn query<Q, F>(&self, token: QueryToken<Q, F>) -> WorldCellQuery<Q, F>
+    pub fn query<Q, F>(&self, token: QueryToken<Q, F>) -> CellQuery<Q, F>
     where
         Q: WorldQuery + 'static,
         F: WorldQuery + 'static,
@@ -328,19 +358,100 @@ impl<'w> WorldCell<'w> {
     {
         // token is only used to statically pass the query initialization state
         let _ = token;
+
         let key = TypeId::of::<QueryState<Q, F>>();
-        let state = self
+        let query_entry = self
             .state
             .query_cache
             .get(&key)
             .expect("token cannot exist without initialization");
-        // self.world.query()
-        WorldCellQuery {
-            query_entry: state.clone(),
+
+        // the token existence guarantees that the query was initialized, but not necessarily in the same WorldCell session.
+        // So instead of during initialization, we add queries to working set at the first use in each session.
+        if !query_entry.in_working_set.get() {
+            query_entry.in_working_set.set(true);
+            self.state
+                .query_cache_working_set
+                .borrow_mut()
+                .push(query_entry.clone());
+        }
+
+        CellQuery {
+            query_entry: query_entry.clone(),
             state: &self.state,
             world: self.world,
             marker: PhantomData,
         }
+    }
+}
+
+/// A list of commands that will be run to modify an [`Entity`] inside `WorldCell`.
+pub struct CellEntityCommands<'a> {
+    entity: Entity,
+    state: &'a WorldCellState,
+}
+
+impl<'a> CellEntityCommands<'a> {
+    /// Retrieves the current entity's unique [`Entity`] id.
+    #[inline]
+    pub fn id(&self) -> Entity {
+        self.entity
+    }
+
+    /// Adds a [`Bundle`] of components to the current entity.
+    pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.state.command_queue.borrow_mut().push(InsertBundle {
+            entity: self.entity,
+            bundle,
+        });
+        self
+    }
+
+    /// Adds a single [`Component`] to the current entity.
+    ///
+    /// `Self::insert` can be chained with [`WorldCell::spawn`].
+    ///
+    /// See [`Commands::insert`] for analogous method in [`Commands`].
+    pub fn insert(&mut self, component: impl Component) -> &mut Self {
+        self.state.command_queue.borrow_mut().push(Insert {
+            entity: self.entity,
+            component,
+        });
+        self
+    }
+
+    /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle).
+    pub fn remove_bundle<T>(&mut self) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.state
+            .command_queue
+            .borrow_mut()
+            .push(RemoveBundle::<T> {
+                entity: self.entity,
+                phantom: PhantomData,
+            });
+        self
+    }
+
+    /// See [`EntityMut::remove`](crate::world::EntityMut::remove).
+    pub fn remove<T>(&mut self) -> &mut Self
+    where
+        T: Component,
+    {
+        self.state.command_queue.borrow_mut().push(Remove::<T> {
+            entity: self.entity,
+            phantom: PhantomData,
+        });
+        self
+    }
+
+    /// Despawns only the specified entity, not including its children.
+    pub fn despawn(&mut self) {
+        self.state.command_queue.borrow_mut().push(Despawn {
+            entity: self.entity,
+        })
     }
 }
 
@@ -351,49 +462,22 @@ where
     F: WorldQuery + 'static,
     F::Fetch: FilterFetch;
 
-pub struct WorldCellQuery<'w, Q, F> {
+pub struct CellQuery<'w, Q, F> {
     query_entry: Rc<QueryCacheEntry>,
     state: &'w WorldCellState,
     world: &'w World,
     marker: PhantomData<(Q, F)>,
 }
 
-impl<'w, Q, F> WorldCellQuery<'w, Q, F>
+impl<'w, Q, F> CellQuery<'w, Q, F>
 where
     Q: WorldQuery + 'static,
     F: WorldQuery + 'static,
     F::Fetch: FilterFetch,
 {
     #[allow(dead_code)]
-    fn iter(&self) -> WorldCellIter<QueryIter<'w, '_, Q, F>> {
-        let query = self
-            .query_entry
-            .query
-            .as_any()
-            .downcast_ref::<QueryState<Q, F>>()
-            .unwrap();
-        // cast away the query_entry lifetime, so we can return an iterator that's self-referential
-        // SAFETY:
-        // - we hold onto the entry Rc for the entire lifetime of this reference, as it's cloned into returned WorldCellIter
-        let query = unsafe { (query as *const QueryState<Q, F>).as_ref().unwrap() };
-
-        // TODO: assert correct access
-        assert_component_access_compatibility(
-            std::any::type_name::<Q>(),
-            std::any::type_name::<F>(),
-            &query.component_access,
-            self.world,
-            self.state,
-        );
-
-        let iter = unsafe {
-            query.iter_unchecked_manual(
-                self.world,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            )
-        };
-        WorldCellIter::new(self.query_entry.clone(), iter)
+    fn iter(&self) -> CellQueryIter<'w, '_, Q, F> {
+        CellQueryIter::new(self)
     }
 }
 
@@ -413,19 +497,29 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("Query<{}, {}> in WorldCell accesses component(s) {} in a way that conflicts with other active access. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries.",
+    panic!("CellQuery<{}, {}> in WorldCell accesses component(s) {} in a way that conflicts with other active access. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries.",
                 query_type, filter_type, accesses);
 }
 
-pub struct WorldCellIter<I> {
-    inner: I,
+pub struct CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldQuery,
+    F: WorldQuery,
+    F::Fetch: FilterFetch,
+{
+    inner: QueryIter<'w, 's, Q, F>,
     // Rc holds data referenced in `inner`. Must be dropped last.
     // That Rc is normally held inside `WorldCellState` anyway, but holding it directly allows to guarantee
     // safety easier, as `WorldCellState` is now free to evict cache at any time without consequences
     query_entry: Rc<QueryCacheEntry>,
 }
 
-impl<I> Drop for WorldCellIter<I> {
+impl<'w, 's, Q, F> Drop for CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldQuery,
+    F: WorldQuery,
+    F::Fetch: FilterFetch,
+{
     fn drop(&mut self) {
         self.query_entry
             .alive_count
@@ -433,12 +527,41 @@ impl<I> Drop for WorldCellIter<I> {
     }
 }
 
-impl<'w, I> WorldCellIter<I> {
-    fn new(
-        query_entry: Rc<QueryCacheEntry>,
-        inner: I,
-        // state: Rc<WorldCellState>,
-    ) -> Self {
+impl<'w, 's, Q, F> CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldQuery + 'static,
+    F: WorldQuery + 'static,
+    F::Fetch: FilterFetch,
+{
+    fn new(cell_query: &'s CellQuery<'w, Q, F>) -> Self {
+        let query = cell_query
+            .query_entry
+            .query
+            .as_any()
+            .downcast_ref::<QueryState<Q, F>>()
+            .unwrap();
+        // cast away the query_entry lifetime, so we can return an iterator that's self-referential
+        // SAFETY:
+        // - we hold onto the entry Rc for the entire lifetime of this reference, as it's cloned into returned WorldCellIter
+        let query = unsafe { (query as *const QueryState<Q, F>).as_ref().unwrap() };
+
+        assert_component_access_compatibility(
+            std::any::type_name::<Q>(),
+            std::any::type_name::<F>(),
+            &query.component_access,
+            cell_query.world,
+            cell_query.state,
+        );
+
+        let inner = unsafe {
+            query.iter_unchecked_manual(
+                cell_query.world,
+                cell_query.world.last_change_tick(),
+                cell_query.world.read_change_tick(),
+            )
+        };
+
+        let query_entry = cell_query.query_entry.clone();
         query_entry
             .alive_count
             .set(query_entry.alive_count.get() + 1);
@@ -447,8 +570,13 @@ impl<'w, I> WorldCellIter<I> {
     }
 }
 
-impl<I: Iterator> Iterator for WorldCellIter<I> {
-    type Item = I::Item;
+impl<'w, 's, Q, F> Iterator for CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldQuery,
+    F: WorldQuery,
+    F::Fetch: FilterFetch,
+{
+    type Item = <QueryIter<'w, 's, Q, F> as Iterator>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
@@ -459,7 +587,13 @@ impl<I: Iterator> Iterator for WorldCellIter<I> {
     }
 }
 
-impl<I: ExactSizeIterator> ExactSizeIterator for WorldCellIter<I> {
+impl<'w, 's, Q, F> ExactSizeIterator for CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldQuery,
+    F: WorldQuery,
+    F::Fetch: FilterFetch,
+    QueryIter<'w, 's, Q, F>: ExactSizeIterator,
+{
     fn len(&self) -> usize {
         self.inner.len()
     }
