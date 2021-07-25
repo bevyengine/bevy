@@ -9,9 +9,7 @@ pub use render::*;
 pub use sprite::*;
 
 use bevy_app::prelude::*;
-use bevy_render2::{
-    core_pipeline, render_graph::RenderGraph, render_phase::DrawFunctions, RenderStage,
-};
+use bevy_render2::{render_graph::RenderGraph, render_phase::DrawFunctions, RenderStage};
 
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -37,7 +35,7 @@ impl Plugin for SpritePlugin {
         let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node("sprite", SpriteNode);
         graph
-            .add_node_edge("sprite", core_pipeline::node::MAIN_PASS_DEPENDENCIES)
+            .add_node_edge("sprite", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)
             .unwrap();
     }
 }

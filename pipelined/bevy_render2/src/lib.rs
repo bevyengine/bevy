@@ -1,6 +1,5 @@
 pub mod camera;
 pub mod color;
-pub mod core_pipeline;
 pub mod mesh;
 pub mod render_asset;
 pub mod render_graph;

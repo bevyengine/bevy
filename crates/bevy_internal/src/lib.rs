@@ -19,6 +19,11 @@ pub mod core {
     pub use bevy_core::*;
 }
 
+pub mod core_pipeline {
+    //! Core render pipeline.
+    pub use bevy_core_pipeline::*;
+}
+
 pub mod diagnostic {
     //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;

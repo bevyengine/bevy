@@ -1,15 +1,15 @@
-use crate::{
+use crate::Transparent3dPhase;
+use bevy_ecs::prelude::*;
+use bevy_render2::{
     color::Color,
-    core_pipeline::Transparent3dPhase,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_resource::{
+        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+        RenderPassDescriptor,
+    },
     renderer::RenderContext,
     view::ExtractedView,
-};
-use bevy_ecs::prelude::*;
-use wgpu::{
-    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPassDescriptor,
 };
 
 pub struct MainPass3dNode {

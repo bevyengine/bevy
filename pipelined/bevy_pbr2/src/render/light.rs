@@ -1,10 +1,10 @@
 use crate::{AmbientLight, DirectionalLight, ExtractedMeshes, MeshMeta, PbrShaders, PointLight};
+use bevy_core_pipeline::Transparent3dPhase;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
 use bevy_render2::{
     camera::CameraProjection,
     color::Color,
-    core_pipeline::Transparent3dPhase,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},

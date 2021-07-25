@@ -1,11 +1,12 @@
 mod light;
 pub use light::*;
 
+use crate::{StandardMaterial, StandardMaterialUniformData};
 use bevy_asset::{Assets, Handle};
+use bevy_core_pipeline::Transparent3dPhase;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::Mat4;
 use bevy_render2::{
-    core_pipeline::Transparent3dPhase,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -23,8 +24,6 @@ use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
     TextureViewDescriptor,
 };
-
-use crate::{StandardMaterial, StandardMaterialUniformData};
 
 pub struct PbrShaders {
     pipeline: RenderPipeline,
