@@ -160,8 +160,9 @@ impl<'a> Commands<'a> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
-    /// fn another_system() {
-    ///    // A normal system like any other
+    /// // A system like any other
+    /// fn another_system(mut commands: Commands) {
+    ///     let entity = commands.spawn().id();
     /// }
     ///
     /// fn example_system(mut commands: Commands) {
