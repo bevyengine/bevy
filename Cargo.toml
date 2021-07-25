@@ -180,6 +180,10 @@ name = "orthographic"
 path = "examples/3d/orthographic.rs"
 
 [[example]]
+name = "orthographic_pipelined"
+path = "examples/3d/orthographic_pipelined.rs"
+
+[[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 
