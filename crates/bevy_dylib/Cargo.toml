@@ -9,7 +9,7 @@ authors = [
 description = "Force the Bevy Engine to be dynamically linked for faster linking"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [lib]
