@@ -66,7 +66,7 @@ impl FromWorld for PbrShaders {
                         has_dynamic_offset: true,
                         // TODO: change this to GpuLights::std140_size_static once crevice fixes this!
                         // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(1024),
+                        min_binding_size: BufferSize::new(1424),
                     },
                     count: None,
                 },
@@ -291,7 +291,7 @@ impl FromWorld for PbrShaders {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
+                depth_compare: CompareFunction::Greater,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

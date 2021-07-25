@@ -21,7 +21,7 @@ pub struct PerspectiveProjection {
 
 impl CameraProjection for PerspectiveProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
+        Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
     fn update(&mut self, width: f32, height: f32) {
@@ -88,8 +88,10 @@ impl CameraProjection for OrthographicProjection {
             self.right * self.scale,
             self.bottom * self.scale,
             self.top * self.scale,
-            self.near,
+            // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
+            // This is for interoperability with pipelines using infinite reverse perspective projections.
             self.far,
+            self.near,
         )
     }
 
