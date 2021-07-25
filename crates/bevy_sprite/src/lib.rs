@@ -63,7 +63,7 @@ impl Default for SpriteSettings {
 #[derive(Default)]
 pub struct SpritePlugin;
 
-// FIXME: Naughty pipeline handle should be typed
+// FIXME: Handle is always converted to typed, see discussion in PR #2536
 pub const QUAD_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 

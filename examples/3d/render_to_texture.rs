@@ -21,7 +21,7 @@ use bevy::{
 
 pub struct FirstPass;
 
-// FIXME: Naughty pipeline handle should be typed
+// FIXME: Handle is always converted to typed, see discussion in PR #2536
 pub const RENDER_TEXTURE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Texture::TYPE_UUID, 13378939762009864029);
 

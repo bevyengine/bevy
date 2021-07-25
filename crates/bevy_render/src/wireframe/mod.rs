@@ -18,7 +18,7 @@ use bevy_utils::HashSet;
 
 mod pipeline;
 
-// FIXME: Naughty pipeline handle should be typed
+// FIXME: Handle is always converted to typed, see discussion in PR #2536
 pub const WIREFRAME_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
 

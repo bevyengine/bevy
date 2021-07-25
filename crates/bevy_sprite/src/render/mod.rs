@@ -12,11 +12,11 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-// FIXME: Naughty pipeline handle should be typed
+// FIXME: Handle is always converted to typed, see discussion in PR #2536
 pub const SPRITE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
 
-// FIXME: Naughty pipeline handle should be typed
+// FIXME: Handle is always converted to typed, see discussion in PR #2536
 pub const SPRITE_SHEET_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 9016885805180281612);
 
