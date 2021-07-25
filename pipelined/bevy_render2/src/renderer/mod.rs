@@ -1,6 +1,7 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_utils::tracing::info;
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -39,6 +40,9 @@ pub async fn initialize_renderer(
         .request_adapter(&request_adapter_options)
         .await
         .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+
+    #[cfg(not(target_arch = "wasm32"))]
+    info!("{:?}", adapter.get_info());
 
     #[cfg(feature = "trace")]
     let trace_path = {
