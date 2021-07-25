@@ -69,6 +69,20 @@ impl<'w> EntityRef<'w> {
         }
     }
 
+    #[inline]
+    pub fn get_change_ticks<T: Component>(&self) -> Option<&'w ComponentTicks> {
+        // SAFE: entity location is valid and returned component is of type T
+        unsafe {
+            get_component_and_ticks_with_type(
+                self.world,
+                TypeId::of::<T>(),
+                self.entity,
+                self.location,
+            )
+            .map(|(_, ticks)| &*ticks)
+        }
+    }
+
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple
     /// mutable references to the same component
@@ -148,6 +162,20 @@ impl<'w> EntityMut<'w> {
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
                 .map(|value| &*value.cast::<T>())
+        }
+    }
+
+    #[inline]
+    pub fn get_change_ticks<T: Component>(&self) -> Option<&'w ComponentTicks> {
+        // SAFE: entity location is valid and returned component is of type T
+        unsafe {
+            get_component_and_ticks_with_type(
+                self.world,
+                TypeId::of::<T>(),
+                self.entity,
+                self.location,
+            )
+            .map(|(_, ticks)| &*ticks)
         }
     }
 
