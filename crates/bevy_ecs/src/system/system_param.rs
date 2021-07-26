@@ -23,7 +23,7 @@ use std::{
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requisite
+/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requirement
 /// is that every struct field must also implement `SystemParam`.
 ///
 /// ```

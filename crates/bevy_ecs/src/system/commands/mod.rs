@@ -17,6 +17,21 @@ pub trait Command: Send + Sync + 'static {
 
 /// A list of commands that modify a [`World`], running at the end of the stage where they
 /// have been invoked.
+///
+/// # Usage
+///
+/// `Commands` is a [`SystemParam`](crate::system::SystemParam), therefore it is declared
+/// as a function parameter:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// fn my_system(mut commands: Commands) {
+///    // ...
+/// }
+/// ```
+///
+/// Then, commands can be invoked by calling the methods of `commands`.
 pub struct Commands<'a> {
     queue: &'a mut CommandQueue,
     entities: &'a Entities,
