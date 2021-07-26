@@ -137,7 +137,8 @@ impl<'a> Commands<'a> {
     /// be converted to it).
     ///
     /// The end result of this command is equivalent to iterating `bundles_iter` and calling
-    /// [`spawn`](Self::spawn) on each bundle, but it is slightly more performant.
+    /// [`spawn`](Self::spawn) on each bundle, but it is slightly more performant due to memory
+    /// pre-allocation.
     ///
     /// # Example
     ///
@@ -169,7 +170,7 @@ impl<'a> Commands<'a> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// Inserts a resource to the [`World`], overwriting a possible previous value.
+    /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
     ///
     /// See [`World::insert_resource`] for more details.
     ///
@@ -264,7 +265,7 @@ pub struct EntityCommands<'a, 'b> {
 }
 
 impl<'a, 'b> EntityCommands<'a, 'b> {
-    /// Returns the [`Entity`] id.
+    /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
     ///
@@ -281,11 +282,11 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self.entity
     }
 
-    /// Adds a [`Bundle`] to the entity.
+    /// Adds a [`Bundle`] of components to the entity.
     ///
-    /// If you need to spawn a new entity instead, use [`Commands::spawn_bundle`]. See
-    /// [`EntityMut::insert_bundle`](crate::world::EntityMut::insert_bundle) for more
-    /// details.
+    /// If you want to spawn a new entity, consider [`Commands::spawn_bundle`] for a more
+    /// condensed alternative. See
+    /// [`EntityMut::insert_bundle`](crate::world::EntityMut::insert_bundle) for more details.
     ///
     /// # Example
     ///
@@ -363,7 +364,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// Removes a [`Bundle`] from the entity.
+    /// Removes a [`Bundle`] of components from the entity.
     ///
     /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle) for more
     /// details.
