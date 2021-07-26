@@ -103,6 +103,8 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
+    needs: check-missing-examples-in-docs
+    if: always()
     steps:
       - uses: actions/checkout@v2
         with:
@@ -119,6 +121,8 @@ jobs:
 
   check-markdown-links:
     runs-on: ubuntu-latest
+    needs: markdownlint
+    if: always()
     steps:
     - uses: actions/checkout@v2
     - uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
@@ -168,6 +172,8 @@ jobs:
 
   check-doc:
     runs-on: ubuntu-latest
+    needs: check-markdown-links
+    if: always()
     steps:
       - uses: actions/checkout@v2
       - name: Install alsa and udev
