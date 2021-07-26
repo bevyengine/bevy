@@ -190,7 +190,9 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
             } => wgpu::BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: *has_dynamic_offset,
-                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                // FIXME: The line below cause a validation error
+                // min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                min_binding_size: None,
             },
             BindType::StorageBuffer {
                 has_dynamic_offset,
@@ -200,7 +202,9 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                     read_only: *readonly,
                 },
                 has_dynamic_offset: *has_dynamic_offset,
-                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                // FIXME: The line below cause a validation error
+                // min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                min_binding_size: None,
             },
             BindType::Texture {
                 view_dimension,
