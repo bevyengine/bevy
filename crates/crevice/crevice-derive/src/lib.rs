@@ -244,9 +244,6 @@ impl EmitOptions {
             },
         );
 
-        // For testing purposes, we can optionally generate type layout
-        // information using the type-layout crate.
-        let type_layout_derive = quote!();
 
         quote! {
             #[allow(non_snake_case)]
@@ -257,7 +254,6 @@ impl EmitOptions {
             }
 
             #[derive(Debug, Clone, Copy)]
-            #type_layout_derive
             #[repr(C)]
             #visibility struct #generated_name #ty_generics #where_clause {
                 #( #generated_fields )*
