@@ -244,7 +244,6 @@ impl EmitOptions {
             },
         );
 
-
         quote! {
             #[allow(non_snake_case)]
             mod #alignment_mod_name {
