@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
@@ -34,7 +34,7 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub vsync: bool,
-    pub swap_chain_frame: Option<TextureView>,
+    pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
 }
 
@@ -74,12 +74,12 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
                     physical_width: new_width,
                     physical_height: new_height,
                     vsync: window.vsync(),
-                    swap_chain_frame: None,
+                    swap_chain_texture: None,
                     size_changed: false,
                 });
 
         // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_frame = None;
+        extracted_window.swap_chain_texture = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
 
@@ -100,7 +100,8 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
 #[derive(Default)]
 pub struct WindowSurfaces {
     surfaces: HashMap<WindowId, wgpu::Surface>,
-    swap_chains: HashMap<WindowId, wgpu::SwapChain>,
+    /// List of windows that we have already called the initial `configure_surface` for
+    configured_windows: HashSet<WindowId>,
 }
 
 pub fn prepare_windows(
@@ -122,11 +123,11 @@ pub fn prepare_windows(
                 render_instance.create_surface(&window.handle.get_handle())
             });
 
-        let swap_chain_descriptor = wgpu::SwapChainDescriptor {
+        let swap_chain_descriptor = wgpu::SurfaceConfiguration {
             format: TextureFormat::bevy_default(),
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: if window.vsync {
                 wgpu::PresentMode::Fifo
             } else {
@@ -134,34 +135,22 @@ pub fn prepare_windows(
             },
         };
 
-        if window.size_changed {
-            window_surfaces.swap_chains.insert(
-                window.id,
-                render_device.create_swap_chain(surface, &swap_chain_descriptor),
-            );
+        // Do the initial surface configuration if it hasn't been configured yet
+        if window_surfaces.configured_windows.insert(window.id) {
+            render_device.configure_surface(surface, &swap_chain_descriptor);
         }
 
-        let swap_chain = window_surfaces
-            .swap_chains
-            .entry(window.id)
-            .or_insert_with(|| render_device.create_swap_chain(surface, &swap_chain_descriptor));
-
-        let frame = match swap_chain.get_current_frame() {
+        let frame = match surface.get_current_texture() {
             Ok(swap_chain_frame) => swap_chain_frame,
-            Err(wgpu::SwapChainError::Outdated) => {
-                let new_swap_chain =
-                    render_device.create_swap_chain(surface, &swap_chain_descriptor);
-                let frame = new_swap_chain
-                    .get_current_frame()
-                    .expect("Error recreating swap chain");
-                window_surfaces
-                    .swap_chains
-                    .insert(window.id, new_swap_chain);
-                frame
+            Err(wgpu::SurfaceError::Outdated) => {
+                render_device.configure_surface(surface, &swap_chain_descriptor);
+                surface
+                    .get_current_texture()
+                    .expect("Error reconfiguring surface")
             }
             err => err.expect("Failed to acquire next swap chain texture!"),
         };
 
-        window.swap_chain_frame = Some(TextureView::from(frame));
+        window.swap_chain_texture = Some(TextureView::from(frame));
     }
 }

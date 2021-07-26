@@ -3,14 +3,14 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
-use wgpu::BufferUsage;
+use wgpu::BufferUsages;
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
     capacity: usize,
     item_size: usize,
-    buffer_usage: BufferUsage,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: Pod> Default for BufferVec<T> {
@@ -19,14 +19,14 @@ impl<T: Pod> Default for BufferVec<T> {
             values: Vec::new(),
             buffer: None,
             capacity: 0,
-            buffer_usage: BufferUsage::all(),
+            buffer_usage: BufferUsages::all(),
             item_size: std::mem::size_of::<T>(),
         }
     }
 }
 
 impl<T: Pod> BufferVec<T> {
-    pub fn new(buffer_usage: BufferUsage) -> Self {
+    pub fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             buffer_usage,
             ..Default::default()
@@ -63,7 +63,7 @@ impl<T: Pod> BufferVec<T> {
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size: size as wgpu::BufferAddress,
-                usage: BufferUsage::COPY_DST | self.buffer_usage,
+                usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
         }

@@ -246,7 +246,7 @@ pub fn prepare_core_views_system(
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                       * bit depth for better performance */
-                usage: TextureUsage::RENDER_ATTACHMENT,
+                usage: TextureUsages::RENDER_ATTACHMENT,
             },
         );
         commands.entity(entity).insert(ViewDepthTexture {

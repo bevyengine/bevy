@@ -122,7 +122,7 @@ impl FromWorld for ShadowShaders {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -147,7 +147,7 @@ impl FromWorld for ShadowShaders {
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
-                    step_mode: InputStepMode::Vertex,
+                    step_mode: VertexStepMode::Vertex,
                     attributes: &[
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
@@ -411,8 +411,8 @@ pub fn prepare_lights(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
-                usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
                 label: Some("point_light_shadow_map_texture"),
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             },
         );
         let directional_light_depth_texture = texture_cache.get(
@@ -427,8 +427,8 @@ pub fn prepare_lights(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
-                usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
                 label: Some("directional_light_shadow_map_texture"),
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             },
         );
         let mut view_lights = Vec::new();

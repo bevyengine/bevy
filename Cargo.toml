@@ -14,6 +14,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+resolver = "2"
 
 [workspace]
 exclude = ["benches"]

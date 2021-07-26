@@ -22,7 +22,7 @@ impl Node for MainPassDriverNode {
         if let Some(camera_2d) = extracted_cameras.entities.get(CameraPlugin::CAMERA_2D) {
             let extracted_camera = world.entity(*camera_2d).get::<ExtractedCamera>().unwrap();
             let extracted_window = extracted_windows.get(&extracted_camera.window_id).unwrap();
-            let swap_chain_texture = extracted_window.swap_chain_frame.as_ref().unwrap().clone();
+            let swap_chain_texture = extracted_window.swap_chain_texture.as_ref().unwrap().clone();
             graph.run_sub_graph(
                 crate::draw_2d_graph::NAME,
                 vec![
@@ -36,7 +36,7 @@ impl Node for MainPassDriverNode {
             let extracted_camera = world.entity(*camera_3d).get::<ExtractedCamera>().unwrap();
             let depth_texture = world.entity(*camera_3d).get::<ViewDepthTexture>().unwrap();
             let extracted_window = extracted_windows.get(&extracted_camera.window_id).unwrap();
-            let swap_chain_texture = extracted_window.swap_chain_frame.as_ref().unwrap().clone();
+            let swap_chain_texture = extracted_window.swap_chain_texture.as_ref().unwrap().clone();
             graph.run_sub_graph(
                 crate::draw_3d_graph::NAME,
                 vec![

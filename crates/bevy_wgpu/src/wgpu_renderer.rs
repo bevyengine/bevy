@@ -24,13 +24,13 @@ pub struct WgpuRenderer {
 impl WgpuRenderer {
     pub async fn new(options: WgpuOptions) -> Self {
         let backend = match options.backend {
-            WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
-            WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
-            WgpuBackend::Metal => wgpu::BackendBit::METAL,
-            WgpuBackend::Dx12 => wgpu::BackendBit::DX12,
-            WgpuBackend::Dx11 => wgpu::BackendBit::DX11,
-            WgpuBackend::Gl => wgpu::BackendBit::GL,
-            WgpuBackend::BrowserWgpu => wgpu::BackendBit::BROWSER_WEBGPU,
+            WgpuBackend::Auto => wgpu::Backends::PRIMARY,
+            WgpuBackend::Vulkan => wgpu::Backends::VULKAN,
+            WgpuBackend::Metal => wgpu::Backends::METAL,
+            WgpuBackend::Dx12 => wgpu::Backends::DX12,
+            WgpuBackend::Dx11 => wgpu::Backends::DX11,
+            WgpuBackend::Gl => wgpu::Backends::GL,
+            WgpuBackend::BrowserWgpu => wgpu::Backends::BROWSER_WEBGPU,
         };
         let instance = wgpu::Instance::new(backend);
 
@@ -42,6 +42,7 @@ impl WgpuRenderer {
                     WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
                 },
                 compatible_surface: None,
+                ..Default::default()
             })
             .await
             .expect("Unable to find a GPU! Make sure you have installed required drivers!");
@@ -129,7 +130,7 @@ impl WgpuRenderer {
         let render_resource_context = world
             .get_resource::<Box<dyn RenderResourceContext>>()
             .unwrap();
-        render_resource_context.drop_all_swap_chain_textures();
+        render_resource_context.drop_all_surface_frames();
         render_resource_context.remove_stale_bind_groups();
     }
 }
