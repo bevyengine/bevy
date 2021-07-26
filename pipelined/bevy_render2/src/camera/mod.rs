@@ -31,22 +31,19 @@ impl Plugin for CameraPlugin {
         active_cameras.add(Self::CAMERA_3D);
         app.register_type::<Camera>()
             .insert_resource(active_cameras)
+            .add_system_to_stage(CoreStage::PostUpdate, crate::camera::active_cameras_system)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::active_cameras_system.system(),
+                crate::camera::camera_system::<OrthographicProjection>,
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::camera_system::<OrthographicProjection>.system(),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                crate::camera::camera_system::<PerspectiveProjection>.system(),
+                crate::camera::camera_system::<PerspectiveProjection>,
             );
         let render_app = app.sub_app_mut(0);
         render_app
             .init_resource::<ExtractedCameraNames>()
-            .add_system_to_stage(RenderStage::Extract, extract_cameras.system());
+            .add_system_to_stage(RenderStage::Extract, extract_cameras);
     }
 }
 

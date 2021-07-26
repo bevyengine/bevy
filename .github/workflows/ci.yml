@@ -45,27 +45,27 @@ jobs:
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
+  # NOTE: temporarily disabled while we sort out pipelined-rendering support
+  # build-wasm:
+  #   strategy:
+  #     matrix:
+  #       toolchain: [stable, nightly]
+  #       os: [ubuntu-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-  build-wasm:
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: ${{ matrix.toolchain }}
+  #         target: wasm32-unknown-unknown
+  #         override: true
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
-          override: true
-
-      - name: Check wasm
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
+  #     - name: Check wasm
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: check
+  #         args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
 
   build-android:
     runs-on: ubuntu-latest

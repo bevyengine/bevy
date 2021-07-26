@@ -35,7 +35,7 @@ uniform MAIN {
 } main;
 ```
 
-```rust
+```skip
 use crevice::std140::{AsStd140, Std140};
 use cgmath::prelude::*;
 use cgmath::{Matrix3, Vector3};
@@ -76,7 +76,7 @@ buffer POINT_LIGHTS {
 } point_lights;
 ```
 
-```rust
+```skip
 use crevice::std140::{self, AsStd140};
 
 #[derive(AsStd140)]

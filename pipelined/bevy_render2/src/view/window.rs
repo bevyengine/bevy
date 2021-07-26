@@ -23,8 +23,8 @@ impl Plugin for WindowRenderPlugin {
         render_app
             .init_resource::<WindowSurfaces>()
             .init_resource::<NonSendMarker>()
-            .add_system_to_stage(RenderStage::Extract, extract_windows.system())
-            .add_system_to_stage(RenderStage::Prepare, prepare_windows.system());
+            .add_system_to_stage(RenderStage::Extract, extract_windows)
+            .add_system_to_stage(RenderStage::Prepare, prepare_windows);
     }
 }
 

@@ -20,7 +20,7 @@ fn main() {
         .add_plugins(PipelinedDefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

@@ -87,7 +87,7 @@ uniform CAMERA {
 } camera;
 ```
 
-```
+```skip
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Deg, perspective};
 use crevice::std140::{AsStd140, Std140};

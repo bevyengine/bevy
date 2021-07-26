@@ -1,6 +1,6 @@
 use crate::{
     archetype::ArchetypeGeneration,
-    system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId},
+    system::{check_system_change_tick, BoxedSystem, IntoSystem, SystemId},
     world::World,
 };
 use std::borrow::Cow;

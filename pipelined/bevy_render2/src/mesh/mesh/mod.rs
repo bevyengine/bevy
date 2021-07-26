@@ -36,8 +36,8 @@ pub struct Mesh {
 ///
 /// Example of constructing a mesh:
 /// ```
-/// # use bevy_render::mesh::{Mesh, Indices};
-/// # use bevy_render::pipeline::PrimitiveTopology;
+/// # use bevy_render2::mesh::{Mesh, Indices};
+/// # use bevy_render2::render_resource::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 ///     mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);

@@ -31,11 +31,11 @@ fn main() {
     );
     App::new()
         .add_plugins(PipelinedDefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(adjust_point_light_biases.system())
-        .add_system(toggle_light.system())
-        .add_system(adjust_directional_light_biases.system())
-        .add_system(camera_controller.system())
+        .add_startup_system(setup)
+        .add_system(adjust_point_light_biases)
+        .add_system(toggle_light)
+        .add_system(adjust_directional_light_biases)
+        .add_system(camera_controller)
         .run();
 }
 
@@ -119,7 +119,7 @@ fn setup(
         mesh: meshes.add(Mesh::from(shape::Plane {
             size: 2.0 * spawn_plane_depth,
         })),
-        material: white_handle.clone(),
+        material: white_handle,
         ..Default::default()
     });
 }

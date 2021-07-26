@@ -544,7 +544,7 @@ impl App {
     /// #
     /// # struct MyOwnPlugin;
     /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut AppBuilder){;}
+    /// #     fn build(&self, app: &mut App) { }
     /// # }
     /// #
     /// App::new()

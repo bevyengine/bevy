@@ -25,7 +25,7 @@ impl Plugin for ViewPlugin {
         let render_app = app.sub_app_mut(0);
         render_app
             .init_resource::<ViewMeta>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_views.system());
+            .add_system_to_stage(RenderStage::Prepare, prepare_views);
 
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node(ViewPlugin::VIEW_NODE, ViewNode);

@@ -9,11 +9,6 @@ homepage = "https://github.com/LPGhatguy/crevice"
 repository = "https://github.com/LPGhatguy/crevice"
 license = "MIT OR Apache-2.0"
 
-[features]
-# Feature used for testing; enables type_layout derive on types.
-# Requires crate using derive to depend on type_layout as well.
-test_type_layout = []
-
 [lib]
 proc-macro = true
 
