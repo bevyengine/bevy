@@ -5,7 +5,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
     render_asset::{RenderAsset, RenderAssetPlugin},
-    render_resource::{Buffer, BufferInitDescriptor, BufferUsage},
+    render_resource::{Buffer, BufferInitDescriptor, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
 };
@@ -185,7 +185,7 @@ impl RenderAsset for StandardMaterial {
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: None,
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             contents: value_std140.as_bytes(),
         });
         GpuStandardMaterial {

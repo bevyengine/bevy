@@ -1,6 +1,6 @@
 use crate::{render_resource::Buffer, renderer::RenderDevice};
 use bevy_core::{cast_slice, Pod};
-use wgpu::BufferUsage;
+use wgpu::BufferUsages;
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
@@ -8,7 +8,7 @@ pub struct BufferVec<T: Pod> {
     buffer: Option<Buffer>,
     capacity: usize,
     item_size: usize,
-    buffer_usage: BufferUsage,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: Pod> Default for BufferVec<T> {
@@ -18,14 +18,14 @@ impl<T: Pod> Default for BufferVec<T> {
             staging_buffer: None,
             buffer: None,
             capacity: 0,
-            buffer_usage: BufferUsage::all(),
+            buffer_usage: BufferUsages::all(),
             item_size: std::mem::size_of::<T>(),
         }
     }
 }
 
 impl<T: Pod> BufferVec<T> {
-    pub fn new(buffer_usage: BufferUsage) -> Self {
+    pub fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             buffer_usage,
             ..Default::default()
@@ -66,13 +66,13 @@ impl<T: Pod> BufferVec<T> {
             self.staging_buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size,
-                usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                usage: BufferUsages::COPY_SRC | BufferUsages::MAP_WRITE,
                 mapped_at_creation: false,
             }));
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size,
-                usage: BufferUsage::COPY_DST | self.buffer_usage,
+                usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
         }

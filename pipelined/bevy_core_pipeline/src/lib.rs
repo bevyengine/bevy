@@ -13,7 +13,7 @@ use bevy_render2::{
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, RenderPhase},
     render_resource::{
-        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
+        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         TextureView,
     },
     renderer::RenderDevice,
@@ -195,7 +195,7 @@ pub fn prepare_core_views_system(
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                       * bit depth for better performance */
-                usage: TextureUsage::RENDER_ATTACHMENT,
+                usage: TextureUsages::RENDER_ATTACHMENT,
             },
         );
         commands.entity(entity).insert(ViewDepthTexture {

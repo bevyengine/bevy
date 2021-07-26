@@ -38,7 +38,7 @@ impl Default for Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             sampler_descriptor: wgpu::SamplerDescriptor::default(),
         }
@@ -365,6 +365,7 @@ impl RenderAsset for Image {
                 texture: &texture,
                 mip_level: 0,
                 origin: Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
             },
             &image.data,
             ImageDataLayout {

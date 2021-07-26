@@ -48,7 +48,7 @@ impl FromWorld for PbrShaders {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -61,7 +61,7 @@ impl FromWorld for PbrShaders {
                 // Lights
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -74,7 +74,7 @@ impl FromWorld for PbrShaders {
                 // Point Shadow Texture Cube Array
                 BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
@@ -85,7 +85,7 @@ impl FromWorld for PbrShaders {
                 // Point Shadow Texture Array Sampler
                 BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: true,
                         filtering: true,
@@ -95,7 +95,7 @@ impl FromWorld for PbrShaders {
                 // Directional Shadow Texture Array
                 BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
@@ -106,7 +106,7 @@ impl FromWorld for PbrShaders {
                 // Directional Shadow Texture Array Sampler
                 BindGroupLayoutEntry {
                     binding: 5,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: true,
                         filtering: true,
@@ -120,7 +120,7 @@ impl FromWorld for PbrShaders {
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX,
+                visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
@@ -135,7 +135,7 @@ impl FromWorld for PbrShaders {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -148,7 +148,7 @@ impl FromWorld for PbrShaders {
                 // Base Color Texture
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -159,7 +159,7 @@ impl FromWorld for PbrShaders {
                 // Base Color Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -169,7 +169,7 @@ impl FromWorld for PbrShaders {
                 // Emissive Texture
                 BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -180,7 +180,7 @@ impl FromWorld for PbrShaders {
                 // Emissive Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -190,7 +190,7 @@ impl FromWorld for PbrShaders {
                 // Metallic Roughness Texture
                 BindGroupLayoutEntry {
                     binding: 5,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -201,7 +201,7 @@ impl FromWorld for PbrShaders {
                 // Metallic Roughness Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 6,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -211,7 +211,7 @@ impl FromWorld for PbrShaders {
                 // Occlusion Texture
                 BindGroupLayoutEntry {
                     binding: 7,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -222,7 +222,7 @@ impl FromWorld for PbrShaders {
                 // Occlusion Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 8,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -244,7 +244,7 @@ impl FromWorld for PbrShaders {
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
-                    step_mode: InputStepMode::Vertex,
+                    step_mode: VertexStepMode::Vertex,
                     attributes: &[
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
@@ -286,7 +286,7 @@ impl FromWorld for PbrShaders {
                             operation: BlendOperation::Add,
                         },
                     }),
-                    write_mask: ColorWrite::ALL,
+                    write_mask: ColorWrites::ALL,
                 }],
             }),
             depth_stencil: Some(DepthStencilState {
@@ -336,6 +336,7 @@ impl FromWorld for PbrShaders {
                     texture: &texture,
                     mip_level: 0,
                     origin: Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
                 },
                 &image.data,
                 ImageDataLayout {

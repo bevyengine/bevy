@@ -1,10 +1,10 @@
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
-use naga::{valid::ModuleInfo, Module, ShaderStage};
-use std::{borrow::Cow, collections::HashMap, marker::Copy};
+use naga::{valid::ModuleInfo, Module};
+use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
-use wgpu::{ShaderFlags, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -21,7 +21,7 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
     #[error(transparent)]
-    GlslParse(#[from] naga::front::glsl::ParseError),
+    GlslParse(#[from] naga::front::glsl::Error),
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
@@ -66,19 +66,8 @@ impl Shader {
     pub fn reflect(&self) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
-            Shader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
-            Shader::Glsl(source) => {
-                let mut entry_points = HashMap::default();
-                entry_points.insert("vertex".to_string(), ShaderStage::Vertex);
-                entry_points.insert("fragment".to_string(), ShaderStage::Fragment);
-                naga::front::glsl::parse_str(
-                    source,
-                    &naga::front::glsl::Options {
-                        entry_points,
-                        defines: Default::default(),
-                    },
-                )?
-            }
+            Shader::Wgsl(source) => naga::front::wgsl::parse_str(&source)?,
+            Shader::Glsl(_source) => unimplemented!("GLSL reflection not implemented"),
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
                 &naga::front::spv::Options {
@@ -143,7 +132,6 @@ impl AssetLoader for ShaderLoader {
 impl<'a> From<&'a Shader> for ShaderModuleDescriptor<'a> {
     fn from(shader: &'a Shader) -> Self {
         ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
             label: None,
             source: match shader {
                 Shader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),

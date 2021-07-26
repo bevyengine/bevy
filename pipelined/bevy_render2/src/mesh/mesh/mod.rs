@@ -10,7 +10,9 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::EnumVariantMeta;
 use std::{borrow::Cow, collections::BTreeMap};
-use wgpu::{util::BufferInitDescriptor, BufferUsage, IndexFormat, PrimitiveTopology, VertexFormat};
+use wgpu::{
+    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexFormat,
+};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -552,14 +554,14 @@ impl RenderAsset for Mesh {
     ) -> Self::PreparedAsset {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsage::VERTEX,
+            usage: BufferUsages::VERTEX,
             label: None,
             contents: &vertex_buffer_data,
         });
 
         let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
             buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                usage: BufferUsage::INDEX,
+                usage: BufferUsages::INDEX,
                 contents: data,
                 label: None,
             }),

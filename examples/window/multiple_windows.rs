@@ -7,7 +7,7 @@ use bevy::{
             base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
             WindowTextureNode,
         },
-        texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
+        texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
 };
@@ -90,7 +90,7 @@ fn setup_pipeline(
             window_id,
             TextureDescriptor {
                 format: TextureFormat::Depth32Float,
-                usage: TextureUsage::OUTPUT_ATTACHMENT,
+                usage: TextureUsages::OUTPUT_ATTACHMENT,
                 sample_count: msaa.samples,
                 ..Default::default()
             },
@@ -167,7 +167,7 @@ fn setup_pipeline(
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
                     format: TextureFormat::default(),
-                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                    usage: TextureUsages::OUTPUT_ATTACHMENT,
                 },
             ),
         );

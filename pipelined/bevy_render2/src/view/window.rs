@@ -104,7 +104,7 @@ pub fn prepare_windows(
             format: TextureFormat::bevy_default(),
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: if window.vsync {
                 wgpu::PresentMode::Fifo
             } else {

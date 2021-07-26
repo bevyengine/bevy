@@ -110,7 +110,7 @@ impl FromWorld for ShadowShaders {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -135,7 +135,7 @@ impl FromWorld for ShadowShaders {
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
-                    step_mode: InputStepMode::Vertex,
+                    step_mode: VertexStepMode::Vertex,
                     attributes: &[
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
@@ -381,7 +381,7 @@ pub fn prepare_lights(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
-                usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 label: None,
             },
         );
@@ -393,7 +393,7 @@ pub fn prepare_lights(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
-                usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 label: None,
             },
         );

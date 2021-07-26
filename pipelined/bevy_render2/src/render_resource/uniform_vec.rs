@@ -1,7 +1,7 @@
 use crate::{render_resource::Buffer, renderer::RenderDevice};
 use crevice::std140::{self, AsStd140, DynamicUniform, Std140};
 use std::{num::NonZeroU64, ops::DerefMut};
-use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsage, CommandEncoder};
+use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages, CommandEncoder};
 
 pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
@@ -79,13 +79,13 @@ impl<T: AsStd140> UniformVec<T> {
             self.staging_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
                 size,
-                usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                usage: BufferUsages::COPY_SRC | BufferUsages::MAP_WRITE,
                 mapped_at_creation: false,
             }));
             self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
                 size,
-                usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 mapped_at_creation: false,
             }));
         }
