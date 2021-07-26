@@ -58,6 +58,16 @@ impl RenderGraph {
         id
     }
 
+    pub fn remove_node(&mut self, name: impl Into<Cow<'static, str>>) {
+        let name = name.into();
+        if let Some(id) = self.node_names.get(&name) {
+            self.nodes.remove(id);
+        } else {
+            return;
+        }
+        self.node_names.remove(&name);
+    }
+
     pub fn get_node_state(
         &self,
         label: impl Into<NodeLabel>,
@@ -139,7 +149,7 @@ impl RenderGraph {
             input_index,
         };
 
-        self.validate_edge(&edge)?;
+        self.validate_edge(&edge, false)?;
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
@@ -147,6 +157,48 @@ impl RenderGraph {
         }
         let input_node = self.get_node_state_mut(input_node_id)?;
         input_node.edges.add_input_edge(edge)?;
+
+        Ok(())
+    }
+
+    pub fn remove_slot_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        output_slot: impl Into<SlotLabel>,
+        input_node: impl Into<NodeLabel>,
+        input_slot: impl Into<SlotLabel>,
+    ) -> Result<(), RenderGraphError> {
+        let output_slot = output_slot.into();
+        let input_slot = input_slot.into();
+        let output_node_id = self.get_node_id(output_node)?;
+        let input_node_id = self.get_node_id(input_node)?;
+
+        let output_index = self
+            .get_node_state(output_node_id)?
+            .output_slots
+            .get_slot_index(output_slot.clone())
+            .ok_or(RenderGraphError::InvalidOutputNodeSlot(output_slot))?;
+        let input_index = self
+            .get_node_state(input_node_id)?
+            .input_slots
+            .get_slot_index(input_slot.clone())
+            .ok_or(RenderGraphError::InvalidInputNodeSlot(input_slot))?;
+
+        let edge = Edge::SlotEdge {
+            output_node: output_node_id,
+            output_index,
+            input_node: input_node_id,
+            input_index,
+        };
+
+        self.validate_edge(&edge, true)?;
+
+        {
+            let output_node = self.get_node_state_mut(output_node_id)?;
+            output_node.edges.remove_output_edge(edge.clone())?;
+        }
+        let input_node = self.get_node_state_mut(input_node_id)?;
+        input_node.edges.remove_input_edge(edge)?;
 
         Ok(())
     }
@@ -164,7 +216,7 @@ impl RenderGraph {
             input_node: input_node_id,
         };
 
-        self.validate_edge(&edge)?;
+        self.validate_edge(&edge, false)?;
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
@@ -176,8 +228,39 @@ impl RenderGraph {
         Ok(())
     }
 
-    pub fn validate_edge(&mut self, edge: &Edge) -> Result<(), RenderGraphError> {
-        if self.has_edge(edge) {
+    pub fn remove_node_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        input_node: impl Into<NodeLabel>,
+    ) -> Result<(), RenderGraphError> {
+        let output_node_id = self.get_node_id(output_node)?;
+        let input_node_id = self.get_node_id(input_node)?;
+
+        let edge = Edge::NodeEdge {
+            output_node: output_node_id,
+            input_node: input_node_id,
+        };
+
+        self.validate_edge(&edge, true)?;
+
+        {
+            let output_node = self.get_node_state_mut(output_node_id)?;
+            output_node.edges.remove_output_edge(edge.clone())?;
+        }
+        let input_node = self.get_node_state_mut(input_node_id)?;
+        input_node.edges.remove_input_edge(edge)?;
+
+        Ok(())
+    }
+
+    pub fn validate_edge(
+        &mut self,
+        edge: &Edge,
+        should_exist: bool,
+    ) -> Result<(), RenderGraphError> {
+        if should_exist && !self.has_edge(edge) {
+            return Err(RenderGraphError::EdgeDoesNotExist(edge.clone()));
+        } else if !should_exist && self.has_edge(edge) {
             return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
         }
 
@@ -215,11 +298,13 @@ impl RenderGraph {
                         false
                     }
                 }) {
-                    return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                        node: input_node,
-                        input_slot: input_index,
-                        occupied_by_node: *current_output_node,
-                    });
+                    if !should_exist {
+                        return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
+                            node: input_node,
+                            input_slot: input_index,
+                            occupied_by_node: *current_output_node,
+                        });
+                    }
                 }
 
                 if output_slot.slot_type != input_slot.slot_type {
@@ -303,6 +388,10 @@ impl RenderGraph {
 
     pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: RenderGraph) {
         self.sub_graphs.insert(name.into(), sub_graph);
+    }
+
+    pub fn remove_sub_graph(&mut self, name: impl Into<Cow<'static, str>>) {
+        self.sub_graphs.remove(&name.into());
     }
 
     pub fn get_sub_graph(&self, name: impl AsRef<str>) -> Option<&RenderGraph> {

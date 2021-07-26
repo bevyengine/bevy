@@ -74,12 +74,40 @@ impl Edges {
         Ok(())
     }
 
+    pub(crate) fn remove_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
+        if let Some((index, _)) = self
+            .input_edges
+            .iter()
+            .enumerate()
+            .find(|(_i, e)| **e == edge)
+        {
+            self.input_edges.swap_remove(index);
+            return Ok(());
+        } else {
+            return Err(RenderGraphError::EdgeDoesNotExist(edge));
+        }
+    }
+
     pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_output_edge(&edge) {
             return Err(RenderGraphError::EdgeAlreadyExists(edge));
         }
         self.output_edges.push(edge);
         Ok(())
+    }
+
+    pub(crate) fn remove_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
+        if let Some((index, _)) = self
+            .output_edges
+            .iter()
+            .enumerate()
+            .find(|(_i, e)| **e == edge)
+        {
+            self.output_edges.swap_remove(index);
+            return Ok(());
+        } else {
+            return Err(RenderGraphError::EdgeDoesNotExist(edge));
+        }
     }
 
     pub fn has_input_edge(&self, edge: &Edge) -> bool {
