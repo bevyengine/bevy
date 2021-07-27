@@ -31,7 +31,7 @@ impl Time {
         self.update_with_instant(now);
     }
 
-    pub(crate) fn update_with_instant(&mut self, instant: Instant) {
+    pub fn update_with_instant(&mut self, instant: Instant) {
         if let Some(last_update) = self.last_update {
             self.delta = instant - last_update;
             self.delta_seconds_f64 = self.delta.as_secs_f64();
