@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(frame_update.system())
+        .add_system(frame_update)
         // add a new stage that runs twice a second
         .add_stage_after(
             CoreStage::Update,
@@ -24,7 +24,7 @@ fn main() {
                         // FixedTimestep state from within a system
                         .with_label(LABEL),
                 )
-                .with_system(fixed_update.system()),
+                .with_system(fixed_update),
         )
         .run();
 }

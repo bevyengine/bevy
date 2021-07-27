@@ -12,16 +12,16 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(paddle_movement_system.system())
-                .with_system(ball_collision_system.system())
-                .with_system(ball_movement_system.system()),
+                .with_system(paddle_movement_system)
+                .with_system(ball_collision_system)
+                .with_system(ball_movement_system),
         )
-        .add_system(scoreboard_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
+        .add_system(scoreboard_system)
+        .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
 

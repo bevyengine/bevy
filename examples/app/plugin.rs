@@ -28,8 +28,7 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.insert_resource(state)
-            .add_system(print_message_system.system());
+        app.insert_resource(state).add_system(print_message_system);
     }
 }
 

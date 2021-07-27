@@ -27,10 +27,7 @@ pub use loader::*;
 pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::{
-    schedule::{StageLabel, SystemStage},
-    system::IntoSystem,
-};
+use bevy_ecs::schedule::{StageLabel, SystemStage};
 use bevy_tasks::IoTaskPool;
 
 /// The names of asset stages in an App Schedule
@@ -106,16 +103,13 @@ impl Plugin for AssetPlugin {
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::CoreStage::PreUpdate,
-            asset_server::free_unused_assets_system.system(),
+            asset_server::free_unused_assets_system,
         );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(
-            AssetStage::LoadAssets,
-            io::filesystem_watcher_system.system(),
-        );
+        app.add_system_to_stage(AssetStage::LoadAssets, io::filesystem_watcher_system);
     }
 }

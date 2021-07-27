@@ -10,14 +10,14 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(generate_bodies.system())
+        .add_startup_system(generate_bodies)
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies.system())
-                .with_system(integrate.system()),
+                .with_system(interact_bodies)
+                .with_system(integrate),
         )
         .run();
 }

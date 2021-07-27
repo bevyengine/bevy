@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::system::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
@@ -36,12 +36,9 @@ impl Plugin for LogDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                Self::log_diagnostics_debug_system.system(),
-            );
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system);
         }
     }
 }
