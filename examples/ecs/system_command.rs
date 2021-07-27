@@ -2,7 +2,7 @@ use bevy::{prelude::*, utils::Duration};
 
 /// This example triggers a system from a command
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(spawn)
         .add_system(trigger_sync)
