@@ -1,7 +1,7 @@
 use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugin(LogPlugin::default())
         .add_system(hello_wasm_system.system())
         .run();

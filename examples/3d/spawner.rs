@@ -13,7 +13,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 /// NOTE: Bevy still has a number of optimizations to do in this area. Expect the
 /// performance here to go way up in the future
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())

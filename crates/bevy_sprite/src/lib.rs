@@ -67,7 +67,7 @@ pub const QUAD_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
@@ -83,7 +83,7 @@ impl Plugin for SpritePlugin {
             );
 
         let sprite_settings = app
-            .world_mut()
+            .world
             .get_resource_or_insert_with(SpriteSettings::default)
             .clone();
         if sprite_settings.frustum_culling_enabled {
@@ -96,14 +96,13 @@ impl Plugin for SpritePlugin {
                 frustum_culling::atlas_frustum_culling_system.system(),
             );
         }
-        let world = app.world_mut();
-        world
+        app.world
             .register_component(ComponentDescriptor::new::<OutsideFrustum>(
                 StorageType::SparseSet,
             ))
             .unwrap();
 
-        let world_cell = world.cell();
+        let world_cell = app.world.cell();
         let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
         let mut pipelines = world_cell
             .get_resource_mut::<Assets<PipelineDescriptor>>()

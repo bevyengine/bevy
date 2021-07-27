@@ -9,7 +9,7 @@ const LABEL: &str = "my_fixed_timestep";
 struct FixedUpdateStage;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update.system())

@@ -1,7 +1,7 @@
 use bevy::{prelude::*, window::ReceivedCharacter};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_system(print_char_event_system.system())
         .run();

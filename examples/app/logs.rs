@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 /// This example illustrates how to use logs in bevy
 fn main() {
-    App::build()
+    App::new()
         // Uncomment this to override the default log settings:
         // .insert_resource(bevy::log::LogSettings {
         //     level: bevy::log::Level::TRACE,

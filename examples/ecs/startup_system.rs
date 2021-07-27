@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_startup_system(startup_system.system())
         .add_system(normal_system.system())
         .run();

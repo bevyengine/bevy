@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{app::AppExit, AppBuilder};
+use crate::{app::AppExit, App};
 use bevy_ecs::system::IntoSystem;
 
 /// Configuration for automated testing on CI
@@ -23,7 +23,7 @@ fn ci_testing_exit_after(
     *current_frame += 1;
 }
 
-pub(crate) fn setup_app(app_builder: &mut AppBuilder) -> &mut AppBuilder {
+pub(crate) fn setup_app(app_builder: &mut App) -> &mut App {
     let filename =
         std::env::var("CI_TESTING_CONFIG").unwrap_or_else(|_| "ci_testing_config.ron".to_string());
     let config: CiTestingConfig = ron::from_str(

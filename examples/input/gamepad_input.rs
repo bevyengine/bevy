@@ -5,7 +5,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<GamepadLobby>()
         .add_system_to_stage(CoreStage::PreUpdate, connection_system.system())

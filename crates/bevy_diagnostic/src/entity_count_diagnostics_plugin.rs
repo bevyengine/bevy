@@ -1,4 +1,4 @@
-use bevy_app::{AppBuilder, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem, ResMut},
     world::World,
@@ -11,7 +11,7 @@ use crate::{Diagnostic, DiagnosticId, Diagnostics};
 pub struct EntityCountDiagnosticsPlugin;
 
 impl Plugin for EntityCountDiagnosticsPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_startup_system(Self::setup_system.system())
             .add_system(Self::diagnostic_system.exclusive_system());
     }

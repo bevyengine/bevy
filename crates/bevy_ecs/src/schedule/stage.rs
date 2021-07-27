@@ -26,7 +26,7 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl_downcast!(Stage);
 
-/// When this resource is present in the `AppBuilder`'s `Resources`,
+/// When this resource is present in the `App`'s `Resources`,
 /// each `SystemStage` will log a report containing
 /// pairs of systems with ambiguous execution order.
 ///

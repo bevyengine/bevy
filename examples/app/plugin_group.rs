@@ -2,7 +2,7 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 /// PluginGroups are a way to group sets of plugins that should be registered together.
 fn main() {
-    App::build()
+    App::new()
         // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
         .add_plugins(DefaultPlugins)
         // Adding a plugin group adds all plugins in the group by default
@@ -28,7 +28,7 @@ impl PluginGroup for HelloWorldPlugins {
 pub struct PrintHelloPlugin;
 
 impl Plugin for PrintHelloPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_system(print_hello_system.system());
     }
 }
@@ -40,7 +40,7 @@ fn print_hello_system() {
 pub struct PrintWorldPlugin;
 
 impl Plugin for PrintWorldPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_system(print_world_system.system());
     }
 }

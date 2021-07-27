@@ -13,7 +13,7 @@ enum GameState {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)

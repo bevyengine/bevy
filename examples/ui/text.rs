@@ -7,7 +7,7 @@ use bevy::{
 /// current FPS in the top left corner, as well as text that changes colour in the bottom right.
 /// For text within a scene, please see the text2d example.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
