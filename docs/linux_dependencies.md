@@ -20,7 +20,7 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 Graphics and audio need to be configured for them to work with WSL 2 backend.
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
-## Fedora 33
+## Fedora
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
@@ -47,12 +47,6 @@ sudo dnf install alsa-lib-devel.x86_64
 
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib
-```
-
-## Solus
-
-```bash
-sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
 ```
 
 ## Void
