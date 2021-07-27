@@ -282,7 +282,7 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     }
 }
 
-/// Query filter that only includes entities with components that belong to the specified
+/// Query filter that only includes entities with all of the components that belong to the specified
 /// [`Bundle`].
 ///
 /// For this filter it makes no difference whether the Components were added through a [`Bundle`]
