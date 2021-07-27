@@ -31,6 +31,7 @@ impl Time {
         self.update_with_instant(now);
     }
 
+    /// Update time with a specified [`Instant`], for use in tests. Should never be called on the default Time resource.
     pub fn update_with_instant(&mut self, instant: Instant) {
         if let Some(last_update) = self.last_update {
             self.delta = instant - last_update;
