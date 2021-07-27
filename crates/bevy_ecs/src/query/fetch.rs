@@ -41,11 +41,11 @@ use std::{
 ///
 /// [`Or`]: crate::query::Or
 pub trait WorldQuery {
-    type Fetch: for<'w, 's> Fetch<'w, 's, State = Self::State>;
+    type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
     type State: FetchState;
 }
 
-pub trait Fetch<'w, 's>: Sized {
+pub trait Fetch<'world, 'state>: Sized {
     type Item;
     type State: FetchState;
 
