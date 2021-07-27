@@ -24,27 +24,51 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
           override: true
-
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
-
-      - name: Check the format
-        # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci
-        if: runner.os == 'linux' && matrix.toolchain == 'stable'
-
       - name: Build & run tests
         run: cargo test --workspace
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: CI job
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci
 
   build-wasm:
     strategy:
@@ -54,13 +78,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-wasm-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
       - name: Check wasm
         uses: actions-rs/cargo@v1
         with:
@@ -71,23 +102,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
       - name: Uninstall android-31
         run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
       - name: Install Cargo APK
-        run: cargo install cargo-apk
+        run: cargo install --force cargo-apk
       - name: Build APK
         run: cargo apk build --example android
 
   markdownlint:
     runs-on: ubuntu-latest
+    needs: check-missing-examples-in-docs
+    if: always()
     steps:
       - uses: actions/checkout@v2
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
-
       - name: Run Markdown Lint
         uses: docker://ghcr.io/github/super-linter:slim-v4
         env:
@@ -99,41 +140,83 @@ jobs:
 
   check-markdown-links:
     runs-on: ubuntu-latest
+    needs: markdownlint
+    if: always()
     steps:
     - uses: actions/checkout@v2
-    - uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
+    - name: check dead links
+      continue-on-error: true
+      id: run1
+      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
       with:
         use-quiet-mode: 'yes'
         use-verbose-mode: 'yes'
         config-file: '.github/linters/markdown-link-check.json'
+    - name: Sleep for 30 seconds
+      if: steps.run1.outcome=='failure'
+      run: sleep 30s
+      shell: bash
+    - name: check dead links (retry)
+      continue-on-error: true
+      id: run2
+      if: steps.run1.outcome=='failure'
+      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/linters/markdown-link-check.json'
+    - name: Sleep for 30 seconds
+      if: steps.run2.outcome=='failure'
+      run: sleep 30s
+      shell: bash
+    - name: check dead links (retry 2)
+      continue-on-error: true
+      id: run3
+      if: steps.run2.outcome=='failure'
+      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/linters/markdown-link-check.json'
+    - name: set the status
+      if: always()
+      run: |
+        if ${{ steps.run1.outcome=='success' || steps.run2.outcome=='success' || steps.run3.outcome=='success' }}; then
+            echo success
+        else
+            exit 1
+        fi
 
   run-examples:
     runs-on: ubuntu-latest
-
     steps:
       - name: Install dependencies
         run: |
           sudo apt-get update;
           DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
             libasound2-dev libudev-dev wget unzip xvfb;
-
       - uses: actions/checkout@v2
-
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-
       - name: Setup swiftshader
         run: |
           wget https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader.zip;
           unzip swiftshader.zip;
           curr="$(pwd)/libvk_swiftshader.so";
           sed -i "s|PATH_TO_CHANGE|$curr|" vk_swiftshader_icd.json;
-
       - name: Build bevy
         run: |
           cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
-
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -145,19 +228,21 @@ jobs:
 
   check-doc:
     runs-on: ubuntu-latest
+    needs: check-markdown-links
+    if: always()
     steps:
       - uses: actions/checkout@v2
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
       - name: Installs cargo-deadlinks
-        run: cargo install cargo-deadlinks
+        run: cargo install --force cargo-deadlinks
       - name: Build and check doc
         run: RUSTDOCFLAGS='-D warnings' cargo doc --all-features --no-deps
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
-  
+
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
     steps:
@@ -175,17 +260,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-
       - name: Installs cargo-udeps
-        run: cargo install cargo-udeps
-
+        run: cargo install --force cargo-udeps
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-
       - name: Run cargo udeps
         run: cargo udeps
