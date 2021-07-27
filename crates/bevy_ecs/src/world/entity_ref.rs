@@ -365,7 +365,6 @@ impl<'w> EntityMut<'w> {
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::match_bool)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
         entity: Entity,
         self_location: &mut EntityLocation,
@@ -393,9 +392,10 @@ impl<'w> EntityMut<'w> {
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
             // SAFE: old_table_row exists
-            let move_result = match DROP {
-                true => old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table),
-                false => old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table),
+            let move_result = if DROP {
+                old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
+            } else {
+                old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
             };
 
             // SAFE: move_result.new_row is a valid position in new_archetype's table
