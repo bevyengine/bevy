@@ -1,4 +1,5 @@
 mod bundle;
+mod dynamic_texture_atlas_builder;
 mod rect;
 mod render;
 mod sprite;
@@ -7,6 +8,7 @@ mod texture_atlas_builder;
 
 use bevy_asset::AddAsset;
 pub use bundle::*;
+pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;
