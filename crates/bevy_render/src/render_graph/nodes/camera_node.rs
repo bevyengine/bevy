@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_core::bytes_of;
 use bevy_ecs::{
-    system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, Query, Res, ResMut},
     world::World,
 };
 use bevy_transform::prelude::*;
@@ -46,7 +46,7 @@ impl Node for CameraNode {
 
 impl SystemNode for CameraNode {
     fn get_system(&self) -> BoxedSystem {
-        let system = camera_node_system.system().config(|config| {
+        let system = camera_node_system.config(|config| {
             config.0 = Some(CameraNodeState {
                 camera_name: self.camera_name.clone(),
                 command_queue: self.command_queue.clone(),

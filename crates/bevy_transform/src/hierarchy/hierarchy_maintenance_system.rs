@@ -75,7 +75,7 @@ pub fn parent_update_system(
 mod test {
     use bevy_ecs::{
         schedule::{Schedule, Stage, SystemStage},
-        system::{CommandQueue, IntoSystem},
+        system::CommandQueue,
         world::World,
     };
 
@@ -87,8 +87,8 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system.system());
-        update_stage.add_system(transform_propagate_system.system());
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);

@@ -26,10 +26,7 @@ pub use system_set::*;
 
 use std::fmt::Debug;
 
-use crate::{
-    system::{IntoSystem, System},
-    world::World,
-};
+use crate::{system::System, world::World};
 use bevy_utils::HashMap;
 
 /// A container of [`Stage`]s set to be run in a linear order.
@@ -93,7 +90,7 @@ impl Schedule {
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.run_criteria.set(Box::new(system.system()));
+        self.run_criteria.set(Box::new(system));
         self
     }
 

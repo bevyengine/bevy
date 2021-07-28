@@ -3,12 +3,12 @@ use bevy::prelude::*;
 /// This example creates a new event, a system that triggers the event once per second,
 /// and a system that prints a message whenever the event is received.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .init_resource::<EventTriggerState>()
-        .add_system(event_trigger_system.system())
-        .add_system(event_listener_system.system())
+        .add_system(event_trigger_system)
+        .add_system(event_listener_system)
         .run();
 }
 

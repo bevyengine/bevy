@@ -15,8 +15,8 @@
 //! use bevy::prelude::*;
 //!
 //! fn main() {
-//!    App::build()
-//!        .add_system(hello_world_system.system())
+//!    App::new()
+//!        .add_system(hello_world_system)
 //!        .run();
 //! }
 //!

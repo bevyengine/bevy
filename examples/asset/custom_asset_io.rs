@@ -46,11 +46,11 @@ impl AssetIo for CustomAssetIo {
 struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = app
-            .world()
+            .world
             .get_resource::<bevy::tasks::IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
@@ -74,7 +74,7 @@ impl Plugin for CustomAssetIoPlugin {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins_with(DefaultPlugins, |group| {
             // the custom asset io plugin must be inserted in-between the
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
@@ -85,7 +85,7 @@ fn main() {
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

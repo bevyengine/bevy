@@ -2,16 +2,16 @@ use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             width: 500.,
             height: 300.,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(toggle_override.system())
-        .add_system(change_scale_factor.system())
+        .add_startup_system(setup)
+        .add_system(toggle_override)
+        .add_system(change_scale_factor)
         .run();
 }
 
