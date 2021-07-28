@@ -16,6 +16,7 @@ use bevy_render2::{
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewMeta, ViewUniform, ViewUniformOffset},
+    RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::slab::{FrameSlabMap, FrameSlabMapKey};
@@ -154,12 +155,41 @@ pub struct ExtractedSprites {
     sprites: Vec<ExtractedSprite>,
 }
 
-pub fn extract_sprites(
-    mut commands: Commands,
-    images: Res<Assets<Image>>,
+pub fn extract_atlases(
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
     atlas_query: Query<(&TextureAtlasSprite, &GlobalTransform, &Handle<TextureAtlas>)>,
+    mut render_world: ResMut<RenderWorld>,
+) {
+    let mut extracted_sprites = Vec::new();
+    for (atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+        if !texture_atlases.contains(texture_atlas_handle) {
+            continue;
+        }
+
+        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+            let rect = texture_atlas.textures[atlas_sprite.index as usize];
+            extracted_sprites.push(ExtractedSprite {
+                atlas_size: Some(texture_atlas.size),
+                transform: transform.compute_matrix(),
+                rect: rect.clone(),
+                handle: texture_atlas.texture.clone_weak(),
+            });
+        }
+    }
+
+    if let Some(mut extracted_sprites_res) = render_world.get_resource_mut::<ExtractedSprites>() {
+        extracted_sprites_res.sprites.extend(extracted_sprites);
+    } else {
+        render_world.insert_resource(ExtractedSprites {
+            sprites: extracted_sprites,
+        });
+    }
+}
+
+pub fn extract_sprites(
+    images: Res<Assets<Image>>,
+    sprite_query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
+    mut render_world: ResMut<RenderWorld>,
 ) {
     let mut extracted_sprites = Vec::new();
     for (sprite, transform, handle) in sprite_query.iter() {
@@ -178,25 +208,13 @@ pub fn extract_sprites(
         });
     }
 
-    for (atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !texture_atlases.contains(texture_atlas_handle) {
-            continue;
-        }
-
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = texture_atlas.textures[atlas_sprite.index as usize];
-            extracted_sprites.push(ExtractedSprite {
-                atlas_size: Some(texture_atlas.size),
-                transform: transform.compute_matrix(),
-                rect: rect.clone(),
-                handle: texture_atlas.texture.clone_weak(),
-            });
-        }
+    if let Some(mut extracted_sprites_res) = render_world.get_resource_mut::<ExtractedSprites>() {
+        extracted_sprites_res.sprites.extend(extracted_sprites);
+    } else {
+        render_world.insert_resource(ExtractedSprites {
+            sprites: extracted_sprites,
+        });
     }
-
-    commands.insert_resource(ExtractedSprites {
-        sprites: extracted_sprites,
-    });
 }
 
 #[repr(C)]
