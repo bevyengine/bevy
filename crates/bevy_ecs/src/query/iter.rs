@@ -1,12 +1,14 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, QueryState, WorldQuery},
+    entity::Entity,
+    query::{Fetch, QueryState, ReadOnlyFetch, WorldQuery},
     storage::{TableId, Tables},
+    system::Query,
     world::World,
 };
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use super::{QueryFetch, QueryItem, ReadOnlyFetch};
+use super::{QueryFetch, QueryItem, WorldQueryGats};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -475,5 +477,63 @@ where
                 return Some(item);
             }
         }
+    }
+}
+
+pub struct WithQuery<'world, 'state, I, Q, F>
+where
+    Q: WorldQuery,
+    F: WorldQuery
+{
+    iter: I,
+    query: &'world Query<'world, 'state, Q, F>,
+}
+
+impl<'world, 'state, I, Q, F> Iterator for WithQuery<'world, 'state, I, Q, F>
+where
+    I: Iterator<Item = Entity>,
+    Q: WorldQuery,
+    F: WorldQuery,
+{
+    type Item = <<Q as WorldQueryGats<'world>>::ReadOnlyFetch as Fetch<'world>>::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // if the entity iterator is done, this iterator is done
+        let mut entity = self.iter.next()?;
+        loop {
+            match self.query.get(entity).ok() {
+                Some(item) => return Some(item),
+                None => {
+                    entity = self.iter.next()?;
+                }
+            }
+        }
+    }
+}
+
+pub trait WithQueryExt {
+    fn with_query<'world, 'state, Q, F>(
+        self,
+        query: &'world Query<'world, 'state, Q, F>,
+    ) -> WithQuery<'world, 'state, Self, Q, F>
+    where
+        Self: Sized,
+        Q: WorldQuery,
+        F: WorldQuery;
+}
+
+impl<I> WithQueryExt for I
+where
+    I: Iterator<Item = Entity>,
+{
+    fn with_query<'w, 's, Q, F>(
+        self,
+        query: &'w Query<'w, 's, Q, F>,
+    ) -> WithQuery<'w, 's, Self, Q, F>
+    where
+        Q: WorldQuery,
+        F: WorldQuery,
+    {
+        WithQuery { iter: self, query }
     }
 }
