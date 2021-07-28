@@ -115,7 +115,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            <Foo as Bundle>::component_id(world.components_mut()),
+            <Foo as Bundle>::component_ids(world.components_mut()),
             vec![
                 world.components_mut().get_or_insert_id::<&'static str>(),
                 world.components_mut().get_or_insert_id::<i32>(),
@@ -151,7 +151,7 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::component_id(world.components_mut()),
+            <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
                 world.components_mut().get_or_insert_id::<usize>(),
                 world.components_mut().get_or_insert_id::<&'static str>(),

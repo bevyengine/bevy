@@ -44,7 +44,7 @@ use std::{any::TypeId, collections::HashMap};
 /// [Bundle::component_id]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
-    fn component_id(components: &mut Components) -> Vec<ComponentId>;
+    fn component_ids(components: &mut Components) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's Components
@@ -67,7 +67,7 @@ macro_rules! tuple_impl {
         /// SAFE: TypeInfo is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_id(components: &mut Components) -> Vec<ComponentId> {
+            fn component_ids(components: &mut Components) -> Vec<ComponentId> {
                 vec![$(components.get_or_insert_id::<$name>()),*]
             }
 
@@ -206,11 +206,11 @@ impl Bundles {
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let component_id = T::component_id(components);
+            let component_ids = T::component_ids(components);
             let id = BundleId(bundle_infos.len());
             // SAFE: T::component_id ensures info was created
             let bundle_info = unsafe {
-                initialize_bundle(std::any::type_name::<T>(), &component_id, id, components)
+                initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
             };
             bundle_infos.push(bundle_info);
             id
@@ -225,17 +225,15 @@ impl Bundles {
 /// `component_id` must be valid [ComponentId]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
-    component_id: &[ComponentId],
+    component_ids: Vec<ComponentId>,
     id: BundleId,
     components: &mut Components,
 ) -> BundleInfo {
-    let mut component_ids = Vec::new();
     let mut storage_types = Vec::new();
 
-    for &component_id in component_id {
+    for &component_id in &component_ids {
         // SAFE: component_id exists and is therefore valid
         let component_info = components.get_info_unchecked(component_id);
-        component_ids.push(component_id);
         storage_types.push(component_info.storage_type());
     }
 
