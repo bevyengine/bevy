@@ -41,7 +41,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -102,21 +102,26 @@ mod tests {
 
     #[test]
     fn bundle_derive() {
+        let mut world = World::new();
+
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
             x: &'static str,
             y: i32,
         }
 
-        assert_eq!(
-            <Foo as Bundle>::type_info(),
-            vec![TypeInfo::of::<&'static str>(), TypeInfo::of::<i32>(),]
-        );
-
-        let mut world = World::new();
         world
             .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
             .unwrap();
+
+        assert_eq!(
+            <Foo as Bundle>::component_ids(world.components_mut()),
+            vec![
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+            ]
+        );
+
         let e1 = world.spawn().insert_bundle(Foo { x: "abc", y: 123 }).id();
         let e2 = world.spawn().insert_bundle(("def", 456, true)).id();
         assert_eq!(*world.get::<&str>(e1).unwrap(), "abc");
@@ -146,12 +151,12 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::type_info(),
+            <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
-                TypeInfo::of::<usize>(),
-                TypeInfo::of::<&'static str>(),
-                TypeInfo::of::<i32>(),
-                TypeInfo::of::<u8>(),
+                world.components_mut().get_or_insert_id::<usize>(),
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+                world.components_mut().get_or_insert_id::<u8>(),
             ]
         );
 

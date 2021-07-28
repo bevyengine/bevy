@@ -2,7 +2,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -38,13 +38,13 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the
+/// [Bundle::component_id] must return the ComponentId for each component type in the bundle, in the
 /// _exact_ order that [Bundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by
-/// [Bundle::type_info]
+/// [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
+/// [Bundle::component_id]
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
-    fn type_info() -> Vec<TypeInfo>;
+    /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
+    fn component_ids(components: &mut Components) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's Components
@@ -66,8 +66,9 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         /// SAFE: TypeInfo is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
-            fn type_info() -> Vec<TypeInfo> {
-                vec![$(TypeInfo::of::<$name>()),*]
+            #[allow(unused_variables)]
+            fn component_ids(components: &mut Components) -> Vec<ComponentId> {
+                vec![$(components.get_or_insert_id::<$name>()),*]
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -205,10 +206,12 @@ impl Bundles {
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let type_info = T::type_info();
+            let component_ids = T::component_ids(components);
             let id = BundleId(bundle_infos.len());
-            let bundle_info =
-                initialize_bundle(std::any::type_name::<T>(), &type_info, id, components);
+            // SAFE: T::component_id ensures info was created
+            let bundle_info = unsafe {
+                initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
+            };
             bundle_infos.push(bundle_info);
             id
         });
@@ -217,21 +220,21 @@ impl Bundles {
     }
 }
 
-fn initialize_bundle(
+/// # Safety
+///
+/// `component_id` must be valid [ComponentId]'s
+unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
-    type_info: &[TypeInfo],
+    component_ids: Vec<ComponentId>,
     id: BundleId,
     components: &mut Components,
 ) -> BundleInfo {
-    let mut component_ids = Vec::new();
     let mut storage_types = Vec::new();
 
-    for type_info in type_info {
-        let component_id = components.get_or_insert_with(type_info.type_id(), || type_info.clone());
-        // SAFE: get_with_type_info ensures info was created
-        let info = unsafe { components.get_info_unchecked(component_id) };
-        component_ids.push(component_id);
-        storage_types.push(info.storage_type());
+    for &component_id in &component_ids {
+        // SAFE: component_id exists and is therefore valid
+        let component_info = components.get_info_unchecked(component_id);
+        storage_types.push(component_info.storage_type());
     }
 
     let mut deduped = component_ids.clone();
