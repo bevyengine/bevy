@@ -11,6 +11,8 @@ pub mod shader;
 pub mod texture;
 pub mod view;
 
+use std::ops::{Deref, DerefMut};
+
 pub use once_cell;
 use wgpu::BackendBit;
 
@@ -54,6 +56,29 @@ pub enum RenderStage {
     Cleanup,
 }
 
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Default)]
+pub struct RenderWorld(World);
+
+impl Deref for RenderWorld {
+    type Target = World;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RenderWorld {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// A "scratch" world used to avoid allocating new worlds every frame when
+// swapping out the Render World.
+#[derive(Default)]
+struct ScratchRenderWorld(World);
+
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         let (instance, device, queue) =
@@ -66,7 +91,8 @@ impl Plugin for RenderPlugin {
                 &wgpu::DeviceDescriptor::default(),
             ));
         app.insert_resource(device.clone())
-            .insert_resource(queue.clone());
+            .insert_resource(queue.clone())
+            .init_resource::<ScratchRenderWorld>();
 
         let mut render_app = App::empty();
         let mut extract_stage = SystemStage::parallel();
@@ -89,7 +115,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraph>()
             .init_resource::<DrawFunctions>();
 
-        app.add_sub_app(render_app, |app_world, render_app| {
+        app.add_sub_app(render_app, move |app_world, render_app| {
             // reserve all existing app entities for use in render_app
             // they can only be spawned using `get_or_spawn()`
             let meta_len = app_world.entities().meta.len();
@@ -97,6 +123,7 @@ impl Plugin for RenderPlugin {
                 .world
                 .entities()
                 .reserve_entities(meta_len as u32);
+
             // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
             // these entities cannot be accessed without spawning directly onto them
             // this _only_ works as expected because clear_entities() is called at the end of every frame.
@@ -156,6 +183,18 @@ fn extract(app_world: &mut World, render_app: &mut App) {
         .schedule
         .get_stage_mut::<SystemStage>(&RenderStage::Extract)
         .unwrap();
+
+    // temporarily add the render world to the app world as a resource
+    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
+    let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
+    app_world.insert_resource(RenderWorld(render_world));
+
     extract.run(app_world);
+
+    // add the render world back to the render app
+    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
+    let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
+    app_world.insert_resource(ScratchRenderWorld(scratch_world));
+
     extract.apply_buffers(&mut render_app.world);
 }
