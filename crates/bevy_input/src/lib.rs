@@ -7,10 +7,7 @@ pub mod system;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::IntoSystem,
-};
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 pub use input::*;
 
 pub mod prelude {
@@ -45,14 +42,14 @@ pub struct InputPlugin;
 pub struct InputSystem;
 
 impl Plugin for InputPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                keyboard_input_system.system().label(InputSystem),
+                keyboard_input_system.label(InputSystem),
             )
             // mouse
             .add_event::<MouseButtonInput>()
@@ -61,7 +58,7 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<MouseButton>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                mouse_button_input_system.system().label(InputSystem),
+                mouse_button_input_system.label(InputSystem),
             )
             // gamepad
             .add_event::<GamepadEvent>()
@@ -72,14 +69,14 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadButton>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_event_system.system().label(InputSystem),
+                gamepad_event_system.label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                touch_screen_input_system.system().label(InputSystem),
+                touch_screen_input_system.label(InputSystem),
             );
     }
 }

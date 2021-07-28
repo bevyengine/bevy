@@ -22,10 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::IntoSystem,
-};
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
 use bevy_render::RenderStage;
@@ -43,7 +40,7 @@ pub enum UiSystem {
 }
 
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<FlexSurface>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
@@ -62,36 +59,31 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                ui_focus_system
-                    .system()
-                    .label(UiSystem::Focus)
-                    .after(InputSystem),
+                ui_focus_system.label(UiSystem::Focus).after(InputSystem),
             )
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::text_system.system().before(UiSystem::Flex),
+                widget::text_system.before(UiSystem::Flex),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system.system().before(UiSystem::Flex),
+                widget::image_node_system.before(UiSystem::Flex),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 flex_node_system
-                    .system()
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 ui_z_system
-                    .system()
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
             )
-            .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
+            .add_system_to_stage(RenderStage::Draw, widget::draw_text_system);
 
-        crate::render::add_ui_graph(app.world_mut());
+        crate::render::add_ui_graph(&mut app.world);
     }
 }

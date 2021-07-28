@@ -3,18 +3,18 @@ use bevy::prelude::*;
 /// This example illustrates how to use States to control transitioning from a Menu state to an
 /// InGame state.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .add_state(AppState::Menu)
-        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
-        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
+        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
+        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
-                .with_system(movement.system())
-                .with_system(change_color.system()),
+                .with_system(movement)
+                .with_system(change_color),
         )
         .run();
 }

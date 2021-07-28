@@ -6,15 +6,15 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })
         .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(load_asset.system())
-        .add_system(print_asset.system())
+        .add_startup_system(load_asset)
+        .add_system(print_asset)
         .run();
 }
 

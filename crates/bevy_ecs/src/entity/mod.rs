@@ -367,6 +367,7 @@ impl Entities {
     /// Access the location storage of an entity.
     ///
     /// Must not be called on pending entities.
+    #[inline]
     pub fn get_mut(&mut self, entity: Entity) -> Option<&mut EntityLocation> {
         let meta = &mut self.meta[entity.id as usize];
         if meta.generation == entity.generation {
@@ -377,6 +378,7 @@ impl Entities {
     }
 
     /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];

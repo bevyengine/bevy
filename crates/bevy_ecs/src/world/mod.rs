@@ -1,11 +1,10 @@
 //! Types for storing and manipulating ECS data.
 mod entity_ref;
-mod pointer;
 mod spawn_batch;
 mod world_cell;
 
+pub use crate::change_detection::Mut;
 pub use entity_ref::*;
-pub use pointer::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
 

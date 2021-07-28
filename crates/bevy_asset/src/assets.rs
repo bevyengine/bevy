@@ -2,11 +2,8 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
     RefChange,
 };
-use bevy_app::{AppBuilder, EventWriter, Events};
-use bevy_ecs::{
-    system::{IntoSystem, ResMut},
-    world::FromWorld,
-};
+use bevy_app::{App, EventWriter, Events};
+use bevy_ecs::{system::ResMut, world::FromWorld};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -193,7 +190,7 @@ impl<T: Asset> Assets<T> {
     }
 }
 
-/// [AppBuilder] extension methods for adding new asset types
+/// [App] extension methods for adding new asset types
 pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
@@ -206,25 +203,19 @@ pub trait AddAsset {
         T: AssetLoader;
 }
 
-impl AddAsset for AppBuilder {
+impl AddAsset for App {
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
     {
         let assets = {
-            let asset_server = self.world().get_resource::<AssetServer>().unwrap();
+            let asset_server = self.world.get_resource::<AssetServer>().unwrap();
             asset_server.register_asset_type::<T>()
         };
 
         self.insert_resource(assets)
-            .add_system_to_stage(
-                AssetStage::AssetEvents,
-                Assets::<T>::asset_event_system.system(),
-            )
-            .add_system_to_stage(
-                AssetStage::LoadAssets,
-                update_asset_storage_system::<T>.system(),
-            )
+            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
+            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -233,7 +224,7 @@ impl AddAsset for AppBuilder {
     where
         T: AssetLoader + FromWorld,
     {
-        let result = T::from_world(self.world_mut());
+        let result = T::from_world(&mut self.world);
         self.add_asset_loader(result)
     }
 
@@ -241,7 +232,7 @@ impl AddAsset for AppBuilder {
     where
         T: AssetLoader,
     {
-        self.world_mut()
+        self.world
             .get_resource_mut::<AssetServer>()
             .expect("AssetServer does not exist. Consider adding it as a resource.")
             .add_loader(loader);
