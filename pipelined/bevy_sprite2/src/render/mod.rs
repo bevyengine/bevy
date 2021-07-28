@@ -171,7 +171,7 @@ pub fn extract_atlases(
             extracted_sprites.push(ExtractedSprite {
                 atlas_size: Some(texture_atlas.size),
                 transform: transform.compute_matrix(),
-                rect: rect.clone(),
+                rect,
                 handle: texture_atlas.texture.clone_weak(),
             });
         }
