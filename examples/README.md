@@ -85,6 +85,7 @@ Example | File | Description
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `mesh` | [`2d/mesh.rs`](./2d/mesh.rs) | Renders a custom mesh
+`pipelined_texture_atlas` | [`2d/pipelined_texture_atlas.rs`](./2d/pipelined_texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
