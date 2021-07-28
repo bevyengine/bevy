@@ -1,13 +1,13 @@
-use crate::{
+use crate::Transparent2dPhase;
+use bevy_ecs::prelude::*;
+use bevy_render2::{
     color::Color,
-    core_pipeline::Transparent2dPhase,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::ExtractedView,
 };
-use bevy_ecs::prelude::*;
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 
 pub struct MainPass2dNode {
     query: QueryState<&'static RenderPhase<Transparent2dPhase>, With<ExtractedView>>,

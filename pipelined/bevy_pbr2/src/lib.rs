@@ -11,7 +11,6 @@ pub use render::*;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    core_pipeline,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, DrawFunctions},
     RenderStage,
@@ -61,23 +60,23 @@ impl Plugin for PbrPlugin {
         let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node("pbr", PbrNode);
         graph
-            .add_node_edge("pbr", core_pipeline::node::MAIN_PASS_DEPENDENCIES)
+            .add_node_edge("pbr", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)
             .unwrap();
 
         let draw_3d_graph = graph
-            .get_sub_graph_mut(core_pipeline::draw_3d_graph::NAME)
+            .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph
             .add_node_edge(
                 draw_3d_graph::node::SHADOW_PASS,
-                core_pipeline::draw_3d_graph::node::MAIN_PASS,
+                bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
             )
             .unwrap();
         draw_3d_graph
             .add_slot_edge(
                 draw_3d_graph.input_node().unwrap().id,
-                core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
+                bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::SHADOW_PASS,
                 ShadowPassNode::IN_VIEW,
             )

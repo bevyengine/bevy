@@ -1,9 +1,9 @@
 use crate::Sprite;
 use bevy_asset::{Assets, Handle};
+use bevy_core_pipeline::Transparent2dPhase;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
-    core_pipeline::Transparent2dPhase,
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},

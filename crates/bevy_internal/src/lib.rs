@@ -82,6 +82,12 @@ pub mod audio {
     pub use bevy_audio::*;
 }
 
+#[cfg(feature = "bevy_core_pipeline")]
+pub mod core_pipeline {
+    //! Core render pipeline.
+    pub use bevy_core_pipeline::*;
+}
+
 #[cfg(feature = "bevy_gilrs")]
 pub mod gilrs {
     pub use bevy_gilrs::*;

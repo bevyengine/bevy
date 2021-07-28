@@ -1,11 +1,11 @@
-use crate::{
+use crate::ViewDepthTexture;
+use bevy_ecs::world::World;
+use bevy_render2::{
     camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames},
-    core_pipeline::{self, ViewDepthTexture},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_ecs::world::World;
 
 pub struct MainPassDriverNode;
 
@@ -24,7 +24,7 @@ impl Node for MainPassDriverNode {
             let extracted_window = extracted_windows.get(&extracted_camera.window_id).unwrap();
             let swap_chain_texture = extracted_window.swap_chain_frame.as_ref().unwrap().clone();
             graph.run_sub_graph(
-                core_pipeline::draw_2d_graph::NAME,
+                crate::draw_2d_graph::NAME,
                 vec![
                     SlotValue::Entity(*camera_2d),
                     SlotValue::TextureView(swap_chain_texture),
@@ -38,7 +38,7 @@ impl Node for MainPassDriverNode {
             let extracted_window = extracted_windows.get(&extracted_camera.window_id).unwrap();
             let swap_chain_texture = extracted_window.swap_chain_frame.as_ref().unwrap().clone();
             graph.run_sub_graph(
-                core_pipeline::draw_3d_graph::NAME,
+                crate::draw_3d_graph::NAME,
                 vec![
                     SlotValue::Entity(*camera_3d),
                     SlotValue::TextureView(swap_chain_texture),

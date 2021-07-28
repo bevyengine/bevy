@@ -6,19 +6,21 @@ pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
 
-use crate::{
+use bevy_app::{App, Plugin};
+use bevy_ecs::prelude::*;
+use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, RenderPhase},
-    render_resource::{Texture, TextureView},
+    render_resource::{
+        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
+        TextureView,
+    },
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, ViewPlugin},
     RenderStage,
 };
-use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
-use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage};
 
 // Plugins that contribute to the RenderGraph should use the following label conventions:
 // 1. Graph modules should have a NAME, input module, and node module (where relevant)
