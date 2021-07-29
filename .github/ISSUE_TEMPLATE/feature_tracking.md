@@ -8,6 +8,9 @@ assignees: ''
 
 ## What does this new feature do?
 
+**NOTE:** please only create tracking issues for features that have a reasonably clear consensus and implementation plan (although no definite timeline is needed).
+For feature requests and early design work, please create a [Discussion](https://github.com/bevyengine/bevy/discussions) instead.
+
 In a short paragraph, describe what the feature does.
 Try to focus on the new functionality it allows, rather than the implementation details.
 
