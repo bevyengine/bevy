@@ -1167,6 +1167,7 @@ macro_rules! impl_system_param_tuple {
             type Item = ($($param::Item,)*);
 
             #[inline]
+            #[allow(clippy::unused_unit)]
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
@@ -1201,6 +1202,7 @@ macro_rules! impl_system_param_tuple {
                 $($param.apply(_world);)*
             }
 
+            #[allow(clippy::unused_unit)]
             fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {
                 ($(<$param as SystemParamState>::default_config(),)*)
             }

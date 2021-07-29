@@ -71,6 +71,7 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
+            #[allow(clippy::unused_unit)]
             unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = (

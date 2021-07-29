@@ -917,6 +917,7 @@ macro_rules! impl_tuple_fetch {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
+            #[allow(clippy::unused_unit)]
             unsafe fn init(_world: &World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
@@ -944,12 +945,14 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[inline]
+            #[allow(clippy::unused_unit)]
             unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
                 let ($($name,)*) = self;
                 ($($name.table_fetch(_table_row),)*)
             }
 
             #[inline]
+            #[allow(clippy::unused_unit)]
             unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
                 let ($($name,)*) = self;
                 ($($name.archetype_fetch(_archetype_index),)*)
@@ -958,6 +961,7 @@ macro_rules! impl_tuple_fetch {
 
         // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(non_snake_case)]
+        #[allow(clippy::unused_unit)]
         unsafe impl<$($name: FetchState),*> FetchState for ($($name,)*) {
             fn init(_world: &mut World) -> Self {
                 ($($name::init(_world),)*)

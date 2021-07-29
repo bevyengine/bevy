@@ -92,10 +92,10 @@ fn save_scene_system(world: &mut World) {
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
     let type_registry = world.get_resource::<TypeRegistry>().unwrap();
-    let scene = DynamicScene::from_world(&scene_world, &type_registry);
+    let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
-    info!("{}", scene.serialize_ron(&type_registry).unwrap());
+    info!("{}", scene.serialize_ron(type_registry).unwrap());
 
     // TODO: save scene
 }

@@ -55,11 +55,11 @@ impl Node for WindowTextureNode {
 
         if self
             .window_created_event_reader
-            .iter(&window_created_events)
+            .iter(window_created_events)
             .any(|e| e.id == window.id())
             || self
                 .window_resized_event_reader
-                .iter(&window_resized_events)
+                .iter(window_resized_events)
                 .any(|e| e.id == window.id())
         {
             let render_resource_context = render_context.resources_mut();

@@ -290,16 +290,12 @@ where
 
         // first, iterate from last to first until next item is found
         'outer: for i in (0..K).rev() {
-            match self.cursors[i].next(&self.tables, &self.archetypes, &self.query_state) {
+            match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
                     // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone();
-                        match self.cursors[j].next(
-                            &self.tables,
-                            &self.archetypes,
-                            &self.query_state,
-                        ) {
+                        match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
                             None => return None,
