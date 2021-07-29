@@ -164,7 +164,7 @@ impl PipelineCompiler {
             });
 
         let mut layout = render_resource_context.reflect_pipeline_layout(
-            &shaders,
+            shaders,
             &specialized_descriptor.shader_stages,
             true,
         );
@@ -252,7 +252,7 @@ impl PipelineCompiler {
         render_resource_context.create_render_pipeline(
             specialized_pipeline_handle.clone_weak(),
             pipelines.get(&specialized_pipeline_handle).unwrap(),
-            &shaders,
+            shaders,
         );
 
         // track specialized shader pipelines

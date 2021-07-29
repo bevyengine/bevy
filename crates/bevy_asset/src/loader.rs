@@ -101,7 +101,7 @@ impl<'a> LoadContext<'a> {
     }
 
     pub fn path(&self) -> &Path {
-        &self.path
+        self.path
     }
 
     pub fn has_labeled_asset(&self, label: &str) -> bool {
