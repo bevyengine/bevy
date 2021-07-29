@@ -737,7 +737,7 @@ mod tests {
         fn get_added<Com: Component>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Added<Com>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -781,7 +781,7 @@ mod tests {
         {
             world
                 .query_filtered::<Entity, F>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -868,7 +868,7 @@ mod tests {
         fn get_changed(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Changed<A>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
         assert_eq!(get_changed(&mut world), vec![e1]);

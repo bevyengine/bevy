@@ -174,8 +174,8 @@ pub fn lights_node_system(
                     .chunks_exact_mut(point_light_size),
             ) {
                 slot.copy_from_slice(bytes_of(&PointLightUniform::new(
-                    &point_light,
-                    &global_transform,
+                    point_light,
+                    global_transform,
                 )));
             }
 
@@ -184,7 +184,7 @@ pub fn lights_node_system(
                 data[dir_light_uniform_start..dir_light_uniform_end]
                     .chunks_exact_mut(dir_light_size),
             ) {
-                slot.copy_from_slice(bytes_of(&DirectionalLightUniform::new(&dir_light)));
+                slot.copy_from_slice(bytes_of(&DirectionalLightUniform::new(dir_light)));
             }
         },
     );

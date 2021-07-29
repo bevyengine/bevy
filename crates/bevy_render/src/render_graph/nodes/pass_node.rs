@@ -237,7 +237,7 @@ where
         let commands = &mut self.commands;
         render_context.begin_pass(
             &self.descriptor,
-            &render_resource_bindings,
+            render_resource_bindings,
             &mut |render_pass| {
             for render_command in commands.drain(..) {
                 match render_command {

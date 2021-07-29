@@ -84,7 +84,7 @@ impl Texture {
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
-            current_pixel.copy_from_slice(&pixel);
+            current_pixel.copy_from_slice(pixel);
         }
         value
     }
