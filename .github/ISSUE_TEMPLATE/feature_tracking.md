@@ -17,9 +17,7 @@ Try to focus on the new functionality it allows, rather than the implementation 
 ## What still needs to be done?
 
 - [ ] Add
-
 - [ ] Items
-
 - [ ] Here
 
 Link to PRs as they are created to solve these action items.
