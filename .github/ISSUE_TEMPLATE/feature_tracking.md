@@ -8,8 +8,9 @@ assignees: ''
 
 ## What does this new feature do?
 
-**NOTE:** please only create tracking issues for features that have a reasonably clear consensus and implementation plan (although no definite timeline is needed).
-For feature requests and early design work, please create a [Discussion](https://github.com/bevyengine/bevy/discussions) instead.
+**NOTE:** please only create tracking issues for features if you're interested in tracking that feature's progress until it is released.
+This allows users to quickly find and read a single source of truth for the status of a feature they care about.
+For feature requests and early design work, please create a [Discussion](https://github.com/bevyengine/bevy/discussions) instead, which can then be linked in a tracking issue.
 
 In a short paragraph, describe what the feature does.
 Try to focus on the new functionality it allows, rather than the implementation details.
