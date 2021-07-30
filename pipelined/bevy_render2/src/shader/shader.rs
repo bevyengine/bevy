@@ -66,13 +66,13 @@ impl Shader {
     pub fn reflect(&self) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
-            Shader::Wgsl(source) => naga::front::wgsl::parse_str(&source)?,
+            Shader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
             Shader::Glsl(source) => {
                 let mut entry_points = HashMap::default();
                 entry_points.insert("vertex".to_string(), ShaderStage::Vertex);
                 entry_points.insert("fragment".to_string(), ShaderStage::Fragment);
                 naga::front::glsl::parse_str(
-                    &source,
+                    source,
                     &naga::front::glsl::Options {
                         entry_points,
                         defines: Default::default(),
@@ -80,7 +80,7 @@ impl Shader {
                 )?
             }
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
-                &source,
+                source,
                 &naga::front::spv::Options {
                     adjust_coordinate_space: false,
                     ..naga::front::spv::Options::default()

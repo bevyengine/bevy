@@ -53,7 +53,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
-    loaders: RwLock<Vec<Arc<Box<dyn AssetLoader>>>>,
+    loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
     task_pool: TaskPool,
@@ -112,7 +112,7 @@ impl AssetServer {
                 .write()
                 .insert(extension.to_string(), loader_index);
         }
-        loaders.push(Arc::new(Box::new(loader)));
+        loaders.push(Arc::new(loader));
     }
 
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
@@ -130,10 +130,7 @@ impl AssetServer {
         HandleUntyped::strong(id.into(), sender)
     }
 
-    fn get_asset_loader(
-        &self,
-        extension: &str,
-    ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
+    fn get_asset_loader(&self, extension: &str) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
         let index = {
             // scope map to drop lock as soon as possible
             let map = self.server.extension_to_loader_index.read();
@@ -149,7 +146,7 @@ impl AssetServer {
     fn get_path_asset_loader<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
+    ) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
         let s = path
             .as_ref()
             .file_name()

@@ -631,39 +631,37 @@ pub fn queue_meshes(
                                 },
                                 BindGroupEntry {
                                     binding: 1,
-                                    resource: BindingResource::TextureView(
-                                        &base_color_texture_view,
-                                    ),
+                                    resource: BindingResource::TextureView(base_color_texture_view),
                                 },
                                 BindGroupEntry {
                                     binding: 2,
-                                    resource: BindingResource::Sampler(&base_color_sampler),
+                                    resource: BindingResource::Sampler(base_color_sampler),
                                 },
                                 BindGroupEntry {
                                     binding: 3,
-                                    resource: BindingResource::TextureView(&emissive_texture_view),
+                                    resource: BindingResource::TextureView(emissive_texture_view),
                                 },
                                 BindGroupEntry {
                                     binding: 4,
-                                    resource: BindingResource::Sampler(&emissive_sampler),
+                                    resource: BindingResource::Sampler(emissive_sampler),
                                 },
                                 BindGroupEntry {
                                     binding: 5,
                                     resource: BindingResource::TextureView(
-                                        &metallic_roughness_texture_view,
+                                        metallic_roughness_texture_view,
                                     ),
                                 },
                                 BindGroupEntry {
                                     binding: 6,
-                                    resource: BindingResource::Sampler(&metallic_roughness_sampler),
+                                    resource: BindingResource::Sampler(metallic_roughness_sampler),
                                 },
                                 BindGroupEntry {
                                     binding: 7,
-                                    resource: BindingResource::TextureView(&occlusion_texture_view),
+                                    resource: BindingResource::TextureView(occlusion_texture_view),
                                 },
                                 BindGroupEntry {
                                     binding: 8,
-                                    resource: BindingResource::Sampler(&occlusion_sampler),
+                                    resource: BindingResource::Sampler(occlusion_sampler),
                                 },
                             ],
                             label: None,
