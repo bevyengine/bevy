@@ -6,21 +6,13 @@ labels: C-Usability, S-Needs-Triage
 assignees: ''
 ---
 
-## What tripped you up?
+## What flaw or frustration did you encounter?
 
-Was something inconsistent, surprising or frustrating?
+Was something inconsistent, surprising or confusing?
 Try to provide specific examples if you can.
 These could be code snippets, screenshots, a link to a bad error message in our source code, etc.
 
-If this is part of a broader problem, feel free to point out other areas where this needs to be fixed.
+## What would your ideal solution look like?
 
-## What would help you next time?
-
-What would your ideal solution look like?
-Talk about your dream API, the error messages you wish you had, or that one method you desperately need.
-
-## \[Optional\] Implementation strategy
-
-If you know how to fix this, link to the relevant section of the code and describe how it should be changed.
-
-If there are things preventing us from going straight to an ideal solution, mention them here.
+Do we need better error messages? Are we missing a function? Is our API unintuitive?
+If you have a specific implementation in mind, outline it here.
