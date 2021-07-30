@@ -247,6 +247,10 @@ path = "examples/async_tasks/async_compute.rs"
 name = "audio"
 path = "examples/audio/audio.rs"
 
+[[example]]
+name = "audio_looping"
+path = "examples/audio/audio_looping.rs"
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
