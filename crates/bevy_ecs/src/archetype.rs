@@ -1,12 +1,14 @@
+use bevy_utils::HashMap;
+use bevy_utils::StableHashMap;
+
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{Column, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
     borrow::Cow,
-    collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -48,15 +50,41 @@ pub struct AddBundle {
 
 #[derive(Default)]
 pub struct Edges {
-    pub add_bundle: SparseArray<BundleId, AddBundle>,
-    pub remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    pub remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
+    pub add_bundle: HashMap<BundleId, AddBundle>,
+    pub remove_bundle: HashMap<BundleId, Option<ArchetypeId>>,
+    pub remove_bundle_intersection: HashMap<BundleId, Option<ArchetypeId>>,
 }
 
 impl Edges {
+    pub fn debug_ram_usage(&self) -> usize {
+        use std::mem::size_of;
+
+        let mut size = size_of::<Edges>();
+
+        let usage_of_hm = |cap: usize, k, v| (cap * 11 / 10).next_power_of_two() * (k + v + 8);
+
+        size += usage_of_hm(
+            self.add_bundle.capacity(),
+            size_of::<BundleId>(),
+            size_of::<AddBundle>(),
+        );
+        size += usage_of_hm(
+            self.remove_bundle.capacity(),
+            size_of::<BundleId>(),
+            size_of::<Option<ArchetypeId>>(),
+        );
+        size += usage_of_hm(
+            self.remove_bundle_intersection.capacity(),
+            size_of::<BundleId>(),
+            size_of::<Option<ArchetypeId>>(),
+        );
+
+        size
+    }
+
     #[inline]
     pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<&AddBundle> {
-        self.add_bundle.get(bundle_id)
+        self.add_bundle.get(&bundle_id)
     }
 
     #[inline]
@@ -77,7 +105,7 @@ impl Edges {
 
     #[inline]
     pub fn get_remove_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle.get(bundle_id).cloned()
+        self.remove_bundle.get(&bundle_id).cloned()
     }
 
     #[inline]
@@ -90,7 +118,7 @@ impl Edges {
         &self,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle_intersection.get(bundle_id).cloned()
+        self.remove_bundle_intersection.get(&bundle_id).cloned()
     }
 
     #[inline]
@@ -124,47 +152,95 @@ pub struct Archetype {
     entities: Vec<Entity>,
     edges: Edges,
     table_info: TableInfo,
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
+    sparse_set_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
     pub(crate) unique_components: SparseSet<ComponentId, Column>,
     pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
+    pub(crate) relations: SparseSet<ComponentId, StableHashMap<Entity, ArchetypeComponentInfo>>,
 }
 
 impl Archetype {
+    pub fn debug_ram_usage(&self) -> (usize, usize) {
+        use std::mem::size_of;
+        let mut size = size_of::<Archetype>();
+
+        if let Cow::Owned(owned) = &self.table_components {
+            size += size_of::<(ComponentId, Option<Entity>)>() * owned.len();
+        }
+        if let Cow::Owned(owned) = &self.sparse_set_components {
+            size += size_of::<(ComponentId, Option<Entity>)>() * owned.len();
+        }
+
+        size += size_of::<ArchetypeComponentInfo>() * self.components.dense_len();
+        size += size_of::<ComponentId>() * self.components.indices_len();
+        size += size_of::<Option<usize>>() * self.components.sparse_len();
+
+        size += size_of::<ComponentId>() * self.relations.indices_len();
+        size += size_of::<Option<usize>>() * self.relations.sparse_len();
+
+        for v in self.relations.values() {
+            let cap = v.capacity();
+            let usage = (cap * 11 / 10).next_power_of_two()
+                * (size_of::<Entity>() + size_of::<ArchetypeComponentInfo>() + 8);
+            size += usage;
+        }
+
+        size += size_of::<Entity>() * self.entities.len();
+
+        (size, self.edges.debug_ram_usage())
+    }
+
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: Cow<'static, [ComponentId]>,
-        sparse_set_components: Cow<'static, [ComponentId]>,
+        table_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
+        sparse_set_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
         table_archetype_components: Vec<ArchetypeComponentId>,
         sparse_set_archetype_components: Vec<ArchetypeComponentId>,
     ) -> Self {
+        // FIXME(Relationships) sort out this capacity weirdness
         let mut components =
             SparseSet::with_capacity(table_components.len() + sparse_set_components.len());
-        for (component_id, archetype_component_id) in
+        let mut relations = SparseSet::new();
+        for ((component_id, target), archetype_component_id) in
             table_components.iter().zip(table_archetype_components)
         {
-            components.insert(
-                *component_id,
-                ArchetypeComponentInfo {
-                    storage_type: StorageType::Table,
-                    archetype_component_id,
-                },
-            );
+            let arch_comp_info = ArchetypeComponentInfo {
+                storage_type: StorageType::Table,
+                archetype_component_id,
+            };
+
+            match target {
+                None => {
+                    components.insert(*component_id, arch_comp_info);
+                }
+                Some(target) => {
+                    let set = relations.get_or_insert_with(*component_id, StableHashMap::default);
+                    set.insert(*target, arch_comp_info);
+                }
+            };
         }
 
-        for (component_id, archetype_component_id) in sparse_set_components
+        for ((component_id, target), archetype_component_id) in sparse_set_components
             .iter()
             .zip(sparse_set_archetype_components)
         {
-            components.insert(
-                *component_id,
-                ArchetypeComponentInfo {
-                    storage_type: StorageType::SparseSet,
-                    archetype_component_id,
-                },
-            );
+            let arch_comp_info = ArchetypeComponentInfo {
+                storage_type: StorageType::SparseSet,
+                archetype_component_id,
+            };
+
+            match target {
+                None => {
+                    components.insert(*component_id, arch_comp_info);
+                }
+                Some(target) => {
+                    let set = relations.get_or_insert_with(*component_id, StableHashMap::default);
+                    set.insert(*target, arch_comp_info);
+                }
+            };
         }
+
         Self {
             id,
             table_info: TableInfo {
@@ -172,6 +248,7 @@ impl Archetype {
                 entity_rows: Default::default(),
             },
             components,
+            relations,
             table_components,
             sparse_set_components,
             unique_components: SparseSet::new(),
@@ -201,12 +278,12 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn table_components(&self) -> &[ComponentId] {
+    pub fn table_components(&self) -> &[(ComponentId, Option<Entity>)] {
         &self.table_components
     }
 
     #[inline]
-    pub fn sparse_set_components(&self) -> &[ComponentId] {
+    pub fn sparse_set_components(&self) -> &[(ComponentId, Option<Entity>)] {
         &self.sparse_set_components
     }
 
@@ -221,8 +298,17 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components.indices()
+    pub fn components(&self) -> impl Iterator<Item = (ComponentId, Option<Entity>)> + '_ {
+        self.components
+            .indices()
+            .map(|kind| (kind, None))
+            .chain(self.relations.indices().flat_map(move |component_id| {
+                self.relations
+                    .get(component_id)
+                    .unwrap()
+                    .keys()
+                    .map(move |target| (component_id, Some(*target)))
+            }))
     }
 
     #[inline]
@@ -289,25 +375,50 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn contains(&self, component_id: ComponentId) -> bool {
-        self.components.contains(component_id)
+    pub fn contains(&self, component_id: ComponentId, target: Option<Entity>) -> bool {
+        match target {
+            None => self.components.contains(component_id),
+            Some(target) => self
+                .relations
+                .get(component_id)
+                .map(|set| set.contains_key(&target))
+                .unwrap_or(false),
+        }
     }
 
+    // FIXME(Relationships) technically the target is unnecessary here as all `KindId` have the same storage type
     #[inline]
-    pub fn get_storage_type(&self, component_id: ComponentId) -> Option<StorageType> {
-        self.components
-            .get(component_id)
-            .map(|info| info.storage_type)
+    pub fn get_storage_type(
+        &self,
+        component_id: ComponentId,
+        target: Option<Entity>,
+    ) -> Option<StorageType> {
+        match target {
+            None => self.components.get(component_id),
+            Some(target) => self
+                .relations
+                .get(component_id)
+                .and_then(|set| set.get(&target)),
+        }
+        .map(|info| info.storage_type)
     }
 
     #[inline]
     pub fn get_archetype_component_id(
         &self,
         component_id: ComponentId,
+        // FIXME(Relationships) treat archetype componnet id the same as component id maybe?? see other fixme
+        // then we oculd get rid of this `target` arg and same with fn above
+        target: Option<Entity>,
     ) -> Option<ArchetypeComponentId> {
-        self.components
-            .get(component_id)
-            .map(|info| info.archetype_component_id)
+        match target {
+            None => self.components.get(component_id),
+            Some(target) => self
+                .relations
+                .get(component_id)
+                .and_then(|set| set.get(&target)),
+        }
+        .map(|info| info.archetype_component_id)
     }
 }
 
@@ -329,8 +440,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct ArchetypeIdentity {
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
+    sparse_set_components: Cow<'static, [(ComponentId, Option<Entity>)]>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -453,6 +564,10 @@ impl Archetypes {
         a: ArchetypeId,
         b: ArchetypeId,
     ) -> (&mut Archetype, &mut Archetype) {
+        if a.0 == b.0 {
+            panic!("both indexes were the same");
+        }
+
         if a.index() > b.index() {
             let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
             (&mut a_slice[0], &mut b_slice[b.index()])
@@ -475,8 +590,8 @@ impl Archetypes {
     pub(crate) fn get_id_or_insert(
         &mut self,
         table_id: TableId,
-        table_components: Vec<ComponentId>,
-        sparse_set_components: Vec<ComponentId>,
+        table_components: Vec<(ComponentId, Option<Entity>)>,
+        sparse_set_components: Vec<(ComponentId, Option<Entity>)>,
     ) -> ArchetypeId {
         let table_components = Cow::from(table_components);
         let sparse_set_components = Cow::from(sparse_set_components);

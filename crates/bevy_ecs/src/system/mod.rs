@@ -390,14 +390,14 @@ mod tests {
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components().collect::<Vec<_>>();
                 let bundle_id = bundles
-                    .get_id(std::any::TypeId::of::<(i32, bool)>())
+                    .get_bundle_id(std::any::TypeId::of::<(i32, bool)>())
                     .expect("Bundle used to spawn entity should exist");
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
                 bundle_components.sort();
-                for component_id in bundle_components.iter() {
+                for (component_id, _) in bundle_components.iter() {
                     assert!(
-                        components.get_info(*component_id).is_some(),
+                        components.info(*component_id).is_some(),
                         "every bundle component exists in Components"
                     );
                 }
@@ -428,11 +428,8 @@ mod tests {
         y.initialize(&mut world);
 
         let conflicts = x.component_access().get_conflicts(y.component_access());
-        let b_id = world
-            .components()
-            .get_resource_id(TypeId::of::<B>())
-            .unwrap();
-        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        let b_id = world.components().resource_id(TypeId::of::<B>()).unwrap();
+        let d_id = world.components().component_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
     }
 

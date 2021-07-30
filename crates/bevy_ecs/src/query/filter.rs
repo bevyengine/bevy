@@ -1,14 +1,17 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     bundle::Bundle,
-    component::{Component, ComponentId, ComponentTicks, StorageType},
+    component::{Component, ComponentDescriptor, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
+use smallvec::SmallVec;
 use std::{cell::UnsafeCell, marker::PhantomData, ptr};
+
+use super::Relation;
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
@@ -66,7 +69,7 @@ where
 /// }
 /// # compliment_entity_system.system();
 /// ```
-pub struct With<T>(PhantomData<T>);
+pub struct With<T: ?Sized>(PhantomData<Box<T>>);
 
 impl<T: Component> WorldQuery for With<T> {
     type Fetch = WithFetch<T>;
@@ -88,8 +91,10 @@ pub struct WithState<T> {
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithState<T> {
+    type TargetFilter = ();
+
     fn init(world: &mut World) -> Self {
-        let component_info = world.components.get_or_insert_info::<T>();
+        let component_info = world.components.component_info_or_insert::<T>();
         Self {
             component_id: component_info.id(),
             storage_type: component_info.storage_type(),
@@ -110,22 +115,26 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     ) {
     }
 
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        archetype.contains(self.component_id)
+    fn matches_archetype(&self, archetype: &Archetype, _: &Self::TargetFilter) -> bool {
+        archetype.contains(self.component_id, None)
     }
 
-    fn matches_table(&self, table: &Table) -> bool {
-        table.has_column(self.component_id)
+    fn matches_table(&self, table: &Table, _: &Self::TargetFilter) -> bool {
+        table.has_column(self.component_id, None)
     }
+
+    fn deduplicate_targets(_: &mut Self::TargetFilter) {}
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
     type Item = bool;
     type State = WithState<T>;
+    type TargetFilter = ();
 
     unsafe fn init(
         _world: &World,
         state: &Self::State,
+        _: &Self::TargetFilter,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
@@ -141,12 +150,13 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(&mut self, _state: &Self::State, _: &Self::TargetFilter, _table: &Table) {}
 
     #[inline]
     unsafe fn set_archetype(
         &mut self,
         _state: &Self::State,
+        _: &Self::TargetFilter,
         _archetype: &Archetype,
         _tables: &Tables,
     ) {
@@ -185,7 +195,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
 /// }
 /// # no_permit_system.system();
 /// ```
-pub struct Without<T>(PhantomData<T>);
+pub struct Without<T: ?Sized>(PhantomData<Box<T>>);
 
 impl<T: Component> WorldQuery for Without<T> {
     type Fetch = WithoutFetch<T>;
@@ -207,8 +217,10 @@ pub struct WithoutState<T> {
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithoutState<T> {
+    type TargetFilter = ();
+
     fn init(world: &mut World) -> Self {
-        let component_info = world.components.get_or_insert_info::<T>();
+        let component_info = world.components.component_info_or_insert::<T>();
         Self {
             component_id: component_info.id(),
             storage_type: component_info.storage_type(),
@@ -229,22 +241,26 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     ) {
     }
 
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        !archetype.contains(self.component_id)
+    fn matches_archetype(&self, archetype: &Archetype, _: &Self::TargetFilter) -> bool {
+        !archetype.contains(self.component_id, None)
     }
 
-    fn matches_table(&self, table: &Table) -> bool {
-        !table.has_column(self.component_id)
+    fn matches_table(&self, table: &Table, _: &Self::TargetFilter) -> bool {
+        !table.has_column(self.component_id, None)
     }
+
+    fn deduplicate_targets(_: &mut Self::TargetFilter) {}
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
     type Item = bool;
     type State = WithoutState<T>;
+    type TargetFilter = ();
 
     unsafe fn init(
         _world: &World,
         state: &Self::State,
+        _: &Self::TargetFilter,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
@@ -260,12 +276,13 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(&mut self, _state: &Self::State, _: &Self::TargetFilter, _table: &Table) {}
 
     #[inline]
     unsafe fn set_archetype(
         &mut self,
         _state: &Self::State,
+        _: &Self::TargetFilter,
         _archetype: &Archetype,
         _tables: &Tables,
     ) {
@@ -295,20 +312,22 @@ pub struct WithBundleFetch<T: Bundle> {
 }
 
 pub struct WithBundleState<T: Bundle> {
-    component_ids: Vec<ComponentId>,
+    component_ids: Vec<(ComponentId, Option<Entity>)>,
     is_dense: bool,
     marker: PhantomData<T>,
 }
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
+    type TargetFilter = ();
+
     fn init(world: &mut World) -> Self {
-        let bundle_info = world.bundles.init_info::<T>(&mut world.components);
+        let bundle_info = world.bundles.init_bundle_info::<T>(&mut world.components);
         let components = &world.components;
         Self {
             component_ids: bundle_info.component_ids.clone(),
-            is_dense: !bundle_info.component_ids.iter().any(|id| unsafe {
-                components.get_info_unchecked(*id).storage_type() != StorageType::Table
+            is_dense: bundle_info.component_ids.iter().all(|(component_id, _)| {
+                components.info(*component_id).unwrap().storage_type() == StorageType::Table
             }),
             marker: PhantomData,
         }
@@ -316,7 +335,7 @@ unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
 
     #[inline]
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-        for component_id in self.component_ids.iter().cloned() {
+        for (component_id, _) in self.component_ids.iter().cloned() {
             access.add_with(component_id);
         }
     }
@@ -329,22 +348,30 @@ unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
     ) {
     }
 
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        self.component_ids.iter().all(|id| archetype.contains(*id))
+    fn matches_archetype(&self, archetype: &Archetype, _: &Self::TargetFilter) -> bool {
+        self.component_ids
+            .iter()
+            .all(|&(component_id, target)| archetype.contains(component_id, target))
     }
 
-    fn matches_table(&self, table: &Table) -> bool {
-        self.component_ids.iter().all(|id| table.has_column(*id))
+    fn matches_table(&self, table: &Table, _: &Self::TargetFilter) -> bool {
+        self.component_ids
+            .iter()
+            .all(|&(component_id, target)| table.has_column(component_id, target))
     }
+
+    fn deduplicate_targets(_: &mut Self::TargetFilter) {}
 }
 
 impl<'w, 's, T: Bundle> Fetch<'w, 's> for WithBundleFetch<T> {
     type Item = bool;
     type State = WithBundleState<T>;
+    type TargetFilter = ();
 
     unsafe fn init(
         _world: &World,
         state: &Self::State,
+        _: &Self::TargetFilter,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
@@ -360,12 +387,13 @@ impl<'w, 's, T: Bundle> Fetch<'w, 's> for WithBundleFetch<T> {
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(&mut self, _state: &Self::State, _: &Self::TargetFilter, _table: &Table) {}
 
     #[inline]
     unsafe fn set_archetype(
         &mut self,
         _state: &Self::State,
+        _: &Self::TargetFilter,
         _archetype: &Archetype,
         _tables: &Tables,
     ) {
@@ -373,6 +401,272 @@ impl<'w, 's, T: Bundle> Fetch<'w, 's> for WithBundleFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn table_fetch(&mut self, _table_row: usize) -> bool {
+        true
+    }
+}
+
+impl<T: Component> WorldQuery for Without<Relation<T>> {
+    type Fetch = WithoutRelationFetch<T>;
+    type State = WithoutRelationState<T>;
+}
+
+pub struct WithoutRelationState<T> {
+    storage_type: StorageType,
+    component_id: ComponentId,
+    marker: PhantomData<T>,
+}
+
+unsafe impl<T: Component> FetchState for WithoutRelationState<T> {
+    type TargetFilter = smallvec::SmallVec<[Entity; 4]>;
+
+    fn init(world: &mut World) -> Self {
+        let component_info =
+            world
+                .components
+                .component_info_or_insert_from(ComponentDescriptor::new_targeted::<T>(
+                    StorageType::Table,
+                ));
+
+        Self {
+            marker: PhantomData,
+            component_id: component_info.id(),
+            storage_type: component_info.storage_type(),
+        }
+    }
+
+    fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {
+        // Note: relations dont add a without access as `Query<&mut T, Without<Relation<U>>>`
+        // and `Query<&mut T, With<Relation<U>>>` can access the same entities if the targets
+        // specified for the relations are different - Boxy
+    }
+
+    fn update_archetype_component_access(
+        &self,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn matches_archetype(
+        &self,
+        archetype: &Archetype,
+        target_filter: &SmallVec<[Entity; 4]>,
+    ) -> bool {
+        // If there are no relations of this kind then the archetype matches regardless of
+        // what relation filters we have
+        if archetype.relations.get(self.component_id).is_none() {
+            return true;
+        }
+        // No relation filters means there shouldn't be *any* relations of the kind but we
+        // already returned true if that is the case which means this archetype doesn't fit
+        if target_filter.is_empty() {
+            return false;
+        }
+        target_filter
+            .iter()
+            .all(|&target| !archetype.contains(self.component_id, Some(target)))
+    }
+
+    fn matches_table(&self, table: &Table, target_filter: &SmallVec<[Entity; 4]>) -> bool {
+        // If there are no relations of this kind then the table matches regardless of
+        // what relation filters we have
+        if table
+            .targeted_component_columns
+            .get(self.component_id)
+            .is_none()
+        {
+            return true;
+        }
+        // No relation filters means there shouldn't be *any* relations of the kind but we
+        // already returned true if that is the case which means this table doesn't fit
+        if target_filter.is_empty() {
+            return false;
+        }
+        target_filter
+            .iter()
+            .all(|&target| !table.has_column(self.component_id, Some(target)))
+    }
+
+    fn deduplicate_targets(target_filter: &mut Self::TargetFilter) {
+        target_filter.sort();
+        target_filter.dedup();
+    }
+}
+
+pub struct WithoutRelationFetch<T> {
+    storage_type: StorageType,
+    marker: PhantomData<T>,
+}
+
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutRelationFetch<T> {
+    type Item = bool;
+    type State = WithoutRelationState<T>;
+    type TargetFilter = SmallVec<[Entity; 4]>;
+
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _: &Self::TargetFilter,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        Self {
+            storage_type: state.storage_type,
+            marker: PhantomData,
+        }
+    }
+
+    fn is_dense(&self) -> bool {
+        match self.storage_type {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    }
+
+    #[inline]
+    unsafe fn set_table(&mut self, _state: &Self::State, _: &Self::TargetFilter, _table: &Table) {}
+
+    #[inline]
+    unsafe fn set_archetype(
+        &mut self,
+        _state: &Self::State,
+        _: &Self::TargetFilter,
+        _archetype: &Archetype,
+        _tables: &Tables,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn table_fetch(&mut self, _table_row: usize) -> bool {
+        true
+    }
+}
+
+impl<T: Component> WorldQuery for With<Relation<T>> {
+    type Fetch = WithRelationFetch<T>;
+    type State = WithRelationState<T>;
+}
+
+pub struct WithRelationState<T> {
+    storage_type: StorageType,
+    component_id: ComponentId,
+    marker: PhantomData<T>,
+}
+
+unsafe impl<T: Component> FetchState for WithRelationState<T> {
+    type TargetFilter = SmallVec<[Entity; 4]>;
+
+    fn init(world: &mut World) -> Self {
+        let component_info =
+            world
+                .components
+                .component_info_or_insert_from(ComponentDescriptor::new_targeted::<T>(
+                    StorageType::Table,
+                ));
+
+        Self {
+            marker: PhantomData,
+            component_id: component_info.id(),
+            storage_type: component_info.storage_type(),
+        }
+    }
+
+    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+        access.add_with(self.component_id);
+    }
+
+    fn update_archetype_component_access(
+        &self,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn matches_archetype(
+        &self,
+        archetype: &Archetype,
+        target_filter: &SmallVec<[Entity; 4]>,
+    ) -> bool {
+        if archetype.relations.get(self.component_id).is_none() {
+            return false;
+        }
+        target_filter
+            .iter()
+            .all(|&target| archetype.contains(self.component_id, Some(target)))
+    }
+
+    fn matches_table(&self, table: &Table, target_filter: &SmallVec<[Entity; 4]>) -> bool {
+        if table
+            .targeted_component_columns
+            .get(self.component_id)
+            .is_none()
+        {
+            return false;
+        }
+        target_filter
+            .iter()
+            .all(|&target| table.has_column(self.component_id, Some(target)))
+    }
+
+    fn deduplicate_targets(target_filter: &mut Self::TargetFilter) {
+        target_filter.sort();
+        target_filter.dedup();
+    }
+}
+
+pub struct WithRelationFetch<T> {
+    storage_type: StorageType,
+    marker: PhantomData<T>,
+}
+
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithRelationFetch<T> {
+    type Item = bool;
+    type State = WithRelationState<T>;
+    type TargetFilter = SmallVec<[Entity; 4]>;
+
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _: &Self::TargetFilter,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        Self {
+            storage_type: state.storage_type,
+            marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    fn is_dense(&self) -> bool {
+        self.storage_type == StorageType::Table
+    }
+
+    #[inline]
+    unsafe fn set_table(&mut self, _state: &Self::State, _: &Self::TargetFilter, _table: &Table) {}
+
+    #[inline]
+    unsafe fn set_archetype(
+        &mut self,
+        _state: &Self::State,
+        _: &Self::TargetFilter,
+        _archetype: &Archetype,
+        _tables: &Tables,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
         true
     }
 
@@ -419,7 +713,7 @@ pub struct OrFetch<T: FilterFetch> {
 }
 
 macro_rules! impl_query_filter_tuple {
-    ($(($filter: ident, $state: ident)),*) => {
+    ($(($filter: ident, $state: ident, $target_filter: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<'a, $($filter: FilterFetch),*> FilterFetch for ($($filter,)*) {
@@ -449,11 +743,13 @@ macro_rules! impl_query_filter_tuple {
         impl<'w, 's, $($filter: FilterFetch),*> Fetch<'w, 's> for Or<($(OrFetch<$filter>,)*)> {
             type State = Or<($(<$filter as Fetch<'w, 's>>::State,)*)>;
             type Item = bool;
+            type TargetFilter = ($(<$filter as Fetch<'w, 's>>::TargetFilter,)*);
 
-            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, target_filter: &Self::TargetFilter, last_change_tick: u32, change_tick: u32) -> Self {
                 let ($($filter,)*) = &state.0;
+                let ($($target_filter,)*) = target_filter;
                 Or(($(OrFetch {
-                    fetch: $filter::init(world, $filter, last_change_tick, change_tick),
+                    fetch: $filter::init(world, $filter, $target_filter, last_change_tick, change_tick),
                     matches: false,
                 },)*))
             }
@@ -465,25 +761,27 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline]
-            unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+            unsafe fn set_table(&mut self, state: &Self::State, target_filter: &Self::TargetFilter, table: &Table) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
+                let ($($target_filter,)*) = target_filter;
                 $(
-                    $filter.matches = $state.matches_table(table);
+                    $filter.matches = $state.matches_table(table, $target_filter);
                     if $filter.matches {
-                        $filter.fetch.set_table($state, table);
+                        $filter.fetch.set_table($state, $target_filter, table);
                     }
                 )*
             }
 
             #[inline]
-            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
+            unsafe fn set_archetype(&mut self, state: &Self::State, target_filter: &Self::TargetFilter, archetype: &Archetype, tables: &Tables) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
+                let ($($target_filter,)*) = target_filter;
                 $(
-                    $filter.matches = $state.matches_archetype(archetype);
+                    $filter.matches = $state.matches_archetype(archetype, $target_filter);
                     if $filter.matches {
-                        $filter.fetch.set_archetype($state, archetype, tables);
+                        $filter.fetch.set_archetype($state, $target_filter, archetype, tables);
                     }
                 )*
             }
@@ -505,6 +803,8 @@ macro_rules! impl_query_filter_tuple {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         unsafe impl<$($filter: FetchState),*> FetchState for Or<($($filter,)*)> {
+            type TargetFilter = ($($filter::TargetFilter,)*);
+
             fn init(world: &mut World) -> Self {
                 Or(($($filter::init(world),)*))
             }
@@ -519,20 +819,27 @@ macro_rules! impl_query_filter_tuple {
                 $($filter.update_archetype_component_access(archetype, access);)*
             }
 
-            fn matches_archetype(&self, archetype: &Archetype) -> bool {
+            fn matches_archetype(&self, archetype: &Archetype, target_filter: &Self::TargetFilter) -> bool {
                 let ($($filter,)*) = &self.0;
-                false $(|| $filter.matches_archetype(archetype))*
+                let ($($target_filter,)*) = target_filter;
+                false $(|| $filter.matches_archetype(archetype, $target_filter))*
             }
 
-            fn matches_table(&self, table: &Table) -> bool {
+            fn matches_table(&self, table: &Table, target_filter: &Self::TargetFilter,) -> bool {
                 let ($($filter,)*) = &self.0;
-                false $(|| $filter.matches_table(table))*
+                let ($($target_filter,)*) = target_filter;
+                false $(|| $filter.matches_table(table, $target_filter))*
+            }
+
+            fn deduplicate_targets(target_filter: &mut Self::TargetFilter) {
+                let ($($filter,)*) = target_filter;
+                $($filter::deduplicate_targets($filter);)*
             }
         }
     };
 }
 
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_query_filter_tuple, 0, 11, F, S, R);
 
 macro_rules! impl_tick_filter {
     (
@@ -574,8 +881,13 @@ macro_rules! impl_tick_filter {
 
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that
         unsafe impl<T: Component> FetchState for $state_name<T> {
+            type TargetFilter = ();
+
             fn init(world: &mut World) -> Self {
-                let component_info = world.components.get_or_insert_info::<T>();
+                let component_info = world
+                    .components
+                    .component_info_or_insert::<T>();
+
                 Self {
                     component_id: component_info.id(),
                     storage_type: component_info.storage_type(),
@@ -598,25 +910,28 @@ macro_rules! impl_tick_filter {
                 archetype: &Archetype,
                 access: &mut Access<ArchetypeComponentId>,
             ) {
-                if let Some(archetype_component_id) = archetype.get_archetype_component_id(self.component_id) {
+                if let Some(archetype_component_id) = archetype.get_archetype_component_id(self.component_id, None) {
                     access.add_read(archetype_component_id);
                 }
             }
 
-            fn matches_archetype(&self, archetype: &Archetype) -> bool {
-                archetype.contains(self.component_id)
+            fn matches_archetype(&self, archetype: &Archetype, _: &Self::TargetFilter) -> bool {
+                archetype.contains(self.component_id, None)
             }
 
-            fn matches_table(&self, table: &Table) -> bool {
-                table.has_column(self.component_id)
+            fn matches_table(&self, table: &Table, _: &Self::TargetFilter) -> bool {
+                table.has_column(self.component_id, None)
             }
+
+            fn deduplicate_targets(_: &mut Self::TargetFilter) {}
         }
 
         impl<'w, 's, T: Component> Fetch<'w, 's> for $fetch_name<T> {
             type State = $state_name<T>;
             type Item = bool;
+            type TargetFilter = ();
 
-            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, _: &Self::TargetFilter, last_change_tick: u32, change_tick: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
                     table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
@@ -631,7 +946,7 @@ macro_rules! impl_tick_filter {
                     value.sparse_set = world
                         .storages()
                         .sparse_sets
-                        .get(state.component_id).unwrap();
+                        .get(state.component_id, None).unwrap();
                 }
                 value
             }
@@ -641,19 +956,19 @@ macro_rules! impl_tick_filter {
                 self.storage_type == StorageType::Table
             }
 
-            unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+            unsafe fn set_table(&mut self, state: &Self::State, _: &Self::TargetFilter, table: &Table) {
                 self.table_ticks = table
-                    .get_column(state.component_id).unwrap()
+                    .get_column(state.component_id, None).unwrap()
                     .get_ticks_ptr();
             }
 
-            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
+            unsafe fn set_archetype(&mut self, state: &Self::State, _: &Self::TargetFilter, archetype: &Archetype, tables: &Tables) {
                 match state.storage_type {
                     StorageType::Table => {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                         let table = &tables[archetype.table_id()];
                         self.table_ticks = table
-                            .get_column(state.component_id).unwrap()
+                            .get_column(state.component_id, None).unwrap()
                             .get_ticks_ptr();
                     }
                     StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),

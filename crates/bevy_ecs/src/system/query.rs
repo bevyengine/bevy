@@ -1,9 +1,10 @@
 use crate::{
     component::Component,
     entity::Entity,
+    prelude::QueryTargetFilters,
     query::{
         Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
-        ReadOnlyFetch, WorldQuery,
+        ReadOnlyFetch, SpecifiesRelation, TargetFilter, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -107,12 +108,12 @@ use thiserror::Error;
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
+pub struct Query<'w, Q: WorldQuery + 'static, F: WorldQuery + 'static = ()>
 where
     F::Fetch: FilterFetch,
 {
     pub(crate) world: &'w World,
-    pub(crate) state: &'w QueryState<Q, F>,
+    pub(crate) state: &'w mut QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
@@ -130,7 +131,7 @@ where
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
-        state: &'w QueryState<Q, F>,
+        state: &'w mut QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -285,7 +286,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut<'s>(&'s mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)) {
+    pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, '_>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -402,6 +403,8 @@ where
             .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
     }
 
+    // FIXME(Relationships) implement get_relation methods for both `T *` and `T some_entity`
+
     /// Gets a reference to the [`Entity`]'s [`Component`] of the given type. This will fail if the
     /// entity does not have the given component type or if the given component type does not match
     /// this query.
@@ -413,11 +416,11 @@ where
             .ok_or(QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
-            .get_id(TypeId::of::<T>())
+            .component_id(TypeId::of::<T>())
             .ok_or(QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
-            .get_archetype_component_id(component_id)
+            .get_archetype_component_id(component_id, None)
             .ok_or(QueryComponentError::MissingComponent)?;
         if self
             .state
@@ -463,11 +466,11 @@ where
             .ok_or(QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
-            .get_id(TypeId::of::<T>())
+            .component_id(TypeId::of::<T>())
             .ok_or(QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
-            .get_archetype_component_id(component_id)
+            .get_archetype_component_id(component_id, None)
             .ok_or(QueryComponentError::MissingComponent)?;
         if self
             .state
@@ -551,6 +554,79 @@ where
         // we sort out how to convert "write" queries to "read" queries.
         self.state
             .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    pub fn clear_target_filters(&mut self) -> &mut Self {
+        self.set_target_filters(Default::default());
+        self
+    }
+
+    /// Starts building a new set of relation filters for the query, changes will not take
+    /// place if `apply_filters` is not called on the returned builder struct.
+    ///
+    /// You should call `clear_filter_relations` if you want to reset filters.
+    #[must_use = "relation filters will be unchanged if you do not call `apply_filters`"]
+    pub fn new_target_filters<K: Component, Path>(
+        &mut self,
+        filter: TargetFilter<K>,
+    ) -> QueryTargetFiltersBuilder<'_, 'w, Q, F>
+    where
+        QueryTargetFilters<Q, F>:
+            SpecifiesRelation<K, Path, TargetFilter = QueryTargetFilters<Q, F>>,
+    {
+        QueryTargetFiltersBuilder {
+            query: self,
+            filters: QueryTargetFilters::new(),
+        }
+        .add_target_filter(filter)
+    }
+
+    /// Overwrites current relation filters with the provided relation filters
+    ///
+    /// You should prefer `new_filter_relation` over this method
+    fn set_target_filters(&mut self, target_filter: QueryTargetFilters<Q, F>) -> &mut Self {
+        self.state.set_target_filters(self.world, target_filter);
+        self
+    }
+}
+
+impl<'w, Q: WorldQuery, F: WorldQuery> Drop for Query<'w, Q, F>
+where
+    F::Fetch: FilterFetch,
+{
+    fn drop(&mut self) {
+        self.set_target_filters(QueryTargetFilters::new());
+    }
+}
+
+pub struct QueryTargetFiltersBuilder<'a, 'b: 'a, Q: WorldQuery + 'static, F: WorldQuery + 'static>
+where
+    F::Fetch: FilterFetch,
+{
+    query: &'a mut Query<'b, Q, F>,
+    filters: QueryTargetFilters<Q, F>,
+}
+
+impl<'a, 'b: 'a, Q: WorldQuery, F: WorldQuery> QueryTargetFiltersBuilder<'a, 'b, Q, F>
+where
+    F::Fetch: FilterFetch,
+{
+    /// If filters have already been added for the relation kind they will be merged with
+    /// the provided filters.
+    #[must_use = "target filters will be unchanged if you do not call `apply_filters`"]
+    pub fn add_target_filter<K: Component, Path>(mut self, filter: TargetFilter<K>) -> Self
+    where
+        QueryTargetFilters<Q, F>:
+            SpecifiesRelation<K, Path, TargetFilter = QueryTargetFilters<Q, F>>,
+    {
+        self.filters.add_filter_relation(filter);
+        self
+    }
+
+    pub fn apply_filters(self) -> &'a mut Query<'b, Q, F> {
+        let Self { query, filters } = self;
+        query.state.set_target_filters(query.world, filters);
+        query
     }
 }
 

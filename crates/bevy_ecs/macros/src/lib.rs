@@ -128,7 +128,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
         } else {
             field_component_ids.push(quote! {
-                component_ids.push(components.get_or_insert_id::<#field_type>());
+                component_ids.push(
+                    components
+                    .component_id_or_insert::<#field_type>()
+                );
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
@@ -260,7 +263,17 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
                     let (#(#query,)*) = &mut self.0;
                     #(
-                        #query.new_archetype(archetype);
+                        for (target_filter, cache) in #query.target_filter_accesses.iter_mut() {
+                            QueryState::<#query, #filter>::new_archetype(
+                                &#query.fetch_state,
+                                &#query.filter_state,
+                                &mut #query.archetype_component_access,
+                                &*target_filter,
+                                cache,
+                                archetype
+                            );
+                        }
+
                         system_meta
                             .archetype_component_access
                             .extend(&#query.archetype_component_access);
@@ -282,7 +295,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     world: &'a World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    let (#(#query,)*) = &state.0;
+                    let (#(#query,)*) = &mut state.0;
                     QuerySet((#(Query::new(world, #query, system_meta.last_change_tick, change_tick),)*))
                 }
             }

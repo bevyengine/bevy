@@ -22,7 +22,10 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{
+            Added, ChangeTrackers, Changed, InData, InFilter, InTuple, Or, QueryState,
+            QueryTargetFilters, Relation, TargetFilter, With, WithBundle, Without,
+        },
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
@@ -41,7 +44,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType},
+        component::{Component, ComponentDescriptor, StorageType},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -117,8 +120,10 @@ mod tests {
         assert_eq!(
             <Foo as Bundle>::component_ids(world.components_mut()),
             vec![
-                world.components_mut().get_or_insert_id::<&'static str>(),
-                world.components_mut().get_or_insert_id::<i32>(),
+                world
+                    .components_mut()
+                    .component_id_or_insert::<&'static str>(),
+                world.components_mut().component_id_or_insert::<i32>(),
             ]
         );
 
@@ -153,10 +158,12 @@ mod tests {
         assert_eq!(
             <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
-                world.components_mut().get_or_insert_id::<usize>(),
-                world.components_mut().get_or_insert_id::<&'static str>(),
-                world.components_mut().get_or_insert_id::<i32>(),
-                world.components_mut().get_or_insert_id::<u8>(),
+                world.components_mut().component_id_or_insert::<usize>(),
+                world
+                    .components_mut()
+                    .component_id_or_insert::<&'static str>(),
+                world.components_mut().component_id_or_insert::<i32>(),
+                world.components_mut().component_id_or_insert::<u8>(),
             ]
         );
 
@@ -885,14 +892,11 @@ mod tests {
         assert!(!world.contains_resource::<i32>());
 
         world.insert_resource(123);
-        let resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+        let resource_id = world.components().resource_id(TypeId::of::<i32>()).unwrap();
         let archetype_component_id = world
             .archetypes()
             .resource()
-            .get_archetype_component_id(resource_id)
+            .get_archetype_component_id(resource_id, None)
             .unwrap();
 
         assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
@@ -948,10 +952,7 @@ mod tests {
             "other resources are unaffected"
         );
 
-        let current_resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+        let current_resource_id = world.components().resource_id(TypeId::of::<i32>()).unwrap();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
@@ -960,7 +961,7 @@ mod tests {
         let current_archetype_component_id = world
             .archetypes()
             .resource()
-            .get_archetype_component_id(current_resource_id)
+            .get_archetype_component_id(current_resource_id, None)
             .unwrap();
 
         assert_eq!(
@@ -1161,9 +1162,9 @@ mod tests {
         let mut world = World::new();
         let query = world.query_filtered::<&mut i32, Changed<f64>>();
 
-        let mut expected = FilteredAccess::<ComponentId>::default();
-        let i32_id = world.components.get_id(TypeId::of::<i32>()).unwrap();
-        let f64_id = world.components.get_id(TypeId::of::<f64>()).unwrap();
+        let mut expected = FilteredAccess::default();
+        let i32_id = world.components.component_id(TypeId::of::<i32>()).unwrap();
+        let f64_id = world.components.component_id(TypeId::of::<f64>()).unwrap();
         expected.add_write(i32_id);
         expected.add_read(f64_id);
         assert!(
