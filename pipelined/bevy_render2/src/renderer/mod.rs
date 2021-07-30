@@ -37,7 +37,7 @@ pub async fn initialize_renderer(
     let instance = wgpu::Instance::new(backends);
 
     let adapter = instance
-        .request_adapter(&request_adapter_options)
+        .request_adapter(request_adapter_options)
         .await
         .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
@@ -55,7 +55,7 @@ pub async fn initialize_renderer(
     let trace_path = None;
 
     let (device, queue) = adapter
-        .request_device(&device_descriptor, trace_path)
+        .request_device(device_descriptor, trace_path)
         .await
         .unwrap();
     let device = Arc::new(device);
