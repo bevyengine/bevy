@@ -299,6 +299,52 @@ where
     }
 }
 
+/// Allows end users to call system-running methods from the [`System`](crate::system::System) trait without .system().
+pub trait RunnableSystem<In, Out, Param: SystemParam, Marker>:
+    IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
+{
+    fn apply_buffers(self, world: &mut World);
+
+    fn initialize(self, _world: &mut World);
+
+    fn run(self, input: In, world: &mut World) -> Out;
+
+    fn run_direct(self, input: In, world: &mut World) -> Out;
+}
+
+impl<In, Out, Param: SystemParam, Marker, F> RunnableSystem<In, Out, Param, Marker> for F
+where
+    In: 'static,
+    Out: 'static,
+    Param: SystemParam + 'static,
+    Marker: 'static,
+    F: SystemParamFunction<In, Out, Param, Marker>
+        + IntoSystem<
+            In,
+            Out,
+            (IsFunctionSystem, Param, Marker),
+            System = FunctionSystem<In, Out, Param, Marker, F>,
+        > + Send
+        + Sync
+        + 'static,
+{
+    fn apply_buffers(self, world: &mut World) {
+        self.system().apply_buffers(world);
+    }
+
+    fn initialize(self, world: &mut World) {
+        self.system().initialize(world);
+    }
+
+    fn run(self, input: In, world: &mut World) -> Out {
+        self.system().run(input, world)
+    }
+
+    fn run_direct(self, input: In, world: &mut World) -> Out {
+        self.system().run_direct(input, world)
+    }
+}
+
 pub struct IsFunctionSystem;
 
 impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
@@ -366,13 +412,17 @@ where
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
-        let out = self.func.run(
+        // Trait disambiguation required here to disambiguate .run call
+        // the .run found in the `RunnableSystem` trait
+        let out = <F as SystemParamFunction<In, Out, Param, Marker>>::run(
+            &mut self.func,
             input,
             self.param_state.as_mut().unwrap(),
             &self.system_meta,
             world,
             change_tick,
         );
+
         self.system_meta.last_change_tick = change_tick;
         out
     }

@@ -88,7 +88,7 @@ pub trait System: Send + Sync + 'static {
     /// }
     ///
     /// world.insert_resource::<Counter>(Counter(0));
-    /// count_up.system().run_direct((), &mut world);
+    /// count_up.run_direct((), &mut world);
     /// let counter = world.get_resource::<Counter>().unwrap();
     /// assert_eq!(counter.0, 1);
     /// ```

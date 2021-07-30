@@ -17,7 +17,6 @@ use crate::{
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
-    schedule::{IntoSystemDescriptor, SystemDescriptor},
     storage::{Column, SparseSet, Storages},
 };
 use std::{
