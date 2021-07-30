@@ -68,6 +68,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.5.0" }
 bevy_core_pipeline = { path = "../../pipelined/bevy_core_pipeline", optional = true, version = "0.5.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.5.0" }
+bevy_gltf2 = { path = "../../pipelined/bevy_gltf2", optional = true, version = "0.5.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.5.0" }
 bevy_pbr2 = { path = "../../pipelined/bevy_pbr2", optional = true, version = "0.5.0" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.5.0" }
