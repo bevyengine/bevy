@@ -277,7 +277,7 @@ impl Components {
     }
 
     #[inline]
-    /// Safety
+    /// # Safety
     ///
     /// `id` must be a valid id
     pub unsafe fn info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
