@@ -151,6 +151,7 @@ struct ExtractedSprite {
     atlas_size: Option<Vec2>,
 }
 
+#[derive(Default)]
 pub struct ExtractedSprites {
     sprites: Vec<ExtractedSprite>,
 }
@@ -179,10 +180,6 @@ pub fn extract_atlases(
 
     if let Some(mut extracted_sprites_res) = render_world.get_resource_mut::<ExtractedSprites>() {
         extracted_sprites_res.sprites.extend(extracted_sprites);
-    } else {
-        render_world.insert_resource(ExtractedSprites {
-            sprites: extracted_sprites,
-        });
     }
 }
 
@@ -210,10 +207,6 @@ pub fn extract_sprites(
 
     if let Some(mut extracted_sprites_res) = render_world.get_resource_mut::<ExtractedSprites>() {
         extracted_sprites_res.sprites.extend(extracted_sprites);
-    } else {
-        render_world.insert_resource(ExtractedSprites {
-            sprites: extracted_sprites,
-        });
     }
 }
 
@@ -328,7 +321,7 @@ pub fn queue_sprites(
     mut sprite_meta: ResMut<SpriteMeta>,
     view_meta: Res<ViewMeta>,
     sprite_shaders: Res<SpriteShaders>,
-    extracted_sprites: Res<ExtractedSprites>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
     gpu_images: Res<RenderAssets<Image>>,
     mut views: Query<&mut RenderPhase<Transparent2dPhase>>,
 ) {
@@ -384,6 +377,8 @@ pub fn queue_sprites(
             });
         }
     }
+
+    extracted_sprites.sprites.clear();
 }
 
 // TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly

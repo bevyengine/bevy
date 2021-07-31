@@ -22,7 +22,6 @@ pub struct TextureAtlas {
 
 #[derive(Debug, Clone, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
-#[repr(C)]
 pub struct TextureAtlasSprite {
     pub color: Color,
     pub index: u32,

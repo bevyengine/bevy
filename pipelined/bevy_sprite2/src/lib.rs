@@ -28,6 +28,7 @@ impl Plugin for SpritePlugin {
         app.add_asset::<TextureAtlas>().register_type::<Sprite>();
         let render_app = app.sub_app_mut(0);
         render_app
+            .init_resource::<ExtractedSprites>()
             .add_system_to_stage(RenderStage::Extract, render::extract_atlases)
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
