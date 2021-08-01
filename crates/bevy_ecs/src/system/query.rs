@@ -76,10 +76,10 @@ use thiserror::Error;
 /// If you need such Queries, you can use Filters to make the Queries disjoint or use a
 /// [`QuerySet`](super::QuerySet).
 ///
-/// ## Entity handle access
+/// ## Entity ID access
 ///
 /// Inserting [`Entity`](crate::entity::Entity) at any position in the type parameter tuple
-/// will give access to the entity handle.
+/// will give access to the entity ID.
 ///
 /// ```
 /// # use bevy_ecs::entity::Entity;
