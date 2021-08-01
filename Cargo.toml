@@ -22,7 +22,6 @@ members = ["crates/*", "examples/ios", "tools/ci"]
 [features]
 default = [
   "bevy_audio",
-  "bevy_dynamic_plugin",
   "bevy_gilrs",
   "bevy_gltf",
   "bevy_wgpu",
@@ -38,7 +37,13 @@ default = [
 dynamic = ["bevy_dylib"]
 
 # Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
-render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
+render = [
+  "bevy_internal/bevy_pbr",
+  "bevy_internal/bevy_render",
+  "bevy_internal/bevy_sprite",
+  "bevy_internal/bevy_text",
+  "bevy_internal/bevy_ui",
+]
 
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
@@ -82,14 +87,14 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
-bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true}
-bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.6.2"
-serde = {version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 
