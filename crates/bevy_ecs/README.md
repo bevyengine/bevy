@@ -32,7 +32,7 @@ struct Position { x: f32, y: f32 }
 
 Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
 
-```rust
+```rust ignore
 let world = World::default();
 ```
 
@@ -40,7 +40,7 @@ let world = World::default();
 
 Entities are unique identifiers that correlate to zero or more Components.
 
-```rust
+```rust ignore
 let entity = world.spawn()
     .insert(Position { x: 0.0, y: 0.0 })
     .insert(Velocity { x: 1.0, y: 0.0 })
@@ -55,7 +55,7 @@ let velocity = entity_ref.get::<Velocity>().unwrap();
 
 Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
 
-```rust
+```rust ignore
 fn print_position(query: Query<(Entity, &Position)>) {
     for (entity, position) in query.iter() {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
@@ -67,7 +67,7 @@ fn print_position(query: Query<(Entity, &Position)>) {
 
 Apps often require unique resources, such as asset collections, renderers, audio servers, time, etc. Bevy ECS makes this pattern a first class citizen. `Resource` is a special kind of component that does not belong to any entity. Instead, it is identified uniquely by its type:
 
-```rust
+```rust ignore
 #[derive(Default)]
 struct Time {
     seconds: f32,
