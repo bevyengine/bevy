@@ -17,7 +17,7 @@ use std::{any::TypeId, collections::HashMap};
 /// Commonly used for spawning entities and adding and removing components in bulk. This
 /// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
 /// is a very convenient shorthand when working with one-off collections of components. Note
-/// that both `()` and `(ComponentA, )` are valid tuples.
+/// that `(ComponentA, )` is a valid bundle.
 ///
 /// To query components that belong to a particular bundle, use
 /// [`WithBundle`](crate::query::WithBundle) query filter.
