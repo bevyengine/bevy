@@ -62,6 +62,7 @@
 //! - [`Res`] and `Option<Res>`
 //! - [`ResMut`] and `Option<ResMut>`
 //! - [`SystemChangeTick`]
+
 mod commands;
 mod exclusive_system;
 mod function_system;

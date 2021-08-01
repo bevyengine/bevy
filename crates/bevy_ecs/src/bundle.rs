@@ -1,6 +1,7 @@
 //! Types for handling [`Bundle`]s.
 //!
 //! This module contains the `Bundle` trait and some other helper types.
+
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{

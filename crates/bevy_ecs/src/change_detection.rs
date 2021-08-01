@@ -1,4 +1,5 @@
 //! Types that detect when their internal data mutate.
+
 use crate::component::{Component, ComponentTicks};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};

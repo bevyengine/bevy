@@ -2,6 +2,7 @@
 //!
 //! When using Bevy ECS, systems are usually not run directly, but are inserted into a
 //!  [`Stage`], which then lives within a [`Schedule`].
+
 mod executor;
 mod executor_parallel;
 pub mod graph_utils;

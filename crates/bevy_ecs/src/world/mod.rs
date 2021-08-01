@@ -1,4 +1,5 @@
 //! Types for storing and manipulating ECS data.
+
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
