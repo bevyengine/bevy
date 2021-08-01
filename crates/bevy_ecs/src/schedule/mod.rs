@@ -303,7 +303,6 @@ impl Schedule {
     /// #
     /// let stage = schedule.get_stage::<SystemStage>(&"my_stage").unwrap();
     /// ```
-
     pub fn get_stage<T: Stage>(&self, label: &dyn StageLabel) -> Option<&T> {
         self.stages
             .get(label)
