@@ -17,7 +17,9 @@ use std::{any::TypeId, collections::HashMap};
 /// Commonly used for spawning entities and adding and removing components in bulk. This
 /// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
 /// is a very convenient shorthand when working with one-off collections of components. Note
-/// that `(ComponentA, )` is a valid bundle.
+/// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
+/// particularly useful for spawning multiple empty entities by using
+/// [`Commands::spawn_batch`](bevy_ecs::system::Commands::spawn_batch).
 ///
 /// To query components that belong to a particular bundle, use
 /// [`WithBundle`](crate::query::WithBundle) query filter.
