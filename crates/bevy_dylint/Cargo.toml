@@ -1,0 +1,26 @@
+[package]
+name = "bevy_dylint"
+version = "0.1.0"
+authors = ["Bevy Contributors <bevyengine@gmail.com>"]
+description = "decription goes here"
+edition = "2018"
+publish = false
+
+[package.metadata.rust-analyzer]
+rustc_private=true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", tag = "rust-1.54.0"}
+dylint_linting = "1.0.1"
+if_chain = "1.0.1"
+
+[dev-dependencies]
+dylint_testing = "1.0.1"
+bevy_ecs = { path = "../bevy_ecs"}
+
+[[example]]
+name = "unnecessary_with"
+path = "ui/unnecessary_with.rs"
