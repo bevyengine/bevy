@@ -460,7 +460,7 @@ fn render_resources_node_system<T: RenderResources>(
             queries.q1_mut().get_mut(entity)
         {
             if !setup_uniform_texture_resources::<T>(
-                &uniforms,
+                uniforms,
                 render_resource_context,
                 &mut render_pipelines.bindings,
             ) {
@@ -475,7 +475,7 @@ fn render_resources_node_system<T: RenderResources>(
         }
         uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         if !setup_uniform_texture_resources::<T>(
-            &uniforms,
+            uniforms,
             render_resource_context,
             &mut render_pipelines.bindings,
         ) {
@@ -507,7 +507,7 @@ fn render_resources_node_system<T: RenderResources>(
 
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             entity,
-                            &uniforms,
+                            uniforms,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_pipelines.bindings,
@@ -524,7 +524,7 @@ fn render_resources_node_system<T: RenderResources>(
 
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             entity,
-                            &uniforms,
+                            uniforms,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_pipelines.bindings,
@@ -656,7 +656,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         if let Some(asset) = assets.get(asset_handle) {
             let mut bindings =
                 asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(asset_handle));
-            if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings)
+            if !setup_uniform_texture_resources::<T>(asset, render_resource_context, &mut bindings)
             {
                 asset_state.assets_waiting_for_textures.push(asset_handle);
             }
@@ -689,7 +689,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
         let mut bindings =
             asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
-        if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings) {
+        if !setup_uniform_texture_resources::<T>(asset, render_resource_context, &mut bindings) {
             asset_state.assets_waiting_for_textures.push(*asset_handle);
         }
     }
@@ -719,7 +719,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
                         // TODO: only setup buffer if we haven't seen this handle before
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             asset_handle,
-                            &asset,
+                            asset,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_resource_bindings,
@@ -733,7 +733,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
                         // TODO: only setup buffer if we haven't seen this handle before
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             *asset_handle,
-                            &asset,
+                            asset,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_resource_bindings,

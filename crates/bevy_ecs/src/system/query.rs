@@ -433,7 +433,7 @@ where
     /// # report_names_system.system();
     /// ```
     #[inline]
-    pub fn for_each(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item))
+    pub fn for_each<'s>(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -470,7 +470,7 @@ where
     /// # gravity_system.system();
     /// ```
     #[inline]
-    pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
+    pub fn for_each_mut<'s>(&'s mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -488,11 +488,11 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     #[inline]
-    pub fn par_for_each(
-        &self,
+    pub fn par_for_each<'s>(
+        &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -512,11 +512,11 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut(
-        &mut self,
+    pub fn par_for_each_mut<'s>(
+        &'s mut self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -784,7 +784,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -820,7 +820,7 @@ where
     /// }
     /// # regenerate_player_health_system.system();
     /// ```
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();

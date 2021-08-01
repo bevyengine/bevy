@@ -350,7 +350,7 @@ where
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.system_meta.component_access_set.combined_access()
+        self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]

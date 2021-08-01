@@ -369,7 +369,7 @@ async fn load_texture<'a>(
 }
 
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
-    let material_label = material_label(&material);
+    let material_label = material_label(material);
 
     let pbr = material.pbr_metallic_roughness();
 

@@ -225,13 +225,13 @@ fn get_texture_view<'a>(
     attachment: &TextureAttachment,
 ) -> &'a wgpu::TextureView {
     match attachment {
-        TextureAttachment::Name(name) => match global_render_resource_bindings.get(&name) {
-            Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(&resource).unwrap(),
+        TextureAttachment::Name(name) => match global_render_resource_bindings.get(name) {
+            Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(resource).unwrap(),
             _ => {
                 panic!("Color attachment {} does not exist.", name);
             }
         },
-        TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
+        TextureAttachment::Id(render_resource) => refs.textures.get(render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(render_resource).unwrap().output.view),
         TextureAttachment::Input(_) => panic!("Encountered unset `TextureAttachment::Input`. The `RenderGraph` executor should always set `TextureAttachment::Inputs` to `TextureAttachment::RenderResource` before running. This is a bug, please report it!"),
     }
 }
@@ -250,7 +250,7 @@ fn create_wgpu_color_attachment<'a>(
     let resolve_target = color_attachment
         .resolve_target
         .as_ref()
-        .map(|target| get_texture_view(global_render_resource_bindings, refs, &target));
+        .map(|target| get_texture_view(global_render_resource_bindings, refs, target));
 
     wgpu::RenderPassColorAttachment {
         ops: (&color_attachment.ops).wgpu_into(),
