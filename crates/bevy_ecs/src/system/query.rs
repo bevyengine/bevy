@@ -263,8 +263,8 @@ where
     ///
     /// # Example
     ///
-    /// In this example, the `report_names_system` iterates over the `Player` component of
-    /// all the entities that contains it:
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -318,8 +318,8 @@ where
     ///
     /// # Example
     ///
-    /// In this example, the `gravity_system` iterates over the `Velocity` component of every
-    /// entity in the world that contains it in order to update it:
+    /// Here, the `gravity_system` iterates over the `Velocity` component of every entity in
+    /// the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -419,8 +419,8 @@ where
     ///
     /// # Example
     ///
-    /// In this example, the `report_names_system` iterates over the `Player` component of
-    /// all the entities that contains it:
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -456,8 +456,8 @@ where
     ///
     /// # Example
     ///
-    /// In this example, the `gravity_system` iterates over the `Velocity` component of every
-    /// entity in the world that contains it in order to update it:
+    /// Here, the `gravity_system` iterates over the `Velocity` component of every entity in
+    /// the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -544,6 +544,9 @@ where
     ///
     /// # Example
     ///
+    /// Here, `get` is used to retrieve the exact query result of the entity specified by the
+    /// `SelectedCharacter` resource.
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
@@ -584,6 +587,9 @@ where
     /// returned instead.
     ///
     /// # Example
+    ///
+    /// Here, `get_mut` is used to retrieve the exact query result of the entity specified by the
+    /// `PoisonedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -642,6 +648,9 @@ where
     ///
     /// # Example
     ///
+    /// Here, `get_component` is used to retrieve the `Character` component of the entity
+    /// specified by the `SelectedCharacter` resource.
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
@@ -692,6 +701,9 @@ where
     /// returned instead.
     ///
     /// # Example
+    ///
+    /// Here, `get_component_mut` is used to retrieve the `Health` component of the entity
+    /// specified by the `PoisonedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -840,8 +852,8 @@ where
     ///
     /// # Example
     ///
-    /// In the following example the score is increased only if an entity with a `Player`
-    /// component is present in the world:
+    /// Here, the score is increased only if an entity with a `Player` component is present
+    /// in the world:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
