@@ -88,7 +88,8 @@ impl App {
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
     ///
-    /// Finalizes the [`App`] configuration. For general usage, see the example on top.
+    /// Finalizes the [`App`] configuration. For general usage, see the example on the item
+    /// level documentation.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_app_run_span = info_span!("bevy_app");
