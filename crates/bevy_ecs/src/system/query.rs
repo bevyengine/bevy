@@ -72,8 +72,10 @@ use thiserror::Error;
 /// at least one of the accesses is mutable, unless the schedule can verify that no entity
 /// could be found in both queries, as otherwise Rusts mutability Rules would be broken.
 ///
-/// Similarly System cannot contain two Queries that would break Rusts mutability Rules.
-/// If you need such Queries, you can use Filters to make the Queries disjoint or use a [`QuerySet`](super::QuerySet).
+/// Similarly, a system cannot contain two queries that would break Rust's mutability Rules.
+/// If you need such Queries, you can use Filters to make the Queries disjoint or use a
+/// [`QuerySet`](super::QuerySet).
+///
 /// ## Entity handle access
 ///
 /// Inserting [`Entity`](crate::entity::Entity) at any position in the type parameter tuple
