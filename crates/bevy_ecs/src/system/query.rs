@@ -211,7 +211,7 @@ use thiserror::Error;
 ///
 /// ## Getting the query result for a particular entity
 ///
-/// If you have an [`Entity`] handle, you can use the [`get`](Self::get) or
+/// If you have an [`Entity`] ID, you can use the [`get`](Self::get) or
 /// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
 /// ## Getting a single query result
