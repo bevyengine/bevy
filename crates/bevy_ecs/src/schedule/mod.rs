@@ -95,6 +95,15 @@ impl Schedule {
     }
 
     /// Adds the given `stage` at the last position of the schedule.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_stage("my_stage", SystemStage::parallel());
+    /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         let label: Box<dyn StageLabel> = Box::new(label);
         self.stage_order.push(label.clone());
@@ -106,6 +115,16 @@ impl Schedule {
     }
 
     /// Adds the given `stage` immediately after the `target` stage.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("target_stage", SystemStage::parallel());
+    /// schedule.add_stage_after("target_stage", "my_stage", SystemStage::parallel());
+    /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -131,6 +150,16 @@ impl Schedule {
     }
 
     /// Adds the given `stage` immediately before the `target` stage.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("target_stage", SystemStage::parallel());
+    /// #
+    /// schedule.add_stage_before("target_stage", "my_stage", SystemStage::parallel());
     pub fn add_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -156,6 +185,17 @@ impl Schedule {
     }
 
     /// Adds the given `system` to the stage identified by `stage_label`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn my_system() {}
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
+    /// #
+    /// schedule.add_system_to_stage("my_stage", my_system);
     pub fn add_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
@@ -179,6 +219,28 @@ impl Schedule {
     }
 
     /// Adds the given `system_set` to the stage identified by `stage_label`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn my_system() {}
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
+    /// #
+    /// schedule.add_system_set_to_stage(
+    ///     "my_stage",
+    ///     SystemSet::new()
+    ///         .with_system(system_a)
+    ///         .with_system(system_b)
+    ///         .with_system(system_c)
+    /// );
+    /// #
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn system_c() {}
+    /// ```
     pub fn add_system_set_to_stage(
         &mut self,
         stage_label: impl StageLabel,
@@ -199,19 +261,16 @@ impl Schedule {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::schedule::Schedule;
-    /// # use bevy_ecs::schedule::SystemSet;
-    /// # use bevy_ecs::schedule::SystemStage;
-    /// # use bevy_ecs::system::IntoSystem;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
     /// schedule.stage("my_stage", |stage: &mut SystemStage| {
-    ///     stage.add_system(quit_game_keyboard_shortcuts_system.system())
+    ///     stage.add_system(my_system)
     /// });
     /// #
-    /// # fn quit_game_keyboard_shortcuts_system() {}
+    /// # fn my_system() {}
     /// ```
     ///
     /// # Panics
@@ -232,6 +291,19 @@ impl Schedule {
     /// Returns a shared reference to the stage identified by `label`, if it exists.
     ///
     /// If the requested stage does not exist, `None` is returned instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn my_system() {}
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
+    /// #
+    /// let stage = schedule.get_stage::<SystemStage>(&"my_stage").unwrap();
+    /// ```
+
     pub fn get_stage<T: Stage>(&self, label: &dyn StageLabel) -> Option<&T> {
         self.stages
             .get(label)
@@ -241,6 +313,17 @@ impl Schedule {
     /// Returns a unique, mutable reference to the stage identified by `label`, if it exists.
     ///
     /// If the requested stage does not exist, `None` is returned instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn my_system() {}
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
+    /// #
+    /// let stage = schedule.get_stage_mut::<SystemStage>(&"my_stage").unwrap();
     pub fn get_stage_mut<T: Stage>(&mut self, label: &dyn StageLabel) -> Option<&mut T> {
         self.stages
             .get_mut(label)
