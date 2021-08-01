@@ -508,7 +508,7 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            index: usize::max_value(), // dummy value, to be filled in
+            index: usize::MAX, // dummy value, to be filled in
         },
     };
 }

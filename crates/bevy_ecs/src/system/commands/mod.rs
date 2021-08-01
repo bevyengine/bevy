@@ -386,7 +386,13 @@ where
     T: Bundle + 'static,
 {
     fn write(self, world: &mut World) {
-        world.entity_mut(self.entity).insert_bundle(self.bundle);
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert_bundle(self.bundle);
+        } else {
+            panic!("Could not insert a bundle for entity {:?} because it no longer exists.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", self.entity);
+        }
     }
 }
 
@@ -401,7 +407,13 @@ where
     T: Component,
 {
     fn write(self, world: &mut World) {
-        world.entity_mut(self.entity).insert(self.component);
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert(self.component);
+        } else {
+            panic!("Could not add a component to entity {:?} because it no longer exists.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", self.entity);
+        }
     }
 }
 
