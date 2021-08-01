@@ -1,4 +1,4 @@
-//! Helper types for the archetype based [`Table`](crate::storage::Table) storage.
+//! Types for defining [`Archetype`]s, collections of entities gouped by their component set.
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
