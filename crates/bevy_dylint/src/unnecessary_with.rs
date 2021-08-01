@@ -31,7 +31,7 @@ declare_lint! {
     /// ```
     pub UNNECESSARY_WITH,
     Warn,
-    "description goes here"
+    "Detects unnecessary `With` query filters in Bevy query parameters."
 }
 
 declare_lint_pass!(UnnecessaryWith => [UNNECESSARY_WITH]);
