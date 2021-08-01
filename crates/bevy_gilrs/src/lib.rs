@@ -1,7 +1,7 @@
 mod converter;
 mod gilrs_system;
 
-use bevy_app::{AppBuilder, CoreStage, Plugin, StartupStage};
+use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::system::IntoExclusiveSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
@@ -11,7 +11,7 @@ use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 pub struct GilrsPlugin;
 
 impl Plugin for GilrsPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         match GilrsBuilder::new()
             .with_default_filters(false)
             .set_update_state(false)

@@ -110,15 +110,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_type_infos = Vec::new();
+    let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
         if *is_bundle {
-            field_type_infos.push(quote! {
-                type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
+            field_component_ids.push(quote! {
+                component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components));
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
@@ -127,8 +127,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
         } else {
-            field_type_infos.push(quote! {
-                type_info.push(#ecs_path::component::TypeInfo::of::<#field_type>());
+            field_component_ids.push(quote! {
+                component_ids.push(components.get_or_insert_id::<#field_type>());
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
@@ -147,10 +147,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
-            fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
-                let mut type_info = Vec::with_capacity(#field_len);
-                #(#field_type_infos)*
-                type_info
+            fn component_ids(
+                components: &mut #ecs_path::component::Components,
+            ) -> Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = Vec::with_capacity(#field_len);
+                #(#field_component_ids)*
+                component_ids
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]

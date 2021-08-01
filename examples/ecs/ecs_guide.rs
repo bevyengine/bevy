@@ -262,7 +262,7 @@ enum MyLabels {
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
-    App::build()
+    App::new()
         // Resources can be added to our app like this
         .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource

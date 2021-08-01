@@ -7,7 +7,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             width: 300.,
             height: 300.,
@@ -15,11 +15,11 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         // One time greet
-        .add_startup_system(hello_wasm_system.system())
+        .add_startup_system(hello_wasm_system)
         // Track ticks (sanity check, whether game loop is running)
-        .add_system(counter.system())
+        .add_system(counter)
         // Track input events
-        .add_system(track_input_events.system())
+        .add_system(track_input_events)
         .run();
 }
 

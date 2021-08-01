@@ -51,6 +51,6 @@ pub struct VertexAttribute {
 /// Internally, `bevy_render` uses hashes to identify vertex attribute names.
 pub fn get_vertex_attribute_name_id(name: &str) -> u64 {
     let mut hasher = bevy_utils::AHasher::default();
-    hasher.write(&name.as_bytes());
+    hasher.write(name.as_bytes());
     hasher.finish()
 }

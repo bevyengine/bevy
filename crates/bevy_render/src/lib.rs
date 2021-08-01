@@ -14,7 +14,7 @@ pub mod wireframe;
 
 use bevy_ecs::{
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
-    system::{IntoExclusiveSystem, IntoSystem, Res},
+    system::{IntoExclusiveSystem, Res},
 };
 use bevy_transform::TransformSystem;
 use bevy_utils::tracing::warn;
@@ -102,7 +102,7 @@ impl Default for RenderPlugin {
 }
 
 impl Plugin for RenderPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -174,62 +174,42 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
-        .add_startup_system_to_stage(
-            StartupStage::PreStartup,
-            check_for_render_resource_context.system(),
-        )
-        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
+        .add_startup_system_to_stage(StartupStage::PreStartup, check_for_render_resource_context)
+        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system)
+        .add_system_to_stage(CoreStage::PostUpdate, camera::active_cameras_system)
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::active_cameras_system.system(),
+            camera::camera_system::<OrthographicProjection>.before(RenderSystem::VisibleEntities),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>
-                .system()
-                .before(RenderSystem::VisibleEntities),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>
-                .system()
-                .before(RenderSystem::VisibleEntities),
+            camera::camera_system::<PerspectiveProjection>.before(RenderSystem::VisibleEntities),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             camera::visible_entities_system
-                .system()
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
+        .add_system_to_stage(RenderStage::RenderResource, shader::shader_update_system)
         .add_system_to_stage(
             RenderStage::RenderResource,
-            shader::shader_update_system.system(),
+            mesh::mesh_resource_provider_system,
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
-            mesh::mesh_resource_provider_system.system(),
-        )
-        .add_system_to_stage(
-            RenderStage::RenderResource,
-            Texture::texture_resource_system.system(),
+            Texture::texture_resource_system,
         )
         .add_system_to_stage(
             RenderStage::RenderGraphSystems,
             render_graph::render_graph_schedule_executor_system.exclusive_system(),
         )
-        .add_system_to_stage(
-            RenderStage::Draw,
-            pipeline::draw_render_pipelines_system.system(),
-        )
-        .add_system_to_stage(
-            RenderStage::PostRender,
-            shader::clear_shader_defs_system.system(),
-        );
+        .add_system_to_stage(RenderStage::Draw, pipeline::draw_render_pipelines_system)
+        .add_system_to_stage(RenderStage::PostRender, shader::clear_shader_defs_system);
 
         if let Some(ref config) = self.base_render_graph_config {
-            crate::base::add_base_graph(config, app.world_mut());
-            let mut active_cameras = app.world_mut().get_resource_mut::<ActiveCameras>().unwrap();
+            crate::base::add_base_graph(config, &mut app.world);
+            let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA_3D);
             }

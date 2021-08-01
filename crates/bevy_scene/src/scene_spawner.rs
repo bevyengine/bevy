@@ -79,7 +79,7 @@ impl SceneSpawner {
     ) -> Result<(), SceneSpawnError> {
         if let Some(instance_ids) = self.spawned_dynamic_scenes.get(&scene_handle) {
             for instance_id in instance_ids {
-                if let Some(instance) = self.spawned_instances.get(&instance_id) {
+                if let Some(instance) = self.spawned_instances.get(instance_id) {
                     for entity in instance.entity_map.values() {
                         let _ = world.despawn(entity); // Ignore the result, despawn only cares if
                                                        // it exists.
@@ -305,7 +305,7 @@ pub fn scene_spawner_system(world: &mut World) {
         let mut updated_spawned_scenes = Vec::new();
         for event in scene_spawner
             .scene_asset_event_reader
-            .iter(&scene_asset_events)
+            .iter(scene_asset_events)
         {
             if let AssetEvent::Modified { handle } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {

@@ -26,11 +26,8 @@ pub use io::*;
 pub use loader::*;
 pub use path::*;
 
-use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_ecs::{
-    schedule::{StageLabel, SystemStage},
-    system::IntoSystem,
-};
+use bevy_app::{prelude::Plugin, App};
+use bevy_ecs::schedule::{StageLabel, SystemStage};
 use bevy_tasks::IoTaskPool;
 
 /// The names of asset stages in an App Schedule
@@ -61,9 +58,9 @@ impl Default for AssetServerSettings {
 ///
 /// This is useful when providing a custom `AssetIo` instance that needs to
 /// delegate to the default `AssetIo` for the platform.
-pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo> {
+pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
     let settings = app
-        .world_mut()
+        .world
         .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
@@ -77,10 +74,10 @@ pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo
 }
 
 impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        if app.world().get_resource::<AssetServer>().is_none() {
+    fn build(&self, app: &mut App) {
+        if app.world.get_resource::<AssetServer>().is_none() {
             let task_pool = app
-                .world()
+                .world
                 .get_resource::<IoTaskPool>()
                 .expect("`IoTaskPool` resource not found.")
                 .0
@@ -106,16 +103,13 @@ impl Plugin for AssetPlugin {
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::CoreStage::PreUpdate,
-            asset_server::free_unused_assets_system.system(),
+            asset_server::free_unused_assets_system,
         );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(
-            AssetStage::LoadAssets,
-            io::filesystem_watcher_system.system(),
-        );
+        app.add_system_to_stage(AssetStage::LoadAssets, io::filesystem_watcher_system);
     }
 }

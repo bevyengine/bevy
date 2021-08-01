@@ -24,7 +24,7 @@ impl SystemId {
 ///
 /// Systems are functions with all arguments implementing [SystemParam](crate::system::SystemParam).
 ///
-/// Systems are added to an application using `AppBuilder::add_system(my_system.system())`
+/// Systems are added to an application using `App::add_system(my_system)`
 /// or similar methods, and will generally run once per pass of the main loop.
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
