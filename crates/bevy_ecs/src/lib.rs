@@ -1,33 +1,5 @@
-//! # Bevy ECS
-//!
-//! This crate contains all the functionality that gives Bevy Engine its powerful and ergonomic
-//! ECS features.
-//!
-//! While this crate is designed to work with the other parts of Bevy Engine, it can also be
-//! used by its own. See the README.md file to learn how to use it.
-//!
-//! # Setup
-//!
-//! If you are already using Bevy Engine for your project, Bevy ECS is already set up.
-//!
-//! If you are using this crate by itself, add it as a dependency to your package's
-//! `Cargo.toml` file:
-//!
-//! ```toml
-//! [dependencies]
-//! bevy_ecs = "0.5"
-//! ```
-//!
-//! See the Bevy Book to check the system requirements.
-//!
-//! # How to navigate the API documentation
-//!
-//! This crate is subdivided into different modules based on the role of each item. The most
-//! important items for an end user are found in [`world`], [`schedule`] and [`system`] modules.
-//!
-//! This is API documentation designed to be consulted when specific questions arise, rather than to be read like a book.
-//! To learn the fundamentals of ECS, read Chapter 2 of the
-//! [Bevy Book](https://bevyengine.org/learn/book), or follow one of the Quick Start Guides.
+#![doc = include_str!("../README.md")]
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
