@@ -164,16 +164,16 @@ impl<'a> Commands<'a> {
     /// # struct Score(u32);
     /// #
     /// # fn system(mut commands: Commands) {
-    ///     commands.spawn_batch(vec![
-    ///         (
-    ///             Name("Alice".to_string()),
-    ///             Score(0),
-    ///         ),
-    ///         (
-    ///             Name("Bob".to_string()),
-    ///             Score(0),
-    ///         ),
-    ///     ]);
+    /// commands.spawn_batch(vec![
+    ///     (
+    ///         Name("Alice".to_string()),
+    ///         Score(0),
+    ///     ),
+    ///     (
+    ///         Name("Bob".to_string()),
+    ///         Score(0),
+    ///     ),
+    /// ]);
     /// # }
     /// # system.system();
     /// ```
@@ -200,10 +200,10 @@ impl<'a> Commands<'a> {
     /// # }
     /// #
     /// # fn system(mut commands: Commands) {
-    ///       commands.insert_resource(Scoreboard {
-    ///           current_score: 0,
-    ///           high_score: 0,
-    ///       });
+    /// commands.insert_resource(Scoreboard {
+    ///     current_score: 0,
+    ///     high_score: 0,
+    /// });
     /// # }
     /// # system.system();
     /// ```
@@ -226,7 +226,7 @@ impl<'a> Commands<'a> {
     /// # }
     /// #
     /// # fn system(mut commands: Commands) {
-    ///       commands.remove_resource::<Scoreboard>();
+    /// commands.remove_resource::<Scoreboard>();
     /// # }
     /// # system.system();
     /// ```
