@@ -413,34 +413,34 @@ impl Mesh {
         for (_, attributes) in self.attributes.iter_mut() {
             let indices = indices.iter();
             match attributes {
-                VertexAttributeValues::Float32(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint32(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint32(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Float32x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint32x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint32x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Float32x3(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint32x3(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint32x3(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint32x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint32x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Float32x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint16x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Snorm16x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint16x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Unorm16x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint16x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Snorm16x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint16x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Unorm16x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint8x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Snorm8x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint8x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Unorm8x2(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Sint8x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(&vec, indices),
-                VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint32(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float32x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint32x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint32x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float32x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint32x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint32x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint32x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint32x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float32x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint8x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm8x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint8x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(vec, indices),
             }
         }
     }
@@ -481,7 +481,7 @@ fn remove_resource_save(
     index: u64,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(&handle, index)
+        render_resource_context.get_asset_resource(handle, index)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, index);
@@ -546,7 +546,7 @@ pub fn mesh_resource_provider_system(
                         buffer_usage: BufferUsage::INDEX,
                         ..Default::default()
                     },
-                    &data,
+                    data,
                 );
 
                 render_resource_context.set_asset_resource(

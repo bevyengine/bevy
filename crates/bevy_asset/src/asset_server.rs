@@ -478,7 +478,7 @@ impl AssetServer {
                 .expect("Asset should exist at this point.");
             if let Some(asset_lifecycle) = asset_lifecycles.get(&asset_value.type_uuid()) {
                 let asset_path =
-                    AssetPath::new_ref(&load_context.path, label.as_ref().map(|l| l.as_str()));
+                    AssetPath::new_ref(load_context.path, label.as_ref().map(|l| l.as_str()));
                 asset_lifecycle.create_asset(asset_path.into(), asset_value, load_context.version);
             } else {
                 panic!(

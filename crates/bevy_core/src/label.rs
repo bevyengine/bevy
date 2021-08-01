@@ -107,7 +107,7 @@ pub(crate) fn entity_labels_system(
             }
         }
 
-        for added_label in labels.labels.difference(&current_labels) {
+        for added_label in labels.labels.difference(current_labels) {
             entity_labels
                 .label_entities
                 .entry(added_label.clone())
