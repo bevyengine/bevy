@@ -50,7 +50,7 @@ use bevy_winit::WinitPlugin;
 /// * [`WinitPlugin`] - with feature `bevy_winit`
 /// * [`WgpuPlugin`] - with feature `bevy_wgpu`
 ///
-/// _See also [`MinimalPlugins`]_
+/// See also [`MinimalPlugins`] for a slimmed down option
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
@@ -100,7 +100,7 @@ impl PluginGroup for DefaultPlugins {
 /// * [`CorePlugin`]
 /// * [`ScheduleRunnerPlugin`]
 ///
-/// _See also [`DefaultPlugins`]_
+/// See also [`DefaultPlugins`] for a more complete set of plugins
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
