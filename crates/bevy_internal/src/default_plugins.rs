@@ -49,6 +49,8 @@ use bevy_winit::WinitPlugin;
 /// * [`GltfPlugin`] - with feature `bevy_gltf`
 /// * [`WinitPlugin`] - with feature `bevy_winit`
 /// * [`WgpuPlugin`] - with feature `bevy_wgpu`
+///
+/// _See also [`MinimalPlugins`]_
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
@@ -97,6 +99,8 @@ impl PluginGroup for DefaultPlugins {
 /// Minimal plugin group that will add the following plugins:
 /// * [`CorePlugin`]
 /// * [`ScheduleRunnerPlugin`]
+///
+/// _See also [`DefaultPlugins`]_
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
