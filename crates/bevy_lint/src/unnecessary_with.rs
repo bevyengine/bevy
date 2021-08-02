@@ -1,14 +1,12 @@
 use clippy_utils::diagnostics::span_lint;
-use if_chain::if_chain;
 use rustc_hir::{
-    def::Res, hir_id::HirId, intravisit::FnKind, Body, FnDecl, GenericArg, MutTy, Path, QPath, Ty,
-    TyKind,
+    hir_id::HirId, intravisit::FnKind, Body, FnDecl, GenericArg, Path, QPath, Ty, TyKind,
 };
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint, declare_lint_pass};
-use rustc_span::{def_id::DefId, symbol::Symbol, Span};
+use rustc_span::{def_id::DefId, Span};
 
-use crate::bevy_paths;
+use crate::{bevy_helpers, bevy_paths};
 
 declare_lint! {
     /// **What it does:**
@@ -51,15 +49,13 @@ impl<'hir> LateLintPass<'hir> for UnnecessaryWith {
         _: HirId,
     ) {
         for typ in decl.inputs {
-            if_chain! {
-                if let TyKind::Path(QPath::Resolved(_, path)) = &typ.kind;
-                if path_matches_symbol_path(ctx, path, bevy_paths::QUERY);
-                if let Some(segment) = path.segments.iter().last();
-                if let Some(generic_args) = segment.args;
-                if let Some(GenericArg::Type(world)) = &generic_args.args.get(1);
-                if let Some(GenericArg::Type(filter)) = &generic_args.args.get(2);
-                then {
-                    check_for_overlap(ctx, world, filter);
+            if let TyKind::Path(QPath::Resolved(_, path)) = &typ.kind {
+                if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::QUERY) {
+                    if let Some((world, Some(filter))) =
+                        bevy_helpers::get_generics_of_query(ctx, &typ)
+                    {
+                        check_for_overlap(ctx, world, filter);
+                    }
                 }
             }
         }
@@ -72,14 +68,14 @@ fn check_for_overlap<'hir>(ctx: &LateContext<'hir>, world: &Ty, filter: &Ty) {
 
     match &world.kind {
         TyKind::Rptr(_, mut_type) => {
-            if let Some(def_id) = get_def_id_of_reference(&mut_type) {
+            if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type) {
                 required_types.push(def_id);
             }
         }
         TyKind::Tup(types) => {
             for typ in *types {
                 if let TyKind::Rptr(_, mut_type) = &typ.kind {
-                    if let Some(def_id) = get_def_id_of_reference(&mut_type) {
+                    if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type) {
                         required_types.push(def_id);
                     }
                 }
@@ -90,11 +86,11 @@ fn check_for_overlap<'hir>(ctx: &LateContext<'hir>, world: &Ty, filter: &Ty) {
 
     match &filter.kind {
         TyKind::Path(QPath::Resolved(_, path)) => {
-            if path_matches_symbol_path(ctx, path, bevy_paths::OR) {
+            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
                 with_types.extend(check_or_filter(ctx, path));
             }
-            if path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
-                if let Some(def_id) = get_def_id_of_first_generic_arg(path) {
+            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
+                if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
                     with_types.push((def_id, filter.span));
                 }
             }
@@ -102,18 +98,18 @@ fn check_for_overlap<'hir>(ctx: &LateContext<'hir>, world: &Ty, filter: &Ty) {
         TyKind::Tup(types) => {
             for typ in *types {
                 if let TyKind::Path(QPath::Resolved(_, path)) = typ.kind {
-                    if path_matches_symbol_path(ctx, path, bevy_paths::OR) {
+                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
                         with_types.extend(check_or_filter(ctx, path));
                     }
-                    if path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
-                        || path_matches_symbol_path(ctx, path, bevy_paths::CHANGED)
+                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
+                        || bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::CHANGED)
                     {
-                        if let Some(def_id) = get_def_id_of_first_generic_arg(path) {
+                        if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
                             required_types.push(def_id);
                         }
                     }
-                    if path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
-                        if let Some(def_id) = get_def_id_of_first_generic_arg(path) {
+                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
+                        if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
                             with_types.push((def_id, typ.span));
                         }
                     }
@@ -135,51 +131,6 @@ fn check_for_overlap<'hir>(ctx: &LateContext<'hir>, world: &Ty, filter: &Ty) {
     }
 }
 
-fn get_def_id_of_reference(reference: &MutTy) -> Option<DefId> {
-    if let TyKind::Path(QPath::Resolved(_, path)) = reference.ty.kind {
-        if let Res::Def(_, def_id) = path.res {
-            return Some(def_id);
-        }
-    }
-
-    None
-}
-
-fn path_matches_symbol_path<'hir>(
-    ctx: &LateContext<'hir>,
-    path: &Path,
-    symbol_path: &[&str],
-) -> bool {
-    if let Res::Def(_, def_id) = path.res {
-        return ctx.match_def_path(
-            def_id,
-            symbol_path
-                .iter()
-                .map(|str| Symbol::intern(str))
-                .collect::<Vec<_>>()
-                .as_slice(),
-        );
-    };
-
-    false
-}
-
-fn get_def_id_of_first_generic_arg(path: &Path) -> Option<DefId> {
-    if let Some(segment) = path.segments.iter().last() {
-        if let Some(generic_args) = segment.args {
-            if let Some(GenericArg::Type(component)) = &generic_args.args.get(0) {
-                if let TyKind::Path(QPath::Resolved(_, path)) = component.kind {
-                    if let Res::Def(_, def_id) = path.res {
-                        return Some(def_id);
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
-
 fn check_or_filter<'hir>(ctx: &LateContext<'hir>, path: &Path) -> Vec<(DefId, Span)> {
     let mut local_required_types = Vec::new();
     let mut local_with_types = Vec::new();
@@ -190,15 +141,23 @@ fn check_or_filter<'hir>(ctx: &LateContext<'hir>, path: &Path) -> Vec<(DefId, Sp
                 if let TyKind::Tup(types) = tuple.kind {
                     for typ in types {
                         if let TyKind::Path(QPath::Resolved(_, path)) = typ.kind {
-                            if path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
-                                || path_matches_symbol_path(ctx, path, bevy_paths::CHANGED)
+                            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
+                                || bevy_helpers::path_matches_symbol_path(
+                                    ctx,
+                                    path,
+                                    bevy_paths::CHANGED,
+                                )
                             {
-                                if let Some(def_id) = get_def_id_of_first_generic_arg(path) {
+                                if let Some(def_id) =
+                                    bevy_helpers::get_def_id_of_first_generic_arg(path)
+                                {
                                     local_required_types.push(def_id);
                                 }
                             }
-                            if path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
-                                if let Some(def_id) = get_def_id_of_first_generic_arg(path) {
+                            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
+                                if let Some(def_id) =
+                                    bevy_helpers::get_def_id_of_first_generic_arg(path)
+                                {
                                     local_with_types.push((def_id, typ.span));
                                 }
                             }

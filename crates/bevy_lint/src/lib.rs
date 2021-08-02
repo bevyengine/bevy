@@ -24,6 +24,7 @@ extern crate rustc_target;
 extern crate rustc_trait_selection;
 extern crate rustc_typeck;
 
+mod bevy_helpers;
 mod bevy_paths;
 mod unnecessary_with;
 
