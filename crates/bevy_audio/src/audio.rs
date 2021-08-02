@@ -34,8 +34,6 @@ where
 impl<P> Audio<P>
 where
     P: Asset + Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     pub fn play(&self, audio_source: Handle<P>) {
         self.queue.write().push_front(audio_source);

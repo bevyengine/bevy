@@ -143,6 +143,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+`audio_looping` | [`audio/audio_looping.rs`](./audio/audio_looping.rs) | Shows how to load and play an audio file that loops forever
 
 ## Diagnostics
 
