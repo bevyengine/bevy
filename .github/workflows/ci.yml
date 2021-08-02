@@ -92,7 +92,7 @@ jobs:
         run: cargo install cargo-dylint; cargo install dylint-link
         if: steps.cache.outputs.cache-hit != 'true'
       - name: Run dylint
-        run: cargo dylint --all --workspace
+        run: cargo dylint --all --workspace -- --all-targets
       - name: Check Format
         run: cd crates/bevy_lint; cargo fmt --all -- --check
       - name: Check Clippy

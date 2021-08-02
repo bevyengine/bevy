@@ -12,8 +12,9 @@ use crate::bevy_paths;
 
 declare_lint! {
     /// **What it does:**
-    /// Detectes unnecessary instances of the `With`
+    /// Detects unnecessary `With` query filters in Bevy query parameters.
     /// **Why is this bad?**
+    /// The Filter does not effect the Results of a query, but still wasted space.
     ///
     /// **Known problems:** None.
     ///

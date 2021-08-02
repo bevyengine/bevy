@@ -2,7 +2,7 @@
 name = "bevy_lint"
 version = "0.1.0"
 authors = ["Bevy Contributors <bevyengine@gmail.com>"]
-description = "decription goes here"
+description = "Provides Lints for Bevy Code"
 edition = "2018"
 publish = false
 
