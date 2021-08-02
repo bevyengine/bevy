@@ -1,5 +1,5 @@
 [package]
-name = "bevy_dylint"
+name = "bevy_lint"
 version = "0.1.0"
 authors = ["Bevy Contributors <bevyengine@gmail.com>"]
 description = "decription goes here"

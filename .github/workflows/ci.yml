@@ -70,7 +70,7 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci
 
-  dylint:
+  bevy_lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -84,7 +84,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.dylint_drivers
             target/
-            crates/bevy_dylint/target
+            crates/bevy_lint/target
           key: ${{ runner.os }}-cargo-dylint-${{ hashFiles('**/Cargo.toml') }}
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
@@ -94,11 +94,11 @@ jobs:
       - name: Run dylint
         run: cargo dylint --all --workspace
       - name: Check Format
-        run: cd crates/bevy_dylint; cargo fmt --all -- --check
+        run: cd crates/bevy_lint; cargo fmt --all -- --check
       - name: Check Clippy
-        run: cd crates/bevy_dylint; cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity
+        run: cd crates/bevy_lint; cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity
       - name: Run Tests
-        run: cd crates/bevy_dylint; cargo test
+        run: cd crates/bevy_lint; cargo test
         env:
           # Can be removed once https://github.com/trailofbits/dylint/pull/48 is merged and released
           CARGO_TERM_COLOR: never

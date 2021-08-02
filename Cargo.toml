@@ -16,12 +16,12 @@ readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
-exclude = ["benches", "crates/bevy_dylint"]
+exclude = ["benches", "crates/bevy_lint"]
 members = ["crates/*", "examples/ios", "tools/ci"]
 
 [workspace.metadata.dylint]
 libraries = [
-    { path = "crates/bevy_dylint" },
+    { path = "crates/bevy_lint" },
 ]
 
 [features]
