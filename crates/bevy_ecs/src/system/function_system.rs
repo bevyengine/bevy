@@ -225,7 +225,7 @@ pub struct InputMarker;
 ///
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
+/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
