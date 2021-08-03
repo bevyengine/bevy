@@ -51,82 +51,89 @@ impl<'hir> LateLintPass<'hir> for UnnecessaryWith {
         for typ in decl.inputs {
             if let TyKind::Path(QPath::Resolved(_, path)) = &typ.kind {
                 if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::QUERY) {
-                    if let Some((world, Some(filter))) =
-                        bevy_helpers::get_generics_of_query(ctx, &typ)
-                    {
-                        check_for_overlap(ctx, world, filter);
-                    }
+                    check_for_unnecesarry_with(ctx, &typ);
                 }
             }
         }
     }
 }
 
-fn check_for_overlap<'hir>(ctx: &LateContext<'hir>, world: &Ty, filter: &Ty) {
-    let mut required_types = Vec::new();
-    let mut with_types = Vec::new();
+fn check_for_unnecesarry_with<'hir>(ctx: &LateContext<'hir>, query: &'hir Ty) {
+    if let Some((world, Some(filter))) = bevy_helpers::get_generics_of_query(ctx, query) {
+        let mut required_types = Vec::new();
+        let mut with_types = Vec::new();
 
-    match &world.kind {
-        TyKind::Rptr(_, mut_type) => {
-            if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type) {
-                required_types.push(def_id);
-            }
-        }
-        TyKind::Tup(types) => {
-            for typ in *types {
-                if let TyKind::Rptr(_, mut_type) = &typ.kind {
-                    if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type) {
-                        required_types.push(def_id);
-                    }
+        match &world.kind {
+            TyKind::Rptr(_, mut_type) => {
+                if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type) {
+                    required_types.push(def_id);
                 }
             }
-        }
-        _ => (),
-    }
-
-    match &filter.kind {
-        TyKind::Path(QPath::Resolved(_, path)) => {
-            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
-                with_types.extend(check_or_filter(ctx, path));
-            }
-            if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
-                if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
-                    with_types.push((def_id, filter.span));
-                }
-            }
-        }
-        TyKind::Tup(types) => {
-            for typ in *types {
-                if let TyKind::Path(QPath::Resolved(_, path)) = typ.kind {
-                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
-                        with_types.extend(check_or_filter(ctx, path));
-                    }
-                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
-                        || bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::CHANGED)
-                    {
-                        if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
+            TyKind::Tup(types) => {
+                for typ in *types {
+                    if let TyKind::Rptr(_, mut_type) = &typ.kind {
+                        if let Some(def_id) = bevy_helpers::get_def_id_of_referenced_type(&mut_type)
+                        {
                             required_types.push(def_id);
                         }
                     }
-                    if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
-                        if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
-                            with_types.push((def_id, typ.span));
+                }
+            }
+            _ => (),
+        }
+
+        match &filter.kind {
+            TyKind::Path(QPath::Resolved(_, path)) => {
+                if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
+                    with_types.extend(check_or_filter(ctx, path));
+                }
+                if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
+                    if let Some(def_id) = bevy_helpers::get_def_id_of_first_generic_arg(path) {
+                        with_types.push((def_id, filter.span));
+                    }
+                }
+            }
+            TyKind::Tup(types) => {
+                for typ in *types {
+                    if let TyKind::Path(QPath::Resolved(_, path)) = typ.kind {
+                        if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::OR) {
+                            with_types.extend(check_or_filter(ctx, path));
+                        }
+                        if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::ADDED)
+                            || bevy_helpers::path_matches_symbol_path(
+                                ctx,
+                                path,
+                                bevy_paths::CHANGED,
+                            )
+                        {
+                            if let Some(def_id) =
+                                bevy_helpers::get_def_id_of_first_generic_arg(path)
+                            {
+                                required_types.push(def_id);
+                            }
+                        }
+                        if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::WITH) {
+                            if let Some(def_id) =
+                                bevy_helpers::get_def_id_of_first_generic_arg(path)
+                            {
+                                with_types.push((def_id, typ.span));
+                            }
                         }
                     }
                 }
             }
+            _ => (),
         }
-        _ => (),
-    }
 
-    for with_type in with_types {
-        if required_types.contains(&with_type.0) {
-            span_lint(
-                ctx,
-                UNNECESSARY_WITH,
-                with_type.1,
-                "Unnecessary `With` Filter",
-            );
+        for with_type in with_types {
+            if required_types.contains(&with_type.0) {
+                span_lint(
+                    ctx,
+                    UNNECESSARY_WITH,
+                    with_type.1,
+                    "Unnecessary `With` Filter",
+                );
+            }
         }
     }
 }
