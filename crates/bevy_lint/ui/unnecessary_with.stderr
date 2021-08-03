@@ -1,147 +1,147 @@
 error: Unnecessary `With` Filter
   --> $DIR/unnecessary_with.rs:10:34
    |
-LL | fn test_query1(_query: Query<&A, With<A>>) {}
+LL | fn test_query1(_query: Query<&A, With<A>>) {
    |                                  ^^^^^^^
    |
    = note: `-D unnecessary-with` implied by `-D warnings`
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:11:40
+  --> $DIR/unnecessary_with.rs:13:40
    |
-LL | fn test_query2(_query: Query<(&A, &B), With<A>>) {}
+LL | fn test_query2(_query: Query<(&A, &B), With<A>>) {
    |                                        ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:12:40
+  --> $DIR/unnecessary_with.rs:16:40
    |
-LL | fn test_query3(_query: Query<(&A, &B), With<B>>) {}
+LL | fn test_query3(_query: Query<(&A, &B), With<B>>) {
    |                                        ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:13:41
+  --> $DIR/unnecessary_with.rs:19:41
    |
-LL | fn test_query4(_query: Query<(&A, &B), (With<A>, With<B>)>) {}
+LL | fn test_query4(_query: Query<(&A, &B), (With<A>, With<B>)>) {
    |                                         ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:13:50
+  --> $DIR/unnecessary_with.rs:19:50
    |
-LL | fn test_query4(_query: Query<(&A, &B), (With<A>, With<B>)>) {}
+LL | fn test_query4(_query: Query<(&A, &B), (With<A>, With<B>)>) {
    |                                                  ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:14:41
+  --> $DIR/unnecessary_with.rs:22:41
    |
-LL | fn test_query5(_query: Query<(&A, &B), (With<A>, With<C>)>) {}
+LL | fn test_query5(_query: Query<(&A, &B), (With<A>, With<C>)>) {
    |                                         ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:15:35
+  --> $DIR/unnecessary_with.rs:25:35
    |
-LL | fn test_query6(_query: Query<&A, (With<A>, With<B>)>) {}
+LL | fn test_query6(_query: Query<&A, (With<A>, With<B>)>) {
    |                                   ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:17:38
+  --> $DIR/unnecessary_with.rs:29:38
    |
-LL | fn test_query7(_query: Query<&mut A, With<A>>) {}
+LL | fn test_query7(_query: Query<&mut A, With<A>>) {
    |                                      ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:18:44
+  --> $DIR/unnecessary_with.rs:32:44
    |
-LL | fn test_query8(_query: Query<(&mut A, &B), With<A>>) {}
+LL | fn test_query8(_query: Query<(&mut A, &B), With<A>>) {
    |                                            ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:19:44
+  --> $DIR/unnecessary_with.rs:35:44
    |
-LL | fn test_query9(_query: Query<(&mut A, &B), With<B>>) {}
+LL | fn test_query9(_query: Query<(&mut A, &B), With<B>>) {
    |                                            ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:20:46
+  --> $DIR/unnecessary_with.rs:38:46
    |
-LL | fn test_query10(_query: Query<(&mut A, &B), (With<A>, With<B>)>) {}
+LL | fn test_query10(_query: Query<(&mut A, &B), (With<A>, With<B>)>) {
    |                                              ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:20:55
+  --> $DIR/unnecessary_with.rs:38:55
    |
-LL | fn test_query10(_query: Query<(&mut A, &B), (With<A>, With<B>)>) {}
+LL | fn test_query10(_query: Query<(&mut A, &B), (With<A>, With<B>)>) {
    |                                                       ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:21:46
+  --> $DIR/unnecessary_with.rs:41:46
    |
-LL | fn test_query11(_query: Query<(&mut A, &B), (With<A>, With<C>)>) {}
+LL | fn test_query11(_query: Query<(&mut A, &B), (With<A>, With<C>)>) {
    |                                              ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:22:40
+  --> $DIR/unnecessary_with.rs:44:40
    |
-LL | fn test_query12(_query: Query<&mut A, (With<A>, With<B>)>) {}
+LL | fn test_query12(_query: Query<&mut A, (With<A>, With<B>)>) {
    |                                        ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:24:46
+  --> $DIR/unnecessary_with.rs:48:46
    |
-LL | fn test_query13(_query: Query<(), (Added<A>, With<A>)>) {}
+LL | fn test_query13(_query: Query<(), (Added<A>, With<A>)>) {
    |                                              ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:25:48
+  --> $DIR/unnecessary_with.rs:51:48
    |
-LL | fn test_query14(_query: Query<(), (Changed<A>, With<A>)>) {}
+LL | fn test_query14(_query: Query<(), (Changed<A>, With<A>)>) {
    |                                                ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:27:39
+  --> $DIR/unnecessary_with.rs:55:39
    |
-LL | fn test_query15(_query: Query<&A, Or<(With<A>, With<B>)>>) {}
+LL | fn test_query15(_query: Query<&A, Or<(With<A>, With<B>)>>) {
    |                                       ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:28:48
+  --> $DIR/unnecessary_with.rs:58:48
    |
-LL | fn test_query16(_query: Query<&B, Or<(With<A>, With<B>)>>) {}
+LL | fn test_query16(_query: Query<&B, Or<(With<A>, With<B>)>>) {
    |                                                ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:30:43
+  --> $DIR/unnecessary_with.rs:62:43
    |
-LL | fn test_query17(_query: Query<&mut A, Or<(With<A>, With<B>)>>) {}
+LL | fn test_query17(_query: Query<&mut A, Or<(With<A>, With<B>)>>) {
    |                                           ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:31:52
+  --> $DIR/unnecessary_with.rs:65:52
    |
-LL | fn test_query18(_query: Query<&mut B, Or<(With<A>, With<B>)>>) {}
+LL | fn test_query18(_query: Query<&mut B, Or<(With<A>, With<B>)>>) {
    |                                                    ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:33:49
+  --> $DIR/unnecessary_with.rs:69:49
    |
-LL | fn test_query19(_query: Query<(), Or<(Added<A>, With<A>)>>) {}
+LL | fn test_query19(_query: Query<(), Or<(Added<A>, With<A>)>>) {
    |                                                 ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:34:51
+  --> $DIR/unnecessary_with.rs:72:51
    |
-LL | fn test_query20(_query: Query<(), Or<(Changed<A>, With<A>)>>) {}
+LL | fn test_query20(_query: Query<(), Or<(Changed<A>, With<A>)>>) {
    |                                                   ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:36:40
+  --> $DIR/unnecessary_with.rs:76:40
    |
-LL | fn test_query21(_query: Query<&A, (Or<(With<A>, With<B>)>, With<C>)>) {}
+LL | fn test_query21(_query: Query<&A, (Or<(With<A>, With<B>)>, With<C>)>) {
    |                                        ^^^^^^^
 
 error: Unnecessary `With` Filter
-  --> $DIR/unnecessary_with.rs:37:44
+  --> $DIR/unnecessary_with.rs:79:44
    |
-LL | fn test_query22(_query: Query<&mut A, (Or<(With<A>, With<B>)>, With<C>)>) {}
+LL | fn test_query22(_query: Query<&mut A, (Or<(With<A>, With<B>)>, With<C>)>) {
    |                                            ^^^^^^^
 
 error: aborting due to 24 previous errors
