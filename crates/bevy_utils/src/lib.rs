@@ -1,12 +1,11 @@
 mod enum_variant_meta;
 pub use enum_variant_meta::*;
 
-pub use ahash::AHasher;
+pub use ahash::{AHasher, RandomState};
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;
 
-use ahash::RandomState;
 use std::{future::Future, pin::Pin};
 
 #[cfg(not(target_arch = "wasm32"))]
