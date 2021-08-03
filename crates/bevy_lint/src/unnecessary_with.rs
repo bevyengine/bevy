@@ -49,16 +49,36 @@ impl<'hir> LateLintPass<'hir> for UnnecessaryWith {
         _: HirId,
     ) {
         for typ in decl.inputs {
-            if let TyKind::Path(QPath::Resolved(_, path)) = &typ.kind {
-                if bevy_helpers::path_matches_symbol_path(ctx, path, bevy_paths::QUERY) {
-                    check_for_unnecesarry_with(ctx, &typ);
-                }
-            }
+            recursively_search_type(ctx, typ, bevy_paths::QUERY, &check_for_unnecesarry_with);
         }
     }
 }
 
-fn check_for_unnecesarry_with<'hir>(ctx: &LateContext<'hir>, query: &'hir Ty) {
+fn recursively_search_type<'hir, T: Fn(&LateContext<'hir>, &'hir Ty<'hir>) -> ()>(
+    ctx: &LateContext<'hir>,
+    typ: &'hir Ty,
+    symbol_path: &[&str],
+    function: &T,
+) {
+    match &typ.kind {
+        TyKind::Path(QPath::Resolved(_, path)) => {
+            if bevy_helpers::path_matches_symbol_path(ctx, path, symbol_path) {
+                (function)(ctx, &typ)
+            }
+        }
+        TyKind::Tup(types) => {
+            for tup_typ in *types {
+                // Todo: Filter out Types that dont implement SystemParam
+                // -> Is it possible to go from rustc_hir::Ty to rustc_middle::Ty?
+                // Required for using clippy_utils::ty::implements_trait.
+                recursively_search_type(ctx, tup_typ, symbol_path, function);
+            }
+        }
+        _ => (),
+    }
+}
+
+fn check_for_unnecesarry_with<'hir>(ctx: &LateContext<'hir>, query: &'hir Ty<'hir>) {
     if let Some((world, Some(filter))) = bevy_helpers::get_generics_of_query(ctx, query) {
         let mut required_types = Vec::new();
         let mut with_types = Vec::new();

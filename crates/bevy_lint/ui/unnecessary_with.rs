@@ -79,3 +79,25 @@ fn test_query21(_query: Query<&A, (Or<(With<A>, With<B>)>, With<C>)>) {
 fn test_query22(_query: Query<&mut A, (Or<(With<A>, With<B>)>, With<C>)>) {
     test_query22.system();
 }
+
+fn test_query23(_query: (Query<&A, With<A>>,)) {
+    test_query23.system();
+}
+fn test_query24(_query: (((((((((Query<&A, With<A>>,),),),),),),),),)) {
+    test_query24.system();
+}
+fn test_query25(
+    _query: (
+        (),
+        (((
+            (),
+            (
+                ((((Query<&A, With<A>>,), ()),),),
+                (),
+                (Query<&A, With<A>>, ()),
+            ),
+        ),),),
+    ),
+) {
+    test_query25.system();
+}

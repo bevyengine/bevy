@@ -144,5 +144,29 @@ error: Unnecessary `With` Filter
 LL | fn test_query22(_query: Query<&mut A, (Or<(With<A>, With<B>)>, With<C>)>) {
    |                                            ^^^^^^^
 
-error: aborting due to 24 previous errors
+error: Unnecessary `With` Filter
+  --> $DIR/unnecessary_with.rs:83:36
+   |
+LL | fn test_query23(_query: (Query<&A, With<A>>,)) {
+   |                                    ^^^^^^^
+
+error: Unnecessary `With` Filter
+  --> $DIR/unnecessary_with.rs:86:44
+   |
+LL | fn test_query24(_query: (((((((((Query<&A, With<A>>,),),),),),),),),)) {
+   |                                            ^^^^^^^
+
+error: Unnecessary `With` Filter
+  --> $DIR/unnecessary_with.rs:95:31
+   |
+LL |                 ((((Query<&A, With<A>>,), ()),),),
+   |                               ^^^^^^^
+
+error: Unnecessary `With` Filter
+  --> $DIR/unnecessary_with.rs:97:28
+   |
+LL |                 (Query<&A, With<A>>, ()),
+   |                            ^^^^^^^
+
+error: aborting due to 28 previous errors
 
