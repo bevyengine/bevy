@@ -475,4 +475,11 @@ mod tests {
             PreviousParent(parent)
         );
     }
+
+    #[test]
+    fn regression_push_children() {
+        let mut world = World::new();
+        let child = world.spawn().id();
+        world.spawn().push_children(&[child]);
+    }
 }
