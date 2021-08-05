@@ -107,17 +107,17 @@ use thiserror::Error;
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
+pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
 {
-    pub(crate) world: &'w World,
-    pub(crate) state: &'w QueryState<Q, F>,
+    pub(crate) world: &'world World,
+    pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -130,7 +130,7 @@ where
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
-        state: &'w QueryState<Q, F>,
+        state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -266,7 +266,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
-    pub fn for_each<'s>(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
+    pub fn for_each(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -285,7 +285,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut<'s>(&'s mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)) {
+    pub fn for_each_mut(&'s mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -303,7 +303,7 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     #[inline]
-    pub fn par_for_each<'s>(
+    pub fn par_for_each(
         &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -327,7 +327,7 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut<'s>(
+    pub fn par_for_each_mut(
         &'s mut self,
         task_pool: &TaskPool,
         batch_size: usize,
