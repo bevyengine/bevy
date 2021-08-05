@@ -343,7 +343,7 @@ impl App {
     /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
     /// before using them. This happens with [`App::insert_resource`].
     ///
-    /// See also `init_resource` for resources that implement `Default` or [`FromResources`].
+    /// See also `init_resource` for resources that implement `Default` or [`FromWorld`].
     ///
     /// ## Example
     /// ```
@@ -390,7 +390,7 @@ impl App {
 
     /// Initialize a resource in the current [App], if it does not exist yet
     ///
-    /// Adds a resource that implements `Default` or [`FromResources`] trait.
+    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
     /// If the resource already exists, `init_resource` does nothing.
     ///
     /// ## Example
