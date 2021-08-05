@@ -9,6 +9,19 @@ current changes on git with [previous release tags][git_tag_comparison].
 
 [git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.5.0...main
 
+## Unreleased
+
+### Added
+
+- [Add webp as a supported texture format (C compiler required)][2600]
+
+### Changed
+
+### Fixed
+
+
+[2600]: https://github.com/bevyengine/bevy/pull/2600
+
 ## Version 0.5.0 (2021-04-06)
 
 ### Added

@@ -28,6 +28,7 @@
 |tga|TGA picture format support.|
 |jpeg|JPEG picture format support.|
 |bmp|BMP picture format support.|
+|webp|WEBP picture format support. (C compiler required)|
 |flac|FLAC audio format support. It's included in bevy_audio feature.|
 |wav|WAV audio format support.|
 |vorbis|Vorbis audio format support.|
