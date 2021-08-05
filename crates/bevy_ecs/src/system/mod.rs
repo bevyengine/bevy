@@ -624,4 +624,155 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn system_safety_test() {
+        struct A(usize);
+        struct B(usize);
+
+        fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+            {
+                let mut iter = query.iter_mut();
+                let a = &mut *iter.next().unwrap();
+
+                let mut iter2 = query.iter_mut();
+                let b = &mut *iter2.next().unwrap();
+
+                // this should fail to compile
+                println!("{}", a.0);
+            }
+
+            {
+                let mut a1 = query.get_mut(*e).unwrap();
+
+                let mut a2 = query.get_mut(*e).unwrap();
+
+                // this should fail to compile
+                println!("{} {}", a1.0, a2.0);
+            }
+        }
+        
+        fn query_set(mut queries: QuerySet<(Query<&mut A>,Query<&A>)>, e: Res<Entity>) {
+            {
+
+                let q2 = queries.q0_mut();
+                let mut iter2 = q2.iter_mut();
+                let mut b = iter2.next().unwrap();
+
+                let q1 = queries.q1();
+                let mut iter = q1.iter();
+                let a = &*iter.next().unwrap();
+
+                // this should fail to compile
+                b.0 = a.0
+            }
+
+            {
+
+                let q1 = queries.q1();
+                let mut iter = q1.iter();
+                let a = &*iter.next().unwrap();
+
+                let q2 = queries.q0_mut();
+                let mut iter2 = q2.iter_mut();
+                let mut b = iter2.next().unwrap();
+
+                // this should fail to compile (but currently doesn't)
+                b.0 = a.0;
+            }
+            {
+
+                let q2 = queries.q0_mut();
+                let mut b = q2.get_mut(*e).unwrap();
+
+                let q1 = queries.q1();
+                let a = q1.get(*e).unwrap();
+
+                // this should fail to compile
+                b.0 = a.0
+            }
+
+            {
+                let q1 = queries.q1();
+                let a = q1.get(*e).unwrap();
+
+                let q2 = queries.q0_mut();
+                let mut b = q2.get_mut(*e).unwrap();
+                // this should fail to compile (but currently doesn't)
+                b.0 = a.0
+            }
+        }
+
+        let mut world = World::default();
+        world.spawn().insert_bundle((A(1), B(1)));
+        run_system(&mut world, system);
+    }
+
+    /// this test exists to show that read-only world-only queries can return data that lives as long as 'world 
+    #[test]
+    fn long_life_test() {
+        struct Holder<'w> {
+            value: &'w A,
+        }
+
+        struct State {
+            state: SystemState<Res<'static, A>>,
+            state_q: SystemState<Query<'static, 'static, &'static A>>,
+        }
+
+        impl State {
+            fn hold_res<'w>(&mut self, world: &'w World) -> Holder<'w> {
+                let a = self.state.get(&world);
+                Holder {
+                    value: a.into_inner(),
+                }
+            }
+            fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
+                let q = self.state_q.get(&world);
+                let a = q.get(entity).unwrap();
+                Holder { value: a }
+            }
+            fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
+                let mut components = Vec::new();
+                let q = self.state_q.get(&world);
+                for a in q.iter() {
+                    components.push(Holder { value: a });
+                }
+                components
+            }
+        }
+    }
+
+    #[test]
+    fn system_state_safety_test() {
+        struct A(usize);
+        struct B(usize);
+
+        struct State {
+            state_r: SystemState<Query<'static, 'static, &'static A>>,
+            state_w: SystemState<Query<'static, 'static, &'static mut A>>,
+        }
+
+        impl State {
+            fn get_component<'w>(&mut self, world: &'w mut World, entity: Entity) {
+                let q1 = self.state_r.get(&world);
+                let a1 = q1.get(entity).unwrap();
+
+                let mut q2 = self.state_w.get_mut(world);
+                let a2 = q2.get_mut(entity).unwrap();
+                // this should fail to compile
+                println!("{}", a1.0);
+            }
+
+            fn get_components<'w>(&mut self, world: &'w mut World) {
+                let q1 = self.state_r.get(&world);
+                let a1 = q1.iter().next().unwrap();
+
+                let mut q2 = self.state_w.get_mut(world);
+                let a2 = q2.iter_mut().next().unwrap();
+                // this should fail to compile
+                println!("{}", a1.0);
+            }
+        }
+    }
 }
