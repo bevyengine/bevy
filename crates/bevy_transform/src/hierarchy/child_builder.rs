@@ -219,7 +219,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -227,6 +227,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location
+            self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.extend(children.iter().cloned());
@@ -239,7 +241,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -247,6 +249,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location
+            self.update_location();
         }
 
         if let Some(mut children_component) = self.get_mut::<Children>() {
