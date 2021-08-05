@@ -230,6 +230,7 @@ impl Texture {
                 "image/jpeg" => Ok(image::ImageFormat::Jpeg),
                 "image/bmp" => Ok(image::ImageFormat::Bmp),
                 "image/x-bmp" => Ok(image::ImageFormat::Bmp),
+                "image/webp" => Ok(image::ImageFormat::WebP),
                 _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
             },
             ImageType::Extension(extension) => image::ImageFormat::from_extension(extension)
@@ -242,7 +243,19 @@ impl Texture {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        let dyn_img = image::load_from_memory_with_format(buffer, format)?;
+        let dyn_img = match format {
+            image::ImageFormat::WebP => webp_lib::Decoder::new(buffer)
+                .decode()
+                .ok_or_else(|| {
+                    TextureError::ImageError(image::ImageError::Decoding(
+                        image::error::DecodingError::from_format_hint(
+                            image::error::ImageFormatHint::Exact(format),
+                        ),
+                    ))
+                })?
+                .to_image(),
+            _ => image::load_from_memory_with_format(buffer, format)?,
+        };
         Ok(dyn_img.into())
     }
 }

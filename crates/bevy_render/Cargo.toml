@@ -26,7 +26,8 @@ bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # rendering
-image = { version = "0.23.12", default-features = false }
+image = { version = "0.23.14", default-features = false }
+webp_lib = { package = "webp", version = "0.1.3", optional = true}
 
 # misc
 serde = { version = "1", features = ["derive"] }
@@ -55,3 +56,4 @@ dds = ["image/dds"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
+webp = ["webp_lib"]

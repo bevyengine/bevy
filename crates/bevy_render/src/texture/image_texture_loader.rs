@@ -21,6 +21,8 @@ const FILE_EXTENSIONS: &[&str] = &[
     "jpeg",
     #[cfg(feature = "bmp")]
     "bmp",
+    #[cfg(feature = "webp")]
+    "webp",
 ];
 
 impl AssetLoader for ImageTextureLoader {
