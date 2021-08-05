@@ -146,7 +146,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, '_, Q, F>
+    pub fn iter(&'s self) -> QueryIter<'w, 's, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -351,7 +351,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
+    pub fn get(&'s self, entity: Entity) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -511,7 +511,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError>
+    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {

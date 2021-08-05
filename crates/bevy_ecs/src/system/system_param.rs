@@ -228,6 +228,10 @@ impl<'w, T: Component> Res<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+    
+    pub fn into_inner(self) -> &'w T {
+        self.value
+    }
 }
 
 impl<'w, T: Component> Deref for Res<'w, T> {
