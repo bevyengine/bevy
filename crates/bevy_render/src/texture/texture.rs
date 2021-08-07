@@ -230,6 +230,7 @@ impl Texture {
                 "image/jpeg" => Ok(image::ImageFormat::Jpeg),
                 "image/bmp" => Ok(image::ImageFormat::Bmp),
                 "image/x-bmp" => Ok(image::ImageFormat::Bmp),
+                #[cfg(feature = "webp")]
                 "image/webp" => Ok(image::ImageFormat::WebP),
                 _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
             },
@@ -244,6 +245,7 @@ impl Texture {
         // cases.
 
         let dyn_img = match format {
+            #[cfg(feature = "webp")]
             image::ImageFormat::WebP => webp_lib::Decoder::new(buffer)
                 .decode()
                 .ok_or_else(|| {

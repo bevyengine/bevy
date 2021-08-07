@@ -63,7 +63,8 @@ use texture::HdrTextureLoader;
     feature = "dds",
     feature = "tga",
     feature = "jpeg",
-    feature = "bmp"
+    feature = "bmp",
+    feature = "webp"
 ))]
 use texture::ImageTextureLoader;
 
@@ -108,7 +109,8 @@ impl Plugin for RenderPlugin {
             feature = "dds",
             feature = "tga",
             feature = "jpeg",
-            feature = "bmp"
+            feature = "bmp",
+            feature = "webp"
         ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();
