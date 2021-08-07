@@ -146,7 +146,8 @@ where
     fn default_config() {}
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's> for QueryState<Q, F>
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
+    for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -184,7 +185,13 @@ fn assert_component_access_compatibility(
                 query_type, filter_type, system_name, accesses);
 }
 
-pub struct QuerySet<T>(T);
+pub struct QuerySet<'w, 's, T> {
+    query_states: &'s T,
+    world: &'w World,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
@@ -228,7 +235,7 @@ impl<'w, T: Component> Res<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
-    
+
     pub fn into_inner(self) -> &'w T {
         self.value
     }
