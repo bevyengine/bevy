@@ -285,7 +285,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'_, '_>>::Item)) {
+    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -327,11 +327,11 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut(
-        &mut self,
+    pub fn par_for_each_mut<'a>(
+        &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'_, '_>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
