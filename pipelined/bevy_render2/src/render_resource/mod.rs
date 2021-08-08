@@ -26,7 +26,7 @@ pub use wgpu::{
     PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, RenderPipelineDescriptor, SamplerDescriptor, ShaderFlags, ShaderModule,
     ShaderModuleDescriptor, ShaderSource, ShaderStage, StencilFaceState, StencilState,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsage, TextureViewDescriptor, TextureViewDimension, VertexAttribute, VertexBufferLayout,
-    VertexFormat, VertexState,
+    StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureSampleType, TextureUsage, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState,
 };
