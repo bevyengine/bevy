@@ -227,7 +227,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
-            // Inserting a bundle in the children entities may change the parent entity's location
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
@@ -249,7 +249,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
-            // Inserting a bundle in the children entities may change the parent entity's location
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
 
@@ -477,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn regression_push_children() {
+    fn regression_push_children_same_archetype() {
         let mut world = World::new();
         let child = world.spawn().id();
         world.spawn().push_children(&[child]);
