@@ -10,8 +10,8 @@ pub mod prelude {
 /// Provides a source of entropy.
 /// This enables deterministic random number generation.
 ///
-// See <https://github.com/bevyengine/bevy/discussions/2480> for issues
-// to be mindful of if you desire complete determinism.
+/// See <https://github.com/bevyengine/bevy/discussions/2480> for issues
+/// to be mindful of if you desire complete determinism.
 #[derive(Default)]
 pub struct EntropyPlugin;
 
