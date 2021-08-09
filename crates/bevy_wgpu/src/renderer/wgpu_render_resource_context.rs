@@ -15,7 +15,6 @@ use bevy_render::{
 };
 use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
-use futures_lite::future;
 use std::{
     borrow::Cow,
     num::{NonZeroU32, NonZeroU64},
@@ -654,7 +653,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         };
         let data = buffer_slice.map_async(wgpu_mode);
         self.device.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
+        if async_global_executor::block_on(data).is_err() {
             panic!("Failed to map buffer to host.");
         }
     }

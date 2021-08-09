@@ -136,7 +136,7 @@ impl TaskPool {
                     .spawn(move || {
                         let shutdown_future = ex.run(shutdown_rx.recv());
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        crate::block_on(shutdown_future).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -186,7 +186,7 @@ impl TaskPool {
             if scope.spawned.is_empty() {
                 Vec::default()
             } else if scope.spawned.len() == 1 {
-                vec![future::block_on(&mut scope.spawned[0])]
+                vec![crate::block_on(&mut scope.spawned[0])]
             } else {
                 let fut = async move {
                     let mut results = Vec::with_capacity(scope.spawned.len());
@@ -215,7 +215,7 @@ impl TaskPool {
                 // simply calling future::block_on(spawned) would deadlock.)
                 let mut spawned = local_executor.spawn(fut);
                 loop {
-                    if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                    if let Some(result) = crate::block_on(future::poll_once(&mut spawned)) {
                         break result;
                     };
 

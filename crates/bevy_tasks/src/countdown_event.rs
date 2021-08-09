@@ -85,13 +85,14 @@ impl CountdownEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::block_on;
 
     #[test]
     fn countdown_event_ready_after() {
         let countdown_event = CountdownEvent::new(2);
         countdown_event.decrement();
         countdown_event.decrement();
-        futures_lite::future::block_on(countdown_event.listen());
+        block_on(countdown_event.listen());
     }
 
     #[test]
@@ -99,9 +100,7 @@ mod tests {
         let countdown_event = CountdownEvent::new(2);
         countdown_event.decrement();
         let countdown_event_clone = countdown_event.clone();
-        let handle = std::thread::spawn(move || {
-            futures_lite::future::block_on(countdown_event_clone.listen())
-        });
+        let handle = std::thread::spawn(move || block_on(countdown_event_clone.listen()));
 
         // Pause to give the new thread time to start blocking (ugly hack)
         std::thread::sleep(instant::Duration::from_millis(100));
@@ -117,7 +116,7 @@ mod tests {
         // notify all listeners
         let listener1 = event.listen();
         event.notify(std::usize::MAX);
-        futures_lite::future::block_on(listener1);
+        block_on(listener1);
 
         // If all listeners are notified, the structure should now be cleared. We're free to listen
         // again
@@ -129,6 +128,6 @@ mod tests {
 
         // Notify all and verify the remaining listener is notified
         event.notify(std::usize::MAX);
-        futures_lite::future::block_on(listener3);
+        block_on(listener3);
     }
 }

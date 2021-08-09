@@ -15,7 +15,6 @@ use bevy_render::{
     renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
     RenderStage,
 };
-use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
 use std::borrow::Cow;
 
@@ -113,7 +112,7 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
         .get_resource::<WgpuOptions>()
         .cloned()
         .unwrap_or_else(WgpuOptions::default);
-    let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
+    let mut wgpu_renderer = async_global_executor::block_on(WgpuRenderer::new(options));
 
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
     world.insert_resource::<Box<dyn RenderResourceContext>>(Box::new(resource_context));

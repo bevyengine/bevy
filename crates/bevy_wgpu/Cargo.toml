@@ -15,6 +15,8 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_winit"]
 trace = ["wgpu/trace"]
+async-io = ["async-global-executor/async-io"]
+tokio = ["async-global-executor/tokio"]
 
 [dependencies]
 # bevy
@@ -30,7 +32,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 wgpu = "0.9"
-futures-lite = "1.4.0"
 crossbeam-channel = "0.5.0"
 crossbeam-utils = "0.8.1"
 parking_lot = "0.11.0"
+async-global-executor= { version="2.0.2", default-features = false }

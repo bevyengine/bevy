@@ -14,6 +14,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+resolver = "2"
 
 [workspace]
 exclude = ["benches"]
@@ -86,6 +87,10 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# alternative async executors, defaults to futures-lite
+async-io = ["bevy_internal/async-io"]
+tokio = ["bevy_internal/tokio"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
@@ -96,7 +101,7 @@ rand = "0.8.0"
 ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
-futures-lite = "1.11.3"
+futures-lite = "1.12.0"
 
 [[example]]
 name = "hello_world"

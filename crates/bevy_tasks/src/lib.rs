@@ -23,6 +23,10 @@ pub use countdown_event::CountdownEvent;
 mod iter;
 pub use iter::ParallelIterator;
 
+// re-export block_on so that consumers don't need to explicitly depend on the async engine being used.
+// it uses futures-lite by default, async-io and tokio are optional behind features
+pub use async_global_executor::block_on;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

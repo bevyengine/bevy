@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
-use bevy_tasks::TaskPool;
+use bevy_tasks::{self, TaskPool};
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
@@ -717,8 +717,7 @@ mod test {
         let path: AssetPath = "file.not-a-real-extension".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
-            .unwrap_err();
+        let err = bevy_tasks::block_on(asset_server.load_async(path.clone(), true)).unwrap_err();
         assert!(match err {
             AssetServerError::MissingAssetLoader { extensions } => {
                 extensions == ["not-a-real-extension"]
@@ -737,8 +736,7 @@ mod test {
         let path: AssetPath = "an/invalid/path.png".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
-            .unwrap_err();
+        let err = bevy_tasks::block_on(asset_server.load_async(path.clone(), true)).unwrap_err();
         assert!(matches!(err, AssetServerError::AssetIoError(_)));
 
         assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
@@ -753,8 +751,7 @@ mod test {
         let path: AssetPath = "fake.fail".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
-            .unwrap_err();
+        let err = bevy_tasks::block_on(asset_server.load_async(path.clone(), true)).unwrap_err();
         assert!(matches!(err, AssetServerError::AssetLoaderError(_)));
 
         assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
@@ -785,8 +782,7 @@ mod test {
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.get_resource::<AssetServer>().unwrap();
-            let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
-                .unwrap();
+            let id = bevy_tasks::block_on(asset_server.load_async(path.clone(), true)).unwrap();
             asset_server.get_handle_untyped(id)
         }
 

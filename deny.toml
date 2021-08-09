@@ -46,6 +46,8 @@ skip = [
     { name = "core-graphics", version = "0.19" },
     { name = "fixedbitset", version = "0.2" },
     { name = "hashbrown", version = "0.9" },
+    { name = "jni", version = "0.18.0" },
+    { name = "jni", version = "0.19.0" },
     { name = "libm", version = "0.1" },
     { name = "mach", version = "0.2" },
     { name = "ndk", version = "0.2" },
