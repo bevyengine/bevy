@@ -15,7 +15,7 @@ fn main() {
     let mut world = World::new();
 
     // Add the entropy resource for future random number generators to use.
-    // This makes execution deterministic.
+    // This makes random number generation deterministic.
     let world_seed = [1; 32];
     world.insert_resource(Entropy::from(world_seed));
 
