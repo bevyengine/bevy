@@ -23,6 +23,10 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 mod iter;
 pub use iter::ParallelIterator;
 
+// re-export block_on so that consumers don't need to explicitly depend on the async engine being used.
+// it uses futures-lite by default, async-io and tokio are optional behind features
+pub use async_global_executor::block_on;
+
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]

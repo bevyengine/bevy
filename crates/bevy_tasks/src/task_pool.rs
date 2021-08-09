@@ -119,7 +119,7 @@ impl TaskPool {
                     .spawn(move || {
                         let shutdown_future = ex.run(shutdown_rx.recv());
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        crate::block_on(shutdown_future).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -269,11 +269,11 @@ impl TaskPool {
             // forward until the tasks that are spawned by this scope() call
             // complete. (If the caller of scope() happens to be a thread in
             // this thread pool, and we only have one thread in the pool, then
-            // simply calling future::block_on(spawned) would deadlock.)
+            // simply calling crate::block_on(spawned) would deadlock.)
             let mut spawned = task_scope_executor.spawn(get_results);
 
             loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                if let Some(result) = crate::block_on(future::poll_once(&mut spawned)) {
                     break result;
                 };
 

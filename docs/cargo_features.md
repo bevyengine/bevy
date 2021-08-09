@@ -44,3 +44,5 @@
 |subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|
 |bevy_ci_testing|Used for running examples in CI.|
 |debug_asset_server|Enabling this turns on "hot reloading" of built in assets, such as shaders.|
+|tokio|Use tokio as task execution engine.|
+|async-io|Use async-io as task execution engine.|

@@ -12,6 +12,8 @@ keywords = ["bevy"]
 default = []
 filesystem_watcher = ["notify"]
 debug_asset_server = ["filesystem_watcher"]
+async-io = ["bevy_tasks/async-io"]
+tokio = ["bevy_tasks/tokio"]
 
 [dependencies]
 # bevy
@@ -43,6 +45,5 @@ js-sys = "0.3"
 ndk-glue = { version = "0.5" }
 
 [dev-dependencies]
-futures-lite = "1.4.0"
 tempfile = "3.2.0"
 bevy_core = { path = "../bevy_core", version = "0.9.0-dev" }
