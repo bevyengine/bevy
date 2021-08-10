@@ -441,7 +441,7 @@ impl App {
     /// Sets the main runner loop function for this Bevy App
     ///
     /// Usually the main loop is handled by Bevy integrated plugins 
-    /// ([`WinitPlugin`](https://docs.rs/bevy_winit/0.5.0/bevy_winit/struct.WinitPlugin.html)), 
+    /// ([`WinitPlugin`](https://docs.rs/bevy/*/bevy/winit/struct.WinitPlugin.html)), 
     /// but in some cases one might wish to implement their own main loop.
     ///
     /// This method sets the main loop function, overwriting a previous runner if any.
@@ -493,8 +493,8 @@ impl App {
     /// built-in PluginGroups that provide core engine functionality.
     ///
     /// The plugin groups available by default are 
-    /// [`DefaultPlugins`](https://docs.rs/bevy_internal/0.5.0/bevy_internal/struct.DefaultPlugins.html)
-    /// and [`MinimalPlugins`](https://docs.rs/bevy_internal/0.5.0/bevy_internal/struct.MinimalPlugins.html).
+    /// [`DefaultPlugins`](https://docs.rs/bevy/*/bevy/struct.DefaultPlugins.html)
+    /// and [`MinimalPlugins`](https://docs.rs/bevy/*/bevy/struct.MinimalPlugins.html).
     ///
     /// ## Example
     /// ```
