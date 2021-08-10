@@ -1,7 +1,6 @@
-use crate::Transparent2dPhase;
+use crate::{ClearColor, Transparent2dPhase};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    color::Color,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
@@ -43,13 +42,14 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let color_attachment_texture = graph.get_input_texture(Self::IN_COLOR_ATTACHMENT)?;
+        let clear_color = world.get_resource::<ClearColor>().unwrap();
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[RenderPassColorAttachment {
                 view: color_attachment_texture,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::rgb(0.4, 0.4, 0.4).into()),
+                    load: LoadOp::Clear(clear_color.0.into()),
                     store: true,
                 },
             }],

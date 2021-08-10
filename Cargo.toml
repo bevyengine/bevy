@@ -494,6 +494,10 @@ name = "clear_color"
 path = "examples/window/clear_color.rs"
 
 [[example]]
+name = "clear_color_pipelined"
+path = "examples/window/clear_color_pipelined.rs"
+
+[[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 

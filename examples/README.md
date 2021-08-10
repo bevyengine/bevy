@@ -254,6 +254,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`clear_color_pipelined` | [`window/clear_color_pipelined.rs`](./window/clear_color_pipelined.rs) | Creates a solid color window with the pipelined renderer
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
