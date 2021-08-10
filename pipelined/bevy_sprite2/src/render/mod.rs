@@ -190,16 +190,21 @@ pub fn extract_sprites(
 ) {
     let mut extracted_sprites = Vec::new();
     for (sprite, transform, handle) in sprite_query.iter() {
-        if !images.contains(handle) {
+        let image = if let Some(image) = images.get(handle) {
+            image
+        } else {
             continue;
-        }
+        };
+        let size = image.texture_descriptor.size;
 
         extracted_sprites.push(ExtractedSprite {
             atlas_size: None,
             transform: transform.compute_matrix(),
             rect: Rect {
                 min: Vec2::ZERO,
-                max: sprite.size,
+                max: sprite
+                    .custom_size
+                    .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
             },
             handle: handle.clone_weak(),
         });
