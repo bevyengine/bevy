@@ -1,14 +1,14 @@
 use bevy::{
     asset::LoadState,
-    math::{Vec2, Vec3},
+    math::Vec3,
     prelude::{
         App, AssetServer, Assets, Commands, HandleUntyped, IntoSystem, Res, ResMut, State,
         SystemSet, Transform,
     },
     render2::{camera::OrthographicCameraBundle, texture::Image},
     sprite2::{
-        PipelinedSpriteBundle, PipelinedSpriteSheetBundle, Sprite, TextureAtlas,
-        TextureAtlasBuilder, TextureAtlasSprite,
+        PipelinedSpriteBundle, PipelinedSpriteSheetBundle, TextureAtlas, TextureAtlasBuilder,
+        TextureAtlasSprite,
     },
     PipelinedDefaultPlugins,
 };
@@ -87,10 +87,6 @@ fn setup(
     });
     // draw the atlas itself
     commands.spawn_bundle(PipelinedSpriteBundle {
-        sprite: Sprite {
-            size: Vec2::new(512.0, 512.0),
-            ..Default::default()
-        },
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..Default::default()
