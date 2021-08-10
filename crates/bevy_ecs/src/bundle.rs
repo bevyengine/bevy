@@ -12,8 +12,6 @@ use std::{any::TypeId, collections::HashMap};
 /// An ordered collection of components, commonly used for spawning entities, and adding and
 /// removing components in bulk.
 ///
-/// In order to query for components in a bundle use [crate::query::WithBundle].
-///
 /// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
 /// The `Bundle` trait is automatically implemented for tuples of components:
 /// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections
