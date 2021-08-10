@@ -23,7 +23,9 @@ pub struct SpritePlugin;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<TextureAtlas>().register_type::<Sprite>();
+        app.add_asset::<TextureAtlas>()
+            .register_type::<Sprite>()
+            .add_system_to_stage(CoreStage::PostUpdate, sprite_auto_resize_system);
         let render_app = app.sub_app_mut(0);
         render_app
             .init_resource::<ExtractedSprites>()
