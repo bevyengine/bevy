@@ -32,7 +32,9 @@ struct Position { x: f32, y: f32 }
 
 Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
 
-```rust ignore
+```rust
+use bevy_ecs::world::World;
+
 let world = World::default();
 ```
 
@@ -40,7 +42,14 @@ let world = World::default();
 
 Entities are unique identifiers that correlate to zero or more Components.
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
+struct Position { x: f32, y: f32 }
+struct Velocity { x: f32, y: f32 }
+
+let mut world = World::new();
+
 let entity = world.spawn()
     .insert(Position { x: 0.0, y: 0.0 })
     .insert(Velocity { x: 1.0, y: 0.0 })
@@ -55,7 +64,11 @@ let velocity = entity_ref.get::<Velocity>().unwrap();
 
 Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
+struct Position { x: f32, y: f32 }
+
 fn print_position(query: Query<(Entity, &Position)>) {
     for (entity, position) in query.iter() {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
@@ -67,11 +80,17 @@ fn print_position(query: Query<(Entity, &Position)>) {
 
 Apps often require unique resources, such as asset collections, renderers, audio servers, time, etc. Bevy ECS makes this pattern a first class citizen. `Resource` is a special kind of component that does not belong to any entity. Instead, it is identified uniquely by its type:
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
+// Bevy does provide its own more advanced Time as a resource, but we
+// use this for the example.
 #[derive(Default)]
 struct Time {
     seconds: f32,
 }
+
+let mut world = World::new();
 
 world.insert_resource(Time::default());
 
@@ -95,21 +114,14 @@ The built in "parallel stage" considers dependencies between systems and (by def
 
 Bevy ECS should feel very natural for those familiar with Rust syntax:
 
-```rust ignore
+```rust
 use bevy_ecs::prelude::*;
 
-struct Velocity {
-    x: f32,
-    y: f32,
-}
-
-struct Position {
-    x: f32,
-    y: f32,
-}
+struct Position { x: f32, y: f32 }
+struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
-fn movement(query: Query<(&mut Position, &Velocity)>) {
+fn movement(mut query: Query<(&mut Position, &Velocity)>) {
     for (mut position, velocity) in query.iter_mut() {
         position.x += velocity.x;
         position.y += velocity.y;
@@ -143,9 +155,16 @@ fn main() {
 
 ### Query Filters
 
-```rust ignore
-// Gets the Position component of all Entities with Player component and without the RedTeam component
-fn system(query: Query<&Position, (With<Player>, Without<RedTeam>)>) {
+```rust
+use bevy_ecs::prelude::*;
+
+struct Position { x: f32, y: f32 }
+struct Player;
+struct Alive;
+
+// Gets the Position component of all Entities with Player component and without the Alive
+// component. 
+fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
     for position in query.iter() {
     }
 }
@@ -157,15 +176,20 @@ Bevy ECS tracks _all_ changes to Components and Resources.
 
 Queries can filter for changed Components:
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
+struct Position { x: f32, y: f32 }
+struct Velocity { x: f32, y: f32 }
+
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
-fn system(query: Query<&Position, Changed<Velocity>>) {
+fn system_changed(query: Query<&Position, Changed<Velocity>>) {
     for position in query.iter() {
     }
 }
 
-// Gets the Position component of all Entities that had a Velocity component added since the last run of the System
-fn system(query: Query<&Position, Added<Velocity>>) {
+// Gets the i32 component of all Entities that had a f32 component added since the last run of the System
+fn system_added(query: Query<&Position, Added<Velocity>>) {
     for position in query.iter() {
     }
 }
@@ -173,7 +197,10 @@ fn system(query: Query<&Position, Added<Velocity>>) {
 
 Resources also expose change state:
 
-```rust ignore
+```rust
+use bevy_core::Time;
+use bevy_ecs::prelude::*;
+
 // Prints "time changed!" if the Time resource has changed since the last run of the System
 fn system(time: Res<Time>) {
     if time.is_changed() {
@@ -195,7 +222,14 @@ Components can be stored in:
 
 Component storage types are configurable, and they default to table storage if the storage is not manually defined. The [`component_storage.rs`](examples/component_storage.rs) example shows how to configure the storage type for a component.
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+use bevy_ecs::component::{ComponentDescriptor, StorageType};
+
+struct Position { x: f32, y: f32 }
+
+let mut world = World::new();
+
 // store Position components in Sparse Sets
 world.register_component(ComponentDescriptor::new::<Position>(StorageType::SparseSet));
 ```
@@ -204,13 +238,24 @@ world.register_component(ComponentDescriptor::new::<Position>(StorageType::Spars
 
 Define sets of Components that should be added together.
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Default)]
+struct Player;
+#[derive(Default)]
+struct Position { x: f32, y: f32 }
+#[derive(Default)]
+struct Velocity { x: f32, y: f32 }
+
 #[derive(Bundle, Default)]
 struct PlayerBundle {
     player: Player,
     position: Position,
     velocity: Velocity,
 }
+
+let mut world = World::new();
 
 // Spawn a new entity and insert the default PlayerBundle
 world.spawn().insert_bundle(PlayerBundle::default());
@@ -226,7 +271,9 @@ world.spawn().insert_bundle(PlayerBundle {
 
 Events offer a communication channel between one or more systems. Events can be sent using the system parameter `EventWriter` and received with `EventReader`.
 
-```rust ignore
+```rust
+use bevy_ecs::prelude::*;
+
 struct MyEvent {
     message: String,
 }
