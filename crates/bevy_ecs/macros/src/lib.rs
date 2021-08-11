@@ -384,7 +384,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
-            type Fetch = #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
         #[doc(hidden)]
@@ -415,7 +415,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
                 state: &'a mut Self,
@@ -424,7 +424,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                    #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }
