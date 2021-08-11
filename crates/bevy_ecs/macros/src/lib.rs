@@ -363,16 +363,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let lifetime_generics: Vec<_> = generics
-        .params
-        .iter()
-        .map(|g| match g {
-            GenericParam::Lifetime(l) => Some(l),
-            _ => None,
-        })
-        .flatten()
-        .map(|l| &l.lifetime)
-        .collect();
+    let lifetime_generics: Vec<_> = generics.lifetimes().map(|l| &l.lifetime).collect();
 
     let impl_generics_as_generics = {
         let tmp = TokenStream::from(quote!(#impl_generics));
