@@ -370,8 +370,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         parse_macro_input!(tmp as Generics)
     };
 
-    let (lifetime_impl_generics, lifetime_generic) = match lifetime_generics.len() {
-        0 => {
+    let (lifetime_impl_generics, lifetime_generic) = match lifetime_generics.as_slice() {
+        [] => {
             let lifetime = Lifetime::new("'a", Span::mixed_site());
             (
                 Generics {
@@ -385,7 +385,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 lifetime,
             )
         }
-        1 => (impl_generics_as_generics, lifetime_generics[0].clone()),
+        [lifetime_generic] => (impl_generics_as_generics, lifetime_generic.clone()),
         _ => panic!("at most one lifetime is supported for derived SystemParam"),
     };
 
