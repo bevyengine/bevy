@@ -9,8 +9,8 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Path, Result, Token,
+    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Index, Lifetime,
+    LifetimeDef, LitInt, Path, Result, Token,
 };
 
 struct AllTuples {
@@ -363,6 +363,41 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let lifetime_generics: Vec<_> = generics
+        .params
+        .iter()
+        .map(|g| match g {
+            GenericParam::Lifetime(l) => Some(l),
+            _ => None,
+        })
+        .flatten()
+        .map(|l| &l.lifetime)
+        .collect();
+
+    let impl_generics_as_generics = {
+        let tmp = TokenStream::from(quote!(#impl_generics));
+        parse_macro_input!(tmp as Generics)
+    };
+
+    let (lifetime_impl_generics, lifetime_generic) = match lifetime_generics.len() {
+        0 => {
+            let lifetime = Lifetime::new("'a", Span::mixed_site());
+            (
+                Generics {
+                    params: std::iter::once(GenericParam::Lifetime(LifetimeDef::new(
+                        lifetime.clone(),
+                    )))
+                    .chain(impl_generics_as_generics.params.into_iter())
+                    .collect(),
+                    ..impl_generics_as_generics
+                },
+                lifetime,
+            )
+        }
+        1 => (impl_generics_as_generics, lifetime_generics[0].clone()),
+        _ => panic!("at most one lifetime is supported for derived SystemParam"),
+    };
+
     let lifetimeless_generics: Vec<_> = generics
         .params
         .iter()
@@ -415,12 +450,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #lifetime_impl_generics #path::system::SystemParamFetch<#lifetime_generic> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
-                state: &'a mut Self,
+                state: &#lifetime_generic mut Self,
                 system_meta: &#path::system::SystemMeta,
-                world: &'a #path::world::World,
+                world: &#lifetime_generic #path::world::World,
                 change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
