@@ -4,36 +4,44 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, System, SystemId},
     world::World,
 };
 use bevy_utils::HashMap;
 use std::borrow::Cow;
+use std::sync::{Arc, RwLock};
 
 pub struct FixedTimestepState {
-    pub step: f64,
-    pub accumulator: f64,
+    state: Arc<RwLock<State>>,
 }
 
 impl FixedTimestepState {
     /// The amount of time each step takes
     pub fn step(&self) -> f64 {
-        self.step
+        let s = self.state.read().unwrap();
+        (*s).step
+    }
+
+    /// set step value
+    pub fn set_step(&mut self, step: f64) {
+        let mut s = self.state.write().unwrap();
+        (*s).step = step;
     }
 
     /// The number of steps made in a second
     pub fn steps_per_second(&self) -> f64 {
-        1.0 / self.step
+        1.0 / self.step()
     }
 
     /// The amount of time (in seconds) left over from the last step
     pub fn accumulator(&self) -> f64 {
-        self.accumulator
+        let s = self.state.read().unwrap();
+        (*s).accumulator
     }
 
     /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step
     pub fn overstep_percentage(&self) -> f64 {
-        self.accumulator / self.step
+        self.accumulator() / self.step()
     }
 }
 
@@ -45,6 +53,10 @@ pub struct FixedTimesteps {
 impl FixedTimesteps {
     pub fn get(&self, name: &str) -> Option<&FixedTimestepState> {
         self.fixed_timesteps.get(name)
+    }
+
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut FixedTimestepState> {
+        self.fixed_timesteps.get_mut(name)
     }
 }
 
@@ -83,24 +95,14 @@ impl FixedTimestep {
         }
     }
 
-    pub fn with_label(mut self, label: &str) -> Self {
-        self.state.label = Some(label.to_string());
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.state.label = Some(label.into());
         self
     }
 
-    fn prepare_system(
-        mut state: Local<State>,
-        time: Res<Time>,
-        mut fixed_timesteps: ResMut<FixedTimesteps>,
-    ) -> ShouldRun {
-        let should_run = state.update(&time);
-        if let Some(ref label) = state.label {
-            let res_state = fixed_timesteps.fixed_timesteps.get_mut(label).unwrap();
-            res_state.step = state.step;
-            res_state.accumulator = state.accumulator;
-        }
-
-        should_run
+    fn prepare_system(state_locked: Local<Arc<RwLock<State>>>, time: Res<Time>) -> ShouldRun {
+        let mut state = state_locked.write().unwrap();
+        (*state).update(&time)
     }
 }
 
@@ -179,18 +181,14 @@ impl System for FixedTimestep {
     }
 
     fn initialize(&mut self, world: &mut World) {
-        self.internal_system =
-            Box::new(Self::prepare_system.config(|c| c.0 = Some(self.state.clone())));
+        let state = Arc::new(RwLock::new(self.state.clone()));
+        self.internal_system = Box::new(Self::prepare_system.config(|c| c.0 = Some(state.clone())));
         self.internal_system.initialize(world);
         if let Some(ref label) = self.state.label {
             let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
-            fixed_timesteps.fixed_timesteps.insert(
-                label.clone(),
-                FixedTimestepState {
-                    accumulator: 0.0,
-                    step: self.state.step,
-                },
-            );
+            fixed_timesteps
+                .fixed_timesteps
+                .insert(label.clone(), FixedTimestepState { state });
         }
     }
 

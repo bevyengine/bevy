@@ -2,6 +2,7 @@ use bevy::{
     core::{FixedTimestep, FixedTimesteps},
     prelude::*,
 };
+use rand::prelude::*;
 
 const LABEL: &str = "my_fixed_timestep";
 
@@ -30,17 +31,24 @@ fn main() {
 }
 
 fn frame_update(mut last_time: Local<f64>, time: Res<Time>) {
-    info!("update: {}", time.seconds_since_startup() - *last_time);
+    // info!("update: {}", time.seconds_since_startup() - *last_time);
     *last_time = time.seconds_since_startup();
 }
 
-fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
+fn fixed_update(
+    mut last_time: Local<f64>,
+    time: Res<Time>,
+    mut fixed_timesteps: ResMut<FixedTimesteps>,
+) {
     info!(
         "fixed_update: {}",
         time.seconds_since_startup() - *last_time,
     );
-
-    let fixed_timestep = fixed_timesteps.get(LABEL).unwrap();
+    let fixed_timestep = fixed_timesteps.get_mut(LABEL).unwrap();
+    let new_step = 0.2 * (rand::thread_rng().gen_range(1..=10) as f64);
+    info!("  resetting step to {}", new_step);
+    // You can also change the step on the fly
+    fixed_timestep.set_step(new_step);
     info!(
         "  overstep_percentage: {}",
         fixed_timestep.overstep_percentage()
