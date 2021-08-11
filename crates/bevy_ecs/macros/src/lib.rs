@@ -385,7 +385,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 lifetime,
             )
         }
-        [lifetime_generic] => (impl_generics_as_generics, lifetime_generic.clone()),
+        [lifetime_generic] => (impl_generics_as_generics, Lifetime::clone(lifetime_generic)),
         _ => panic!("at most one lifetime is supported for derived SystemParam"),
     };
 
