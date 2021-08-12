@@ -11,6 +11,14 @@ pub struct SlabKey<V> {
     marker: PhantomData<V>,
 }
 
+impl<V> PartialEq<SlabKey<V>> for SlabKey<V> {
+    fn eq(&self, other: &SlabKey<V>) -> bool {
+        self.index == other.index
+    }
+}
+
+impl<V> Eq for SlabKey<V> {}
+
 impl<V> Copy for SlabKey<V> {}
 
 impl<V> Clone for SlabKey<V> {

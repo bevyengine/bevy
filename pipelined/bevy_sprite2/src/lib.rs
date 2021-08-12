@@ -10,7 +10,7 @@ use bevy_asset::AddAsset;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
-pub use render::*;
+use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
@@ -34,7 +34,8 @@ impl Plugin for SpritePlugin {
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
             .add_system_to_stage(RenderStage::Queue, queue_sprites)
             .init_resource::<SpriteShaders>()
-            .init_resource::<SpriteMeta>();
+            .init_resource::<SpriteMeta>()
+            .init_resource::<ExtractedSprites>();
         let draw_sprite = DrawSprite::new(&mut render_app.world);
         render_app
             .world
