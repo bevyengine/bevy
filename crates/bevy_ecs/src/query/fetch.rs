@@ -574,18 +574,10 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+#[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
     matches: bool,
-}
-
-impl<T: Clone> Clone for OptionFetch<T> {
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches
-        }
-    }
 }
 
 /// SAFETY: OptionFetch is read only because T is read only
