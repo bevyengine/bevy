@@ -87,7 +87,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
+    pub fn get<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
