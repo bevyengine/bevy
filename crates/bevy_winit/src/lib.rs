@@ -303,10 +303,10 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let mut cursor_moved_events =
                             world.get_resource_mut::<Events<CursorMoved>>().unwrap();
                         let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let position = position.to_logical(winit_window.scale_factor());
+                        let position = position.to_logical(window.scale_factor());
                         let inner_size = winit_window
                             .inner_size()
-                            .to_logical::<f32>(winit_window.scale_factor());
+                            .to_logical::<f32>(window.scale_factor());
 
                         // move origin to bottom left
                         let y_position = inner_size.height - position.y;
@@ -363,8 +363,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let mut touch_input_events =
                             world.get_resource_mut::<Events<TouchInput>>().unwrap();
 
-                        let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let mut location = touch.location.to_logical(winit_window.scale_factor());
+                        let mut location = touch.location.to_logical(window.scale_factor());
 
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom
