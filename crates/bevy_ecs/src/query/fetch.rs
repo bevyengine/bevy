@@ -141,6 +141,14 @@ pub struct EntityFetch {
     entities: *const Entity,
 }
 
+impl Clone for EntityFetch {
+    fn clone(&self) -> Self {
+        Self {
+            entities: self.entities,
+        }
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyFetch for EntityFetch {}
 
