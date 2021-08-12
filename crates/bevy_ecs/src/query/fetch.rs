@@ -137,16 +137,9 @@ impl WorldQuery for Entity {
 }
 
 /// The [`Fetch`] of [`Entity`].
+#[derive(Clone)]
 pub struct EntityFetch {
     entities: *const Entity,
-}
-
-impl Clone for EntityFetch {
-    fn clone(&self) -> Self {
-        Self {
-            entities: self.entities,
-        }
-    }
 }
 
 /// SAFETY: access is read only
@@ -586,6 +579,15 @@ pub struct OptionFetch<T> {
     matches: bool,
 }
 
+impl<T: Clone> Clone for OptionFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            matches: self.matches
+        }
+    }
+}
+
 /// SAFETY: OptionFetch is read only because T is read only
 unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
@@ -804,6 +806,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 }
 
 /// The [`Fetch`] of [`ChangeTrackers`].
+#[derive(Clone)]
 pub struct ChangeTrackersFetch<T> {
     storage_type: StorageType,
     table_ticks: *const ComponentTicks,
