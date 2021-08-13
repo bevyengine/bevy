@@ -798,7 +798,6 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 }
 
 /// The [`Fetch`] of [`ChangeTrackers`].
-#[derive(Clone)]
 pub struct ChangeTrackersFetch<T> {
     storage_type: StorageType,
     table_ticks: *const ComponentTicks,
@@ -808,6 +807,21 @@ pub struct ChangeTrackersFetch<T> {
     marker: PhantomData<T>,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<T> Clone for ChangeTrackersFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_ticks: self.table_ticks,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+            marker: self.marker,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 /// SAFETY: access is read only
