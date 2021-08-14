@@ -33,7 +33,7 @@ The `bevy` repo itself contains many smaller subcrates. Most of them can be used
 Some crates of interest:
 
 * [**`bevy_ecs`**](./crates/bevy_ecs): The core data model for Bevy. Most Bevy features are implemented on top of it. It is also fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
-* [**`bevy_app`**](./crates/bevy_app): The api used to define Bevy Plugins and compose them together into Bevy Apps. 
+* [**`bevy_app`**](./crates/bevy_app): The api used to define Bevy Plugins and compose them together into Bevy Apps.
 * [**`bevy_tasks`**](./crates/bevy_tasks): Our light-weight async executor. This drives most async and parallel code in Bevy.
 * [**`bevy_render`**](./crates/bevy_render): Our core renderer API. It handles interaction with the GPU, such as the creation of Meshes, Textures, and Shaders. It also exposes a modular Render Graph for composing render pipelines. All 2D and 3D render features are implemented on top of this crate.
 
@@ -48,9 +48,9 @@ Bevy is a completely free and open source game engine built in Rust. It currentl
 * **Fast**: App logic should run quickly, and when possible, in parallel
 * **Productive**: Changes should compile quickly ... waiting isn't fun
 
-Bevy also currently has the following "development process" goals: 
+Bevy also currently has the following "development process" goals:
 
-* **Rapid experimentation over API stability**: We need the freedom to experiment and iterate in order to build the best engine we can. This will change over 
+* **Rapid experimentation over API stability**: We need the freedom to experiment and iterate in order to build the best engine we can. This will change over time as APIs prove their staying power.
 * **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See [*How we're organized*](#how-were-organized) for more details.
 * **Flexibility over bureaucracy**: Developers should feel productive and unencumbered by development processes.
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
@@ -59,13 +59,13 @@ Bevy also currently has the following "development process" goals:
 * **Don't merge everything ... don't merge to early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct _and_ that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
 * **Control and consistency over 3rd party code reuse**: Only add a dependency if it is _absolutely_ necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
 * **Don't re-invent every wheel**: As a counter to the previous point, don't re-invent everything at all costs. If there is a crate in the Rust ecosystem that is the "de-facto" standard (ex: wgpu, winit, cpal), we should heavily consider using it. Bevy should be a positive force in the ecosystem. We should drive the improvements we need into these core ecosystem crates.
-* **Rust-first**: Engine and user-facing code should optimize and encourage Rust-only workflows. Adding additional languages increases internal complexity, fractures the Bevy ecosystem, and makes it harder for users to understand the engine. Never compromise a Rust interface in the interest of compatibility with other languages. 
+* **Rust-first**: Engine and user-facing code should optimize and encourage Rust-only workflows. Adding additional languages increases internal complexity, fractures the Bevy ecosystem, and makes it harder for users to understand the engine. Never compromise a Rust interface in the interest of compatibility with other languages.
 * **Thoughtful public interfaces over maximal configurability**: Symbols and apis should be private by default. Every public API should be thoughtfully and consistently designed. Don't expose unnecessary internal implementation details. Don't allow users to "shoot themselves in the foot". Favor one "happy path" api over multiple apis for different use cases.
 * **Welcome new contributors**: Invest in new contributors. Help them fill knowledge and skill gaps. Don't ever gatekeep Bevy development according to notions of required skills or credentials. Help new developers find their niche.
 * **Civil discourse**: We need to collectively discuss ideas and the best ideas _should_ win. But conversations need to remain respectful at all times. Remember that we're all in this together. Always follow our [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md).
 * **Test what you need to**: Write useful tests. Don't write tests that aren't useful. We _generally_ aren't strict about unit testing every line of code. We don't want you to waste your time. But at the same time:
-   * Most new features should have at least one minimal [example](https://github.com/bevyengine/bevy/tree/main/examples). These also serve as simple integration tests, as they are run as part of our CI process.
-   * The more complex or "core" a feature is, the more strict we are about unit tests. Use your best judgement here. We will let you know if your pull request needs more tests. We use [Rust's built in testing framework](https://doc.rust-lang.org/book/ch11-01-writing-tests.html).
+  * Most new features should have at least one minimal [example](https://github.com/bevyengine/bevy/tree/main/examples). These also serve as simple integration tests, as they are run as part of our CI process.
+  * The more complex or "core" a feature is, the more strict we are about unit tests. Use your best judgement here. We will let you know if your pull request needs more tests. We use [Rust's built in testing framework](https://doc.rust-lang.org/book/ch11-01-writing-tests.html).
 
 ## How we're organized
 
@@ -79,7 +79,7 @@ Check out the next section for details on how this plays out.
 
 1. Have actively engaged with Bevy development
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
-3. Have asked to join the Bevy Org. Reach out to @cart on Discord or [email us](bevyengine@gmail.com) if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
+3. Have asked to join the Bevy Org. Reach out to @cart on Discord or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
 Some Bevy Org members are also [Triage Team](https://github.com/orgs/bevyengine/teams/triage-team) members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Bevy Engine Org members can [automatically request membership](https://github.com/orgs/bevyengine/teams/triage-team/members). Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
 
@@ -104,9 +104,9 @@ If you'd like an up-to-the-minute look at our progress on a specific project, fe
 Most changes don't require much "process". If your change is relatively straightforward, just do the following:
 
 1. A community member (that's you!) creates one of the following:
-  * [Discussion](https://github.com/bevyengine/bevy/discussions): An informal discussion with the community. This is the place to start if you want to propose a feature or specific implementation. 
-  * [Issue](https://github.com/bevyengine/bevy/issues): A formal way for us to track a bug or feature. Please look for duplicates before opening a new issue and consider starting with a Discussion.
-  * [Pull Request](https://github.com/bevyengine/bevy/pulls) (or PR for short): A request to merge code changes. This starts our "review process". You are welcome to start with a pull request, but consider starting with an Issue or Discussion for larger changes (or if you aren't certain about a design). We don't want anyone to waste their time on code that didn't have a chance to be merged! But conversely, sometimes PRs are the most efficient way to propose a change. Just use your own judgement here.
+    * [Discussion](https://github.com/bevyengine/bevy/discussions): An informal discussion with the community. This is the place to start if you want to propose a feature or specific implementation.
+    * [Issue](https://github.com/bevyengine/bevy/issues): A formal way for us to track a bug or feature. Please look for duplicates before opening a new issue and consider starting with a Discussion.
+    * [Pull Request](https://github.com/bevyengine/bevy/pulls) (or PR for short): A request to merge code changes. This starts our "review process". You are welcome to start with a pull request, but consider starting with an Issue or Discussion for larger changes (or if you aren't certain about a design). We don't want anyone to waste their time on code that didn't have a chance to be merged! But conversely, sometimes PRs are the most efficient way to propose a change. Just use your own judgement here.
 2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on Discord in an appropriate engine development channel.
 3. Once they're content with the pull request (design, code quality, documentation, tests), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the [S-Ready-For-Final-Review](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AS-Ready-For-Final-Review) label is added.
