@@ -5,7 +5,7 @@ Feel free to pitch in on whatever interests you and we'll be happy to help you c
 Ultimately @cart has final say on which changes are merged, but you're welcome to try and convince him.
 
 Check out our community's [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md) and feel free to say hi on [Discord](https://discord.gg/bevy) if you'd like.
-It's a nice place to chat about priorities, ask quick questions and get to know the other contributors and users in a less formal setting.
+It's a nice place to chat about Bevy development, ask questions, and get to know the other contributors and users in a less formal setting.
 
 Read on if you're looking for:
 
@@ -18,87 +18,109 @@ We're thrilled to have you along as we build!
 
 ## Getting oriented
 
-Bevy, like any from-scratch game engine, is a large project!
+Bevy, like any general-purpose game engine, is a large project!
 It can be a bit overwhelming to start, so here's the bird's-eye view.
 
-The main [Bevy engine org](https://github.com/bevyengine) has 4 important repos:
+The [Bevy Engine Organization](https://github.com/bevyengine) has 4 primary repos:
 
-1. [`bevy`](https://github.com/bevyengine/bevy) where the engine itself lives, and the bulk of development work occurs.
-2. [`bevy-website`](https://github.com/bevyengine/bevy-website) where the [official website](https://bevyengine.org/), release notes and Bevy book are hosted, created using the Zola static site generator for Rust.
-3. [`awesome-bevy`](https://github.com/bevyengine/awesome-bevy) is a central home for community content: tutorials, tools, templates, showcases and crates! Make a PR if you want to showcase your stuff there!
-4. [`rfcs`](https://github.com/bevyengine/rfcs) a place for informal but detailed discussion and design work for elaborate features and revamps.
+1. [**`bevy`**](https://github.com/bevyengine/bevy): This is where the engine itself lives. The bulk of development work occurs here.
+2. [**`bevy-website`**](https://github.com/bevyengine/bevy-website): Where the [official website](https://bevyengine.org/), release notes, Bevy Book, and Bevy Assets are hosted. It is created using the Zola static site generator.
+3. [**`bevy-assets`**](https://github.com/bevyengine/bevy-assets): A collection of community-made tutorials, plugins, crates, games, and tools! Make a PR if you want to showcase your projects there!
+4. [**`rfcs`**](https://github.com/bevyengine/rfcs): A place to collaboratively build and reach consensus on designs for large or controversial features.
 
-The `bevy` repo itself contains many smaller subcrates, each of which can be downloaded on their own, and modularly replaced to allow you to pick and choose the parts of Bevy that you want to use.
-Of particular interest, [`bevy_ecs`](./crates/bevy_ecs) is fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
+The `bevy` repo itself contains many smaller subcrates. Most of them can be used by themselves and many of them can be modularly replaced. This enables developers to pick and choose the parts of Bevy that they want to use.
 
-[`bevy_app`](./crates/bevy_app) and [`bevy_tasks`](./crates/bevy_tasks) are also worth calling out separately: the former serves as a nice framework to handle various data-piping needs, while the latter is our own lightweight custom async library.
+Some crates of interest:
+
+* [**`bevy_ecs`**](./crates/bevy_ecs): The core data model for Bevy. Most Bevy features are implemented on top of it. It is also fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
+* [**`bevy_app`**](./crates/bevy_app): The api used to define Bevy Plugins and compose them together into Bevy Apps. 
+* [**`bevy_tasks`**](./crates/bevy_tasks): Our light-weight async executor. This drives most async and parallel code in Bevy.
+* [**`bevy_render`**](./crates/bevy_render): Our core renderer API. It handles interaction with the GPU, such as the creation of Meshes, Textures, and Shaders. It also exposes a modular Render Graph for composing render pipelines. All 2D and 3D render features are implemented on top of this crate.
 
 ## What we're trying to build
 
-Bevy is intended as an **accessible**, **Rust-first**, **commercially-viable**, **free and open source** game engine.
+Bevy is a completely free and open source game engine built in Rust. It currently has the following design goals:
 
-While building Bevy, we're prioritizing:
+* **Capable**: Offer a complete 2D and 3D feature set
+* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
+* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm
+* **Modular**: Use only what you need. Replace what you don't like
+* **Fast**: App logic should run quickly, and when possible, in parallel
+* **Productive**: Changes should compile quickly ... waiting isn't fun
 
-* rapid experimentation over API stability
-* a consistent vision over a democratic decision making process (see [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build))
-* flexible processes over bureaucratic standardization
-* focusing on one clear goal at a time over immediately integrating major new community-contributed features
-* end-user ergonomics over implementation simplicity
-* modularity over deep cross-crate integration
-* supporting a thriving, easily integrated ecosystem over cramming every feature into the core engine
-* control over our code over saving work by reusing existing software
-* an ergonomic Rust workflow over a first-party scripting language
-* thoughtful public interfaces over maximal configurability
-* welcoming contributions over insisting on existing skills and knowledge
-* fostering an inclusive environment over avoiding conflict at any cost
+Bevy also currently has the following "development process" goals: 
+
+* **Rapid experimentation over API stability**: We need the freedom to experiment and iterate in order to build the best engine we can. This will change over 
+* **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See [*How we're organized*](#how-were-organized) for more details.
+* **Flexibility over bureaucracy**: Developers should feel productive and unencumbered by development processes.
+* **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
+* **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
+* **Modularity over deep integration**: Individual crates and features should be "pluggable" whenever possible. Don't tie crates, features, or types together that don't need to be.
+* **Don't merge everything ... don't merge to early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct _and_ that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
+* **Control and consistency over 3rd party code reuse**: Only add a dependency if it is _absolutely_ necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
+* **Don't re-invent every wheel**: As a counter to the previous point, don't re-invent everything at all costs. If there is a crate in the Rust ecosystem that is the "de-facto" standard (ex: wgpu, winit, cpal), we should heavily consider using it. Bevy should be a positive force in the ecosystem. We should drive the improvements we need into these core ecosystem crates.
+* **Rust-first**: Engine and user-facing code should optimize and encourage Rust-only workflows. Adding additional languages increases internal complexity, fractures the Bevy ecosystem, and makes it harder for users to understand the engine. Never compromise a Rust interface in the interest of compatibility with other languages. 
+* **Thoughtful public interfaces over maximal configurability**: Symbols and apis should be private by default. Every public API should be thoughtfully and consistently designed. Don't expose unnecessary internal implementation details. Don't allow users to "shoot themselves in the foot". Favor one "happy path" api over multiple apis for different use cases.
+* **Welcome new contributors**: Invest in new contributors. Help them fill knowledge and skill gaps. Don't ever gatekeep Bevy development according to notions of required skills or credentials. Help new developers find their niche.
+* **Civil discourse**: We need to collectively discuss ideas and the best ideas _should_ win. But conversations need to remain respectful at all times. Remember that we're all in this together. Always follow our [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md).
+* **Test what you need to**: Write useful tests. Don't write tests that aren't useful. We _generally_ aren't strict about unit testing every line of code. We don't want you to waste your time. But at the same time:
+   * Most new features should have at least one minimal [example](https://github.com/bevyengine/bevy/tree/main/examples). These also serve as simple integration tests, as they are run as part of our CI process.
+   * The more complex or "core" a feature is, the more strict we are about unit tests. Use your best judgement here. We will let you know if your pull request needs more tests. We use [Rust's built in testing framework](https://doc.rust-lang.org/book/ch11-01-writing-tests.html).
 
 ## How we're organized
 
 @cart is, for now, our singular Benevolent Dictator and project lead.
 He makes the final decision on both design and code changes within Bevy in order to ensure a coherent vision and consistent quality of code.
+
 In practice, @cart serves as a shockingly accountable dictator: open to new ideas and to changing his mind in the face of compelling arguments or community consensus.
 Check out the next section for details on how this plays out.
 
-[Bevy org members](https://github.com/orgs/bevyengine/people) are contributors who help keep our repos tidy; they can label and close issues and PRs but do not have merge rights or any special authority within the community.
-The bar for trust here is low due to the janitorial nature of the role; feel free to message @cart on GitHub or Discord after you've made a few contributions if you'd like to help out.
+[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who have:
+
+1. Have actively engaged with Bevy development
+2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
+3. Have asked to join the Bevy Org. Reach out to @cart on Discord or [email us](bevyengine@gmail.com) if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
+
+Some Bevy Org members are also [Triage Team](https://github.com/orgs/bevyengine/teams/triage-team) members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Bevy Engine Org members can [automatically request membership](https://github.com/orgs/bevyengine/teams/triage-team/members). Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
+
+We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided they have two approvals.
 
 ## How we work together
 
-Making a game engine is a huge project, but at the moment we only have one paid contributor, @cart (go [donate!](https://github.com/sponsors/cart)).
-While we have *many* active contributors (welcome aboard!), herding all of these ~~cats~~ birds in a predictable way is challenging.
+Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart).
+
+While we have *many* active contributors, herding all of these ~~cats~~ birds in a predictable way is challenging.
 
 Bevy releases are intended to be spaced 6-8 weeks apart and tend to target one or two major features, led by @cart.
-[Once those features are complete](https://github.com/bevyengine/bevy/blob/main/docs/release_checklist.md),
-we work to fix any `high-impact` or `regression` tagged issues that we can,
-write up our release notes and migration guide, and then announce the next Bevy version to the world!
+[Once those features are complete](https://github.com/bevyengine/bevy/blob/main/docs/release_checklist.md), we work to fix any [P-High](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High), [P-Critical](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) or [C-Regression](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AC-Regression) labeled issues that we can, write up our release notes and migration guide, and then announce the next Bevy version to the world!
 
-You can see what we're planning by following along at the [Bevy roadmap](https://github.com/bevyengine/bevy/projects/1).
+We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
+
+You can see what we're planning by following along at the [Bevy Roadmap](https://github.com/bevyengine/bevy/projects/1).
 If you'd like an up-to-the-minute look at our progress on a specific project, feel free to ask on Discord.
 
-### Simple changes
+### Making changes to Bevy
 
-Simple changes have a simple process:
+Most changes don't require much "process". If your change is relatively straightforward, just do the following:
 
-1. A community member (that's you!) creates an issue or opens a pull request to fix an issue or add simple functionality.
-2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pinged into a thread. If your PR has been quiet for a while and is ready for review, feel free to bring it up on Discord in an appropriate engine development channel.
-3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), individual reviewers leave "Approved" reviews.
-4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the `ready-for-cart` label is added.
-5. When @cart has a good opportunity to pause from his implementation work, he performs a final code review on these pull requests and then presses the Big Merge Button (actually, he runs [Bors](https://bors.tech/) by typing `bors r+` to make sure we don't break `main` by accident).
+1. A community member (that's you!) creates one of the following:
+  * [Discussion](https://github.com/bevyengine/bevy/discussions): An informal discussion with the community. This is the place to start if you want to propose a feature or specific implementation. 
+  * [Issue](https://github.com/bevyengine/bevy/issues): A formal way for us to track a bug or feature. Please look for duplicates before opening a new issue and consider starting with a Discussion.
+  * [Pull Request](https://github.com/bevyengine/bevy/pulls) (or PR for short): A request to merge code changes. This starts our "review process". You are welcome to start with a pull request, but consider starting with an Issue or Discussion for larger changes (or if you aren't certain about a design). We don't want anyone to waste their time on code that didn't have a chance to be merged! But conversely, sometimes PRs are the most efficient way to propose a change. Just use your own judgement here.
+2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on Discord in an appropriate engine development channel.
+3. Once they're content with the pull request (design, code quality, documentation, tests), individual reviewers leave "Approved" reviews.
+4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the [S-Ready-For-Final-Review](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AS-Ready-For-Final-Review) label is added.
+5. When they find time, [someone with merge rights](#how-were-organized) performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
 
 ### Complex changes
 
-Individual contributors can and do lead major new features and reworks that have caught their interest as well:
-these are merged as soon as their review and quality control is complete and released as part of the next version.
+Individual contributors often lead major new features and reworks. However these changes require more design work and scrutiny. Complex changes like this tend to go through the following lifecycle:
 
-Complex changes like this tend to go through the following lifecycle:
-
-1. A need or opportunity is identified in our own projects or by discussing with a user who's asked for help on Discord, reddit or Stack Overflow.
-2. An issue is made, laying out the general problem.
-3. As needed, this is discussed further on that issue thread, in cross-linked GitHub discussion threads or on Discord in the Engine Development channels.
-4. A draft pull request is started, or an RFC is made to solidify a design.
-As discussed in the [RFC repo](https://github.com/bevyengine/rfcs), complex features need RFCs, but these can be submitted before or after prototyping work has been started.
-5. The community as a whole helps improve the PR and RFC, leaving comments, making suggestions and submitting pull requests to the original branch.
-6. Like above, community members approve the PR, add the `ready-for-cart` label and then a final review occurs before merging.
+1. A need or opportunity is identified and an issue is made, laying out the general problem.
+2. As needed, this is discussed further on that issue thread, in cross-linked GitHub discussion threads, or on Discord in the Engine Development channels.
+3. Either a Draft Pull Request or an RFC is made. As discussed in the [RFC repo](https://github.com/bevyengine/rfcs), complex features need RFCs, but these can be submitted before or after prototyping work has been started.
+4. The community as a whole helps improve the Draft PR and/or RFC, leaving comments, making suggestions, and submitting pull requests to the original branch.
+5. Once the RFC is merged and/or the Draft Pull Request is transitioned out of draft mode, the [normal change process outlined in the previous section](#making-changes-to-bevy) can begin.
 
 ## How you can help
 
@@ -113,43 +135,42 @@ If you ever find yourself at a loss for what to do, or in need of mentorship or 
 ### Battle-testing Bevy
 
 Ultimately, Bevy is a tool that's designed to help people make cool games.
-By using Bevy, you can help us catch bugs, prioritize new features, polish off the rough edges and promote the project.
+By using Bevy, you can help us catch bugs, prioritize new features, polish off the rough edges, and promote the project.
 
-If you need help, don't hesitate to ask for help on [Discord](https://discord.gg/bevy), [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [reddit](https://www.reddit.com/r/bevy) or [StackOverflow](https://stackoverflow.com/questions/tagged/bevy).
+If you need help, don't hesitate to ask for help on [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [Discord](https://discord.gg/bevy), or [reddit](https://www.reddit.com/r/bevy). Generally you should prefer asking questions as Github Discussions as they are more searchable.
 
-When you think you've found a bug, some missing documentation or a feature that would help you make better games, please [file an issue](https://github.com/bevyengine/bevy/issues/new/choose) on the main `bevy` repo.
-The templates are great, and high-quality issues really do help us!
+When you think you've found a bug, missing documentation, or a feature that would help you make better games, please [file an issue](https://github.com/bevyengine/bevy/issues/new/choose) on the main `bevy` repo.
+
 Do your best to search for duplicate issues, but if you're unsure, open a new issue and link to other related issues on the thread you make.
 
-Once you've made something that you're proud of, feel free to drop a link, video or screenshot in `#showcase` on Discord!
+Once you've made something that you're proud of, feel free to drop a link, video, or screenshot in `#showcase` on Discord!
 If you release a game on [itch.io](https://itch.io/games/tag-bevy) we'd be thrilled if you tagged it with `bevy`.
 
 ### Teaching others
 
 Bevy is still very young, and light on documentation, tutorials and accumulated expertise.
-By helping others with their issues, and teaching them about Bevy in the process you will naturally learn the engine and codebase in greater depth while making our community better!
+By helping others with their issues, and teaching them about Bevy, you will naturally learn the engine and codebase in greater depth while also making our community better!
 
 Some of the best ways to do this are:
 
-* answering questions on [Discord](https://discord.gg/bevy), [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [reddit](https://www.reddit.com/r/bevy) or [StackOverflow](https://stackoverflow.com/questions/tagged/bevy).
-* writing tutorials, guides and other informal documentation and sharing it on [awesome-bevy](https://github.com/bevyengine/awesome-bevy)
-* streaming, writing blog posts about creating your game or creating videos. Share these in the `#devlogs` channel on Discord!
+* Answering questions on [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [Discord](https://discord.gg/bevy), and [reddit](https://www.reddit.com/r/bevy).
+* Writing tutorials, guides, and other informal documentation and sharing them on [Bevy Assets](https://github.com/bevyengine/bevy-assets)
+* Streaming, writing blog posts about creating your game, and creating videos. Share these in the `#devlogs` channel on Discord!
 
 ### Writing plugins
 
-If you're interested in contributing to the community ecosystem in a way that doesn't make sense as part of the core engine,
-feel free to write a plugin or crate for Bevy!
+You can improve Bevy's ecosystem by building your own Bevy Plugins and crates.
 
 Non-trivial, reusable functionality that works well with itself is a good candidate for a plugin.
-If it's closer to a snippet or design pattern, you may want to share it with the community on Discord, Reddit or GitHub Discussions instead.
+If it's closer to a snippet or design pattern, you may want to share it with the community on Discord, Reddit, or GitHub Discussions instead.
 
-Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and norms.
+Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and patterns.
 
 ### Fixing bugs
 
-Bugs in Bevy (or the associated website / book) are filed on the issue tracker corresponding to where they're found, using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
+Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
 
-If you're looking for an easy place to start, take a look at the [`good-first-issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tag, and feel free to ask questions on that issue's thread in question or on Discord.
+If you're looking for an easy place to start, take a look at the [`E-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AE-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.
 
 When you make a pull request that fixes an issue, include a line that says `Fixes #X` (or "Closes"), where `X` is the issue number.
@@ -182,82 +203,74 @@ that open a complex class of functionality in a way that's hard to 
 Examples in Bevy should be:
 
 1. **Working:** They must compile and run, and any introduced errors in them should be obvious (through tests, simple results or clearly displayed behavior).
-2. **Clear:** They must use descriptive variable names, be formatted, and be appropriately commented. Try your best to showcase good habits when it doesn't obscure the point of the example.
+2. **Clear:** They must use descriptive variable names, be formatted, and be appropriately commented. Try your best to showcase best practices when it doesn't obscure the point of the example.
 3. **Relevant:** They should explain, through comments or variable names, what they do and how this can be useful to a game developer.
-4. **Minimal:** They should be no larger or more complex than is needed to meet their other goals.
+4. **Minimal:** They should be no larger or complex than is needed to meet the goals of the example.
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
 Use a generous sprinkling of keywords in your description: these are commonly used to search for a specific example.
 See the [example style guide](.github/contributing/example_style_guide.md) to help make sure the style of your example matches what we're already using.
 
-More complex demonstrations of functionality are also welcome, but for now belong in community tutorials or template games.
+More complex demonstrations of functionality are also welcome, but these should be submitted to [bevy-assets](https://github.com/bevyengine/bevy-assets).
 
-Check out [awesome-bevy](https://github.com/bevyengine/awesome-bevy) for a place to put your tutorials, tools, templates, crates and plugins!
-
-### Reviewing others work
+### Reviewing others' work
 
 With the sheer volume of activity in Bevy's community, reviewing others work with the aim of improving it is one of the most valuable things you can do.
-You don't need to be an Elder Rustacean to be useful here: anyone can catch issues of missing tests, unclear docs, logic errors and so on.
-If you have unusual skills (e.g. advanced familiarity with `unsafe` code, rendering knowledge or web development experience) or personal experience with a problem, try to prioritize those areas to ensure we can get appropriate expertise where we need it.
+You don't need to be an Elder Rustacean to be useful here: anyone can catch missing tests, unclear docs, logic errors, and so on.
+If you have specific skills (e.g. advanced familiarity with `unsafe` code, rendering knowledge or web development experience) or personal experience with a problem, try to prioritize those areas to ensure we can get appropriate expertise where we need it.
 
 Focus on giving constructive, actionable feedback that results in real improvements to code quality or end-user experience.
 If you don't understand why an approach was taken, please ask!
 
-Small changes work well as comments or in-line suggestions on specific lines of codes.
+Provide actual code suggestions when that is helpful. Small changes work well as comments or in-line suggestions on specific lines of codes.
 Larger changes deserve a comment in the main thread, or a pull request to the original author's branch (but please mention that you've made one).
-When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build) for guidance.
+When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](#what-were-trying-to-build) for guidance.
 
-Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR so we can mark it as `ready-for-cart`.
-If you're new to GitHub:
+Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR.
+If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews). Anyone can leave reviews ... no special permissions are required!
 
-1. Select the "Files Changed" tab on the PR.
-2. Press the "Review Changes" button.
-3. Leave any non-local comments you want to add to the main thread then select "Approve".
+There are a two main places you can check for things to review:
 
-No special permissions needed!
-
-There are a two main places you can check for new work to review:
-
-1. Pull requests on `bevy` and the `bevy-website` repos.
+1. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
 2. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
 Official focus areas and work done by @cart go through this review process as well.
 Not even our project lead is exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
-Finally, if nothing brings you more satisfaction than seeing every last issue tagged and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
-As discussed in [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-were-organized), this janitorial role only requires good faith and a basic understanding of how the engine's development works in practice.
+Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
+As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
 
-### Contributing your own ideas
+### Contributing code
 
-Bevy is actively open to new ideas and serious contributions from outside community members.
+Bevy is actively open to code contributions from community members.
 If you're new to Bevy, here's the workflow we use:
 
-1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.
+1. Fork the `bevyengine/bevy` repository on GitHub. You'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
    1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
-3. To test the CI workflow local, use the `cargo run -p ci` command. You can also run some of the subcommands manually:
+3. To test CI validations locally, run the `cargo run -p ci` command. You can also run sub-commands manually:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
     2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
     3. `cargo test --all-targets --workspace`
-4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files like this one using [markdownlint](https://github.com/DavidAnson/markdownlint).
+4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
-5. Push your changes to your fork and open a Pull Request.
-6. If you're a first time contributor to this repo, one of the Bevy org members [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/) using the `bors try` command.
-7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR; you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
+5. Push your changes to your fork on Github and open a Pull Request.
+6. If you're account is new on github, one of the Bevy org members [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/) using the `bors try` command.
+7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
 8. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 
 1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of `Cargo.toml`.
 2. Add the new crate to the [./tools/publish.sh](./tools/publish.sh) file.
-3. Check if a new cargo feature should be added; updating [cargo_features.md](https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md) as needed.
+3. Check if a new cargo feature was added, update [cargo_features.md](https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md) as needed.
 
 When contributing, please:
 
-* try to loosely follow the workflow in [*How we work together*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-we-work-together)
+* try to loosely follow the workflow in [*How we work together*](#how-we-work-together)
 * consult the [style guide](.github/contributing/engine_style_guide.md) to help keep our code base tidy
 * explain what you're doing and why
 * document new code with doc comments
