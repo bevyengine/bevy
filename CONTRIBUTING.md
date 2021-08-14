@@ -56,7 +56,7 @@ Bevy also currently has the following "development process" goals:
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
 * **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
 * **Modularity over deep integration**: Individual crates and features should be "pluggable" whenever possible. Don't tie crates, features, or types together that don't need to be.
-* **Don't merge everything ... don't merge to early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct _and_ that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
+* **Don't merge everything ... don't merge too early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct _and_ that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
 * **Control and consistency over 3rd party code reuse**: Only add a dependency if it is _absolutely_ necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
 * **Don't re-invent every wheel**: As a counter to the previous point, don't re-invent everything at all costs. If there is a crate in the Rust ecosystem that is the "de-facto" standard (ex: wgpu, winit, cpal), we should heavily consider using it. Bevy should be a positive force in the ecosystem. We should drive the improvements we need into these core ecosystem crates.
 * **Rust-first**: Engine and user-facing code should optimize and encourage Rust-only workflows. Adding additional languages increases internal complexity, fractures the Bevy ecosystem, and makes it harder for users to understand the engine. Never compromise a Rust interface in the interest of compatibility with other languages.
@@ -87,13 +87,7 @@ We heavily limit who has merge rights within the org because this requires a lar
 
 ## How we work together
 
-Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart).
-
-While we have *many* active contributors, herding all of these ~~cats~~ birds in a predictable way is challenging.
-
-Bevy releases are intended to be spaced 6-8 weeks apart and tend to target one or two major features, led by @cart.
-[Once those features are complete](https://github.com/bevyengine/bevy/blob/main/docs/release_checklist.md), we work to fix any [P-High](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High), [P-Critical](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) or [C-Regression](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AC-Regression) labeled issues that we can, write up our release notes and migration guide, and then announce the next Bevy version to the world!
-
+Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
 We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
 
 You can see what we're planning by following along at the [Bevy Roadmap](https://github.com/bevyengine/bevy/projects/1).
