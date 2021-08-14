@@ -42,6 +42,7 @@ git checkout v0.4.0
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
+  - [Async Task Benchmark](#async-task-benchmark)
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -137,6 +138,12 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+
+## Async Task Benchmark
+
+Example | File | Description
+--- | --- | ---
+`async_bench` | [`async_tasks/async_bench.rs`](async_tasks/async_bench.rs) | Compare perforance between using single block_on and multiple block_on(s) when dealing with massive custom async tasks
 
 ## Audio
 

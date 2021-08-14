@@ -97,6 +97,7 @@ ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+futures-timer = "3.0.2"
 
 [[example]]
 name = "hello_world"
@@ -246,6 +247,10 @@ path = "examples/asset/hot_asset_reloading.rs"
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
+
+[[example]]
+name = "async_bench"
+path = "examples/async_tasks/async_bench.rs"
 
 # Audio
 [[example]]
