@@ -19,13 +19,15 @@ struct FrameCounter {
 // Run with release build: cargo run --release --example async_bench
 // Example output:
 // windows:
-// [handle_tasks_par]  n_frames executed: 104, avg fps: 18.4(target:120), duration: 5.665s
-// [handle_tasks]      n_frames executed: 60, avg fps: 10.4(target:120), duration: 5.754s
+// [handle_tasks]        n_frames executed: 64, avg fps: 11.2(target:120), duration: 5.704s
+// [handle_tasks_par]    n_frames executed: 121, avg fps: 20.8(target:120), duration: 5.805s
+// [handle_tasks_par_2]  n_frames executed: 81, avg fps: 14.0(target:120), duration: 5.769s
 // linux:
-// [handle_tasks_par]  n_frames executed: 285, avg fps: 18.9(target:120), duration: 15.114s
-// [handle_tasks]      n_frames executed: 240, avg fps: 18.1(target:120), duration: 13.228s
+// [handle_tasks]        n_frames executed: 215, avg fps: 16.2(target:120), duration: 13.307s
+// [handle_tasks_par]    n_frames executed: 332, avg fps: 26.2(target:120), duration: 12.675s
+// [handle_tasks_par_2]  n_frames executed: 252, avg fps: 22.1(target:120), duration: 11.389s
 fn main() {
-    for handle_tasks_system in [handle_tasks_par, handle_tasks] {
+    for handle_tasks_system in [handle_tasks, handle_tasks_par, handle_tasks_par_2] {
         App::new()
             .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                 FRAME_STEP,
@@ -87,17 +89,47 @@ fn handle_tasks_par(
     time: Res<Time>,
     frame_counter: Res<FrameCounter>,
 ) {
-    let mut futures = Vec::new();
-    // Can poll_once be triggered inside ecs?
-    for (entity, mut task) in transform_tasks.iter_mut() {
-        futures.push(async move {
+    let futures = transform_tasks
+        .iter_mut()
+        .map(|(entity, mut task)| async move {
             if poll_once(&mut *task).await.is_some() {
                 Some(entity)
             } else {
                 None
             }
         });
+    let mut n_tasks = 0;
+    block_on(async {
+        for f in futures {
+            n_tasks += 1;
+            if let Some(entity) = f.await {
+                commands.entity(entity).remove::<Task<bool>>();
+            }
+        }
+    });
+    if n_tasks == 0 {
+        print_statistics("handle_tasks_par", &frame_counter, &time);
+        app_exit_events.send(AppExit);
     }
+}
+
+fn handle_tasks_par_2(
+    mut commands: Commands,
+    mut transform_tasks: Query<(Entity, &mut Task<bool>)>,
+    mut app_exit_events: EventWriter<AppExit>,
+    time: Res<Time>,
+    frame_counter: Res<FrameCounter>,
+) {
+    let futures = transform_tasks
+        .iter_mut()
+        .map(|(entity, mut task)| async move {
+            if poll_once(&mut *task).await.is_some() {
+                Some(entity)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
     let n_tasks = futures.len();
     block_on(async {
         for f in futures {
@@ -107,7 +139,7 @@ fn handle_tasks_par(
         }
     });
     if n_tasks == 0 {
-        print_statistics("handle_tasks_par", &frame_counter, &time);
+        print_statistics("handle_tasks_par_2", &frame_counter, &time);
         app_exit_events.send(AppExit);
     }
 }
@@ -121,6 +153,6 @@ fn print_statistics(name: &str, frame_counter: &Res<FrameCounter>, time: &Res<Ti
         (frame_counter.n_frames as f64) / duration_sec,
         FPS,
         duration_sec,
-        width = 20,
+        width = 22,
     );
 }
