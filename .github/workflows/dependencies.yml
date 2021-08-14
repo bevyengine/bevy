@@ -6,10 +6,12 @@ on:
       - '**/Cargo.toml'
       - 'deny.toml'
   push:
-    branches: [main, staging, trying]
     paths:
       - '**/Cargo.toml'
       - 'deny.toml'
+    branches-ignore:
+      - 'dependabot/**'
+      - staging-squash-merge.tmp
   schedule:
     - cron: "0 0 * * 0"
 

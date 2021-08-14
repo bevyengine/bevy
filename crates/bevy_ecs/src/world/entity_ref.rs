@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
+    change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -80,9 +81,11 @@ impl<'w> EntityRef<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick,
-                change_tick,
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick,
+                    change_tick,
+                },
             })
     }
 }
@@ -161,9 +164,11 @@ impl<'w> EntityMut<'w> {
             )
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick: self.world.last_change_tick(),
-                change_tick: self.world.change_tick(),
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick: self.world.last_change_tick(),
+                    change_tick: self.world.change_tick(),
+                },
             })
         }
     }
@@ -176,112 +181,110 @@ impl<'w> EntityMut<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &mut *ticks,
-                last_change_tick: self.world.last_change_tick(),
-                change_tick: self.world.read_change_tick(),
+                ticks: Ticks {
+                    component_ticks: &mut *ticks,
+                    last_change_tick: self.world.last_change_tick(),
+                    change_tick: self.world.read_change_tick(),
+                },
             })
+    }
+
+    /// # Safety:
+    /// Partially moves the entity to a new archetype based on the provided bundle info
+    /// You must handle the other part of moving the entity yourself
+    unsafe fn get_insert_bundle_info<'a>(
+        entities: &mut Entities,
+        archetypes: &'a mut Archetypes,
+        components: &mut Components,
+        storages: &mut Storages,
+        bundle_info: &BundleInfo,
+        current_location: EntityLocation,
+        entity: Entity,
+    ) -> (&'a Archetype, &'a Vec<ComponentStatus>, EntityLocation) {
+        // SAFE: component ids in `bundle_info` and self.location are valid
+        let new_archetype_id = add_bundle_to_archetype(
+            archetypes,
+            storages,
+            components,
+            current_location.archetype_id,
+            bundle_info,
+        );
+        if new_archetype_id == current_location.archetype_id {
+            let archetype = &archetypes[current_location.archetype_id];
+            let edge = archetype.edges().get_add_bundle(bundle_info.id).unwrap();
+            (archetype, &edge.bundle_status, current_location)
+        } else {
+            let (old_table_row, old_table_id) = {
+                let old_archetype = &mut archetypes[current_location.archetype_id];
+                let result = old_archetype.swap_remove(current_location.index);
+                if let Some(swapped_entity) = result.swapped_entity {
+                    entities.meta[swapped_entity.id as usize].location = current_location;
+                }
+                (result.table_row, old_archetype.table_id())
+            };
+
+            let new_table_id = archetypes[new_archetype_id].table_id();
+
+            let new_location = if old_table_id == new_table_id {
+                archetypes[new_archetype_id].allocate(entity, old_table_row)
+            } else {
+                let (old_table, new_table) = storages.tables.get_2_mut(old_table_id, new_table_id);
+                // PERF: store "non bundle" components in edge, then just move those to avoid
+                // redundant copies
+                let move_result = old_table.move_to_superset_unchecked(old_table_row, new_table);
+
+                let new_location =
+                    archetypes[new_archetype_id].allocate(entity, move_result.new_row);
+                // if an entity was moved into this entity's table spot, update its table row
+                if let Some(swapped_entity) = move_result.swapped_entity {
+                    let swapped_location = entities.get(swapped_entity).unwrap();
+                    archetypes[swapped_location.archetype_id]
+                        .set_entity_table_row(swapped_location.index, old_table_row);
+                }
+                new_location
+            };
+
+            entities.meta[entity.id as usize].location = new_location;
+            let (old_archetype, new_archetype) =
+                archetypes.get_2_mut(current_location.archetype_id, new_archetype_id);
+            let edge = old_archetype
+                .edges()
+                .get_add_bundle(bundle_info.id)
+                .unwrap();
+            (&*new_archetype, &edge.bundle_status, new_location)
+
+            // Sparse set components are intentionally ignored here. They don't need to move
+        }
     }
 
     // TODO: move relevant methods to World (add/remove bundle)
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        let entity = self.entity;
         let change_tick = self.world.change_tick();
-        let entities = &mut self.world.entities;
-        let archetypes = &mut self.world.archetypes;
-        let components = &mut self.world.components;
-        let storages = &mut self.world.storages;
-
-        let bundle_info = self.world.bundles.init_info::<T>(components);
-        let current_location = self.location;
-
-        // Use a non-generic function to cut down on monomorphization
-        unsafe fn get_insert_bundle_info<'a>(
-            entities: &mut Entities,
-            archetypes: &'a mut Archetypes,
-            components: &mut Components,
-            storages: &mut Storages,
-            bundle_info: &BundleInfo,
-            current_location: EntityLocation,
-            entity: Entity,
-        ) -> (&'a Archetype, &'a Vec<ComponentStatus>, EntityLocation) {
-            // SAFE: component ids in `bundle_info` and self.location are valid
-            let new_archetype_id = add_bundle_to_archetype(
-                archetypes,
-                storages,
-                components,
-                current_location.archetype_id,
-                bundle_info,
-            );
-            if new_archetype_id == current_location.archetype_id {
-                let archetype = &archetypes[current_location.archetype_id];
-                let edge = archetype.edges().get_add_bundle(bundle_info.id).unwrap();
-                (archetype, &edge.bundle_status, current_location)
-            } else {
-                let (old_table_row, old_table_id) = {
-                    let old_archetype = &mut archetypes[current_location.archetype_id];
-                    let result = old_archetype.swap_remove(current_location.index);
-                    if let Some(swapped_entity) = result.swapped_entity {
-                        entities.meta[swapped_entity.id as usize].location = current_location;
-                    }
-                    (result.table_row, old_archetype.table_id())
-                };
-
-                let new_table_id = archetypes[new_archetype_id].table_id();
-
-                let new_location = if old_table_id == new_table_id {
-                    archetypes[new_archetype_id].allocate(entity, old_table_row)
-                } else {
-                    let (old_table, new_table) =
-                        storages.tables.get_2_mut(old_table_id, new_table_id);
-                    // PERF: store "non bundle" components in edge, then just move those to avoid
-                    // redundant copies
-                    let move_result =
-                        old_table.move_to_superset_unchecked(old_table_row, new_table);
-
-                    let new_location =
-                        archetypes[new_archetype_id].allocate(entity, move_result.new_row);
-                    // if an entity was moved into this entity's table spot, update its table row
-                    if let Some(swapped_entity) = move_result.swapped_entity {
-                        let swapped_location = entities.get(swapped_entity).unwrap();
-                        archetypes[swapped_location.archetype_id]
-                            .set_entity_table_row(swapped_location.index, old_table_row);
-                    }
-                    new_location
-                };
-
-                entities.meta[entity.id as usize].location = new_location;
-                let (old_archetype, new_archetype) =
-                    archetypes.get_2_mut(current_location.archetype_id, new_archetype_id);
-                let edge = old_archetype
-                    .edges()
-                    .get_add_bundle(bundle_info.id)
-                    .unwrap();
-                (&*new_archetype, &edge.bundle_status, new_location)
-
-                // Sparse set components are intentionally ignored here. They don't need to move
-            }
-        }
+        let bundle_info = self
+            .world
+            .bundles
+            .init_info::<T>(&mut self.world.components);
 
         let (archetype, bundle_status, new_location) = unsafe {
-            get_insert_bundle_info(
-                entities,
-                archetypes,
-                components,
-                storages,
+            Self::get_insert_bundle_info(
+                &mut self.world.entities,
+                &mut self.world.archetypes,
+                &mut self.world.components,
+                &mut self.world.storages,
                 bundle_info,
-                current_location,
-                entity,
+                self.location,
+                self.entity,
             )
         };
         self.location = new_location;
 
-        let table = &storages.tables[archetype.table_id()];
+        let table = &mut self.world.storages.tables[archetype.table_id()];
         let table_row = archetype.entity_table_row(new_location.index);
         // SAFE: table row is valid
         unsafe {
             bundle_info.write_components(
-                &mut storages.sparse_sets,
-                entity,
+                &mut self.world.storages.sparse_sets,
+                self.entity,
                 table,
                 table_row,
                 bundle_status,
@@ -337,6 +340,42 @@ impl<'w> EntityMut<'w> {
             })
         };
 
+        unsafe {
+            Self::move_entity_from_remove::<false>(
+                entity,
+                &mut self.location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            );
+        }
+
+        Some(result)
+    }
+
+    /// Safety: `new_archetype_id` must have the same or a subset of the components
+    /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
+    /// this fn as if the code here was written inline
+    ///
+    /// when DROP is true removed components will be dropped otherwise they will be forgotten
+    ///
+    // We use a const generic here so that we are less reliant on
+    // inlining for rustc to optimize out the `match DROP`
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn move_entity_from_remove<const DROP: bool>(
+        entity: Entity,
+        self_location: &mut EntityLocation,
+        old_archetype_id: ArchetypeId,
+        old_location: EntityLocation,
+        entities: &mut Entities,
+        archetypes: &mut Archetypes,
+        storages: &mut Storages,
+        new_archetype_id: ArchetypeId,
+    ) {
+        let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
             entities.meta[swapped_entity.id as usize].location = old_location;
@@ -346,34 +385,34 @@ impl<'w> EntityMut<'w> {
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
-            unsafe { new_archetype.allocate(entity, old_table_row) }
+            new_archetype.allocate(entity, old_table_row)
         } else {
             let (old_table, new_table) = storages
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFE: table_row exists. All "missing" components have been extracted into the bundle
-            // above and the caller takes ownership
-            let move_result =
-                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) };
+            // SAFE: old_table_row exists
+            let move_result = if DROP {
+                old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
+            } else {
+                old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
+            };
 
-            // SAFE: new_table_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
+            // SAFE: move_result.new_row is a valid position in new_archetype's table
+            let new_location = new_archetype.allocate(entity, move_result.new_row);
 
             // if an entity was moved into this entity's table spot, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
-                let archetype = &mut archetypes[swapped_location.archetype_id];
-                archetype.set_entity_table_row(swapped_location.index, old_table_row);
+                archetypes[swapped_location.archetype_id]
+                    .set_entity_table_row(swapped_location.index, old_table_row);
             }
 
             new_location
         };
 
-        self.location = new_location;
-        entities.meta[self.entity.id as usize].location = new_location;
-
-        Some(result)
+        *self_location = new_location;
+        entities.meta[entity.id as usize].location = new_location;
     }
 
     /// Remove any components in the bundle that the entity has.
@@ -422,40 +461,18 @@ impl<'w> EntityMut<'w> {
             }
         }
 
-        let remove_result = old_archetype.swap_remove(old_location.index);
-        if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.meta[swapped_entity.id as usize].location = old_location;
+        unsafe {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                &mut self.location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            )
         }
-        let old_table_row = remove_result.table_row;
-        let old_table_id = old_archetype.table_id();
-        let new_archetype = &mut archetypes[new_archetype_id];
-
-        let new_location = if old_table_id == new_archetype.table_id() {
-            unsafe { new_archetype.allocate(entity, old_table_row) }
-        } else {
-            let (old_table, new_table) = storages
-                .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
-
-            // SAFE: table_row exists
-            let move_result =
-                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) };
-
-            // SAFE: new_table_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
-
-            // if an entity was moved into this entity's table spot, update its table row
-            if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = entities.get(swapped_entity).unwrap();
-                archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.index, old_table_row);
-            }
-
-            new_location
-        };
-
-        self.location = new_location;
-        entities.meta[self.entity.id as usize].location = new_location;
     }
 
     pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
@@ -547,7 +564,7 @@ unsafe fn get_component(
             let components = table.get_column(component_id)?;
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_unchecked(table_row))
+            Some(components.get_data_unchecked(table_row))
         }
         StorageType::SparseSet => world
             .storages
@@ -575,8 +592,8 @@ unsafe fn get_component_and_ticks(
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_unchecked(table_row),
-                components.get_ticks_unchecked(table_row),
+                components.get_data_unchecked(table_row),
+                components.get_ticks_mut_ptr_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => world
@@ -617,7 +634,7 @@ unsafe fn take_component(
             let components = table.get_column(component_id).unwrap();
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            components.get_unchecked(table_row)
+            components.get_data_unchecked(table_row)
         }
         StorageType::SparseSet => storages
             .sparse_sets

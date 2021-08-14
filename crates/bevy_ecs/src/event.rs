@@ -68,7 +68,7 @@ enum State {
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`AppBuilder::add_event`]. [EventReader]s are expected to read events from this collection at
+/// [`App::add_event`]. [EventReader]s are expected to read events from this collection at
 /// least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
@@ -115,9 +115,9 @@ enum State {
 /// An alternative call pattern would be to call [Events::update] manually across frames to control
 /// when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`AppBuilder::add_event`].
+/// but can be done by adding your event as a resource instead of using [`App::add_event`].
 ///
-/// [`AppBuilder::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.AppBuilder.html#method.add_event
+/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
@@ -342,6 +342,12 @@ impl<T: Component> Events<T> {
         self.events_b.clear();
     }
 
+    /// Returns true if there are no events in this collection.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.events_a.is_empty() && self.events_b.is_empty()
+    }
+
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
         self.reset_start_event_count();
@@ -556,5 +562,22 @@ mod tests {
         assert!(reader
             .iter(&events)
             .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
+    }
+
+    #[test]
+    fn test_events_empty() {
+        let mut events = Events::<TestEvent>::default();
+        assert!(events.is_empty());
+
+        events.send(TestEvent { i: 0 });
+        assert!(!events.is_empty());
+
+        events.update();
+        assert!(!events.is_empty());
+
+        // events are only empty after the second call to update
+        // due to double buffering.
+        events.update();
+        assert!(events.is_empty());
     }
 }

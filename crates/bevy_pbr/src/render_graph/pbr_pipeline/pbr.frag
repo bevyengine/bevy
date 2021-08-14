@@ -400,7 +400,12 @@ void main() {
     emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
 #    endif
 
-    vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
+    vec3 V;
+    if (ViewProj[3][3] != 1.0) { // If the projection is not orthographic
+        V = normalize(CameraPos.xyz - v_WorldPosition.xyz); // Only valid for a perpective projection
+    } else {
+        V = normalize(vec3(-ViewProj[0][2],-ViewProj[1][2],-ViewProj[2][2])); // Ortho view vec
+    }
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     float NdotV = max(dot(N, V), 1e-4);
 

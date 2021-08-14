@@ -1,5 +1,6 @@
 pub mod archetype;
 pub mod bundle;
+pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
@@ -18,17 +19,18 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
+        change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,
+            Local, NonSend, NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
         },
         world::{FromWorld, Mut, World},
     };
@@ -39,7 +41,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -48,12 +50,33 @@ mod tests {
     };
     use bevy_tasks::TaskPool;
     use parking_lot::Mutex;
-    use std::{any::TypeId, sync::Arc};
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
 
     #[derive(Debug, PartialEq, Eq)]
     struct A(usize);
     struct B(usize);
     struct C;
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn random_access() {
@@ -79,21 +102,26 @@ mod tests {
 
     #[test]
     fn bundle_derive() {
+        let mut world = World::new();
+
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
             x: &'static str,
             y: i32,
         }
 
-        assert_eq!(
-            <Foo as Bundle>::type_info(),
-            vec![TypeInfo::of::<&'static str>(), TypeInfo::of::<i32>(),]
-        );
-
-        let mut world = World::new();
         world
             .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
             .unwrap();
+
+        assert_eq!(
+            <Foo as Bundle>::component_ids(world.components_mut()),
+            vec![
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+            ]
+        );
+
         let e1 = world.spawn().insert_bundle(Foo { x: "abc", y: 123 }).id();
         let e2 = world.spawn().insert_bundle(("def", 456, true)).id();
         assert_eq!(*world.get::<&str>(e1).unwrap(), "abc");
@@ -123,12 +151,12 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::type_info(),
+            <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
-                TypeInfo::of::<usize>(),
-                TypeInfo::of::<&'static str>(),
-                TypeInfo::of::<i32>(),
-                TypeInfo::of::<u8>(),
+                world.components_mut().get_or_insert_id::<usize>(),
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+                world.components_mut().get_or_insert_id::<u8>(),
             ]
         );
 
@@ -709,7 +737,7 @@ mod tests {
         fn get_added<Com: Component>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Added<Com>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -753,7 +781,7 @@ mod tests {
         {
             world
                 .query_filtered::<Entity, F>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -840,7 +868,7 @@ mod tests {
         fn get_changed(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Changed<A>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
         assert_eq!(get_changed(&mut world), vec![e1]);
@@ -1173,5 +1201,34 @@ mod tests {
             assert!(!world.contains_resource::<i32>());
         });
         assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
+    }
+
+    #[test]
+    fn insert_overwrite_drop() {
+        let (dropck1, dropped1) = DropCk::new_pair();
+        let (dropck2, dropped2) = DropCk::new_pair();
+        let mut world = World::default();
+        world.spawn().insert(dropck1).insert(dropck2);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 0);
+        drop(world);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn insert_overwrite_drop_sparse() {
+        let (dropck1, dropped1) = DropCk::new_pair();
+        let (dropck2, dropped2) = DropCk::new_pair();
+        let mut world = World::default();
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+        world.spawn().insert(dropck1).insert(dropck2);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 0);
+        drop(world);
+        assert_eq!(dropped1.load(Ordering::Relaxed), 1);
+        assert_eq!(dropped2.load(Ordering::Relaxed), 1);
     }
 }

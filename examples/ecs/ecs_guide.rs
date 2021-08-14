@@ -262,7 +262,7 @@ enum MyLabels {
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
-    App::build()
+    App::new()
         // Resources can be added to our app like this
         .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource
@@ -272,13 +272,13 @@ fn main() {
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
-        // Resources that implement the Default or FromResources trait can be added like this:
+        // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system.system())
+        .add_startup_system(startup_system)
         // my_system calls converts normal rust functions into ECS systems:
-        .add_system(print_message_system.system())
+        .add_system(print_message_system)
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Stage`, which controls the execution strategy and broad order
@@ -310,7 +310,7 @@ fn main() {
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system_to_stage(CoreStage::Update, score_system.system())
+        .add_system_to_stage(CoreStage::Update, score_system)
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
@@ -325,18 +325,18 @@ fn main() {
             MyStage::AfterRound,
             SystemStage::parallel(),
         )
-        .add_system_to_stage(MyStage::BeforeRound, new_round_system.system())
-        .add_system_to_stage(MyStage::BeforeRound, new_player_system.system())
+        .add_system_to_stage(MyStage::BeforeRound, new_round_system)
+        .add_system_to_stage(MyStage::BeforeRound, new_player_system)
         // We can ensure that game_over system runs after score_check_system using explicit ordering
         // constraints First, we label the system we want to refer to using `.label`
         // Then, we use either `.before` or `.after` to describe the order we want the relationship
         .add_system_to_stage(
             MyStage::AfterRound,
-            score_check_system.system().label(MyLabels::ScoreCheck),
+            score_check_system.label(MyLabels::ScoreCheck),
         )
         .add_system_to_stage(
             MyStage::AfterRound,
-            game_over_system.system().after(MyLabels::ScoreCheck),
+            game_over_system.after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)

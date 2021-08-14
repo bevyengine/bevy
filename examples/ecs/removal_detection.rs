@@ -13,11 +13,11 @@ fn main() {
     // With these constraints in mind we make sure to place the system that removes a `Component` on
     // the `CoreStage::Update' stage, and the system that reacts on the removal on the
     // `CoreStage::PostUpdate` stage.
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system_to_stage(CoreStage::Update, remove_component.system())
-        .add_system_to_stage(CoreStage::PostUpdate, react_on_removal.system())
+        .add_startup_system(setup)
+        .add_system_to_stage(CoreStage::Update, remove_component)
+        .add_system_to_stage(CoreStage::PostUpdate, react_on_removal)
         .run();
 }
 

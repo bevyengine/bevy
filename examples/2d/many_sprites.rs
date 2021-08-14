@@ -15,7 +15,7 @@ pub struct Position(Transform);
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
-    App::build()
+    App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(SpriteSettings {
@@ -23,9 +23,9 @@ fn main() {
             frustum_culling_enabled: true,
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(tick.system().label("Tick"))
-        .add_system(move_camera.system().after("Tick"))
+        .add_startup_system(setup)
+        .add_system(tick.label("Tick"))
+        .add_system(move_camera.after("Tick"))
         .run()
 }
 

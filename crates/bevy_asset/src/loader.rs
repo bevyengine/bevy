@@ -101,7 +101,7 @@ impl<'a> LoadContext<'a> {
     }
 
     pub fn path(&self) -> &Path {
-        &self.path
+        self.path
     }
 
     pub fn has_labeled_asset(&self, label: &str) -> bool {
@@ -203,7 +203,7 @@ impl<T: Component> Default for AssetLifecycleChannel<T> {
 /// Updates the [Assets] collection according to the changes queued up by [AssetServer].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
-    mut assets: ResMut<Assets<T>>,
+    assets: ResMut<Assets<T>>,
 ) {
-    asset_server.update_asset_storage(&mut assets);
+    asset_server.update_asset_storage(assets);
 }

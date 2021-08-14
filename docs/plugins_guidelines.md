@@ -26,7 +26,7 @@ You are free to use a `bevy_xxx` name for your plugin, but please be reasonable.
 You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
 
 * Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy).
-* Announce it on [Discord](https://discord.gg/gMUk5Ph), in the `#showcase` channel.
+* Announce it on [Discord](https://discord.gg/bevy), in the `#showcase` channel.
 * Announce it on [Reddit](https://reddit.com/r/bevy).
 
 ## Bevy Version Supported
@@ -71,7 +71,10 @@ This advice is valid for any Rust crate.
 
 ### Licensing
 
-Rust projects are often dual licensed with [MIT and Apache 2.0](https://www.rust-lang.org/policies/licenses). Bevy is licensed with [MIT](https://github.com/bevyengine/bevy/blob/main/LICENSE). Those are great options to license your plugin.
+Bevy is dual licensed under [MIT or Apache 2.0](https://www.rust-lang.org/policies/licenses), at your option. Most other Rust projects (including Rust itself) also use this dual-license approach. MIT-only is very popular and you might be tempted to just use that (Bevy also used to be MIT-only), but there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both and we highly recommend using the dual MIT / Apache-2.0 license for your Bevy Plugins and crates:
+
+* Including the Apache 2.0 license option significantly reduces the difficulty and boilerplate of proper license compliance in published games because you only need to include one copy of the Apache 2.0 license.
+* Provides maximum compatibility with Bevy and Rust, making it easier to upstream your changes.
 
 ### Small Crate Size
 

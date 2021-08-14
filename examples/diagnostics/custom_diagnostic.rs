@@ -5,13 +5,13 @@ use bevy::{
 
 /// This example illustrates how to create a custom diagnostic
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         // The "print diagnostics" plugin is optional. It just visualizes our diagnostics in the
         // console
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup_diagnostic_system.system())
-        .add_system(my_system.system())
+        .add_startup_system(setup_diagnostic_system)
+        .add_system(my_system)
         .run();
 }
 

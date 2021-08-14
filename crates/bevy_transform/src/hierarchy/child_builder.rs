@@ -15,7 +15,7 @@ pub struct InsertChildren {
 }
 
 impl Command for InsertChildren {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
@@ -23,15 +23,9 @@ impl Command for InsertChildren {
                 .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
         }
         {
-            let mut added = false;
             if let Some(mut children) = world.get_mut::<Children>(self.parent) {
                 children.0.insert_from_slice(self.index, &self.children);
-                added = true;
-            }
-
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails
-            // borrow-checking
-            if !added {
+            } else {
                 world
                     .entity_mut(self.parent)
                     .insert(Children(self.children));
@@ -52,7 +46,7 @@ pub struct ChildBuilder<'a, 'b> {
 }
 
 impl Command for PushChildren {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
@@ -225,7 +219,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -233,6 +227,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
+            self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.extend(children.iter().cloned());
@@ -245,7 +241,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -253,6 +249,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
+            self.update_location();
         }
 
         if let Some(mut children_component) = self.get_mut::<Children>() {
@@ -476,5 +474,12 @@ mod tests {
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(parent)
         );
+    }
+
+    #[test]
+    fn regression_push_children_same_archetype() {
+        let mut world = World::new();
+        let child = world.spawn().id();
+        world.spawn().push_children(&[child]);
     }
 }

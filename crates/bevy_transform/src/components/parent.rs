@@ -52,7 +52,7 @@ impl MapEntities for PreviousParent {
     }
 }
 
-// TODO: Better handle this case see `impl FromResources for Parent`
+// TODO: Better handle this case see `impl FromWorld for Parent`
 impl FromWorld for PreviousParent {
     fn from_world(_world: &mut World) -> Self {
         PreviousParent(Entity::new(u32::MAX))

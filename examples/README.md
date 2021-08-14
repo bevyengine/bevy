@@ -41,6 +41,7 @@ git checkout v0.4.0
   - [3D Rendering](#3d-rendering)
   - [Application](#application)
   - [Assets](#assets)
+  - [Async Tasks](#async-tasks)
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -71,7 +72,7 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
@@ -79,7 +80,7 @@ Example | Main | Description
 
 ## 2D Rendering
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
@@ -131,6 +132,12 @@ Example | File | Description
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
+## Async Tasks
+
+Example | File | Description
+--- | --- | ---
+`async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+
 ## Audio
 
 Example | File | Description
@@ -149,12 +156,12 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
-`change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
+`component_change_detection` | [`ecs/component_change_detection.rs`](./ecs/component_change_detection.rs) | Change detection on components
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
+`iter_combinations` | [`ecs/iter_combinations.rs`](./ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results.
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
-`query_bundle` | [`ecs/query_bundle.rs`](./ecs/query_bundle.rs) | Shows how to query entities that contain components in a `Bundle`
 `removal_detection` | [`ecs/removal_detection.rs`](./ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame.
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
@@ -189,10 +196,10 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`reflection` | [`reflection/reflection.rs`](reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
-`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
-`reflection_types` | [`reflection/reflection_types.rs`](reflection/reflection_types.rs) | Illustrates the various reflection types available
-`trait_reflection` | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs) | Allows reflection with trait objects
+`reflection` | [`reflection/reflection.rs`](./reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+`generic_reflection` | [`reflection/generic_reflection.rs`](./reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+`reflection_types` | [`reflection/reflection_types.rs`](./reflection/reflection_types.rs) | Illustrates the various reflection types available
+`trait_reflection` | [`reflection/trait_reflection.rs`](./reflection/trait_reflection.rs) | Allows reflection with trait objects
 
 ## Scene
 

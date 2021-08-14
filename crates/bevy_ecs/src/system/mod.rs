@@ -1,6 +1,6 @@
 mod commands;
 mod exclusive_system;
-mod into_system;
+mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
@@ -9,7 +9,7 @@ mod system_param;
 
 pub use commands::*;
 pub use exclusive_system::*;
-pub use into_system::*;
+pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
@@ -27,8 +27,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res,
-            ResMut, System,
+            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -60,7 +60,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<S: System<In = (), Out = ()>>(world: &mut World, system: S) {
+    fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(system);
@@ -121,7 +121,7 @@ mod tests {
         world.spawn().insert_bundle((A, C));
         world.spawn().insert_bundle((A, D));
 
-        run_system(&mut world, query_system.system());
+        run_system(&mut world, query_system);
 
         assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
@@ -149,7 +149,7 @@ mod tests {
         world.insert_resource(false);
         world.spawn().insert_bundle((A, B));
 
-        run_system(&mut world, query_system.system());
+        run_system(&mut world, query_system);
 
         assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
@@ -179,7 +179,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip.system());
+        update.add_system(incr_e_on_flip);
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
@@ -206,7 +206,7 @@ mod tests {
         fn sys(_q1: Query<&mut A>, _q2: Query<&mut A>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -214,7 +214,7 @@ mod tests {
         fn sys(_q1: Query<&mut A, With<B>>, _q2: Query<&mut A, Without<B>>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
         fn sys(_q1: Query<(&mut A, &B)>, _q2: Query<&mut A, Without<B>>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -231,14 +231,14 @@ mod tests {
         fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
     fn query_set_system() {
         fn sys(mut _set: QuerySet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -247,7 +247,7 @@ mod tests {
         fn sys(_query: Query<&mut A>, _set: QuerySet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod tests {
         fn sys(_set_1: QuerySet<(Query<&mut A>,)>, _set_2: QuerySet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[derive(Default)]
@@ -264,39 +264,39 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<S: System<In = (), Out = ()>>(sys: S) {
+    fn test_for_conflicting_resources<Param, S: IntoSystem<(), (), Param>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
         world.insert_resource(A);
         world.insert_resource(B);
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys.system())
+        test_for_conflicting_resources(sys)
     }
 
     #[test]
@@ -321,10 +321,10 @@ mod tests {
             *modified = true;
         }
 
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]
@@ -352,8 +352,8 @@ mod tests {
             *ran = true;
         }
 
-        run_system(&mut world, validate_removed.system());
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true, "system ran");
+        run_system(&mut world, validate_removed);
+        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
     }
 
     #[test]
@@ -365,14 +365,12 @@ mod tests {
             *modified = true;
         }
 
-        run_system(
-            &mut world,
-            sys.system().config(|config| config.0 = Some(42)),
-        );
+        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
+
     #[test]
     fn world_collections_system() {
         let mut world = World::default();
@@ -411,10 +409,10 @@ mod tests {
             *modified = true;
         }
 
-        run_system(&mut world, sys.system());
+        run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]
@@ -436,6 +434,30 @@ mod tests {
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
+    }
+
+    #[test]
+    fn query_is_empty() {
+        fn without_filter(not_empty: Query<&A>, empty: Query<&B>) {
+            assert!(!not_empty.is_empty());
+            assert!(empty.is_empty());
+        }
+
+        fn with_filter(not_empty: Query<&A, With<C>>, empty: Query<&A, With<D>>) {
+            assert!(!not_empty.is_empty());
+            assert!(empty.is_empty());
+        }
+
+        let mut world = World::default();
+        world.spawn().insert(A).insert(C);
+
+        let mut without_filter = without_filter.system();
+        without_filter.initialize(&mut world);
+        without_filter.run((), &mut world);
+
+        let mut with_filter = with_filter.system();
+        with_filter.initialize(&mut world);
+        with_filter.run((), &mut world);
     }
 
     #[test]
@@ -484,5 +506,122 @@ mod tests {
         let mut y = sys_y.system();
         x.initialize(&mut world);
         y.initialize(&mut world);
+    }
+
+    #[test]
+    fn read_system_state() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        #[derive(Eq, PartialEq, Debug)]
+        struct B(usize);
+
+        let mut world = World::default();
+        world.insert_resource(A(42));
+        world.spawn().insert(B(7));
+
+        let mut system_state: SystemState<(Res<A>, Query<&B>, QuerySet<(Query<&C>, Query<&D>)>)> =
+            SystemState::new(&mut world);
+        let (a, query, _) = system_state.get(&world);
+        assert_eq!(*a, A(42), "returned resource matches initial value");
+        assert_eq!(
+            *query.single().unwrap(),
+            B(7),
+            "returned component matches initial value"
+        );
+    }
+
+    #[test]
+    fn write_system_state() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        #[derive(Eq, PartialEq, Debug)]
+        struct B(usize);
+
+        let mut world = World::default();
+        world.insert_resource(A(42));
+        world.spawn().insert(B(7));
+
+        let mut system_state: SystemState<(ResMut<A>, Query<&mut B>)> =
+            SystemState::new(&mut world);
+
+        // The following line shouldn't compile because the parameters used are not ReadOnlySystemParam
+        // let (a, query) = system_state.get(&world);
+
+        let (a, mut query) = system_state.get_mut(&mut world);
+        assert_eq!(*a, A(42), "returned resource matches initial value");
+        assert_eq!(
+            *query.single_mut().unwrap(),
+            B(7),
+            "returned component matches initial value"
+        );
+    }
+
+    #[test]
+    fn system_state_change_detection() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        let mut world = World::default();
+        let entity = world.spawn().insert(A(1)).id();
+
+        let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(*query.single().unwrap(), A(1));
+        }
+
+        {
+            let query = system_state.get(&world);
+            assert!(query.single().is_err());
+        }
+
+        world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
+        {
+            let query = system_state.get(&world);
+            assert_eq!(*query.single().unwrap(), A(2));
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn system_state_invalid_world() {
+        let mut world = World::default();
+        let mut system_state = SystemState::<Query<&A>>::new(&mut world);
+        let mismatched_world = World::default();
+        system_state.get(&mismatched_world);
+    }
+
+    #[test]
+    fn system_state_archetype_update() {
+        #[derive(Eq, PartialEq, Debug)]
+        struct A(usize);
+
+        #[derive(Eq, PartialEq, Debug)]
+        struct B(usize);
+
+        let mut world = World::default();
+        world.spawn().insert(A(1));
+
+        let mut system_state = SystemState::<Query<&A>>::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(
+                query.iter().collect::<Vec<_>>(),
+                vec![&A(1)],
+                "exactly one component returned"
+            );
+        }
+
+        world.spawn().insert_bundle((A(2), B(2)));
+        {
+            let query = system_state.get(&world);
+            assert_eq!(
+                query.iter().collect::<Vec<_>>(),
+                vec![&A(1), &A(2)],
+                "components from both archetypes returned"
+            );
+        }
     }
 }

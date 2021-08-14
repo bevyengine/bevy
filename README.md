@@ -1,11 +1,11 @@
-# [![Bevy](assets/branding/bevy_logo_light_small.svg)](https://bevyengine.org)
+# [![Bevy](assets/branding/bevy_logo_light_dark_and_dimmed.svg)](https://bevyengine.org)
 
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](./LICENSE)
 [![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
 [![Rust](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 ![iOS cron CI](https://github.com/bevyengine/bevy/workflows/iOS%20cron%20CI/badge.svg)
-[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/gMUk5Ph)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy?
 
@@ -41,7 +41,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and
 **[How to Contribute](https://bevyengine.org/learn/book/contributing/code/)**
 
-* **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
+* **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
 * **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
 * **[Awesome Bevy](https://github.com/bevyengine/awesome-bevy):** A collection of awesome Bevy projects.
@@ -78,7 +78,7 @@ Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/f
 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu-rs](https://github.com/gfx-rs/wgpu-rs): modern / low-level / cross-platform graphics library inspired by Vulkan
+* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library inspired by Vulkan
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
@@ -98,3 +98,16 @@ Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelin
 ## Thanks and Alternatives
 
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
+
+## License
+
+Bevy is free and open source! All code in this repository is dual-licensed under either:
+
+* MIT License ([LICENSE-MIT](docs/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+* Apache License, Version 2.0 ([LICENSE-APACHE](docs/LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+
+at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.
