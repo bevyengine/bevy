@@ -258,9 +258,8 @@ To locally lint your files using the same workflow as our CI:
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 
-1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of `Cargo.toml`.
-2. Add the new crate to the [./tools/publish.sh](./tools/publish.sh) file.
-3. Check if a new cargo feature was added, update [cargo_features.md](https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md) as needed.
+1. Add the new crate to the [./tools/publish.sh](./tools/publish.sh) file.
+2. Check if a new cargo feature was added, update [cargo_features.md](https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md) as needed.
 
 When contributing, please:
 
