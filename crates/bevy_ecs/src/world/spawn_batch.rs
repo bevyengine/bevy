@@ -47,26 +47,43 @@ where
                 bundle_info,
             )
         };
-        let (empty_archetype, archetype) = world
-            .archetypes
-            .get_2_mut(ArchetypeId::empty(), archetype_id);
-        let table = &mut world.storages.tables[archetype.table_id()];
-        archetype.reserve(length);
-        table.reserve(length);
         world.entities.reserve(length as u32);
-        let edge = empty_archetype
-            .edges()
-            .get_add_bundle(bundle_info.id())
-            .unwrap();
-        Self {
-            inner: iter,
-            entities: &mut world.entities,
-            archetype,
-            table,
-            sparse_sets: &mut world.storages.sparse_sets,
-            bundle_info,
-            change_tick: *world.change_tick.get_mut(),
-            bundle_status: &edge.bundle_status,
+        if archetype_id == ArchetypeId::empty() {
+            let archetype = &mut world.archetypes[archetype_id];
+            let table = &mut world.storages.tables[archetype.table_id()];
+            archetype.reserve(length);
+            table.reserve(length);
+            Self {
+                inner: iter,
+                entities: &mut world.entities,
+                archetype,
+                table,
+                sparse_sets: &mut world.storages.sparse_sets,
+                bundle_info,
+                change_tick: *world.change_tick.get_mut(),
+                bundle_status: &[],
+            }
+        } else {
+            let (empty_archetype, archetype) = world
+                .archetypes
+                .get_2_mut(ArchetypeId::empty(), archetype_id);
+            let table = &mut world.storages.tables[archetype.table_id()];
+            archetype.reserve(length);
+            table.reserve(length);
+            let edge = empty_archetype
+                .edges()
+                .get_add_bundle(bundle_info.id())
+                .unwrap();
+            Self {
+                inner: iter,
+                entities: &mut world.entities,
+                archetype,
+                table,
+                sparse_sets: &mut world.storages.sparse_sets,
+                bundle_info,
+                change_tick: *world.change_tick.get_mut(),
+                bundle_status: &edge.bundle_status,
+            }
         }
     }
 }
@@ -122,5 +139,17 @@ where
 {
     fn len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::World;
+
+    #[test]
+    fn empty_bundle() {
+        let mut world = World::new();
+        world.spawn_batch((0..1).map(|_| ()));
+        assert_eq!(world.entities.len(), 1);
     }
 }
