@@ -151,18 +151,20 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
+pub struct EventReader<'w, 's, T: Component> {
+    last_event_count: Local<'s, (usize, PhantomData<T>)>,
+    events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
+pub struct EventWriter<'w, 's, T: Component> {
+    events: ResMut<'w, Events<T>>,
+    #[system_param(ignore)]
+    marker: PhantomData<&'s usize>,
 }
 
-impl<'a, T: Component> EventWriter<'a, T> {
+impl<'w, 's, T: Component> EventWriter<'w, 's, T> {
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -252,7 +254,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: Component> EventReader<'a, T> {
+impl<'w, 's, T: Component> EventReader<'w, 's, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.

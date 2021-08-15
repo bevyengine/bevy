@@ -107,17 +107,17 @@ use thiserror::Error;
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
+pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
 {
-    pub(crate) world: &'w World,
-    pub(crate) state: &'w QueryState<Q, F>,
+    pub(crate) world: &'world World,
+    pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -130,7 +130,7 @@ where
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
-        state: &'w QueryState<Q, F>,
+        state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -146,10 +146,21 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, '_, Q, F>
+    pub fn iter(&'s self) -> QueryIter<'w, 's, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
+
+    /// Returns an [`Iterator`] over the query results.
+    #[inline]
+    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -178,17 +189,6 @@ where
                 self.last_change_tick,
                 self.change_tick,
             )
-        }
-    }
-
-    /// Returns an [`Iterator`] over the query results.
-    #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
-        // SAFE: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        unsafe {
-            self.state
-                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
         }
     }
 
@@ -266,7 +266,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
-    pub fn for_each<'s>(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
+    pub fn for_each(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -285,7 +285,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut<'s>(&'s mut self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)) {
+    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -303,7 +303,7 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     #[inline]
-    pub fn par_for_each<'s>(
+    pub fn par_for_each(
         &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -327,11 +327,11 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut<'s>(
-        &'s mut self,
+    pub fn par_for_each_mut<'a>(
+        &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -351,7 +351,10 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
+    pub fn get(
+        &'s self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -406,7 +409,10 @@ where
     /// entity does not have the given component type or if the given component type does not match
     /// this query.
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<&'w T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
@@ -511,7 +517,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError>
+    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
