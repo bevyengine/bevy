@@ -2,10 +2,6 @@
 name = "bevy"
 version = "0.5.0"
 edition = "2018"
-authors = [
-  "Bevy Contributors <bevyengine@gmail.com>",
-  "Carter Anderson <mcanders1@gmail.com>",
-]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]

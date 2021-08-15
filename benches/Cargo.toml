@@ -1,10 +1,6 @@
 [package]
 name = "benches"
 version = "0.1.0"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 edition = "2018"
 
 [dev-dependencies]
