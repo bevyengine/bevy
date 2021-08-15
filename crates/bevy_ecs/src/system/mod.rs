@@ -667,119 +667,163 @@ mod tests {
             }
         }
     }
-
-    // NOTE: These tests are commented out because they cannot (and should not) compile due to unsafe call patterns.
-    // If changes are made to Query lifetimes, uncomment these tests to ensure each case still fails to compile.
-    // #[test]
-    // fn system_safety_test() {
-    //     struct A(usize);
-    //     struct B(usize);
-
-    //     fn system(mut query: Query<&mut A>, e: Res<Entity>) {
-    //         {
-    //             let mut iter = query.iter_mut();
-    //             let a = &mut *iter.next().unwrap();
-
-    //             let mut iter2 = query.iter_mut();
-    //             let b = &mut *iter2.next().unwrap();
-
-    //             // this should fail to compile
-    //             println!("{}", a.0);
-    //         }
-
-    //         {
-    //             let mut a1 = query.get_mut(*e).unwrap();
-
-    //             let mut a2 = query.get_mut(*e).unwrap();
-
-    //             // this should fail to compile
-    //             println!("{} {}", a1.0, a2.0);
-    //         }
-    //     }
-
-    //     fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
-    //         {
-    //             let mut q2 = queries.q0();
-    //             let mut iter2 = q2.iter_mut();
-    //             let mut b = iter2.next().unwrap();
-
-    //             let q1 = queries.q1();
-    //             let mut iter = q1.iter();
-    //             let a = &*iter.next().unwrap();
-
-    //             // this should fail to compile
-    //             b.0 = a.0
-    //         }
-
-    //         {
-    //             let q1 = queries.q1();
-    //             let mut iter = q1.iter();
-    //             let a = &*iter.next().unwrap();
-
-    //             let mut q2 = queries.q0();
-    //             let mut iter2 = q2.iter_mut();
-    //             let mut b = iter2.next().unwrap();
-
-    //             // this should fail to compile
-    //             b.0 = a.0;
-    //         }
-    //         {
-    //             let mut q2 = queries.q0();
-    //             let mut b = q2.get_mut(*e).unwrap();
-
-    //             let q1 = queries.q1();
-    //             let a = q1.get(*e).unwrap();
-
-    //             // this should fail to compile
-    //             b.0 = a.0
-    //         }
-
-    //         {
-    //             let q1 = queries.q1();
-    //             let a = q1.get(*e).unwrap();
-
-    //             let mut q2 = queries.q0();
-    //             let mut b = q2.get_mut(*e).unwrap();
-    //             // this should fail to compile
-    //             b.0 = a.0
-    //         }
-    //     }
-
-    //     let mut world = World::default();
-    //     world.spawn().insert_bundle((A(1), B(1)));
-    //     run_system(&mut world, system);
-    // }
-
-    // #[test]
-    // fn system_state_safety_test() {
-    //     struct A(usize);
-    //     struct B(usize);
-
-    //     struct State {
-    //         state_r: SystemState<Query<'static, 'static, &'static A>>,
-    //         state_w: SystemState<Query<'static, 'static, &'static mut A>>,
-    //     }
-
-    //     impl State {
-    //         fn get_component<'w>(&mut self, world: &'w mut World, entity: Entity) {
-    //             let q1 = self.state_r.get(&world);
-    //             let a1 = q1.get(entity).unwrap();
-
-    //             let mut q2 = self.state_w.get_mut(world);
-    //             let a2 = q2.get_mut(entity).unwrap();
-    //             // this should fail to compile
-    //             println!("{}", a1.0);
-    //         }
-
-    //         fn get_components<'w>(&mut self, world: &'w mut World) {
-    //             let q1 = self.state_r.get(&world);
-    //             let a1 = q1.iter().next().unwrap();
-
-    //             let mut q2 = self.state_w.get_mut(world);
-    //             let a2 = q2.iter_mut().next().unwrap();
-    //             // this should fail to compile
-    //             println!("{}", a1.0);
-    //         }
-    //     }
-    // }
 }
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+///     let mut iter = query.iter_mut();
+///     let a = &mut *iter.next().unwrap();
+///
+///     let mut iter2 = query.iter_mut();
+///     let b = &mut *iter2.next().unwrap();
+///
+///     // this should fail to compile
+///     println!("{}", a.0);
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_iter_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+///     let mut a1 = query.get_mut(*e).unwrap();
+///     let mut a2 = query.get_mut(*e).unwrap();
+///     // this should fail to compile
+///     println!("{} {}", a1.0, a2.0);
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let mut q2 = queries.q0();
+///     let mut iter2 = q2.iter_mut();
+///     let mut b = iter2.next().unwrap();
+///
+///     let q1 = queries.q1();
+///     let mut iter = q1.iter();
+///     let a = &*iter.next().unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_iter_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let q1 = queries.q1();
+///     let mut iter = q1.iter();
+///     let a = &*iter.next().unwrap();
+///
+///     let mut q2 = queries.q0();
+///     let mut iter2 = q2.iter_mut();
+///     let mut b = iter2.next().unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0;
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_iter_flip_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let mut q2 = queries.q0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///
+///     let q1 = queries.q1();
+///     let a = q1.get(*e).unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let q1 = queries.q1();
+///     let a = q1.get(*e).unwrap();
+///
+///     let mut q2 = queries.q0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_query_set_get_flip_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::SystemState;
+/// struct A(usize);
+/// struct B(usize);
+/// struct State {
+///     state_r: SystemState<Query<'static, 'static, &'static A>>,
+///     state_w: SystemState<Query<'static, 'static, &'static mut A>>,
+/// }
+///
+/// impl State {
+///     fn get_component<'w>(&mut self, world: &'w mut World, entity: Entity) {
+///         let q1 = self.state_r.get(&world);
+///         let a1 = q1.get(entity).unwrap();
+///
+///         let mut q2 = self.state_w.get_mut(world);
+///         let a2 = q2.get_mut(entity).unwrap();
+///
+///         // this should fail to compile
+///         println!("{}", a1.0);
+///     }
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_state_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::SystemState;
+/// struct A(usize);
+/// struct B(usize);
+/// struct State {
+///     state_r: SystemState<Query<'static, 'static, &'static A>>,
+///     state_w: SystemState<Query<'static, 'static, &'static mut A>>,
+/// }
+///
+/// impl State {
+///     fn get_components<'w>(&mut self, world: &'w mut World) {
+///         let q1 = self.state_r.get(&world);
+///         let a1 = q1.iter().next().unwrap();
+///         let mut q2 = self.state_w.get_mut(world);
+///         let a2 = q2.iter_mut().next().unwrap();
+///         // this should fail to compile
+///         println!("{}", a1.0);
+///     }
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_state_iter_lifetime_safety_test() {}

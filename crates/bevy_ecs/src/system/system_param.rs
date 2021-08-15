@@ -27,11 +27,14 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'a> {
-///     foo: Res<'a, usize>,
+/// struct MyParam<'w, 's> {
+///     foo: Res<'w, usize>,
+///     #[system_param(ignore)]
+///     marker: PhantomData<&'s usize>,
 /// }
 ///
 /// fn my_system(param: MyParam) {
