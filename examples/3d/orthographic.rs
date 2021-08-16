@@ -79,19 +79,20 @@ fn zoom_system(
         return;
     }
 
-    if let Ok((mut pos, mut cam)) = cam.single_mut() {
+    if let Ok((mut cam_transform, mut projection)) = cam.single_mut() {
         let window = windows.get_primary().unwrap();
         let window_size = Vec2::new(window.width(), window.height());
         let mouse_normalized_screen_pos =
             (window.cursor_position().unwrap() / window_size) * 2. - Vec2::ONE;
-        let mouse_world_pos = pos.translation.truncate()
-            + mouse_normalized_screen_pos * Vec2::new(cam.right, cam.top) * cam.scale;
+        let mouse_screen_position = mouse_normalized_screen_pos * Vec2::new(projection.right, projection.top);
 
-        cam.scale -= ZOOM_SPEED * delta_zoom * cam.scale;
-        cam.scale = cam.scale.clamp(MIN_ZOOM, MAX_ZOOM);
+        let mouse_world_pos = cam_transform.translation.truncate()
+            + mouse_screen_position * projection.scale;
 
-        pos.translation = (mouse_world_pos
-            - mouse_normalized_screen_pos * Vec2::new(cam.right, cam.top) * cam.scale)
-            .extend(pos.translation.z);
+        projection.scale -= ZOOM_SPEED * delta_zoom * projection.scale;
+        projection.scale = projection.scale.clamp(MIN_ZOOM, MAX_ZOOM);
+
+        cam_transform.translation = (mouse_world_pos - mouse_screen_position * projection.scale)
+            .extend(cam_transform.translation.z);
     }
 }
