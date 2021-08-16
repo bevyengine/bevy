@@ -504,17 +504,17 @@ where
     }
 
     /// Runs `f` on each query result in parallel using the given [`TaskPool`].
-    /// 
+    ///
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
     ///
     ///# Arguments
     ///
     ///* `task_pool` - The [`TaskPool`] to use
-    ///* `batch_size` - The items in the query get sorted into batches. 
-    /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect). 
-    /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few, big batches). 
-    /// Generally speaking: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load. 
+    ///* `batch_size` - The items in the query get sorted into batches.
+    /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
+    /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few, big batches).
+    /// Generally speaking: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
     /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that dont help to even out the load.
     ///* `f` - the function to run on each item in the query
     #[inline]
@@ -523,7 +523,7 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         f: FN,
-    )  {
+    ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
