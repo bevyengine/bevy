@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{input::mouse::MouseWheel, prelude::*, render::camera::OrthographicProjection};
 
 const ZOOM_SPEED: f32 = 0.001;
@@ -12,6 +14,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(zoom_system)
+        .add_system(rotate_system)
         .run();
 }
 
@@ -40,25 +43,25 @@ fn setup(
     // cubes
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
         transform: Transform::from_xyz(1.5, 0.5, 1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(0.0, 1.0, 0.0).into()),
         transform: Transform::from_xyz(1.5, 0.5, -1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(0.0, 0.0, 1.0).into()),
         transform: Transform::from_xyz(-1.5, 0.5, 1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(1.0, 1.0, 1.0).into()),
         transform: Transform::from_xyz(-1.5, 0.5, -1.5),
         ..Default::default()
     });
@@ -95,4 +98,41 @@ fn zoom_system(
         cam_transform.translation = (mouse_world_pos - mouse_screen_position * projection.scale)
             .extend(cam_transform.translation.z);
     }
+}
+
+fn rotate_system(
+    keycode: Res<Input<KeyCode>>,
+    mut cam: Query<&mut Transform, With<MainCamera>>,
+) {
+    if let Ok(mut cam_transform) = cam.single_mut() {
+        let mut direction: f32 = 0.0;
+
+        if keycode.pressed(KeyCode::Right) {
+            direction += 1.0;
+        }
+
+        if keycode.pressed(KeyCode::Left) {
+            direction -= 1.0;
+        }
+
+        if direction != 0.0 {
+            let zx = Vec2::new(cam_transform.translation.z, cam_transform.translation.x);
+            let curr_angle = Vec2::new(1.0, 0.0).angle_between(zx);
+            let curr_distance = zx.length();
+
+            let next_angle = match curr_angle {
+                d if d < 0.0 => 2. * PI + d,
+                d if d >= 0.0 => d,
+                _ => 0.0
+            } + direction * 0.05;
+
+            let new_x = curr_distance * next_angle.sin();
+            let new_z = curr_distance * next_angle.cos();
+
+            cam_transform.translation.x = new_x;
+            cam_transform.translation.z = new_z;
+            cam_transform.look_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y);
+        }
+    }
+
 }
