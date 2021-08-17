@@ -43,6 +43,15 @@ pub struct App {
 }
 
 impl Default for App {
+    /// Implements the [`Default`] trait for [`App`]
+    ///
+    /// It creates an [`empty`](./struct.App.html#method.empty) [`App`].  
+    /// It then [adds default stages](./struct.App.html#method.add_default_stages) and [adds]('./struct.App.html#method.add_event`) the [`AppExit`] event.  
+    /// It finally [adds](./struct.App.html#method.add_system_to_stage) the [`CoreStage::Last`] stage with the `bevy::ecs::world::World::clear_trackers()` exclusive system.
+    // TODO: Add link to exclusive_system()
+    // TODO: Figure out linke to clear_trackers()
+    ///
+    /// [`Default`]: https://doc.rust-lang.org/stable/core/default/trait.Default.html
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
@@ -62,10 +71,13 @@ impl Default for App {
 }
 
 impl App {
+    /// Creates an [App] using the [Default](core::default::Default) trait [implementation](`Self::default()`)
     pub fn new() -> App {
         App::default()
     }
 
+    /// Creates an "empty" App with the Default [World] and [Schedule].
+    /// The [App] is set to run the [`update`](fn@update) function once via [`run_once`](fn@run_once).
     pub fn empty() -> App {
         Self {
             world: Default::default(),
