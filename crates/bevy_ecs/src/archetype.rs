@@ -26,6 +26,11 @@ impl ArchetypeId {
     }
 
     #[inline]
+    pub const fn invalid() -> ArchetypeId {
+        ArchetypeId(usize::MAX)
+    }
+
+    #[inline]
     pub const fn resource() -> ArchetypeId {
         ArchetypeId(1)
     }
@@ -309,6 +314,11 @@ impl Archetype {
             .get(component_id)
             .map(|info| info.archetype_component_id)
     }
+
+    pub(crate) fn clear_entities(&mut self) {
+        self.entities.clear();
+        self.table_info.entity_rows.clear();
+    }
 }
 
 /// A generational id that changes every time the set of archetypes changes
@@ -518,6 +528,12 @@ impl Archetypes {
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
+    }
+
+    pub fn clear_entities(&mut self) {
+        for archetype in self.archetypes.iter_mut() {
+            archetype.clear_entities();
+        }
     }
 }
 
