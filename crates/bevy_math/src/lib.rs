@@ -1,8 +1,10 @@
 mod face_toward;
 mod geometry;
+mod rotation_ypr;
 
 pub use face_toward::*;
 pub use geometry::*;
+pub use rotation_ypr::*;
 pub use glam::*;
 
 pub mod prelude {
