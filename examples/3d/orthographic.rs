@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::{input::mouse::MouseWheel, prelude::*, render::camera::OrthographicProjection};
 
+const ROTATE_SPEED: f32 = 0.05;
 const ZOOM_SPEED: f32 = 0.001;
 const MIN_ZOOM: f32 = 1.0;
 const MAX_ZOOM: f32 = 30.0;
@@ -120,11 +121,11 @@ fn rotate_system(
             let curr_angle = Vec2::new(1.0, 0.0).angle_between(zx);
             let curr_distance = zx.length();
 
-            let next_angle = match curr_angle {
-                d if d < 0.0 => 2. * PI + d,
-                d if d >= 0.0 => d,
-                _ => 0.0
-            } + direction * 0.05;
+            let next_angle = if curr_angle < 0.0 {
+                curr_angle + 2. * PI
+            } else {
+                curr_angle
+            } + direction * ROTATE_SPEED;
 
             let new_x = curr_distance * next_angle.sin();
             let new_z = curr_distance * next_angle.cos();
