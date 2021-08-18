@@ -151,7 +151,19 @@ fn reflect_binding(
                 filtering: true,
             },
         ),
-        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
+        _ => {
+            let ReflectDescriptorBinding {
+                descriptor_type,
+                name,
+                set,
+                binding,
+                ..
+            } = binding;
+            panic!(
+                "Unsupported shader bind type {:?} (name '{}', set {}, binding {})",
+                descriptor_type, name, set, binding
+            );
+        }
     };
 
     let shader_stage = match shader_stage {

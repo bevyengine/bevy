@@ -48,7 +48,7 @@ impl ScheduleRunnerSettings {
 /// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given
 /// [RunMode]
 #[derive(Default)]
-pub struct ScheduleRunnerPlugin {}
+pub struct ScheduleRunnerPlugin;
 
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
