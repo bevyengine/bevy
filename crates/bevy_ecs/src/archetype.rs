@@ -416,10 +416,7 @@ impl Archetypes {
     #[inline]
     pub fn resource(&self) -> &Archetype {
         // SAFE: resource archetype always exists
-        unsafe {
-            self.archetypes
-                .get_unchecked(ArchetypeId::RESOURCE.index())
-        }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::RESOURCE.index()) }
     }
 
     #[inline]
