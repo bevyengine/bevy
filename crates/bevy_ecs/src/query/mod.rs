@@ -7,7 +7,6 @@
 //! - [`Changed`]
 //! - [`With`]
 //! - [`Without`]
-//! - [`WithBundle`]
 //! - [`Or`]
 
 mod access;
