@@ -206,9 +206,9 @@ impl BundleInfo {
         change_tick: u32,
     ) -> BundleSpawner<'a, 'b> {
         let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::empty());
+            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
         let (empty_archetype, archetype) =
-            archetypes.get_2_mut(ArchetypeId::empty(), new_archetype_id);
+            archetypes.get_2_mut(ArchetypeId::EMPTY, new_archetype_id);
         let table = &mut storages.tables[archetype.table_id()];
         let add_bundle = empty_archetype.edges().get_add_bundle(self.id()).unwrap();
         BundleSpawner {

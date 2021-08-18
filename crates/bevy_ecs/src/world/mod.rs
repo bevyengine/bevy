@@ -952,7 +952,7 @@ impl World {
         let resource_archetype = self
             .archetypes
             .archetypes
-            .get_unchecked_mut(ArchetypeId::resource().index());
+            .get_unchecked_mut(ArchetypeId::RESOURCE.index());
         let resource_archetype_components = &mut resource_archetype.components;
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         let components = &self.components;

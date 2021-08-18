@@ -318,7 +318,7 @@ impl Entities {
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &mut self.meta[entity.id as usize];
-            if current_meta.location.archetype_id == ArchetypeId::invalid() {
+            if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
                 AllocAtWithoutReplacement::Exists(current_meta.location)
@@ -384,7 +384,7 @@ impl Entities {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
             if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::invalid()
+                || meta.location.archetype_id == ArchetypeId::INVALID
             {
                 return None;
             }
@@ -431,7 +431,7 @@ impl Entities {
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
-    /// each time init is called. This _can_ be ArchetypeId::invalid(), provided the Entity has
+    /// each time init is called. This _can_ be ArchetypeId::INVALID, provided the Entity has
     /// not been assigned to an Archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
@@ -476,7 +476,7 @@ impl Entities {
     pub fn flush_as_invalid(&mut self) {
         unsafe {
             self.flush(|_entity, location| {
-                location.archetype_id = ArchetypeId::invalid();
+                location.archetype_id = ArchetypeId::INVALID;
             })
         }
     }
@@ -502,7 +502,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
         location: EntityLocation {
-            archetype_id: ArchetypeId::invalid(),
+            archetype_id: ArchetypeId::INVALID,
             index: usize::max_value(), // dummy value, to be filled in
         },
     };

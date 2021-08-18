@@ -15,24 +15,13 @@ use std::{
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
+    pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
+    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+
     #[inline]
     pub const fn new(index: usize) -> Self {
         ArchetypeId(index)
-    }
-
-    #[inline]
-    pub const fn empty() -> ArchetypeId {
-        ArchetypeId(0)
-    }
-
-    #[inline]
-    pub const fn invalid() -> ArchetypeId {
-        ArchetypeId(usize::MAX)
-    }
-
-    #[inline]
-    pub const fn resource() -> ArchetypeId {
-        ArchetypeId(1)
     }
 
     #[inline]
@@ -387,7 +376,7 @@ impl Default for Archetypes {
         // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
         // which prevents entities from being added to it
         archetypes.archetypes.push(Archetype::new(
-            ArchetypeId::resource(),
+            ArchetypeId::RESOURCE,
             TableId::empty(),
             Cow::Owned(Vec::new()),
             Cow::Owned(Vec::new()),
@@ -412,7 +401,7 @@ impl Archetypes {
     #[inline]
     pub fn empty(&self) -> &Archetype {
         // SAFE: empty archetype always exists
-        unsafe { self.archetypes.get_unchecked(ArchetypeId::empty().index()) }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
     #[inline]
@@ -420,7 +409,7 @@ impl Archetypes {
         // SAFE: empty archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::empty().index())
+                .get_unchecked_mut(ArchetypeId::EMPTY.index())
         }
     }
 
@@ -429,7 +418,7 @@ impl Archetypes {
         // SAFE: resource archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked(ArchetypeId::resource().index())
+                .get_unchecked(ArchetypeId::RESOURCE.index())
         }
     }
 
@@ -438,7 +427,7 @@ impl Archetypes {
         // SAFE: resource archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::resource().index())
+                .get_unchecked_mut(ArchetypeId::RESOURCE.index())
         }
     }
 
