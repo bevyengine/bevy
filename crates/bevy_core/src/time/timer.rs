@@ -118,8 +118,8 @@ impl Timer {
     /// # use bevy_core::*;
     /// use std::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, false);
-    /// timer.set_elapsed(Duration::from_secs(2));
-    /// assert_eq!(timer.elapsed(), Duration::from_secs(2));
+    /// timer.set_elapsed(Duration::from_secs(2.0));
+    /// assert_eq!(timer.elapsed(), Duration::from_secs(2.0));
     /// // the timer is not finished even if the elapsed time is greater than the duration.
     /// assert!(!timer.finished());
     /// ```
@@ -453,10 +453,9 @@ impl DiscreteTimer {
     /// #
     /// ```
     /// # use bevy_core::*;
-    /// use std::time::Duration;
-    /// let mut timer = Timer::from_seconds(1.0, false);
-    /// timer.set_elapsed(Duration::from_secs(2));
-    /// assert_eq!(timer.elapsed(), Duration::from_secs(2));
+    /// let mut timer = DiscreteTimer::new(1, false);
+    /// timer.set_elapsed(2);
+    /// assert_eq!(timer.elapsed(), 2);
     /// // the timer is not finished even if the elapsed time is greater than the duration.
     /// assert!(!timer.finished());
     /// ```
@@ -629,13 +628,12 @@ impl DiscreteTimer {
     /// Examples
     /// ```
     /// # use bevy_core::*;
-    /// use std::time::Duration;
-    /// let mut timer = Timer::from_seconds(1.0, false);
-    /// timer.tick(Duration::from_secs_f32(1.5));
+    /// let mut timer = DiscreteTimer::new(1, false);
+    /// timer.tick(2);
     /// timer.reset();
     /// assert!(!timer.finished());
     /// assert!(!timer.just_finished());
-    /// assert_eq!(timer.elapsed_secs(), 0.0);
+    /// assert_eq!(timer.elapsed(), 0);
     /// ```
     pub fn reset(&mut self) {
         self.stopwatch.reset();
