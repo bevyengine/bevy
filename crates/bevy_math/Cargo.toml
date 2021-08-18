@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.15.1", features = ["serde", "bytemuck"] }
+glam = { version = "0.17.3", features = ["serde", "bytemuck"] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
