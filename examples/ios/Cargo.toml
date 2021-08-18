@@ -1,7 +1,6 @@
 [package]
 name = "bevy-ios-example"
 version = "0.1.0"
-authors = ["Sebastian Imlay <sebastian.imlay@gmail.com>"]
 edition = "2018"
 
 [lib]

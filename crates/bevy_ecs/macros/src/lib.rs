@@ -9,8 +9,8 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Path, Result, Token,
+    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, LitInt, Path, Result,
+    Token,
 };
 
 struct AllTuples {
@@ -176,36 +176,26 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
         .collect::<Vec<Ident>>()
 }
 
-fn get_lifetimes(fmt_string: fn(usize) -> String, count: usize) -> Vec<Lifetime> {
-    (0..count)
-        .map(|i| Lifetime::new(&fmt_string(i), Span::call_site()))
-        .collect::<Vec<Lifetime>>()
-}
-
 #[proc_macro]
 pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_queries = 4;
     let queries = get_idents(|i| format!("Q{}", i), max_queries);
     let filters = get_idents(|i| format!("F{}", i), max_queries);
-    let lifetimes = get_lifetimes(|i| format!("'q{}", i), max_queries);
-    let mut query_fns = Vec::new();
     let mut query_fn_muts = Vec::new();
     for i in 0..max_queries {
         let query = &queries[i];
         let filter = &filters[i];
-        let lifetime = &lifetimes[i];
         let fn_name = Ident::new(&format!("q{}", i), Span::call_site());
-        let fn_name_mut = Ident::new(&format!("q{}_mut", i), Span::call_site());
         let index = Index::from(i);
-        query_fns.push(quote! {
-            pub fn #fn_name(&self) -> &Query<#lifetime, #query, #filter> {
-                &self.0.#index
-            }
-        });
         query_fn_muts.push(quote! {
-            pub fn #fn_name_mut(&mut self) -> &mut Query<#lifetime, #query, #filter> {
-                &mut self.0.#index
+            pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
+                // SAFE: systems run without conflicts with other systems.
+                // Conflicting queries in QuerySet are not accessible at the same time
+                // QuerySets are guaranteed to not conflict with other SystemParams
+                unsafe {
+                    Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
+                }
             }
         });
     }
@@ -213,11 +203,9 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     for query_count in 1..=max_queries {
         let query = &queries[0..query_count];
         let filter = &filters[0..query_count];
-        let lifetime = &lifetimes[0..query_count];
-        let query_fn = &query_fns[0..query_count];
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<#(#lifetime,)*  #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
                 type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
@@ -270,27 +258,30 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 fn default_config() {}
             }
 
-            impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
-                type Item = QuerySet<(#(Query<'a, #query, #filter>,)*)>;
+                type Item = QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>;
 
                 #[inline]
                 unsafe fn get_param(
-                    state: &'a mut Self,
+                    state: &'s mut Self,
                     system_meta: &SystemMeta,
-                    world: &'a World,
+                    world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query, system_meta.last_change_tick, change_tick),)*))
+                    QuerySet {
+                        query_states: &state.0,
+                        world,
+                        last_change_tick: system_meta.last_change_tick,
+                        change_tick,
+                    }
                 }
             }
 
-            impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
-                #(#query_fn)*
                 #(#query_fn_mut)*
             }
         }));
@@ -415,12 +406,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
-                state: &'a mut Self,
+                state: &'s mut Self,
                 system_meta: &#path::system::SystemMeta,
-                world: &'a #path::world::World,
+                world: &'w #path::world::World,
                 change_tick: u32,
             ) -> Self::Item {
                 #struct_name {

@@ -2,10 +2,6 @@
 name = "bevy_pbr"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
