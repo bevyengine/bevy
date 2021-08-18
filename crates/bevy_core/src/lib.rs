@@ -14,7 +14,9 @@ pub use time::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
+    pub use crate::{
+        DefaultTaskPoolOptions, DiscreteTimer, EntityLabels, Labels, Name, Time, Timer,
+    };
 }
 
 use bevy_app::prelude::*;
