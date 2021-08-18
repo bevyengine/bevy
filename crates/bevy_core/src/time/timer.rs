@@ -1,4 +1,5 @@
-use crate::{DiscreteStopwatch, Stopwatch};
+use crate::time::Stopwatch;
+use crate::{DiscreteStopwatch, DurationStopwatch};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
@@ -16,7 +17,7 @@ use bevy_utils::Duration;
 #[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Timer {
-    stopwatch: Stopwatch,
+    stopwatch: DurationStopwatch,
     duration: Duration,
     repeating: bool,
     finished: bool,
