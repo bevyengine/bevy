@@ -58,6 +58,13 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [None] if the `entity` exists with a different generation.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         self.add(GetOrSpawn { entity });
         EntityCommands {
@@ -66,6 +73,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
+    /// this [Command] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
         self.queue.push(Spawn { bundle })
     }
@@ -152,8 +161,14 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// For an iterator of (Entity, Bundle) pairs, inserts the Bundle into the Entity,
-    /// if the entity exists, and spawns the entity with the Bundle if it does not exist.
+    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
+    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,

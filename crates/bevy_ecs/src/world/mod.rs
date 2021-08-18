@@ -220,8 +220,13 @@ impl World {
         self.get_entity_mut(entity).expect("Entity does not exist")
     }
 
-    /// Returns an EntityMut for an existing entity or creates one if it doesn't exist.
-    /// This will return `None` if the entity exists with a different generation.
+    /// Returns an [EntityMut] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [None] if the `entity` exists with a different generation.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityMut> {
         self.flush();
@@ -698,6 +703,28 @@ impl World {
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
+    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
+    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    ///
+    /// ```
+    /// use bevy_ecs::{entity::Entity, world::World};
+    ///
+    /// let mut world = World::new();
+    /// let e0 = world.spawn().id();
+    /// let e1 = world.spawn().id();
+    /// world.insert_or_spawn_batch(vec![
+    ///   (e0, ("a", 0.0)), // the first entity
+    ///   (e1, ("b", 1.0)), // the second entity
+    /// ]);
+    ///
+    /// assert_eq!(world.get::<f64>(e0), Some(&0.0));
+    /// ```
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I)
     where
         I: IntoIterator,
