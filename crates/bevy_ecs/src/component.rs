@@ -347,11 +347,23 @@ impl ComponentTicks {
     }
 
     #[inline]
+    /// Returns true if (and only if) this data been changed since the last execution of this
+    /// system.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let component_delta = change_tick.wrapping_sub(self.changed);
         let system_delta = change_tick.wrapping_sub(last_change_tick);
 
         component_delta < system_delta
+    }
+
+    #[inline]
+    /// Returns true if (and only if) this data been changed since the last execution of this
+    /// system or by the system itself the last time it ran.
+    pub fn is_changed_inclusive(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        let component_delta = change_tick.wrapping_sub(self.changed);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
+
+        component_delta <= system_delta
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {

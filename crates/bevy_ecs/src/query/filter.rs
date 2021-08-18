@@ -660,3 +660,36 @@ impl_tick_filter!(
     ChangedFetch,
     ComponentTicks::is_changed
 );
+
+impl_tick_filter!(
+    /// Filter that retrieves components of type `T` that have been changed since the last
+    /// execution of this system, or by the system itself last time it ran.
+    ///
+    /// [`Changed`] should be your default: this can cause your system
+    /// to continually detect changes and then alter data each time that it runs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::system::IntoSystem;
+    /// # use bevy_ecs::system::Query;
+    /// # use bevy_ecs::query::ChangedInclusive;
+    /// #
+    ///
+    /// struct Counter(u32);
+    ///
+    /// fn never_stop_counting_system(mut query: Query<&mut Counter, ChangedInclusive<Counter>>) {
+    ///     for mut counter in query.iter_mut() {
+    ///         counter.0 += 1;
+    ///     }
+    /// }
+    ///
+    /// # never_stop_counting_system.system();
+    /// ```
+    ChangedInclusive,
+    /// The [`FetchState`] of [`Changed`].
+    ChangedInclusiveState,
+    /// The [`Fetch`] of [`Changed`].
+    ChangedInclusiveFetch,
+    ComponentTicks::is_changed_inclusive
+);

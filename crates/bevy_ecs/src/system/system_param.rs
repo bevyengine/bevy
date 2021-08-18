@@ -239,6 +239,13 @@ impl<'w, T: Component> Res<'w, T> {
             .is_changed(self.last_change_tick, self.change_tick)
     }
 
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system or by the system itself the last time it ran.
+    pub fn is_changed_inclusive(&self) -> bool {
+        self.ticks
+            .is_changed_inclusive(self.last_change_tick, self.change_tick)
+    }
+
     pub fn into_inner(self) -> &'w T {
         self.value
     }
