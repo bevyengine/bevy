@@ -117,11 +117,11 @@ where
     }
 
     #[inline]
-    pub fn get<'w>(
-        &mut self,
+    pub fn get<'w, 's>(
+        &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError>
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -130,11 +130,11 @@ where
     }
 
     #[inline]
-    pub fn get_mut<'w>(
-        &mut self,
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
@@ -144,11 +144,11 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn get_unchecked<'w>(
-        &mut self,
+    pub unsafe fn get_unchecked<'w, 's>(
+        &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
         self.get_unchecked_manual(
             world,
@@ -161,13 +161,13 @@ where
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    pub unsafe fn get_unchecked_manual<'w>(
-        &self,
+    pub unsafe fn get_unchecked_manual<'w, 's>(
+        &'s self,
         world: &'w World,
         entity: Entity,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> Result<<Q::Fetch as Fetch<'w, '_>>::Item, QueryEntityError> {
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         let location = world
             .entities
             .get(entity)

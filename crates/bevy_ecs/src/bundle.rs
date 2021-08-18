@@ -22,9 +22,6 @@ use std::{any::TypeId, collections::HashMap};
 /// particularly useful for spawning multiple empty entities by using
 /// [`Commands::spawn_batch`](bevy_ecs::system::Commands::spawn_batch).
 ///
-/// To query components that belong to a particular bundle, use
-/// [`WithBundle`](crate::query::WithBundle) query filter.
-///
 /// # Examples
 ///
 /// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each

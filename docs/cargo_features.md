@@ -5,7 +5,6 @@
 |feature name|description|
 |-|-|
 |bevy_audio|Audio support. Support for all audio formats depends on this.|
-|bevy_dynamic_plugin|Plugin for dynamic loading (libloading).|
 |bevy_gilrs|Adds gamepad support.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
 |bevy_winit|GUI support.|
@@ -20,6 +19,7 @@
 
 |feature name|description|
 |-|-|
+|bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading)).|
 |dynamic|Forces bevy to be dynamically linked, which improves iterative compile times.|
 |trace|Enables system tracing (useful in tandem with a feature like trace_chrome).|
 |trace_chrome|Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.|
