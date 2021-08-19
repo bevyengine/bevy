@@ -108,7 +108,10 @@ fn setup(
 
     sel.order.shuffle(&mut rnd);
 
-    commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
+    commands.spawn_bundle((
+        SelectTimer,
+        DurationTimer::from_seconds(SHOWCASE_TIMER_SECS, true),
+    ));
 
     commands
         .spawn()
@@ -150,7 +153,7 @@ fn select_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut sel: ResMut<ContributorSelection>,
     mut dq: Query<&mut Text, With<ContributorDisplay>>,
-    mut tq: Query<&mut Timer, With<SelectTimer>>,
+    mut tq: Query<&mut DurationTimer, With<SelectTimer>>,
     mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
     time: Res<Time>,
 ) {

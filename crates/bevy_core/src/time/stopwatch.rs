@@ -14,7 +14,7 @@ pub trait Stopwatch: Default {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
-    /// let stopwatch = Stopwatch::new();
+    /// let stopwatch = DurationStopwatch::new();
     /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
     /// assert_eq!(stopwatch.paused(), false);
     /// ```
@@ -29,7 +29,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.tick(Duration::from_secs(1));
     /// assert_eq!(stopwatch.elapsed(), Duration::from_secs(1));
     /// ```
@@ -41,7 +41,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.set_elapsed(Duration::from_secs_f32(1.0));
     /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
     /// ```
@@ -55,7 +55,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.tick(Duration::from_secs_f32(1.5));
     /// assert_eq!(stopwatch.elapsed_secs(), 1.5);
     /// ```
@@ -73,7 +73,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.pause();
     /// stopwatch.tick(Duration::from_secs_f32(1.5));
     /// assert!(stopwatch.paused());
@@ -87,7 +87,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.pause();
     /// stopwatch.tick(Duration::from_secs_f32(1.0));
     /// stopwatch.unpause();
@@ -102,7 +102,7 @@ pub trait Stopwatch: Default {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// assert!(!stopwatch.paused());
     /// stopwatch.pause();
     /// assert!(stopwatch.paused());
@@ -117,7 +117,7 @@ pub trait Stopwatch: Default {
     /// ```
     /// # use bevy_core::*;
     /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
+    /// let mut stopwatch = DurationStopwatch::new();
     /// stopwatch.tick(Duration::from_secs_f32(1.5));
     /// stopwatch.reset();
     /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
@@ -128,14 +128,14 @@ pub trait Stopwatch: Default {
     }
 }
 
-/// A Stopwatch is a struct that track elapsed time when started.
+/// A Stopwatch is a struct that tracks elapsed time when started.
 ///
 /// # Examples
 ///
 /// ```
 /// # use bevy_core::*;
 /// use std::time::Duration;
-/// let mut stopwatch = Stopwatch::new();
+/// let mut stopwatch = DurationStopwatch::new();
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 ///
 /// stopwatch.tick(Duration::from_secs_f32(1.0)); // tick one second

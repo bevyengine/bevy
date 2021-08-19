@@ -17,7 +17,7 @@ fn main() {
 struct State {
     atlas_count: u32,
     handle: Handle<Font>,
-    timer: Timer,
+    timer: DurationTimer,
 }
 
 impl Default for State {
@@ -25,7 +25,7 @@ impl Default for State {
         Self {
             atlas_count: 0,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05, true),
+            timer: DurationTimer::from_seconds(0.05, true),
         }
     }
 }

@@ -15,7 +15,8 @@ pub use time::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DefaultTaskPoolOptions, DiscreteTimer, EntityLabels, Labels, Name, Time, Timer,
+        DefaultTaskPoolOptions, DiscreteTimer, DurationTimer, EntityLabels, Labels, Name, Time,
+        Timer,
     };
 }
 
@@ -57,7 +58,7 @@ impl Plugin for CorePlugin {
             .register_type::<Name>()
             .register_type::<Labels>()
             .register_type::<Range<f32>>()
-            .register_type::<Timer>()
+            .register_type::<DurationTimer>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
             .add_system_to_stage(

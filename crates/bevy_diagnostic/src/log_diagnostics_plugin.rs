@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_core::{Time, Timer};
+use bevy_core::{DurationTimer, Time, Timer};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
@@ -14,7 +14,7 @@ pub struct LogDiagnosticsPlugin {
 
 /// State used by the [LogDiagnosticsPlugin]
 struct LogDiagnosticsState {
-    timer: Timer,
+    timer: DurationTimer,
     filter: Option<Vec<DiagnosticId>>,
 }
 
@@ -31,7 +31,7 @@ impl Default for LogDiagnosticsPlugin {
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
-            timer: Timer::new(self.wait_duration, true),
+            timer: DurationTimer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
 

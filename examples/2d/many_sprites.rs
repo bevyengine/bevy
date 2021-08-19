@@ -9,7 +9,7 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-pub struct PrintTimer(Timer);
+pub struct PrintTimer(DurationTimer);
 pub struct Position(Transform);
 
 /// This example is for performance testing purposes.
@@ -47,7 +47,7 @@ fn setup(
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(PrintTimer(Timer::from_seconds(1.0, true)))
+        .insert(PrintTimer(DurationTimer::from_seconds(1.0, true)))
         .insert(Position(Transform::from_translation(Vec3::new(
             0.0, 0.0, 1000.0,
         ))));

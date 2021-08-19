@@ -17,13 +17,13 @@ struct MyEvent {
 }
 
 struct EventTriggerState {
-    event_timer: Timer,
+    event_timer: DurationTimer,
 }
 
 impl Default for EventTriggerState {
     fn default() -> Self {
         EventTriggerState {
-            event_timer: Timer::from_seconds(1.0, true),
+            event_timer: DurationTimer::from_seconds(1.0, true),
         }
     }
 }
