@@ -94,6 +94,8 @@ serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 futures-timer = "3.0.2"
+lazy_static = "1"
+noop-waker = "0.1"
 
 [[example]]
 name = "hello_world"
