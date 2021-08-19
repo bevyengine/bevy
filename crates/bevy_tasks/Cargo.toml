@@ -21,4 +21,5 @@ num_cpus = "1.0.1"
 wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
+futures-timer = "3.0.2"
 instant = { version = "0.1", features = ["wasm-bindgen"] }

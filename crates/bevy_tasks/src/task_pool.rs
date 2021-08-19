@@ -2,13 +2,13 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, RwLock},
     thread::{self, JoinHandle},
 };
 
 use futures_lite::{future, pin};
 
-use crate::Task;
+use crate::{PollableTask, Task};
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -236,6 +236,29 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
+    pub fn spawn_pollable<T>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> PollableTask<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        let result = Arc::new(RwLock::<Option<T>>::new(None));
+        let result_clone = result.clone();
+        let task = self.spawn(async move {
+            let ret = future.await;
+            match result_clone.write() {
+                Ok(mut locked) => {
+                    *locked = Some(ret);
+                }
+                Err(_err) => {
+                    // error!("{}", err);
+                }
+            }
+        });
+        PollableTask::<T>::new(result, task)
+    }
+
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
@@ -272,6 +295,8 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name)]
 mod tests {
+    use instant::Duration;
+
     use super::*;
     use std::sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
@@ -307,6 +332,40 @@ mod tests {
 
         assert_eq!(outputs.len(), 100);
         assert_eq!(count.load(Ordering::Relaxed), 100);
+    }
+
+    #[test]
+    fn test_spawn_pollable() {
+        let pool = TaskPool::new();
+        let nums: Vec<usize> = (1..10).into_iter().collect();
+        let pollables: Vec<PollableTask<usize>> = nums
+            .clone()
+            .into_iter()
+            .map(|i| {
+                pool.spawn_pollable(async move {
+                    futures_timer::Delay::new(Duration::from_secs_f32(0.5)).await;
+                    i * 2
+                })
+            })
+            .collect();
+
+        // Simulate game loop
+        loop {
+            let mut done = true;
+            for i in 0..pollables.len() {
+                let locked = pollables[i].poll().unwrap();
+                if let Some(r) = *locked {
+                    assert_eq!(r, nums[i] * 2);
+                } else {
+                    done = false;
+                    break;
+                }
+            }
+            if done {
+                return;
+            }
+            std::thread::sleep(Duration::from_secs_f32(1.0 / 60.0));
+        }
     }
 
     #[test]

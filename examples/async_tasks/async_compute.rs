@@ -1,8 +1,7 @@
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::{AsyncComputeTaskPool, PollableTask},
 };
-use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
@@ -50,7 +49,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
                 // Spawn new task on the AsyncComputeTaskPool
-                let task = thread_pool.spawn(async move {
+                let task = thread_pool.spawn_pollable(async move {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
@@ -76,12 +75,13 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
+    transform_tasks: Query<(Entity, &PollableTask<Transform>)>,
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
-    for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
+    for (entity, task) in transform_tasks.iter() {
+        let locked = task.poll().unwrap();
+        if let Some(transform) = *locked {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
                 mesh: box_mesh_handle.0.clone(),
@@ -89,9 +89,8 @@ fn handle_tasks(
                 transform,
                 ..Default::default()
             });
-
             // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<Task<Transform>>();
+            commands.entity(entity).remove::<PollableTask<Transform>>();
         }
     }
 }
