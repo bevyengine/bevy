@@ -1,6 +1,8 @@
 use crate::Task;
 use std::sync::{Arc, LockResult, RwLock, RwLockReadGuard, TryLockResult};
 
+/// A pollable task whose result readiness can be checked in system functions
+/// on every frame update without blocking on a future
 #[derive(Debug)]
 pub struct PollableTask<T> {
     result: Arc<RwLock<Option<T>>>,

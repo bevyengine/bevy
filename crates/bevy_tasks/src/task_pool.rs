@@ -236,6 +236,8 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
+    /// Spawns a static future onto the thread pool. The returned PollableTask is not a future,
+    /// but can be polled in system functions on every frame update without being blocked on
     pub fn spawn_pollable<T>(
         &self,
         future: impl Future<Output = T> + Send + 'static,
@@ -336,6 +338,8 @@ mod tests {
 
     #[test]
     fn test_spawn_pollable() {
+        let transform_fn = |i: usize| i * 3;
+
         let pool = TaskPool::new();
         let nums: Vec<usize> = (1..10).into_iter().collect();
         let pollables: Vec<PollableTask<usize>> = nums
@@ -344,7 +348,7 @@ mod tests {
             .map(|i| {
                 pool.spawn_pollable(async move {
                     futures_timer::Delay::new(Duration::from_secs_f32(0.5)).await;
-                    i * 2
+                    transform_fn(i)
                 })
             })
             .collect();
@@ -355,7 +359,7 @@ mod tests {
             for i in 0..pollables.len() {
                 let locked = pollables[i].poll().unwrap();
                 if let Some(r) = *locked {
-                    assert_eq!(r, nums[i] * 2);
+                    assert_eq!(r, transform_fn(nums[i]));
                 } else {
                     done = false;
                     break;
