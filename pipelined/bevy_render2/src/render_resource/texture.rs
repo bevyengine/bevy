@@ -45,7 +45,12 @@ pub struct TextureViewId(Uuid);
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
     TextureView(Arc<wgpu::TextureView>),
-    SwapChainFrame(Arc<wgpu::SwapChainFrame>),
+    SurfaceFrame {
+        // NOTE: The order of these fields is important because the view must be dropped before the
+        // frame is dropped
+        view: Arc<wgpu::TextureView>,
+        frame: Arc<wgpu::SurfaceFrame>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -70,11 +75,14 @@ impl From<wgpu::TextureView> for TextureView {
     }
 }
 
-impl From<wgpu::SwapChainFrame> for TextureView {
-    fn from(value: wgpu::SwapChainFrame) -> Self {
+impl From<wgpu::SurfaceFrame> for TextureView {
+    fn from(value: wgpu::SurfaceFrame) -> Self {
+        let frame = Arc::new(value);
+        let view = Arc::new(frame.output.texture.create_view(&Default::default()));
+
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::SwapChainFrame(Arc::new(value)),
+            value: TextureViewValue::SurfaceFrame { frame, view },
         }
     }
 }
@@ -86,7 +94,7 @@ impl Deref for TextureView {
     fn deref(&self) -> &Self::Target {
         match &self.value {
             TextureViewValue::TextureView(value) => value,
-            TextureViewValue::SwapChainFrame(value) => &value.output.view,
+            TextureViewValue::SurfaceFrame { view, .. } => view,
         }
     }
 }
@@ -126,20 +134,20 @@ impl Deref for Sampler {
 }
 
 #[derive(Clone, Debug)]
-pub struct SwapChainFrame {
+pub struct SurfaceFrame {
     id: TextureViewId,
-    value: Arc<wgpu::SwapChainFrame>,
+    value: Arc<wgpu::SurfaceFrame>,
 }
 
-impl SwapChainFrame {
+impl SurfaceFrame {
     #[inline]
     pub fn id(&self) -> TextureViewId {
         self.id
     }
 }
 
-impl From<wgpu::SwapChainFrame> for SwapChainFrame {
-    fn from(value: wgpu::SwapChainFrame) -> Self {
+impl From<wgpu::SurfaceFrame> for SurfaceFrame {
+    fn from(value: wgpu::SurfaceFrame) -> Self {
         Self {
             id: TextureViewId(Uuid::new_v4()),
             value: Arc::new(value),
@@ -147,8 +155,8 @@ impl From<wgpu::SwapChainFrame> for SwapChainFrame {
     }
 }
 
-impl Deref for SwapChainFrame {
-    type Target = wgpu::SwapChainFrame;
+impl Deref for SurfaceFrame {
+    type Target = wgpu::SurfaceFrame;
 
     #[inline]
     fn deref(&self) -> &Self::Target {

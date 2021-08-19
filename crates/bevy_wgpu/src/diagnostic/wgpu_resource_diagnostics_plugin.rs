@@ -29,9 +29,7 @@ impl WgpuResourceDiagnosticsPlugin {
         DiagnosticId::from_u128(305855369913076220671125671543184691267);
     pub const SHADER_MODULES: DiagnosticId =
         DiagnosticId::from_u128(287681470908132753275843248383768232237);
-    pub const SWAP_CHAINS: DiagnosticId =
-        DiagnosticId::from_u128(199253035828743332241465305105689014605);
-    pub const SWAP_CHAIN_OUTPUTS: DiagnosticId =
+    pub const SURFACE_FRAMES: DiagnosticId =
         DiagnosticId::from_u128(112048874168736161226721327099863374234);
     pub const TEXTURES: DiagnosticId =
         DiagnosticId::from_u128(305955424195390184883220102469231911115);
@@ -47,10 +45,8 @@ impl WgpuResourceDiagnosticsPlugin {
             10,
         ));
 
-        diagnostics.add(Diagnostic::new(Self::SWAP_CHAINS, "swap_chains", 10));
-
         diagnostics.add(Diagnostic::new(
-            Self::SWAP_CHAIN_OUTPUTS,
+            Self::SURFACE_FRAMES,
             "swap_chain_outputs",
             10,
         ));
@@ -99,19 +95,10 @@ impl WgpuResourceDiagnosticsPlugin {
         );
 
         diagnostics.add_measurement(
-            Self::SWAP_CHAINS,
+            Self::SURFACE_FRAMES,
             render_resource_context
                 .resources
-                .window_swap_chains
-                .read()
-                .len() as f64,
-        );
-
-        diagnostics.add_measurement(
-            Self::SWAP_CHAIN_OUTPUTS,
-            render_resource_context
-                .resources
-                .swap_chain_frames
+                .surface_frames
                 .read()
                 .len() as f64,
         );

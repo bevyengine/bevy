@@ -66,7 +66,7 @@ impl Shader {
     pub fn reflect(&self) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
-            Shader::Wgsl(source) => naga::front::wgsl::parse_str(&source)?,
+            Shader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
             Shader::Glsl(_source) => unimplemented!("GLSL reflection not implemented"),
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,

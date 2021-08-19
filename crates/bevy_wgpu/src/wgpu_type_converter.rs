@@ -640,9 +640,9 @@ impl WgpuFrom<SamplerBorderColor> for wgpu::SamplerBorderColor {
     }
 }
 
-impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
+impl WgpuFrom<&Window> for wgpu::SurfaceConfiguration {
     fn from(window: &Window) -> Self {
-        wgpu::SwapChainDescriptor {
+        wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
             width: window.physical_width().max(1),

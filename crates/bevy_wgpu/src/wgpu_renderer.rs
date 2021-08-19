@@ -129,7 +129,7 @@ impl WgpuRenderer {
         let render_resource_context = world
             .get_resource::<Box<dyn RenderResourceContext>>()
             .unwrap();
-        render_resource_context.drop_all_swap_chain_textures();
+        render_resource_context.drop_all_surface_frames();
         render_resource_context.remove_stale_bind_groups();
     }
 }
