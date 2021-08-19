@@ -4,11 +4,15 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use futures_lite::future::{block_on, poll_once};
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, RwLock},
+    time::{Duration, Instant},
+};
 
 const TASK_DURATION_SEC: f32 = 0.5;
 const FPS: f64 = 120.0;
 const FRAME_STEP: f64 = 1.0 / FPS;
+const N_STEPS: usize = 10;
 const N_TASKS: usize = 100000;
 
 struct FrameCounter {
@@ -27,6 +31,16 @@ struct FrameCounter {
 // [handle_tasks_par]    n_frames executed: 332, avg fps: 26.2(target:120), duration: 12.675s
 // [handle_tasks_par_2]  n_frames executed: 252, avg fps: 22.1(target:120), duration: 11.389s
 fn main() {
+    App::new()
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+            FRAME_STEP,
+        )))
+        .insert_resource(FrameCounter { n_frames: 0 })
+        .add_plugins(MinimalPlugins)
+        .add_startup_system(spawn_tasks_no_poll_once)
+        .add_system_to_stage(CoreStage::First, count_frame)
+        .add_system(handle_tasks_no_poll_once)
+        .run();
     for handle_tasks_system in [handle_tasks, handle_tasks_par, handle_tasks_par_2] {
         App::new()
             .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
@@ -42,7 +56,7 @@ fn main() {
 }
 
 fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
-    for step in 0..10 {
+    for step in 0..N_STEPS {
         for _i in 0..N_TASKS {
             let task = thread_pool.spawn(async move {
                 let start_time = Instant::now();
@@ -155,4 +169,68 @@ fn print_statistics(name: &str, frame_counter: &Res<FrameCounter>, time: &Res<Ti
         duration_sec,
         width = 22,
     );
+}
+
+#[derive(Clone)]
+struct TaskWrapper<T> {
+    pub result: Arc<RwLock<Option<T>>>,
+}
+
+impl<T> TaskWrapper<T> {
+    pub fn new() -> Self {
+        Self {
+            result: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    pub async fn register(&mut self, t: impl std::future::Future<Output = T>) {
+        let ret = t.await;
+        let mut lock = self.result.write().unwrap();
+        *lock = Some(ret);
+    }
+}
+
+fn spawn_tasks_no_poll_once(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+    for step in 0..N_STEPS {
+        for _i in 0..N_TASKS {
+            let wrapper = TaskWrapper::<()>::new();
+            let mut wrapper_clone = wrapper.clone();
+            let task = thread_pool.spawn(async move {
+                wrapper_clone
+                    .register(async move {
+                        let start_time = Instant::now();
+                        let duration = Duration::from_secs_f32(TASK_DURATION_SEC * (step as f32));
+                        while Instant::now() - start_time < duration {
+                            futures_timer::Delay::new(Duration::from_secs_f32(0.1)).await;
+                        }
+                    })
+                    .await;
+            });
+            commands.spawn().insert(wrapper.clone()).insert(task);
+        }
+    }
+}
+
+fn handle_tasks_no_poll_once(
+    mut commands: Commands,
+    transform_tasks: Query<(Entity, &TaskWrapper<()>)>,
+    mut app_exit_events: EventWriter<AppExit>,
+    time: Res<Time>,
+    frame_counter: Res<FrameCounter>,
+) {
+    let mut n_tasks = 0;
+    for (entity, task) in transform_tasks.iter() {
+        n_tasks += 1;
+        let lock = task.result.read().unwrap();
+        if lock.is_some() {
+            commands
+                .entity(entity)
+                .remove::<TaskWrapper<()>>()
+                .remove::<Task<()>>();
+        }
+    }
+    if n_tasks == 0 {
+        print_statistics("handle_tasks_no_poll_once", &frame_counter, &time);
+        app_exit_events.send(AppExit);
+    }
 }
