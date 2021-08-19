@@ -110,8 +110,8 @@ struct TableInfo {
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
-    pub swapped_entity: Option<Entity>,
-    pub table_row: usize,
+    pub(crate) swapped_entity: Option<Entity>,
+    pub(crate) table_row: usize,
 }
 
 pub(crate) struct ArchetypeComponentInfo {
