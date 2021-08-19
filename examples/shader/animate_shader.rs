@@ -13,10 +13,10 @@ use bevy::{
 /// This example shows how to animate a shader, by passing the global `time.seconds_since_startup()`
 /// via a 'TimeComponent` to the shader.
 pub fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(animate_shader.system())
+        .add_startup_system(setup)
+        .add_system(animate_shader)
         .run();
 }
 

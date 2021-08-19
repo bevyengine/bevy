@@ -131,7 +131,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    type Item = <Q::Fetch as Fetch<'w>>::Item;
+    type Item = <Q::Fetch as Fetch<'w, 's>>::Item;
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -279,7 +279,7 @@ where
     /// It is always safe for shared access.
     unsafe fn fetch_next_aliased_unchecked<'a>(
         &mut self,
-    ) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
+    ) -> Option<[<Q::Fetch as Fetch<'a, 's>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -290,16 +290,12 @@ where
 
         // first, iterate from last to first until next item is found
         'outer: for i in (0..K).rev() {
-            match self.cursors[i].next(&self.tables, &self.archetypes, &self.query_state) {
+            match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
                     // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone();
-                        match self.cursors[j].next(
-                            &self.tables,
-                            &self.archetypes,
-                            &self.query_state,
-                        ) {
+                        match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
                             None => return None,
@@ -313,7 +309,7 @@ where
         }
 
         // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a>>::Item>; K] =
+        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a, 's>>::Item>; K] =
             MaybeUninit::uninit().assume_init();
 
         for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
@@ -321,15 +317,15 @@ where
         }
 
         // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let values: [<Q::Fetch as Fetch<'a>>::Item; K] =
-            (&values as *const _ as *const [<Q::Fetch as Fetch<'a>>::Item; K]).read();
+        let values: [<Q::Fetch as Fetch<'a, 's>>::Item; K] =
+            (&values as *const _ as *const [<Q::Fetch as Fetch<'a, 's>>::Item; K]).read();
 
         Some(values)
     }
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_>>::Item; K]>
+    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_, 's>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -350,7 +346,7 @@ where
     Q::Fetch: Clone + ReadOnlyFetch,
     F::Fetch: Clone + FilterFetch + ReadOnlyFetch,
 {
-    type Item = [<Q::Fetch as Fetch<'w>>::Item; K];
+    type Item = [<Q::Fetch as Fetch<'w, 's>>::Item; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -480,7 +476,7 @@ where
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
+    unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
         if self.current_index > 0 {
             if self.is_dense {
                 Some(self.fetch.table_fetch(self.current_index - 1))
@@ -501,7 +497,7 @@ where
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
-    ) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
+    ) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
         if self.is_dense {
             loop {
                 if self.current_index == self.current_len {

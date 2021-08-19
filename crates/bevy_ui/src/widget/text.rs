@@ -2,7 +2,7 @@ use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or, With, Without},
+    query::{Changed, Or, QueryState, With, Without},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::Size;
@@ -53,9 +53,9 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
-        Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize)>,
+        QueryState<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        QueryState<Entity, (With<Text>, With<Style>)>,
+        QueryState<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
@@ -86,7 +86,7 @@ pub fn text_system(
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
-    let query = text_queries.q2_mut();
+    let mut query = text_queries.q2();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Size::new(

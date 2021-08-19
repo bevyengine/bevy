@@ -4,9 +4,9 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(keyboard_input_system.system())
+        .add_system(keyboard_input_system)
         .run();
 }
 

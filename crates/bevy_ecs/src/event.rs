@@ -68,7 +68,7 @@ enum State {
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`AppBuilder::add_event`]. [EventReader]s are expected to read events from this collection at
+/// [`App::add_event`]. [EventReader]s are expected to read events from this collection at
 /// least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
@@ -115,9 +115,9 @@ enum State {
 /// An alternative call pattern would be to call [Events::update] manually across frames to control
 /// when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`AppBuilder::add_event`].
+/// but can be done by adding your event as a resource instead of using [`App::add_event`].
 ///
-/// [`AppBuilder::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.AppBuilder.html#method.add_event
+/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
@@ -151,18 +151,20 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
+pub struct EventReader<'w, 's, T: Component> {
+    last_event_count: Local<'s, (usize, PhantomData<T>)>,
+    events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
+pub struct EventWriter<'w, 's, T: Component> {
+    events: ResMut<'w, Events<T>>,
+    #[system_param(ignore)]
+    marker: PhantomData<&'s usize>,
 }
 
-impl<'a, T: Component> EventWriter<'a, T> {
+impl<'w, 's, T: Component> EventWriter<'w, 's, T> {
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -252,7 +254,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: Component> EventReader<'a, T> {
+impl<'w, 's, T: Component> EventReader<'w, 's, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.

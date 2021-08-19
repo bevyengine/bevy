@@ -27,7 +27,7 @@ impl AssetLoader for SceneLoader {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
-            let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
+            let mut deserializer = ron::de::Deserializer::from_bytes(bytes)?;
             let scene_deserializer = SceneDeserializer {
                 type_registry: &*self.type_registry.read(),
             };
