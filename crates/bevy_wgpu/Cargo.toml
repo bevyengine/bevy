@@ -25,7 +25,7 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-wgpu = "0.9"
+wgpu = "0.10"
 futures-lite = "1.4.0"
 crossbeam-channel = "0.5.0"
 crossbeam-utils = "0.8.1"
