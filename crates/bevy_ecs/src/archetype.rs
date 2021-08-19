@@ -54,7 +54,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_add_bundle(
+    pub fn insert_add_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
@@ -75,7 +75,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
+    pub fn insert_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
@@ -88,7 +88,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle_intersection(
+    pub fn insert_remove_bundle_intersection(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,

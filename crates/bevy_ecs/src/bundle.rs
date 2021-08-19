@@ -304,7 +304,7 @@ impl BundleInfo {
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // the archetype does not change when we add this bundle
-            edges.set_add_bundle(self.id, archetype_id, bundle_status);
+            edges.insert_add_bundle(self.id, archetype_id, bundle_status);
             archetype_id
         } else {
             let table_id;
@@ -343,7 +343,7 @@ impl BundleInfo {
             let new_archetype_id =
                 archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
             // add an edge from the old archetype to the new archetype
-            archetypes[archetype_id].edges_mut().set_add_bundle(
+            archetypes[archetype_id].edges_mut().insert_add_bundle(
                 self.id,
                 new_archetype_id,
                 bundle_status,

@@ -660,7 +660,7 @@ unsafe fn remove_bundle_from_archetype(
                     // graph
                     current_archetype
                         .edges_mut()
-                        .set_remove_bundle(bundle_info.id, None);
+                        .insert_remove_bundle(bundle_info.id, None);
                     return None;
                 }
             }
@@ -699,11 +699,11 @@ unsafe fn remove_bundle_from_archetype(
     if intersection {
         current_archetype
             .edges_mut()
-            .set_remove_bundle_intersection(bundle_info.id, result);
+            .insert_remove_bundle_intersection(bundle_info.id, result);
     } else {
         current_archetype
             .edges_mut()
-            .set_remove_bundle(bundle_info.id, result);
+            .insert_remove_bundle(bundle_info.id, result);
     }
     result
 }
