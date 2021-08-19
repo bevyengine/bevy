@@ -1409,7 +1409,55 @@ mod tests {
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
 
-        world.insert_or_spawn_batch(values);
+        world.insert_or_spawn_batch(values).unwrap();
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "new entity was spawned and received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "new entity was spawned and received C component"
+        );
+    }
+
+    #[test]
+    fn insert_or_spawn_batch_invalid() {
+        let mut world = World::default();
+        let e0 = world.spawn().insert(A(0)).id();
+        let e1 = Entity::new(1);
+        let e2 = world.spawn().id();
+        let invalid_e2 = Entity {
+            generation: 1,
+            id: e2.id,
+        };
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
+
+        let result = world.insert_or_spawn_batch(values);
+
+        assert_eq!(
+            result,
+            Err(vec![invalid_e2]),
+            "e2 failed to be spawned or inserted into"
+        );
 
         assert_eq!(
             world.get::<A>(e0),

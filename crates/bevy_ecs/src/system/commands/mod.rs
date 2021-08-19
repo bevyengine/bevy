@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, error};
 pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
@@ -353,7 +353,13 @@ where
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
     fn write(self, world: &mut World) {
-        world.insert_or_spawn_batch(self.bundles_iter);
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
+            error!(
+                "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
+                std::any::type_name::<B>(),
+                invalid_entities
+            );
+        }
     }
 }
 

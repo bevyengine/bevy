@@ -706,6 +706,9 @@ impl World {
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
     /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
     /// This is faster than doing equivalent operations one-by-one.
+    /// Returns [Ok] if all entities were successfully inserted into or spawned. Otherwise it returns an [Err]
+    /// with a list of entities that could not be spawned or inserted into. A "spawn or insert" operation can
+    /// only fail if an [Entity] is passed in with an "invalid generation" that conflicts with an existing [Entity].
     ///
     /// # Note
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
@@ -725,7 +728,7 @@ impl World {
     ///
     /// assert_eq!(world.get::<f64>(e0), Some(&0.0));
     /// ```
-    pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I)
+    pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -757,6 +760,8 @@ impl World {
             &mut self.storages,
             change_tick,
         ));
+
+        let mut invalid_entities = Vec::new();
         for (entity, bundle) in iter {
             match spawn_or_insert
                 .entities()
@@ -807,9 +812,15 @@ impl World {
                     };
                 }
                 AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
-                    todo!("This should probably return an error!")
+                    invalid_entities.push(entity);
                 }
             }
+        }
+
+        if invalid_entities.is_empty() {
+            Ok(())
+        } else {
+            Err(invalid_entities)
         }
     }
 
