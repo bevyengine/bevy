@@ -34,6 +34,11 @@ pub enum AllocAtWithoutReplacement {
 
 impl Entity {
     /// Creates a new entity reference with a generation of 0.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
