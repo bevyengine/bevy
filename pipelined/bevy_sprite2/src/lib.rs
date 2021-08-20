@@ -16,7 +16,9 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_render2::{render_graph::RenderGraph, render_phase::DrawFunctions, RenderStage};
+use bevy_render2::{
+    render_graph::RenderGraph, render_phase::DrawFunctions, RenderStage, RenderSubApp,
+};
 
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -26,7 +28,7 @@ impl Plugin for SpritePlugin {
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
             .add_system_to_stage(CoreStage::PostUpdate, sprite_auto_resize_system);
-        let render_app = app.sub_app_mut(0);
+        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
         render_app
             .init_resource::<ExtractedSprites>()
             .add_system_to_stage(RenderStage::Extract, render::extract_atlases)
@@ -42,7 +44,7 @@ impl Plugin for SpritePlugin {
             .unwrap()
             .write()
             .add(draw_sprite);
-        let render_world = app.sub_app_mut(0).world.cell();
+        let render_world = app.sub_app_mut(RenderSubApp).unwrap().world.cell();
         let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node("sprite", SpriteNode);
         graph

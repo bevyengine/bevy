@@ -1,6 +1,6 @@
 mod enum_variant_meta;
-pub mod slab;
 pub mod label;
+pub mod slab;
 
 pub use ahash::AHasher;
 pub use enum_variant_meta::*;

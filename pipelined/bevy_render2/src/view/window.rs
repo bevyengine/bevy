@@ -2,7 +2,7 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    RenderStage,
+    RenderStage, RenderSubApp,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -19,7 +19,7 @@ pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(0);
+        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
         render_app
             .init_resource::<WindowSurfaces>()
             .init_resource::<NonSendMarker>()

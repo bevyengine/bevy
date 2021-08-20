@@ -48,9 +48,9 @@ where
 }
 
 /// Macro to define a new label trait
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// # use bevy_utils::define_label;
 /// define_label!(MyNewLabelTrait);
@@ -58,7 +58,9 @@ where
 #[macro_export]
 macro_rules! define_label {
     ($label_trait_name:ident) => {
-        pub trait $label_trait_name: ::bevy_utils::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static {
+        pub trait $label_trait_name:
+            ::bevy_utils::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static
+        {
             #[doc(hidden)]
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
         }
