@@ -223,6 +223,10 @@ path = "examples/3d/wireframe.rs"
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
+[[example]]
+name = "custom_mesh"
+path = "examples/3d/custom_mesh.rs"
+
 # Application
 [[example]]
 name = "custom_loop"
