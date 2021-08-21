@@ -102,10 +102,8 @@ impl Plugin for ScheduleRunnerPlugin {
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        while let Ok(delay) = tick(&mut app, wait) {
-                            if let Some(delay) = delay {
+                        while let Ok( Some(delay) ) = tick(&mut app, wait) {
                                 std::thread::sleep(delay);
-                            }
                         }
                     }
 
