@@ -1,4 +1,7 @@
-use crate::{AmbientLight, DirectionalLight, ExtractedMeshes, MeshMeta, PbrShaders, PointLight};
+use crate::{
+    AmbientLight, DirectionalLight, DirectionalLightShadowMap, ExtractedMeshes, MeshMeta,
+    PbrShaders, PointLight, PointLightShadowMap,
+};
 use bevy_core_pipeline::Transparent3dPhase;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
@@ -34,6 +37,8 @@ pub struct ExtractedPointLight {
     shadow_normal_bias: f32,
 }
 
+pub type ExtractedPointLightShadowMap = PointLightShadowMap;
+
 pub struct ExtractedDirectionalLight {
     color: Color,
     illuminance: f32,
@@ -42,6 +47,8 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
 }
+
+pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, Default, Debug)]
@@ -81,16 +88,8 @@ pub struct GpuLights {
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_POINT_LIGHTS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-pub const POINT_SHADOW_SIZE: Extent3d = Extent3d {
-    width: 1024,
-    height: 1024,
-    depth_or_array_layers: (6 * MAX_POINT_LIGHTS) as u32,
-};
-pub const DIRECTIONAL_SHADOW_SIZE: Extent3d = Extent3d {
-    width: 4096,
-    height: 4096,
-    depth_or_array_layers: MAX_DIRECTIONAL_LIGHTS as u32,
-};
+pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHTS) as u32;
+pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowShaders {
@@ -222,6 +221,8 @@ impl FromWorld for ShadowShaders {
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
+    point_light_shadow_map: Res<PointLightShadowMap>,
+    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     point_lights: Query<(Entity, &PointLight, &GlobalTransform)>,
     directional_lights: Query<(Entity, &DirectionalLight, &GlobalTransform)>,
 ) {
@@ -229,6 +230,10 @@ pub fn extract_lights(
         color: ambient_light.color,
         brightness: ambient_light.brightness,
     });
+    commands.insert_resource::<ExtractedPointLightShadowMap>(point_light_shadow_map.clone());
+    commands.insert_resource::<ExtractedDirectionalLightShadowMap>(
+        directional_light_shadow_map.clone(),
+    );
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -236,7 +241,7 @@ pub fn extract_lights(
     // point_light_texel_size = 2.0 / cube face width in texels
     // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
-    let point_light_texel_size = 2.0 / POINT_SHADOW_SIZE.width as f32;
+    let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
     for (entity, point_light, transform) in point_lights.iter() {
         commands.get_or_spawn(entity).insert(ExtractedPointLight {
             color: point_light.color,
@@ -265,7 +270,8 @@ pub fn extract_lights(
                 directional_light.shadow_projection.top
                     - directional_light.shadow_projection.bottom,
             );
-        let directional_light_texel_size = largest_dimension / DIRECTIONAL_SHADOW_SIZE.width as f32;
+        let directional_light_texel_size =
+            largest_dimension / directional_light_shadow_map.size as f32;
         commands
             .get_or_spawn(entity)
             .insert(ExtractedDirectionalLight {
@@ -366,6 +372,8 @@ pub fn prepare_lights(
     mut light_meta: ResMut<LightMeta>,
     views: Query<Entity, With<RenderPhase<Transparent3dPhase>>>,
     ambient_light: Res<ExtractedAmbientLight>,
+    point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
+    directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
     point_lights: Query<&ExtractedPointLight>,
     directional_lights: Query<&ExtractedDirectionalLight>,
 ) {
@@ -380,7 +388,11 @@ pub fn prepare_lights(
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                size: POINT_SHADOW_SIZE,
+                size: Extent3d {
+                    width: point_light_shadow_map.size as u32,
+                    height: point_light_shadow_map.size as u32,
+                    depth_or_array_layers: POINT_SHADOW_LAYERS,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -392,7 +404,11 @@ pub fn prepare_lights(
         let directional_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                size: DIRECTIONAL_SHADOW_SIZE,
+                size: Extent3d {
+                    width: directional_light_shadow_map.size as u32,
+                    height: directional_light_shadow_map.size as u32,
+                    depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -451,8 +467,8 @@ pub fn prepare_lights(
                             ),
                         },
                         ExtractedView {
-                            width: POINT_SHADOW_SIZE.width,
-                            height: POINT_SHADOW_SIZE.height,
+                            width: point_light_shadow_map.size as u32,
+                            height: point_light_shadow_map.size as u32,
                             transform: view_translation * view_rotation,
                             projection,
                         },
@@ -537,8 +553,8 @@ pub fn prepare_lights(
                         pass_name: format!("shadow pass directional light {}", i),
                     },
                     ExtractedView {
-                        width: DIRECTIONAL_SHADOW_SIZE.width,
-                        height: DIRECTIONAL_SHADOW_SIZE.height,
+                        width: directional_light_shadow_map.size as u32,
+                        height: directional_light_shadow_map.size as u32,
                         transform: GlobalTransform::from_matrix(view.inverse()),
                         projection,
                     },

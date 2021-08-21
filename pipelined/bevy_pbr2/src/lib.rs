@@ -28,7 +28,9 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(StandardMaterialPlugin)
-            .init_resource::<AmbientLight>();
+            .init_resource::<AmbientLight>()
+            .init_resource::<DirectionalLightShadowMap>()
+            .init_resource::<PointLightShadowMap>();
 
         let render_app = app.sub_app(RenderApp);
         render_app

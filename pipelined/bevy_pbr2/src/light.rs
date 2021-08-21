@@ -49,6 +49,17 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.5;
 }
 
+#[derive(Clone, Debug)]
+pub struct PointLightShadowMap {
+    pub size: usize,
+}
+
+impl Default for PointLightShadowMap {
+    fn default() -> Self {
+        Self { size: 1024 }
+    }
+}
+
 /// A Directional light.
 ///
 /// Directional lights don't exist in reality but they are a good
@@ -111,6 +122,17 @@ impl Default for DirectionalLight {
 impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+}
+
+#[derive(Clone, Debug)]
+pub struct DirectionalLightShadowMap {
+    pub size: usize,
+}
+
+impl Default for DirectionalLightShadowMap {
+    fn default() -> Self {
+        Self { size: 4096 }
+    }
 }
 
 /// Ambient light.
