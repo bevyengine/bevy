@@ -130,10 +130,7 @@ impl AssetServer {
         HandleUntyped::strong(id.into(), sender)
     }
 
-    fn get_asset_loader(
-        &self,
-        extension: &str,
-    ) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
+    fn get_asset_loader(&self, extension: &str) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
         let index = {
             // scope map to drop lock as soon as possible
             let map = self.server.extension_to_loader_index.read();
