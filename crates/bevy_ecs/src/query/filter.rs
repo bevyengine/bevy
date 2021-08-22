@@ -11,6 +11,53 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+///
+/// This trait is automatically implemented for every type that implements [`Fetch`] trait and
+/// specifies `bool` as the associated type for [`Fetch::Item`].
+///
+/// Using [`derive@super::FilterFetch`] macro allows creating custom query filters.
+/// You may want to implement a custom query filter for the following reasons:
+/// - Nested query filters enable the composition pattern and makes them easier to re-use.
+/// - You can bypass the limit of 15 components that exists for query filters declared as tuples.
+///
+/// Implementing the trait manually can allow for a fundamentally new type of behaviour.
+///
+/// ## Derive
+///
+/// This trait can be derived with the [`derive@super::FilterFetch`] macro.
+/// To do so, all fields in the struct must be filters themselves (their [`WorldQuery::Fetch`]
+/// associated types should implement [`FilterFetch`]).
+///
+/// **Note:** currently, the macro only supports named structs.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::{query::FilterFetch, component::Component};
+///
+/// #[derive(Component)]
+/// struct Foo;
+/// #[derive(Component)]
+/// struct Bar;
+/// #[derive(Component)]
+/// struct Baz;
+/// #[derive(Component)]
+/// struct Qux;
+///
+/// #[derive(FilterFetch)]
+/// struct MyFilter<T: Component, P: Component> {
+///     _foo: With<Foo>,
+///     _bar: With<Bar>,
+///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
+///     _generic_tuple: (With<T>, Without<P>),
+///     _tp: std::marker::PhantomData<(T, P)>,
+/// }
+///
+/// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
+///     for _ in query.iter() {}
+/// }
+///
+/// # my_system.system();
+/// ```
 pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
     /// # Safety
     ///
