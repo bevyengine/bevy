@@ -46,9 +46,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
     out.world_position = world_position;
     out.clip_position = view.view_proj * world_position;
-    // FIXME: The inverse transpose of the model matrix should be used to correctly handle scaling
-    // of normals
-    out.world_normal = mat3x3<f32>(mesh.model.x.xyz, mesh.model.y.xyz, mesh.model.z.xyz) * vertex.normal;
+    out.world_normal = mat3x3<f32>(
+        mesh.inverse_transpose_model.x.xyz,
+        mesh.inverse_transpose_model.y.xyz,
+        mesh.inverse_transpose_model.z.xyz
+    ) * vertex.normal;
     return out;
 }
 
