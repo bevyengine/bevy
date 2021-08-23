@@ -25,6 +25,7 @@ pub struct ExtractedAmbientLight {
 
 pub struct ExtractedPointLight {
     color: Color,
+    /// luminous intensity in lumens per steradian
     intensity: f32,
     range: f32,
     radius: f32,
