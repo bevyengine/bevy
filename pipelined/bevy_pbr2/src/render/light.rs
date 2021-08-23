@@ -120,7 +120,7 @@ impl FromWorld for ShadowShaders {
                         has_dynamic_offset: true,
                         // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
                         // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(80),
+                        min_binding_size: BufferSize::new(336),
                     },
                     count: None,
                 },

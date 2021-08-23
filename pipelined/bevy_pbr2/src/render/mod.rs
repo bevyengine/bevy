@@ -53,7 +53,7 @@ impl FromWorld for PbrShaders {
                         has_dynamic_offset: true,
                         // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
                         // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(80),
+                        min_binding_size: BufferSize::new(336),
                     },
                     count: None,
                 },
@@ -225,7 +225,7 @@ impl FromWorld for PbrShaders {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(80),
+                    min_binding_size: BufferSize::new(144),
                 },
                 count: None,
             }],
@@ -455,6 +455,7 @@ struct MeshDrawInfo {
 #[derive(Debug, AsStd140)]
 pub struct MeshUniform {
     model: Mat4,
+    inverse_transpose_model: Mat4,
     flags: u32,
 }
 
@@ -486,13 +487,16 @@ pub fn prepare_meshes(
         .transform_uniforms
         .reserve_and_clear(extracted_meshes.meshes.len(), &render_device);
     for extracted_mesh in extracted_meshes.meshes.iter_mut() {
+        let model = extracted_mesh.transform;
+        let inverse_transpose_model = model.inverse().transpose();
         let flags = if extracted_mesh.receives_shadows {
             MeshFlags::SHADOW_RECEIVER
         } else {
             MeshFlags::NONE
         };
         extracted_mesh.transform_binding_offset = mesh_meta.transform_uniforms.push(MeshUniform {
-            model: extracted_mesh.transform,
+            model,
+            inverse_transpose_model,
             flags: flags.bits,
         });
     }
