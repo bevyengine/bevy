@@ -110,6 +110,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
+                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::RED,
                 ..Default::default()
             },
@@ -136,6 +137,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(-1.0, 2.0, 0.0),
             point_light: PointLight {
+                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 ..Default::default()
             },
@@ -162,6 +164,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
+                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::BLUE,
                 ..Default::default()
             },

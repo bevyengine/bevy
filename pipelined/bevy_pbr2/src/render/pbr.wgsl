@@ -349,17 +349,20 @@ fn point_light(
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
+    // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
     // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
     // where
     // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
-    // Φ is light intensity
-
+    // Φ is luminous power in lumens
     // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
-    // It's not 100% clear where the 1/4π goes in the derivation, but we follow the filament shader and leave it out
 
-    // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
+    // For a point light, luminous intensity, I, in lumens per steradian is given by:
+    // I = Φ / 4 π
+    // The derivation of this can be seen here: https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+
+    // NOTE: light.color.rgb is premultiplied with light.intensity / 4 π (which would be the luminous intensity) on the CPU
+
     // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
-    // light.color.rgb is premultiplied with light.intensity on the CPU
 
     return ((diffuse + specular_light) * light.color.rgb) * (rangeAttenuation * NoL);
 }
