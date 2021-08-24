@@ -12,7 +12,7 @@ pub use bundle::*;
 pub use camera::*;
 pub use projection::*;
 
-use crate::{view::ExtractedView, RenderStage, RenderSubApp};
+use crate::{view::ExtractedView, RenderApp, RenderStage};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::prelude::*;
 
@@ -40,8 +40,7 @@ impl Plugin for CameraPlugin {
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<PerspectiveProjection>,
             );
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
-        render_app
+        app.sub_app(RenderApp)
             .init_resource::<ExtractedCameraNames>()
             .add_system_to_stage(RenderStage::Extract, extract_cameras);
     }

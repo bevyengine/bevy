@@ -1,3 +1,5 @@
+pub use bevy_derive::AppLabel;
+
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
@@ -10,13 +12,10 @@ use bevy_ecs::{
 use bevy_utils::{tracing::debug, HashMap};
 use std::{fmt::Debug, hash::Hash};
 
-pub use bevy_app_macros::SubAppLabel;
-
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-bevy_utils::define_label!(SubAppLabel);
-type BoxedSubAppLabel = Box<dyn SubAppLabel>;
+bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -45,7 +44,7 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    sub_apps: HashMap<BoxedSubAppLabel, SubApp>,
+    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
 struct SubApp {
@@ -594,7 +593,7 @@ impl App {
 
     pub fn add_sub_app(
         &mut self,
-        label: impl SubAppLabel,
+        label: impl AppLabel,
         app: App,
         f: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
@@ -608,11 +607,21 @@ impl App {
         self
     }
 
-    pub fn sub_app_mut(&mut self, label: impl SubAppLabel) -> Option<&mut App> {
-        let label = Box::new(label) as BoxedSubAppLabel;
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
+    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+        }
+    }
+
+    /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
+    /// an [Err] containing the given label.
+    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
         self.sub_apps
-            .get_mut(&label)
+            .get_mut((&label) as &dyn AppLabel)
             .map(|sub_app| &mut sub_app.app)
+            .ok_or(label)
     }
 }
 

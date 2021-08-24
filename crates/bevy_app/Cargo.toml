@@ -23,7 +23,6 @@ bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
-bevy_app_macros = { path = "./macros", version = "0.5.0" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     renderer::{RenderDevice, RenderQueue},
-    RenderStage, RenderSubApp,
+    RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
@@ -31,8 +31,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
-        render_app
+        app.sub_app(RenderApp)
             .init_resource::<ExtractedAssets<A>>()
             .init_resource::<RenderAssets<A>>()
             .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)

@@ -7,7 +7,7 @@ use crate::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::DynamicUniformVec,
     renderer::{RenderContext, RenderDevice},
-    RenderStage, RenderSubApp,
+    RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -22,7 +22,7 @@ impl ViewPlugin {
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
+        let render_app = app.sub_app(RenderApp);
         render_app
             .init_resource::<ViewMeta>()
             .add_system_to_stage(RenderStage::Prepare, prepare_views);
