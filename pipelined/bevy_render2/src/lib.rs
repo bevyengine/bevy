@@ -24,7 +24,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, Plugin, SubAppLabel};
+use bevy_app::{App, Plugin, AppLabel};
 use bevy_ecs::prelude::*;
 
 #[derive(Default)]
@@ -74,7 +74,7 @@ impl DerefMut for RenderWorld {
 }
 
 /// Label for the rendering sub-app
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SubAppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
 /// A "scratch" world used to avoid allocating new worlds every frame when

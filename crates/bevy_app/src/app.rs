@@ -10,12 +10,12 @@ use bevy_ecs::{
 use bevy_utils::{tracing::debug, HashMap};
 use std::{fmt::Debug, hash::Hash};
 
-pub use bevy_app_macros::SubAppLabel;
+pub use bevy_app_macros::AppLabel;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-bevy_utils::define_label!(SubAppLabel);
+bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -44,7 +44,7 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn SubAppLabel>, SubApp>,
+    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
 struct SubApp {
@@ -593,7 +593,7 @@ impl App {
 
     pub fn add_sub_app(
         &mut self,
-        label: impl SubAppLabel,
+        label: impl AppLabel,
         app: App,
         f: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
@@ -607,14 +607,14 @@ impl App {
         self
     }
 
-    pub fn sub_app(&mut self, label: impl SubAppLabel) -> &mut App {
+    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
         self.get_sub_app(label)
             .expect("SubApp with the given label does not exist")
     }
 
-    pub fn get_sub_app(&mut self, label: impl SubAppLabel) -> Option<&mut App> {
+    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Option<&mut App> {
         self.sub_apps
-            .get_mut((&label) as &dyn SubAppLabel)
+            .get_mut((&label) as &dyn AppLabel)
             .map(|sub_app| &mut sub_app.app)
     }
 }
