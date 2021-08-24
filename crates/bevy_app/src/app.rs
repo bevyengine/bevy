@@ -1,3 +1,5 @@
+pub use bevy_derive::AppLabel;
+
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
@@ -9,8 +11,6 @@ use bevy_ecs::{
 };
 use bevy_utils::{tracing::debug, HashMap};
 use std::{fmt::Debug, hash::Hash};
-
-pub use bevy_app_macros::AppLabel;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;

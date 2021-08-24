@@ -24,7 +24,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, Plugin, AppLabel};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::prelude::*;
 
 #[derive(Default)]
