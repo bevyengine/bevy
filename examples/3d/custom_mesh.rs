@@ -20,13 +20,25 @@ fn setup(
     let right = Vec3::new(1.0, 0.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
-    let positions = vec![origin + up, origin + up + right, origin, origin + right];
+    #[rustfmt::skip]
+    let positions = vec![
+        origin + up, 
+        origin + up + right, 
+        origin, 
+        origin + right
+        ];
 
     let origin = Vec2::new(0.0, 0.0);
     let right = Vec2::new(1.0, 0.0);
     let up = Vec2::new(0.0, 1.0);
 
-    let uvs = vec![origin + up, origin + up + right, origin, origin + right];
+    #[rustfmt::skip]
+    let uvs = vec![
+        origin + up, 
+        origin + up + right, 
+        origin, 
+        origin + right
+        ];
 
     let normals = vec![[0.0, 0.0, 1.0]; 4];
     let indices = Indices::U32(vec![0, 1, 2, 3, 2, 1]);
