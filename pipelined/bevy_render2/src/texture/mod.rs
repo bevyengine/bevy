@@ -13,7 +13,7 @@ pub use hdr_texture_loader::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
-use crate::{render_asset::RenderAssetPlugin, RenderStage, RenderSubApp};
+use crate::{render_asset::RenderAssetPlugin, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::AddAsset;
 
@@ -30,8 +30,7 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::default())
             .add_asset::<Image>();
 
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
-        render_app
+        app.sub_app(RenderApp)
             .init_resource::<TextureCache>()
             .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
     }

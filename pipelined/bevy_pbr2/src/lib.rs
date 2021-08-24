@@ -13,7 +13,7 @@ use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, DrawFunctions},
-    RenderStage, RenderSubApp,
+    RenderApp, RenderStage,
 };
 
 pub mod draw_3d_graph {
@@ -30,7 +30,7 @@ impl Plugin for PbrPlugin {
         app.add_plugin(StandardMaterialPlugin)
             .init_resource::<AmbientLight>();
 
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
+        let render_app = app.sub_app(RenderApp);
         render_app
             .add_system_to_stage(RenderStage::Extract, render::extract_meshes)
             .add_system_to_stage(RenderStage::Extract, render::extract_lights)

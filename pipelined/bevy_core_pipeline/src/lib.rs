@@ -20,7 +20,7 @@ use bevy_render2::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, ViewPlugin},
-    RenderStage, RenderSubApp, RenderWorld,
+    RenderApp, RenderStage, RenderWorld,
 };
 
 /// Resource that configures the clear color
@@ -74,7 +74,7 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>();
 
-        let render_app = app.sub_app_mut(RenderSubApp).unwrap();
+        let render_app = app.sub_app(RenderApp);
         render_app
             .add_system_to_stage(RenderStage::Extract, extract_clear_color)
             .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)

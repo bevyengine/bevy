@@ -16,7 +16,6 @@ pub use bevy_app_macros::SubAppLabel;
 use bevy_utils::tracing::info_span;
 
 bevy_utils::define_label!(SubAppLabel);
-type BoxedSubAppLabel = Box<dyn SubAppLabel>;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -45,7 +44,7 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    sub_apps: HashMap<BoxedSubAppLabel, SubApp>,
+    sub_apps: HashMap<Box<dyn SubAppLabel>, SubApp>,
 }
 
 struct SubApp {
@@ -608,10 +607,14 @@ impl App {
         self
     }
 
-    pub fn sub_app_mut(&mut self, label: impl SubAppLabel) -> Option<&mut App> {
-        let label = Box::new(label) as BoxedSubAppLabel;
+    pub fn sub_app(&mut self, label: impl SubAppLabel) -> &mut App {
+        self.get_sub_app(label)
+            .expect("SubApp with the given label does not exist")
+    }
+
+    pub fn get_sub_app(&mut self, label: impl SubAppLabel) -> Option<&mut App> {
         self.sub_apps
-            .get_mut(&label)
+            .get_mut((&label) as &dyn SubAppLabel)
             .map(|sub_app| &mut sub_app.app)
     }
 }

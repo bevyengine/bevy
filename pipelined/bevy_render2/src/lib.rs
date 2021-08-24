@@ -75,7 +75,7 @@ impl DerefMut for RenderWorld {
 
 /// Label for the rendering sub-app
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SubAppLabel)]
-pub struct RenderSubApp;
+pub struct RenderApp;
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
 // swapping out the Render World.
@@ -118,7 +118,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraph>()
             .init_resource::<DrawFunctions>();
 
-        app.add_sub_app(RenderSubApp, render_app, move |app_world, render_app| {
+        app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
             // reserve all existing app entities for use in render_app
             // they can only be spawned using `get_or_spawn()`
             let meta_len = app_world.entities().meta.len();
