@@ -26,10 +26,10 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
+use bevy_math::{Vec2, Vec3, Vec4};
 use bevy_utils::EnumVariantMeta;
 use std::convert::TryFrom;
 use thiserror::Error;
-use bevy_math::{Vec3, Vec2, Vec4};
 #[derive(Debug, Clone, Error)]
 #[error("cannot convert VertexAttributeValues::{variant} to {into}")]
 pub struct FromVertexAttributeError {
@@ -128,19 +128,19 @@ impl From<Vec<[u8; 4]>> for VertexAttributeValues {
 
 impl From<Vec<Vec4>> for VertexAttributeValues {
     fn from(vec: Vec<Vec4>) -> Self {
-        VertexAttributeValues::Float32x4(bytemuck::allocation::cast_vec(vec) )
+        VertexAttributeValues::Float32x4(bytemuck::allocation::cast_vec(vec))
     }
 }
 
 impl From<Vec<Vec3>> for VertexAttributeValues {
     fn from(vec: Vec<Vec3>) -> Self {
-        VertexAttributeValues::Float32x3(bytemuck::allocation::cast_vec(vec) )
+        VertexAttributeValues::Float32x3(bytemuck::allocation::cast_vec(vec))
     }
 }
 
 impl From<Vec<Vec2>> for VertexAttributeValues {
     fn from(vec: Vec<Vec2>) -> Self {
-        VertexAttributeValues::Float32x2(bytemuck::allocation::cast_vec(vec) )
+        VertexAttributeValues::Float32x2(bytemuck::allocation::cast_vec(vec))
     }
 }
 

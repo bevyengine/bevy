@@ -1,5 +1,5 @@
-use bevy::render::mesh::Indices;
 use bevy::prelude::*;
+use bevy::render::mesh::Indices;
 use bevy::render::pipeline::PrimitiveTopology;
 
 fn main() {
@@ -20,26 +20,16 @@ fn setup(
     let right = Vec3::new(1.0, 0.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
-    let positions = vec![
-        origin + up,
-        origin + up + right,
-        origin,
-        origin + right,
-    ];
+    let positions = vec![origin + up, origin + up + right, origin, origin + right];
 
     let origin = Vec2::new(0.0, 0.0);
     let right = Vec2::new(1.0, 0.0);
     let up = Vec2::new(0.0, 1.0);
 
-    let uvs = vec![
-        origin + up,
-        origin + up + right,
-        origin,
-        origin + right,
-    ];
+    let uvs = vec![origin + up, origin + up + right, origin, origin + right];
 
-    let normals = vec![ [0.0, 0.0, 1.0]; 4 ];
-    let indices = Indices::U32(vec![0,1,2,3,2,1]);
+    let normals = vec![[0.0, 0.0, 1.0]; 4];
+    let indices = Indices::U32(vec![0, 1, 2, 3, 2, 1]);
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.set_indices(Some(indices));
@@ -53,7 +43,7 @@ fn setup(
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..Default::default()
     });
-    
+
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
