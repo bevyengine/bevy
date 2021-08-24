@@ -1,8 +1,8 @@
 extern crate proc_macro;
 
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
@@ -10,7 +10,7 @@ use syn::{
     punctuated::Punctuated,
     token::Comma,
     Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Path, Result, Token,
+    Result, Token,
 };
 
 struct AllTuples {
@@ -436,46 +436,43 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-
-    derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("SystemLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("StageLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path.segments.push(format_ident!("StageLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("AmbiguitySetLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
-}
-
-fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
-    let ident = input.ident;
-    let ecs_path: Path = bevy_ecs_path();
-
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
-        where_token: Default::default(),
-        predicates: Default::default(),
-    });
-    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
-
-    quote! {
-        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
-                Box::new(Clone::clone(self))
-            }
-        }
-    }
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("RunCriteriaLabel").into());
+    derive_label(input, trait_path)
 }
 
 fn bevy_ecs_path() -> syn::Path {

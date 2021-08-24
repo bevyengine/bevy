@@ -7,11 +7,16 @@ use bevy_ecs::{
     },
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::{tracing::debug, HashMap};
 use std::{fmt::Debug, hash::Hash};
+
+pub use bevy_app_macros::SubAppLabel;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+
+bevy_utils::define_label!(SubAppLabel);
+type BoxedSubAppLabel = Box<dyn SubAppLabel>;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -40,7 +45,7 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    sub_apps: Vec<SubApp>,
+    sub_apps: HashMap<BoxedSubAppLabel, SubApp>,
 }
 
 struct SubApp {
@@ -77,7 +82,7 @@ impl App {
             world: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
-            sub_apps: Vec::new(),
+            sub_apps: HashMap::default(),
         }
     }
 
@@ -87,7 +92,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_guard = bevy_frame_update_span.enter();
         self.schedule.run(&mut self.world);
-        for sub_app in self.sub_apps.iter_mut() {
+        for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
         }
     }
@@ -589,19 +594,25 @@ impl App {
 
     pub fn add_sub_app(
         &mut self,
+        label: impl SubAppLabel,
         app: App,
         f: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
-        self.sub_apps.push(SubApp {
-            app,
-            runner: Box::new(f),
-        });
+        self.sub_apps.insert(
+            Box::new(label),
+            SubApp {
+                app,
+                runner: Box::new(f),
+            },
+        );
         self
     }
 
-    // TODO: use labels instead of indices
-    pub fn sub_app_mut(&mut self, index: usize) -> &mut App {
-        &mut self.sub_apps[index].app
+    pub fn sub_app_mut(&mut self, label: impl SubAppLabel) -> Option<&mut App> {
+        let label = Box::new(label) as BoxedSubAppLabel;
+        self.sub_apps
+            .get_mut(&label)
+            .map(|sub_app| &mut sub_app.app)
     }
 }
 

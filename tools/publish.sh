@@ -7,6 +7,7 @@ crates=(
     bevy_tasks
     bevy_ecs/macros
     bevy_ecs
+    bevy_app/macros
     bevy_app
     bevy_log
     bevy_dynamic_plugin
