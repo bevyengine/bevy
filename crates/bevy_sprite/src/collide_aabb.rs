@@ -12,6 +12,8 @@ pub enum Collision {
 
 // TODO: ideally we can remove this once bevy gets a physics system
 /// Axis-aligned bounding box collision with "side" detection
+/// *   a_pos and b_pos are the center positions of the rectangles, typically obtained by extracting the `translation` field from a `Transform` component
+/// *   a_size and b_size are the dimensions (width and height) of the rectangles.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
     let a_min = a_pos.truncate() - a_size / 2.0;
     let a_max = a_pos.truncate() + a_size / 2.0;
