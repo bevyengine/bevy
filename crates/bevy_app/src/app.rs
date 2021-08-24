@@ -621,7 +621,7 @@ impl App {
         self.sub_apps
             .get_mut((&label) as &dyn AppLabel)
             .map(|sub_app| &mut sub_app.app)
-            .ok_or_else(|| label)
+            .ok_or(label)
     }
 }
 
