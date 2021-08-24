@@ -107,6 +107,7 @@ Example | File | Description
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `pbr_pipelined` | [`3d/pbr_pipelined.rs`](./3d/pbr_pipelined.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
+`shadow_caster_receiver_pipelined` | [`3d/shadow_caster_receiver_pipelined.rs`](./3d/shadow_caster_receiver_pipelined.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases_pipelined` | [`3d/shadow_biases_pipelined.rs`](./3d/shadow_biases_pipelined.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials

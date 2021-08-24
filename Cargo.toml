@@ -200,6 +200,10 @@ name = "shadow_biases_pipelined"
 path = "examples/3d/shadow_biases_pipelined.rs"
 
 [[example]]
+name = "shadow_caster_receiver_pipelined"
+path = "examples/3d/shadow_caster_receiver_pipelined.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 

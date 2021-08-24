@@ -151,3 +151,8 @@ impl Default for AmbientLight {
         }
     }
 }
+
+/// Add this component to make a `Mesh` not cast shadows
+pub struct NotShadowCaster;
+/// Add this component to make a `Mesh` not receive shadows
+pub struct NotShadowReceiver;

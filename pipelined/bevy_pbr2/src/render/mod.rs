@@ -1,7 +1,7 @@
 mod light;
 pub use light::*;
 
-use crate::{StandardMaterial, StandardMaterialUniformData};
+use crate::{NotShadowCaster, NotShadowReceiver, StandardMaterial, StandardMaterialUniformData};
 use bevy_asset::{Assets, Handle};
 use bevy_core_pipeline::Transparent3dPhase;
 use bevy_ecs::{prelude::*, system::SystemState};
@@ -120,11 +120,11 @@ impl FromWorld for PbrShaders {
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX,
+                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(Mat4::std140_size_static() as u64),
+                    min_binding_size: BufferSize::new(80),
                 },
                 count: None,
             }],
@@ -374,6 +374,8 @@ struct ExtractedMesh {
     mesh: Handle<Mesh>,
     transform_binding_offset: u32,
     material_handle: Handle<StandardMaterial>,
+    casts_shadows: bool,
+    receives_shadows: bool,
 }
 
 pub struct ExtractedMeshes {
@@ -385,10 +387,23 @@ pub fn extract_meshes(
     meshes: Res<Assets<Mesh>>,
     materials: Res<Assets<StandardMaterial>>,
     images: Res<Assets<Image>>,
-    query: Query<(&GlobalTransform, &Handle<Mesh>, &Handle<StandardMaterial>)>,
+    query: Query<(
+        &GlobalTransform,
+        &Handle<Mesh>,
+        &Handle<StandardMaterial>,
+        Option<&NotShadowCaster>,
+        Option<&NotShadowReceiver>,
+    )>,
 ) {
     let mut extracted_meshes = Vec::new();
-    for (transform, mesh_handle, material_handle) in query.iter() {
+    for (
+        transform,
+        mesh_handle,
+        material_handle,
+        maybe_not_shadow_caster,
+        maybe_not_shadow_receiver,
+    ) in query.iter()
+    {
         if !meshes.contains(mesh_handle) {
             continue;
         }
@@ -419,6 +434,10 @@ pub fn extract_meshes(
                 mesh: mesh_handle.clone_weak(),
                 transform_binding_offset: 0,
                 material_handle: material_handle.clone_weak(),
+                // NOTE: Double-negative is so that meshes cast and receive shadows by default
+                // Not not shadow caster means that this mesh is a shadow caster
+                casts_shadows: maybe_not_shadow_caster.is_none(),
+                receives_shadows: maybe_not_shadow_receiver.is_none(),
             });
         } else {
             continue;
@@ -435,9 +454,25 @@ struct MeshDrawInfo {
     material_bind_group_key: FrameSlabMapKey<BufferId, BindGroup>,
 }
 
+#[derive(Debug, AsStd140)]
+pub struct MeshUniform {
+    model: Mat4,
+    flags: u32,
+}
+
+// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.wgsl!
+bitflags::bitflags! {
+    #[repr(transparent)]
+    struct MeshFlags: u32 {
+        const SHADOW_RECEIVER            = (1 << 0);
+        const NONE                       = 0;
+        const UNINITIALIZED              = 0xFFFF;
+    }
+}
+
 #[derive(Default)]
 pub struct MeshMeta {
-    transform_uniforms: DynamicUniformVec<Mat4>,
+    transform_uniforms: DynamicUniformVec<MeshUniform>,
     material_bind_groups: FrameSlabMap<BufferId, BindGroup>,
     mesh_transform_bind_group: FrameSlabMap<BufferId, BindGroup>,
     mesh_transform_bind_group_key: Option<FrameSlabMapKey<BufferId, BindGroup>>,
@@ -453,8 +488,15 @@ pub fn prepare_meshes(
         .transform_uniforms
         .reserve_and_clear(extracted_meshes.meshes.len(), &render_device);
     for extracted_mesh in extracted_meshes.meshes.iter_mut() {
-        extracted_mesh.transform_binding_offset =
-            mesh_meta.transform_uniforms.push(extracted_mesh.transform);
+        let flags = if extracted_mesh.receives_shadows {
+            MeshFlags::SHADOW_RECEIVER
+        } else {
+            MeshFlags::NONE
+        };
+        extracted_mesh.transform_binding_offset = mesh_meta.transform_uniforms.push(MeshUniform {
+            model: extracted_mesh.transform,
+            flags: flags.bits,
+        });
     }
 
     mesh_meta
@@ -694,12 +736,14 @@ pub fn queue_meshes(
         for view_light_entity in view_lights.lights.iter().copied() {
             let mut shadow_phase = view_light_shadow_phases.get_mut(view_light_entity).unwrap();
             // TODO: this should only queue up meshes that are actually visible by each "light view"
-            for i in 0..extracted_meshes.meshes.len() {
-                shadow_phase.add(Drawable {
-                    draw_function: draw_shadow_mesh,
-                    draw_key: i,
-                    sort_key: 0, // TODO: sort back-to-front
-                })
+            for (i, mesh) in extracted_meshes.meshes.iter().enumerate() {
+                if mesh.casts_shadows {
+                    shadow_phase.add(Drawable {
+                        draw_function: draw_shadow_mesh,
+                        draw_key: i,
+                        sort_key: 0, // TODO: sort back-to-front
+                    });
+                }
             }
         }
     }
