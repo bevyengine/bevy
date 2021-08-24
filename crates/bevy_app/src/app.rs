@@ -607,11 +607,13 @@ impl App {
         self
     }
 
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
     pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
         self.get_sub_app(label)
             .expect("SubApp with the given label does not exist")
     }
 
+    /// Retrieves a "sub app" inside this [App]. Returns None if the sub app does not exist.
     pub fn get_sub_app(&mut self, label: impl AppLabel) -> Option<&mut App> {
         self.sub_apps
             .get_mut((&label) as &dyn AppLabel)
