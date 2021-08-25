@@ -21,7 +21,6 @@ use bevy_render2::{
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
-use wgpu::ShaderModel;
 
 pub struct ExtractedAmbientLight {
     color: Color,
