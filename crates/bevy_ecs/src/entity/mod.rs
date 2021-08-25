@@ -26,8 +26,19 @@ pub struct Entity {
     pub(crate) id: u32,
 }
 
+pub enum AllocAtWithoutReplacement {
+    Exists(EntityLocation),
+    DidNotExist,
+    ExistsWithWrongGeneration,
+}
+
 impl Entity {
     /// Creates a new entity reference with a generation of 0.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
@@ -242,11 +253,8 @@ impl Entities {
     }
 
     /// Allocate an entity ID directly.
-    ///
-    /// Location should be written immediately.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-
         self.len += 1;
         if let Some(id) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as i64;
@@ -294,6 +302,40 @@ impl Entities {
         loc
     }
 
+    /// Allocate a specific entity ID, overwriting its generation.
+    ///
+    /// Returns the location of the entity currently using the given ID, if any.
+    pub fn alloc_at_without_replacement(&mut self, entity: Entity) -> AllocAtWithoutReplacement {
+        self.verify_flushed();
+
+        let result = if entity.id as usize >= self.meta.len() {
+            self.pending.extend((self.meta.len() as u32)..entity.id);
+            let new_free_cursor = self.pending.len() as i64;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
+            self.len += 1;
+            AllocAtWithoutReplacement::DidNotExist
+        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
+            self.pending.swap_remove(index);
+            let new_free_cursor = self.pending.len() as i64;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.len += 1;
+            AllocAtWithoutReplacement::DidNotExist
+        } else {
+            let current_meta = &mut self.meta[entity.id as usize];
+            if current_meta.location.archetype_id == ArchetypeId::INVALID {
+                AllocAtWithoutReplacement::DidNotExist
+            } else if current_meta.generation == entity.generation {
+                AllocAtWithoutReplacement::Exists(current_meta.location)
+            } else {
+                return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
+            }
+        };
+
+        self.meta[entity.id as usize].generation = entity.generation;
+        result
+    }
+
     /// Destroy an entity, allowing it to be reused.
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
@@ -339,27 +381,16 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.len = 0;
     }
 
-    /// Access the location storage of an entity.
-    ///
-    /// Must not be called on pending entities.
-    #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Option<&mut EntityLocation> {
-        let meta = &mut self.meta[entity.id as usize];
-        if meta.generation == entity.generation {
-            Some(&mut meta.location)
-        } else {
-            None
-        }
-    }
-
-    /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities.
-    #[inline]
+    /// Returns `Ok(Location { archetype: Archetype::invalid(), index: undefined })` for pending entities.
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation {
+            if meta.generation != entity.generation
+                || meta.location.archetype_id == ArchetypeId::INVALID
+            {
                 return None;
             }
             Some(meta.location)
@@ -402,7 +433,12 @@ impl Entities {
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
     /// `reserve_entities`, then initializes each one using the supplied function.
-    pub fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+    ///
+    /// # Safety
+    /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
+    /// each time init is called. This _can_ be ArchetypeId::INVALID, provided the Entity has
+    /// not been assigned to an Archetype.
+    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -440,6 +476,16 @@ impl Entities {
         }
     }
 
+    // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
+    // unless they are later populated with a valid archetype.
+    pub fn flush_as_invalid(&mut self) {
+        unsafe {
+            self.flush(|_entity, location| {
+                location.archetype_id = ArchetypeId::INVALID;
+            })
+        }
+    }
+
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
@@ -461,7 +507,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
         location: EntityLocation {
-            archetype_id: ArchetypeId::empty(),
+            archetype_id: ArchetypeId::INVALID,
             index: usize::max_value(), // dummy value, to be filled in
         },
     };
@@ -494,7 +540,24 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::default();
         e.reserve_entity();
-        e.flush(|_, _| {});
+        unsafe { e.flush(|_, _| {}) };
         assert_eq!(e.len(), 1);
+    }
+
+    #[test]
+    fn get_reserved_and_invalid() {
+        let mut entities = Entities::default();
+        let e = entities.reserve_entity();
+        assert!(entities.contains(e));
+        assert!(entities.get(e).is_none());
+
+        unsafe {
+            entities.flush(|_entity, _location| {
+                // do nothing ... leaving entity location invalid
+            })
+        };
+
+        assert!(entities.contains(e));
+        assert!(entities.get(e).is_none());
     }
 }

@@ -1,10 +1,10 @@
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    archetype::ComponentStatus,
+    archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
-    entity::Entity,
-    storage::{SparseSetIndex, SparseSets, Table},
+    entity::{Entities, Entity, EntityLocation},
+    storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
@@ -122,19 +122,119 @@ pub struct BundleInfo {
 }
 
 impl BundleInfo {
-    /// # Safety
-    /// table row must exist, entity must be valid
-    #[allow(clippy::too_many_arguments)]
     #[inline]
-    pub(crate) unsafe fn write_components<T: Bundle>(
-        &self,
-        sparse_sets: &mut SparseSets,
-        entity: Entity,
-        table: &mut Table,
-        table_row: usize,
-        bundle_status: &[ComponentStatus],
-        bundle: T,
+    pub fn id(&self) -> BundleId {
+        self.id
+    }
+
+    #[inline]
+    pub fn components(&self) -> &[ComponentId] {
+        &self.component_ids
+    }
+
+    #[inline]
+    pub fn storage_types(&self) -> &[StorageType] {
+        &self.storage_types
+    }
+
+    pub(crate) fn get_bundle_inserter<'a, 'b>(
+        &'b self,
+        entities: &'a mut Entities,
+        archetypes: &'a mut Archetypes,
+        components: &mut Components,
+        storages: &'a mut Storages,
+        archetype_id: ArchetypeId,
         change_tick: u32,
+    ) -> BundleInserter<'a, 'b> {
+        let new_archetype_id =
+            self.add_bundle_to_archetype(archetypes, storages, components, archetype_id);
+        let archetypes_ptr = archetypes.archetypes.as_mut_ptr();
+        if new_archetype_id == archetype_id {
+            let archetype = &mut archetypes[archetype_id];
+            let table_id = archetype.table_id();
+            BundleInserter {
+                bundle_info: self,
+                archetype,
+                entities,
+                sparse_sets: &mut storages.sparse_sets,
+                table: &mut storages.tables[table_id],
+                archetypes_ptr,
+                change_tick,
+                result: InsertBundleResult::SameArchetype,
+            }
+        } else {
+            let (archetype, new_archetype) = archetypes.get_2_mut(archetype_id, new_archetype_id);
+            let table_id = archetype.table_id();
+            if table_id == new_archetype.table_id() {
+                BundleInserter {
+                    bundle_info: self,
+                    archetype,
+                    archetypes_ptr,
+                    entities,
+                    sparse_sets: &mut storages.sparse_sets,
+                    table: &mut storages.tables[table_id],
+                    change_tick,
+                    result: InsertBundleResult::NewArchetypeSameTable { new_archetype },
+                }
+            } else {
+                let (table, new_table) = storages
+                    .tables
+                    .get_2_mut(table_id, new_archetype.table_id());
+                BundleInserter {
+                    bundle_info: self,
+                    archetype,
+                    sparse_sets: &mut storages.sparse_sets,
+                    entities,
+                    archetypes_ptr,
+                    table,
+                    change_tick,
+                    result: InsertBundleResult::NewArchetypeNewTable {
+                        new_archetype,
+                        new_table,
+                    },
+                }
+            }
+        }
+    }
+
+    pub(crate) fn get_bundle_spawner<'a, 'b>(
+        &'b self,
+        entities: &'a mut Entities,
+        archetypes: &'a mut Archetypes,
+        components: &mut Components,
+        storages: &'a mut Storages,
+        change_tick: u32,
+    ) -> BundleSpawner<'a, 'b> {
+        let new_archetype_id =
+            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
+        let (empty_archetype, archetype) =
+            archetypes.get_2_mut(ArchetypeId::EMPTY, new_archetype_id);
+        let table = &mut storages.tables[archetype.table_id()];
+        let add_bundle = empty_archetype.edges().get_add_bundle(self.id()).unwrap();
+        BundleSpawner {
+            archetype,
+            add_bundle,
+            bundle_info: self,
+            table,
+            entities,
+            sparse_sets: &mut storages.sparse_sets,
+            change_tick,
+        }
+    }
+
+    /// # Safety
+    /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the `entity`, `bundle` must match this BundleInfo's type
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn write_components<T: Bundle>(
+        &self,
+        table: &mut Table,
+        sparse_sets: &mut SparseSets,
+        add_bundle: &AddBundle,
+        entity: Entity,
+        table_row: usize,
+        change_tick: u32,
+        bundle: T,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -144,7 +244,7 @@ impl BundleInfo {
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
                     let column = table.get_column_mut(component_id).unwrap();
-                    match bundle_status.get_unchecked(bundle_component) {
+                    match add_bundle.bundle_status.get_unchecked(bundle_component) {
                         ComponentStatus::Added => {
                             column.initialize(
                                 table_row,
@@ -166,19 +266,277 @@ impl BundleInfo {
         });
     }
 
+    /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the same
+    /// [ArchetypeId], in the event that adding the given bundle does not result in an Archetype change.
+    /// Results are cached in the Archetype Graph to avoid redundant work.
+    pub(crate) fn add_bundle_to_archetype(
+        &self,
+        archetypes: &mut Archetypes,
+        storages: &mut Storages,
+        components: &mut Components,
+        archetype_id: ArchetypeId,
+    ) -> ArchetypeId {
+        if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
+            return add_bundle.archetype_id;
+        }
+        let mut new_table_components = Vec::new();
+        let mut new_sparse_set_components = Vec::new();
+        let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+
+        let current_archetype = &mut archetypes[archetype_id];
+        for component_id in self.component_ids.iter().cloned() {
+            if current_archetype.contains(component_id) {
+                bundle_status.push(ComponentStatus::Mutated);
+            } else {
+                bundle_status.push(ComponentStatus::Added);
+                // SAFE: component_id exists
+                let component_info = unsafe { components.get_info_unchecked(component_id) };
+                match component_info.storage_type() {
+                    StorageType::Table => new_table_components.push(component_id),
+                    StorageType::SparseSet => {
+                        storages.sparse_sets.get_or_insert(component_info);
+                        new_sparse_set_components.push(component_id)
+                    }
+                }
+            }
+        }
+
+        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+            let edges = current_archetype.edges_mut();
+            // the archetype does not change when we add this bundle
+            edges.insert_add_bundle(self.id, archetype_id, bundle_status);
+            archetype_id
+        } else {
+            let table_id;
+            let table_components;
+            let sparse_set_components;
+            // the archetype changes when we add this bundle. prepare the new archetype and storages
+            {
+                let current_archetype = &archetypes[archetype_id];
+                table_components = if new_table_components.is_empty() {
+                    // if there are no new table components, we can keep using this table
+                    table_id = current_archetype.table_id();
+                    current_archetype.table_components().to_vec()
+                } else {
+                    new_table_components.extend(current_archetype.table_components());
+                    // sort to ignore order while hashing
+                    new_table_components.sort();
+                    // SAFE: all component ids in `new_table_components` exist
+                    table_id = unsafe {
+                        storages
+                            .tables
+                            .get_id_or_insert(&new_table_components, components)
+                    };
+
+                    new_table_components
+                };
+
+                sparse_set_components = if new_sparse_set_components.is_empty() {
+                    current_archetype.sparse_set_components().to_vec()
+                } else {
+                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                    // sort to ignore order while hashing
+                    new_sparse_set_components.sort();
+                    new_sparse_set_components
+                };
+            };
+            let new_archetype_id =
+                archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
+            // add an edge from the old archetype to the new archetype
+            archetypes[archetype_id].edges_mut().insert_add_bundle(
+                self.id,
+                new_archetype_id,
+                bundle_status,
+            );
+            new_archetype_id
+        }
+    }
+}
+
+pub(crate) struct BundleInserter<'a, 'b> {
+    pub(crate) archetype: &'a mut Archetype,
+    pub(crate) entities: &'a mut Entities,
+    bundle_info: &'b BundleInfo,
+    table: &'a mut Table,
+    sparse_sets: &'a mut SparseSets,
+    result: InsertBundleResult<'a>,
+    archetypes_ptr: *mut Archetype,
+    change_tick: u32,
+}
+
+pub(crate) enum InsertBundleResult<'a> {
+    SameArchetype,
+    NewArchetypeSameTable {
+        new_archetype: &'a mut Archetype,
+    },
+    NewArchetypeNewTable {
+        new_archetype: &'a mut Archetype,
+        new_table: &'a mut Table,
+    },
+}
+
+impl<'a, 'b> BundleInserter<'a, 'b> {
+    /// # Safety
+    /// `entity` must currently exist in the source archetype for this inserter. `archetype_index` must be `entity`'s location in the archetype.
+    /// `T` must match this BundleInfo's type
     #[inline]
-    pub fn id(&self) -> BundleId {
-        self.id
+    pub unsafe fn insert<T: Bundle>(
+        &mut self,
+        entity: Entity,
+        archetype_index: usize,
+        bundle: T,
+    ) -> EntityLocation {
+        let location = EntityLocation {
+            index: archetype_index,
+            archetype_id: self.archetype.id(),
+        };
+        match &mut self.result {
+            InsertBundleResult::SameArchetype => {
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                let add_bundle = self
+                    .archetype
+                    .edges()
+                    .get_add_bundle(self.bundle_info.id)
+                    .unwrap();
+                self.bundle_info.write_components(
+                    self.table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    self.archetype.entity_table_row(archetype_index),
+                    self.change_tick,
+                    bundle,
+                );
+                location
+            }
+            InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
+                let result = self.archetype.swap_remove(location.index);
+                if let Some(swapped_entity) = result.swapped_entity {
+                    self.entities.meta[swapped_entity.id as usize].location = location;
+                }
+                let new_location = new_archetype.allocate(entity, result.table_row);
+                self.entities.meta[entity.id as usize].location = new_location;
+
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                let add_bundle = self
+                    .archetype
+                    .edges()
+                    .get_add_bundle(self.bundle_info.id)
+                    .unwrap();
+                self.bundle_info.write_components(
+                    self.table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    result.table_row,
+                    self.change_tick,
+                    bundle,
+                );
+                new_location
+            }
+            InsertBundleResult::NewArchetypeNewTable {
+                new_archetype,
+                new_table,
+            } => {
+                let result = self.archetype.swap_remove(location.index);
+                if let Some(swapped_entity) = result.swapped_entity {
+                    self.entities.meta[swapped_entity.id as usize].location = location;
+                }
+                // PERF: store "non bundle" components in edge, then just move those to avoid
+                // redundant copies
+                let move_result = self
+                    .table
+                    .move_to_superset_unchecked(result.table_row, &mut *new_table);
+                let new_location = new_archetype.allocate(entity, move_result.new_row);
+                self.entities.meta[entity.id as usize].location = new_location;
+
+                // if an entity was moved into this entity's table spot, update its table row
+                if let Some(swapped_entity) = move_result.swapped_entity {
+                    let swapped_location = self.entities.get(swapped_entity).unwrap();
+                    let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
+                    {
+                        &mut *self.archetype
+                    } else if new_archetype.id() == swapped_location.archetype_id {
+                        &mut *new_archetype
+                    } else {
+                        // SAFE: the only two borrowed archetypes are above and we just did collision checks
+                        &mut *self
+                            .archetypes_ptr
+                            .add(swapped_location.archetype_id.index())
+                    };
+
+                    swapped_archetype
+                        .set_entity_table_row(swapped_location.index, result.table_row);
+                }
+
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                let add_bundle = self
+                    .archetype
+                    .edges()
+                    .get_add_bundle(self.bundle_info.id)
+                    .unwrap();
+                self.bundle_info.write_components(
+                    new_table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    move_result.new_row,
+                    self.change_tick,
+                    bundle,
+                );
+                new_location
+            }
+        }
+    }
+}
+
+pub(crate) struct BundleSpawner<'a, 'b> {
+    pub(crate) archetype: &'a mut Archetype,
+    pub(crate) entities: &'a mut Entities,
+    add_bundle: &'a AddBundle,
+    bundle_info: &'b BundleInfo,
+    table: &'a mut Table,
+    sparse_sets: &'a mut SparseSets,
+    change_tick: u32,
+}
+
+impl<'a, 'b> BundleSpawner<'a, 'b> {
+    pub fn reserve_storage(&mut self, additional: usize) {
+        self.archetype.reserve(additional);
+        self.table.reserve(additional);
+    }
+    /// # Safety
+    /// `entity` must be allocated (but non existent), `T` must match this BundleInfo's type
+    #[inline]
+    pub unsafe fn spawn_non_existent<T: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: T,
+    ) -> EntityLocation {
+        let table_row = self.table.allocate(entity);
+        let location = self.archetype.allocate(entity, table_row);
+        self.bundle_info.write_components(
+            self.table,
+            self.sparse_sets,
+            self.add_bundle,
+            entity,
+            table_row,
+            self.change_tick,
+            bundle,
+        );
+        self.entities.meta[entity.id as usize].location = location;
+
+        location
     }
 
+    /// # Safety
+    /// `T` must match this BundleInfo's type
     #[inline]
-    pub fn components(&self) -> &[ComponentId] {
-        &self.component_ids
-    }
-
-    #[inline]
-    pub fn storage_types(&self) -> &[StorageType] {
-        &self.storage_types
+    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
+        let entity = self.entities.alloc();
+        // SAFE: entity is allocated (but non-existent), `T` matches this BundleInfo's type
+        self.spawn_non_existent(entity, bundle);
+        entity
     }
 }
 
