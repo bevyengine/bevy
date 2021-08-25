@@ -17,7 +17,7 @@ let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
 
 [[group(0), binding(0)]]
 var view: View;
-[[group(1), binding(0)]]
+[[group(2), binding(0)]]
 var mesh: Mesh;
 
 struct Vertex {
@@ -142,23 +142,23 @@ var directional_shadow_textures: texture_depth_2d_array;
 [[group(0), binding(5)]]
 var directional_shadow_textures_sampler: sampler_comparison;
 
-[[group(2), binding(0)]]
+[[group(1), binding(0)]]
 var material: StandardMaterial;
-[[group(2), binding(1)]]
+[[group(1), binding(1)]]
 var base_color_texture: texture_2d<f32>;
-[[group(2), binding(2)]]
+[[group(1), binding(2)]]
 var base_color_sampler: sampler;
-[[group(2), binding(3)]]
+[[group(1), binding(3)]]
 var emissive_texture: texture_2d<f32>;
-[[group(2), binding(4)]]
+[[group(1), binding(4)]]
 var emissive_sampler: sampler;
-[[group(2), binding(5)]]
+[[group(1), binding(5)]]
 var metallic_roughness_texture: texture_2d<f32>;
-[[group(2), binding(6)]]
+[[group(1), binding(6)]]
 var metallic_roughness_sampler: sampler;
-[[group(2), binding(7)]]
+[[group(1), binding(7)]]
 var occlusion_texture: texture_2d<f32>;
-[[group(2), binding(8)]]
+[[group(1), binding(8)]]
 var occlusion_sampler: sampler;
 
 let PI: f32 = 3.141592653589793;

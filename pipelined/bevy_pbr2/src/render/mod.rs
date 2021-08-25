@@ -27,7 +27,6 @@ use wgpu::{
 
 pub struct PbrShaders {
     pipeline: RenderPipeline,
-    shader_module: ShaderModule,
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
     mesh_layout: BindGroupLayout,
@@ -114,20 +113,6 @@ impl FromWorld for PbrShaders {
                     count: None,
                 },
             ],
-            label: None,
-        });
-
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(80),
-                },
-                count: None,
-            }],
             label: None,
         });
 
@@ -233,10 +218,24 @@ impl FromWorld for PbrShaders {
             label: None,
         });
 
+        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: BufferSize::new(80),
+                },
+                count: None,
+            }],
+            label: None,
+        });
+
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &mesh_layout, &material_layout],
+            bind_group_layouts: &[&view_layout, &material_layout, &mesh_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -360,7 +359,6 @@ impl FromWorld for PbrShaders {
         };
         PbrShaders {
             pipeline,
-            shader_module,
             view_layout,
             material_layout,
             mesh_layout,
@@ -818,20 +816,20 @@ impl Draw for DrawPbr {
             &mesh_view_bind_groups.view,
             &[view_uniforms.offset, view_lights.gpu_light_binding_index],
         );
+        let mesh_draw_info = &mesh_meta.mesh_draw_info[draw_key];
         pass.set_bind_group(
             1,
+            // &mesh_meta.material_bind_groups[sort_key & ((1 << 10) - 1)],
+            &mesh_meta.material_bind_groups[mesh_draw_info.material_bind_group_key],
+            &[],
+        );
+        pass.set_bind_group(
+            2,
             mesh_meta
                 .mesh_transform_bind_group
                 .get_value(mesh_meta.mesh_transform_bind_group_key.unwrap())
                 .unwrap(),
             &[extracted_mesh.transform_binding_offset],
-        );
-        let mesh_draw_info = &mesh_meta.mesh_draw_info[draw_key];
-        pass.set_bind_group(
-            2,
-            // &mesh_meta.material_bind_groups[sort_key & ((1 << 10) - 1)],
-            &mesh_meta.material_bind_groups[mesh_draw_info.material_bind_group_key],
-            &[],
         );
 
         let gpu_mesh = meshes.into_inner().get(&extracted_mesh.mesh).unwrap();
