@@ -4,14 +4,19 @@ struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
 };
-[[group(0), binding(0)]]
-var view: View;
 
 
 [[block]]
 struct Mesh {
-    transform: mat4x4<f32>;
+    model: mat4x4<f32>;
+    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    flags: u32;
 };
+
+let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
+
+[[group(0), binding(0)]]
+var view: View;
 [[group(1), binding(0)]]
 var mesh: Mesh;
 
@@ -30,7 +35,7 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.transform * vec4<f32>(vertex.position, 1.0);
+    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
 
     var out: VertexOutput;
     out.uv = vertex.uv;
@@ -38,7 +43,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.clip_position = view.view_proj * world_position;
     // FIXME: The inverse transpose of the model matrix should be used to correctly handle scaling
     // of normals
-    out.world_normal = mat3x3<f32>(mesh.transform.x.xyz, mesh.transform.y.xyz, mesh.transform.z.xyz) * vertex.normal;
+    out.world_normal = mat3x3<f32>(mesh.model.x.xyz, mesh.model.y.xyz, mesh.model.z.xyz) * vertex.normal;
     return out;
 }
 
@@ -83,9 +88,16 @@ struct StandardMaterial {
     perceptual_roughness: f32;
     metallic: f32;
     reflectance: f32;
-    // 'flags' is a bit field indicating various option. uint is 32 bits so we have up to 32 options.
+    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
 };
+
+let STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
+let STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT: u32           = 2u;
+let STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
+let STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT: u32          = 8u;
+let STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
+let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
 
 struct PointLight {
     color: vec4<f32>;
@@ -117,13 +129,6 @@ struct Lights {
     n_point_lights: u32;
     n_directional_lights: u32;
 };
-
-let FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
-let FLAGS_EMISSIVE_TEXTURE_BIT: u32           = 2u;
-let FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
-let FLAGS_OCCLUSION_TEXTURE_BIT: u32          = 8u;
-let FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
-let FLAGS_UNLIT_BIT: u32                      = 32u;
 
 
 [[group(0), binding(1)]]
@@ -463,22 +468,22 @@ struct FragmentInput {
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
-    if ((material.flags & FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 
     // // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((material.flags & FLAGS_UNLIT_BIT) == 0u) {
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = material.emissive;
-        if ((material.flags & FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
         }
 
         // calculate non-linear roughness from linear perceptualRoughness
         var metallic: f32 = material.metallic;
         var perceptual_roughness: f32 = material.perceptual_roughness;
-        if ((material.flags & FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
@@ -487,7 +492,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
         var occlusion: f32 = 1.0;
-        if ((material.flags & FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 
@@ -500,7 +505,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         //     vec3 B = cross(N, T) * v_WorldTangent.w;
         // #    endif
 
-        if ((material.flags & FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
             if (!in.is_front) {
                 N = -N;
             }
@@ -543,13 +548,23 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let n_directional_lights = i32(lights.n_directional_lights);
         for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
             let light = lights.point_lights[i];
-            let shadow = fetch_point_shadow(i, in.world_position, in.world_normal);
+            var shadow: f32;
+            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) {
+                shadow = fetch_point_shadow(i, in.world_position, in.world_normal);
+            } else {
+                shadow = 1.0;
+            }
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
         for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
             let light = lights.directional_lights[i];
-            let shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+            var shadow: f32;
+            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) {
+                shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+            } else {
+                shadow = 1.0;
+            }
             let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
