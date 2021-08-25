@@ -185,8 +185,6 @@ impl TaskPool {
 
             if scope.spawned.is_empty() {
                 Vec::default()
-            } else if scope.spawned.len() == 1 {
-                vec![future::block_on(&mut scope.spawned[0])]
             } else {
                 let fut = async move {
                     let mut results = Vec::with_capacity(scope.spawned.len());
