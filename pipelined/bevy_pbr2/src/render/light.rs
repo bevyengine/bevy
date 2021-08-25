@@ -14,12 +14,14 @@ use bevy_render2::{
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
+    shader::Shader,
     texture::*,
     view::{ExtractedView, ViewUniformOffset},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
+use wgpu::ShaderModel;
 
 pub struct ExtractedAmbientLight {
     color: Color,
@@ -93,6 +95,7 @@ pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowShaders {
+    pub shader_module: ShaderModule,
     pub pipeline: RenderPipeline,
     pub view_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
@@ -104,6 +107,8 @@ impl FromWorld for ShadowShaders {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let pbr_shaders = world.get_resource::<PbrShaders>().unwrap();
+        let shader = Shader::from_wgsl(include_str!("depth.wgsl"));
+        let shader_module = render_device.create_shader_module(&shader);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -157,7 +162,7 @@ impl FromWorld for ShadowShaders {
                         },
                     ],
                 }],
-                module: &pbr_shaders.shader_module,
+                module: &shader_module,
                 entry_point: "vertex",
             },
             fragment: None,
@@ -191,6 +196,7 @@ impl FromWorld for ShadowShaders {
         });
 
         ShadowShaders {
+            shader_module,
             pipeline,
             view_layout,
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
