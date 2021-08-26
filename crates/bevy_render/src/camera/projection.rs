@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Mat4, Rect};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::{GlobalTransform};
+use bevy_transform::components::GlobalTransform;
 
 use super::DepthCalculation;
 
