@@ -419,11 +419,8 @@ fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: v
     //       projection * vec4(0, 0, -major_axis_magnitude, 1.0)
     //       and keeping only the terms that have any impact on the depth.
     // Projection-agnostic approach:
-    let projection_cols23_row2 = vec2<f32>(light.projection[2][2], light.projection[3][2]);
-    let projection_cols23_row3 = vec2<f32>(light.projection[2][3], light.projection[3][3]);
-    let frag_zw = vec2<f32>(-major_axis_magnitude, 1.0);
-    let z = dot(projection_cols23_row2, frag_zw);
-    let w = dot(projection_cols23_row3, frag_zw);
+    let z = -major_axis_magnitude * light.projection[2][2] + light.projection[3][2];
+    let w = -major_axis_magnitude * light.projection[2][3] + light.projection[3][3];
 
     // For perspective_rh:
     // let proj_r = light.far / (light.near - light.far);
