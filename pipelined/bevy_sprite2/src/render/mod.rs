@@ -15,7 +15,7 @@ use bevy_render2::{
     renderer::{RenderContext, RenderDevice},
     shader::Shader,
     texture::{BevyDefault, Image},
-    view::{ViewMeta, ViewUniform, ViewUniformOffset},
+    view::{ViewMeta, ViewUniformOffset},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
