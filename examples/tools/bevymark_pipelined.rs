@@ -3,10 +3,10 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::prelude::*,
     input::Input,
-    math::{Vec2, Vec3},
+    math::Vec3,
     prelude::{App, AssetServer, Handle, MouseButton, Transform},
     render2::{camera::OrthographicCameraBundle, color::Color, texture::Image},
-    sprite2::{PipelinedSpriteBundle, Sprite},
+    sprite2::PipelinedSpriteBundle,
     window::WindowDescriptor,
     PipelinedDefaultPlugins,
 };
@@ -177,10 +177,6 @@ fn spawn_birds(
             .spawn_bundle(PipelinedSpriteBundle {
                 // material: bird_material.0.clone(),
                 texture: texture.clone(),
-                sprite: Sprite {
-                    size: Vec2::new(250.0, 250.0),
-                    ..Default::default()
-                },
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
                     scale: Vec3::splat(BIRD_SCALE),
