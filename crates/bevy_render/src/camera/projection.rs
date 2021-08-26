@@ -1,8 +1,11 @@
-use super::DepthCalculation;
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::Mat4;
-use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
+
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_math::{Mat4, Rect};
+use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_transform::components::{GlobalTransform};
+
+use super::DepthCalculation;
 
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
@@ -79,6 +82,18 @@ pub struct OrthographicProjection {
     pub scaling_mode: ScalingMode,
     pub scale: f32,
     pub depth_calculation: DepthCalculation,
+}
+
+impl OrthographicProjection {
+    /// Returns true if `rect` is visible by the [`Camera`] using this [`OrthographicProjection`]
+    ///
+    /// Does not handle z planes
+    pub fn rect_in_frustum(&self, camera_transform: &GlobalTransform, rect: Rect<f32>) -> bool {
+        self.bottom + camera_transform.translation.y <= rect.top
+            && self.top + camera_transform.translation.y >= rect.bottom
+            && self.right + camera_transform.translation.x >= rect.left
+            && self.left + camera_transform.translation.x <= rect.right
+    }
 }
 
 impl CameraProjection for OrthographicProjection {
