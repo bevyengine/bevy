@@ -492,9 +492,6 @@ fn load_node(
                     near: perspective.znear(),
                     ..Default::default()
                 };
-                if let Some(zfar) = perspective.zfar() {
-                    perspective_projection.far = zfar;
-                }
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }

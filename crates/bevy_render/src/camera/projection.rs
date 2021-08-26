@@ -16,12 +16,11 @@ pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
     pub near: f32,
-    pub far: f32,
 }
 
 impl CameraProjection for PerspectiveProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
+        Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
     fn update(&mut self, width: f32, height: f32) {
@@ -38,7 +37,6 @@ impl Default for PerspectiveProjection {
         PerspectiveProjection {
             fov: std::f32::consts::PI / 4.0,
             near: 1.0,
-            far: 1000.0,
             aspect_ratio: 1.0,
         }
     }
