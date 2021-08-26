@@ -13,8 +13,8 @@ criterion_group!(
     fake_commands,
     zero_sized_commands,
     medium_sized_commands,
-    large_sized_commands
-    get_or_spawn,
+    large_sized_commands,
+    get_or_spawn
 );
 criterion_main!(benches);
 
