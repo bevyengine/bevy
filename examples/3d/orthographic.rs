@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::{input::mouse::MouseWheel, prelude::*, render::camera::OrthographicProjection};
 
 const ROTATE_SPEED: f32 = 0.05;
-const ZOOM_SPEED: f32 = 0.001;
+const ZOOM_SPEED: f32 = 0.1;
 const MIN_ZOOM: f32 = 1.0;
 const MAX_ZOOM: f32 = 30.0;
 
@@ -86,18 +86,12 @@ fn zoom_system(
     if let Ok((mut cam_transform, mut projection)) = cam.single_mut() {
         let window = windows.get_primary().unwrap();
         let window_size = Vec2::new(window.width(), window.height());
-        let mouse_normalized_screen_pos =
-            (window.cursor_position().unwrap() / window_size) * 2. - Vec2::ONE;
-        let mouse_screen_position = mouse_normalized_screen_pos * Vec2::new(projection.right, projection.top);
+        let mouse_normalized_screen_pos = window.cursor_position().unwrap() / window_size;
 
-        let mouse_world_pos = cam_transform.translation.truncate()
-            + mouse_screen_position * projection.scale;
+        let wanted_zoom = projection.scale - delta_zoom * ZOOM_SPEED;
+        projection.zoom_to(mouse_normalized_screen_pos, wanted_zoom, &mut cam_transform);
 
-        projection.scale -= ZOOM_SPEED * delta_zoom * projection.scale;
         projection.scale = projection.scale.clamp(MIN_ZOOM, MAX_ZOOM);
-
-        cam_transform.translation = (mouse_world_pos - mouse_screen_position * projection.scale)
-            .extend(cam_transform.translation.z);
     }
 }
 

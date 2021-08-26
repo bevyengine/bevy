@@ -1,7 +1,8 @@
 use super::DepthCalculation;
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_transform::components::Transform;
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
@@ -79,6 +80,19 @@ pub struct OrthographicProjection {
     pub scaling_mode: ScalingMode,
     pub scale: f32,
     pub depth_calculation: DepthCalculation,
+}
+
+impl OrthographicProjection {
+    pub fn zoom_to(&mut self, new_screen_center: Vec2, new_scale: f32, camera_transform: &mut Transform) {
+        let screen_center_normalized =
+            new_screen_center * 2. - Vec2::ONE;
+        let center = screen_center_normalized * Vec2::new(self.right, self.top);
+        let world_pos = camera_transform.translation.truncate()
+            + center * self.scale;
+
+        self.scale = new_scale;
+        *camera_transform.translation = *(world_pos - center * self.scale).extend(camera_transform.translation.z);
+    }
 }
 
 impl CameraProjection for OrthographicProjection {
