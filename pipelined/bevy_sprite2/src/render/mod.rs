@@ -15,7 +15,7 @@ use bevy_render2::{
     renderer::{RenderContext, RenderDevice},
     shader::Shader,
     texture::{BevyDefault, Image},
-    view::{ViewMeta, ViewUniform, ViewUniformOffset},
+    view::{ViewMeta, ViewUniformOffset},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -42,7 +42,9 @@ impl FromWorld for SpriteShaders {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(std::mem::size_of::<ViewUniform>() as u64),
+                    // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                    // Context: https://github.com/LPGhatguy/crevice/issues/29
+                    min_binding_size: BufferSize::new(144),
                 },
                 count: None,
             }],

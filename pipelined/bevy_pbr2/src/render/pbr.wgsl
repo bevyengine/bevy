@@ -1,7 +1,9 @@
 // TODO: try merging this block with the binding?
+// NOTE: Keep in sync with depth.wgsl
 [[block]]
 struct View {
     view_proj: mat4x4<f32>;
+    projection: mat4x4<f32>;
     world_position: vec3<f32>;
 };
 
@@ -9,6 +11,7 @@ struct View {
 [[block]]
 struct Mesh {
     model: mat4x4<f32>;
+    inverse_transpose_model: mat4x4<f32>;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
 };
@@ -41,9 +44,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
     out.world_position = world_position;
     out.clip_position = view.view_proj * world_position;
-    // FIXME: The inverse transpose of the model matrix should be used to correctly handle scaling
-    // of normals
-    out.world_normal = mat3x3<f32>(mesh.model.x.xyz, mesh.model.y.xyz, mesh.model.z.xyz) * vertex.normal;
+    out.world_normal = mat3x3<f32>(
+        mesh.inverse_transpose_model.x.xyz,
+        mesh.inverse_transpose_model.y.xyz,
+        mesh.inverse_transpose_model.z.xyz
+    ) * vertex.normal;
     return out;
 }
 
@@ -100,8 +105,8 @@ let STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
 let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
 
 struct PointLight {
+    projection: mat4x4<f32>;
     color: vec4<f32>;
-    // projection: mat4x4<f32>;
     position: vec3<f32>;
     inverse_square_range: f32;
     radius: f32;
@@ -408,14 +413,22 @@ fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: v
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
-    // do a full projection
-    // vec4 clip = light.projection * vec4(0.0, 0.0, -major_axis_magnitude, 1.0);
-    // float depth = (clip.z / clip.w);
+    // NOTE: These simplifications come from multiplying:
+    //       projection * vec4(0, 0, -major_axis_magnitude, 1.0)
+    //       and keeping only the terms that have any impact on the depth.
+    // Projection-agnostic approach:
+    let z = -major_axis_magnitude * light.projection[2][2] + light.projection[3][2];
+    let w = -major_axis_magnitude * light.projection[2][3] + light.projection[3][3];
 
-    // alternatively do only the necessary multiplications using near/far
-    let proj_r = light.far / (light.near - light.far);
-    let z = -major_axis_magnitude * proj_r + light.near * proj_r;
-    let w = major_axis_magnitude;
+    // For perspective_rh:
+    // let proj_r = light.far / (light.near - light.far);
+    // let z = -major_axis_magnitude * proj_r + light.near * proj_r;
+    // let w = major_axis_magnitude;
+
+    // For perspective_infinite_reverse_rh:
+    // let z = light.near;
+    // let w = major_axis_magnitude;
+
     let depth = z / w;
 
     // do the lookup, using HW PCF and comparison
@@ -521,12 +534,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // #    endif
 
         var V: vec3<f32>;
-        if (view.view_proj.w.w != 1.0) { // If the projection is not orthographic
+        if (view.projection.w.w != 1.0) { // If the projection is not orthographic
             // Only valid for a perpective projection
             V = normalize(view.world_position.xyz - in.world_position.xyz);
         } else {
             // Ortho view vec
-            V = normalize(vec3<f32>(-view.view_proj.x.z, -view.view_proj.y.z, -view.view_proj.z.z));
+            V = normalize(vec3<f32>(view.view_proj.x.z, view.view_proj.y.z, view.view_proj.z.z));
         }
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"

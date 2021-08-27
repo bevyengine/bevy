@@ -54,8 +54,8 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, Default, Debug)]
 pub struct GpuPointLight {
+    projection: Mat4,
     color: Vec4,
-    // proj: Mat4,
     position: Vec3,
     inverse_square_range: f32,
     radius: f32,
@@ -120,7 +120,7 @@ impl FromWorld for ShadowShaders {
                         has_dynamic_offset: true,
                         // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
                         // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(80),
+                        min_binding_size: BufferSize::new(144),
                     },
                     count: None,
                 },
@@ -168,7 +168,7 @@ impl FromWorld for ShadowShaders {
             depth_stencil: Some(DepthStencilState {
                 format: SHADOW_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: CompareFunction::LessEqual,
+                depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -205,7 +205,7 @@ impl FromWorld for ShadowShaders {
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::LessEqual),
+                compare: Some(CompareFunction::GreaterEqual),
                 ..Default::default()
             }),
             directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
@@ -215,7 +215,7 @@ impl FromWorld for ShadowShaders {
                 mag_filter: FilterMode::Linear,
                 min_filter: FilterMode::Linear,
                 mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::LessEqual),
+                compare: Some(CompareFunction::GreaterEqual),
                 ..Default::default()
             }),
         }
@@ -435,7 +435,7 @@ pub fn prepare_lights(
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for (light_index, light) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
             let projection =
-                Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1, light.range);
+                Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
 
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
@@ -484,6 +484,7 @@ pub fn prepare_lights(
             }
 
             gpu_lights.point_lights[light_index] = GpuPointLight {
+                projection,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: (light.color.as_rgba_linear() * light.intensity).into(),
@@ -492,7 +493,6 @@ pub fn prepare_lights(
                 inverse_square_range: 1.0 / (light.range * light.range),
                 near: 0.1,
                 far: light.range,
-                // proj: projection,
                 shadow_depth_bias: light.shadow_depth_bias,
                 shadow_normal_bias: light.shadow_normal_bias,
             };
@@ -656,7 +656,7 @@ impl Node for ShadowPassNode {
                     depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                         view: &view_light.depth_texture_view,
                         depth_ops: Some(Operations {
-                            load: LoadOp::Clear(1.0),
+                            load: LoadOp::Clear(0.0),
                             store: true,
                         }),
                         stencil_ops: None,

@@ -103,6 +103,7 @@ Example | File | Description
 `load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
+`orthographic_pipelined` | [`3d/orthographic_pipelined.rs`](./3d/orthographic_pipelined.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `pbr_pipelined` | [`3d/pbr_pipelined.rs`](./3d/pbr_pipelined.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
