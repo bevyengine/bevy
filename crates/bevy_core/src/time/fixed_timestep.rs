@@ -1,5 +1,12 @@
 use crate::Time;
-use bevy_ecs::{archetype::{Archetype, ArchetypeComponentId}, component::ComponentId, query::Access, schedule::ShouldRun, system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemConfig, SystemId}, world::World};
+use bevy_ecs::{
+    archetype::{Archetype, ArchetypeComponentId},
+    component::ComponentId,
+    query::Access,
+    schedule::ShouldRun,
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemConfig, SystemId},
+    world::World,
+};
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
