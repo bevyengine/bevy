@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, error};
 pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
@@ -56,6 +56,27 @@ impl<'w, 's> Commands<'w, 's> {
             entity,
             commands: self,
         }
+    }
+
+    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [None] if the `entity` exists with a different generation.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
+    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+        self.add(GetOrSpawn { entity });
+        EntityCommands {
+            entity,
+            commands: self,
+        }
+    }
+
+    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
+    /// this [Command] is applied.
+    pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
+        self.queue.push(Spawn { bundle })
     }
 
     /// Creates a new entity with the components contained in `bundle`.
@@ -138,6 +159,23 @@ impl<'w, 's> Commands<'w, 's> {
         I::Item: Bundle,
     {
         self.queue.push(SpawnBatch { bundles_iter });
+    }
+
+    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
+    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator + Send + Sync + 'static,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
     /// See [`World::insert_resource`].
@@ -271,6 +309,16 @@ where
     }
 }
 
+pub struct GetOrSpawn {
+    entity: Entity,
+}
+
+impl Command for GetOrSpawn {
+    fn write(self, world: &mut World) {
+        world.get_or_spawn(self.entity);
+    }
+}
+
 pub struct SpawnBatch<I>
 where
     I: IntoIterator,
@@ -286,6 +334,32 @@ where
 {
     fn write(self, world: &mut World) {
         world.spawn_batch(self.bundles_iter);
+    }
+}
+
+pub struct InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    pub bundles_iter: I,
+}
+
+impl<I, B> Command for InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    fn write(self, world: &mut World) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
+            error!(
+                "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
+                std::any::type_name::<B>(),
+                invalid_entities
+            );
+        }
     }
 }
 

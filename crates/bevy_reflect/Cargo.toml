@@ -24,7 +24,7 @@ parking_lot = "0.11.0"
 thiserror = "1.0"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.15.1", features = ["serde"], optional = true }
+glam = { version = "0.17.3", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.6.2"

@@ -82,6 +82,10 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         *value = Some(func());
         value.as_mut().unwrap()
     }
+
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
 }
 
 #[derive(Debug)]
@@ -100,6 +104,13 @@ impl ComponentSparseSet {
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.dense.clear();
+        self.ticks.clear();
+        self.entities.clear();
+        self.sparse.clear();
     }
 
     #[inline]
@@ -398,6 +409,12 @@ impl SparseSets {
 
     pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
+    }
+
+    pub fn clear(&mut self) {
+        for set in self.sets.values_mut() {
+            set.clear();
+        }
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
