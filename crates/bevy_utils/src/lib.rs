@@ -16,7 +16,7 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A hasher builder that will create a fixed hasher.
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
 impl std::hash::BuildHasher for FixedState {
