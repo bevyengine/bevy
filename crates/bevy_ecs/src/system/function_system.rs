@@ -11,10 +11,13 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
+use super::SystemConfig;
+
 /// The metadata of a [`System`].
 pub struct SystemMeta {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
+    pub(crate) config: SystemConfig,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
@@ -27,6 +30,7 @@ impl SystemMeta {
     fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
+            config: SystemConfig::default(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
@@ -402,6 +406,10 @@ where
             change_tick,
             self.system_meta.name.as_ref(),
         );
+    }
+
+    fn config(&mut self) -> &mut SystemConfig {
+        &mut self.system_meta.config
     }
 }
 

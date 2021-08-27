@@ -8,6 +8,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::system_config::SystemConfig;
+
 /// A [`System`] identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SystemId(pub usize);
@@ -69,6 +71,8 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
+
+    fn config(&mut self) -> &mut SystemConfig;
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.

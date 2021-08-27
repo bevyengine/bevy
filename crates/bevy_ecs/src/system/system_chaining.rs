@@ -7,6 +7,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::SystemConfig;
+
 /// A [`System`] that chains two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
 ///
@@ -49,6 +51,7 @@ pub struct ChainSystem<SystemA, SystemB> {
     system_b: SystemB,
     name: Cow<'static, str>,
     id: SystemId,
+    config: SystemConfig,
     component_access: Access<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
@@ -110,6 +113,10 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.check_change_tick(change_tick);
         self.system_b.check_change_tick(change_tick);
     }
+
+    fn config(&mut self) -> &mut SystemConfig {
+        &mut self.config
+    }
 }
 
 /// An extension trait providing the [`IntoChainSystem::chain`] method for convenient [`System`]
@@ -139,6 +146,7 @@ where
         let system_b = system.system();
         ChainSystem {
             name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
+            config: SystemConfig::default(),
             system_a,
             system_b,
             archetype_component_access: Default::default(),
