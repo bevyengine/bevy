@@ -5,17 +5,17 @@ use bevy_ecs::{
 
 use crate::StartupStage;
 
-trait StartupSystem<SystemKind> {
+trait StartupConfig<SystemKind> {
     fn startup(self) -> Self;
 }
 
-impl<T: System> StartupSystem<ParallelSystemKind> for T {
+impl<T: System> StartupConfig<ParallelSystemKind> for T {
     fn startup(mut self) -> Self {
         self.stage(StartupStage::Startup)
     }
 }
 
-impl<T: ExclusiveSystem> StartupSystem<ExclusiveSystemKind> for T {
+impl<T: ExclusiveSystem> StartupConfig<ExclusiveSystemKind> for T {
     fn startup(mut self) -> Self {
         self.stage(StartupStage::Startup)
     }

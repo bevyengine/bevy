@@ -2,7 +2,7 @@ mod app;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
-mod startup_system;
+mod startup_config;
 
 #[cfg(feature = "bevy_ci_testing")]
 mod ci_testing;
@@ -13,7 +13,7 @@ pub use bevy_ecs::event::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
-pub use startup_system::*;
+pub use startup_config::*;
 
 pub mod prelude {
     #[doc(hidden)]
