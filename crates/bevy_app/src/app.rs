@@ -1,10 +1,9 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
-    prelude::{FromWorld, IntoExclusiveSystem},
-    schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
-    },
+    prelude::{FromWorld, IntoExclusiveSystem, System},
+    schedule::{RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage},
+    system::IntoSystem,
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -50,7 +49,7 @@ impl Default for App {
 
         app.add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+            .add_exclusive(World::clear_trackers.stage(CoreStage::Last));
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -203,86 +202,27 @@ impl App {
     /// App::new()
     ///     .add_system(my_system);
     /// ```
-    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
-        self.add_system_to_stage(CoreStage::Update, system)
+    pub fn add_system<Param>(&mut self, system: impl IntoSystem<(), (), Param>) -> &mut Self {
+        self.schedule
+            .add_system(if let Some(_) = system.system().config().stage {
+                system
+            } else {
+                system.stage(CoreStage::Update)
+            });
+        &mut self
     }
 
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_system_set_to_stage(CoreStage::Update, system_set)
+        self.schedule.add_system_set(system_set);
+        &mut self
     }
 
-    pub fn add_system_to_stage<Params>(
+    pub fn add_exclusive<Params, SystemType>(
         &mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
+        system: impl IntoExclusiveSystem<Params, SystemType>,
     ) -> &mut Self {
-        self.schedule.add_system_to_stage(stage_label, system);
-        self
-    }
-
-    pub fn add_system_set_to_stage(
-        &mut self,
-        stage_label: impl StageLabel,
-        system_set: SystemSet,
-    ) -> &mut Self {
-        self.schedule
-            .add_system_set_to_stage(stage_label, system_set);
-        self
-    }
-
-    /// Adds a system that is run once at application startup
-    ///
-    /// Startup systems run exactly once BEFORE all other systems. These are generally used for
-    /// app initialization code (ex: adding entities and resources).
-    ///
-    /// * For adding a system that runs for every frame, see [`App::add_system`].
-    /// * For adding a system to specific stage, see [`App::add_system_to_stage`].
-    ///
-    /// ## Example
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn my_startup_system(_commands: Commands) {
-    ///     println!("My startup system");
-    /// }
-    ///
-    /// App::new()
-    ///     .add_startup_system(my_startup_system);
-    /// ```
-    pub fn add_startup_system<Params>(
-        &mut self,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        self.add_startup_system_to_stage(StartupStage::Startup, system)
-    }
-
-    pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
-    }
-
-    pub fn add_startup_system_to_stage<Params>(
-        &mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_to_stage(stage_label, system)
-            });
-        self
-    }
-
-    pub fn add_startup_system_set_to_stage(
-        &mut self,
-        stage_label: impl StageLabel,
-        system_set: SystemSet,
-    ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_set_to_stage(stage_label, system_set)
-            });
-        self
+        self.schedule.add_exclusive(system);
+        &mut self
     }
 
     /// Adds a new [State] with the given `initial` value.
@@ -307,7 +247,7 @@ impl App {
         T: Component + Debug + Clone + Eq + Hash,
     {
         self.insert_resource(State::new(initial))
-            .add_system_set_to_stage(stage, State::<T>::get_driver())
+            .add_system_set(State::<T>::get_driver().stage(stage))
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
@@ -335,7 +275,7 @@ impl App {
         T: Component,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
+            .add_system(Events::<T>::update_system.stage(CoreStage::First))
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.

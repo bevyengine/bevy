@@ -408,11 +408,14 @@ where
         );
     }
 
-    fn config(&mut self) -> &mut SystemConfig {
+    fn config(&self) -> &SystemConfig {
+        &self.system_meta.config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
         &mut self.system_meta.config
     }
 }
-
 /// A trait implemented for all functions that can be used as [`System`]s.
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     /// # Safety

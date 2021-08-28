@@ -71,8 +71,8 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
-
-    fn config(&mut self) -> &mut SystemConfig;
+    fn config_mut(&mut self) -> &mut SystemConfig;
+    fn config(&self) -> &SystemConfig;
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.

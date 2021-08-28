@@ -1,11 +1,8 @@
 use crate::{
     component::ComponentId,
     query::Access,
-    schedule::{
-        BoxedAmbiguitySetLabel, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemDescriptor,
-        GraphNode, ParallelSystemDescriptor,
-    },
-    system::{ExclusiveSystem, System},
+    schedule::{BoxedAmbiguitySetLabel, BoxedRunCriteriaLabel, BoxedSystemLabel, GraphNode},
+    system::{BoxedExclusiveSystem, BoxedSystem, ExclusiveSystem, System},
 };
 use std::{borrow::Cow, cell::UnsafeCell};
 
@@ -25,27 +22,19 @@ pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
 }
 
 pub(super) struct ExclusiveSystemContainer {
-    system: Box<dyn ExclusiveSystem>,
+    system: BoxedExclusiveSystem,
     pub(super) run_criteria_index: Option<usize>,
     pub(super) run_criteria_label: Option<BoxedRunCriteriaLabel>,
     dependencies: Vec<usize>,
-    labels: Vec<BoxedSystemLabel>,
-    before: Vec<BoxedSystemLabel>,
-    after: Vec<BoxedSystemLabel>,
-    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
 impl ExclusiveSystemContainer {
-    pub(super) fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
+    pub(super) fn from_system(system: BoxedExclusiveSystem) -> Self {
         ExclusiveSystemContainer {
-            system: descriptor.system,
+            system,
             run_criteria_index: None,
             run_criteria_label: None,
             dependencies: Vec::new(),
-            labels: descriptor.labels,
-            before: descriptor.before,
-            after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
@@ -62,15 +51,15 @@ impl GraphNode for ExclusiveSystemContainer {
     }
 
     fn labels(&self) -> &[BoxedSystemLabel] {
-        &self.labels
+        &self.system.as_ref().config().labels
     }
 
     fn before(&self) -> &[BoxedSystemLabel] {
-        &self.before
+        &self.system.config().before
     }
 
     fn after(&self) -> &[BoxedSystemLabel] {
-        &self.after
+        &self.system.config().after
     }
 }
 
@@ -97,7 +86,7 @@ impl SystemContainer for ExclusiveSystemContainer {
     }
 
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
-        &self.ambiguity_sets
+        &self.system.config().ambiguity_sets
     }
 
     fn component_access(&self) -> Option<&Access<ComponentId>> {
@@ -111,28 +100,20 @@ pub struct ParallelSystemContainer {
     pub(crate) run_criteria_label: Option<BoxedRunCriteriaLabel>,
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
-    labels: Vec<BoxedSystemLabel>,
-    before: Vec<BoxedSystemLabel>,
-    after: Vec<BoxedSystemLabel>,
-    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
 unsafe impl Send for ParallelSystemContainer {}
 unsafe impl Sync for ParallelSystemContainer {}
 
 impl ParallelSystemContainer {
-    pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
+    pub(crate) fn from_system(system: BoxedSystem) -> Self {
         ParallelSystemContainer {
             // SAFE: it is fine to wrap inner value with UnsafeCell, as it is repr(transparent)
-            system: unsafe { Box::from_raw(Box::into_raw(descriptor.system) as *mut _) },
+            system: unsafe { Box::from_raw(Box::into_raw(system) as *mut _) },
             should_run: false,
             run_criteria_index: None,
             run_criteria_label: None,
             dependencies: Vec::new(),
-            labels: descriptor.labels,
-            before: descriptor.before,
-            after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
@@ -173,15 +154,15 @@ impl GraphNode for ParallelSystemContainer {
     }
 
     fn labels(&self) -> &[BoxedSystemLabel] {
-        &self.labels
+        &self.system().config().labels
     }
 
     fn before(&self) -> &[BoxedSystemLabel] {
-        &self.before
+        &self.system().config().before
     }
 
     fn after(&self) -> &[BoxedSystemLabel] {
-        &self.after
+        &self.system().config().after
     }
 }
 
@@ -208,7 +189,7 @@ impl SystemContainer for ParallelSystemContainer {
     }
 
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
-        &self.ambiguity_sets
+        &self.system().config().ambiguity_sets
     }
 
     fn component_access(&self) -> Option<&Access<ComponentId>> {

@@ -78,12 +78,12 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
             .extend(self.system_b.archetype_component_access());
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
     }
 
     fn is_send(&self) -> bool {
@@ -113,8 +113,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.check_change_tick(change_tick);
         self.system_b.check_change_tick(change_tick);
     }
+    fn config(&self) -> &SystemConfig {
+        &self.config
+    }
 
-    fn config(&mut self) -> &mut SystemConfig {
+    fn config_mut(&mut self) -> &mut SystemConfig {
         &mut self.config
     }
 }

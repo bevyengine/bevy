@@ -457,7 +457,16 @@ impl System for RunOnce {
 
     fn check_change_tick(&mut self, _change_tick: u32) {}
 
-    fn config(&mut self) -> &mut SystemConfig {
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        // SAFE: world and resources are exclusively borrowed
+        unsafe { self.run_unsafe(input, world) }
+    }
+
+    fn config(&self) -> &SystemConfig {
+        &self.system_config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
         &mut self.system_config
     }
 }

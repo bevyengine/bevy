@@ -29,8 +29,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            ConfigurableSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut,
+            System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -185,7 +185,7 @@ mod tests {
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
-            SystemStage::single(World::clear_trackers.exclusive_system()),
+            SystemStage::single_exclusive(World::clear_trackers),
         );
 
         schedule.run(&mut world);

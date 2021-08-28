@@ -4,7 +4,7 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut},
+    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut, RunCriteraConfig},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;

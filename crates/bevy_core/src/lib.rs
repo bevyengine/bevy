@@ -18,11 +18,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::IntoExclusiveSystem,
-};
+use bevy_ecs::{entity::Entity, schedule::SystemLabel, system::IntoExclusiveSystem};
 use bevy_utils::HashSet;
 use std::ops::Range;
 
