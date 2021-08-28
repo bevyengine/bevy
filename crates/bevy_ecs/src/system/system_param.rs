@@ -19,8 +19,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use super::SystemId;
-
 /// A parameter that can be used in a [`System`](super::System).
 ///
 /// # Derive
@@ -1156,39 +1154,6 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
-    }
-}
-
-/// The [`SystemParamState`] of [`SystemIdState`].
-pub struct SystemIdState;
-
-// SAFE: Only reads internal system state
-unsafe impl ReadOnlySystemParamFetch for SystemIdState {}
-
-impl SystemParam for SystemId {
-    type Fetch = SystemIdState;
-}
-
-unsafe impl SystemParamState for SystemIdState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Self {}
-    }
-
-    fn default_config() {}
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for SystemIdState {
-    type Item = SystemId;
-
-    unsafe fn get_param(
-        _state: &'s mut Self,
-        system_meta: &SystemMeta,
-        _world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item {
-        system_meta.id
     }
 }
 
