@@ -127,22 +127,21 @@ where
         (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
-            Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
+            Some(StateTransition::Entering(_, ref relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                    *is_in_stack = true;
                 }
                 false
             }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            Some(StateTransition::ExitingFull(ref relevant, _)) => {
                 if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                    *is_in_stack = false;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
                 if state.stack.last().unwrap() == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                    *is_in_stack = true;
                 }
                 false
             }
