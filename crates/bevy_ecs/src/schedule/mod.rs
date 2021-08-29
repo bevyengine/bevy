@@ -65,15 +65,6 @@ impl Schedule {
         self
     }
 
-    // pub fn with_system_in_stage<Param>(
-    //     mut self,
-    //     stage_label: impl StageLabel,
-    //     system: impl IntoSystem<(), (), Param> + StageSystem,
-    // ) -> Self {
-    //     self.add_system(system.stage(stage_label));
-    //     self
-    // }
-
     pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
         &mut self,
         system: S,
@@ -140,7 +131,7 @@ impl Schedule {
         self
     }
 
-    pub fn add_system<Param>(&mut self, system: impl IntoSystem<(), (), Param>) -> &mut Self {
+    pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
         let system = system.system();
         let stage_label = system.config().stage.clone().expect("test");
 

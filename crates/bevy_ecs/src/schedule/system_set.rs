@@ -1,8 +1,8 @@
 use crate::{
     component::Component,
-    prelude::IntoSystem,
+    prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem},
     schedule::{RunCriteriaDescriptorOrLabel, State},
-    system::{BoxedSystem, RunCriteraConfig, SystemConfig},
+    system::{BoxedExclusiveSystem, BoxedSystem, RunCriteraConfig, SystemConfig},
 };
 use std::{fmt::Debug, hash::Hash};
 
@@ -10,6 +10,7 @@ use std::{fmt::Debug, hash::Hash};
 #[derive(Default)]
 pub struct SystemSet {
     pub(crate) systems: Vec<BoxedSystem>,
+    pub(crate) exclusive_systems: Vec<BoxedExclusiveSystem>,
     pub(crate) config: SystemConfig,
 }
 
@@ -67,14 +68,33 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
-    pub fn with_system<Param>(mut self, system: impl IntoSystem<(), (), Param>) -> Self {
+    pub fn with_system<Params>(mut self, system: impl IntoSystem<(), (), Params>) -> Self {
         self.systems.push(Box::new(system.system()));
         self
     }
 
-    pub(crate) fn bake(self) -> (Option<RunCriteriaDescriptorOrLabel>, Vec<BoxedSystem>) {
+    pub fn with_exclusive<Params, SystemType>(
+        mut self,
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        self.exclusive_systems
+            .push(Box::new(system.exclusive_system()));
+        self
+    }
+
+    pub(crate) fn bake(
+        self,
+    ) -> (
+        Option<RunCriteriaDescriptorOrLabel>,
+        Vec<BoxedSystem>,
+        Vec<BoxedExclusiveSystem>,
+    ) {
         let SystemSet {
             mut systems,
+            mut exclusive_systems,
             config,
         } = self;
         for system in &mut systems {
@@ -95,7 +115,25 @@ impl SystemSet {
                 .ambiguity_sets
                 .extend(config.ambiguity_sets.iter().cloned());
         }
-        (config.run_criteria, systems)
+        for system in &mut exclusive_systems {
+            system
+                .config_mut()
+                .labels
+                .extend(config.labels.iter().cloned());
+            system
+                .config_mut()
+                .before
+                .extend(config.before.iter().cloned());
+            system
+                .config_mut()
+                .after
+                .extend(config.after.iter().cloned());
+            system
+                .config_mut()
+                .ambiguity_sets
+                .extend(config.ambiguity_sets.iter().cloned());
+        }
+        (config.run_criteria, systems, exclusive_systems)
     }
 
     pub(crate) fn config(&self) -> &SystemConfig {

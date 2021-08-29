@@ -200,7 +200,11 @@ impl System for FixedTimestep {
         self.internal_system.check_change_tick(change_tick);
     }
 
-    fn config(&mut self) -> &mut SystemConfig {
+    fn config(&self) -> &SystemConfig {
+        &self.config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
         &mut self.config
     }
 }

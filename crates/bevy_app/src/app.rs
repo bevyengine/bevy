@@ -1,9 +1,8 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
-    prelude::{FromWorld, IntoExclusiveSystem, System},
+    prelude::{ExclusiveSystem, FromWorld, IntoExclusiveSystem, IntoSystem, StageConfig, System},
     schedule::{RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage},
-    system::IntoSystem,
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -202,7 +201,7 @@ impl App {
     /// App::new()
     ///     .add_system(my_system);
     /// ```
-    pub fn add_system<Param>(&mut self, system: impl IntoSystem<(), (), Param>) -> &mut Self {
+    pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
         self.schedule
             .add_system(if let Some(_) = system.system().config().stage {
                 system
@@ -220,7 +219,10 @@ impl App {
     pub fn add_exclusive<Params, SystemType>(
         &mut self,
         system: impl IntoExclusiveSystem<Params, SystemType>,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        SystemType: ExclusiveSystem,
+    {
         self.schedule.add_exclusive(system);
         &mut self
     }
