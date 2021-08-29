@@ -1,6 +1,7 @@
 use crate::schedule::*;
 
-use super::{ExclusiveSystem, InsertionPoint, System};
+use super::function_system::IntoSystem;
+use super::{ExclusiveSystem, InsertionPoint, IntoExclusiveSystem, System};
 
 #[derive(Default)]
 pub struct SystemConfig {
@@ -87,27 +88,40 @@ impl<T: ExclusiveSystem> ScheduleConfig<ExclusiveSystemKind> for T {
 }
 
 pub trait StageConfig<SystemKind> {
-    fn stage(self, label: impl StageLabel) -> Self;
+    type System;
+    fn stage(self, label: impl StageLabel) -> Self::System;
 }
 
-impl<T: System> StageConfig<ParallelSystemKind> for T {
+impl<T, Params> StageConfig<(ParallelSystemKind, Params)> for T
+where
+    T: IntoSystem<(), (), Params, System = T> + System,
+{
+    type System = T::System;
+    fn stage(self, label: impl StageLabel) -> Self::System {
+        let mut system = self.system();
+        system.config_mut().set_stage(label);
+        system.system()
+    }
+}
+
+impl<Params> StageConfig<(SystemSetKind, Params)> for SystemSet {
+    type System = SystemSet;
     fn stage(mut self, label: impl StageLabel) -> Self {
         self.config_mut().set_stage(label);
         self
     }
 }
 
-impl StageConfig<SystemSetKind> for SystemSet {
-    fn stage(mut self, label: impl StageLabel) -> Self {
-        self.config_mut().set_stage(label);
-        self
-    }
-}
-
-impl<T: ExclusiveSystem> StageConfig<ExclusiveSystemKind> for T {
-    fn stage(mut self, label: impl StageLabel) -> Self {
-        self.config_mut().set_stage(label);
-        self
+impl<T, Params, SystemType> StageConfig<(ExclusiveSystemKind, Params, SystemType)> for T
+where
+    T: IntoExclusiveSystem<Params, SystemType>,
+    SystemType: ExclusiveSystem,
+{
+    type System = SystemType;
+    fn stage(self, label: impl StageLabel) -> Self::System {
+        let mut system = self.exclusive_system();
+        system.config_mut().set_stage(label);
+        system
     }
 }
 
