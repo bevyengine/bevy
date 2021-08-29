@@ -956,7 +956,7 @@ mod tests {
             BoxedSystemLabel, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping,
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
-        system::{ExclusiveConfig, In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
+        system::{In, IntoSystem, Local, Query, ResMut},
         world::World,
     };
 

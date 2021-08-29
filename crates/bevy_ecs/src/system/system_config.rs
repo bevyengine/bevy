@@ -1,7 +1,9 @@
 use crate::schedule::*;
 
-use super::function_system::IntoSystem;
-use super::{ExclusiveSystem, InsertionPoint, IntoExclusiveSystem, System};
+use super::{
+    function_system::IntoSystem, ExclusiveSystem, InsertionPoint,
+    IntoExclusiveSystem, System,
+};
 
 #[derive(Default)]
 pub struct SystemConfig {

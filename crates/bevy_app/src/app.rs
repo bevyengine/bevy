@@ -202,18 +202,19 @@ impl App {
     ///     .add_system(my_system);
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
+        let system = system.system();
         self.schedule
-            .add_system(if let Some(_) = system.system().config().stage {
+            .add_system(if let Some(_) = system.config().stage {
                 system
             } else {
                 system.stage(CoreStage::Update)
             });
-        &mut self
+        self
     }
 
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.schedule.add_system_set(system_set);
-        &mut self
+        self
     }
 
     pub fn add_exclusive<Params, SystemType>(
@@ -224,7 +225,7 @@ impl App {
         SystemType: ExclusiveSystem,
     {
         self.schedule.add_exclusive(system);
-        &mut self
+        self
     }
 
     /// Adds a new [State] with the given `initial` value.
