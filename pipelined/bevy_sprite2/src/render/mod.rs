@@ -185,10 +185,13 @@ impl FromWorld for SpriteShaders {
 
 #[derive(Debug, Clone)]
 struct ExtractedSprite {
+    depth: f32,
     transform: Mat4,
     rect: Rect,
     handle: Handle<Image>,
     atlas_size: Option<Vec2>,
+    flip_x: bool,
+    flip_y: bool,
 }
 
 #[derive(Default)]
@@ -217,6 +220,9 @@ pub(crate) fn extract_atlases(
                 transform: transform.compute_matrix(),
                 rect,
                 handle: texture_atlas.texture.clone_weak(),
+                flip_x: atlas_sprite.flip_x,
+                flip_y: atlas_sprite.flip_y,
+                depth: transform.translation.z,
             });
         }
     }
@@ -249,6 +255,9 @@ pub(crate) fn extract_sprites(
                     .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
             },
             handle: handle.clone_weak(),
+            flip_x: sprite.flip_x,
+            flip_y: sprite.flip_y,
+            depth: transform.translation.z,
         });
     }
 }
@@ -298,10 +307,22 @@ pub(crate) fn prepare_sprites(
         return;
     }
 
-    // Sort sprites by their image
-    extracted_sprites
-        .sprites
-        .sort_unstable_by(|a, b| a.handle.cmp(&b.handle));
+    // Sort sprites first by their depth, then by their texture
+    extracted_sprites.sprites.sort_unstable_by(|a, b| {
+        let depth_diff = (a.depth - b.depth).abs();
+
+        // If depths are essentially equal
+        if depth_diff < f32::EPSILON {
+            // Compare based on texture
+            a.handle.cmp(&b.handle)
+
+        // If the depths are unequal, return the comparison of their depths
+        } else {
+            b.depth
+                .partial_cmp(&a.depth)
+                .expect("Could not compare floats")
+        }
+    });
 
     // Reserve space in the instance buffer for the sprites
     sprite_meta
@@ -313,9 +334,19 @@ pub(crate) fn prepare_sprites(
         let sprite_rect = extracted_sprite.rect;
         let size = sprite_rect.size().into();
         let transform = extracted_sprite.transform.to_cols_array_2d();
-        let uv_min = sprite_rect.min / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max);
+        let mut uv_min = sprite_rect.min / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max);
         let uv_max = sprite_rect.max / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max);
-        let uv_size = uv_max - uv_min;
+        let mut uv_size = uv_max - uv_min;
+
+        // Flip the sprite UV along x and y axes if necessary
+        if extracted_sprite.flip_x {
+            uv_min.x += uv_size.x;
+            uv_size.x = -uv_size.x;
+        }
+        if extracted_sprite.flip_y {
+            uv_min.y += uv_size.y;
+            uv_size.y = -uv_size.y;
+        }
 
         sprite_meta.instances.push(SpriteInstance {
             transform,
