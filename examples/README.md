@@ -83,6 +83,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+`frustum` | [`2d/frustum.rs`](./2d/frustum.rs) | Tests the frustum culling system (only draws sprites on-screen)
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `mesh` | [`2d/mesh.rs`](./2d/mesh.rs) | Renders a custom mesh
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
