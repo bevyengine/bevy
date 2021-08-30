@@ -1,5 +1,9 @@
-use bevy::{prelude::*, sprite::SpriteSettings};
-use bevy::render::draw::OutsideFrustum;
+use bevy::{
+    prelude::*,
+    render::draw::OutsideFrustum,
+    sprite::SpriteSettings,
+};
+use bevy::render::camera::OrthographicProjection;
 
 struct Bar;
 struct PrintTimer(Timer);
@@ -28,21 +32,32 @@ fn rotate(mut query: Query<&mut Transform, With<Bar>>, time: Res<Time>) {
     }
 }
 
+fn travel_camera(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<OrthographicProjection>>, time: Res<Time>) {
+    let speed = 2f32;
+    for mut t in query.iter_mut() {
+        if keys.pressed(KeyCode::S) {
+            t.scale += time.delta_seconds() * speed;
+        }
+        if keys.pressed(KeyCode::W) {
+            t.scale -= time.delta_seconds() * speed;
+        }
+    }
+}
 
 fn travel(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Bar>>, time: Res<Time>) {
     let speed = 500f32;
     for mut t in query.iter_mut() {
         if keys.pressed(KeyCode::Right) {
-            t.translation.x += time.delta_seconds() * speed
+            t.translation.x += time.delta_seconds() * speed;
         }
         if keys.pressed(KeyCode::Left) {
-            t.translation.x -= time.delta_seconds() * speed
+            t.translation.x -= time.delta_seconds() * speed;
         }
         if keys.pressed(KeyCode::Up) {
-            t.translation.y += time.delta_seconds() * speed
+            t.translation.y += time.delta_seconds() * speed;
         }
         if keys.pressed(KeyCode::Down) {
-            t.translation.y -= time.delta_seconds() * speed
+            t.translation.y -= time.delta_seconds() * speed;
         }
     }
 }
@@ -58,7 +73,7 @@ fn info(time: Res<Time>, mut timer: ResMut<PrintTimer>, query: Query<&Bar, Witho
 }
 
 fn startup() {
-    info!("use the arrow keys to move the bar");
+    info!("use the arrow keys to move the bar, 'W' & 'S' to scale the camera");
 }
 
 fn main() {
@@ -72,6 +87,7 @@ fn main() {
         .add_startup_system(startup.system())
         .add_system(rotate.system())
         .add_system(travel.system())
+        .add_system(travel_camera.system())
         .add_system(info.system())
         .run();
 }
