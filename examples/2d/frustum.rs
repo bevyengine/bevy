@@ -10,7 +10,7 @@ fn setup(
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
-    let mut transform = Transform::from_xyz(-800.0, 0.0, 0.0);
+    let mut transform = Transform::from_xyz(-400.0, 0.0, 0.0);
     transform.scale = Vec3::new(1.0, 20.0, 1.0);
 
     commands.spawn_bundle(SpriteBundle {
@@ -47,7 +47,7 @@ fn travel(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Bar>>
     }
 }
 
-fn log_outside(time: Res<Time>, mut timer: ResMut<PrintTimer>, query: Query<&Bar, Without<OutsideFrustum>>) {
+fn info(time: Res<Time>, mut timer: ResMut<PrintTimer>, query: Query<&Bar, Without<OutsideFrustum>>) {
     let mut count = 0;
     for _ in query.iter() {
         count += 1;
@@ -57,9 +57,11 @@ fn log_outside(time: Res<Time>, mut timer: ResMut<PrintTimer>, query: Query<&Bar
     }
 }
 
+fn startup() {
+    info!("use the arrow keys to move the bar");
+}
 
 fn main() {
-    info!("move the bar around with arrow keys!");
     App::new()
         .insert_resource(SpriteSettings {
             frustum_culling_enabled: true,
@@ -67,8 +69,9 @@ fn main() {
         .insert_resource(PrintTimer(Timer::from_seconds(1.0, true)))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
+        .add_startup_system(startup.system())
         .add_system(rotate.system())
         .add_system(travel.system())
-        .add_system(log_outside.system())
+        .add_system(info.system())
         .run();
 }
