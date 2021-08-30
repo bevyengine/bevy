@@ -46,7 +46,7 @@ pub fn sprite_frustum_culling_system(
         if let Ok(camera_transform) = camera_transforms.get(active_camera_entity) {
             let camera_size = window_size * camera_transform.scale.truncate();
 
-            let rect = Rect {
+            let camera_rect = Rect {
                 position: camera_transform.translation.truncate(),
                 size: camera_size,
             };
@@ -54,10 +54,10 @@ pub fn sprite_frustum_culling_system(
             for (entity, drawable_transform, sprite) in sprites.iter() {
                 let sprite_rect = Rect {
                     position: drawable_transform.translation.truncate(),
-                    size: sprite.size,
+                    size: sprite.size * drawable_transform.scale.truncate(),
                 };
 
-                if rect.is_intersecting(sprite_rect) {
+                if camera_rect.is_intersecting(sprite_rect) {
                     if culled_sprites.get(entity).is_ok() {
                         commands.entity(entity).remove::<OutsideFrustum>();
                     }
@@ -90,7 +90,7 @@ pub fn atlas_frustum_culling_system(
         if let Ok(camera_transform) = camera_transforms.get(active_camera_entity) {
             let camera_size = window_size * camera_transform.scale.truncate();
 
-            let rect = Rect {
+            let camera_rect = Rect {
                 position: camera_transform.translation.truncate(),
                 size: camera_size,
             };
@@ -102,10 +102,10 @@ pub fn atlas_frustum_culling_system(
 
                         let sprite_rect = Rect {
                             position: drawable_transform.translation.truncate(),
-                            size,
+                            size: size * drawable_transform.scale.truncate(),
                         };
 
-                        if rect.is_intersecting(sprite_rect) {
+                        if camera_rect.is_intersecting(sprite_rect) {
                             if culled_sprites.get(entity).is_ok() {
                                 commands.entity(entity).remove::<OutsideFrustum>();
                             }
