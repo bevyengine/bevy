@@ -1,28 +1,23 @@
-use bevy::{
-    prelude::*,
-    render::draw::OutsideFrustum,
-    sprite::SpriteSettings,
-};
 use bevy::render::camera::OrthographicProjection;
+use bevy::{prelude::*, render::draw::OutsideFrustum, sprite::SpriteSettings};
 
 struct Bar;
 struct PrintTimer(Timer);
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     let mut transform = Transform::from_xyz(-400.0, 0.0, 0.0);
     transform.scale = Vec3::new(1.0, 20.0, 1.0);
 
-    commands.spawn_bundle(SpriteBundle {
-        material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-        transform,
-        sprite: Sprite::new(Vec2::new(30.0, 30.0)),
-        ..Default::default()
-    }).insert(Bar);
+    commands
+        .spawn_bundle(SpriteBundle {
+            material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+            transform,
+            sprite: Sprite::new(Vec2::new(30.0, 30.0)),
+            ..Default::default()
+        })
+        .insert(Bar);
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Bar>>, time: Res<Time>) {
@@ -32,7 +27,11 @@ fn rotate(mut query: Query<&mut Transform, With<Bar>>, time: Res<Time>) {
     }
 }
 
-fn travel_camera(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<OrthographicProjection>>, time: Res<Time>) {
+fn travel_camera(
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<OrthographicProjection>>,
+    time: Res<Time>,
+) {
     let speed = 2f32;
     for mut t in query.iter_mut() {
         if keys.pressed(KeyCode::S) {
@@ -62,7 +61,11 @@ fn travel(keys: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Bar>>
     }
 }
 
-fn info(time: Res<Time>, mut timer: ResMut<PrintTimer>, query: Query<&Bar, Without<OutsideFrustum>>) {
+fn info(
+    time: Res<Time>,
+    mut timer: ResMut<PrintTimer>,
+    query: Query<&Bar, Without<OutsideFrustum>>,
+) {
     let mut count = 0;
     for _ in query.iter() {
         count += 1;
