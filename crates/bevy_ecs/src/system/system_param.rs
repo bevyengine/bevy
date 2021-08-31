@@ -259,7 +259,7 @@ impl<'w, T: Component> AsRef<T> for Res<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Res<T>`].
+/// The [`SystemParamState`] of [`Res`].
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -328,8 +328,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Option<Res<T>>`].
-/// See: [`Res<T>`]
+/// The [`SystemParamState`] of `Option<Res<T>>`.
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
@@ -370,7 +369,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for OptionResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`ResMut<T>`].
+/// The [`SystemParamState`] of [`ResMut`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -578,7 +577,7 @@ impl<'a, T: Component> DerefMut for Local<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Local<T>`].
+/// The [`SystemParamState`] of [`Local`].
 pub struct LocalState<T: Component>(T);
 
 impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T> {
@@ -646,7 +645,7 @@ impl<'a, T> RemovedComponents<'a, T> {
 // SAFE: Only reads World components
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
-/// The [`SystemParamState`] of [`RemovedComponents<T>`].
+/// The [`SystemParamState`] of [`RemovedComponents`].
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -743,7 +742,7 @@ impl<'w, T: 'static> Deref for NonSend<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSend<T>`].
+/// The [`SystemParamState`] of [`NonSend`].
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -859,7 +858,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSendMut<T>`].
+/// The [`SystemParamState`] of [`NonSendMut`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
