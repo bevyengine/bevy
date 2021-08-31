@@ -259,7 +259,7 @@ impl<'w, T: Component> AsRef<T> for Res<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Res`].
+/// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -328,7 +328,8 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<Res<T>>`.
+/// The [`SystemParamState`] of [`Option<Res<T>>`].
+/// See: [`Res<T>`]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
@@ -369,7 +370,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for OptionResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`ResMut`].
+/// The [`SystemParamState`] of [`ResMut<T>`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -444,7 +445,8 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<ResMut<T>>`.
+/// The [`SystemParamState`] of [`Option<ResMut<T>>`].
+/// See: [`ResMut<T>`]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
@@ -576,7 +578,7 @@ impl<'a, T: Component> DerefMut for Local<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Local`].
+/// The [`SystemParamState`] of [`Local<T>`].
 pub struct LocalState<T: Component>(T);
 
 impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T> {
@@ -644,7 +646,7 @@ impl<'a, T> RemovedComponents<'a, T> {
 // SAFE: Only reads World components
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
-/// The [`SystemParamState`] of [`RemovedComponents`].
+/// The [`SystemParamState`] of [`RemovedComponents<T>`].
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -741,7 +743,7 @@ impl<'w, T: 'static> Deref for NonSend<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSend`].
+/// The [`SystemParamState`] of [`NonSend<T>`].
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -814,7 +816,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSend<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSend<T>>`].
+/// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
 impl<'w, T: Component> SystemParam for Option<NonSend<'w, T>> {
@@ -856,7 +859,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSendMut`].
+/// The [`SystemParamState`] of [`NonSendMut<T>`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -934,7 +937,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSendMut<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
+/// See: [`NonSendMut<T>`]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
@@ -1128,7 +1132,7 @@ impl SystemParam for SystemChangeTick {
     type Fetch = SystemChangeTickState;
 }
 
-/// The [`SystemParamState`] of [`SystemChangeTickState`].
+/// The [`SystemParamState`] of [`SystemChangeTick`].
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {
