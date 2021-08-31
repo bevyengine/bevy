@@ -3,8 +3,10 @@ use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
+        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
+        SystemStage,
     },
+    system::Resource,
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -304,7 +306,7 @@ impl App {
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
@@ -332,7 +334,7 @@ impl App {
     /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.insert_resource(Events::<T>::default())
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
@@ -358,7 +360,7 @@ impl App {
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.world.insert_resource(resource);
         self
