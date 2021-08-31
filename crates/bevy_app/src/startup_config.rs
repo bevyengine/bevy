@@ -1,22 +1,16 @@
-use bevy_ecs::{
-    prelude::{ExclusiveSystem, System},
-    system::{ExclusiveSystemKind, ParallelSystemKind, StageConfig},
-};
+use bevy_ecs::system::StageConfig;
 
 use crate::StartupStage;
 
-trait StartupConfig<SystemKind> {
-    fn startup(self) -> Self;
+trait StartupConfig<Params, Configured> {
+    fn startup(self) -> Configured;
 }
 
-impl<T: System> StartupConfig<ParallelSystemKind> for T {
-    fn startup(mut self) -> Self {
-        self.stage(StartupStage::Startup)
-    }
-}
-
-impl<T: ExclusiveSystem> StartupConfig<ExclusiveSystemKind> for T {
-    fn startup(mut self) -> Self {
+impl<T, Params, Configured> StartupConfig<Params, Configured> for T
+where
+    T: StageConfig<Params, Configured>,
+{
+    fn startup(self) -> Configured {
         self.stage(StartupStage::Startup)
     }
 }
