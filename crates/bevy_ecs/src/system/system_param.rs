@@ -903,8 +903,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         }
     }
 
-    
-
     fn default_config() {}
 }
 
