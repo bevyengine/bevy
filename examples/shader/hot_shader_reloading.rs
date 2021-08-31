@@ -1,7 +1,7 @@
 use bevy::{
+    asset::LoadState,
     prelude::*,
     reflect::TypeUuid,
-    asset::LoadState,
     render::{
         mesh::shape,
         pipeline::{PipelineDescriptor, RenderPipeline},
@@ -14,7 +14,7 @@ use bevy::{
 /// This example illustrates how to load shaders such that they can be
 /// edited while the example is still running.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
         .init_resource::<MyShadersHandles>()
@@ -40,7 +40,7 @@ struct MyMaterial {
 #[derive(Default)]
 struct MyShadersHandles {
     vertex: Handle<Shader>,
-    fragment: Handle<Shader>
+    fragment: Handle<Shader>,
 }
 
 fn load_shaders(mut my_shaders: ResMut<MyShadersHandles>, asset_server: Res<AssetServer>) {
@@ -48,9 +48,11 @@ fn load_shaders(mut my_shaders: ResMut<MyShadersHandles>, asset_server: Res<Asse
     my_shaders.fragment = asset_server.load::<Shader, _>("shaders/hot.frag");
 }
 
-fn check_shaders(mut state: ResMut<State<AppState>>,
-                shaders_handles: ResMut<MyShadersHandles>,
-                asset_server: Res<AssetServer>) {
+fn check_shaders(
+    mut state: ResMut<State<AppState>>,
+    shaders_handles: ResMut<MyShadersHandles>,
+    asset_server: Res<AssetServer>,
+) {
     if let LoadState::Loaded = asset_server.get_load_state(shaders_handles.vertex.id) {
         if let LoadState::Loaded = asset_server.get_load_state(shaders_handles.fragment.id) {
             state.set(AppState::Finished).unwrap();
