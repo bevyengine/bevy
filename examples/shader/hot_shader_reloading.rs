@@ -1,6 +1,7 @@
 use bevy::{
     prelude::*,
     reflect::TypeUuid,
+    asset::LoadState,
     render::{
         mesh::shape,
         pipeline::{PipelineDescriptor, RenderPipeline},
@@ -13,11 +14,21 @@ use bevy::{
 /// This example illustrates how to load shaders such that they can be
 /// edited while the example is still running.
 fn main() {
-    App::new()
+    App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup)
+        .init_resource::<MyShadersHandles>()
+        .add_state(AppState::Setup)
+        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_shaders.system()))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_shaders.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup.system()))
         .run();
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum AppState {
+    Setup,
+    Finished,
 }
 
 #[derive(RenderResources, Default, TypeUuid)]
@@ -26,8 +37,30 @@ struct MyMaterial {
     pub color: Color,
 }
 
+#[derive(Default)]
+struct MyShadersHandles {
+    vertex: Handle<Shader>,
+    fragment: Handle<Shader>
+}
+
+fn load_shaders(mut my_shaders: ResMut<MyShadersHandles>, asset_server: Res<AssetServer>) {
+    my_shaders.vertex = asset_server.load::<Shader, _>("shaders/hot.vert");
+    my_shaders.fragment = asset_server.load::<Shader, _>("shaders/hot.frag");
+}
+
+fn check_shaders(mut state: ResMut<State<AppState>>,
+                shaders_handles: ResMut<MyShadersHandles>,
+                asset_server: Res<AssetServer>) {
+    if let LoadState::Loaded = asset_server.get_load_state(shaders_handles.vertex.id) {
+        if let LoadState::Loaded = asset_server.get_load_state(shaders_handles.fragment.id) {
+            state.set(AppState::Finished).unwrap();
+        }
+    }
+}
+
 fn setup(
     mut commands: Commands,
+    my_shaders: Res<MyShadersHandles>,
     asset_server: ResMut<AssetServer>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -39,8 +72,8 @@ fn setup(
 
     // Create a new shader pipeline with shaders loaded from the asset directory
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-        vertex: asset_server.load::<Shader, _>("shaders/hot.vert"),
-        fragment: Some(asset_server.load::<Shader, _>("shaders/hot.frag")),
+        vertex: my_shaders.vertex.clone(),
+        fragment: Some(my_shaders.fragment.clone()),
     }));
 
     // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to

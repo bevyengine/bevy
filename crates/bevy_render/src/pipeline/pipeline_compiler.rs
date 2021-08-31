@@ -79,7 +79,7 @@ impl PipelineCompiler {
             .entry(shader_handle.clone_weak())
             .or_insert_with(Vec::new);
 
-        let shader = shaders.get(shader_handle).unwrap();
+        let shader = shaders.get(shader_handle).expect("Shader is not loaded");
 
         if let Some(specialized_shader) =
             specialized_shaders
