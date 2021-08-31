@@ -820,7 +820,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 /// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
-impl<'w, T: Component> SystemParam for Option<NonSend<'w, T>> {
+impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
     type Fetch = OptionNonSendState<T>;
 }
 
