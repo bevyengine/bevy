@@ -59,3 +59,12 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
         }
     }
 }
+
+impl Deref for ComputePipeline {
+    type Target = wgpu::ComputePipeline;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
