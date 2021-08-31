@@ -47,6 +47,9 @@ mod tests {
     #[derive(Component)]
     struct F;
 
+    #[derive(Component)]
+    struct W<T>(T);
+
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
@@ -341,15 +344,15 @@ mod tests {
     fn remove_tracking() {
         let mut world = World::new();
         struct Despawned(Entity);
-        let a = world.spawn().insert_bundle(("abc", 123)).id();
-        world.spawn().insert_bundle(("abc", 123));
+        let a = world.spawn().insert_bundle((W("abc"), W(123))).id();
+        world.spawn().insert_bundle((W("abc"), W(123)));
         world.insert_resource(false);
         world.insert_resource(Despawned(a));
 
         world.entity_mut(a).despawn();
 
         fn validate_removed(
-            removed_i32: RemovedComponents<i32>,
+            removed_i32: RemovedComponents<W<i32>>,
             despawned: Res<Despawned>,
             mut ran: ResMut<bool>,
         ) {
@@ -385,13 +388,13 @@ mod tests {
     fn world_collections_system() {
         let mut world = World::default();
         world.insert_resource(false);
-        world.spawn().insert_bundle((42, true));
+        world.spawn().insert_bundle((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
             components: &Components,
             entities: &Entities,
             bundles: &Bundles,
-            query: Query<Entity, With<i32>>,
+            query: Query<Entity, With<W<i32>>>,
             mut modified: ResMut<bool>,
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
@@ -400,7 +403,7 @@ mod tests {
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components().collect::<Vec<_>>();
                 let bundle_id = bundles
-                    .get_id(std::any::TypeId::of::<(i32, bool)>())
+                    .get_id(std::any::TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();

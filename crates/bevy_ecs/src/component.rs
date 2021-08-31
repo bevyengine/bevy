@@ -60,53 +60,16 @@ where
     type Storage = TableStorage;
 }
 
-// For our own convinience, let's implement Component for primitives in tests.
-// It will eventually be removed, once tests are not using them anymore.
-// Consider those impls deprecated.
-#[cfg(test)]
-mod private_test_component_impls {
-    use super::{Component, TableStorage};
-    impl Component for &'static str {
-        type Storage = TableStorage;
-    }
-    impl Component for usize {
-        type Storage = TableStorage;
-    }
-    impl Component for i32 {
-        type Storage = TableStorage;
-    }
-    impl Component for u32 {
-        type Storage = TableStorage;
-    }
-    impl Component for u64 {
-        type Storage = TableStorage;
-    }
-    impl Component for f32 {
-        type Storage = TableStorage;
-    }
-    impl Component for f64 {
-        type Storage = TableStorage;
-    }
-    impl Component for u8 {
-        type Storage = TableStorage;
-    }
-    impl Component for bool {
-        type Storage = TableStorage;
-    }
-}
-
 /// The storage used for a specific component type.
 ///
 /// # Examples
-/// The [`StorageType`] for a component is normally configured via `World::register_component`.
+/// The [`StorageType`] for a component is configured via the derive attribute
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, component::*};
-///
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
 /// struct A;
-///
-/// let mut world = World::default();
-/// world.register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet));
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {

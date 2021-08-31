@@ -521,19 +521,22 @@ mod tests {
         }
     }
 
+    #[derive(Component)]
+    struct W<T>(T);
+
     #[test]
     fn commands() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn_bundle((1u32, 2u64))
+            .spawn_bundle((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
         assert!(world.entities().len() == 1);
         let results = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
         // test entity despawn
@@ -544,9 +547,9 @@ mod tests {
         }
         command_queue.apply(&mut world);
         let results2 = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
     }
@@ -562,21 +565,21 @@ mod tests {
 
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
+            .insert_bundle((W(1u32), W(2u64), dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results_before, vec![(1u32, 2u64)]);
 
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
-            .remove::<u32>()
-            .remove_bundle::<(u32, u64, SparseDropCk, DropCk)>();
+            .remove::<W<u32>>()
+            .remove_bundle::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
@@ -585,15 +588,15 @@ mod tests {
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
 
         let results_after = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
         let results_after_u64 = world
-            .query::<&u64>()
+            .query::<&W<u64>>()
             .iter(&world)
-            .copied()
+            .map(|v| v.0)
             .collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
     }

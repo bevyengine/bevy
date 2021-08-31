@@ -35,10 +35,6 @@ name = "events"
 path = "examples/events.rs"
 
 [[example]]
-name = "component_storage"
-path = "examples/component_storage.rs"
-
-[[example]]
 name = "resources"
 path = "examples/resources.rs"
 

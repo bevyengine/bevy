@@ -1,6 +1,6 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
-    component::{Component, ComponentDescriptor},
+    component::ComponentDescriptor,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::tracing::debug;
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -294,7 +294,7 @@ impl App {
     /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.add_state_to_stage(CoreStage::Update, initial)
     }

@@ -522,12 +522,16 @@ impl IndexMut<TableId> for Tables {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
+    use crate::component::Component;
     use crate::{component::Components, entity::Entity, storage::Table};
+    #[derive(Component)]
+    struct W<T>(T);
 
     #[test]
     fn table() {
         let mut components = Components::default();
-        let component_id = components.get_or_insert_id::<usize>();
+        let component_id = components.get_or_insert_id::<W<usize>>();
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());

@@ -137,28 +137,6 @@ impl World {
         WorldCell::new(self)
     }
 
-    /// Registers a new component using the given [ComponentDescriptor]. Components do not need to
-    /// be manually registered. This just provides a way to override default configuration.
-    /// Attempting to register a component with a type that has already been used by [World]
-    /// will result in an error.
-    ///
-    /// The default component storage type can be overridden like this:
-    ///
-    /// ```
-    /// use bevy_ecs::{
-    ///     component::{Component, ComponentDescriptor, StorageType},
-    ///     world::World,
-    /// };
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// world.register_component(ComponentDescriptor::new::<Position>(StorageType::SparseSet)).unwrap();
-    /// ```
     pub fn register_component(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -751,17 +729,21 @@ impl World {
     /// worked out to share an ID space (which doesn't happen by default).
     ///
     /// ```
-    /// use bevy_ecs::{entity::Entity, world::World};
+    /// use bevy_ecs::{entity::Entity, world::World, component::Component};
+    /// #[derive(Component)]
+    /// struct A(&'static str);
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct B(f32);
     ///
     /// let mut world = World::new();
     /// let e0 = world.spawn().id();
     /// let e1 = world.spawn().id();
     /// world.insert_or_spawn_batch(vec![
-    ///   (e0, ("a", 0.0)), // the first entity
-    ///   (e1, ("b", 1.0)), // the second entity
+    ///   (e0, (A("a"), B(0.0))), // the first entity
+    ///   (e1, (A("b"), B(1.0))), // the second entity
     /// ]);
     ///
-    /// assert_eq!(world.get::<f64>(e0), Some(&0.0));
+    /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
     /// ```
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
