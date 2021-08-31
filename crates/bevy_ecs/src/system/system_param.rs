@@ -820,7 +820,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 /// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
-impl<'w, T: Component> SystemParam for Option<NonSend<'w, T>> {
+impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
     type Fetch = OptionNonSendState<T>;
 }
 
@@ -877,7 +877,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         system_meta.set_non_send();
 
-        let component_id = world.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = world.initialize_non_send_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
