@@ -28,7 +28,7 @@ mod tests {
         schedule::{Schedule, Stage, SystemStage},
         system::{
             ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            RemovedComponents, Res, ResMut, System, SystemState, NonSend, NonSendMut
         },
         world::{FromWorld, World},
     };
@@ -330,6 +330,53 @@ mod tests {
         // ensure the system actually ran
         assert!(*world.get_resource::<bool>().unwrap());
     }
+
+    #[test]
+    fn non_send_option_system() {
+        let mut world = World::default();
+        
+        world.insert_resource(false);
+        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend2(std::rc::Rc<i32>);
+        world.insert_non_send(NotSend1(std::rc::Rc::new(0)));
+
+        fn sys(
+                op: Option<NonSend<NotSend1>>, 
+            mut _op2: Option<NonSendMut<NotSend2>>,
+            mut run: ResMut<bool>
+        ) {
+            op.expect("NonSend should exist");
+            *run = true;
+        }
+
+        run_system(&mut world, sys);
+        // ensure the system actually ran
+        assert!(*world.get_resource::<bool>().unwrap());
+    }
+
+    #[test]
+    fn non_send_system() {
+        let mut world = World::default();
+        
+        world.insert_resource(false);
+        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend2(std::rc::Rc<i32>);
+        
+        world.insert_non_send(NotSend1(std::rc::Rc::new(1)));
+        world.insert_non_send(NotSend2(std::rc::Rc::new(2)));
+
+        fn sys(
+                _op: NonSend<NotSend1>, 
+            mut _op2: NonSendMut<NotSend2>,
+            mut run: ResMut<bool>
+        ) {
+            *run = true;
+        }
+
+        run_system(&mut world, sys);
+        assert!(*world.get_resource::<bool>().unwrap());
+    }
+
 
     #[test]
     fn remove_tracking() {
