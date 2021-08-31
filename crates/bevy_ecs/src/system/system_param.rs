@@ -329,6 +329,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResState<T> {
 }
 
 /// The [`SystemParamState`] of [`Option<Res<T>>`].
+/// See: [`Res<T>`]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
@@ -445,6 +446,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResMutState<T> {
 }
 
 /// The [`SystemParamState`] of [`Option<ResMut<T>>`].
+/// See: [`ResMut<T>`]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
@@ -815,6 +817,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 }
 
 /// The [`SystemParamState`] of [`Option<NonSend<T>>`].
+/// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
 impl<'w, T: Component> SystemParam for Option<NonSend<'w, T>> {
@@ -935,6 +938,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
 }
 
 /// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
+/// See: [`NonSendMut<T>`]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
