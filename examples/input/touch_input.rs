@@ -1,9 +1,9 @@
 use bevy::{input::touch::*, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(touch_system.system())
+        .add_system(touch_system)
         .run();
 }
 

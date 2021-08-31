@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::system::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
@@ -29,19 +29,16 @@ impl Default for LogDiagnosticsPlugin {
 }
 
 impl Plugin for LogDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
 
         if self.debug {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                Self::log_diagnostics_debug_system.system(),
-            );
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system);
         }
     }
 }

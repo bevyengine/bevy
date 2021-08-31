@@ -32,8 +32,8 @@ fn did_hurt_enemy() {
 
     // Setup stage with our two systems
     let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(hurt_enemies.system().before("death"));
-    update_stage.add_system(despawn_dead_enemies.system().label("death"));
+    update_stage.add_system(hurt_enemies.before("death"));
+    update_stage.add_system(despawn_dead_enemies.label("death"));
 
     // Setup test entities
     let enemy_id = world.spawn().insert(Enemy { hit_points: 5 }).id();
@@ -53,8 +53,8 @@ fn did_despawn_enemy() {
 
     // Setup stage with our two systems
     let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(hurt_enemies.system().before("death"));
-    update_stage.add_system(despawn_dead_enemies.system().label("death"));
+    update_stage.add_system(hurt_enemies.before("death"));
+    update_stage.add_system(despawn_dead_enemies.label("death"));
 
     // Setup test entities
     let enemy_id = world.spawn().insert(Enemy { hit_points: 1 }).id();
@@ -73,7 +73,7 @@ fn spawn_enemy_using_input_resource() {
 
     // Setup stage with a system
     let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(spawn_enemy.system());
+    update_stage.add_system(spawn_enemy);
 
     // Setup test resource
     let mut input = Input::<KeyCode>::default();

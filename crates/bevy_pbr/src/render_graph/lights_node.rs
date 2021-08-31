@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_core::{bytes_of, Pod, Zeroable};
 use bevy_ecs::{
-    system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, Query, Res, ResMut},
     world::World,
 };
 use bevy_render::{
@@ -59,7 +59,7 @@ struct LightCount {
 
 impl SystemNode for LightsNode {
     fn get_system(&self) -> BoxedSystem {
-        let system = lights_node_system.system().config(|config| {
+        let system = lights_node_system.config(|config| {
             config.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 max_point_lights: self.max_point_lights,
@@ -174,8 +174,8 @@ pub fn lights_node_system(
                     .chunks_exact_mut(point_light_size),
             ) {
                 slot.copy_from_slice(bytes_of(&PointLightUniform::new(
-                    &point_light,
-                    &global_transform,
+                    point_light,
+                    global_transform,
                 )));
             }
 
@@ -184,7 +184,7 @@ pub fn lights_node_system(
                 data[dir_light_uniform_start..dir_light_uniform_end]
                     .chunks_exact_mut(dir_light_size),
             ) {
-                slot.copy_from_slice(bytes_of(&DirectionalLightUniform::new(&dir_light)));
+                slot.copy_from_slice(bytes_of(&DirectionalLightUniform::new(dir_light)));
             }
         },
     );

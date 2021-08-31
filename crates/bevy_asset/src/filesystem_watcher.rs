@@ -12,7 +12,7 @@ pub struct FilesystemWatcher {
 impl Default for FilesystemWatcher {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        let watcher: RecommendedWatcher = Watcher::new_immediate(move |res| {
+        let watcher: RecommendedWatcher = RecommendedWatcher::new(move |res| {
             sender.send(res).expect("Watch event send failure.");
         })
         .expect("Failed to create filesystem watcher.");
@@ -22,6 +22,6 @@ impl Default for FilesystemWatcher {
 
 impl FilesystemWatcher {
     pub fn watch<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        self.watcher.watch(path, RecursiveMode::Recursive)
+        self.watcher.watch(path.as_ref(), RecursiveMode::Recursive)
     }
 }

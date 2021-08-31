@@ -35,7 +35,7 @@ pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<syn:
     Ok(list)
 }
 
-pub fn get_lit_str<'a>(attr_name: Symbol, lit: &'a syn::Lit) -> syn::Result<&'a syn::LitStr> {
+pub fn get_lit_str(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<&syn::LitStr> {
     if let syn::Lit::Str(lit) = lit {
         Ok(lit)
     } else {

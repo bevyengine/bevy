@@ -87,7 +87,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'a>(&'a mut self, world: &'a World) -> <Param::Fetch as SystemParamFetch<'a>>::Item
+    pub fn get<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
@@ -98,10 +101,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'a>(
-        &'a mut self,
-        world: &'a mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
         // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -142,10 +145,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.   
     #[inline]
-    pub unsafe fn get_unchecked_manual<'a>(
-        &'a mut self,
-        world: &'a World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub unsafe fn get_unchecked_manual<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         let change_tick = world.increment_change_tick();
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
@@ -173,13 +176,20 @@ impl<Param: SystemParam> SystemState<Param> {
 ///
 /// let system = my_system_function.system();
 /// ```
-pub trait IntoSystem<Params, SystemType: System> {
+// This trait has to be generic because we have potentially overlapping impls, in particular
+// because Rust thinks a type could impl multiple different `FnMut` combinations
+// even though none can currently
+pub trait IntoSystem<In, Out, Params> {
+    type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    fn system(self) -> SystemType;
+    fn system(self) -> Self::System;
 }
 
+pub struct AlreadyWasSystem;
+
 // Systems implicitly implement IntoSystem
-impl<Sys: System> IntoSystem<(), Sys> for Sys {
+impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
+    type System = Sys;
     fn system(self) -> Sys {
         self
     }
@@ -218,7 +228,7 @@ pub struct InputMarker;
 ///
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
+/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -244,7 +254,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// fn local_is_42(local: Local<usize>) {
     ///     assert_eq!(*local, 42);
     /// }
-    /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));
+    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
     /// system.initialize(world);
     /// system.run((), world);
     /// ```
@@ -257,7 +267,44 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     }
 }
 
-impl<In, Out, Param, Marker, F> IntoSystem<Param, FunctionSystem<In, Out, Param, Marker, F>> for F
+/// Provides `my_system.config(...)` API.
+pub trait ConfigurableSystem<In, Out, Param: SystemParam, Marker>:
+    IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
+{
+    /// See [`FunctionSystem::config()`](crate::system::FunctionSystem::config).
+    fn config(
+        self,
+        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
+    ) -> Self::System;
+}
+
+impl<In, Out, Param: SystemParam, Marker, F> ConfigurableSystem<In, Out, Param, Marker> for F
+where
+    In: 'static,
+    Out: 'static,
+    Param: SystemParam + 'static,
+    Marker: 'static,
+    F: SystemParamFunction<In, Out, Param, Marker>
+        + IntoSystem<
+            In,
+            Out,
+            (IsFunctionSystem, Param, Marker),
+            System = FunctionSystem<In, Out, Param, Marker, F>,
+        > + Send
+        + Sync
+        + 'static,
+{
+    fn config(
+        self,
+        f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
+    ) -> Self::System {
+        self.system().config(f)
+    }
+}
+
+pub struct IsFunctionSystem;
+
+impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
 where
     In: 'static,
     Out: 'static,
@@ -265,7 +312,8 @@ where
     Marker: 'static,
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
-    fn system(self) -> FunctionSystem<In, Out, Param, Marker, F> {
+    type System = FunctionSystem<In, Out, Param, Marker, F>;
+    fn system(self) -> Self::System {
         FunctionSystem {
             func: self,
             param_state: None,
@@ -305,7 +353,7 @@ where
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.system_meta.component_access_set.combined_access()
+        self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]
@@ -376,30 +424,47 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
         where
-            Func:
+        for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
+                FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
         {
             #[inline]
             unsafe fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                // Yes, this is strange, but rustc fails to compile this impl
+                // without using this function.
+                #[allow(clippy::too_many_arguments)]
+                fn call_inner<Out, $($param,)*>(
+                    mut f: impl FnMut($($param,)*)->Out,
+                    $($param: $param,)*
+                )->Out{
+                    f($($param,)*)
+                }
                 let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                self($($param),*)
+                call_inner(self, $($param),*)
             }
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
         where
-            Func:
+        for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
+                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
         {
             #[inline]
             unsafe fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_meta: &SystemMeta, world: &World, change_tick: u32) -> Out {
+                #[allow(clippy::too_many_arguments)]
+                fn call_inner<Input, Out, $($param,)*>(
+                    mut f: impl FnMut(In<Input>, $($param,)*)->Out,
+                    input: In<Input>,
+                    $($param: $param,)*
+                )->Out{
+                    f(input, $($param,)*)
+                }
                 let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_meta, world, change_tick);
-                self(In(input), $($param),*)
+                call_inner(self, In(input), $($param),*)
             }
         }
     };

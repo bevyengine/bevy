@@ -1,0 +1,5 @@
+# Config for the label workflow
+# Schema: https://github.com/actions/labeler#create-githublabeleryml
+
+S-Needs-Triage:
+- "**"

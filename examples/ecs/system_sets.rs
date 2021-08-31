@@ -48,7 +48,7 @@ pub enum PhysicsSystem {
 /// Lastly a system with run criterion _done_ is used to exit the app.
 /// ```
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
         // Note that the system sets added in this example set their run criteria explicitly.
@@ -63,16 +63,14 @@ fn main() {
                 .label(Physics)
                 // This criteria ensures this whole system set only runs when this system's
                 // output says so (ShouldRun::Yes)
-                .with_run_criteria(run_for_a_second.system())
+                .with_run_criteria(run_for_a_second)
                 .with_system(
                     update_velocity
-                        .system()
                         // Only applied to the `update_velocity` system
                         .label(PhysicsSystem::UpdateVelocity),
                 )
                 .with_system(
                     movement
-                        .system()
                         // Only applied to the `movement` system
                         .label(PhysicsSystem::Movement)
                         // Enforce order within this system by specifying this
@@ -93,14 +91,13 @@ fn main() {
                 .with_run_criteria(RunCriteria::pipe("is_done_label", inverse.system()))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
-                .with_system(collision.system())
-                .with_system(sfx.system()),
+                .with_system(collision)
+                .with_system(sfx),
         )
         .add_system(
-            exit.system()
-                .after(PostPhysics)
+            exit.after(PostPhysics)
                 // Label the run criteria such that the `PostPhysics` set can reference it
-                .with_run_criteria(is_done.system().label("is_done_label")),
+                .with_run_criteria(is_done.label("is_done_label")),
         )
         .run();
 }

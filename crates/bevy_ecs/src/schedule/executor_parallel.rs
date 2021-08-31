@@ -301,11 +301,7 @@ impl ParallelExecutor {
 
     #[cfg(test)]
     fn emit_event(&self, event: SchedulingEvent) {
-        self.events_sender
-            .as_ref()
-            .unwrap()
-            .try_send(event)
-            .unwrap();
+        let _ = self.events_sender.as_ref().unwrap().try_send(event);
     }
 }
 
@@ -320,10 +316,15 @@ mod tests {
     use super::SchedulingEvent::{self, *};
     use crate::{
         schedule::{SingleThreadedExecutor, Stage, SystemStage},
-        system::{IntoSystem, NonSend, Query, Res, ResMut},
+        system::{NonSend, Query, Res, ResMut},
         world::World,
     };
     use async_channel::Receiver;
+
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    #[derive(Component)]
+    struct W<T>(T);
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
@@ -342,9 +343,9 @@ mod tests {
         let mut world = World::new();
         fn wants_for_nothing() {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system());
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing);
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
@@ -360,24 +361,24 @@ mod tests {
         fn wants_mut(_: ResMut<usize>) {}
         fn wants_ref(_: Res<usize>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -385,37 +386,37 @@ mod tests {
     #[test]
     fn queries() {
         let mut world = World::new();
-        world.spawn().insert(0usize);
-        fn wants_mut(_: Query<&mut usize>) {}
-        fn wants_ref(_: Query<&usize>) {}
+        world.spawn().insert(W(0usize));
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        fn wants_ref(_: Query<&W<usize>>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
-        world.spawn().insert_bundle((0usize, 0u32, 0f32));
-        fn wants_mut_usize(_: Query<(&mut usize, &f32)>) {}
-        fn wants_mut_u32(_: Query<(&mut u32, &f32)>) {}
+        world.spawn().insert_bundle((W(0usize), W(0u32), W(0f32)));
+        fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
+        fn wants_mut_u32(_: Query<(&mut W<u32>, &W<f32>)>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut_usize.system())
-            .with_system(wants_mut_u32.system());
+            .with_system(wants_mut_usize)
+            .with_system(wants_mut_u32);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -430,12 +431,12 @@ mod tests {
         }
         fn empty() {}
         let mut stage = SystemStage::parallel()
-            .with_system(non_send.system())
-            .with_system(non_send.system())
-            .with_system(empty.system())
-            .with_system(empty.system())
-            .with_system(non_send.system())
-            .with_system(non_send.system());
+            .with_system(non_send)
+            .with_system(non_send)
+            .with_system(empty)
+            .with_system(empty)
+            .with_system(non_send)
+            .with_system(non_send);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),

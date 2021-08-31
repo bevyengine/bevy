@@ -102,7 +102,7 @@ impl WinitWindows {
             }
         }
 
-        let winit_window = winit_window_builder.build(&event_loop).unwrap();
+        let winit_window = winit_window_builder.build(event_loop).unwrap();
 
         match winit_window.set_cursor_grab(window_descriptor.cursor_locked) {
             Ok(_) => {}
@@ -140,7 +140,7 @@ impl WinitWindows {
         self.windows.insert(winit_window.id(), winit_window);
         Window::new(
             window_id,
-            &window_descriptor,
+            window_descriptor,
             inner_size.width,
             inner_size.height,
             scale_factor,

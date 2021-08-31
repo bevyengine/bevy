@@ -1,5 +1,8 @@
-use super::{App, AppBuilder};
-use crate::{app::AppExit, plugin::Plugin, ManualEventReader};
+use crate::{
+    app::{App, AppExit},
+    plugin::Plugin,
+    ManualEventReader,
+};
 use bevy_ecs::event::Events;
 use bevy_utils::{Duration, Instant};
 
@@ -45,12 +48,12 @@ impl ScheduleRunnerSettings {
 /// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given
 /// [RunMode]
 #[derive(Default)]
-pub struct ScheduleRunnerPlugin {}
+pub struct ScheduleRunnerPlugin;
 
 impl Plugin for ScheduleRunnerPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         let settings = app
-            .world_mut()
+            .world
             .get_resource_or_insert_with(ScheduleRunnerSettings::default)
             .to_owned();
         app.set_runner(move |mut app: App| {
