@@ -9,9 +9,9 @@ use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     component::Component,
-    query::With,
+    query::{QueryState, With},
     reflect::ReflectComponent,
-    system::{IntoSystem, Query, QuerySet, Res},
+    system::{QuerySet, Res},
     world::Mut,
 };
 use bevy_reflect::{Reflect, TypeUuid};
@@ -26,10 +26,10 @@ pub const WIREFRAME_PIPELINE_HANDLE: HandleUntyped =
 pub struct WireframePlugin;
 
 impl Plugin for WireframePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<WireframeConfig>()
-            .add_system_to_stage(crate::RenderStage::Draw, draw_wireframes_system.system());
-        let world = app.world_mut().cell();
+            .add_system_to_stage(crate::RenderStage::Draw, draw_wireframes_system);
+        let world = app.world.cell();
         let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = world
             .get_resource_mut::<Assets<PipelineDescriptor>>()
@@ -63,8 +63,8 @@ pub fn draw_wireframes_system(
     meshes: Res<Assets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     mut query: QuerySet<(
-        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
-        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>,
+        QueryState<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
+        QueryState<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>,
     )>,
 ) {
     let iterator = |(mut draw, mut render_pipelines, mesh_handle, visible): (
@@ -124,8 +124,8 @@ pub fn draw_wireframes_system(
     };
 
     if wireframe_config.global {
-        query.q0_mut().iter_mut().for_each(iterator);
+        query.q0().iter_mut().for_each(iterator);
     } else {
-        query.q1_mut().iter_mut().for_each(iterator);
+        query.q1().iter_mut().for_each(iterator);
     }
 }

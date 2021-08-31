@@ -2,14 +2,10 @@
 name = "bevy_asset"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
@@ -28,12 +24,11 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 serde = { version = "1", features = ["derive"] }
-ron = "0.6.2"
 crossbeam-channel = "0.5.0"
-anyhow = "1.0"
+anyhow = "1.0.4"
 thiserror = "1.0"
 downcast-rs = "1.2.0"
-notify = { version = "5.0.0-pre.2", optional = true }
+notify = { version = "=5.0.0-pre.11", optional = true }
 parking_lot = "0.11.0"
 rand = "0.8.0"
 
@@ -44,4 +39,8 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = { version = "0.2" }
+ndk-glue = { version = "0.4" }
+
+[dev-dependencies]
+futures-lite = "1.4.0"
+tempfile = "3.2.0"

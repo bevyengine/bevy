@@ -1,15 +1,15 @@
 use bevy::{pbr::AmbientLight, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
         })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(rotator_system.system())
+        .add_startup_system(setup)
+        .add_system(rotator_system)
         .run();
 }
 

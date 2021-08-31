@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::WindowMode};
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             vsync: true,
             resizable: false,
@@ -12,8 +12,8 @@ fn main() {
         })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene.system())
-        .add_startup_system(setup_music.system())
+        .add_startup_system(setup_scene)
+        .add_startup_system(setup_music)
         .run();
 }
 /// set up a simple 3D scene

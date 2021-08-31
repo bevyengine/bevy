@@ -349,7 +349,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .resources
             .shader_modules
             .read()
-            .get(&shader_handle)
+            .get(shader_handle)
             .is_some()
         {
             return;
@@ -439,7 +439,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group_descriptor in layout.bind_groups.iter() {
-            self.create_bind_group_layout(&bind_group_descriptor);
+            self.create_bind_group_layout(bind_group_descriptor);
         }
 
         let bind_group_layouts = self.resources.bind_group_layouts.read();
@@ -490,7 +490,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             label: None,
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &vertex_shader_module,
+                module: vertex_shader_module,
                 entry_point: "main",
                 buffers: &owned_vertex_buffer_descriptors
                     .iter()
@@ -555,16 +555,16 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                     let wgpu_resource = match &indexed_binding.entry {
                         RenderResourceBinding::Texture(resource) => {
                             let texture_view = texture_views
-                                .get(&resource)
+                                .get(resource)
                                 .unwrap_or_else(|| panic!("{:?}", resource));
                             wgpu::BindingResource::TextureView(texture_view)
                         }
                         RenderResourceBinding::Sampler(resource) => {
-                            let sampler = samplers.get(&resource).unwrap();
+                            let sampler = samplers.get(resource).unwrap();
                             wgpu::BindingResource::Sampler(sampler)
                         }
                         RenderResourceBinding::Buffer { buffer, range, .. } => {
-                            let wgpu_buffer = buffers.get(&buffer).unwrap();
+                            let wgpu_buffer = buffers.get(buffer).unwrap();
                             let size = NonZeroU64::new(range.end - range.start)
                                 .expect("Size of the buffer needs to be greater than 0!");
                             wgpu::BindingResource::Buffer(wgpu::BufferBinding {
@@ -684,7 +684,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     ) -> Result<Shader, ShaderError> {
         let spirv_data = match shader.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(source, shader.stage, macros)?,
         };
         Ok(Shader {
             source: ShaderSource::Spirv(spirv_data),

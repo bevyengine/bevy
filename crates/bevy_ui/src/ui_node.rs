@@ -155,8 +155,8 @@ impl Default for AlignContent {
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     Inherit,
-    Ltr,
-    Rtl,
+    LeftToRight,
+    RightToLeft,
 }
 
 impl Default for Direction {

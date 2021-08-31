@@ -1,12 +1,12 @@
-use crate::AppBuilder;
+use crate::App;
 use std::any::Any;
 
 /// A collection of Bevy App logic and configuration
 ///
-/// Plugins use [AppBuilder] to configure an [App](crate::App). When an [App](crate::App) registers
+/// Plugins configure an [App](crate::App). When an [App](crate::App) registers
 /// a plugin, the plugin's [Plugin::build] function is run.
 pub trait Plugin: Any + Send + Sync {
-    fn build(&self, app: &mut AppBuilder);
+    fn build(&self, app: &mut App);
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }

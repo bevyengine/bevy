@@ -1,6 +1,6 @@
 use libloading::{Library, Symbol};
 
-use bevy_app::{AppBuilder, CreatePlugin, Plugin};
+use bevy_app::{App, CreatePlugin, Plugin};
 
 /// Dynamically links a plugin a the given path. The plugin must export a function with the
 /// [`CreatePlugin`] signature named `_bevy_create_plugin`.
@@ -24,7 +24,7 @@ pub trait DynamicPluginExt {
     unsafe fn load_plugin(&mut self, path: &str) -> &mut Self;
 }
 
-impl DynamicPluginExt for AppBuilder {
+impl DynamicPluginExt for App {
     unsafe fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (lib, plugin) = dynamically_load_plugin(path);
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded

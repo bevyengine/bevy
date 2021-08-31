@@ -2,14 +2,14 @@ use bevy::prelude::*;
 
 /// This example illustrates how to use logs in bevy
 fn main() {
-    App::build()
+    App::new()
         // Uncomment this to override the default log settings:
         // .insert_resource(bevy::log::LogSettings {
         //     level: bevy::log::Level::TRACE,
         //     filter: "wgpu=warn,bevy_ecs=info".to_string(),
         // })
         .add_plugins(DefaultPlugins)
-        .add_system(log_system.system())
+        .add_system(log_system)
         .run();
 }
 
