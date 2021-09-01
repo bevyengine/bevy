@@ -207,7 +207,12 @@ impl SystemStage {
                 container.run_criteria_index = default_run_criteria;
             }
         }
-        if let Some(_) = container.system_mut().config_mut().insertion_point {
+        if container
+            .system_mut()
+            .config_mut()
+            .insertion_point
+            .is_some()
+        {
             warn!("An exclusive system was passed in place of a regular one");
         }
         self.uninitialized_parallel.push(self.parallel.len());

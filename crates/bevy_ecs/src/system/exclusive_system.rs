@@ -151,7 +151,7 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn config(&self) -> &SystemConfig {
-        &self.system.config()
+        self.system.config()
     }
 
     fn config_mut(&mut self) -> &mut SystemConfig {

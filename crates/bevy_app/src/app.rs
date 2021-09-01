@@ -204,7 +204,7 @@ impl App {
     pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
         let system = system.system();
         let system = {
-            if let Some(_) = system.config().stage {
+            if system.config().stage.is_some() {
                 system
             } else {
                 system.stage(CoreStage::Update)
