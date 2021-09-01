@@ -64,6 +64,9 @@ pub enum ScalingMode {
     FixedVertical,
     /// Keep horizontal axis constant; resize vertical with aspect ratio.
     FixedHorizontal,
+    /// Unity style 2D camera scaling - the view is adjusted so the vertical space is always equal to 2 times the orthographic size in world units.
+    /// Horizontal size depends on aspect ratio. 
+    OrthographicSize(f32),
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -136,6 +139,24 @@ impl CameraProjection for OrthographicProjection {
                 self.right = 1.0;
                 self.top = aspect_ratio;
                 self.bottom = 0.0;
+            }
+            (ScalingMode::OrthographicSize(size), WindowOrigin::Center) => {
+                let half_vert = *size;
+                let aspect = width / height;
+                let half_hor = (size * 2.0 * aspect) / 2.0;
+                
+                self.left = -half_hor;
+                self.right = half_hor;
+                self.top = half_vert;
+                self.bottom = -half_vert;
+            }
+            (ScalingMode::OrthographicSize(size), WindowOrigin::BottomLeft) => {
+                let size = size * 2.0;
+                let aspect = width / height;
+                self.left = 0.0;
+                self.right = size * aspect;
+                self.bottom = 0.0;
+                self.top = size;
             }
             (ScalingMode::None, _) => {}
         }
