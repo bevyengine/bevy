@@ -173,6 +173,7 @@ pub struct Entities {
     /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
     pending: Vec<u32>,
     free_cursor: AtomicI64,
+    /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
 }
 
@@ -369,12 +370,12 @@ impl Entities {
         }
     }
 
+    /// Returns true if the [`Entities`] contains [`entity`](Entity).
+    // This will return false for entities which have been freed, even if
+    // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
-        // Note that out-of-range IDs are considered to be "contained" because
-        // they must be reserved IDs that we haven't flushed yet.
-        self.meta
-            .get(entity.id as usize)
-            .map_or(true, |meta| meta.generation == entity.generation)
+        self.resolve_from_id(entity.id())
+            .map_or(false, |e| e.generation() == entity.generation)
     }
 
     pub fn clear(&mut self) {
@@ -399,31 +400,23 @@ impl Entities {
         }
     }
 
-    /// Panics if the given id would represent an index outside of `meta`.
+    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
+    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///
-    /// # Safety
-    ///
-    /// Must only be called for currently allocated `id`s.
-    pub unsafe fn resolve_unknown_gen(&self, id: u32) -> Entity {
-        let meta_len = self.meta.len();
-
-        if meta_len > id as usize {
-            let meta = &self.meta[id as usize];
-            Entity {
-                generation: meta.generation,
-                id,
-            }
+    /// Note: This method may return [`Entities`](Entity) which are currently free
+    /// Note that [`contains`](Entities::contains) will correctly return false for freed
+    /// entities, since it checks the generation
+    pub fn resolve_from_id(&self, id: u32) -> Option<Entity> {
+        let idu = id as usize;
+        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+            Some(Entity { generation, id })
         } else {
-            // See if it's pending, but not yet flushed.
+            // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            let num_pending = std::cmp::max(-free_cursor, 0) as usize;
-
-            if meta_len + num_pending > id as usize {
-                // Pending entities will have generation 0.
-                Entity { generation: 0, id }
-            } else {
-                panic!("entity id is out of range");
-            }
+            // If this entity was manually created, then free_cursor might be positive
+            // Returning None handles that case correctly
+            let num_pending = usize::try_from(-free_cursor).ok()?;
+            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
         }
     }
 
@@ -508,7 +501,7 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            index: usize::max_value(), // dummy value, to be filled in
+            index: usize::MAX, // dummy value, to be filled in
         },
     };
 }
