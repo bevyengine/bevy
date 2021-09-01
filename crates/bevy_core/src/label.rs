@@ -121,7 +121,11 @@ pub(crate) fn entity_labels_system(
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{prelude::StageConfig, schedule::{Schedule, Stage, SystemStage}, world::World};
+    use bevy_ecs::{
+        prelude::StageConfig,
+        schedule::{Schedule, Stage, SystemStage},
+        world::World,
+    };
 
     use super::*;
 

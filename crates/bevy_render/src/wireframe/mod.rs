@@ -7,7 +7,13 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_ecs::{prelude::StageConfig, query::{QueryState, With}, reflect::ReflectComponent, system::{QuerySet, Res}, world::Mut};
+use bevy_ecs::{
+    prelude::StageConfig,
+    query::{QueryState, With},
+    reflect::ReflectComponent,
+    system::{QuerySet, Res},
+    world::Mut,
+};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_utils::HashSet;
 
@@ -22,7 +28,7 @@ pub struct WireframePlugin;
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WireframeConfig>()
-            .add_system( draw_wireframes_system.stage(crate::RenderStage::Draw));
+            .add_system(draw_wireframes_system.stage(crate::RenderStage::Draw));
         let world = app.world.cell();
         let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = world

@@ -204,7 +204,7 @@ impl RenderGraph {
                         occupied_by_node: *current_output_node,
                     });
                 }
- 
+
                 if output_slot.info.resource_type != input_slot.info.resource_type {
                     return Err(RenderGraphError::MismatchedNodeSlots {
                         output_node,

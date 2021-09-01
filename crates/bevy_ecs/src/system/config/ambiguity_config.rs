@@ -1,4 +1,8 @@
-use crate::{prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem, System}, schedule::{AmbiguitySetLabel, SystemSet}, system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn}};
+use crate::{
+    prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem, System},
+    schedule::{AmbiguitySetLabel, SystemSet},
+    system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn},
+};
 
 use super::{ParallelSystemKind, SystemSetKind};
 

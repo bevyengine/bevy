@@ -22,7 +22,10 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::{ScheduleConfig, StageConfig}, schedule::SystemLabel};
+use bevy_ecs::{
+    prelude::{ScheduleConfig, StageConfig},
+    schedule::SystemLabel,
+};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
 use bevy_render::RenderStage;
