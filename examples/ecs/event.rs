@@ -13,7 +13,6 @@ fn main() {
 }
 
 #[derive(Event)]
-#[store(3)]
 struct MyEvent {
     pub message: String,
 }
