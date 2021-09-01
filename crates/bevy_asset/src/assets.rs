@@ -3,7 +3,7 @@ use crate::{
     RefChange,
 };
 use bevy_app::{App, EventWriter, Events};
-use bevy_ecs::{system::ResMut, world::FromWorld};
+use bevy_ecs::{prelude::StageConfig, system::ResMut, world::FromWorld};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -214,8 +214,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
-            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
+            .add_system( Assets::<T>::asset_event_system.stage(AssetStage::AssetEvents))
+            .add_system( update_asset_storage_system::<T>.stage(AssetStage::LoadAssets))
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
