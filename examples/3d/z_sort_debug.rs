@@ -11,7 +11,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(rotator_system)
         .add_system(camera_order_color_system)
         .run();

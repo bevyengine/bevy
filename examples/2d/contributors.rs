@@ -9,7 +9,7 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(velocity_system)
         .add_system(move_system)
         .add_system(collision_system)

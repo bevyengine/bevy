@@ -12,7 +12,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system)
+        .add_system(infotext_system.startup())
         .add_system(change_text_system)
         .run();
 }

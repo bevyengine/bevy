@@ -5,7 +5,7 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .insert_resource(SceneInstance::default())
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(scene_update)
         .add_system(move_scene_entities)
         .run();

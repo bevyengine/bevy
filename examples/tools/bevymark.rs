@@ -44,7 +44,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(BevyCounter { count: 0 })
         .init_resource::<BirdMaterial>()
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(mouse_handler)
         .add_system(movement_system)
         .add_system(collision_system)

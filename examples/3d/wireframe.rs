@@ -16,7 +16,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(WireframePlugin)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .run();
 }
 

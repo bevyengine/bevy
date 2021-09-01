@@ -17,7 +17,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(move_cubes)
         .run();
 }

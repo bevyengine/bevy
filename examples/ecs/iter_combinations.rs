@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(generate_bodies)
+        .add_system(generate_bodies.startup())
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,

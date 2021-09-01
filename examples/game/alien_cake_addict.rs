@@ -18,7 +18,7 @@ fn main() {
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
-        .add_startup_system(setup_cameras)
+        .add_system(setup_cameras.startup())
         .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))
         .add_system_set(
             SystemSet::on_update(GameState::Playing)
