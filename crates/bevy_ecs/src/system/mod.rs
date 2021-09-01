@@ -5,7 +5,7 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_chaining;
-mod config;
+pub(crate) mod config;
 mod system_param;
 
 pub use commands::*;

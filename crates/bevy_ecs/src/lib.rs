@@ -31,8 +31,7 @@ pub mod prelude {
         system::{
             AmbiguityConfig, Commands, ConfigurableSystem, ExclusiveSystem, In, IntoChainSystem,
             IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
-            RemovedComponents, Res, ResMut, RunCriteraConfig, ScheduleConfig, StageConfig, System,
-            SystemConfig,
+            RemovedComponents, Res, ResMut, System, config::*
         },
         world::{FromWorld, Mut, World},
     };
