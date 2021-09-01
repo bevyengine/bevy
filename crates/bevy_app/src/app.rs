@@ -203,17 +203,38 @@ impl App {
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
         let system = system.system();
-        self.schedule
-            .add_system(if let Some(_) = system.config().stage {
+        let system = {
+            if let Some(_) = system.config().stage {
                 system
             } else {
                 system.stage(CoreStage::Update)
+            }
+        };
+        if system.config().startup {
+            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_system(system)
             });
+        } else {
+            self.schedule.add_system(system);
+        }
         self
     }
 
-    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.schedule.add_system_set(system_set);
+    pub fn add_system_set(&mut self, set: SystemSet) -> &mut Self {
+        let set = {
+            if let Some(_) = set.config().stage {
+                set
+            } else {
+                set.stage(CoreStage::Update)
+            }
+        };
+        if set.config().startup {
+            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_system_set(set)
+            });
+        } else {
+            self.schedule.add_system_set(set);
+        }
         self
     }
 
@@ -222,9 +243,23 @@ impl App {
         system: impl IntoExclusiveSystem<Params, SystemType>,
     ) -> &mut Self
     where
-        SystemType: ExclusiveSystem,
+        SystemType: ExclusiveSystem + StageConfig<Params, SystemType>,
     {
-        self.schedule.add_exclusive(system);
+        let system = system.exclusive_system();
+        let system = {
+            if let Some(_) = system.config().stage {
+                system
+            } else {
+                system.exclusive_system().stage(CoreStage::Update)
+            }
+        };
+        if system.config().startup {
+            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_exclusive(system)
+            });
+        } else {
+            self.schedule.add_exclusive(system);
+        }
         self
     }
 

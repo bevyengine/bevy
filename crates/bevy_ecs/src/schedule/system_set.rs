@@ -136,10 +136,10 @@ impl SystemSet {
         (config.run_criteria, systems, exclusive_systems)
     }
 
-    pub(crate) fn config(&self) -> &SystemConfig {
+    pub fn config(&self) -> &SystemConfig {
         &self.config
     }
-    pub(crate) fn config_mut(&mut self) -> &mut SystemConfig {
+    pub fn config_mut(&mut self) -> &mut SystemConfig {
         &mut self.config
     }
 }

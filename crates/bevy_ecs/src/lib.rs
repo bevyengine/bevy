@@ -29,9 +29,10 @@ pub mod prelude {
             SystemStage,
         },
         system::{
-            AmbiguityConfig, Commands, ConfigurableSystem, ExclusiveSystem, In, IntoChainSystem,
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
-            RemovedComponents, Res, ResMut, System, config::*
+            AmbiguityConfig, Commands, ConfigurableSystem, ExclusiveConfig, ExclusiveSystem, In,
+            IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
+            QuerySet, RemovedComponents, Res, ResMut, RunCriteraConfig, ScheduleConfig,
+            StageConfig, StartupConfig, System, SystemConfig,
         },
         world::{FromWorld, Mut, World},
     };

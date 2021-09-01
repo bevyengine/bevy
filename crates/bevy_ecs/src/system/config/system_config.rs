@@ -9,6 +9,7 @@ pub struct SystemConfig {
     pub ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
     pub run_criteria: Option<RunCriteriaDescriptorOrLabel>,
     pub insertion_point: Option<InsertionPoint>,
+    pub startup: bool,
 }
 
 impl SystemConfig {
@@ -27,9 +28,11 @@ impl SystemConfig {
     pub fn add_ambiguity_set(&mut self, set: impl AmbiguitySetLabel) {
         self.ambiguity_sets.push(Box::new(set));
     }
-
     pub fn set_run_criteria(&mut self, criteria: RunCriteriaDescriptorOrLabel) {
         self.run_criteria = Some(criteria);
+    }
+    pub fn startup(&mut self) {
+        self.startup = true;
     }
 }
 
