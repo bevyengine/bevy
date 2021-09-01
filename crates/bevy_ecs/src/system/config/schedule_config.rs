@@ -1,8 +1,4 @@
-use crate::{
-    prelude::{ExclusiveSystem, IntoSystem, System},
-    schedule::{SystemLabel, SystemSet},
-    system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn},
-};
+use crate::{prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem, System}, schedule::{SystemLabel, SystemSet}, system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn}};
 
 use super::{ParallelSystemKind, SystemSetKind};
 
@@ -49,32 +45,44 @@ impl ScheduleConfig<SystemSetKind, SystemSet> for SystemSet {
     }
 }
 
-impl<Params> ScheduleConfig<Params, ExclusiveSystemCoerced> for ExclusiveSystemCoerced {
-    fn label(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_label(label);
-        self
+impl<Params, T> ScheduleConfig<Params, ExclusiveSystemCoerced> for T
+where
+    T: IntoExclusiveSystem<Params, ExclusiveSystemCoerced>,
+{
+    fn label(self, label: impl SystemLabel) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_label(label);
+        system
     }
-    fn before(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_before(label);
-        self
+    fn before(self, label: impl SystemLabel) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_before(label);
+        system
     }
-    fn after(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_after(label);
-        self
+    fn after(self, label: impl SystemLabel) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_after(label);
+        system
     }
 }
 
-impl<Params> ScheduleConfig<Params, ExclusiveSystemFn> for ExclusiveSystemFn {
-    fn label(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_label(label);
-        self
+impl<Params, T> ScheduleConfig<Params, ExclusiveSystemFn> for T
+where
+    T: IntoExclusiveSystem<Params, ExclusiveSystemFn>,
+{
+    fn label(self, label: impl SystemLabel) -> ExclusiveSystemFn {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_label(label);
+        system
     }
-    fn before(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_before(label);
-        self
+    fn before(self, label: impl SystemLabel) -> ExclusiveSystemFn {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_before(label);
+        system
     }
-    fn after(mut self, label: impl SystemLabel) -> Self {
-        self.config_mut().add_after(label);
-        self
+    fn after(self, label: impl SystemLabel) -> ExclusiveSystemFn {
+        let mut system = self.exclusive_system();
+        system.config_mut().add_after(label);
+        system
     }
 }

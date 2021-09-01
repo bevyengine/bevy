@@ -8,7 +8,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{prelude::{StageConfig, ScheduleConfig}, schedule::SystemLabel};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
 #[derive(Default)]
@@ -38,13 +38,14 @@ impl Plugin for TransformPlugin {
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                parent_update_system.label(TransformSystem::ParentUpdate),
+            .add_system(
+                parent_update_system
+                    .stage(CoreStage::PostUpdate)
+                    .label(TransformSystem::ParentUpdate),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_system(
                 transform_propagate_system::transform_propagate_system
+                    .stage(CoreStage::PostUpdate)
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             );

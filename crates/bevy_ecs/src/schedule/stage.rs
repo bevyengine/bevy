@@ -1,6 +1,6 @@
 use crate::{
     component::ComponentId,
-    prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem, System},
+    prelude::*,
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
@@ -8,7 +8,7 @@ use crate::{
         RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
         RunCriteriaInner, ShouldRun, SingleThreadedExecutor, SystemSet,
     },
-    system::{BoxedExclusiveSystem, BoxedSystem, ExclusiveConfig, InsertionPoint, StageConfig},
+    system::{BoxedExclusiveSystem, BoxedSystem, InsertionPoint},
     world::{World, WorldId},
 };
 use bevy_utils::{
@@ -948,17 +948,10 @@ impl Stage for SystemStage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        entity::Entity,
-        prelude::RunCriteraConfig,
-        query::{ChangeTrackers, Changed},
-        schedule::{
+    use crate::{entity::Entity, prelude::{ExclusiveConfig, RunCriteraConfig, ScheduleConfig}, query::{ChangeTrackers, Changed}, schedule::{
             BoxedSystemLabel, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping,
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
-        },
-        system::{In, IntoSystem, Local, Query, ResMut},
-        world::World,
-    };
+        }, system::{In, IntoSystem, Local, Query, ResMut}, world::World};
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
         move |world| world.get_resource_mut::<Vec<usize>>().unwrap().push(tag)
@@ -1093,9 +1086,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(1).label("first").after("0"))
+            .with_exclusive(make_exclusive(1).label("first").after("0"))
             .with_exclusive(make_exclusive(2).after("first"))
-            .with_system(make_exclusive(0).label("first").label("0"));
+            .with_exclusive(make_exclusive(0).label("first").label("0"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1122,10 +1115,10 @@ mod tests {
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
             .with_exclusive(make_exclusive(2).label("234").label("2"))
-            .with_system(make_exclusive(1).before("234").after("0"))
+            .with_exclusive(make_exclusive(1).before("234").after("0"))
             .with_exclusive(make_exclusive(0).label("0"))
             .with_exclusive(make_exclusive(4).label("234").label("4"))
-            .with_system(make_exclusive(3).label("234").after("2").before("4"));
+            .with_exclusive(make_exclusive(3).label("234").after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1140,14 +1133,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(
+            .with_exclusive(
                 make_exclusive(2)
                     .label("2")
                     .after("1")
                     .before("3")
                     .before("3"),
             )
-            .with_system(
+            .with_exclusive(
                 make_exclusive(1)
                     .label("1")
                     .after("0")
@@ -1156,7 +1149,7 @@ mod tests {
             )
             .with_exclusive(make_exclusive(0).label("0").before("1"))
             .with_exclusive(make_exclusive(4).label("4").after("3"))
-            .with_system(make_exclusive(3).label("3").after("2").before("4"));
+            .with_exclusive(make_exclusive(3).label("3").after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1867,26 +1860,26 @@ mod tests {
         assert_eq!(ambiguities.len(), 2);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.label("0"))
-            .with_system(empty.label("1").after("0"))
-            .with_system(empty.label("2").after("1"))
-            .with_system(empty.label("3").after("2"))
-            .with_system(empty.label("4").after("3"))
-            .with_system(empty.label("5").after("4"))
-            .with_system(empty.label("6").after("5"))
-            .with_system(empty.label("7").after("6"));
+            .with_exclusive(empty.label("0"))
+            .with_exclusive(empty.label("1").after("0"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3").after("2"))
+            .with_exclusive(empty.label("4").after("3"))
+            .with_exclusive(empty.label("5").after("4"))
+            .with_exclusive(empty.label("6").after("5"))
+            .with_exclusive(empty.label("7").after("6"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.label("0").before("1").before("3"))
-            .with_system(empty.label("1"))
-            .with_system(empty.label("2").after("1"))
-            .with_system(empty.label("3"))
-            .with_system(empty.label("4").after("3").before("5"))
-            .with_system(empty.label("5"))
-            .with_system(empty.label("6").after("2").after("5"));
+            .with_exclusive(empty.label("0").before("1").before("3"))
+            .with_exclusive(empty.label("1"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3"))
+            .with_exclusive(empty.label("4").after("3").before("5"))
+            .with_exclusive(empty.label("5"))
+            .with_exclusive(empty.label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
@@ -1917,13 +1910,13 @@ mod tests {
         assert_eq!(ambiguities.len(), 6);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.label("0").before("1").before("3"))
-            .with_system(empty.label("1").in_ambiguity_set("a"))
-            .with_system(empty.label("2").after("1"))
-            .with_system(empty.label("3").in_ambiguity_set("a"))
-            .with_system(empty.label("4").after("3").before("5"))
-            .with_system(empty.label("5").in_ambiguity_set("a"))
-            .with_system(empty.label("6").after("2").after("5"));
+            .with_exclusive(empty.label("0").before("1").before("3"))
+            .with_exclusive(empty.label("1").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("4").after("3").before("5"))
+            .with_exclusive(empty.label("5").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
@@ -1946,10 +1939,10 @@ mod tests {
         assert_eq!(ambiguities.len(), 4);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.label("0").in_ambiguity_set("a"))
-            .with_system(empty.label("1").in_ambiguity_set("a"))
-            .with_system(empty.label("2").in_ambiguity_set("a"))
-            .with_system(empty.label("3").in_ambiguity_set("a"));
+            .with_exclusive(empty.label("0").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("1").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("2").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
