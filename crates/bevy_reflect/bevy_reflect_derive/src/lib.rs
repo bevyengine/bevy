@@ -1,11 +1,9 @@
 extern crate proc_macro;
 
-mod modules;
 mod reflect_trait;
 mod type_uuid;
 
-use find_crate::Manifest;
-use modules::{get_modules, get_path};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
@@ -106,8 +104,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
 
-    let modules = get_modules();
-    let bevy_reflect_path = get_path(&modules.bevy_reflect);
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     let type_name = &ast.ident;
 
     let mut reflect_attrs = ReflectAttrs::default();
@@ -194,8 +191,8 @@ fn impl_struct(
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::Struct;
@@ -338,8 +335,8 @@ fn impl_tuple_struct(
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::TupleStruct;
@@ -451,9 +448,9 @@ fn impl_value(
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
 ) -> TokenStream {
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_attrs.get_partial_eq_impl();
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -558,15 +555,7 @@ impl Parse for ReflectDef {
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let reflect_value_def = parse_macro_input!(input as ReflectDef);
 
-    let manifest = Manifest::new().unwrap();
-    let crate_path = if let Some(package) = manifest.find(|name| name == "bevy") {
-        format!("{}::reflect", package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_reflect") {
-        package.name
-    } else {
-        "crate".to_string()
-    };
-    let bevy_reflect_path = get_path(&crate_path);
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     let ty = &reflect_value_def.type_name;
     let reflect_attrs = reflect_value_def
         .attrs

@@ -5,7 +5,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WgpuOptions {
             features: WgpuFeatures {
@@ -16,7 +16,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(WireframePlugin)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

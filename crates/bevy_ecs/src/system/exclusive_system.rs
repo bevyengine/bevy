@@ -1,5 +1,6 @@
 use crate::{
-    system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId},
+    archetype::ArchetypeGeneration,
+    system::{check_system_change_tick, BoxedSystem, IntoSystem, SystemId},
     world::World,
 };
 use std::borrow::Cow;
@@ -74,6 +75,7 @@ where
 
 pub struct ExclusiveSystemCoerced {
     system: BoxedSystem<(), ()>,
+    archetype_generation: ArchetypeGeneration,
 }
 
 impl ExclusiveSystem for ExclusiveSystemCoerced {
@@ -86,6 +88,15 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn run(&mut self, world: &mut World) {
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+            self.system.new_archetype(archetype);
+        }
+
         self.system.run((), world);
         self.system.apply_buffers(world);
     }
@@ -99,14 +110,14 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 }
 
-impl<S, Params, SystemType> IntoExclusiveSystem<(Params, SystemType), ExclusiveSystemCoerced> for S
+impl<S, Params> IntoExclusiveSystem<Params, ExclusiveSystemCoerced> for S
 where
-    S: IntoSystem<Params, SystemType>,
-    SystemType: System<In = (), Out = ()>,
+    S: IntoSystem<(), (), Params>,
 {
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {
             system: Box::new(self.system()),
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 }
@@ -117,7 +128,7 @@ mod tests {
         entity::Entity,
         query::With,
         schedule::{Stage, SystemStage},
-        system::{Commands, IntoExclusiveSystem, IntoSystem, Query, ResMut},
+        system::{Commands, IntoExclusiveSystem, Query, ResMut},
         world::World,
     };
     #[test]
@@ -135,7 +146,7 @@ mod tests {
             }
         }
 
-        let mut stage = SystemStage::parallel().with_system(removal.system());
+        let mut stage = SystemStage::parallel().with_system(removal);
         world.spawn().insert(0.0f32);
         world.insert_resource(0usize);
         stage.run(&mut world);
@@ -148,5 +159,27 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
+
+    #[test]
+    fn update_archetype_for_exclusive_system_coerced() {
+        struct Foo;
+
+        fn spawn_entity(mut commands: crate::prelude::Commands) {
+            commands.spawn().insert(Foo);
+        }
+
+        fn count_entities(query: Query<&Foo>, mut res: ResMut<Vec<usize>>) {
+            res.push(query.iter().len());
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(spawn_entity)
+            .with_system(count_entities.exclusive_system());
+        stage.run(&mut world);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 1]);
     }
 }

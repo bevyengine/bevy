@@ -125,10 +125,7 @@ mod tests {
         let listener3 = event.listen();
 
         // Verify that we are still blocked
-        assert_eq!(
-            false,
-            listener2.wait_timeout(instant::Duration::from_millis(10))
-        );
+        assert!(!listener2.wait_timeout(instant::Duration::from_millis(10)));
 
         // Notify all and verify the remaining listener is notified
         event.notify(std::usize::MAX);

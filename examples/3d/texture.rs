@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 /// This example shows various ways to configure texture materials in 3D
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

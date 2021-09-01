@@ -112,7 +112,8 @@ impl TextureAtlas {
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// cell of the grid of `tile_size` is one of the textures in the atlas and is separated by
-    /// some `padding` in the texture
+    /// some `padding` in the texture. The padding is assumed to be only between tiles
+    /// and not at the borders of the texture.
     pub fn from_grid_with_padding(
         texture: Handle<Texture>,
         tile_size: Vec2,

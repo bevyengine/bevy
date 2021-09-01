@@ -213,7 +213,7 @@ impl Shader {
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Result<Vec<u32>, ShaderError> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => Ok(bytes.clone()),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(source, self.stage, macros),
         }
     }
 
@@ -288,7 +288,7 @@ impl ShaderStages {
 
     pub fn iter(&self) -> ShaderStagesIterator {
         ShaderStagesIterator {
-            shader_stages: &self,
+            shader_stages: self,
             state: 0,
         }
     }

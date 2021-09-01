@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
+use bevy_log::warn;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
@@ -49,7 +50,7 @@ pub enum GltfError {
     BufferFormatUnsupported,
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("{0}")]
+    #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
@@ -214,7 +215,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from(rotation),
+                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
@@ -262,7 +263,12 @@ async fn load_gltf<'a, 'b>(
             });
         })
         .into_iter()
-        .filter_map(|result| result.ok())
+        .filter_map(|res| {
+            if let Err(err) = res.as_ref() {
+                warn!("Error loading GLTF texture: {}", err);
+            }
+            res.ok()
+        })
         .for_each(|(texture, label)| {
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         });
@@ -363,7 +369,7 @@ async fn load_texture<'a>(
 }
 
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
-    let material_label = material_label(&material);
+    let material_label = material_label(material);
 
     let pbr = material.pbr_metallic_roughness();
 

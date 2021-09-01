@@ -2,9 +2,9 @@ use anyhow::Result;
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Message("42".to_string()))
-        .add_system(parse_message_system.system().chain(handler_system.system()))
+        .add_system(parse_message_system.chain(handler_system))
         .run();
 }
 

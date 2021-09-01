@@ -197,7 +197,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // compatibility
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in self.filtered_accesses.iter() {
-                if !current_filtered_access.is_compatible(&filtered_access) {
+                if !current_filtered_access.is_compatible(filtered_access) {
                     return current_filtered_access
                         .access
                         .get_conflicts(&filtered_access.access);

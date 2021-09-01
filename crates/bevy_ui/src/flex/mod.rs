@@ -195,7 +195,7 @@ pub enum FlexError {
     StretchError(stretch::Error),
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn flex_node_system(
     windows: Res<Windows>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
@@ -243,15 +243,15 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in query.iter() {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, &style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
             } else {
-                flex_surface.upsert_node(entity, &style, scaling_factor);
+                flex_surface.upsert_node(entity, style, scaling_factor);
             }
         }
     }
 
     for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
     }
 
     // TODO: handle removed nodes
@@ -263,7 +263,7 @@ pub fn flex_node_system(
 
     // update children
     for (entity, children) in children_query.iter() {
-        flex_surface.update_children(entity, &children);
+        flex_surface.update_children(entity, children);
     }
 
     // compute layouts

@@ -27,7 +27,7 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in std::mem::take(&mut children.0) {
-            despawn_with_children_recursive(world, e);
+            despawn_with_children_recursive_inner(world, e);
         }
     }
 
@@ -37,7 +37,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
 }
 
 impl Command for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         despawn_with_children_recursive(world, self.entity);
     }
 }
@@ -47,7 +47,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_recursive(&mut self);
 }
 
-impl<'a, 'b> DespawnRecursiveExt for EntityCommands<'a, 'b> {
+impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(&mut self) {
         let entity = self.id();
@@ -123,9 +123,8 @@ mod tests {
 
         {
             let children = world.get::<Children>(grandparent_entity).unwrap();
-            assert_eq!(
-                children.iter().any(|&i| i == parent_entity),
-                false,
+            assert!(
+                !children.iter().any(|&i| i == parent_entity),
                 "grandparent should no longer know about its child which has been removed"
             );
         }

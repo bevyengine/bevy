@@ -2,14 +2,10 @@
 name = "bevy_wgpu"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "A wgpu render backend for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
@@ -29,7 +25,7 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-wgpu = "0.8"
+wgpu = "0.9"
 futures-lite = "1.4.0"
 crossbeam-channel = "0.5.0"
 crossbeam-utils = "0.8.1"

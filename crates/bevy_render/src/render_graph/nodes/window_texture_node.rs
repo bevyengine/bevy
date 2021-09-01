@@ -55,11 +55,11 @@ impl Node for WindowTextureNode {
 
         if self
             .window_created_event_reader
-            .iter(&window_created_events)
+            .iter(window_created_events)
             .any(|e| e.id == window.id())
             || self
                 .window_resized_event_reader
-                .iter(&window_resized_events)
+                .iter(window_resized_events)
                 .any(|e| e.id == window.id())
         {
             let render_resource_context = render_context.resources_mut();
@@ -67,8 +67,8 @@ impl Node for WindowTextureNode {
                 render_resource_context.remove_texture(old_texture);
             }
 
-            self.descriptor.size.width = window.physical_width();
-            self.descriptor.size.height = window.physical_height();
+            self.descriptor.size.width = window.physical_width().max(1);
+            self.descriptor.size.height = window.physical_height().max(1);
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
         }

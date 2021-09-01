@@ -2,14 +2,10 @@
 name = "bevy_internal"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
@@ -31,6 +27,9 @@ flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
+
+# WASM support for audio
+wasm_audio = ["bevy_audio/wasm_audio"]
 
 serialize = ["bevy_input/serialize"]
 
@@ -75,4 +74,4 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = {version = "0.2", features = ["logger"]}
+ndk-glue = {version = "0.4", features = ["logger"]}

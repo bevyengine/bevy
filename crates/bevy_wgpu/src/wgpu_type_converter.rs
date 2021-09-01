@@ -146,7 +146,7 @@ impl WgpuFrom<BufferUsage> for wgpu::BufferUsage {
 impl WgpuFrom<&LoadOp<Color>> for wgpu::LoadOp<wgpu::Color> {
     fn from(val: &LoadOp<Color>) -> Self {
         match val {
-            LoadOp::Clear(value) => wgpu::LoadOp::Clear(value.clone().wgpu_into()),
+            LoadOp::Clear(value) => wgpu::LoadOp::Clear((*value).wgpu_into()),
             LoadOp::Load => wgpu::LoadOp::Load,
         }
     }
@@ -645,8 +645,8 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
-            width: window.physical_width(),
-            height: window.physical_height(),
+            width: window.physical_width().max(1),
+            height: window.physical_height().max(1),
             present_mode: if window.vsync() {
                 wgpu::PresentMode::Fifo
             } else {

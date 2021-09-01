@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   sodipodi:docname="bevy_logo_light_small.svg"
+   inkscape:version="1.0beta2 (2b71d25d45, 2019-12-03)"
+   id="svg1941"
+   version="1.1"
+   viewBox="0 0 93.706179 23.39081"
+   height="23.39081mm"
+   width="93.706177mm">
+  <defs id="defs1935" >
+    <path id="B"
+         d="m 87.399725,202.26207 q 0.344867,0.0985 0.886803,0.1478 0.541936,0.0247 1.034604,0.0247 0.985338,0 1.625808,-0.39414 0.665102,-0.41877 0.665102,-1.28094 0,-0.8129 -0.541936,-1.15776 -0.541936,-0.34488 -1.650441,-0.34488 h -2.01994 z m 0,-6.01056 h 1.79824 q 1.059239,0 1.527274,-0.39413 0.492668,-0.39414 0.492668,-1.15777 0,-0.6651 -0.56657,-1.05925 -0.541934,-0.39413 -1.650439,-0.39413 -0.369502,0 -0.86217,0.0247 -0.468036,0.0246 -0.739003,0.0739 z m 1.601173,9.48388 q -0.418769,0 -0.985337,-0.0247 -0.56657,-0.0246 -1.182405,-0.0985 -0.591203,-0.0739 -1.182406,-0.19708 -0.591202,-0.0985 -1.083871,-0.29559 -1.354839,-0.5173 -1.354839,-1.79824 v -11.50381 q 0,-0.51731 0.270969,-0.78828 0.2956,-0.2956 0.788269,-0.46804 0.837536,-0.29559 2.093842,-0.41877 1.256306,-0.1478 2.586512,-0.1478 3.153079,0 4.852786,1.05924 1.699706,1.05923 1.699706,3.27625 0,1.10851 -0.640469,1.92141 -0.640469,0.78827 -1.72434,1.15777 1.231672,0.34487 2.044575,1.25631 0.837537,0.91143 0.837537,2.29091 0,2.4387 -1.822875,3.62111 -1.79824,1.15778 -5.197654,1.15778 z" />
+    <path id="E"
+        d="m 96.48021,192.7043 q 0,-1.05924 0.615839,-1.67508 0.615835,-0.61582 1.675075,-0.61582 h 8.129006 q 0.17244,0.27096 0.29561,0.71435 0.1478,0.44341 0.1478,0.93609 0,0.93606 -0.41877,1.33019 -0.39413,0.39414 -1.05924,0.39414 h -5.19763 v 2.29091 h 5.5425 q 0.17243,0.27097 0.29561,0.71437 0.1478,0.41877 0.1478,0.91144 0,0.93607 -0.39414,1.3302 -0.39414,0.39413 -1.05925,0.39413 h -4.53252 v 2.58653 h 6.33077 q 0.17244,0.27095 0.2956,0.71435 0.1478,0.44341 0.1478,0.93608 0,0.93607 -0.41876,1.35484 -0.39415,0.39413 -1.05924,0.39413 h -7.192946 q -1.05924,0 -1.675075,-0.61583 -0.615839,-0.61584 -0.615839,-1.67508 z" />
+    <path id="V"
+        d="m 117.84176,204.84858 q -0.34487,0.2956 -1.08387,0.5173 -0.71437,0.22171 -1.57654,0.22171 -1.03461,0 -1.77361,-0.29561 -0.739,-0.32023 -1.00997,-0.86217 -0.27097,-0.56657 -0.66509,-1.45337 -0.39414,-0.91144 -0.83755,-2.01994 -0.41877,-1.10851 -0.8868,-2.34018 -0.4434,-1.2563 -0.86217,-2.53724 -0.41877,-1.28094 -0.78827,-2.51261 -0.3695,-1.23167 -0.64047,-2.31554 0.34487,-0.34487 0.98534,-0.61584 0.66511,-0.2956 1.40411,-0.2956 0.91144,0 1.47801,0.39414 0.59119,0.3695 0.86215,1.4041 0.66511,2.41408 1.33022,4.63109 0.68973,2.19237 1.42873,4.58182 h 0.1478 q 0.66511,-2.31555 1.35485,-5.04985 0.71437,-2.73432 1.35483,-5.444 0.44341,-0.2217 0.93607,-0.3695 0.51731,-0.1478 1.15777,-0.1478 0.91144,0 1.55191,0.41877 0.64047,0.39413 0.64047,1.3302 0,0.54195 -0.27097,1.57655 -0.24634,1.0346 -0.6651,2.34017 -0.39413,1.28094 -0.91143,2.68504 -0.49268,1.4041 -1.00997,2.66042 -0.49268,1.23168 -0.93608,2.19237 -0.4434,0.93607 -0.71437,1.30557 z" />
+    <path id="Y"
+        d="m 131.98507,205.24272 q -0.27096,0.0739 -0.83753,0.1478 -0.56657,0.0739 -1.10851,0.0739 -1.13314,0 -1.69971,-0.36951 -0.56657,-0.39412 -0.56657,-1.6258 v -3.32552 q -0.61583,-0.91143 -1.3302,-2.01993 -0.71437,-1.10851 -1.4041,-2.26629 -0.68974,-1.15776 -1.28094,-2.26627 -0.5912,-1.13314 -0.96071,-2.0692 0.32024,-0.44342 0.86218,-0.81291 0.56657,-0.36951 1.37947,-0.36951 0.9607,0 1.5519,0.39414 0.61583,0.39413 1.15777,1.478 l 2.04458,4.11379 h 0.1478 q 0.34486,-0.76364 0.5912,-1.37947 0.27097,-0.64047 0.51731,-1.25631 0.24633,-0.64046 0.5173,-1.30557 0.27096,-0.68973 0.61583,-1.57654 0.4434,-0.2217 0.98534,-0.34487 0.54194,-0.12317 1.0346,-0.12317 0.86218,0 1.45337,0.46804 0.61584,0.44341 0.61584,1.35484 0,0.2956 -0.12317,0.71437 -0.12317,0.41877 -0.56656,1.28093 -0.44341,0.83754 -1.30558,2.29092 -0.83753,1.45337 -2.29091,3.79355 z" />  
+    <path id="bird"
+        inkscape:connector-curvature="0"
+        transform="translate(5.0092774e-5,-757.87625)" 
+        d="m 2191.1465,2276.7832 c -5.9729,-0.035 -12.0979,2.348 -17.3613,7.459 -6.9129,6.7127 -9.0602,12.7555 -7.8477,20.2949 l 0.332,2.0684 -2.0664,-0.336 c -15.1877,-2.4609 -33.9847,-1.2178 -55.3711,7.4336 6.2868,2.6948 17.8259,7.1926 30.6309,13.3418 l 4.0605,1.9512 -4.414,0.8945 c -16.9087,3.4274 -36.9729,13.3275 -55.2989,34.9336 8.1981,-0.6372 24.9531,-2.6089 42.4278,-2.582 9.7138,0.015 19.2869,0.687 27.0859,2.709 7.7991,2.022 14.0258,5.4353 16.3672,11.2851 l 0.1602,0.4004 -0.076,0.4238 c -0.3844,2.1831 -0.7613,4.1493 -1.1172,5.7598 -0.8163,3.6943 -4.0098,6.6817 -8.1953,9.3418 -4.1855,2.6601 -9.4961,4.9849 -15.0137,6.9609 -11.0352,3.9521 -22.7798,6.4773 -27.9648,6.959 -1.1021,0.1024 -1.5421,0.4983 -1.9668,1.2696 -0.4247,0.7712 -0.659,1.9824 -0.6934,3.25 -0.046,1.6926 0.181,3.1045 0.3672,4.0625 33.7495,2.7665 58.8475,-5.6513 76.959,-12.8379 20.3508,-9.3311 33.2134,-27.7577 36.0058,-44.3477 1.7499,-10.395 1.3746,-15.4894 -0.3124,-19.8281 -1.6873,-4.3387 -4.9223,-8.1914 -9.0254,-15.5488 -2.6368,-4.7281 -4.1077,-9.367 -5.0196,-13.6875 l -0.1933,-0.9102 0.7265,-0.582 c 7.5403,-6.0446 13.6809,-12.6444 15.9102,-17.4492 -4.5742,-4.8648 -12.4787,-5.893 -21.3223,-4.9473 l -0.7265,0.076 -0.5118,-0.5215 c -4.7125,-4.8006 -10.5615,-7.2614 -16.5351,-7.2969 z m 2.6484,11.2324 a 5.628704,5.5244684 76.402924 0 1 5.502,4.3223 5.628704,5.5244684 76.402924 0 1 -4.0469,6.7695 5.628704,5.5244684 76.402924 0 1 -6.6934,-4.1719 5.628704,5.5244684 76.402924 0 1 4.0469,-6.7695 5.628704,5.5244684 76.402924 0 1 1.1914,-0.1504 z" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-maximized="1"
+     inkscape:window-y="0"
+     inkscape:window-x="0"
+     inkscape:window-height="1440"
+     inkscape:window-width="3440"
+     fit-margin-bottom="0"
+     fit-margin-right="0"
+     fit-margin-left="0"
+     fit-margin-top="0"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="mm"
+     inkscape:cy="70.251782"
+     inkscape:cx="67.265255"
+     inkscape:zoom="2.8"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
+  <metadata
+     id="metadata1938">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="translate(-15.838087,-109.15151)"
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
+    <g
+       style="opacity:1;fill:#757575;fill-opacity:1;stroke-width:0.755906;stroke-miterlimit:4;stroke-dasharray:none"
+       inkscape:export-ydpi="81.422768"
+       inkscape:export-xdpi="81.422768"
+       inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_light.png"
+       transform="matrix(0.63867714,0,0,0.63867714,-336.29116,-147.5184)"
+       id="g1911-8-3-9-3">
+      <g
+         inkscape:export-ydpi="81.422768"
+         inkscape:export-xdpi="81.422768"
+         inkscape:export-filename="/home/carter/code/bevy/assets/temp_bevy_logo.png"
+         id="g1121-3-8-8-2-8-7-1-2-8-3-9-6"
+         style="fill:#929292;fill-opacity:1"
+         transform="matrix(-0.40426719,-0.17438247,-0.17438247,0.40426719,678.77611,389.84765)">
+        <path
+           inkscape:connector-curvature="0"
+           transform="matrix(-0.55180403,-0.23802315,-0.23802315,0.55180403,1946.7322,-620.612)"
+           d="m 2246.0312,2340.1914 v 0 c -0.016,3e-4 -0.031,0 -0.047,0 -0.9804,3.0675 -1.7386,6.3997 -1.8828,10.1953 -0.2712,7.1263 0.453,11.4639 -0.3672,16.0801 -0.8202,4.6163 -3.2453,9.161 -9.4141,16.2871 -7.3424,8.482 -18.9789,15.0453 -32.4199,17.2637 -2.5015,1.5971 -5.1421,3.0609 -7.9199,4.3633 10.4618,3.9385 21.4025,4.1531 30.0761,1.3066 15.2793,-5.0141 14.0962,-8.6155 20.9434,-19.1074 2.1569,-3.3051 4.6474,-5.8282 7.1484,-7.9004 7.1248,3.1068 14.1431,5.1015 18.5157,4.6074 2.351,-5.4505 -0.057,-11.7712 -4.0586,-17.7461 3.2821,-10.196 -1.6986,-20.4059 -12.7305,-24.0156 -2.8775,-0.9415 -5.4633,-1.3844 -7.8438,-1.3379 z m 8.2754,14.9707 a 4.1668789,4.2454995 48.679502 0 1 3.1973,1.3965 4.1668789,4.2454995 48.679502 0 1 -0.4375,5.9336 4.1668789,4.2454995 48.679502 0 1 -5.9394,-0.3262 4.1668789,4.2454995 48.679502 0 1 0.4375,-5.9336 4.1668789,4.2454995 48.679502 0 1 2.7421,-1.0703 z m -68.375,45.3789 c 0.1273,0.075 0.2572,0.1408 0.3848,0.2149 0.131,-0.049 0.2642,-0.1009 0.3945,-0.1504 -0.2598,-0.023 -0.5188,-0.039 -0.7793,-0.064 z"
+           style="fill:#c3c3c3;fill-opacity:1;stroke:none;stroke-width:0.559814px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+           id="path819-1-94-5-3-1-9-6-4-90-0-8-9-5-8-6-1" />
+      </g>
+    </g>
+    <g
+       inkscape:export-ydpi="81.422768"
+       inkscape:export-xdpi="81.422768"
+       inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_light.png"
+       style="opacity:1;fill:#282828;fill-opacity:1;stroke:none;stroke-width:0.755906;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       transform="matrix(-0.28995702,0.23432876,0.23432876,0.28995702,41.479554,36.949421)"
+       id="g1051-1-2-0-8-6-0-8-1-5-6-9-6">
+      <g
+         style="opacity:1;fill:#282828;fill-opacity:1"
+         transform="matrix(-0.35254083,0.28490586,0.28490586,0.35254083,477.11004,-1021.7666)"
+         id="g3029-3">
+        <!-- blackbird with outline is here -->  
+        <use xlink:href="#bird"
+           style="color:#000000;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-variant-east-asian:normal;font-feature-settings:normal;font-variation-settings:normal;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000000;letter-spacing:normal;word-spacing:normal;text-transform:none;writing-mode:lr-tb;direction:ltr;text-orientation:mixed;dominant-baseline:auto;baseline-shift:baseline;text-anchor:start;white-space:normal;shape-padding:0;shape-margin:0;inline-size:0;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;vector-effect:none;fill:#282828;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:3.02362;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+           id="path3031-2" /> 
+        <use xlink:href="#bird" stroke="dimgray" stroke-width="0.11mm" fill="none" />
+      </g>
+    </g>
+    <g
+       inkscape:export-ydpi="81.422768"
+       inkscape:export-xdpi="81.422768"
+       inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_light.png"
+       transform="matrix(-0.32259183,0.04314193,0.04314193,0.32259183,94.635309,65.323717)"
+       id="g1051-1-1-8-8-4-9-4-0-4-6-4-7-6"
+       style="opacity:1;fill:#353535;fill-opacity:1;stroke-width:0.755906;stroke-miterlimit:4;stroke-dasharray:none">
+      <g
+         transform="translate(-20.244579,-6.1209206)"
+         id="g1129-5-9-8-0-7-2-7-3-8-61-1">
+        <g
+           transform="translate(61.54776,-5.6726683)"
+           id="g1344-1-3-9-3-8-8-8-3-5">
+          <g
+             style="fill:#757575;fill-opacity:1"
+             id="g1121-7-7-2-3-3-7-4-5-8-2-5">
+            <g
+               style="opacity:1"
+               transform="matrix(-0.514626,0.06882369,0.06882369,0.514626,1184.3644,-811.9091)"
+               id="g3006-4">
+              <path
+                 inkscape:connector-curvature="0"
+                 transform="translate(1.2499985e-4,-757.87627)"
+                 d="m 2230.8945,2301.1738 c -1.9108,-0.039 -3.9117,0.162 -5.9785,0.6328 -0.1394,0.032 -0.2613,0.071 -0.3984,0.1036 -2.274,2.2481 -4.8127,4.5047 -7.5293,6.7168 0.8746,3.8597 2.1735,7.8829 4.4707,12.0019 3.9872,7.1495 7.2742,10.9657 9.2031,15.9258 1.9289,4.9601 2.2639,10.7945 0.4746,21.4238 -2.2183,13.178 -10.2404,27.1324 -22.959,37.4336 9.8717,-2.8792 18.2866,-8.1915 23.8575,-14.6269 6.0132,-6.9464 8.0191,-10.8762 8.7226,-14.836 0.7036,-3.9598 0.044,-8.2997 0.3242,-15.664 0.1805,-4.7447 1.1911,-8.8958 2.4766,-12.545 l 0.3086,-0.875 0.9219,-0.1211 c 8.2284,-1.0673 15.6654,-3.167 19.5097,-5.6484 -1.2349,-5.5522 -6.4807,-9.8603 -13.4277,-13.1348 l -0.6621,-0.3125 -0.166,-0.7129 c -2.2034,-9.4614 -9.5905,-15.5632 -19.1485,-15.7617 z m 4.7832,11.6856 a 4.8229105,4.9139092 17.729059 0 1 1.4473,0.2246 4.8229105,4.9139092 17.729059 0 1 3.0977,6.1484 4.8229105,4.9139092 17.729059 0 1 -6.0899,3.2129 4.8229105,4.9139092 17.729059 0 1 -3.0976,-6.1484 4.8229105,4.9139092 17.729059 0 1 4.6425,-3.4375 z"
+                 style="color:#000000;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-variant-east-asian:normal;font-feature-settings:normal;font-variation-settings:normal;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000000;letter-spacing:normal;word-spacing:normal;text-transform:none;writing-mode:lr-tb;direction:ltr;text-orientation:mixed;dominant-baseline:auto;baseline-shift:baseline;text-anchor:start;white-space:normal;shape-padding:0;shape-margin:0;inline-size:0;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;vector-effect:none;fill:#757575;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:3.02362;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+                 id="path3008-7" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+    <g
+       inkscape:export-ydpi="81.422768"
+       inkscape:export-xdpi="81.422768"
+       inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_light.png"
+       id="text1778-3-6-3-9-3-6-4-0-9-5"
+       style="font-style:normal;font-weight:normal;font-size:10.3007px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;opacity:1;fill:#282828;fill-opacity:1;stroke:none;stroke-width:0.257517;stroke-miterlimit:4;stroke-dasharray:none"
+       transform="matrix(1.0913974,0,0,1.1521163,-39.181865,-107.17966)"
+       aria-label="BEVY">
+        
+      <!-- "B" with outline -->
+      <use xlink:href="#B"  
+        inkscape:connector-curvature="0"
+         id="path1940-83-0-6-3-1-1-8-3-1-6"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.9748px;font-family:'Baloo Bhaijaan';-inkscape-font-specification:'Baloo Bhaijaan, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#282828;fill-opacity:1;stroke-width:0.288674"/>    
+      <use xlink:href="#B" stroke="dimgray" stroke-width="0.02mm" fill="none" />
+      <!-- "E" with outline -->  
+      <use xlink:href="#E" 
+         inkscape:connector-curvature="0"
+         id="path1942-3-4-06-1-4-5-1-0-0-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.9748px;font-family:'Baloo Bhaijaan';-inkscape-font-specification:'Baloo Bhaijaan, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#282828;fill-opacity:1;stroke-width:0.288674" />
+      <use xlink:href="#E" stroke="dimgray" stroke-width="0.02mm" fill="none" />
+      <!-- "V" with outline -->  
+      <use xlink:href="#V" 
+         inkscape:connector-curvature="0"
+         id="path1944-3-1-2-9-9-5-0-9-7-3"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.9748px;font-family:'Baloo Bhaijaan';-inkscape-font-specification:'Baloo Bhaijaan, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#282828;fill-opacity:1;stroke-width:0.288674" />
+      <use xlink:href="#V" stroke="dimgray" stroke-width="0.02mm" fill="none" />
+      <!-- "Y" with outline -->  
+      <use xlink:href="#Y"
+         inkscape:connector-curvature="0"
+         id="path1946-80-0-6-4-2-4-3-2-5-7"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.9748px;font-family:'Baloo Bhaijaan';-inkscape-font-specification:'Baloo Bhaijaan, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#282828;fill-opacity:1;stroke-width:0.288674" />
+      <use xlink:href="#Y" stroke="dimgray" stroke-width="0.02mm" fill="none" />
+    </g>
+  </g>
+</svg>

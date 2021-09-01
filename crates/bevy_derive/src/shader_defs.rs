@@ -1,7 +1,6 @@
-use crate::modules::{get_modules, get_path};
+use bevy_macro_utils::BevyManifest;
 use inflector::Inflector;
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Path};
 
@@ -9,8 +8,7 @@ static SHADER_DEF_ATTRIBUTE_NAME: &str = "shader_def";
 
 pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast.attrs);
-    let bevy_render_path: Path = get_path(&modules.bevy_render);
+    let bevy_render_path: Path = BevyManifest::default().get_path(crate::modules::BEVY_RENDER);
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -28,7 +26,7 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
                 .any(|a| *a.path.get_ident().as_ref().unwrap() == SHADER_DEF_ATTRIBUTE_NAME)
         })
         .map(|f| f.ident.as_ref().unwrap())
-        .collect::<Vec<&Ident>>();
+        .collect::<Vec<&syn::Ident>>();
     let struct_name = &ast.ident;
     let struct_name_pascal_case = ast.ident.to_string().to_pascal_case();
     let shader_defs = shader_def_idents

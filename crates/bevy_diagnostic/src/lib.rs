@@ -14,7 +14,11 @@ use bevy_app::prelude::*;
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<Diagnostics>();
     }
 }
+
+/// The width which diagnostic names will be printed as
+/// Plugin names should not be longer than this value
+pub const MAX_DIAGNOSTIC_NAME_WIDTH: usize = 32;

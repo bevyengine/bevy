@@ -6,7 +6,7 @@ use crate::{
     shader::{ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
 };
-use bevy_core::AsBytes;
+use bevy_core::cast_slice;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
@@ -17,7 +17,7 @@ use spirv_reflect::{
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
-        match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
+        match ShaderModule::load_u8_data(cast_slice(spirv_data)) {
             Ok(ref mut module) => {
                 // init
                 let entry_point_name = module.get_entry_point_name();
@@ -151,7 +151,19 @@ fn reflect_binding(
                 filtering: true,
             },
         ),
-        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
+        _ => {
+            let ReflectDescriptorBinding {
+                descriptor_type,
+                name,
+                set,
+                binding,
+                ..
+            } = binding;
+            panic!(
+                "Unsupported shader bind type {:?} (name '{}', set {}, binding {})",
+                descriptor_type, name, set, binding
+            );
+        }
     };
 
     let shader_stage = match shader_stage {

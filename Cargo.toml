@@ -2,16 +2,12 @@
 name = "bevy"
 version = "0.5.0"
 edition = "2018"
-authors = [
-  "Bevy Contributors <bevyengine@gmail.com>",
-  "Carter Anderson <mcanders1@gmail.com>",
-]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
@@ -22,7 +18,6 @@ members = ["crates/*", "examples/ios", "tools/ci"]
 [features]
 default = [
   "bevy_audio",
-  "bevy_dynamic_plugin",
   "bevy_gilrs",
   "bevy_gltf",
   "bevy_wgpu",
@@ -38,7 +33,13 @@ default = [
 dynamic = ["bevy_dylib"]
 
 # Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
-render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
+render = [
+  "bevy_internal/bevy_pbr",
+  "bevy_internal/bevy_render",
+  "bevy_internal/bevy_sprite",
+  "bevy_internal/bevy_text",
+  "bevy_internal/bevy_ui",
+]
 
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
@@ -66,6 +67,9 @@ mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
 
+# WASM support for audio (Currently only works with flac, wav and vorbis. Not with mp3)
+wasm_audio = ["bevy_internal/wasm_audio"]
+
 serialize = ["bevy_internal/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
@@ -79,14 +83,16 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
-bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true}
-bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0"
+anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.6.2"
-serde = {version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
+# Needed to poll Task examples
+futures-lite = "1.11.3"
 
 [[example]]
 name = "hello_world"
@@ -232,6 +238,11 @@ path = "examples/asset/custom_asset_io.rs"
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 
+# Async Tasks
+[[example]]
+name = "async_compute"
+path = "examples/async_tasks/async_compute.rs"
+
 # Audio
 [[example]]
 name = "audio"
@@ -252,8 +263,8 @@ name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
-name = "change_detection"
-path = "examples/ecs/change_detection.rs"
+name = "component_change_detection"
+path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
 name = "event"
@@ -266,6 +277,10 @@ path = "examples/ecs/fixed_timestep.rs"
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+
+[[example]]
+name = "iter_combinations"
+path = "examples/ecs/iter_combinations.rs"
 
 [[example]]
 name = "parallel_query"
@@ -298,10 +313,6 @@ path = "examples/ecs/system_sets.rs"
 [[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
-
-[[example]]
-name = "query_bundle"
-path = "examples/ecs/query_bundle.rs"
 
 # Games
 [[example]]

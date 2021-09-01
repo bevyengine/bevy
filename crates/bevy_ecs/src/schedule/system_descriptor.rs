@@ -3,7 +3,7 @@ use crate::{
         AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
         RunCriteriaDescriptorOrLabel, SystemLabel,
     },
-    system::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System},
+    system::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, IntoSystem},
 };
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.
@@ -30,8 +30,8 @@ use crate::{
 /// struct Something;
 ///
 /// SystemStage::parallel()
-///     .with_system(do_something.system().label(Something))
-///     .with_system(do_the_other_thing.system().after(Something))
+///     .with_system(do_something.label(Something))
+///     .with_system(do_the_other_thing.after(Something))
 ///     .with_system(do_something_else.exclusive_system().at_end());
 /// ```
 pub enum SystemDescriptor {
@@ -39,44 +39,54 @@ pub enum SystemDescriptor {
     Exclusive(ExclusiveSystemDescriptor),
 }
 
+pub trait IntoSystemDescriptor<Params> {
+    fn into_descriptor(self) -> SystemDescriptor;
+}
+
 pub struct SystemLabelMarker;
 
-impl From<ParallelSystemDescriptor> for SystemDescriptor {
-    fn from(descriptor: ParallelSystemDescriptor) -> Self {
-        SystemDescriptor::Parallel(descriptor)
+impl IntoSystemDescriptor<()> for ParallelSystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        SystemDescriptor::Parallel(self)
     }
 }
 
-impl<S> From<S> for SystemDescriptor
+impl<Params, S> IntoSystemDescriptor<Params> for S
 where
-    S: System<In = (), Out = ()>,
+    S: IntoSystem<(), (), Params>,
 {
-    fn from(system: S) -> Self {
-        new_parallel_descriptor(Box::new(system)).into()
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_parallel_descriptor(Box::new(self.system())).into_descriptor()
     }
 }
 
-impl From<BoxedSystem<(), ()>> for SystemDescriptor {
-    fn from(system: BoxedSystem<(), ()>) -> Self {
-        new_parallel_descriptor(system).into()
+impl IntoSystemDescriptor<()> for SystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        self
     }
 }
 
-impl From<ExclusiveSystemDescriptor> for SystemDescriptor {
-    fn from(descriptor: ExclusiveSystemDescriptor) -> Self {
-        SystemDescriptor::Exclusive(descriptor)
+impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_parallel_descriptor(self).into_descriptor()
     }
 }
 
-impl From<ExclusiveSystemFn> for SystemDescriptor {
-    fn from(system: ExclusiveSystemFn) -> Self {
-        new_exclusive_descriptor(Box::new(system)).into()
+impl IntoSystemDescriptor<()> for ExclusiveSystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        SystemDescriptor::Exclusive(self)
     }
 }
 
-impl From<ExclusiveSystemCoerced> for SystemDescriptor {
-    fn from(system: ExclusiveSystemCoerced) -> Self {
-        new_exclusive_descriptor(Box::new(system)).into()
+impl IntoSystemDescriptor<()> for ExclusiveSystemFn {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).into_descriptor()
+    }
+}
+
+impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
+    fn into_descriptor(self) -> SystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).into_descriptor()
     }
 }
 
@@ -101,7 +111,7 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
     }
 }
 
-pub trait ParallelSystemDescriptorCoercion {
+pub trait ParallelSystemDescriptorCoercion<Params> {
     /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
     /// run criteria defined elsewhere.
     fn with_run_criteria<Marker>(
@@ -123,7 +133,7 @@ pub trait ParallelSystemDescriptorCoercion {
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
 }
 
-impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
+impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
     fn with_run_criteria<Marker>(
         mut self,
         run_criteria: impl IntoRunCriteria<Marker>,
@@ -153,35 +163,35 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
     }
 }
 
-impl<S> ParallelSystemDescriptorCoercion for S
+impl<S, Params> ParallelSystemDescriptorCoercion<Params> for S
 where
-    S: System<In = (), Out = ()>,
+    S: IntoSystem<(), (), Params>,
 {
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).with_run_criteria(run_criteria)
+        new_parallel_descriptor(Box::new(self.system())).with_run_criteria(run_criteria)
     }
 
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).label(label)
+        new_parallel_descriptor(Box::new(self.system())).label(label)
     }
 
     fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).before(label)
+        new_parallel_descriptor(Box::new(self.system())).before(label)
     }
 
     fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).after(label)
+        new_parallel_descriptor(Box::new(self.system())).after(label)
     }
 
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).in_ambiguity_set(set)
+        new_parallel_descriptor(Box::new(self.system())).in_ambiguity_set(set)
     }
 }
 
-impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
+impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,

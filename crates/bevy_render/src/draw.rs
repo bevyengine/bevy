@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, SystemParam},
 };
 use bevy_reflect::Reflect;
-use std::{ops::Range, sync::Arc};
+use std::{marker::PhantomData, ops::Range, sync::Arc};
 use thiserror::Error;
 
 /// A queued command for the renderer
@@ -164,18 +164,20 @@ pub enum DrawError {
 }
 
 #[derive(SystemParam)]
-pub struct DrawContext<'a> {
-    pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
-    pub shaders: ResMut<'a, Assets<Shader>>,
-    pub asset_render_resource_bindings: ResMut<'a, AssetRenderResourceBindings>,
-    pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
-    pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
-    pub shared_buffers: ResMut<'a, SharedBuffers>,
+pub struct DrawContext<'w, 's> {
+    pub pipelines: ResMut<'w, Assets<PipelineDescriptor>>,
+    pub shaders: ResMut<'w, Assets<Shader>>,
+    pub asset_render_resource_bindings: ResMut<'w, AssetRenderResourceBindings>,
+    pub pipeline_compiler: ResMut<'w, PipelineCompiler>,
+    pub render_resource_context: Res<'w, Box<dyn RenderResourceContext>>,
+    pub shared_buffers: ResMut<'w, SharedBuffers>,
     #[system_param(ignore)]
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
+    #[system_param(ignore)]
+    marker: PhantomData<&'s usize>,
 }
 
-impl<'a> DrawContext<'a> {
+impl<'w, 's> DrawContext<'w, 's> {
     pub fn get_uniform_buffer<T: RenderResource>(
         &mut self,
         render_resource: &T,

@@ -8,10 +8,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::IntoSystem,
-};
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
 #[derive(Default)]
@@ -24,7 +21,7 @@ pub enum TransformSystem {
 }
 
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<PreviousParent>()
@@ -33,27 +30,21 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                parent_update_system
-                    .system()
-                    .label(TransformSystem::ParentUpdate),
+                parent_update_system.label(TransformSystem::ParentUpdate),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 transform_propagate_system::transform_propagate_system
-                    .system()
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                parent_update_system
-                    .system()
-                    .label(TransformSystem::ParentUpdate),
+                parent_update_system.label(TransformSystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_system
-                    .system()
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             );

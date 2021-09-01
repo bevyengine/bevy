@@ -2,7 +2,7 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    query::{Changed, With, Without},
+    query::{Changed, QueryState, With, Without},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
@@ -57,6 +57,7 @@ impl Default for Text2dBundle {
 /// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
 /// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
 /// rotation are ignored.
+#[allow(clippy::type_complexity)]
 pub fn draw_text2d_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
@@ -125,7 +126,7 @@ pub struct QueuedText2d {
 }
 
 /// Updates the TextGlyphs with the new computed glyphs from the layout
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Texture>>,
@@ -135,12 +136,12 @@ pub fn text2d_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        Query<Entity, (With<MainPass>, Changed<Text>)>,
-        Query<(&Text, &mut Text2dSize), With<MainPass>>,
+        QueryState<Entity, (With<MainPass>, Changed<Text>)>,
+        QueryState<(&Text, &mut Text2dSize), With<MainPass>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.q0_mut().iter_mut() {
+    for entity in text_queries.q0().iter_mut() {
         queued_text.entities.push(entity);
     }
 
@@ -156,7 +157,7 @@ pub fn text2d_system(
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
-    let query = text_queries.q1_mut();
+    let mut query = text_queries.q1();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match text_pipeline.queue_text(

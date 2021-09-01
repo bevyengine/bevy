@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::system::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
@@ -28,24 +28,17 @@ impl Default for LogDiagnosticsPlugin {
     }
 }
 
-/// The width which diagnostic names will be printed as
-/// Plugin names should not be longer than this value
-pub(crate) const MAX_LOG_NAME_WIDTH: usize = 32;
-
 impl Plugin for LogDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
 
         if self.debug {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                Self::log_diagnostics_debug_system.system(),
-            );
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system);
         }
     }
 }
@@ -71,7 +64,7 @@ impl LogDiagnosticsPlugin {
                     // Do not reserve one column for the suffix in the average
                     // The ) hugging the value is more aesthetically pleasing
                     format!("{:.6}{:}", average, diagnostic.suffix),
-                    name_width = MAX_LOG_NAME_WIDTH,
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             } else {
                 info!(
@@ -79,7 +72,7 @@ impl LogDiagnosticsPlugin {
                     "{:<name_width$}: {:>}",
                     diagnostic.name,
                     format!("{:.6}{:}", value, diagnostic.suffix),
-                    name_width = MAX_LOG_NAME_WIDTH,
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             }
         }

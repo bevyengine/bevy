@@ -10,12 +10,15 @@ pub use material::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, light::PointLight, material::StandardMaterial};
+    pub use crate::{
+        entity::*,
+        light::{DirectionalLight, PointLight},
+        material::StandardMaterial,
+    };
 }
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_ecs::system::IntoSystem;
 use bevy_render::{prelude::Color, shader};
 use material::StandardMaterial;
 use render_graph::add_pbr_graph;
@@ -25,19 +28,19 @@ use render_graph::add_pbr_graph;
 pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_asset::<StandardMaterial>()
             .register_type::<PointLight>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                shader::asset_shader_defs_system::<StandardMaterial>.system(),
+                shader::asset_shader_defs_system::<StandardMaterial>,
             )
             .init_resource::<AmbientLight>();
-        add_pbr_graph(app.world_mut());
+        add_pbr_graph(&mut app.world);
 
         // add default StandardMaterial
         let mut materials = app
-            .world_mut()
+            .world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         materials.set_untracked(

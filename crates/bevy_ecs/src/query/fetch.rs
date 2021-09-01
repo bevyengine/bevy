@@ -1,5 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
+    change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
@@ -8,6 +9,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use std::{
+    cell::UnsafeCell,
     marker::PhantomData,
     ptr::{self, NonNull},
 };
@@ -39,11 +41,11 @@ use std::{
 ///
 /// [`Or`]: crate::query::Or
 pub trait WorldQuery {
-    type Fetch: for<'a> Fetch<'a, State = Self::State>;
+    type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
     type State: FetchState;
 }
 
-pub trait Fetch<'w>: Sized {
+pub trait Fetch<'world, 'state>: Sized {
     type Item;
     type State: FetchState;
 
@@ -135,6 +137,7 @@ impl WorldQuery for Entity {
 }
 
 /// The [`Fetch`] of [`Entity`].
+#[derive(Clone)]
 pub struct EntityFetch {
     entities: *const Entity,
 }
@@ -171,7 +174,7 @@ unsafe impl FetchState for EntityState {
     }
 }
 
-impl<'w> Fetch<'w> for EntityFetch {
+impl<'w, 's> Fetch<'w, 's> for EntityFetch {
     type Item = Entity;
     type State = EntityState;
 
@@ -279,10 +282,22 @@ pub struct ReadFetch<T> {
     sparse_set: *const ComponentSparseSet,
 }
 
+impl<T> Clone for ReadFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+        }
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ReadFetch<T> {}
 
-impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
+impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
     type Item = &'w T;
     type State = ReadState<T>;
 
@@ -330,7 +345,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_ptr().cast::<T>();
+                self.table_components = column.get_data_ptr().cast::<T>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -341,7 +356,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         self.table_components = table
             .get_column(state.component_id)
             .unwrap()
-            .get_ptr()
+            .get_data_ptr()
             .cast::<T>();
     }
 
@@ -374,12 +389,27 @@ impl<T: Component> WorldQuery for &mut T {
 pub struct WriteFetch<T> {
     storage_type: StorageType,
     table_components: NonNull<T>,
-    table_ticks: *mut ComponentTicks,
+    table_ticks: *const UnsafeCell<ComponentTicks>,
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<T> Clone for WriteFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            table_ticks: self.table_ticks,
+            entities: self.entities,
+            entity_table_rows: self.entity_table_rows,
+            sparse_set: self.sparse_set,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 /// The [`FetchState`] of `&mut T`.
@@ -430,7 +460,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     }
 }
 
-impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
+impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
     type Item = Mut<'w, T>;
     type State = WriteState<T>;
 
@@ -454,7 +484,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
-            table_ticks: ptr::null_mut::<ComponentTicks>(),
+            table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
             last_change_tick,
             change_tick,
         };
@@ -481,8 +511,8 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_ptr().cast::<T>();
-                self.table_ticks = column.get_ticks_mut_ptr();
+                self.table_components = column.get_data_ptr().cast::<T>();
+                self.table_ticks = column.get_ticks_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -491,8 +521,8 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         let column = table.get_column(state.component_id).unwrap();
-        self.table_components = column.get_ptr().cast::<T>();
-        self.table_ticks = column.get_ticks_mut_ptr();
+        self.table_components = column.get_data_ptr().cast::<T>();
+        self.table_ticks = column.get_ticks_ptr();
     }
 
     #[inline]
@@ -502,9 +532,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 Mut {
                     value: &mut *self.table_components.as_ptr().add(table_row),
-                    component_ticks: &mut *self.table_ticks.add(table_row),
-                    change_tick: self.change_tick,
-                    last_change_tick: self.last_change_tick,
+                    ticks: Ticks {
+                        component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                        change_tick: self.change_tick,
+                        last_change_tick: self.last_change_tick,
+                    },
                 }
             }
             StorageType::SparseSet => {
@@ -513,9 +545,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                     (*self.sparse_set).get_with_ticks(entity).unwrap();
                 Mut {
                     value: &mut *component.cast::<T>(),
-                    component_ticks: &mut *component_ticks,
-                    change_tick: self.change_tick,
-                    last_change_tick: self.last_change_tick,
+                    ticks: Ticks {
+                        component_ticks: &mut *component_ticks,
+                        change_tick: self.change_tick,
+                        last_change_tick: self.last_change_tick,
+                    },
                 }
             }
         }
@@ -525,9 +559,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         Mut {
             value: &mut *self.table_components.as_ptr().add(table_row),
-            component_ticks: &mut *self.table_ticks.add(table_row),
-            change_tick: self.change_tick,
-            last_change_tick: self.last_change_tick,
+            ticks: Ticks {
+                component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                change_tick: self.change_tick,
+                last_change_tick: self.last_change_tick,
+            },
         }
     }
 }
@@ -538,6 +574,7 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+#[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
     matches: bool,
@@ -584,7 +621,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     }
 }
 
-impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
+impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
     type Item = Option<T::Item>;
     type State = OptionState<T::State>;
 
@@ -772,10 +809,25 @@ pub struct ChangeTrackersFetch<T> {
     change_tick: u32,
 }
 
+impl<T> Clone for ChangeTrackersFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_ticks: self.table_ticks,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+            marker: self.marker,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ChangeTrackersFetch<T> {}
 
-impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
+impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
     type Item = ChangeTrackers<T>;
     type State = ChangeTrackersState<T>;
 
@@ -826,7 +878,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_ticks = column.get_ticks_mut_ptr().cast::<ComponentTicks>();
+                self.table_ticks = column.get_ticks_const_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -837,8 +889,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         self.table_ticks = table
             .get_column(state.component_id)
             .unwrap()
-            .get_ticks_mut_ptr()
-            .cast::<ComponentTicks>();
+            .get_ticks_const_ptr();
     }
 
     #[inline]
@@ -847,7 +898,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: *self.table_ticks.add(table_row),
+                    component_ticks: (&*self.table_ticks.add(table_row)).clone(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -856,7 +907,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: *(*self.sparse_set).get_ticks(entity).unwrap(),
+                    component_ticks: (&*self.sparse_set).get_ticks(entity).cloned().unwrap(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -868,7 +919,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         ChangeTrackers {
-            component_ticks: *self.table_ticks.add(table_row),
+            component_ticks: (&*self.table_ticks.add(table_row)).clone(),
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
@@ -879,10 +930,11 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
 macro_rules! impl_tuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(non_snake_case)]
-        impl<'a, $($name: Fetch<'a>),*> Fetch<'a> for ($($name,)*) {
+        impl<'w, 's, $($name: Fetch<'w, 's>),*> Fetch<'w, 's> for ($($name,)*) {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
+            #[allow(clippy::unused_unit)]
             unsafe fn init(_world: &World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
@@ -910,12 +962,14 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[inline]
+            #[allow(clippy::unused_unit)]
             unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
                 let ($($name,)*) = self;
                 ($($name.table_fetch(_table_row),)*)
             }
 
             #[inline]
+            #[allow(clippy::unused_unit)]
             unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
                 let ($($name,)*) = self;
                 ($($name.archetype_fetch(_archetype_index),)*)
@@ -924,6 +978,7 @@ macro_rules! impl_tuple_fetch {
 
         // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(non_snake_case)]
+        #[allow(clippy::unused_unit)]
         unsafe impl<$($name: FetchState),*> FetchState for ($($name,)*) {
             fn init(_world: &mut World) -> Self {
                 ($($name::init(_world),)*)

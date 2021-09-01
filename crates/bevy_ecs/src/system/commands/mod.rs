@@ -1,55 +1,29 @@
+mod command_queue;
+
 use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, error};
+pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
-    fn write(self: Box<Self>, world: &mut World);
-}
-
-/// A queue of [`Command`]s.
-#[derive(Default)]
-pub struct CommandQueue {
-    commands: Vec<Box<dyn Command>>,
-}
-
-impl CommandQueue {
-    /// Execute the queued [`Command`]s in the world.
-    /// This clears the queue.
-    pub fn apply(&mut self, world: &mut World) {
-        world.flush();
-        for command in self.commands.drain(..) {
-            command.write(world);
-        }
-    }
-
-    /// Push a boxed [`Command`] onto the queue.
-    #[inline]
-    pub fn push_boxed(&mut self, command: Box<dyn Command>) {
-        self.commands.push(command);
-    }
-
-    /// Push a [`Command`] onto the queue.
-    #[inline]
-    pub fn push<T: Command>(&mut self, command: T) {
-        self.push_boxed(Box::new(command));
-    }
+    fn write(self, world: &mut World);
 }
 
 /// A list of commands that will be run to modify a [`World`].
-pub struct Commands<'a> {
-    queue: &'a mut CommandQueue,
-    entities: &'a Entities,
+pub struct Commands<'w, 's> {
+    queue: &'s mut CommandQueue,
+    entities: &'w Entities,
 }
 
-impl<'a> Commands<'a> {
+impl<'w, 's> Commands<'w, 's> {
     /// Create a new `Commands` from a queue and a world.
-    pub fn new(queue: &'a mut CommandQueue, world: &'a World) -> Self {
+    pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self {
             queue,
             entities: world.entities(),
@@ -76,12 +50,33 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+    pub fn spawn<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
             commands: self,
         }
+    }
+
+    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [None] if the `entity` exists with a different generation.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
+    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+        self.add(GetOrSpawn { entity });
+        EntityCommands {
+            entity,
+            commands: self,
+        }
+    }
+
+    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
+    /// this [Command] is applied.
+    pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
+        self.queue.push(Spawn { bundle })
     }
 
     /// Creates a new entity with the components contained in `bundle`.
@@ -124,7 +119,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn_bundle<'b, T: Bundle>(&'b mut self, bundle: T) -> EntityCommands<'a, 'b> {
+    pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
         e.insert_bundle(bundle);
         e
@@ -149,7 +144,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
+    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         EntityCommands {
             entity,
             commands: self,
@@ -164,6 +159,23 @@ impl<'a> Commands<'a> {
         I::Item: Bundle,
     {
         self.queue.push(SpawnBatch { bundles_iter });
+    }
+
+    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
+    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator + Send + Sync + 'static,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
     /// See [`World::insert_resource`].
@@ -185,12 +197,12 @@ impl<'a> Commands<'a> {
 }
 
 /// A list of commands that will be run to modify an [`Entity`].
-pub struct EntityCommands<'a, 'b> {
+pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
-    commands: &'b mut Commands<'a>,
+    commands: &'a mut Commands<'w, 's>,
 }
 
-impl<'a, 'b> EntityCommands<'a, 'b> {
+impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Retrieves the current entity's unique [`Entity`] id.
     #[inline]
     pub fn id(&self) -> Entity {
@@ -278,7 +290,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     }
 
     /// Returns the underlying `[Commands]`.
-    pub fn commands(&mut self) -> &mut Commands<'a> {
+    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
 }
@@ -292,8 +304,18 @@ impl<T> Command for Spawn<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn().insert_bundle(self.bundle);
+    }
+}
+
+pub struct GetOrSpawn {
+    entity: Entity,
+}
+
+impl Command for GetOrSpawn {
+    fn write(self, world: &mut World) {
+        world.get_or_spawn(self.entity);
     }
 }
 
@@ -310,8 +332,34 @@ where
     I: IntoIterator + Send + Sync + 'static,
     I::Item: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.spawn_batch(self.bundles_iter);
+    }
+}
+
+pub struct InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    pub bundles_iter: I,
+}
+
+impl<I, B> Command for InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    fn write(self, world: &mut World) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
+            error!(
+                "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
+                std::any::type_name::<B>(),
+                invalid_entities
+            );
+        }
     }
 }
 
@@ -321,7 +369,7 @@ pub struct Despawn {
 }
 
 impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if !world.despawn(self.entity) {
             debug!("Failed to despawn non-existent entity {:?}", self.entity);
         }
@@ -337,7 +385,7 @@ impl<T> Command for InsertBundle<T>
 where
     T: Bundle + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert_bundle(self.bundle);
     }
 }
@@ -352,22 +400,22 @@ impl<T> Command for Insert<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.entity_mut(self.entity).insert(self.component);
     }
 }
 
 #[derive(Debug)]
 pub struct Remove<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
         }
@@ -384,7 +432,7 @@ impl<T> Command for RemoveBundle<T>
 where
     T: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             // remove intersection to gracefully handle components that were removed before running
             // this command
@@ -398,7 +446,7 @@ pub struct InsertResource<T: Component> {
 }
 
 impl<T: Component> Command for InsertResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
@@ -408,7 +456,7 @@ pub struct RemoveResource<T: Component> {
 }
 
 impl<T: Component> Command for RemoveResource<T> {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         world.remove_resource::<T>();
     }
 }
@@ -417,9 +465,29 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
+        component::{ComponentDescriptor, StorageType},
         system::{CommandQueue, Commands},
         world::World,
     };
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn commands() {
@@ -454,10 +522,20 @@ mod tests {
     #[test]
     fn remove_components() {
         let mut world = World::default();
+
+        struct DenseDropCk(DropCk);
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+
         let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let dense_dropck = DenseDropCk(dense_dropck);
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64))
+            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
@@ -471,8 +549,14 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<u32>()
-            .remove_bundle::<(u32, u64)>();
+            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
         command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
         let results_after = world
             .query::<(&u32, &u64)>()
             .iter(&world)

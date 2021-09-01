@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(animate_sprite_system.system())
+        .add_startup_system(setup)
+        .add_system(animate_sprite_system)
         .run();
 }
 

@@ -1,6 +1,5 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
-    cell::UnsafeCell,
     ptr::NonNull,
 };
 
@@ -9,8 +8,8 @@ pub struct BlobVec {
     item_layout: Layout,
     capacity: usize,
     len: usize,
-    data: UnsafeCell<NonNull<u8>>,
-    swap_scratch: UnsafeCell<NonNull<u8>>,
+    data: NonNull<u8>,
+    swap_scratch: NonNull<u8>,
     drop: unsafe fn(*mut u8),
 }
 
@@ -18,8 +17,8 @@ impl BlobVec {
     pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
-                swap_scratch: UnsafeCell::new(NonNull::dangling()),
-                data: UnsafeCell::new(NonNull::dangling()),
+                swap_scratch: NonNull::dangling(),
+                data: NonNull::dangling(),
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
@@ -29,14 +28,14 @@ impl BlobVec {
             let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
                 .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
             let mut blob_vec = BlobVec {
-                swap_scratch: UnsafeCell::new(swap_scratch),
-                data: UnsafeCell::new(NonNull::dangling()),
+                swap_scratch,
+                data: NonNull::dangling(),
                 capacity: 0,
                 len: 0,
                 item_layout,
                 drop,
             };
-            blob_vec.reserve(capacity);
+            blob_vec.reserve_exact(capacity);
             blob_vec
         }
     }
@@ -56,14 +55,14 @@ impl BlobVec {
         self.capacity
     }
 
-    pub fn reserve(&mut self, amount: usize) {
+    pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
-        if available_space < amount {
-            self.grow(amount - available_space);
+        if available_space < additional {
+            self.grow_exact(additional - available_space);
         }
     }
 
-    fn grow(&mut self, increment: usize) {
+    fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
 
         let new_capacity = self.capacity + increment;
@@ -81,20 +80,28 @@ impl BlobVec {
                 )
             };
 
-            self.data = UnsafeCell::new(
-                NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout)),
-            );
+            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         }
         self.capacity = new_capacity;
     }
 
     /// # Safety
-    /// `index` must be in bounds
-    /// Allows aliased mutable access to `index`'s data. Caller must ensure this does not happen
+    /// - index must be in bounds
+    /// - memory must be reserved and uninitialized
     #[inline]
-    pub unsafe fn set_unchecked(&self, index: usize, value: *mut u8) {
+    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked(index);
+        std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
+    }
+
+    /// # Safety
+    /// - index must be in-bounds
+    //  - memory must be previously initialized
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
+        debug_assert!(index < self.len());
+        let ptr = self.get_unchecked(index);
+        (self.drop)(ptr);
         std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
     }
 
@@ -105,7 +112,7 @@ impl BlobVec {
     /// the newly allocated space must be immediately populated with a valid value
     #[inline]
     pub unsafe fn push_uninit(&mut self) -> usize {
-        self.reserve(1);
+        self.reserve_exact(1);
         let index = self.len;
         self.len += 1;
         index
@@ -132,7 +139,7 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> *mut u8 {
         debug_assert!(index < self.len());
         let last = self.len - 1;
-        let swap_scratch = (*self.swap_scratch.get()).as_ptr();
+        let swap_scratch = self.swap_scratch.as_ptr();
         std::ptr::copy_nonoverlapping(
             self.get_unchecked(index),
             swap_scratch,
@@ -170,7 +177,7 @@ impl BlobVec {
     /// must ensure rust mutability rules are not violated
     #[inline]
     pub unsafe fn get_ptr(&self) -> NonNull<u8> {
-        *self.data.get()
+        self.data
     }
 
     pub fn clear(&mut self) {
@@ -192,14 +199,12 @@ impl BlobVec {
 impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
-        if self.item_layout.size() > 0 {
+        let array_layout =
+            array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
+        if array_layout.size() > 0 {
             unsafe {
-                std::alloc::dealloc(
-                    self.get_ptr().as_ptr(),
-                    array_layout(&self.item_layout, self.capacity)
-                        .expect("array layout should be valid"),
-                );
-                std::alloc::dealloc((*self.swap_scratch.get()).as_ptr(), self.item_layout);
+                std::alloc::dealloc(self.get_ptr().as_ptr(), array_layout);
+                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
     }
@@ -262,15 +267,19 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::BlobVec;
-    use crate::component::TypeInfo;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
+
+    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    unsafe fn drop_ptr<T>(x: *mut u8) {
+        x.cast::<T>().drop_in_place()
+    }
 
     /// # Safety
     ///
     /// `blob_vec` must have a layout that matches Layout::new::<T>()
     unsafe fn push<T>(blob_vec: &mut BlobVec, mut value: T) {
         let index = blob_vec.push_uninit();
-        blob_vec.set_unchecked(index, (&mut value as *mut T).cast::<u8>());
+        blob_vec.initialize_unchecked(index, (&mut value as *mut T).cast::<u8>());
         std::mem::forget(value);
     }
 
@@ -295,7 +304,7 @@ mod tests {
     #[test]
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
-        let drop = TypeInfo::drop_ptr::<usize>;
+        let drop = drop_ptr::<usize>;
         let mut blob_vec = BlobVec::new(item_layout, drop, 64);
         unsafe {
             for i in 0..1_000 {
@@ -325,7 +334,7 @@ mod tests {
         let drop_counter = Rc::new(RefCell::new(0));
         {
             let item_layout = Layout::new::<Foo>();
-            let drop = TypeInfo::drop_ptr::<Foo>;
+            let drop = drop_ptr::<Foo>;
             let mut blob_vec = BlobVec::new(item_layout, drop, 2);
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
@@ -380,5 +389,12 @@ mod tests {
         }
 
         assert_eq!(*drop_counter.borrow(), 6);
+    }
+
+    #[test]
+    fn blob_vec_drop_empty_capacity() {
+        let item_layout = Layout::new::<Foo>();
+        let drop = drop_ptr::<Foo>;
+        let _ = BlobVec::new(item_layout, drop, 0);
     }
 }

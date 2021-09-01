@@ -130,7 +130,7 @@ pub mod winit {
 
 #[cfg(feature = "bevy_wgpu")]
 pub mod wgpu {
-    //! A render backend utilizing [wgpu](https://github.com/gfx-rs/wgpu-rs).
+    //! A render backend utilizing [wgpu](https://wgpu.rs/).
     pub use bevy_wgpu::*;
 }
 

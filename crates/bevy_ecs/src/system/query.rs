@@ -2,7 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
+        ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -106,17 +107,17 @@ use thiserror::Error;
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
+pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
 {
-    pub(crate) world: &'w World,
-    pub(crate) state: &'w QueryState<Q, F>,
+    pub(crate) world: &'world World,
+    pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -129,7 +130,7 @@ where
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
-        state: &'w QueryState<Q, F>,
+        state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -145,7 +146,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, '_, Q, F>
+    pub fn iter(&'s self) -> QueryIter<'w, 's, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -168,6 +169,65 @@ where
         }
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
+    #[inline]
+    pub fn iter_combinations<const K: usize>(&self) -> QueryCombinationIter<'_, '_, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_combinations_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    ///
+    /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
+    /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
+    ///
+    /// ```
+    /// # struct A;
+    /// # use bevy_ecs::prelude::*;
+    /// # fn some_system(mut query: Query<&mut A>) {
+    /// // iterate using `fetch_next` in while loop
+    /// let mut combinations = query.iter_combinations_mut();
+    /// while let Some([mut a, mut b]) = combinations.fetch_next() {
+    ///    // mutably access components data
+    /// }
+    /// # }
+    /// ```
+    ///
+    /// There is no `for_each` method, because it cannot be safely implemented
+    /// due to a [compiler bug](https://github.com/rust-lang/rust/issues/62529).
+    ///
+    /// For immutable access see [`Query::iter_combinations`].
+    #[inline]
+    pub fn iter_combinations_mut<const K: usize>(
+        &mut self,
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_combinations_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     ///
     /// # Safety
@@ -182,12 +242,31 @@ where
             .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
     }
 
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    /// See [`Query::iter_combinations`].
+    ///
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
+    #[inline]
+    pub unsafe fn iter_combinations_unsafe<const K: usize>(
+        &self,
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
+        // SEMI-SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        self.state.iter_combinations_unchecked_manual(
+            self.world,
+            self.last_change_tick,
+            self.change_tick,
+        )
+    }
+
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
-    pub fn for_each(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item))
+    pub fn for_each(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -206,7 +285,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
+    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -225,10 +304,10 @@ where
     /// write-queries.
     #[inline]
     pub fn par_for_each(
-        &self,
+        &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -248,11 +327,11 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut(
-        &mut self,
+    pub fn par_for_each_mut<'a>(
+        &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        f: impl Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -272,7 +351,10 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError>
+    pub fn get(
+        &'s self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -327,7 +409,10 @@ where
     /// entity does not have the given component type or if the given component type does not match
     /// this query.
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<&'w T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
@@ -432,7 +517,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
+    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -451,7 +536,7 @@ where
 
     /// Gets the query result if it is only a single result, otherwise returns a
     /// [`QuerySingleError`].
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
@@ -464,6 +549,15 @@ where
             >())),
         }
     }
+
+    /// Returns true if this query contains no elements.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        // TODO: This code can be replaced with `self.iter().next().is_none()` if/when
+        // we sort out how to convert "write" queries to "read" queries.
+        self.state
+            .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
@@ -471,7 +565,7 @@ where
 pub enum QueryComponentError {
     #[error("This query does not have read access to the requested component.")]
     MissingReadAccess,
-    #[error("This query does not have read access to the requested component.")]
+    #[error("This query does not have write access to the requested component.")]
     MissingWriteAccess,
     #[error("The given entity does not have the requested component.")]
     MissingComponent,
