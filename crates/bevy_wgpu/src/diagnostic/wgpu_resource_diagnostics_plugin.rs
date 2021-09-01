@@ -1,7 +1,10 @@
 use crate::renderer::WgpuRenderResourceContext;
 use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::{
+    prelude::StartupConfig,
+    system::{Res, ResMut},
+};
 use bevy_render::renderer::RenderResourceContext;
 
 #[derive(Default)]
@@ -9,7 +12,7 @@ pub struct WgpuResourceDiagnosticsPlugin;
 
 impl Plugin for WgpuResourceDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::setup_system)
+        app.add_system(Self::setup_system.startup())
             .add_system(Self::diagnostic_system);
     }
 }

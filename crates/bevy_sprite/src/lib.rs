@@ -28,7 +28,10 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::component::{ComponentDescriptor, StorageType};
+use bevy_ecs::{
+    component::{ComponentDescriptor, StorageType},
+    prelude::StageConfig,
+};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -69,26 +72,19 @@ impl Plugin for SpritePlugin {
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<SpriteResizeMode>()
-            .add_system_to_stage(CoreStage::PostUpdate, sprite_system)
-            .add_system_to_stage(CoreStage::PostUpdate, material_texture_detection_system)
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                asset_shader_defs_system::<ColorMaterial>,
-            );
+            .add_system(sprite_system.stage(CoreStage::PostUpdate))
+            .add_system(material_texture_detection_system.stage(CoreStage::PostUpdate))
+            .add_system(asset_shader_defs_system::<ColorMaterial>.stage(CoreStage::PostUpdate));
 
         let sprite_settings = app
             .world
             .get_resource_or_insert_with(SpriteSettings::default)
             .clone();
         if sprite_settings.frustum_culling_enabled {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                frustum_culling::sprite_frustum_culling_system,
+            app.add_system(
+                frustum_culling::sprite_frustum_culling_system.stage(CoreStage::PostUpdate),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                frustum_culling::atlas_frustum_culling_system,
-            );
+            .add_system(frustum_culling::atlas_frustum_culling_system.stage(CoreStage::PostUpdate));
         }
         app.world
             .register_component(ComponentDescriptor::new::<OutsideFrustum>(
