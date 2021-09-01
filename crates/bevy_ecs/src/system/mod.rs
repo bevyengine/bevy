@@ -5,7 +5,7 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_chaining;
-mod system_config;
+mod config;
 mod system_param;
 
 pub use commands::*;
@@ -14,8 +14,8 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
-pub use system_config::*;
 pub use system_param::*;
+pub use config::*;
 
 #[cfg(test)]
 mod tests {

@@ -8,7 +8,7 @@ use crate::{
 };
 use std::borrow::Cow;
 
-use super::system_config::SystemConfig;
+use super::SystemConfig;
 
 /// A [`System`] identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
