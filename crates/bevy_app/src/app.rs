@@ -211,9 +211,10 @@ impl App {
             }
         };
         if system.config().startup {
-            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system(system)
-            });
+            self.schedule
+                .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                    schedule.add_system(system)
+                });
         } else {
             self.schedule.add_system(system);
         }
@@ -222,16 +223,17 @@ impl App {
 
     pub fn add_system_set(&mut self, set: SystemSet) -> &mut Self {
         let set = {
-            if let Some(_) = set.config().stage {
+            if set.config().stage.is_some() {
                 set
             } else {
                 set.stage(CoreStage::Update)
             }
         };
         if set.config().startup {
-            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_set(set)
-            });
+            self.schedule
+                .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                    schedule.add_system_set(set)
+                });
         } else {
             self.schedule.add_system_set(set);
         }
@@ -247,16 +249,17 @@ impl App {
     {
         let system = system.exclusive_system();
         let system = {
-            if let Some(_) = system.config().stage {
+            if system.config().stage.is_some() {
                 system
             } else {
                 system.exclusive_system().stage(CoreStage::Update)
             }
         };
         if system.config().startup {
-            self.schedule.stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_exclusive(system)
-            });
+            self.schedule
+                .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                    schedule.add_exclusive(system)
+                });
         } else {
             self.schedule.add_exclusive(system);
         }

@@ -1,4 +1,4 @@
-use crate::{prelude::{ExclusiveSystem, IntoSystem, System}, schedule::{IntoRunCriteria, SystemSet}, system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn}};
+use crate::{prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem, System}, schedule::{IntoRunCriteria, SystemSet}, system::{AlreadyWasSystem, ExclusiveSystemCoerced, ExclusiveSystemFn}};
 
 use super::{ParallelSystemKind, SystemSetKind};
 
@@ -32,9 +32,13 @@ impl<Params> RunCriteraConfig<Params, ExclusiveSystemCoerced> for ExclusiveSyste
     }
 }
 
-impl<Params> RunCriteraConfig<Params, ExclusiveSystemFn> for ExclusiveSystemFn {
-    fn with_run_criteria<Marker>(mut self, run_criteria: impl IntoRunCriteria<Marker>) -> Self {
-        self.config_mut().set_run_criteria(run_criteria.into());
-        self
+impl<T, Params> RunCriteraConfig<Params, ExclusiveSystemFn> for T
+where
+    T: IntoExclusiveSystem<Params, ExclusiveSystemFn>,
+{
+    fn with_run_criteria<Marker>(self, run_criteria: impl IntoRunCriteria<Marker>) -> ExclusiveSystemFn {
+        let mut system = self.exclusive_system();
+        system.config_mut().set_run_criteria(run_criteria.into());
+        system
     }
 }
