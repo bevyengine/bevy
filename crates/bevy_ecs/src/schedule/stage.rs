@@ -167,6 +167,11 @@ impl SystemStage {
         self
     }
 
+    pub fn add_boxed_system(&mut self, system: BoxedSystem<(), ()>) -> &mut Self {
+        self.add_system_inner(system, None);
+        self
+    }
+
     pub fn add_exclusive<Params, SystemType>(
         &mut self,
         system: impl IntoExclusiveSystem<Params, SystemType>,
@@ -178,6 +183,10 @@ impl SystemStage {
         self
     }
 
+    pub fn add_boxed_exclusive_system(&mut self, system: BoxedExclusiveSystem) -> &mut Self {
+        self.add_exclusive_inner(system, None);
+        self
+    }
     fn add_system_inner(
         &mut self,
         system: BoxedSystem<(), ()>,

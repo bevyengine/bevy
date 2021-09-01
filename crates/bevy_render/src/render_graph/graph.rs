@@ -48,7 +48,7 @@ impl RenderGraph {
         let stage = schedule
             .get_stage_mut::<SystemStage>(&RenderGraphUpdate)
             .unwrap();
-        stage.add_system(node.get_system());
+        stage.add_boxed_system(node.get_system());
         self.add_node(name, node)
     }
 
@@ -204,7 +204,7 @@ impl RenderGraph {
                         occupied_by_node: *current_output_node,
                     });
                 }
-
+ 
                 if output_slot.info.resource_type != input_slot.info.resource_type {
                     return Err(RenderGraphError::MismatchedNodeSlots {
                         output_node,
