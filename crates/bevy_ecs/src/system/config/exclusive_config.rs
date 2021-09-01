@@ -1,4 +1,7 @@
-use crate::{prelude::{ExclusiveSystem, IntoExclusiveSystem}, system::{ExclusiveSystemCoerced, ExclusiveSystemFn, InsertionPoint}};
+use crate::{
+    prelude::{ExclusiveSystem, IntoExclusiveSystem},
+    system::{ExclusiveSystemCoerced, ExclusiveSystemFn, InsertionPoint},
+};
 
 pub trait ExclusiveConfig<Params, Configured> {
     fn at_start(self) -> Configured;
@@ -6,18 +9,24 @@ pub trait ExclusiveConfig<Params, Configured> {
     fn at_end(self) -> Configured;
 }
 
-impl<Params> ExclusiveConfig<Params, ExclusiveSystemCoerced> for ExclusiveSystemCoerced {
-    fn at_start(mut self) -> Self {
-        self.config_mut().insertion_point = Some(InsertionPoint::AtStart);
-        self
+impl<T, Params> ExclusiveConfig<Params, ExclusiveSystemCoerced> for T
+where
+    T: IntoExclusiveSystem<Params, ExclusiveSystemCoerced>,
+{
+    fn at_start(self) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
     }
-    fn before_commands(mut self) -> Self {
-        self.config_mut().insertion_point = Some(InsertionPoint::BeforeCommands);
-        self
+    fn before_commands(self) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
     }
-    fn at_end(mut self) -> Self {
-        self.config_mut().insertion_point = Some(InsertionPoint::AtEnd);
-        self
+    fn at_end(self) -> ExclusiveSystemCoerced {
+        let mut system = self.exclusive_system();
+        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
     }
 }
 
