@@ -221,7 +221,8 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             for current_filtered_access in self.filtered_accesses.iter() {
                 if !current_filtered_access.is_compatible(filtered_access) {
                     conflicts.extend(
-                        current_filtered_access.access
+                        current_filtered_access
+                            .access
                             .get_conflicts(&filtered_access.access)
                             .iter()
                             .map(|ind| ind.sparse_set_index()),
