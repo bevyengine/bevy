@@ -32,7 +32,8 @@ pub mod prelude {
         },
         system::{
             Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,
-            Local, NonSend, NonSendMut, Query, QuerySet, ParamSet, RemovedComponents, Res, ResMut, System,
+            Local, NonSend, NonSendMut, ParamSet, Query, QuerySet, RemovedComponents, Res, ResMut,
+            System,
         },
         world::{FromWorld, Mut, World},
     };
