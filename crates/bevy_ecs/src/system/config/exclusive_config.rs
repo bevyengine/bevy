@@ -24,14 +24,14 @@ where
         let mut system = self.exclusive_system();
         system
             .config_mut()
-            .set_insertion_point(InsertionPoint::AtStart);
+            .set_insertion_point(InsertionPoint::BeforeCommands);
         system
     }
     fn at_end(self) -> ExclusiveSystemCoerced {
         let mut system = self.exclusive_system();
         system
             .config_mut()
-            .set_insertion_point(InsertionPoint::AtStart);
+            .set_insertion_point(InsertionPoint::AtEnd);
         system
     }
 }
