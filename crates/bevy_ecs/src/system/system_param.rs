@@ -135,6 +135,7 @@ where
             std::any::type_name::<Query<Q, F>>(),
             &state,
             world,
+            ParamConflictType::Query,
         );
         system_meta
             .component_access_set
@@ -181,11 +182,17 @@ where
     }
 }
 
+pub enum ParamConflictType {
+    Query,
+    Resource,
+    Default,
+}
 fn assert_component_access_compatibility(
     system_meta: &SystemMeta,
     param_type: &'static str,
     state: &impl SystemParamState,
     world: &World,
+    conflict_type: ParamConflictType,
 ) {
     let system_name = &system_meta.name;
     let mut conflicts = system_meta
@@ -332,6 +339,7 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
             std::any::type_name::<Res<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -480,6 +488,7 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
             std::any::type_name::<ResMut<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -910,6 +919,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             std::any::type_name::<NonSend<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -1063,6 +1073,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             std::any::type_name::<NonSendMut<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
