@@ -323,7 +323,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
                 // SAFE: systems run without conflicts with other systems.
-                // Conflicting queries in ParamSet are not accessible at the same time
+                // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
                     <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
@@ -343,13 +343,13 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
+            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
+            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
@@ -378,9 +378,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     let (#(#param,)*) = &mut self.0;
                     #(
                         #param.new_archetype(archetype, system_meta);
-                        // system_meta
-                        //     .archetype_component_access
-                        //     .extend(&#param.archetype_component_access(&*self.world));
                     )*
                 }
 
