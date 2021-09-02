@@ -207,16 +207,31 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn get_conflicts(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
+        let mut conflicts = HashSet::<usize>::default();
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in self.filtered_accesses.iter() {
                 if !current_filtered_access.is_compatible(filtered_access) {
-                    return current_filtered_access
+                    conflicts.extend(current_filtered_access
                         .access
-                        .get_conflicts(&filtered_access.access);
+                        .get_conflicts(&filtered_access.access).iter().map(|ind| ind.sparse_set_index()));
                 }
             }
         }
-        Vec::new()
+        conflicts.iter().map(|ind| T::get_sparse_set_index(*ind)).collect()
+    }
+
+    pub fn get_conflicts_set(&self, filtered_access_set: &FilteredAccessSet<T>) -> Vec<T> {
+        // if combined unfiltered access is incompatible, check each filtered access for
+        // compatibility with the set
+        let mut conflicts = HashSet::<usize>::default();
+        if !filtered_access_set.combined_access.is_compatible(&self.combined_access) {
+            for current_filtered_access in filtered_access_set.filtered_accesses.iter() {
+                if !current_filtered_access.is_compatible(current_filtered_access) {
+                    conflicts.extend(self.get_conflicts(&current_filtered_access).iter().map(|ind| ind.sparse_set_index()));
+                }
+            }
+        }
+        conflicts.iter().map(|ind| T::get_sparse_set_index(*ind)).collect()
     }
 
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
