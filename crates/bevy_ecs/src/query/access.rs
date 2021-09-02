@@ -1,6 +1,6 @@
 use crate::storage::SparseSetIndex;
 use fixedbitset::FixedBitSet;
-use std::marker::PhantomData;
+use std::{collections::HashSet, marker::PhantomData};
 
 /// `Access` keeps track of read and write accesses to values within a collection.
 ///
@@ -237,6 +237,11 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);
+    }
+
+    pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
+        self.combined_access.extend(&filtered_access_set.combined_access);
+        self.filtered_accesses.extend(filtered_access_set.filtered_accesses);
     }
 }
 
