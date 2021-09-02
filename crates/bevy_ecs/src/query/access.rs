@@ -146,10 +146,10 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     }
 }
 
-impl<T: SparseSetIndex> Into<FilteredAccessSet<T>> for FilteredAccess<T> {
-    fn into(self) -> FilteredAccessSet<T> {
+impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
+    fn from(filtered_access: FilteredAccess<T>) -> Self {
         let mut base = FilteredAccessSet::<T>::default();
-        base.add(self);
+        base.add(filtered_access);
         base
     }
 }
@@ -247,7 +247,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         {
             for current_filtered_access in filtered_access_set.filtered_accesses.iter() {
                 conflicts.extend(
-                    self.get_conflicts(&current_filtered_access)
+                    self.get_conflicts(current_filtered_access)
                         .iter()
                         .map(|ind| ind.sparse_set_index()),
                 );

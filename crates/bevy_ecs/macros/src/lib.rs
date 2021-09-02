@@ -316,8 +316,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
     let values = get_idents(|i| format!("p{}", i), max_params);
     let mut param_fn_muts = Vec::new();
-    for i in 0..max_params {
-        let param = &params[i];
+    for (i, param) in params.iter().enumerate() {
         let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
