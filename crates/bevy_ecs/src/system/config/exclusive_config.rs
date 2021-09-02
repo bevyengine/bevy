@@ -15,17 +15,23 @@ where
 {
     fn at_start(self) -> ExclusiveSystemCoerced {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::AtStart);
         system
     }
     fn before_commands(self) -> ExclusiveSystemCoerced {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::AtStart);
         system
     }
     fn at_end(self) -> ExclusiveSystemCoerced {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::AtStart);
         system
     }
 }
@@ -36,17 +42,23 @@ where
 {
     fn at_start(self) -> ExclusiveSystemFn {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::AtStart);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::AtStart);
         system
     }
     fn before_commands(self) -> ExclusiveSystemFn {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::BeforeCommands);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::BeforeCommands);
         system
     }
     fn at_end(self) -> ExclusiveSystemFn {
         let mut system = self.exclusive_system();
-        system.config_mut().insertion_point = Some(InsertionPoint::AtEnd);
+        system
+            .config_mut()
+            .set_insertion_point(InsertionPoint::AtEnd);
         system
     }
 }

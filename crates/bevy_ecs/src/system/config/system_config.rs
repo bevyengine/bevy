@@ -8,7 +8,7 @@ pub struct SystemConfig {
     pub stage: Option<BoxedStageLabel>,
     pub ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
     pub run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub insertion_point: Option<InsertionPoint>,
+    pub insertion_point: InsertionPoint,
     pub startup: bool,
 }
 
@@ -33,6 +33,9 @@ impl SystemConfig {
     }
     pub fn startup(&mut self) {
         self.startup = true;
+    }
+    pub fn set_insertion_point(&mut self, insertion_point: InsertionPoint) {
+        self.insertion_point = insertion_point;
     }
 }
 

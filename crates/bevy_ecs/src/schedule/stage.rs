@@ -11,10 +11,7 @@ use crate::{
     system::{BoxedExclusiveSystem, BoxedSystem, InsertionPoint},
     world::{World, WorldId},
 };
-use bevy_utils::{
-    tracing::{info, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -207,14 +204,6 @@ impl SystemStage {
                 container.run_criteria_index = default_run_criteria;
             }
         }
-        if container
-            .system_mut()
-            .config_mut()
-            .insertion_point
-            .is_some()
-        {
-            warn!("An exclusive system was passed in place of a regular one");
-        }
         self.uninitialized_parallel.push(self.parallel.len());
         self.parallel.push(container);
     }
@@ -240,12 +229,7 @@ impl SystemStage {
             }
         }
 
-        match container
-            .system_mut()
-            .config_mut()
-            .insertion_point
-            .expect("A regular system was passed in place of an exclusive one")
-        {
+        match container.system_mut().config_mut().insertion_point {
             InsertionPoint::AtStart => {
                 let index = self.exclusive_at_start.len();
                 self.uninitialized_at_start.push(index);
