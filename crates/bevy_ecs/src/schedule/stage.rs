@@ -501,11 +501,14 @@ impl SystemStage {
             systems: &[impl SystemContainer],
             mut ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
             world: &World,
+            output_prefix: &str,
         ) {
-            for (index_a, index_b, conflicts) in ambiguities.drain(..) {
+            for (idx, (index_a, index_b, conflicts)) in ambiguities.drain(..).enumerate() {
                 writeln!(
                     string,
-                    " -- {:?} and {:?}",
+                    "{}.{} - {:?} and {:?}",
+                    output_prefix,
+                    idx, 
                     systems[index_a].name(),
                     systems[index_b].name()
                 )
@@ -532,30 +535,32 @@ impl SystemStage {
                     add an explicit dependency relation between some of these systems:\n"
                 .to_owned();
             if !parallel.is_empty() {
-                writeln!(string, " * Parallel systems:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world);
+                writeln!(string, "1. Parallel systems:").unwrap();
+                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world, "1");
             }
             if !at_start.is_empty() {
-                writeln!(string, " * Exclusive systems at start of stage:").unwrap();
+                writeln!(string, "2. Exclusive systems at start of stage:").unwrap();
                 write_display_names_of_pairs(
                     &mut string,
                     &self.exclusive_at_start,
                     at_start,
                     world,
+                    "1",
                 );
             }
             if !before_commands.is_empty() {
-                writeln!(string, " * Exclusive systems before commands of stage:").unwrap();
+                writeln!(string, "3. Exclusive systems before commands of stage:").unwrap();
                 write_display_names_of_pairs(
                     &mut string,
                     &self.exclusive_before_commands,
                     before_commands,
                     world,
+                    "1",
                 );
             }
             if !at_end.is_empty() {
-                writeln!(string, " * Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world);
+                writeln!(string, "4. Exclusive systems at end of stage:").unwrap();
+                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world,"1");
             }
             info!("{}", string);
         }
