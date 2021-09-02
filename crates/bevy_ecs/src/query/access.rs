@@ -195,7 +195,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.without.union_with(&access.without);
     }
 }
-
+#[derive(Clone)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
