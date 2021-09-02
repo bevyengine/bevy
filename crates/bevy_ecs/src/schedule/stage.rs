@@ -483,7 +483,7 @@ impl SystemStage {
             for (idx, (index_a, index_b, conflicts)) in ambiguities.drain(..).enumerate() {
                 writeln!(
                     string,
-                    "{}.{} - {:?} and {:?}",
+                    "{}.{} - {:?} and {:?} conflicts on the following components/resources:",
                     output_prefix,
                     idx,
                     systems[index_a].name(),
@@ -495,7 +495,7 @@ impl SystemStage {
                         .iter()
                         .map(|id| world.components().get_info(*id).unwrap().name())
                         .collect::<Vec<_>>();
-                    writeln!(string, "    conflicts: {:?}", names).unwrap();
+                    writeln!(string, "{:?}", names).unwrap();
                 }
             }
         }
