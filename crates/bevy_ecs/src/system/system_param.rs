@@ -223,14 +223,44 @@ impl_query_set!();
 
 pub trait Resource: Send + Sync + 'static {}
 impl<T> Resource for T where T: Send + Sync + 'static {}
+/// A set of possibly conflicting [`SystemParam`]s which can be accessed one at a time.
+///
+/// The type parameter of a [`ParamSet`] is a tuple of up to 4 [`SystemParam`]s
+/// These can be acquired _one at a time_ by calling `param_set.p0()`, `param_set.p1()`, etc.
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// struct A(usize);
+/// struct B(usize);
+/// fn write_to_both(
+///         mut param_set: ParamSet<(Query<&mut A>, Query<(&A, &mut B)>)> // These Queries are conflicting
+///     ) {
+///     let mut q0 = param_set.p0();
+///     // let q1 = param_set.p1(); <-- This won't compile since q0 is in scope
+///     for mut a in q0.iter_mut() {
+///         a.0 = 42;
+///     }
+///     // Now q0 is out of scope, the second query can be retrieved
+///     let mut q1 = param_set.p1();
+///     for (a, mut b) in q1.iter_mut() {
+///         b.0 = a.0;
+///     }
+/// }
+///
+/// let mut write_to_both_system = write_to_both.system();
+/// write_to_both_system.initialize(world);
+/// write_to_both_system.run((), world);
+/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
     world: &'w World,
     system_meta: SystemMeta,
     change_tick: u32,
 }
-
-pub struct ParamSetState<T>(T);
+/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
+pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
