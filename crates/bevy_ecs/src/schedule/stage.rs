@@ -508,7 +508,7 @@ impl SystemStage {
                     string,
                     "{}.{} - {:?} and {:?}",
                     output_prefix,
-                    idx, 
+                    idx,
                     systems[index_a].name(),
                     systems[index_b].name()
                 )
@@ -560,7 +560,13 @@ impl SystemStage {
             }
             if !at_end.is_empty() {
                 writeln!(string, "4. Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world,"1");
+                write_display_names_of_pairs(
+                    &mut string,
+                    &self.exclusive_at_end,
+                    at_end,
+                    world,
+                    "1",
+                );
             }
             info!("{}", string);
         }
