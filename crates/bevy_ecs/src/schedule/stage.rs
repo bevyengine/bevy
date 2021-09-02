@@ -545,7 +545,7 @@ impl SystemStage {
                     &self.exclusive_at_start,
                     at_start,
                     world,
-                    "1",
+                    "2",
                 );
             }
             if !before_commands.is_empty() {
@@ -555,7 +555,7 @@ impl SystemStage {
                     &self.exclusive_before_commands,
                     before_commands,
                     world,
-                    "1",
+                    "3",
                 );
             }
             if !at_end.is_empty() {
@@ -565,7 +565,7 @@ impl SystemStage {
                     &self.exclusive_at_end,
                     at_end,
                     world,
-                    "1",
+                    "4",
                 );
             }
             info!("{}", string);
