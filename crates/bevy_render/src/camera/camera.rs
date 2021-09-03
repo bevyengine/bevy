@@ -3,10 +3,10 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState},
+    prelude::Query,
     query::Added,
     reflect::ReflectComponent,
-    system::{QuerySet, Res},
+    system::{ParamSet, Res},
 };
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -75,9 +75,9 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     windows: Res<Windows>,
-    mut queries: QuerySet<(
-        QueryState<(Entity, &mut Camera, &mut T)>,
-        QueryState<Entity, Added<Camera>>,
+    mut queries: ParamSet<(
+        Query<(Entity, &mut Camera, &mut T)>,
+        Query<Entity, Added<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -102,10 +102,10 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 
     let mut added_cameras = vec![];
-    for entity in &mut queries.q1().iter() {
+    for entity in &mut queries.p1().iter() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in queries.p0().iter_mut() {
         if let Some(window) = windows.get(camera.window) {
             if changed_window_ids.contains(&window.id())
                 || added_cameras.contains(&entity)

@@ -8,6 +8,14 @@ use crate::{
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::{
+    entity::Entity,
+    event::EventReader,
+    prelude::Query,
+    query::{Changed, With},
+    system::{Local, ParamSet, Res},
+    world::Mut,
+};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::EnumVariantMeta;

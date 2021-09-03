@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
