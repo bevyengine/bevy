@@ -714,6 +714,26 @@ fn process_systems(
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+    fn should_ignore_ambiguity(
+        systems: &[impl SystemContainer],
+        index_a: usize,
+        index_b: usize,
+    ) -> bool {
+        (match systems[index_a].ambiguity_detection() {
+            AmbiguityDetection::Ignore => true,
+            AmbiguityDetection::Check => false,
+            AmbiguityDetection::IgnoreWithLabel(labels) => {
+                labels.iter().any(|l| systems[index_b].labels().contains(l))
+            }
+        }) || (match systems[index_b].ambiguity_detection() {
+            AmbiguityDetection::Ignore => true,
+            AmbiguityDetection::Check => false,
+            AmbiguityDetection::IgnoreWithLabel(labels) => {
+                labels.iter().any(|l| systems[index_a].labels().contains(l))
+            }
+        })
+    }
+
     let mut ambiguity_set_labels = HashMap::default();
     for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
         let len = ambiguity_set_labels.len();
@@ -766,18 +786,9 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
         for index_b in full_bitset.difference(&relations)
         // .take(index_a)
         {
-            match systems[index_a].ambiguity_detection() {
-                AmbiguityDetection::Ignore => continue,
-                AmbiguityDetection::Check => (),
-            }
-
-            match systems[index_b].ambiguity_detection() {
-                AmbiguityDetection::Ignore => continue,
-                AmbiguityDetection::Check => (),
-            }
-
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
+                && !should_ignore_ambiguity(systems, index_a, index_b)
             {
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
@@ -2019,6 +2030,44 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("0").before("1").before("3"))
+            .with_system(empty.exclusive_system().label("1").ambiguous())
+            .with_system(empty.exclusive_system().label("2").after("1"))
+            .with_system(empty.exclusive_system().label("3").ambiguous())
+            .with_system(empty.exclusive_system().label("4").after("3").before("5"))
+            .with_system(empty.exclusive_system().label("5").ambiguous())
+            .with_system(empty.exclusive_system().label("6").after("2").after("5"));
+        stage.initialize_systems(&mut world);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        assert!(
+            ambiguities.contains(&(Box::new("2"), Box::new("4")))
+                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+        );
+        assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.label("0"))
+            .with_system(resource.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(
+                component
+                    .label("3")
+                    .after("2")
+                    .before("4")
+                    .ambiguous_with("0"),
+            )
+            .with_system(resource.label("4").ambiguous_with("4"));
+        stage.initialize_systems(&mut world);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&(Box::new("1"), Box::new("4")))
+                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+        );
+        assert_eq!(ambiguities.len(), 1);
     }
 
     #[test]

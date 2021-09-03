@@ -99,6 +99,7 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
 pub enum AmbiguityDetection {
     Check,
     Ignore,
+    IgnoreWithLabel(Vec<BoxedSystemLabel>),
 }
 
 /// Encapsulates a parallel system and information on when it runs in a `SystemStage`.
@@ -147,6 +148,10 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
 
     /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
     fn ambiguous(self) -> ParallelSystemDescriptor;
+
+    /// Specifies that the system is exempt from execution order ambiguity detection
+    /// with other systems with the given label
+    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
@@ -182,6 +187,19 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
+
+    fn ambiguous_with(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        match &mut self.ambiguity_detection {
+            AmbiguityDetection::IgnoreWithLabel(v) => {
+                v.push(Box::new(label));
+            }
+            _ => {
+                self.ambiguity_detection =
+                    AmbiguityDetection::IgnoreWithLabel(vec![Box::new(label)]);
+            }
+        }
+        self
+    }
 }
 
 impl<S, Params> ParallelSystemDescriptorCoercion<Params> for S
@@ -215,6 +233,10 @@ where
     fn ambiguous(self) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self.system())).ambiguous()
     }
+
+    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self.system())).ambiguous_with(label)
+    }
 }
 
 impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
@@ -243,6 +265,10 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
 
     fn ambiguous(self) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).ambiguous()
+    }
+
+    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).ambiguous_with(label)
     }
 }
 
@@ -311,6 +337,10 @@ pub trait ExclusiveSystemDescriptorCoercion {
 
     /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
     fn ambiguous(self) -> ExclusiveSystemDescriptor;
+
+    /// Specifies that the system is exempt from execution order ambiguity detection
+    /// with other systems with the given label
+    fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
@@ -361,6 +391,19 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
+
+    fn ambiguous_with(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        match &mut self.ambiguity_detection {
+            AmbiguityDetection::IgnoreWithLabel(v) => {
+                v.push(Box::new(label));
+            }
+            _ => {
+                self.ambiguity_detection =
+                    AmbiguityDetection::IgnoreWithLabel(vec![Box::new(label)]);
+            }
+        }
+        self
+    }
 }
 
 impl<T> ExclusiveSystemDescriptorCoercion for T
@@ -404,5 +447,9 @@ where
 
     fn ambiguous(self) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).ambiguous()
+    }
+
+    fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).ambiguous_with(label)
     }
 }
