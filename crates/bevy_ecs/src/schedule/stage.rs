@@ -503,23 +503,38 @@ impl SystemStage {
             world: &World,
             output_prefix: &str,
         ) {
-            for (idx, (index_a, index_b, conflicts)) in ambiguities.drain(..).enumerate() {
+            use std::collections::hash_map;
+
+            let mut ambiguities_map: hash_map::HashMap<Vec<ComponentId>, Vec<usize>> =
+                hash_map::HashMap::new();
+
+            for (index_a, index_b, components) in ambiguities.drain(..) {
+                let systems = ambiguities_map.entry(components).or_default();
+                if !systems.contains(&index_a) {
+                    systems.push(index_a);
+                }
+                if !systems.contains(&index_b) {
+                    systems.push(index_b);
+                }
+            }
+
+            for (idx, (conflicts, systems_indices)) in ambiguities_map.drain().enumerate() {
+                let system_names = systems_indices
+                    .iter()
+                    .map(|index| systems[*index].name())
+                    .collect::<Vec<_>>();
+
+                let system_components = conflicts
+                    .iter()
+                    .map(|id| world.components().get_info(*id).unwrap().name())
+                    .collect::<Vec<_>>();
+
                 writeln!(
                     string,
-                    "{}.{} - {:?} and {:?} conflicts on the following components/resources:",
-                    output_prefix,
-                    idx,
-                    systems[index_a].name(),
-                    systems[index_b].name()
+                    "{}.{} - Systems:\n     {:?}\n   - Conflicts on the following components/resources:\n     {:?}",
+                    output_prefix, idx, system_names, system_components
                 )
                 .unwrap();
-                if !conflicts.is_empty() {
-                    let names = conflicts
-                        .iter()
-                        .map(|id| world.components().get_info(*id).unwrap().name())
-                        .collect::<Vec<_>>();
-                    writeln!(string, "{:?}", names).unwrap();
-                }
             }
         }
         let parallel = find_ambiguities(&self.parallel);
