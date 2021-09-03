@@ -90,6 +90,11 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
     }
 }
 
+pub enum AmbiguityDetection {
+    Check,
+    Ignore,
+}
+
 /// Encapsulates a parallel system and information on when it runs in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
@@ -98,6 +103,7 @@ pub struct ParallelSystemDescriptor {
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    pub(crate) ambiguity_detection: AmbiguityDetection,
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
@@ -108,6 +114,7 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
+        ambiguity_detection: AmbiguityDetection::Check,
     }
 }
 
@@ -131,6 +138,9 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems in this set.
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
+
+    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
+    fn ambiguous(self) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
@@ -161,6 +171,11 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self.ambiguity_sets.push(Box::new(set));
         self
     }
+
+    fn ambiguous(mut self) -> ParallelSystemDescriptor {
+        self.ambiguity_detection = AmbiguityDetection::Ignore;
+        self
+    }
 }
 
 impl<S, Params> ParallelSystemDescriptorCoercion<Params> for S
@@ -189,6 +204,10 @@ where
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self.system())).in_ambiguity_set(set)
     }
+
+    fn ambiguous(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self.system())).ambiguous()
+    }
 }
 
 impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
@@ -214,6 +233,10 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).in_ambiguity_set(set)
     }
+
+    fn ambiguous(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).ambiguous()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -231,6 +254,7 @@ pub struct ExclusiveSystemDescriptor {
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    pub(crate) ambiguity_detection: AmbiguityDetection,
     pub(crate) insertion_point: InsertionPoint,
 }
 
@@ -242,6 +266,7 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
+        ambiguity_detection: AmbiguityDetection::Check,
         insertion_point: InsertionPoint::AtStart,
     }
 }
@@ -276,6 +301,9 @@ pub trait ExclusiveSystemDescriptorCoercion {
 
     /// Specifies that the system should run with other exclusive systems at the end of stage.
     fn at_end(self) -> ExclusiveSystemDescriptor;
+
+    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
+    fn ambiguous(self) -> ExclusiveSystemDescriptor;
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
@@ -321,6 +349,11 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self.insertion_point = InsertionPoint::AtEnd;
         self
     }
+
+    fn ambiguous(mut self) -> ExclusiveSystemDescriptor {
+        self.ambiguity_detection = AmbiguityDetection::Ignore;
+        self
+    }
 }
 
 impl<T> ExclusiveSystemDescriptorCoercion for T
@@ -360,5 +393,9 @@ where
 
     fn at_end(self) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).at_end()
+    }
+
+    fn ambiguous(self) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).ambiguous()
     }
 }
