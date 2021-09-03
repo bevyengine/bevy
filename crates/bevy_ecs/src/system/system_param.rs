@@ -220,6 +220,10 @@ pub trait Resource: Send + Sync + 'static {}
 impl<T> Resource for T where T: Send + Sync + 'static {}
 /// A set of possibly conflicting [`SystemParam`]s which can be accessed one at a time.
 ///
+/// This is useful when you need to access the same data in different, incompatible ways within a single system.
+/// As is standard in Rust, you cannot have multiple references to mutable data active at once.
+/// For straightforward bundling of non-conflicting system parameters, see the [`SystemParam`] derive instead.
+///
 /// The type parameter of a [`ParamSet`] is a tuple of up to 4 [`SystemParam`]s
 /// These can be acquired _one at a time_ by calling `param_set.p0()`, `param_set.p1()`, etc.
 /// # Examples
