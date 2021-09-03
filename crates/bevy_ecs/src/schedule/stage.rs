@@ -16,7 +16,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
-use super::IntoSystemDescriptor;
+use super::{AmbiguityDetection, IntoSystemDescriptor};
 
 /// A type that can run as a step of a [`Schedule`](super::Schedule).
 pub trait Stage: Downcast + Send + Sync {
@@ -766,6 +766,16 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
         for index_b in full_bitset.difference(&relations)
         // .take(index_a)
         {
+            match systems[index_a].ambiguity_detection() {
+                AmbiguityDetection::Ignore => continue,
+                AmbiguityDetection::Check => (),
+            }
+
+            match systems[index_b].ambiguity_detection() {
+                AmbiguityDetection::Ignore => continue,
+                AmbiguityDetection::Check => (),
+            }
+
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
             {
@@ -1982,6 +1992,32 @@ mod tests {
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
+        assert_eq!(ambiguities.len(), 0);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.label("0"))
+            .with_system(resource.label("1").after("0").ambiguous())
+            .with_system(empty.label("2"))
+            .with_system(component.label("3").after("2").before("4"))
+            .with_system(resource.label("4"));
+        stage.initialize_systems(&mut world);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&(Box::new("0"), Box::new("3")))
+                || ambiguities.contains(&(Box::new("3"), Box::new("0")))
+        );
+        assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.label("0").ambiguous())
+            .with_system(resource.label("1").after("0").ambiguous())
+            .with_system(empty.label("2"))
+            .with_system(component.label("3").after("2").before("4"))
+            .with_system(resource.label("4"));
+        stage.initialize_systems(&mut world);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
     }
 

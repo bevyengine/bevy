@@ -9,6 +9,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::AmbiguityDetection;
+
 /// System metadata like its name, labels, order requirements and component access.
 pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
     #[doc(hidden)]
@@ -21,6 +23,7 @@ pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
     fn set_run_criteria(&mut self, index: usize);
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel>;
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
+    fn ambiguity_detection(&self) -> &AmbiguityDetection;
     fn component_access(&self) -> Option<&Access<ComponentId>>;
 }
 
@@ -33,6 +36,7 @@ pub(super) struct ExclusiveSystemContainer {
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    ambiguity_detection: AmbiguityDetection,
 }
 
 impl ExclusiveSystemContainer {
@@ -46,6 +50,7 @@ impl ExclusiveSystemContainer {
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,
+            ambiguity_detection: descriptor.ambiguity_detection,
         }
     }
 
@@ -103,6 +108,10 @@ impl SystemContainer for ExclusiveSystemContainer {
     fn component_access(&self) -> Option<&Access<ComponentId>> {
         None
     }
+
+    fn ambiguity_detection(&self) -> &AmbiguityDetection {
+        &self.ambiguity_detection
+    }
 }
 
 pub struct ParallelSystemContainer {
@@ -115,6 +124,7 @@ pub struct ParallelSystemContainer {
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    ambiguity_detection: AmbiguityDetection,
 }
 
 unsafe impl Send for ParallelSystemContainer {}
@@ -132,6 +142,7 @@ impl ParallelSystemContainer {
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,
+            ambiguity_detection: descriptor.ambiguity_detection,
         }
     }
 
@@ -204,5 +215,9 @@ impl SystemContainer for ParallelSystemContainer {
 
     fn component_access(&self) -> Option<&Access<ComponentId>> {
         Some(self.system().component_access())
+    }
+
+    fn ambiguity_detection(&self) -> &AmbiguityDetection {
+        &self.ambiguity_detection
     }
 }
