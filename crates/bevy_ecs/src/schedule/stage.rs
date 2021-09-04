@@ -37,10 +37,6 @@ pub enum AmbiguityReportLevel {
     Verbose,
 }
 
-/// When this resource is present in the `App`'s `Resources`,
-/// each `SystemStage` will log a report containing
-/// pairs of systems with ambiguous execution order.
-///
 /// Systems that access the same Component or Resource within the same stage
 /// risk an ambiguous order that could result in logic bugs, unless they have an
 /// explicit execution ordering constraint between them.
@@ -51,11 +47,28 @@ pub enum AmbiguityReportLevel {
 /// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
 /// without blocking each other) or spurious, as the exact combination of archetypes used may
 /// prevent them from ever conflicting during actual gameplay. You can resolve the warnings produced
-/// by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
+/// by the ambiguity checker by adding .before or .after to one of the conflicting systems
 /// referencing the other system to force a specific ordering.
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
+///
+/// By default only a warning with the number of unresolved ambiguities detected will be reported per [`SystemStage`].
+/// This behavior can be changed by explicit adding this resource using the following constructors:
+/// * [ReportExecutionOrderAmbiguities::off()] - Disables all messages reported by the ambiguity checker
+/// * [ReportExecutionOrderAmbiguities::minimal()] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
+/// * [ReportExecutionOrderAmbiguities::verbose()] - Displays a full report of ambiguities detected by the ambiguity checker.
+///
+/// The ambiguity checker will ignore all crates starting with "bevy_". To ignore a custom crate, just call [`ReportExecutionOrderAmbiguities::ignore`] function
+/// with an list of crates names as an argument.
+///
+/// ## Example
+/// ```
+/// # use bevy::prelude::*;
+/// #
+/// App::new()
+///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
+/// ```
 pub struct ReportExecutionOrderAmbiguities {
     pub level: AmbiguityReportLevel,
     pub ignore_crates: Vec<String>,
@@ -70,8 +83,7 @@ impl ReportExecutionOrderAmbiguities {
         }
     }
 
-    /// Displays only the number of unresolved ambiguities detected by the ambiguity checker. This
-    /// the default behavior.
+    /// Displays only the number of unresolved ambiguities detected by the ambiguity checker. This is the default behavior.
     pub fn minimal() -> Self {
         Self {
             level: AmbiguityReportLevel::Minimal,
