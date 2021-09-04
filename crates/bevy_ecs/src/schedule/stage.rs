@@ -11,7 +11,10 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{HashMap, HashSet, tracing::{info, warn}};
+use bevy_utils::{
+    tracing::{info, warn},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
