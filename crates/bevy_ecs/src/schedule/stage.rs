@@ -615,7 +615,7 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            warn!("{} unresolved ambiguities detected", unresolved_count);
+            warn!("{} unresolved ambiguities detected. Set the level of the ReportExecutionOrderAmbiguities resource to AmbiguityReportLevel::Verbose for more details.", unresolved_count);
         }
 
         if !(parallel.is_empty()
