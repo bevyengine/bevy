@@ -1,5 +1,6 @@
 use crate::{schedule::*, system::InsertionPoint};
 
+/// Each system has one of these. It is usually updated using the various traits seen in this file's directory.
 #[derive(Default)]
 pub struct SystemConfig {
     pub labels: Vec<BoxedSystemLabel>,
@@ -13,28 +14,28 @@ pub struct SystemConfig {
 }
 
 impl SystemConfig {
-    pub fn add_label(&mut self, label: impl SystemLabel) {
+    pub(crate) fn add_label(&mut self, label: impl SystemLabel) {
         self.labels.push(Box::new(label));
     }
-    pub fn add_before(&mut self, label: impl SystemLabel) {
+    pub(crate) fn add_before(&mut self, label: impl SystemLabel) {
         self.before.push(Box::new(label));
     }
-    pub fn add_after(&mut self, label: impl SystemLabel) {
+    pub(crate) fn add_after(&mut self, label: impl SystemLabel) {
         self.after.push(Box::new(label));
     }
-    pub fn set_stage(&mut self, label: impl StageLabel) {
+    pub(crate) fn set_stage(&mut self, label: impl StageLabel) {
         self.stage = Some(Box::new(label));
     }
-    pub fn add_ambiguity_set(&mut self, set: impl AmbiguitySetLabel) {
+    pub(crate) fn add_ambiguity_set(&mut self, set: impl AmbiguitySetLabel) {
         self.ambiguity_sets.push(Box::new(set));
     }
-    pub fn set_run_criteria(&mut self, criteria: RunCriteriaDescriptorOrLabel) {
+    pub(crate) fn set_run_criteria(&mut self, criteria: RunCriteriaDescriptorOrLabel) {
         self.run_criteria = Some(criteria);
     }
-    pub fn startup(&mut self) {
+    pub(crate) fn startup(&mut self) {
         self.startup = true;
     }
-    pub fn set_insertion_point(&mut self, insertion_point: InsertionPoint) {
+    pub(crate) fn set_insertion_point(&mut self, insertion_point: InsertionPoint) {
         self.insertion_point = insertion_point;
     }
 }

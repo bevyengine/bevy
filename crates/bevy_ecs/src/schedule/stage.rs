@@ -49,7 +49,7 @@ impl_downcast!(Stage);
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
-/// see `SystemDescriptor` documentation.
+/// see `SystemConfig` documentation.
 pub struct SystemStage {
     /// The WorldId this stage was last run on.
     world_id: Option<WorldId>,
