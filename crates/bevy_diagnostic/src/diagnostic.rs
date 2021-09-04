@@ -119,6 +119,10 @@ impl Diagnostic {
     pub fn get_max_history_length(&self) -> usize {
         self.max_history_length
     }
+
+    pub fn get_history(&self) -> Vec<f64> {
+        self.history.iter().map(|x|x.value).collect()
+    }
 }
 
 /// A collection of [Diagnostic]s
