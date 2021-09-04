@@ -11,7 +11,7 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, tracing::{info, warn}};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -26,6 +26,13 @@ pub trait Stage: Downcast + Send + Sync {
 }
 
 impl_downcast!(Stage);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum AmbiguityReportLevel {
+    Off,
+    Minimal,
+    Verbose,
+}
 
 /// When this resource is present in the `App`'s `Resources`,
 /// each `SystemStage` will log a report containing
@@ -46,7 +53,39 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
-pub struct ReportExecutionOrderAmbiguities;
+pub struct ReportExecutionOrderAmbiguities {
+    level: AmbiguityReportLevel,
+}
+
+impl ReportExecutionOrderAmbiguities {
+    /// Disables all messages reported by the ambiguity checker.
+    pub fn off() -> Self {
+        Self {
+            level: AmbiguityReportLevel::Off,
+        }
+    }
+
+    /// Displays only the number of unresolved ambiguities detected by the ambiguity checker. This
+    /// the default behavior.
+    pub fn minimal() -> Self {
+        Self {
+            level: AmbiguityReportLevel::Minimal,
+        }
+    }
+
+    /// Displays a full report of ambiguities detected by the ambiguity checker.
+    pub fn verbose() -> Self {
+        Self {
+            level: AmbiguityReportLevel::Verbose,
+        }
+    }
+}
+
+impl Default for ReportExecutionOrderAmbiguities {
+    fn default() -> Self {
+        Self::minimal()
+    }
+}
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
 /// see `SystemDescriptor` documentation.
@@ -493,7 +532,16 @@ impl SystemStage {
     }
 
     /// Logs execution order ambiguities between systems. System orders must be fresh.
-    fn report_ambiguities(&self, world: &World) {
+    fn report_ambiguities(&self, world: &mut World) {
+        let report_level = match world.get_resource::<ReportExecutionOrderAmbiguities>() {
+            Some(r) => r.level,
+            None => ReportExecutionOrderAmbiguities::default().level,
+        };
+
+        if report_level == AmbiguityReportLevel::Off {
+            return;
+        }
+
         debug_assert!(!self.systems_modified);
         use std::fmt::Write;
         fn write_display_names_of_pairs(
@@ -541,10 +589,21 @@ impl SystemStage {
         let at_start = find_ambiguities(&self.exclusive_at_start);
         let before_commands = find_ambiguities(&self.exclusive_before_commands);
         let at_end = find_ambiguities(&self.exclusive_at_end);
+
+        let mut unresolved_count = parallel.len();
+        unresolved_count += at_start.len();
+        unresolved_count += before_commands.len();
+        unresolved_count += at_end.len();
+
+        if unresolved_count > 0 {
+            warn!("{} unresolved ambiguities detected", unresolved_count);
+        }
+
         if !(parallel.is_empty()
             && at_start.is_empty()
             && before_commands.is_empty()
             && at_end.is_empty())
+            && report_level == AmbiguityReportLevel::Verbose
         {
             let mut string = "Execution order ambiguities detected, you might want to \
                     add an explicit dependency relation between some of these systems:\n"
@@ -824,9 +883,7 @@ impl Stage for SystemStage {
             self.systems_modified = false;
             self.executor.rebuild_cached_data(&self.parallel);
             self.executor_modified = false;
-            if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
-                self.report_ambiguities(world);
-            }
+            self.report_ambiguities(world);
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);
             self.executor_modified = false;
