@@ -1,6 +1,6 @@
 use crate::{schedule::*, system::InsertionPoint};
 
-/// Each system has one of these. It is usually updated using the various traits seen in this file's directory.
+/// Each system has one of these. It is updated using the various traits seen in this [directory](super).
 #[derive(Default)]
 pub struct SystemConfig {
     pub labels: Vec<BoxedSystemLabel>,
