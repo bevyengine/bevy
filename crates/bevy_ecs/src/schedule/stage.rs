@@ -66,7 +66,7 @@ impl ReportExecutionOrderAmbiguities {
     pub fn off() -> Self {
         Self {
             level: AmbiguityReportLevel::Off,
-            ignore_crates: vec![],
+            ..Default::default()
         }
     }
 
@@ -75,7 +75,7 @@ impl ReportExecutionOrderAmbiguities {
     pub fn minimal() -> Self {
         Self {
             level: AmbiguityReportLevel::Minimal,
-            ignore_crates: vec![],
+            ..Default::default()
         }
     }
 
@@ -83,7 +83,7 @@ impl ReportExecutionOrderAmbiguities {
     pub fn verbose() -> Self {
         Self {
             level: AmbiguityReportLevel::Verbose,
-            ignore_crates: vec![],
+            ..Default::default()
         }
     }
 
@@ -97,7 +97,10 @@ impl ReportExecutionOrderAmbiguities {
 
 impl Default for ReportExecutionOrderAmbiguities {
     fn default() -> Self {
-        Self::minimal()
+        Self {
+            level: AmbiguityReportLevel::Minimal,
+            ignore_crates: vec!["bevy_".into()],
+        }
     }
 }
 
