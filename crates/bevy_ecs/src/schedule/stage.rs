@@ -63,9 +63,9 @@ pub enum AmbiguityReportLevel {
 /// with an list of crates names as an argument.
 ///
 /// ## Example
-/// ```
-/// # use bevy::prelude::*;
-/// #
+/// ```ignore
+/// # use bevy_app::App;
+/// # use bevy_ecs::schedule::ReportExecutionOrderAmbiguities;
 /// App::new()
 ///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
 /// ```
