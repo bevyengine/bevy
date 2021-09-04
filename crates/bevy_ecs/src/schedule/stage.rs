@@ -31,7 +31,7 @@ pub trait Stage: Downcast + Send + Sync {
 impl_downcast!(Stage);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum AmbiguityReportLevel {
+pub enum AmbiguityReportLevel {
     Off,
     Minimal,
     Verbose,
@@ -57,7 +57,8 @@ enum AmbiguityReportLevel {
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities {
-    level: AmbiguityReportLevel,
+    pub level: AmbiguityReportLevel,
+    pub ignore_crates: Vec<String>,
 }
 
 impl ReportExecutionOrderAmbiguities {
@@ -65,6 +66,7 @@ impl ReportExecutionOrderAmbiguities {
     pub fn off() -> Self {
         Self {
             level: AmbiguityReportLevel::Off,
+            ignore_crates: vec![],
         }
     }
 
@@ -73,6 +75,7 @@ impl ReportExecutionOrderAmbiguities {
     pub fn minimal() -> Self {
         Self {
             level: AmbiguityReportLevel::Minimal,
+            ignore_crates: vec![],
         }
     }
 
@@ -80,7 +83,15 @@ impl ReportExecutionOrderAmbiguities {
     pub fn verbose() -> Self {
         Self {
             level: AmbiguityReportLevel::Verbose,
+            ignore_crates: vec![],
         }
+    }
+
+    pub fn ignore(mut self, create_prefix: &[&str]) -> Self {
+        for s in create_prefix {
+            self.ignore_crates.push(s.to_string());
+        }
+        self
     }
 }
 
@@ -536,12 +547,10 @@ impl SystemStage {
 
     /// Logs execution order ambiguities between systems. System orders must be fresh.
     fn report_ambiguities(&self, world: &mut World) {
-        let report_level = match world.get_resource::<ReportExecutionOrderAmbiguities>() {
-            Some(r) => r.level,
-            None => ReportExecutionOrderAmbiguities::default().level,
-        };
+        let ambiguity_report =
+            world.get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default);
 
-        if report_level == AmbiguityReportLevel::Off {
+        if ambiguity_report.level == AmbiguityReportLevel::Off {
             return;
         }
 
@@ -588,10 +597,14 @@ impl SystemStage {
                 .unwrap();
             }
         }
-        let parallel = find_ambiguities(&self.parallel);
-        let at_start = find_ambiguities(&self.exclusive_at_start);
-        let before_commands = find_ambiguities(&self.exclusive_before_commands);
-        let at_end = find_ambiguities(&self.exclusive_at_end);
+
+        let parallel = find_ambiguities(&self.parallel, &ambiguity_report.ignore_crates);
+        let at_start = find_ambiguities(&self.exclusive_at_start, &ambiguity_report.ignore_crates);
+        let before_commands = find_ambiguities(
+            &self.exclusive_before_commands,
+            &ambiguity_report.ignore_crates,
+        );
+        let at_end = find_ambiguities(&self.exclusive_at_end, &ambiguity_report.ignore_crates);
 
         let mut unresolved_count = parallel.len();
         unresolved_count += at_start.len();
@@ -606,7 +619,7 @@ impl SystemStage {
             && at_start.is_empty()
             && before_commands.is_empty()
             && at_end.is_empty())
-            && report_level == AmbiguityReportLevel::Verbose
+            && ambiguity_report.level == AmbiguityReportLevel::Verbose
         {
             let mut string = "Execution order ambiguities detected, you might want to \
                     add an explicit dependency relation between some of these systems:\n"
@@ -775,25 +788,34 @@ fn process_systems(
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+fn find_ambiguities(
+    systems: &[impl SystemContainer],
+    crates_filter: &[String],
+) -> Vec<(usize, usize, Vec<ComponentId>)> {
     fn should_ignore_ambiguity(
         systems: &[impl SystemContainer],
         index_a: usize,
         index_b: usize,
+        crates_filter: &[String],
     ) -> bool {
-        (match systems[index_a].ambiguity_detection() {
+        let system_a = &systems[index_a];
+        let system_b = &systems[index_b];
+
+        (match system_a.ambiguity_detection() {
             AmbiguityDetection::Ignore => true,
             AmbiguityDetection::Check => false,
             AmbiguityDetection::IgnoreWithLabel(labels) => {
-                labels.iter().any(|l| systems[index_b].labels().contains(l))
+                labels.iter().any(|l| system_b.labels().contains(l))
             }
-        }) || (match systems[index_b].ambiguity_detection() {
+        }) || (match system_b.ambiguity_detection() {
             AmbiguityDetection::Ignore => true,
             AmbiguityDetection::Check => false,
             AmbiguityDetection::IgnoreWithLabel(labels) => {
-                labels.iter().any(|l| systems[index_a].labels().contains(l))
+                labels.iter().any(|l| system_a.labels().contains(l))
             }
-        })
+        }) || crates_filter
+            .iter()
+            .any(|s| system_a.name().starts_with(s) || system_b.name().starts_with(s))
     }
 
     let mut ambiguity_set_labels = HashMap::default();
@@ -850,7 +872,7 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
         {
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
-                && !should_ignore_ambiguity(systems, index_a, index_b)
+                && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter)
             {
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
@@ -1686,7 +1708,24 @@ mod tests {
         fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
-            find_ambiguities(systems)
+            find_ambiguities(systems, &[])
+                .drain(..)
+                .map(|(index_a, index_b, _conflicts)| {
+                    (
+                        systems[index_a].labels()[0].clone(),
+                        systems[index_b].labels()[0].clone(),
+                    )
+                })
+                .collect()
+        }
+
+        fn find_ambiguities_first_labels_with_filter(
+            systems: &[impl SystemContainer],
+            filter: &[String],
+        ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
+            let mut find_ambiguities = find_ambiguities(systems, filter);
+
+            find_ambiguities
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
@@ -1711,6 +1750,10 @@ mod tests {
         fn resource(_: ResMut<usize>) {}
         fn component(_: Query<&mut W<f32>>) {}
 
+        mod inner {
+            pub(super) fn inner_fn(_: super::ResMut<usize>) {}
+        }
+
         let mut world = World::new();
 
         let mut stage = SystemStage::parallel()
@@ -1721,7 +1764,7 @@ mod tests {
             .with_system(empty.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
+        assert_eq!(find_ambiguities(&stage.parallel, &[]).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.label("0"))
@@ -1761,7 +1804,7 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
+        assert_eq!(find_ambiguities(&stage.parallel, &[]).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(component.label("0"))
@@ -1987,7 +2030,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("7").after("6"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
+        assert_eq!(find_ambiguities(&stage.exclusive_at_start, &[]).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0").before("1").before("3"))
@@ -2128,6 +2171,17 @@ mod tests {
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
         );
         assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(resource.label("1"))
+            .with_system(inner::inner_fn.label("2"));
+        stage.initialize_systems(&mut world);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_first_labels_with_filter(
+            &stage.parallel,
+            &["bevy_ecs::schedule::stage::tests::ambiguity_detection::inner::".into()],
+        );
+        assert_eq!(ambiguities.len(), 0);
     }
 
     #[test]
