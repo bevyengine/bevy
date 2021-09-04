@@ -4,7 +4,6 @@ fn main() {
     App::new()
         .add_plugin(LogPlugin)
         .insert_resource(MyStartupResource(0))
-        .insert_resource(1i32)
         // This resource allows to control how Ambiguity Checker will report unresolved ambiguities
         // By default only a warning numbering the unresolved ambiguities count is show, but by
         // explicitly setting it to verbose, a complete report is shown
@@ -15,6 +14,7 @@ fn main() {
         .add_startup_system(startup_system_a)
         .add_startup_system(startup_system_b)
         .insert_resource(MyResource(0))
+        .insert_resource(MyAnotherResource(0))
         // It is possible to mark a system as ambiguous if this is a intended behavior, so the ambiguity checker will ignore this system.
         .add_system(system_a.ambiguous())
         .add_system(system_b.label("my_label"))
@@ -38,22 +38,24 @@ fn startup_system_b(mut res: ResMut<MyStartupResource>) {
 }
 
 struct MyResource(i32);
+struct MyAnotherResource(i32);
+
 fn system_a(mut res: ResMut<MyResource>) {
     res.0 += 1;
 }
 
-fn system_b(mut res: ResMut<MyResource>, mut another_res: ResMut<i32>) {
+fn system_b(mut res: ResMut<MyResource>, mut another_res: ResMut<MyAnotherResource>) {
     res.0 += 1;
-    *another_res += 1;
+    another_res.0 += 1;
 }
 
 fn system_c(mut res: ResMut<MyResource>) {
     res.0 += 1;
 }
 
-fn system_d(mut res: ResMut<MyResource>, mut another_res: ResMut<i32>) {
+fn system_d(mut res: ResMut<MyResource>, mut another_res: ResMut<MyAnotherResource>) {
     res.0 += 1;
-    *another_res += 1;
+    another_res.0 += 1;
 }
 
 fn system_e(mut res: ResMut<MyResource>) {
