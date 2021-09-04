@@ -340,6 +340,10 @@ path = "examples/diagnostics/custom_diagnostic.rs"
 
 # ECS (Entity Component System)
 [[example]]
+name = "ambiguity_checker"
+path = "examples/ecs/ambiguity_checker.rs"
+
+[[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
