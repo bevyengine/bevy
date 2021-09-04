@@ -47,7 +47,7 @@ pub enum AmbiguityReportLevel {
 /// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
 /// without blocking each other) or spurious, as the exact combination of archetypes used may
 /// prevent them from ever conflicting during actual gameplay. You can resolve the warnings produced
-/// by the ambiguity checker by adding .before or .after to one of the conflicting systems
+/// by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
 /// referencing the other system to force a specific ordering.
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
