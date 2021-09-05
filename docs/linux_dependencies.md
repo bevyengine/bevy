@@ -107,10 +107,10 @@ Working off the above files, let's make the necessary changes.
 For `.cargo/config.toml`, change the path to the linker from `/usr/bin/clang` to `clang`:
 
 ``` diff
-[target.x86_64-unknown-linux-gnu]
+  [target.x86_64-unknown-linux-gnu]
 - linker = "/usr/bin/clang"
 + linker = "clang"
-rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
+  rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 ```
 
 In `shell.nix`, add `lld` and `clang`:
@@ -131,15 +131,15 @@ If you run into issues with building basic apps or activating the GPU ('thread '
 
 
 ``` diff
-{ pkgs ? import <nixpkgs> { } }:
-with pkgs;
-mkShell {
-+  shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
-+    pkgs.alsaLib
-+    pkgs.udev
-+    pkgs.vulkan-loader
-+  ]}"'';
-  buildInputs = [
+  { pkgs ? import <nixpkgs> { } }:
+  with pkgs;
+  mkShell {
++   shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
++     pkgs.alsaLib
++     pkgs.udev
++     pkgs.vulkan-loader
++   ]}"'';
+    buildInputs = [
 ```
 
 ## Opensuse Tumbleweed
