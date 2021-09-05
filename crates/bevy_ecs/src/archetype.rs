@@ -522,7 +522,6 @@ impl Archetypes {
         }
     }
 }
-
 impl Index<ArchetypeId> for Archetypes {
     type Output = Archetype;
 

@@ -12,4 +12,4 @@ pub trait Plugin: Any + Send + Sync {
     }
 }
 
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+pub type CreatePlugin = fn() -> *mut dyn Plugin;
