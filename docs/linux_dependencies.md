@@ -129,7 +129,6 @@ In `shell.nix`, add `lld` and `clang`:
 
 If you run into issues with building basic apps or activating the GPU ('thread 'main' panicked at 'Unable to find a GPU!'), then you may need to update your environment's `LD_LIBRARY_PATH`. To solve issues relating to missing `libudev.so.1` files, `alsa` drivers, and being unable to find a GPU, try updating the environment variable in your `shell.nix` by creating a `shellHook`:
 
-
 ``` diff
   { pkgs ? import <nixpkgs> { } }:
   with pkgs;
