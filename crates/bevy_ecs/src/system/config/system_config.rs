@@ -1,6 +1,8 @@
 use crate::{schedule::*, system::InsertionPoint};
 
-/// Each system has one of these. It is updated using the various traits seen in this [directory](super).
+/// Controls when and how a [`System`] is run
+///
+/// The traits in this [module](super) are used to update these settings.
 #[derive(Default)]
 pub struct SystemConfig {
     pub labels: Vec<BoxedSystemLabel>,
