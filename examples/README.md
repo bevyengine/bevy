@@ -178,7 +178,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
-`ambiguity_checker` | [`ecs/ambiguity_checker.rs`](./ecs/ambiguity_checker.rs) | Shows how the ambiguity checker works
+`ambiguity_checker` | [`ecs/ambiguity_checker.rs`](./ecs/ambiguity_checker.rs) | Shows how to use system order ambiguity checker
 `component_change_detection` | [`ecs/component_change_detection.rs`](./ecs/component_change_detection.rs) | Change detection on components
 `custom_query_param` | [`ecs/custom_query_param.rs`](./ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
