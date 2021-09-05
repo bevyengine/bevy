@@ -97,15 +97,6 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_b.apply_buffers(world);
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system_a.initialize(world);
-        self.system_b.initialize(world);
-        self.component_access
-            .extend(self.system_a.component_access());
-        self.component_access
-            .extend(self.system_b.component_access());
-    }
-
     fn check_change_tick(&mut self, change_tick: u32) {
         self.system_a.check_change_tick(change_tick);
         self.system_b.check_change_tick(change_tick);
@@ -135,15 +126,16 @@ where
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
     fn chain(self, system: SystemB) -> ChainSystem<SystemA::System, SystemB::System> {
-        let system_a = self.system();
-        let system_b = system.system();
-        ChainSystem {
-            name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
-            system_a,
-            system_b,
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-            id: SystemId::new(),
-        }
+        todo!("port this to IntoSystem")
+        // let system_a = self.system();
+        // let system_b = system.system();
+        // ChainSystem {
+        //     name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
+        //     system_a,
+        //     system_b,
+        //     archetype_component_access: Default::default(),
+        //     component_access: Default::default(),
+        //     id: SystemId::new(),
+        // }
     }
 }

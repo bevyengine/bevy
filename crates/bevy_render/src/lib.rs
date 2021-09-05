@@ -13,7 +13,8 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
+    component::{ComponentDescriptor, StorageType},
+    schedule::{IntoExclusiveSystemWrapper, ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, Res},
 };
 use bevy_transform::TransformSystem;
@@ -144,6 +145,9 @@ impl Plugin for RenderPlugin {
             SystemStage::parallel(),
         )
         .init_asset_loader::<ShaderLoader>()
+        .register_component(ComponentDescriptor::new::<OutsideFrustum>(
+            StorageType::SparseSet,
+        ))
         .add_asset::<Mesh>()
         .add_asset::<Texture>()
         .add_asset::<Shader>()
@@ -202,7 +206,7 @@ impl Plugin for RenderPlugin {
         )
         .add_system_to_stage(
             RenderStage::RenderGraphSystems,
-            render_graph::render_graph_schedule_executor_system.exclusive_system(),
+            render_graph::render_graph_schedule_executor_system.exclusive(),
         )
         .add_system_to_stage(RenderStage::Draw, pipeline::draw_render_pipelines_system)
         .add_system_to_stage(RenderStage::PostRender, shader::clear_shader_defs_system);

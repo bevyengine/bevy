@@ -1,9 +1,10 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
-    prelude::{FromWorld, IntoExclusiveSystem},
+    prelude::FromWorld,
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
+        IntoExclusiveSystemWrapper, IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel,
+        State, SystemSet, SystemStage,
     },
     world::World,
 };
@@ -47,10 +48,9 @@ impl Default for App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<bevy_reflect::TypeRegistryArc>();
-
         app.add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive());
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -216,7 +216,8 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        self.schedule.add_system_to_stage(stage_label, system);
+        self.schedule
+            .add_system_to_stage(&mut self.world, stage_label, system);
         self
     }
 
@@ -226,7 +227,7 @@ impl App {
         system_set: SystemSet,
     ) -> &mut Self {
         self.schedule
-            .add_system_set_to_stage(stage_label, system_set);
+            .add_system_set_to_stage(&mut self.world, stage_label, system_set);
         self
     }
 
@@ -266,9 +267,10 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
+        let world = &mut self.world;
         self.schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_to_stage(stage_label, system)
+                schedule.add_system_to_stage(world, stage_label, system)
             });
         self
     }
@@ -278,9 +280,10 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
+        let world = &mut self.world;
         self.schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_set_to_stage(stage_label, system_set)
+                schedule.add_system_set_to_stage(world, stage_label, system_set)
             });
         self
     }

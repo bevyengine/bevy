@@ -1,5 +1,6 @@
 use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, HandleUntyped};
+use bevy_ecs::prelude::{Mut, World};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
@@ -137,37 +138,45 @@ pub mod node {
     pub const SPRITE_SHEET_SPRITE: &str = "sprite_sheet_sprite";
 }
 
-pub(crate) fn add_sprite_graph(
-    graph: &mut RenderGraph,
-    pipelines: &mut Assets<PipelineDescriptor>,
-    shaders: &mut Assets<Shader>,
-) {
-    graph.add_system_node(
-        node::COLOR_MATERIAL,
-        AssetRenderResourcesNode::<ColorMaterial>::new(false),
-    );
-    graph
-        .add_node_edge(node::COLOR_MATERIAL, base::node::MAIN_PASS)
-        .unwrap();
+pub(crate) fn add_sprite_graph(world: &mut World) {
+    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+        world.resource_scope(|world, mut pipelines: Mut<Assets<PipelineDescriptor>>| {
+            world.resource_scope(|world, mut shaders: Mut<Assets<Shader>>| {
+                graph.add_system_node(
+                    world,
+                    node::COLOR_MATERIAL,
+                    AssetRenderResourcesNode::<ColorMaterial>::new(false),
+                );
+                graph
+                    .add_node_edge(node::COLOR_MATERIAL, base::node::MAIN_PASS)
+                    .unwrap();
 
-    graph.add_system_node(node::SPRITE, RenderResourcesNode::<Sprite>::new(true));
-    graph
-        .add_node_edge(node::SPRITE, base::node::MAIN_PASS)
-        .unwrap();
+                graph.add_system_node(
+                    world,
+                    node::SPRITE,
+                    RenderResourcesNode::<Sprite>::new(true),
+                );
+                graph
+                    .add_node_edge(node::SPRITE, base::node::MAIN_PASS)
+                    .unwrap();
 
-    graph.add_system_node(
-        node::SPRITE_SHEET,
-        AssetRenderResourcesNode::<TextureAtlas>::new(false),
-    );
+                graph.add_system_node(
+                    world,
+                    node::SPRITE_SHEET,
+                    AssetRenderResourcesNode::<TextureAtlas>::new(false),
+                );
 
-    graph.add_system_node(
-        node::SPRITE_SHEET_SPRITE,
-        RenderResourcesNode::<TextureAtlasSprite>::new(true),
-    );
-
-    pipelines.set_untracked(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(shaders));
-    pipelines.set_untracked(
-        SPRITE_SHEET_PIPELINE_HANDLE,
-        build_sprite_sheet_pipeline(shaders),
-    );
+                graph.add_system_node(
+                    world,
+                    node::SPRITE_SHEET_SPRITE,
+                    RenderResourcesNode::<TextureAtlasSprite>::new(true),
+                );
+                pipelines.set_untracked(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(&mut shaders));
+                pipelines.set_untracked(
+                    SPRITE_SHEET_PIPELINE_HANDLE,
+                    build_sprite_sheet_pipeline(&mut shaders),
+                );
+            })
+        })
+    });
 }

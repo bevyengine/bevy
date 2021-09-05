@@ -18,11 +18,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::IntoExclusiveSystem,
-};
+use bevy_ecs::{entity::Entity, schedule::{ExclusiveSystemDescriptorCoercion, IntoExclusiveSystemWrapper, ParallelSystemDescriptorCoercion, SystemLabel}, system::IntoExclusiveSystem};
 use bevy_utils::HashSet;
 use std::ops::Range;
 
@@ -60,7 +56,7 @@ impl Plugin for CorePlugin {
             // in CoreStage::First
             .add_system_to_stage(
                 CoreStage::First,
-                time_system.exclusive_system().label(CoreSystem::Time),
+                time_system.exclusive().label(CoreSystem::Time),
             )
             .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system)
             .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system);

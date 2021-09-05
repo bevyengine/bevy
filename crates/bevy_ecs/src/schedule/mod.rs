@@ -65,10 +65,11 @@ impl Schedule {
 
     pub fn with_system_in_stage<Params>(
         mut self,
+        world: &mut World,
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> Self {
-        self.add_system_to_stage(stage_label, system);
+        self.add_system_to_stage(world, stage_label, system);
         self
     }
 
@@ -140,6 +141,7 @@ impl Schedule {
 
     pub fn add_system_to_stage<Params>(
         &mut self,
+        world: &mut World,
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
@@ -156,17 +158,18 @@ impl Schedule {
         let stage = self
             .get_stage_mut::<SystemStage>(&stage_label)
             .unwrap_or_else(move || stage_not_found(&stage_label));
-        stage.add_system(system);
+        stage.add_system(world, system);
         self
     }
 
     pub fn add_system_set_to_stage(
         &mut self,
+        world: &mut World,
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
         self.stage(stage_label, |stage: &mut SystemStage| {
-            stage.add_system_set(system_set)
+            stage.add_system_set(world, system_set)
         })
     }
 

@@ -13,9 +13,9 @@ use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     entity::Entity,
-    prelude::QueryState,
+    prelude::{ConfigSystemParamFunction, IntoSystem, QueryState},
     query::{Changed, Or, With},
-    system::{BoxedSystem, ConfigurableSystem, Local, QuerySet, RemovedComponents, Res, ResMut},
+    system::{BoxedSystem, Local, QuerySet, RemovedComponents, Res, ResMut},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -400,7 +400,7 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self) -> BoxedSystem {
+    fn get_system(&self, world: &mut World) -> BoxedSystem {
         let system = render_resources_node_system::<T>.config(|config| {
             config.0 = Some(RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
@@ -409,7 +409,7 @@ where
             })
         });
 
-        Box::new(system)
+        Box::new(system.system(world))
     }
 }
 
@@ -583,7 +583,7 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self) -> BoxedSystem {
+    fn get_system(&self, world: &mut World) -> BoxedSystem {
         let system = asset_render_resources_node_system::<T>.config(|config| {
             config.0 = Some(RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
@@ -592,7 +592,7 @@ where
             })
         });
 
-        Box::new(system)
+        Box::new(system.system(world))
     }
 }
 

@@ -1,4 +1,7 @@
+use std::marker::PhantomData;
+
 use crate::{
+    prelude::{IntoExclusiveSystem, System, World},
     schedule::{
         AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
         RunCriteriaDescriptorOrLabel, SystemLabel,
@@ -56,19 +59,13 @@ where
     S: IntoSystem<(), (), Params>,
 {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).into_descriptor()
+        new_parallel_descriptor(self).into_descriptor()
     }
 }
 
 impl IntoSystemDescriptor<()> for SystemDescriptor {
     fn into_descriptor(self) -> SystemDescriptor {
         self
-    }
-}
-
-impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
-    fn into_descriptor(self) -> SystemDescriptor {
-        new_parallel_descriptor(self).into_descriptor()
     }
 }
 
@@ -80,19 +77,27 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemDescriptor {
 
 impl IntoSystemDescriptor<()> for ExclusiveSystemFn {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).into_descriptor()
+        new_exclusive_descriptor(ExclusiveSystemWrapper {
+            into_system: self,
+            marker: PhantomData,
+        })
+        .into_descriptor()
     }
 }
 
 impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).into_descriptor()
+        new_exclusive_descriptor(ExclusiveSystemWrapper {
+            into_system: self,
+            marker: PhantomData,
+        })
+        .into_descriptor()
     }
 }
 
 /// Encapsulates a parallel system and information on when it runs in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
-    pub(crate) system: BoxedSystem<(), ()>,
+    pub(crate) system_producer: Box<dyn FnOnce(&mut World) -> BoxedSystem>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
     pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
@@ -100,9 +105,11 @@ pub struct ParallelSystemDescriptor {
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
-fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
+fn new_parallel_descriptor<I: IntoSystem<(), (), Params>, Params>(
+    into_system: I,
+) -> ParallelSystemDescriptor {
     ParallelSystemDescriptor {
-        system,
+        system_producer: Box::new(|world| Box::new(into_system.system(world))),
         run_criteria: None,
         labels: Vec::new(),
         before: Vec::new(),
@@ -171,31 +178,6 @@ where
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).with_run_criteria(run_criteria)
-    }
-
-    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).label(label)
-    }
-
-    fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).before(label)
-    }
-
-    fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).after(label)
-    }
-
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).in_ambiguity_set(set)
-    }
-}
-
-impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
-    fn with_run_criteria<Marker>(
-        self,
-        run_criteria: impl IntoRunCriteria<Marker>,
-    ) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).with_run_criteria(run_criteria)
     }
 
@@ -225,7 +207,7 @@ pub(crate) enum InsertionPoint {
 
 /// Encapsulates an exclusive system and information on when it runs in a `SystemStage`.
 pub struct ExclusiveSystemDescriptor {
-    pub(crate) system: Box<dyn ExclusiveSystem>,
+    pub(crate) system: Box<dyn FnOnce(&mut World) -> Box<dyn ExclusiveSystem>>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
     pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
@@ -234,9 +216,15 @@ pub struct ExclusiveSystemDescriptor {
     pub(crate) insertion_point: InsertionPoint,
 }
 
-fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystemDescriptor {
+fn new_exclusive_descriptor<
+    I: IntoExclusiveSystem<Params, SourceParams> + 'static,
+    Params: 'static,
+    SourceParams: 'static,
+>(
+    into_exclusive: ExclusiveSystemWrapper<I, Params, SourceParams>,
+) -> ExclusiveSystemDescriptor {
     ExclusiveSystemDescriptor {
-        system,
+        system: Box::new(|world| Box::new(into_exclusive.into_system.exclusive_system(world))),
         run_criteria: None,
         labels: Vec::new(),
         before: Vec::new(),
@@ -246,7 +234,7 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
     }
 }
 
-pub trait ExclusiveSystemDescriptorCoercion {
+pub trait ExclusiveSystemDescriptorCoercion<Params, SourceParams> {
     /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
     /// run criteria defined elsewhere.
     fn with_run_criteria<Marker>(
@@ -278,7 +266,7 @@ pub trait ExclusiveSystemDescriptorCoercion {
     fn at_end(self) -> ExclusiveSystemDescriptor;
 }
 
-impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
+impl ExclusiveSystemDescriptorCoercion<(), ()> for ExclusiveSystemDescriptor {
     fn with_run_criteria<Marker>(
         mut self,
         run_criteria: impl IntoRunCriteria<Marker>,
@@ -323,42 +311,82 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
     }
 }
 
-impl<T> ExclusiveSystemDescriptorCoercion for T
-where
-    T: ExclusiveSystem + 'static,
+impl<
+        I: IntoExclusiveSystem<Params, SourceParams> + 'static,
+        Params: 'static,
+        SourceParams: 'static,
+    > ExclusiveSystemDescriptorCoercion<Params, SourceParams>
+    for ExclusiveSystemWrapper<I, Params, SourceParams>
 {
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).with_run_criteria(run_criteria)
+        new_exclusive_descriptor(self).with_run_criteria(run_criteria)
     }
 
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).label(label)
+        new_exclusive_descriptor(self).label(label)
     }
 
     fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).before(label)
+        new_exclusive_descriptor(self).before(label)
     }
 
     fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).after(label)
+        new_exclusive_descriptor(self).after(label)
     }
 
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).in_ambiguity_set(set)
+        new_exclusive_descriptor(self).in_ambiguity_set(set)
     }
 
     fn at_start(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).at_start()
+        new_exclusive_descriptor(self).at_start()
     }
 
     fn before_commands(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).before_commands()
+        new_exclusive_descriptor(self).before_commands()
     }
 
     fn at_end(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).at_end()
+        new_exclusive_descriptor(self).at_end()
+    }
+}
+
+pub struct ExclusiveSystemWrapper<
+    I: IntoExclusiveSystem<Params, SourceParams>,
+    Params,
+    SourceParams,
+> {
+    into_system: I,
+    marker: PhantomData<fn() -> (Params, SourceParams)>,
+}
+
+pub trait IntoExclusiveSystemWrapper<Params, SourceParams>:
+    Sized + IntoExclusiveSystem<Params, SourceParams>
+{
+    fn exclusive(self) -> ExclusiveSystemWrapper<Self, Params, SourceParams>;
+}
+
+impl<Params, SourceParams, I: IntoExclusiveSystem<Params, SourceParams>>
+    IntoExclusiveSystemWrapper<Params, SourceParams> for I
+{
+    fn exclusive(self) -> ExclusiveSystemWrapper<Self, Params, SourceParams> {
+        ExclusiveSystemWrapper {
+            into_system: self,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<
+        Params: 'static,
+        SourceParams: 'static,
+        I: IntoExclusiveSystem<Params, SourceParams> + 'static,
+    > IntoSystemDescriptor<()> for ExclusiveSystemWrapper<I, Params, SourceParams>
+{
+    fn into_descriptor(self) -> SystemDescriptor {
+        SystemDescriptor::Exclusive(new_exclusive_descriptor(self))
     }
 }

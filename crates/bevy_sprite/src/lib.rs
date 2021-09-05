@@ -90,20 +90,9 @@ impl Plugin for SpritePlugin {
                 frustum_culling::atlas_frustum_culling_system,
             );
         }
-        app.world
-            .register_component(ComponentDescriptor::new::<OutsideFrustum>(
-                StorageType::SparseSet,
-            ))
-            .unwrap();
 
+        crate::render::add_sprite_graph(&mut app.world);
         let world_cell = app.world.cell();
-        let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
-        let mut pipelines = world_cell
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
-        let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
-        crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
-
         let mut meshes = world_cell.get_resource_mut::<Assets<Mesh>>().unwrap();
         let mut color_materials = world_cell
             .get_resource_mut::<Assets<ColorMaterial>>()

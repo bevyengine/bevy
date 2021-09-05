@@ -1,12 +1,7 @@
-use crate::{
-    component::ComponentId,
-    query::Access,
-    schedule::{
+use crate::{component::ComponentId, prelude::World, query::Access, schedule::{
         BoxedAmbiguitySetLabel, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemDescriptor,
         GraphNode, ParallelSystemDescriptor,
-    },
-    system::{ExclusiveSystem, System},
-};
+    }, system::{ExclusiveSystem, System}};
 use std::{borrow::Cow, cell::UnsafeCell};
 
 /// System metadata like its name, labels, order requirements and component access.
@@ -36,9 +31,9 @@ pub(super) struct ExclusiveSystemContainer {
 }
 
 impl ExclusiveSystemContainer {
-    pub(super) fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
+    pub(super) fn from_descriptor(world: &mut World, descriptor: ExclusiveSystemDescriptor) -> Self {
         ExclusiveSystemContainer {
-            system: descriptor.system,
+            system: (descriptor.system)(world),
             run_criteria_index: None,
             run_criteria_label: None,
             dependencies: Vec::new(),
@@ -121,10 +116,11 @@ unsafe impl Send for ParallelSystemContainer {}
 unsafe impl Sync for ParallelSystemContainer {}
 
 impl ParallelSystemContainer {
-    pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
+    pub(crate) fn from_descriptor(world: &mut World, descriptor: ParallelSystemDescriptor) -> Self {
+        let system = (descriptor.system_producer)(world);
         ParallelSystemContainer {
             // SAFE: it is fine to wrap inner value with UnsafeCell, as it is repr(transparent)
-            system: unsafe { Box::from_raw(Box::into_raw(descriptor.system) as *mut _) },
+            system: unsafe { Box::from_raw(Box::into_raw(system) as *mut _) },
             should_run: false,
             run_criteria_index: None,
             run_criteria_label: None,

@@ -10,7 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_ecs::{schedule::IntoExclusiveSystemWrapper, system::IntoExclusiveSystem, world::World};
 use bevy_render::{
     renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
     RenderStage,
@@ -103,7 +103,7 @@ pub struct WgpuPlugin;
 impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut App) {
         let render_system = get_wgpu_render_system(&mut app.world);
-        app.add_system_to_stage(RenderStage::Render, render_system.exclusive_system())
+        app.add_system_to_stage(RenderStage::Render, render_system.exclusive())
             .add_system_to_stage(RenderStage::PostRender, shared_buffers_update_system);
     }
 }

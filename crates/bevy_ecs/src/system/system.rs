@@ -66,8 +66,6 @@ pub trait System: Send + Sync + 'static {
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);
-    /// Initialize the system.
-    fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
 }
 
@@ -88,5 +86,49 @@ pub(crate) fn check_system_change_tick(
             system_name
         );
         *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    }
+}
+
+// TODO: This impl could result in multi-boxed systems, but it also enables things like the new FixedTimestep impl
+// maybe fine generally? who boxes their systems on insert?
+impl<In: 'static, Out: 'static> System for Box<dyn System<In = In, Out = Out>> {
+    type In = In;
+
+    type Out = Out;
+
+    fn name(&self) -> Cow<'static, str> {
+        (**self).name()
+    }
+
+    fn id(&self) -> SystemId {
+        (**self).id()
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        (**self).new_archetype(archetype)
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        (**self).component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        (**self).archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        (**self).is_send()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+        (**self).run_unsafe(input, world)
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        (**self).apply_buffers(world)
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        (**self).check_change_tick(change_tick)
     }
 }

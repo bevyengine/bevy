@@ -1,14 +1,11 @@
 use crate::Time;
 use bevy_ecs::{
-    archetype::{Archetype, ArchetypeComponentId},
-    component::ComponentId,
-    query::Access,
+    prelude::ConfigSystemParamFunction,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{IntoSystem, Local, Res, ResMut, System},
     world::World,
 };
 use bevy_utils::HashMap;
-use std::borrow::Cow;
 
 pub struct FixedTimestepState {
     pub step: f64,
@@ -50,14 +47,12 @@ impl FixedTimesteps {
 
 pub struct FixedTimestep {
     state: State,
-    internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
 }
 
 impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
             state: State::default(),
-            internal_system: Box::new(Self::prepare_system.system()),
         }
     }
 }
@@ -69,7 +64,6 @@ impl FixedTimestep {
                 step,
                 ..Default::default()
             },
-            ..Default::default()
         }
     }
 
@@ -79,7 +73,6 @@ impl FixedTimestep {
                 step: 1.0 / rate,
                 ..Default::default()
             },
-            ..Default::default()
         }
     }
 
@@ -101,6 +94,27 @@ impl FixedTimestep {
         }
 
         should_run
+    }
+}
+
+impl IntoSystem<(), ShouldRun, ()> for FixedTimestep {
+    type System = Box<dyn System<In = (), Out = ShouldRun>>;
+
+    fn system(self, world: &mut World) -> Self::System {
+        if let Some(ref label) = self.state.label {
+            let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
+            fixed_timesteps.fixed_timesteps.insert(
+                label.clone(),
+                FixedTimestepState {
+                    accumulator: 0.0,
+                    step: self.state.step,
+                },
+            );
+        }
+        let prepare_system = Self::prepare_system
+            .config(|c| c.0 = Some(self.state))
+            .system(world);
+        Box::new(prepare_system)
     }
 }
 
@@ -137,64 +151,5 @@ impl State {
             self.looping = false;
             ShouldRun::No
         }
-    }
-}
-
-impl System for FixedTimestep {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<FixedTimestep>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.internal_system.id()
-    }
-
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        self.internal_system.new_archetype(archetype);
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.internal_system.archetype_component_access()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.internal_system.component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.internal_system.is_send()
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
-        // SAFE: this system inherits the internal system's component access and archetype component
-        // access, which means the caller has ensured running the internal system is safe
-        self.internal_system.run_unsafe((), world)
-    }
-
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.internal_system.apply_buffers(world)
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.internal_system =
-            Box::new(Self::prepare_system.config(|c| c.0 = Some(self.state.clone())));
-        self.internal_system.initialize(world);
-        if let Some(ref label) = self.state.label {
-            let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
-            fixed_timesteps.fixed_timesteps.insert(
-                label.clone(),
-                FixedTimestepState {
-                    accumulator: 0.0,
-                    step: self.state.step,
-                },
-            );
-        }
-    }
-
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.internal_system.check_change_tick(change_tick);
     }
 }

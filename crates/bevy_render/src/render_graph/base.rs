@@ -10,7 +10,7 @@ use crate::{
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_ecs::{reflect::ReflectComponent, world::World};
+use bevy_ecs::{prelude::Mut, reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
 use bevy_window::WindowId;
 
@@ -96,22 +96,20 @@ impl Default for BaseRenderGraphConfig {
 /// graph. By itself this graph doesn't do much, but it allows Render plugins to interop with each
 /// other by having a common set of nodes. It can be customized using `BaseRenderGraphConfig`.
 pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) {
-    let world = world.cell();
-    let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
-    let msaa = world.get_resource::<Msaa>().unwrap();
+    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+        world.resource_scope(|world, msaa: Mut<Msaa>| {
+            graph.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
+            if config.add_3d_camera {
+                graph.add_system_node(world, node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
+            }
 
-    graph.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
-    if config.add_3d_camera {
-        graph.add_system_node(node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
-    }
+            if config.add_2d_camera {
+                graph.add_system_node(world, node::CAMERA_2D, CameraNode::new(camera::CAMERA_2D));
+            }
 
-    if config.add_2d_camera {
-        graph.add_system_node(node::CAMERA_2D, CameraNode::new(camera::CAMERA_2D));
-    }
-
-    graph.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
-    if config.add_main_depth_texture {
-        graph.add_node(
+            graph.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
+            if config.add_main_depth_texture {
+                graph.add_node(
             node::MAIN_DEPTH_TEXTURE,
             WindowTextureNode::new(
                 WindowId::primary(),
@@ -130,119 +128,121 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                 },
             ),
         );
-    }
+            }
 
-    if config.add_main_pass {
-        let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
-            color_attachments: vec![msaa.color_attachment(
-                TextureAttachment::Input("color_attachment".to_string()),
-                TextureAttachment::Input("color_resolve_target".to_string()),
-                Operations {
-                    load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
-                    store: true,
-                },
-            )],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                attachment: TextureAttachment::Input("depth".to_string()),
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-            sample_count: msaa.samples,
-        });
-
-        main_pass_node.use_default_clear_color(0);
-
-        if config.add_3d_camera {
-            main_pass_node.add_camera(camera::CAMERA_3D);
-        }
-
-        if config.add_2d_camera {
-            main_pass_node.add_camera(camera::CAMERA_2D);
-        }
-
-        graph.add_node(node::MAIN_PASS, main_pass_node);
-
-        graph
-            .add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
-            .unwrap();
-        graph
-            .add_node_edge(node::SHARED_BUFFERS, node::MAIN_PASS)
-            .unwrap();
-
-        if config.add_3d_camera {
-            graph
-                .add_node_edge(node::CAMERA_3D, node::MAIN_PASS)
-                .unwrap();
-        }
-
-        if config.add_2d_camera {
-            graph
-                .add_node_edge(node::CAMERA_2D, node::MAIN_PASS)
-                .unwrap();
-        }
-    }
-
-    graph.add_node(
-        node::PRIMARY_SWAP_CHAIN,
-        WindowSwapChainNode::new(WindowId::primary()),
-    );
-
-    if config.connect_main_pass_to_swapchain {
-        graph
-            .add_slot_edge(
-                node::PRIMARY_SWAP_CHAIN,
-                WindowSwapChainNode::OUT_TEXTURE,
-                node::MAIN_PASS,
-                if msaa.samples > 1 {
-                    "color_resolve_target"
-                } else {
-                    "color_attachment"
-                },
-            )
-            .unwrap();
-    }
-
-    if msaa.samples > 1 {
-        graph.add_node(
-            node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-            WindowTextureNode::new(
-                WindowId::primary(),
-                TextureDescriptor {
-                    size: Extent3d {
-                        depth_or_array_layers: 1,
-                        width: 1,
-                        height: 1,
-                    },
-                    mip_level_count: 1,
+            if config.add_main_pass {
+                let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
+                    color_attachments: vec![msaa.color_attachment(
+                        TextureAttachment::Input("color_attachment".to_string()),
+                        TextureAttachment::Input("color_resolve_target".to_string()),
+                        Operations {
+                            load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
+                            store: true,
+                        },
+                    )],
+                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                        attachment: TextureAttachment::Input("depth".to_string()),
+                        depth_ops: Some(Operations {
+                            load: LoadOp::Clear(1.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
+                    }),
                     sample_count: msaa.samples,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::default(),
-                    usage: TextureUsage::OUTPUT_ATTACHMENT,
-                },
-            ),
-        );
+                });
 
-        graph
-            .add_slot_edge(
-                node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-                WindowSwapChainNode::OUT_TEXTURE,
-                node::MAIN_PASS,
-                "color_attachment",
-            )
-            .unwrap();
-    }
+                main_pass_node.use_default_clear_color(0);
 
-    if config.connect_main_pass_to_main_depth_texture {
-        graph
-            .add_slot_edge(
-                node::MAIN_DEPTH_TEXTURE,
-                WindowTextureNode::OUT_TEXTURE,
-                node::MAIN_PASS,
-                "depth",
-            )
-            .unwrap();
-    }
+                if config.add_3d_camera {
+                    main_pass_node.add_camera(camera::CAMERA_3D);
+                }
+
+                if config.add_2d_camera {
+                    main_pass_node.add_camera(camera::CAMERA_2D);
+                }
+
+                graph.add_node(node::MAIN_PASS, main_pass_node);
+
+                graph
+                    .add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
+                    .unwrap();
+                graph
+                    .add_node_edge(node::SHARED_BUFFERS, node::MAIN_PASS)
+                    .unwrap();
+
+                if config.add_3d_camera {
+                    graph
+                        .add_node_edge(node::CAMERA_3D, node::MAIN_PASS)
+                        .unwrap();
+                }
+
+                if config.add_2d_camera {
+                    graph
+                        .add_node_edge(node::CAMERA_2D, node::MAIN_PASS)
+                        .unwrap();
+                }
+            }
+
+            graph.add_node(
+                node::PRIMARY_SWAP_CHAIN,
+                WindowSwapChainNode::new(WindowId::primary()),
+            );
+
+            if config.connect_main_pass_to_swapchain {
+                graph
+                    .add_slot_edge(
+                        node::PRIMARY_SWAP_CHAIN,
+                        WindowSwapChainNode::OUT_TEXTURE,
+                        node::MAIN_PASS,
+                        if msaa.samples > 1 {
+                            "color_resolve_target"
+                        } else {
+                            "color_attachment"
+                        },
+                    )
+                    .unwrap();
+            }
+
+            if msaa.samples > 1 {
+                graph.add_node(
+                    node::MAIN_SAMPLED_COLOR_ATTACHMENT,
+                    WindowTextureNode::new(
+                        WindowId::primary(),
+                        TextureDescriptor {
+                            size: Extent3d {
+                                depth_or_array_layers: 1,
+                                width: 1,
+                                height: 1,
+                            },
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::default(),
+                            usage: TextureUsage::OUTPUT_ATTACHMENT,
+                        },
+                    ),
+                );
+
+                graph
+                    .add_slot_edge(
+                        node::MAIN_SAMPLED_COLOR_ATTACHMENT,
+                        WindowSwapChainNode::OUT_TEXTURE,
+                        node::MAIN_PASS,
+                        "color_attachment",
+                    )
+                    .unwrap();
+            }
+
+            if config.connect_main_pass_to_main_depth_texture {
+                graph
+                    .add_slot_edge(
+                        node::MAIN_DEPTH_TEXTURE,
+                        WindowTextureNode::OUT_TEXTURE,
+                        node::MAIN_PASS,
+                        "depth",
+                    )
+                    .unwrap();
+            }
+        })
+    })
 }

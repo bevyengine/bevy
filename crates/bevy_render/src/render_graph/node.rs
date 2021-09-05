@@ -46,7 +46,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self) -> BoxedSystem;
+    fn get_system(&self, world: &mut World) -> BoxedSystem;
 }
 
 #[derive(Debug)]

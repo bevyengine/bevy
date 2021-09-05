@@ -40,7 +40,7 @@ impl RenderGraph {
         id
     }
 
-    pub fn add_system_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
+    pub fn add_system_node<T>(&mut self, world: &mut World, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: SystemNode + 'static,
     {
@@ -48,7 +48,8 @@ impl RenderGraph {
         let stage = schedule
             .get_stage_mut::<SystemStage>(&RenderGraphUpdate)
             .unwrap();
-        stage.add_system(node.get_system());
+        let system= node.get_system(world);
+        stage.add_system(world, system);
         self.add_node(name, node)
     }
 

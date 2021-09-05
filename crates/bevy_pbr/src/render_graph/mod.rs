@@ -1,7 +1,7 @@
 mod lights_node;
 mod pbr_pipeline;
 
-use bevy_ecs::world::World;
+use bevy_ecs::{prelude::Mut, world::World};
 pub use lights_node::*;
 pub use pbr_pipeline::*;
 
@@ -29,18 +29,20 @@ use bevy_transform::prelude::GlobalTransform;
 pub const MAX_POINT_LIGHTS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub(crate) fn add_pbr_graph(world: &mut World) {
-    {
-        let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
+    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.add_system_node(
+            world,
             node::TRANSFORM,
             RenderResourcesNode::<GlobalTransform>::new(true),
         );
         graph.add_system_node(
+            world,
             node::STANDARD_MATERIAL,
             AssetRenderResourcesNode::<StandardMaterial>::new(true),
         );
 
         graph.add_system_node(
+            world,
             node::LIGHTS,
             LightsNode::new(MAX_POINT_LIGHTS, MAX_DIRECTIONAL_LIGHTS),
         );
@@ -55,7 +57,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
         graph
             .add_node_edge(node::LIGHTS, base::node::MAIN_PASS)
             .unwrap();
-    }
+    });
     let pipeline = build_pbr_pipeline(&mut world.get_resource_mut::<Assets<Shader>>().unwrap());
     let mut pipelines = world
         .get_resource_mut::<Assets<PipelineDescriptor>>()
