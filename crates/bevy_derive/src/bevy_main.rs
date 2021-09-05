@@ -11,7 +11,7 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #[no_mangle]
         #[cfg(target_os = "android")]
-        extern "C" fn ANativeActivity_onCreate(
+        unsafe extern "C" fn ANativeActivity_onCreate(
             activity: *mut std::os::raw::c_void,
             saved_state: *mut std::os::raw::c_void,
             saved_state_size: usize,
