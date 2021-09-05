@@ -120,8 +120,12 @@ impl Diagnostic {
         self.max_history_length
     }
 
-    pub fn get_history(&self) -> Vec<f64> {
-        self.history.iter().map(|x|x.value).collect()
+    pub fn values(&self) -> impl Iterator<Item=&f64> {
+        self.history.iter().map(|x|&x.value)
+    }
+
+    pub fn measurements(&self) -> impl Iterator<Item=&DiagnosticMeasurement> {
+        self.history.iter()
     }
 }
 
