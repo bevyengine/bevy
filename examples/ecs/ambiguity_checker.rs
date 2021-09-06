@@ -4,25 +4,25 @@ fn main() {
     App::new()
         .add_plugin(LogPlugin)
         .insert_resource(MyStartupResource(0))
-        // This resource allows to control how Ambiguity Checker will report unresolved ambiguities
-        // By default only a warning numbering the unresolved ambiguities count is show, but by
-        // explicitly setting it to verbose, a complete report is shown
+        // This resource allows to control how Ambiguity Checker will report unresolved ambiguities.
+        // By default only a warning with the amount of unresolved ambiguities is shown, but
+        // a more complete report will be displayed if we explicitly set this resource to verbose.
         .insert_resource(ReportExecutionOrderAmbiguities::verbose())
-        // startup_system_a and startup_system_b will both compete by the same resource. Since there is no ordering between
-        // both of them (like using .before or .after) there is no guarantee which one will take resource first.
-        // This ambiguity will be reported by Ambiguity Checker.
+        // `startup_system_a` and `startup_system_b` will both compete for the same resource. Since there is no ordering between
+        // them (e.g., `.before()` or `.after()`), which one will run first is not deterministic.
+        // This ambiguity will be reported by ambiguity checker.
         .add_startup_system(startup_system_a)
         .add_startup_system(startup_system_b)
         .insert_resource(MyResource(0))
         .insert_resource(MyAnotherResource(0))
-        // It is possible to mark a system as ambiguous if this is a intended behavior, so the ambiguity checker will ignore this system.
+        // It is possible to mark a system as ambiguous if this is intended behavior; the ambiguity checker will ignore this system.
         .add_system(system_a.ambiguous())
         .add_system(system_b.label("my_label"))
-        // It is also possible to mark a system as ambiguous with a given label, so whenever ambiguity checker find a ambiguity between
-        // this system and anyone with the given label, it will ignore, since this is an intended behavior.
+        // It is also possible to mark a system as ambiguous with a specific other system,
+        // making the checker ignore any ambiguities between them.
         .add_system(system_c.ambiguous_with("my_label"))
-        // If a given set of systems all are ambiguous with each other and this is fine, one may create an ambiguity set, so all systems
-        // inside this ambiguity set will be ignored by ambiguity checker
+        // If there's an whole group of systems that are supposed to be ambiguous with each other,
+        // an ambiguity set can be used to make the checker ignore anything it detects between them.
         .add_system(system_d.in_ambiguity_set("my_set"))
         .add_system(system_e.in_ambiguity_set("my_set"))
         .run();
