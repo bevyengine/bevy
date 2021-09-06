@@ -13,6 +13,7 @@ pub use winit_windows::*;
 use bevy_app::{App, AppExit, CoreStage, Plugin};
 use bevy_ecs::{
     event::{EventWriter, Events, ManualEventReader},
+    schedule::ParallelSystemDescriptorCoercion,
     system::{NonSend, ResMut},
     world::World,
 };
@@ -22,9 +23,9 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
+    WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
@@ -42,7 +43,7 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window);
+            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
         let event_loop = EventLoop::new();
         handle_initial_window_events(&mut app.world, &event_loop);
         app.insert_non_send_resource(event_loop);
