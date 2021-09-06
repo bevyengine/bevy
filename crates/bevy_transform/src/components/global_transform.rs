@@ -126,7 +126,6 @@ impl GlobalTransform {
         self
     }
 
-
     /// Returns the 3d affine transformation matrix from this transforms translation,
     /// rotation, and scale.
     #[inline]
