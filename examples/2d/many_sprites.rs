@@ -2,6 +2,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
+    render::camera::Camera,
     sprite::SpriteSettings,
 };
 
@@ -10,7 +11,6 @@ use rand::Rng;
 const CAMERA_SPEED: f32 = 1000.0;
 
 pub struct PrintTimer(Timer);
-pub struct Position(Transform);
 
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
@@ -25,7 +25,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(tick.label("Tick"))
-        .add_system(move_camera.after("Tick"))
+        .add_system(move_camera_system.after("Tick"))
         .run()
 }
 
@@ -48,9 +48,7 @@ fn setup(
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
         .insert(PrintTimer(Timer::from_seconds(1.0, true)))
-        .insert(Position(Transform::from_translation(Vec3::new(
-            0.0, 0.0, 1000.0,
-        ))));
+        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     for y in -half_y..half_y {
         for x in -half_x..half_x {
@@ -73,16 +71,12 @@ fn setup(
     }
 }
 
-fn move_camera(time: Res<Time>, mut query: Query<(&mut Transform, &mut Position)>) {
-    for (mut transform, mut position) in query.iter_mut() {
-        position
-            .0
-            .rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
-        position.0 =
-            position.0 * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
-        transform.translation = position.0.translation;
-        transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 2.0);
-    }
+// System for rotating and translating the camera
+fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
+    let mut camera_transform = camera_query.single_mut().unwrap();
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
+    *camera_transform =
+        *camera_transform * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }
 
 fn tick(time: Res<Time>, sprites: Query<&Sprite>, mut query: Query<&mut PrintTimer>) {
