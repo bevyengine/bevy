@@ -222,6 +222,7 @@ pub fn winit_runner_any_thread(app: App) {
 }
 
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
+    app.startup_schedule.run(&mut app.world);
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     app.world.insert_non_send(event_loop.create_proxy());

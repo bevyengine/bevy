@@ -53,7 +53,7 @@ fn update_hierarchy(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
     };

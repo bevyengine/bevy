@@ -7,6 +7,7 @@ struct Input(String);
 /// lines from stdin and prints them from within the ecs.
 fn my_runner(mut app: App) {
     println!("Type stuff into the console");
+    app.startup_schedule.run(&mut app.world);
     for line in io::stdin().lock().lines() {
         {
             let mut input = app.world.get_resource_mut::<Input>().unwrap();

@@ -565,6 +565,7 @@ impl App {
 }
 
 fn run_once(mut app: App) {
+    app.startup_schedule.run(&mut app.world);
     app.update();
 }
 

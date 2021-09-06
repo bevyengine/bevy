@@ -58,6 +58,7 @@ impl Plugin for ScheduleRunnerPlugin {
             .to_owned();
         app.set_runner(move |mut app: App| {
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+            app.startup_schedule.run(&mut app.world);
             match settings.run_mode {
                 RunMode::Once => {
                     app.update();
