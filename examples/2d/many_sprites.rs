@@ -42,12 +42,15 @@ fn setup(
 
     let sprite_handle = materials.add(assets.load("branding/icon.png").into());
 
+    // Spawns the camera
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
         .insert(Timer::from_seconds(1.0, true))
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
+    // Builds and spawns the sprites
+    let mut sprites = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
@@ -55,7 +58,7 @@ fn setup(
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
-            commands.spawn().insert_bundle(SpriteBundle {
+            sprites.push(SpriteBundle {
                 material: sprite_handle.clone(),
                 transform: Transform {
                     translation,
@@ -67,6 +70,7 @@ fn setup(
             });
         }
     }
+    commands.spawn_batch(sprites);
 }
 
 // System for rotating and translating the camera
