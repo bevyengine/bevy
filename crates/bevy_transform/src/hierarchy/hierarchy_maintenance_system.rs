@@ -74,7 +74,7 @@ pub fn parent_update_system(
 #[cfg(test)]
 mod test {
     use bevy_ecs::{
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, SystemStage},
         system::CommandQueue,
         world::World,
     };

@@ -45,9 +45,7 @@ impl RenderGraph {
         T: SystemNode + 'static,
     {
         let schedule = self.system_node_schedule.as_mut().unwrap();
-        let stage = schedule
-            .get_stage_mut::<SystemStage>(&RenderGraphUpdate)
-            .unwrap();
+        let stage = schedule.get_stage_mut(&RenderGraphUpdate).unwrap();
         stage.add_system(node.get_system());
         self.add_node(name, node)
     }

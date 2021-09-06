@@ -2,9 +2,7 @@ use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupS
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     prelude::{FromWorld, IntoExclusiveSystem},
-    schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
-    },
+    schedule::{IntoSystemDescriptor, Schedule, StageLabel, State, SystemSet, SystemStage},
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -40,6 +38,7 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
+    pub startup_schedule: Schedule,
 }
 
 impl Default for App {
@@ -49,6 +48,7 @@ impl Default for App {
         app.init_resource::<bevy_reflect::TypeRegistryArc>();
 
         app.add_default_stages()
+            .add_default_startup_stages()
             .add_event::<AppExit>()
             .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
 
@@ -71,6 +71,7 @@ impl App {
             world: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
+            startup_schedule: Default::default(),
         }
     }
 
@@ -109,69 +110,60 @@ impl App {
         (runner)(app);
     }
 
-    pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+    pub fn add_stage(&mut self, label: impl StageLabel, stage: SystemStage) -> &mut Self {
         self.schedule.add_stage(label, stage);
         self
     }
 
-    pub fn add_stage_after<S: Stage>(
+    pub fn add_stage_after(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
-        stage: S,
+        stage: SystemStage,
     ) -> &mut Self {
         self.schedule.add_stage_after(target, label, stage);
         self
     }
 
-    pub fn add_stage_before<S: Stage>(
+    pub fn add_stage_before(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
-        stage: S,
+        stage: SystemStage,
     ) -> &mut Self {
         self.schedule.add_stage_before(target, label, stage);
         self
     }
 
-    pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_stage(label, stage)
-            });
+    pub fn add_startup_stage(&mut self, label: impl StageLabel, stage: SystemStage) -> &mut Self {
+        self.startup_schedule.add_stage(label, stage);
         self
     }
 
-    pub fn add_startup_stage_after<S: Stage>(
+    pub fn add_startup_stage_after(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
-        stage: S,
+        stage: SystemStage,
     ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_stage_after(target, label, stage)
-            });
+        self.startup_schedule.add_stage_after(target, label, stage);
         self
     }
 
-    pub fn add_startup_stage_before<S: Stage>(
+    pub fn add_startup_stage_before(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
-        stage: S,
+        stage: SystemStage,
     ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_stage_before(target, label, stage)
-            });
+        self.startup_schedule.add_stage_before(target, label, stage);
         self
     }
 
-    pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
+    pub fn stage(
         &mut self,
         label: impl StageLabel,
-        func: F,
+        func: impl FnOnce(&mut SystemStage) -> &mut SystemStage,
     ) -> &mut Self {
         self.schedule.stage(label, func);
         self
@@ -266,10 +258,8 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_to_stage(stage_label, system)
-            });
+        self.startup_schedule
+            .add_system_to_stage(stage_label, system);
         self
     }
 
@@ -278,10 +268,8 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        self.schedule
-            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
-                schedule.add_system_set_to_stage(stage_label, system_set)
-            });
+        self.startup_schedule
+            .add_system_set_to_stage(stage_label, system_set);
         self
     }
 
@@ -312,18 +300,16 @@ impl App {
 
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
-            .add_stage(
-                CoreStage::Startup,
-                Schedule::default()
-                    .with_run_criteria(RunOnce::default())
-                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-            )
             .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
             .add_stage(CoreStage::Update, SystemStage::parallel())
             .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
             .add_stage(CoreStage::Last, SystemStage::parallel())
+    }
+
+    pub fn add_default_startup_stages(&mut self) -> &mut Self {
+        self.add_startup_stage(StartupStage::PreStartup, SystemStage::parallel())
+            .add_startup_stage(StartupStage::Startup, SystemStage::parallel())
+            .add_startup_stage(StartupStage::PostStartup, SystemStage::parallel())
     }
 
     /// Setup the application to manage events of type `T`.

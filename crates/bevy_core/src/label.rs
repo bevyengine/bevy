@@ -122,7 +122,7 @@ pub(crate) fn entity_labels_system(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, SystemStage},
         world::World,
     };
 

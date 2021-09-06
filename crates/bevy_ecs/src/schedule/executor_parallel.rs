@@ -315,7 +315,7 @@ enum SchedulingEvent {
 mod tests {
     use super::SchedulingEvent::{self, *};
     use crate::{
-        schedule::{SingleThreadedExecutor, Stage, SystemStage},
+        schedule::{SingleThreadedExecutor, SystemStage},
         system::{NonSend, Query, Res, ResMut},
         world::World,
     };

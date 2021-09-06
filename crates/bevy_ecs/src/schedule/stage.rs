@@ -12,19 +12,10 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
-use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
 use super::IntoSystemDescriptor;
-
-pub trait Stage: Downcast + Send + Sync {
-    /// Runs the stage; this happens once per update.
-    /// Implementors must initialize all of their state and systems before running the first time.
-    fn run(&mut self, world: &mut World);
-}
-
-impl_downcast!(Stage);
 
 /// When this resource is present in the `App`'s `Resources`,
 /// each `SystemStage` will log a report containing
@@ -626,119 +617,8 @@ impl SystemStage {
         }
         Ok(labels)
     }
-}
 
-/// Sorts given system containers topologically, populates their resolved dependencies
-/// and run criteria.
-fn process_systems(
-    systems: &mut Vec<impl SystemContainer>,
-    run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
-) -> Result<(), DependencyGraphError<HashSet<BoxedSystemLabel>>> {
-    let mut graph = graph_utils::build_dependency_graph(systems);
-    let order = graph_utils::topological_order(&graph)?;
-    let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
-    order_inverted.sort_unstable_by_key(|(_, &key)| key);
-    for (index, container) in systems.iter_mut().enumerate() {
-        if let Some(index) = container.run_criteria_label().map(|label| {
-            *run_criteria_labels
-                .get(label)
-                .unwrap_or_else(|| panic!("No run criteria with label {:?} found.", label))
-        }) {
-            container.set_run_criteria(index);
-        }
-        container.set_dependencies(
-            graph
-                .get_mut(&index)
-                .unwrap()
-                .drain()
-                .map(|(index, _)| order_inverted[index].0),
-        );
-    }
-    let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
-    for index in order {
-        systems.push(temp[index].take().unwrap());
-    }
-    Ok(())
-}
-
-/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
-/// along with specific components that have triggered the warning.
-/// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
-    let mut ambiguity_set_labels = HashMap::default();
-    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
-        let len = ambiguity_set_labels.len();
-        ambiguity_set_labels.entry(set).or_insert(len);
-    }
-    let mut all_ambiguity_sets = Vec::<FixedBitSet>::with_capacity(systems.len());
-    let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
-    let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
-    for (index, container) in systems.iter().enumerate() {
-        let mut ambiguity_sets = FixedBitSet::with_capacity(ambiguity_set_labels.len());
-        for set in container.ambiguity_sets() {
-            ambiguity_sets.insert(ambiguity_set_labels[set]);
-        }
-        all_ambiguity_sets.push(ambiguity_sets);
-        let mut dependencies = FixedBitSet::with_capacity(systems.len());
-        for &dependency in container.dependencies() {
-            dependencies.union_with(&all_dependencies[dependency]);
-            dependencies.insert(dependency);
-            all_dependants[dependency].insert(index);
-        }
-
-        all_dependants.push(FixedBitSet::with_capacity(systems.len()));
-        all_dependencies.push(dependencies);
-    }
-    for index in (0..systems.len()).rev() {
-        let mut dependants = FixedBitSet::with_capacity(systems.len());
-        for dependant in all_dependants[index].ones() {
-            dependants.union_with(&all_dependants[dependant]);
-            dependants.insert(dependant);
-        }
-        all_dependants[index] = dependants;
-    }
-    let mut all_relations = all_dependencies
-        .drain(..)
-        .zip(all_dependants.drain(..))
-        .enumerate()
-        .map(|(index, (dependencies, dependants))| {
-            let mut relations = FixedBitSet::with_capacity(systems.len());
-            relations.union_with(&dependencies);
-            relations.union_with(&dependants);
-            relations.insert(index);
-            relations
-        })
-        .collect::<Vec<FixedBitSet>>();
-    let mut ambiguities = Vec::new();
-    let full_bitset: FixedBitSet = (0..systems.len()).collect();
-    let mut processed = FixedBitSet::with_capacity(systems.len());
-    for (index_a, relations) in all_relations.drain(..).enumerate() {
-        // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
-        for index_b in full_bitset.difference(&relations)
-        // .take(index_a)
-        {
-            if !processed.contains(index_b)
-                && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
-            {
-                let a_access = systems[index_a].component_access();
-                let b_access = systems[index_b].component_access();
-                if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
-                    if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts))
-                    }
-                } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
-                }
-            }
-        }
-        processed.insert(index_a);
-    }
-    ambiguities
-}
-
-impl Stage for SystemStage {
-    fn run(&mut self, world: &mut World) {
+    pub fn run(&mut self, world: &mut World) {
         if let Some(world_id) = self.world_id {
             assert!(
                 world.id() == world_id,
@@ -890,6 +770,115 @@ impl Stage for SystemStage {
     }
 }
 
+/// Sorts given system containers topologically, populates their resolved dependencies
+/// and run criteria.
+fn process_systems(
+    systems: &mut Vec<impl SystemContainer>,
+    run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
+) -> Result<(), DependencyGraphError<HashSet<BoxedSystemLabel>>> {
+    let mut graph = graph_utils::build_dependency_graph(systems);
+    let order = graph_utils::topological_order(&graph)?;
+    let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
+    order_inverted.sort_unstable_by_key(|(_, &key)| key);
+    for (index, container) in systems.iter_mut().enumerate() {
+        if let Some(index) = container.run_criteria_label().map(|label| {
+            *run_criteria_labels
+                .get(label)
+                .unwrap_or_else(|| panic!("No run criteria with label {:?} found.", label))
+        }) {
+            container.set_run_criteria(index);
+        }
+        container.set_dependencies(
+            graph
+                .get_mut(&index)
+                .unwrap()
+                .drain()
+                .map(|(index, _)| order_inverted[index].0),
+        );
+    }
+    let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
+    for index in order {
+        systems.push(temp[index].take().unwrap());
+    }
+    Ok(())
+}
+
+/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
+/// along with specific components that have triggered the warning.
+/// Systems must be topologically sorted beforehand.
+fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+    let mut ambiguity_set_labels = HashMap::default();
+    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
+        let len = ambiguity_set_labels.len();
+        ambiguity_set_labels.entry(set).or_insert(len);
+    }
+    let mut all_ambiguity_sets = Vec::<FixedBitSet>::with_capacity(systems.len());
+    let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
+    let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
+    for (index, container) in systems.iter().enumerate() {
+        let mut ambiguity_sets = FixedBitSet::with_capacity(ambiguity_set_labels.len());
+        for set in container.ambiguity_sets() {
+            ambiguity_sets.insert(ambiguity_set_labels[set]);
+        }
+        all_ambiguity_sets.push(ambiguity_sets);
+        let mut dependencies = FixedBitSet::with_capacity(systems.len());
+        for &dependency in container.dependencies() {
+            dependencies.union_with(&all_dependencies[dependency]);
+            dependencies.insert(dependency);
+            all_dependants[dependency].insert(index);
+        }
+
+        all_dependants.push(FixedBitSet::with_capacity(systems.len()));
+        all_dependencies.push(dependencies);
+    }
+    for index in (0..systems.len()).rev() {
+        let mut dependants = FixedBitSet::with_capacity(systems.len());
+        for dependant in all_dependants[index].ones() {
+            dependants.union_with(&all_dependants[dependant]);
+            dependants.insert(dependant);
+        }
+        all_dependants[index] = dependants;
+    }
+    let mut all_relations = all_dependencies
+        .drain(..)
+        .zip(all_dependants.drain(..))
+        .enumerate()
+        .map(|(index, (dependencies, dependants))| {
+            let mut relations = FixedBitSet::with_capacity(systems.len());
+            relations.union_with(&dependencies);
+            relations.union_with(&dependants);
+            relations.insert(index);
+            relations
+        })
+        .collect::<Vec<FixedBitSet>>();
+    let mut ambiguities = Vec::new();
+    let full_bitset: FixedBitSet = (0..systems.len()).collect();
+    let mut processed = FixedBitSet::with_capacity(systems.len());
+    for (index_a, relations) in all_relations.drain(..).enumerate() {
+        // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
+        for index_b in full_bitset.difference(&relations)
+        // .take(index_a)
+        {
+            if !processed.contains(index_b)
+                && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
+            {
+                let a_access = systems[index_a].component_access();
+                let b_access = systems[index_b].component_access();
+                if let (Some(a), Some(b)) = (a_access, b_access) {
+                    let conflicts = a.get_conflicts(b);
+                    if !conflicts.is_empty() {
+                        ambiguities.push((index_a, index_b, conflicts))
+                    }
+                } else {
+                    ambiguities.push((index_a, index_b, Vec::new()));
+                }
+            }
+        }
+        processed.insert(index_a);
+    }
+    ambiguities
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -898,7 +887,7 @@ mod tests {
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
+            SingleThreadedExecutor, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,

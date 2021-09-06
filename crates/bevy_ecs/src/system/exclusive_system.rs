@@ -127,7 +127,7 @@ mod tests {
     use crate::{
         entity::Entity,
         query::With,
-        schedule::{Stage, SystemStage},
+        schedule::SystemStage,
         system::{Commands, IntoExclusiveSystem, Query, ResMut},
         world::World,
     };

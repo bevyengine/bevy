@@ -1,5 +1,5 @@
 use super::RenderGraph;
-use bevy_ecs::{schedule::Stage, world::World};
+use bevy_ecs::world::World;
 
 pub fn render_graph_schedule_executor_system(world: &mut World) {
     // run render graph systems

@@ -25,7 +25,7 @@ mod tests {
         component::Components,
         entity::{Entities, Entity},
         query::{Added, Changed, Or, QueryState, With, Without},
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, SystemStage},
         system::{
             ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
             QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
