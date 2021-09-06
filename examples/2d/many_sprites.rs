@@ -10,8 +10,6 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-pub struct PrintTimer(Timer);
-
 /// This example is for performance testing purposes.
 /// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
@@ -24,7 +22,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(tick.label("Tick"))
+        .add_system(tick_system.label("Tick"))
         .add_system(move_camera_system.after("Tick"))
         .run()
 }
@@ -47,7 +45,7 @@ fn setup(
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(PrintTimer(Timer::from_seconds(1.0, true)))
+        .insert(Timer::from_seconds(1.0, true))
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     for y in -half_y..half_y {
@@ -79,12 +77,12 @@ fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, W
         *camera_transform * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }
 
-fn tick(time: Res<Time>, sprites: Query<&Sprite>, mut query: Query<&mut PrintTimer>) {
-    for mut timer in query.iter_mut() {
-        timer.0.tick(time.delta());
+// System for printing the number of sprites on every tick of the timer
+fn tick_system(time: Res<Time>, sprites_query: Query<&Sprite>, mut timer_query: Query<&mut Timer>) {
+    let mut timer = timer_query.single_mut().unwrap();
+    timer.tick(time.delta());
 
-        if timer.0.just_finished() {
-            info!("Sprites: {}", sprites.iter().count(),);
-        }
+    if timer.just_finished() {
+        info!("Sprites: {}", sprites_query.iter().count(),);
     }
 }
