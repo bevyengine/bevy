@@ -54,8 +54,8 @@ pub enum AmbiguityReportLevel {
 /// to have unambiguous order with regards to a group of already-constrained systems.
 ///
 /// By default only a warning with the number of unresolved ambiguities detected will be reported per [`SystemStage`].
-/// This behavior can be changed by explicit adding this resource using the following constructors:
-/// * [ReportExecutionOrderAmbiguities::off()] - Disables all messages reported by the ambiguity checker
+/// This behavior can be changed by explicitly adding this resource using the following constructors:
+/// * [ReportExecutionOrderAmbiguities::off()] - Disables all messages reported by the ambiguity checker.
 /// * [ReportExecutionOrderAmbiguities::minimal()] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
 /// * [ReportExecutionOrderAmbiguities::verbose()] - Displays a full report of ambiguities detected by the ambiguity checker.
 ///

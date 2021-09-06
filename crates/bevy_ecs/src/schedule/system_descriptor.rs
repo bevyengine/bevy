@@ -146,11 +146,11 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     /// with other systems in this set.
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
+    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
     fn ambiguous(self) -> ParallelSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
-    /// with other systems with the given label
+    /// with other systems with the given label.
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 }
 
@@ -335,11 +335,11 @@ pub trait ExclusiveSystemDescriptorCoercion {
     /// Specifies that the system should run with other exclusive systems at the end of stage.
     fn at_end(self) -> ExclusiveSystemDescriptor;
 
-    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection
+    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
     fn ambiguous(self) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
-    /// with other systems with the given label
+    /// with other systems with the given label.
     fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 }
 
