@@ -99,6 +99,7 @@ impl ReportExecutionOrderAmbiguities {
         }
     }
 
+    /// Adds the given crates to be ignored by ambiguity checker. Check [`ReportExecutionOrderAmbiguities`] for more details.
     pub fn ignore(mut self, create_prefix: &[&str]) -> Self {
         for s in create_prefix {
             self.ignore_crates.push(s.to_string());
