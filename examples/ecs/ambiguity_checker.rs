@@ -16,7 +16,7 @@ fn main() {
         .insert_resource(MyResource(0))
         .insert_resource(MyAnotherResource(0))
         // It is possible to mark a system as ambiguous if this is intended behavior; the ambiguity checker will ignore this system.
-        .add_system(system_a.ambiguous())
+        .add_system(system_a.silence_ambiguity_checks())
         .add_system(system_b.label("my_label"))
         // It is also possible to mark a system as ambiguous with a specific other system,
         // making the checker ignore any ambiguities between them.

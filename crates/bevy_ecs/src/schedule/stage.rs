@@ -2132,7 +2132,7 @@ mod tests {
 
         let mut stage = SystemStage::parallel()
             .with_system(component.label("0"))
-            .with_system(resource.label("1").after("0").ambiguous())
+            .with_system(resource.label("1").after("0").silence_ambiguity_checks())
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
@@ -2146,8 +2146,8 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.label("0").ambiguous())
-            .with_system(resource.label("1").after("0").ambiguous())
+            .with_system(component.label("0").silence_ambiguity_checks())
+            .with_system(resource.label("1").after("0").silence_ambiguity_checks())
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
@@ -2158,11 +2158,26 @@ mod tests {
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0").before("1").before("3"))
-            .with_system(empty.exclusive_system().label("1").ambiguous())
+            .with_system(
+                empty
+                    .exclusive_system()
+                    .label("1")
+                    .silence_ambiguity_checks(),
+            )
             .with_system(empty.exclusive_system().label("2").after("1"))
-            .with_system(empty.exclusive_system().label("3").ambiguous())
+            .with_system(
+                empty
+                    .exclusive_system()
+                    .label("3")
+                    .silence_ambiguity_checks(),
+            )
             .with_system(empty.exclusive_system().label("4").after("3").before("5"))
-            .with_system(empty.exclusive_system().label("5").ambiguous())
+            .with_system(
+                empty
+                    .exclusive_system()
+                    .label("5")
+                    .silence_ambiguity_checks(),
+            )
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
