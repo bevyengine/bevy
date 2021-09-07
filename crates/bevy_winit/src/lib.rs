@@ -395,35 +395,41 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                             id: window_id,
                             scale_factor,
                         });
-                        #[allow(clippy::float_cmp)]
-                        if window.scale_factor() != scale_factor {
-                            let mut scale_factor_change_events = world
-                                .get_resource_mut::<Events<WindowScaleFactorChanged>>()
-                                .unwrap();
+                        if let Some(old_factor) = window.scale_factor_override() {
+                            *new_inner_size = winit::dpi::LogicalSize::new(
+                                window.requested_width(),
+                                window.requested_height(),
+                            )
+                            .to_physical::<u32>(old_factor);
+                        } else {
+                            if window.scale_factor() != scale_factor {
+                                let mut scale_factor_change_events = world
+                                    .get_resource_mut::<Events<WindowScaleFactorChanged>>()
+                                    .unwrap();
 
-                            scale_factor_change_events.send(WindowScaleFactorChanged {
-                                id: window_id,
-                                scale_factor,
-                            });
+                                scale_factor_change_events.send(WindowScaleFactorChanged {
+                                    id: window_id,
+                                    scale_factor,
+                                });
+                            }
+                            window.update_scale_factor_from_backend(scale_factor);
+
+                            if window.physical_width() != new_inner_size.width
+                                || window.physical_height() != new_inner_size.height
+                            {
+                                let mut resize_events =
+                                    world.get_resource_mut::<Events<WindowResized>>().unwrap();
+                                resize_events.send(WindowResized {
+                                    id: window_id,
+                                    width: window.width(),
+                                    height: window.height(),
+                                });
+                            }
+                            window.update_actual_size_from_backend(
+                                new_inner_size.width,
+                                new_inner_size.height,
+                            );
                         }
-
-                        window.update_scale_factor_from_backend(scale_factor);
-
-                        if window.physical_width() != new_inner_size.width
-                            || window.physical_height() != new_inner_size.height
-                        {
-                            let mut resize_events =
-                                world.get_resource_mut::<Events<WindowResized>>().unwrap();
-                            resize_events.send(WindowResized {
-                                id: window_id,
-                                width: window.width(),
-                                height: window.height(),
-                            });
-                        }
-                        window.update_actual_size_from_backend(
-                            new_inner_size.width,
-                            new_inner_size.height,
-                        );
                     }
                     WindowEvent::Focused(focused) => {
                         window.update_focused_status_from_backend(focused);
