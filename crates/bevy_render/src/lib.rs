@@ -16,7 +16,7 @@ use bevy_ecs::{
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, Res},
 };
-use bevy_transform::TransformSystem;
+use bevy_transform::TransformPropagate;
 use bevy_utils::tracing::warn;
 use draw::{OutsideFrustum, Visible};
 
@@ -189,7 +189,7 @@ impl Plugin for RenderPlugin {
             CoreStage::PostUpdate,
             camera::visible_entities_system
                 .label(RenderSystem::VisibleEntities)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformPropagate),
         )
         .add_system_to_stage(RenderStage::RenderResource, shader::shader_update_system)
         .add_system_to_stage(

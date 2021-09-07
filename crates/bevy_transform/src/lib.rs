@@ -8,45 +8,32 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-use bevy_hierarchy::prelude::{parent_update_system, Children, Parent, PreviousParent};
+use bevy_hierarchy::{HierarchyPlugin, ParentUpdate};
 use prelude::{GlobalTransform, Transform};
 
 #[derive(Default)]
 pub struct TransformPlugin;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum TransformSystem {
-    TransformPropagate,
-    ParentUpdate,
-}
+pub struct TransformPropagate;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Children>()
-            .register_type::<Parent>()
-            .register_type::<PreviousParent>()
+        app.add_plugin(HierarchyPlugin)
             .register_type::<Transform>()
             .register_type::<GlobalTransform>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                parent_update_system.label(TransformSystem::ParentUpdate),
-            )
-            .add_startup_system_to_stage(
-                StartupStage::PostStartup,
                 transform_propagate_system::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                parent_update_system.label(TransformSystem::ParentUpdate),
+                    .label(TransformPropagate)
+                    .after(ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .label(TransformPropagate)
+                    .after(ParentUpdate),
             );
     }
 }

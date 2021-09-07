@@ -26,7 +26,7 @@ use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
 use bevy_render::RenderStage;
-use bevy_transform::TransformSystem;
+use bevy_transform::TransformPropagate;
 use update::ui_z_system;
 
 #[derive(Default)]
@@ -74,13 +74,11 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 flex_node_system
                     .label(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                    .before(TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                ui_z_system
-                    .after(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                ui_z_system.after(UiSystem::Flex).before(TransformPropagate),
             )
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system);
 
