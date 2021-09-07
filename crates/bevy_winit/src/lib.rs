@@ -402,7 +402,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                             )
                             .to_physical::<u32>(old_factor);
                         } else {
-                            if window.scale_factor() != scale_factor {
+                            if (window.scale_factor() - scale_factor).abs() > f64::EPSILON {
                                 let mut scale_factor_change_events = world
                                     .get_resource_mut::<Events<WindowScaleFactorChanged>>()
                                     .unwrap();
