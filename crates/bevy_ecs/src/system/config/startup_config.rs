@@ -6,6 +6,7 @@ use crate::{
 
 use super::{ParallelSystemKind, SystemSetKind};
 
+/// Allows configuration of a [System](super::System) to run at startup, optionally in a given [Stage](crate::schedule::Stage).
 pub trait StartupConfig<Params, Configured> {
     fn startup(self) -> Configured;
 }

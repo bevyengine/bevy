@@ -6,6 +6,7 @@ use crate::{
 
 use super::{ParallelSystemKind, SystemSetKind};
 
+/// Allows configuration of a [System](System) to run in order with other Systems in the same [Stage](crate::schedule::Stage).
 pub trait ScheduleConfig<Params, Configured> {
     fn label(self, label: impl SystemLabel) -> Configured;
     fn before(self, label: impl SystemLabel) -> Configured;

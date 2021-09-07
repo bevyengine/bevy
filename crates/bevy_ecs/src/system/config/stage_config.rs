@@ -6,6 +6,7 @@ use crate::{
 
 use super::{ParallelSystemKind, SystemSetKind};
 
+/// Allows configuration of a [System](System) to run in a specific [Stage](crate::schedule::Stage).
 pub trait StageConfig<Params, Configured> {
     fn stage(self, label: impl StageLabel) -> Configured;
 }

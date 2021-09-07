@@ -6,6 +6,7 @@ use crate::{
 
 use super::{ParallelSystemKind, SystemSetKind};
 
+/// Allows configuration of a [System](System)'s [ambiguity set](https://docs.rs/bevy/0.5.0/bevy/ecs/schedule/struct.ReportExecutionOrderAmbiguities.html).
 pub trait AmbiguityConfig<Params, Configured> {
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> Configured;
 }

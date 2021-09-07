@@ -3,6 +3,7 @@ use crate::{
     system::{ExclusiveSystemCoerced, ExclusiveSystemFn, InsertionPoint},
 };
 
+/// Allows configuration of an [ExclusiveSystem](ExclusiveSystem) to run at a specific [InsertionPoint](InsertionPoint).
 pub trait ExclusiveConfig<Params, Configured> {
     fn at_start(self) -> Configured;
     fn before_commands(self) -> Configured;
