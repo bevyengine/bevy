@@ -49,7 +49,7 @@ impl_downcast!(Stage);
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
-/// see `SystemConfig` documentation to configure which stage a system runs in.
+/// see [SystemConfig](crate::system::SystemConfig) documentation to configure which stage a system runs in.
 pub struct SystemStage {
     /// The WorldId this stage was last run on.
     world_id: Option<WorldId>,
