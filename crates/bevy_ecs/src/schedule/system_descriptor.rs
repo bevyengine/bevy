@@ -141,7 +141,7 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
-    fn ambiguous(self) -> ParallelSystemDescriptor;
+    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
@@ -177,7 +177,7 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self
     }
 
-    fn ambiguous(mut self) -> ParallelSystemDescriptor {
+    fn silence_ambiguity_checks(mut self) -> ParallelSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
@@ -223,8 +223,8 @@ where
         new_parallel_descriptor(Box::new(self.system())).in_ambiguity_set(set)
     }
 
-    fn ambiguous(self) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).ambiguous()
+    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self.system())).silence_ambiguity_checks()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
@@ -256,8 +256,8 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).in_ambiguity_set(set)
     }
 
-    fn ambiguous(self) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(self).ambiguous()
+    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).silence_ambiguity_checks()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
@@ -329,7 +329,7 @@ pub trait ExclusiveSystemDescriptorCoercion {
     fn at_end(self) -> ExclusiveSystemDescriptor;
 
     /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
-    fn ambiguous(self) -> ExclusiveSystemDescriptor;
+    fn silence_ambiguity_checks(self) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
@@ -380,7 +380,7 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self
     }
 
-    fn ambiguous(mut self) -> ExclusiveSystemDescriptor {
+    fn silence_ambiguity_checks(mut self) -> ExclusiveSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
@@ -438,8 +438,8 @@ where
         new_exclusive_descriptor(Box::new(self)).at_end()
     }
 
-    fn ambiguous(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).ambiguous()
+    fn silence_ambiguity_checks(self) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).silence_ambiguity_checks()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
