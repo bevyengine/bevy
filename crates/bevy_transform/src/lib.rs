@@ -8,7 +8,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-use bevy_hierarchy::{HierarchyPlugin, ParentUpdate};
+use bevy_hierarchy::ParentUpdate;
 use prelude::{GlobalTransform, Transform};
 
 #[derive(Default)]
@@ -19,8 +19,7 @@ pub struct TransformPropagate;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(HierarchyPlugin)
-            .register_type::<Transform>()
+        app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(

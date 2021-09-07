@@ -10,6 +10,7 @@ use bevy_diagnostic::DiagnosticsPlugin;
 use bevy_gilrs::GilrsPlugin;
 #[cfg(feature = "bevy_gltf")]
 use bevy_gltf::GltfPlugin;
+use bevy_hierarchy::HierarchyPlugin;
 use bevy_input::InputPlugin;
 use bevy_log::LogPlugin;
 #[cfg(feature = "bevy_pbr")]
@@ -33,6 +34,7 @@ use bevy_winit::WinitPlugin;
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`]
 /// * [`CorePlugin`]
+/// * [`HierarchyPlugin`]
 /// * [`TransformPlugin`]
 /// * [`DiagnosticsPlugin`]
 /// * [`InputPlugin`]
@@ -57,6 +59,7 @@ impl PluginGroup for DefaultPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         group.add(LogPlugin::default());
         group.add(CorePlugin::default());
+        group.add(HierarchyPlugin::default());
         group.add(TransformPlugin::default());
         group.add(DiagnosticsPlugin::default());
         group.add(InputPlugin::default());
