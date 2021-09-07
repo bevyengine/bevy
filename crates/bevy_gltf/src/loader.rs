@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
+use bevy_hierarchy::prelude::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
@@ -18,10 +19,7 @@ use bevy_render::{
     texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError, TextureFormat},
 };
 use bevy_scene::Scene;
-use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::{GlobalTransform, Transform},
-};
+use bevy_transform::prelude::{GlobalTransform, Transform};
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},

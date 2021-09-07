@@ -6,8 +6,8 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{Mut, World},
 };
+use bevy_hierarchy::prelude::Parent;
 use bevy_reflect::TypeRegistryArc;
-use bevy_transform::prelude::Parent;
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;

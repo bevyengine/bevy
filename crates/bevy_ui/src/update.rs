@@ -4,7 +4,8 @@ use bevy_ecs::{
     query::{With, Without},
     system::Query,
 };
-use bevy_transform::prelude::{Children, Parent, Transform};
+use bevy_hierarchy::prelude::{Children, Parent};
+use bevy_transform::prelude::Transform;
 
 pub const UI_Z_STEP: f32 = 0.001;
 
@@ -57,7 +58,8 @@ mod tests {
         system::{CommandQueue, Commands},
         world::World,
     };
-    use bevy_transform::{components::Transform, hierarchy::BuildChildren};
+    use bevy_hierarchy::prelude::BuildChildren;
+    use bevy_transform::components::Transform;
 
     use crate::Node;
 

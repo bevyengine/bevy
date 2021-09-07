@@ -1,15 +1,15 @@
 pub mod components;
-pub mod hierarchy;
 pub mod transform_propagate_system;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, hierarchy::*, TransformPlugin};
+    pub use crate::{components::*, TransformPlugin};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
+use bevy_hierarchy::prelude::{parent_update_system, Children, Parent, PreviousParent};
+use prelude::{GlobalTransform, Transform};
 
 #[derive(Default)]
 pub struct TransformPlugin;

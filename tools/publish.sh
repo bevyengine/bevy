@@ -16,6 +16,7 @@ crates=(
     bevy_audio
     bevy_core
     bevy_diagnostic
+    bevy_hierarchy
     bevy_transform
     bevy_window
     bevy_render
