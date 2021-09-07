@@ -105,6 +105,12 @@ impl ReportExecutionOrderAmbiguities {
         }
         self
     }
+
+    #[doc(hidden)]
+    pub fn include_bevy(mut self) -> Self {
+        self.ignore_crates.retain(|s| !s.starts_with("bevy_"));
+        self
+    }
 }
 
 impl Default for ReportExecutionOrderAmbiguities {
