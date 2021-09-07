@@ -634,7 +634,13 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            warn!("{} unresolved ambiguities detected. Set the level of the ReportExecutionOrderAmbiguities resource to AmbiguityReportLevel::Verbose for more details.", unresolved_count);
+            let mut details = String::from("");
+
+            if ambiguity_report.level != AmbiguityReportLevel::Verbose {
+                write!(details, " Set the level of the ReportExecutionOrderAmbiguities resource to AmbiguityReportLevel::Verbose for more details.").unwrap();
+            }
+
+            warn!("{} unresolved ambiguities detected.{}", unresolved_count, &details);
         }
 
         if !(parallel.is_empty()
