@@ -613,7 +613,7 @@ impl SystemStage {
 
                 writeln!(
                     string,
-                    "{}.{} - Systems:\n     {:?}\n   - Conflicts on the following components/resources:\n     {:?}",
+                    "{}.{} - Systems:\n     {:?}\n   - Conflict on the following components/resources:\n     {:?}",
                     output_prefix, idx, system_names, system_components
                 )
                 .unwrap();
