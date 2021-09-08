@@ -958,9 +958,8 @@ fn find_ambiguities(
             AmbiguityDetection::IgnoreWithLabel(labels) => {
                 labels.iter().any(|l| system_a.labels().contains(l))
             }
-        }) || crates_filter
-            .iter()
-            .any(|s| system_a.name().starts_with(s) || system_b.name().starts_with(s))
+        }) || (crates_filter.iter().any(|s| system_a.name().starts_with(s))
+            && crates_filter.iter().any(|s| system_b.name().starts_with(s)))
     }
 
     let mut ambiguity_set_labels = HashMap::default();
