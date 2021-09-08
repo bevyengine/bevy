@@ -185,7 +185,7 @@ fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Transform)>,
 ) {
-    if let Ok((paddle, mut transform)) = query.single_mut() {
+    if let Ok((paddle, mut transform)) = query.try_single_mut() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -204,13 +204,13 @@ fn paddle_movement_system(
 }
 
 fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
-    if let Ok((ball, mut transform)) = ball_query.single_mut() {
+    if let Ok((ball, mut transform)) = ball_query.try_single_mut() {
         transform.translation += ball.velocity * TIME_STEP;
     }
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
+    let mut text = query.single_mut();
     text.sections[1].value = format!("{}", scoreboard.score);
 }
 
@@ -220,7 +220,7 @@ fn ball_collision_system(
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
     collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
 ) {
-    if let Ok((mut ball, ball_transform, sprite)) = ball_query.single_mut() {
+    if let Ok((mut ball, ball_transform, sprite)) = ball_query.try_single_mut() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
 

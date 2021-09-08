@@ -490,6 +490,32 @@ where
 
     /// Gets the result of a single-result query.
     ///
+    /// Assumes this query has only one result and panics if there are no or multiple results.
+    /// If you want to handle the error case yourself you can use the [`Self::try_single`] variant.
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///  # use bevy_ecs::system::{Query, QuerySingleError};
+    ///  # use bevy_ecs::prelude::IntoSystem;
+    /// struct PlayerScore(i32);
+    /// fn player_scoring_system(query: Query<&PlayerScore>) {
+    ///     let score = query.single();
+    ///     // do something with score
+    /// }
+    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// ```
+    ///
+    /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
+    pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.try_single().unwrap()
+    }
+
+    /// Gets the result of a single-result query.
+    ///
     /// If the query has exactly one result, returns the result inside `Ok`
     /// otherwise returns either [`QuerySingleError::NoEntities`]
     /// or [`QuerySingleError::MultipleEntities`], as appropriate.
@@ -517,7 +543,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    pub fn try_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -534,9 +560,17 @@ where
         }
     }
 
+    /// Gets the query result if it is only a single result, otherwise panics
+    /// If you want to handle the error case yourself you can use the [`Self::try_single_mut`] variant.
+    pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
+        self.try_single_mut().unwrap()
+    }
+
     /// Gets the query result if it is only a single result, otherwise returns a
     /// [`QuerySingleError`].
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
+    pub fn try_single_mut(
+        &mut self,
+    ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
