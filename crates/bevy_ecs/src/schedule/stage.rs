@@ -2310,7 +2310,7 @@ mod tests {
             &stage.parallel,
             &["bevy_ecs::schedule::stage::tests::ambiguity_detection::inner::".into()],
         );
-        assert_eq!(ambiguities.len(), 0);
+        assert_eq!(ambiguities.len(), 1);
     }
 
     #[test]
