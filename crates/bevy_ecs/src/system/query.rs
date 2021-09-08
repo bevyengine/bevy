@@ -527,7 +527,7 @@ where
     ///  # use bevy_ecs::prelude::IntoSystem;
     /// struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
-    ///     match query.single() {
+    ///     match query.try_single() {
     ///         Ok(PlayerScore(score)) => {
     ///             // do something with score
     ///         }
