@@ -5,7 +5,7 @@ fn main() {
         .add_plugin(LogPlugin)
         .insert_resource(MyStartupResource(0))
         // This resource allows to control how Ambiguity Checker will report unresolved ambiguities.
-        // By default only a warning with the amount of unresolved ambiguities is shown, but
+        // By default only a warning with the number of unresolved ambiguities is shown, but
         // a more complete report will be displayed if we explicitly set this resource to verbose.
         .insert_resource(ReportExecutionOrderAmbiguities::verbose())
         // `startup_system_a` and `startup_system_b` will both compete for the same resource. Since there is no ordering between
