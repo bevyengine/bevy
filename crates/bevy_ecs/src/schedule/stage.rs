@@ -640,7 +640,10 @@ impl SystemStage {
                 write!(details, " Set the level of the ReportExecutionOrderAmbiguities resource to AmbiguityReportLevel::Verbose for more details.").unwrap();
             }
 
-            warn!("{} unresolved ambiguities detected.{}", unresolved_count, &details);
+            warn!(
+                "{} unresolved ambiguities detected.{}",
+                unresolved_count, &details
+            );
         }
 
         if !(parallel.is_empty()
