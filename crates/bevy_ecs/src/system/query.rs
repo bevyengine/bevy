@@ -491,12 +491,12 @@ where
     /// Gets the result of a single-result query.
     ///
     /// Assumes this query has only one result and panics if there are no or multiple results.
-    /// If you want to handle the error case yourself you can use the [`Self::try_single`] variant.
+    /// Use [`Self::try_single`] to handle the error cases explicitly
     ///
     /// # Example
     ///
     /// ```
-    ///  # use bevy_ecs::system::{Query, QuerySingleError};
+    ///  # use bevy_ecs::system::Query;
     ///  # use bevy_ecs::prelude::IntoSystem;
     /// struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
