@@ -136,7 +136,6 @@ impl RenderResourceBindings {
         }
     }
 
-    #[allow(clippy::collapsible_match)]
     fn update_bind_group_status(
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
