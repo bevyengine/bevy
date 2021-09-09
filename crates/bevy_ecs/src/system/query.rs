@@ -498,12 +498,12 @@ where
     /// ```
     ///  # use bevy_ecs::system::Query;
     ///  # use bevy_ecs::prelude::IntoSystem;
-    /// struct PlayerScore(i32);
-    /// fn player_scoring_system(query: Query<&PlayerScore>) {
-    ///     let score = query.single();
-    ///     // do something with score
+    /// struct Player;
+    /// fn player_system(query: Query<&Vec2, With<Player>>) {
+    ///     let player_position = query.single();
+    ///     // do something with player_position
     /// }
-    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// # let _check_that_its_a_system = player_system.system();
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
@@ -526,21 +526,21 @@ where
     /// ```
     ///  # use bevy_ecs::system::{Query, QuerySingleError};
     ///  # use bevy_ecs::prelude::IntoSystem;
-    /// struct PlayerScore(i32);
-    /// fn player_scoring_system(query: Query<&PlayerScore>) {
+    /// struct Player;
+    /// fn player_system(query: Query<&Vec2, With<Player>>) {
     ///     match query.try_single() {
-    ///         Ok(PlayerScore(score)) => {
-    ///             // do something with score
+    ///         Ok(position) => {
+    ///             // do something with position
     ///         }
     ///         Err(QuerySingleError::NoEntities(_)) => {
-    ///             // no PlayerScore
+    ///             // no position with Player
     ///         }
     ///         Err(QuerySingleError::MultipleEntities(_)) => {
-    ///             // multiple PlayerScore
+    ///             // multiple position with Player
     ///         }
     ///     }
     /// }
-    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// # let _check_that_its_a_system = player_system.system();
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::try_single_mut`] for write-queries.
