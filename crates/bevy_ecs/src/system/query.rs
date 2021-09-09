@@ -496,11 +496,10 @@ where
     /// # Example
     ///
     /// ```
-    ///  # use bevy_ecs::system::Query;
-    ///  # use bevy_ecs::prelude::IntoSystem;
-    ///  # use bevy_math::Vec2;
+    ///  # use bevy_ecs::prelude::{IntoSystem, Query, With};
     /// struct Player;
-    /// fn player_system(query: Query<&Vec2, With<Player>>) {
+    /// struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
     ///     let player_position = query.single();
     ///     // do something with player_position
     /// }
@@ -525,11 +524,11 @@ where
     /// # Examples
     ///
     /// ```
+    ///  # use bevy_ecs::prelude::{IntoSystem, With};
     ///  # use bevy_ecs::system::{Query, QuerySingleError};
-    ///  # use bevy_ecs::prelude::IntoSystem;
-    ///  # use bevy_math::Vec2;
     /// struct Player;
-    /// fn player_system(query: Query<&Vec2, With<Player>>) {
+    /// struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
     ///     match query.try_single() {
     ///         Ok(position) => {
     ///             // do something with position
