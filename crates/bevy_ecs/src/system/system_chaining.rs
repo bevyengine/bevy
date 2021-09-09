@@ -7,6 +7,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::SystemConfig;
+
 /// A [`System`] that chains two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
 ///
@@ -49,6 +51,7 @@ pub struct ChainSystem<SystemA, SystemB> {
     system_b: SystemB,
     name: Cow<'static, str>,
     id: SystemId,
+    config: SystemConfig,
     component_access: Access<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
@@ -75,12 +78,12 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
             .extend(self.system_b.archetype_component_access());
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
     }
 
     fn is_send(&self) -> bool {
@@ -109,6 +112,13 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     fn check_change_tick(&mut self, change_tick: u32) {
         self.system_a.check_change_tick(change_tick);
         self.system_b.check_change_tick(change_tick);
+    }
+    fn config(&self) -> &SystemConfig {
+        &self.config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
+        &mut self.config
     }
 }
 
@@ -139,6 +149,7 @@ where
         let system_b = system.system();
         ChainSystem {
             name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
+            config: SystemConfig::default(),
             system_a,
             system_b,
             archetype_component_access: Default::default(),

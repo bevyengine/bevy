@@ -4,7 +4,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Countdown::default())
-        .add_startup_system(setup_system)
+        .add_system(setup_system.startup())
         .add_system(countdown_system)
         .add_system(timer_system)
         .run();

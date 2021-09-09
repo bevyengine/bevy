@@ -12,9 +12,9 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env)
-        .add_startup_system(add_assets)
-        .add_startup_system(spawn_tasks)
+        .add_system(setup_env.startup())
+        .add_system(add_assets.startup())
+        .add_system(spawn_tasks.startup())
         .add_system(handle_tasks)
         .run();
 }

@@ -4,6 +4,7 @@ mod entity;
 mod light;
 mod material;
 
+use bevy_ecs::prelude::StageConfig;
 pub use entity::*;
 pub use light::*;
 pub use material::*;
@@ -31,9 +32,8 @@ impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<StandardMaterial>()
             .register_type::<PointLight>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                shader::asset_shader_defs_system::<StandardMaterial>,
+            .add_system(
+                shader::asset_shader_defs_system::<StandardMaterial>.stage(CoreStage::PostUpdate),
             )
             .init_resource::<AmbientLight>();
         add_pbr_graph(&mut app.world);

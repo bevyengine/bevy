@@ -1,14 +1,14 @@
 use crate::{
     component::ComponentId,
-    prelude::IntoSystem,
+    prelude::*,
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
-        ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
-        ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        GraphNode, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
+        RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
+        RunCriteriaInner, ShouldRun, SingleThreadedExecutor, SystemSet,
     },
+    system::{BoxedExclusiveSystem, BoxedSystem, InsertionPoint},
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
@@ -16,7 +16,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
 
-use super::IntoSystemDescriptor;
+use super::system_container::SystemContainer;
+use super::ExclusiveSystemContainer;
 
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
@@ -48,7 +49,7 @@ impl_downcast!(Stage);
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
-/// see `SystemDescriptor` documentation.
+/// see [SystemConfig](crate::system::SystemConfig) documentation to configure which stage a system runs in.
 pub struct SystemStage {
     /// The WorldId this stage was last run on.
     world_id: Option<WorldId>,
@@ -107,8 +108,17 @@ impl SystemStage {
         }
     }
 
-    pub fn single<Params>(system: impl IntoSystemDescriptor<Params>) -> Self {
+    pub fn single<Params>(system: impl IntoSystem<(), (), Params>) -> Self {
         Self::single_threaded().with_system(system)
+    }
+
+    pub fn single_exclusive<Params, SystemType>(
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        Self::single_threaded().with_exclusive(system)
     }
 
     pub fn single_threaded() -> Self {
@@ -133,72 +143,107 @@ impl SystemStage {
         self.executor = executor;
     }
 
-    pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
+    pub fn with_system<Params>(mut self, system: impl IntoSystem<(), (), Params>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
-        self.add_system_inner(system.into_descriptor(), None);
+    pub fn with_exclusive<Params, SystemType>(
+        mut self,
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        self.add_exclusive(system);
         self
     }
 
-    fn add_system_inner(&mut self, system: SystemDescriptor, default_run_criteria: Option<usize>) {
+    pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
+        self.add_system_inner(Box::new(system.system()), None);
+        self
+    }
+
+    pub fn add_boxed_system(&mut self, system: BoxedSystem<(), ()>) -> &mut Self {
+        self.add_system_inner(system, None);
+        self
+    }
+
+    pub fn add_exclusive<Params, SystemType>(
+        &mut self,
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> &mut Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        self.add_exclusive_inner(Box::new(system.exclusive_system()), None);
+        self
+    }
+
+    pub fn add_boxed_exclusive_system(&mut self, system: BoxedExclusiveSystem) -> &mut Self {
+        self.add_exclusive_inner(system, None);
+        self
+    }
+    fn add_system_inner(
+        &mut self,
+        system: BoxedSystem<(), ()>,
+        default_run_criteria: Option<usize>,
+    ) {
         self.systems_modified = true;
-        match system {
-            SystemDescriptor::Exclusive(mut descriptor) => {
-                let insertion_point = descriptor.insertion_point;
-                let criteria = descriptor.run_criteria.take();
-                let mut container = ExclusiveSystemContainer::from_descriptor(descriptor);
-                match criteria {
-                    Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
-                        container.run_criteria_label = Some(label);
-                    }
-                    Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
-                        container.run_criteria_label = criteria_descriptor.label.clone();
-                        container.run_criteria_index =
-                            Some(self.add_run_criteria_internal(criteria_descriptor));
-                    }
-                    None => {
-                        container.run_criteria_index = default_run_criteria;
-                    }
-                }
-                match insertion_point {
-                    InsertionPoint::AtStart => {
-                        let index = self.exclusive_at_start.len();
-                        self.uninitialized_at_start.push(index);
-                        self.exclusive_at_start.push(container);
-                    }
-                    InsertionPoint::BeforeCommands => {
-                        let index = self.exclusive_before_commands.len();
-                        self.uninitialized_before_commands.push(index);
-                        self.exclusive_before_commands.push(container);
-                    }
-                    InsertionPoint::AtEnd => {
-                        let index = self.exclusive_at_end.len();
-                        self.uninitialized_at_end.push(index);
-                        self.exclusive_at_end.push(container);
-                    }
-                }
+        let mut container = ParallelSystemContainer::from_system(system);
+        match container.system_mut().config_mut().run_criteria.take() {
+            Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
+                container.run_criteria_label = Some(label);
             }
-            SystemDescriptor::Parallel(mut descriptor) => {
-                let criteria = descriptor.run_criteria.take();
-                let mut container = ParallelSystemContainer::from_descriptor(descriptor);
-                match criteria {
-                    Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
-                        container.run_criteria_label = Some(label);
-                    }
-                    Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
-                        container.run_criteria_label = criteria_descriptor.label.clone();
-                        container.run_criteria_index =
-                            Some(self.add_run_criteria_internal(criteria_descriptor));
-                    }
-                    None => {
-                        container.run_criteria_index = default_run_criteria;
-                    }
-                }
-                self.uninitialized_parallel.push(self.parallel.len());
-                self.parallel.push(container);
+            Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
+                container.run_criteria_label = criteria_descriptor.label.clone();
+                container.run_criteria_index =
+                    Some(self.add_run_criteria_internal(criteria_descriptor));
+            }
+            None => {
+                container.run_criteria_index = default_run_criteria;
+            }
+        }
+        self.uninitialized_parallel.push(self.parallel.len());
+        self.parallel.push(container);
+    }
+
+    fn add_exclusive_inner(
+        &mut self,
+        system: BoxedExclusiveSystem,
+        default_run_criteria: Option<usize>,
+    ) {
+        self.systems_modified = true;
+        let mut container = ExclusiveSystemContainer::from_system(system);
+        match container.system_mut().config_mut().run_criteria.take() {
+            Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
+                container.run_criteria_label = Some(label);
+            }
+            Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
+                container.run_criteria_label = criteria_descriptor.label.clone();
+                container.run_criteria_index =
+                    Some(self.add_run_criteria_internal(criteria_descriptor));
+            }
+            None => {
+                container.run_criteria_index = default_run_criteria;
+            }
+        }
+
+        match container.system_mut().config_mut().insertion_point {
+            InsertionPoint::AtStart => {
+                let index = self.exclusive_at_start.len();
+                self.uninitialized_at_start.push(index);
+                self.exclusive_at_start.push(container);
+            }
+            InsertionPoint::BeforeCommands => {
+                let index = self.exclusive_before_commands.len();
+                self.uninitialized_before_commands.push(index);
+                self.exclusive_before_commands.push(container);
+            }
+            InsertionPoint::AtEnd => {
+                let index = self.exclusive_at_end.len();
+                self.uninitialized_at_end.push(index);
+                self.exclusive_at_end.push(container);
             }
         }
     }
@@ -239,20 +284,31 @@ impl SystemStage {
 
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.systems_modified = true;
-        let (run_criteria, mut systems) = system_set.bake();
+        let (run_criteria, mut systems, mut exclusive_systems) = system_set.bake();
         let set_run_criteria_index = run_criteria.and_then(|criteria| {
             // validate that no systems have criteria
             for system in systems.iter_mut() {
-                if let Some(name) = match system {
-                    SystemDescriptor::Exclusive(descriptor) => descriptor
-                        .run_criteria
-                        .is_some()
-                        .then(|| descriptor.system.name()),
-                    SystemDescriptor::Parallel(descriptor) => descriptor
-                        .run_criteria
-                        .is_some()
-                        .then(|| descriptor.system.name()),
-                } {
+                if let Some(name) = system
+                    .config()
+                    .run_criteria
+                    .is_some()
+                    .then(|| system.name())
+                {
+                    panic!(
+                        "The system {} has a run criteria, but its `SystemSet` also has a run \
+                        criteria. This is not supported. Consider moving the system into a \
+                        different `SystemSet` or calling `add_system()` instead.",
+                        name
+                    )
+                }
+            }
+            for system in exclusive_systems.iter_mut() {
+                if let Some(name) = system
+                    .config()
+                    .run_criteria
+                    .is_some()
+                    .then(|| system.name())
+                {
                     panic!(
                         "The system {} has a run criteria, but its `SystemSet` also has a run \
                         criteria. This is not supported. Consider moving the system into a \
@@ -267,24 +323,22 @@ impl SystemStage {
                 }
                 RunCriteriaDescriptorOrLabel::Label(label) => {
                     for system in systems.iter_mut() {
-                        match system {
-                            SystemDescriptor::Exclusive(descriptor) => {
-                                descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
-                            }
-                            SystemDescriptor::Parallel(descriptor) => {
-                                descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
-                            }
-                        }
+                        system.config_mut().run_criteria =
+                            Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
                     }
-
+                    for system in exclusive_systems.iter_mut() {
+                        system.config_mut().run_criteria =
+                            Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                    }
                     None
                 }
             }
         });
         for system in systems.drain(..) {
             self.add_system_inner(system, set_run_criteria_index);
+        }
+        for system in exclusive_systems.drain(..) {
+            self.add_exclusive_inner(system, set_run_criteria_index);
         }
         self
     }
@@ -894,13 +948,15 @@ impl Stage for SystemStage {
 mod tests {
     use crate::{
         entity::Entity,
+        prelude::{
+            AmbiguityConfig, ExclusiveConfig, IntoExclusiveSystem, RunCriteraConfig, ScheduleConfig,
+        },
         query::{ChangeTrackers, Changed},
         schedule::{
-            BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
+            BoxedSystemLabel, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping,
+            ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
-        system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
+        system::{In, IntoSystem, Local, Query, ResMut},
         world::World,
     };
 
@@ -926,10 +982,10 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).exclusive_system().at_start())
+            .with_exclusive(make_exclusive(0).exclusive_system().at_start())
             .with_system(make_parallel(1))
-            .with_system(make_exclusive(2).exclusive_system().before_commands())
-            .with_system(make_exclusive(3).exclusive_system().at_end());
+            .with_exclusive(make_exclusive(2).exclusive_system().before_commands())
+            .with_exclusive(make_exclusive(3).exclusive_system().at_end());
         stage.run(&mut world);
         assert_eq!(
             *world.get_resource_mut::<Vec<usize>>().unwrap(),
@@ -944,10 +1000,10 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(2).exclusive_system().before_commands())
-            .with_system(make_exclusive(3).exclusive_system().at_end())
+            .with_exclusive(make_exclusive(2).exclusive_system().before_commands())
+            .with_exclusive(make_exclusive(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
-            .with_system(make_exclusive(0).exclusive_system().at_start());
+            .with_exclusive(make_exclusive(0).exclusive_system().at_start());
         stage.run(&mut world);
         assert_eq!(
             *world.get_resource::<Vec<usize>>().unwrap(),
@@ -962,10 +1018,10 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel(2).exclusive_system().before_commands())
-            .with_system(make_parallel(3).exclusive_system().at_end())
+            .with_exclusive(make_parallel(2).exclusive_system().before_commands())
+            .with_exclusive(make_parallel(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
-            .with_system(make_parallel(0).exclusive_system().at_start());
+            .with_exclusive(make_parallel(0).exclusive_system().at_start());
         stage.run(&mut world);
         assert_eq!(
             *world.get_resource::<Vec<usize>>().unwrap(),
@@ -984,9 +1040,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(1).exclusive_system().label("1").after("0"))
-            .with_system(make_exclusive(2).exclusive_system().after("1"))
-            .with_system(make_exclusive(0).exclusive_system().label("0"));
+            .with_exclusive(make_exclusive(1).exclusive_system().label("1").after("0"))
+            .with_exclusive(make_exclusive(2).exclusive_system().after("1"))
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1001,9 +1057,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(1).exclusive_system().label("1").before("2"))
-            .with_system(make_exclusive(2).exclusive_system().label("2"))
-            .with_system(make_exclusive(0).exclusive_system().before("1"));
+            .with_exclusive(make_exclusive(1).exclusive_system().label("1").before("2"))
+            .with_exclusive(make_exclusive(2).exclusive_system().label("2"))
+            .with_exclusive(make_exclusive(0).exclusive_system().before("1"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1018,11 +1074,11 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(2).exclusive_system().label("2"))
-            .with_system(make_exclusive(1).exclusive_system().after("0").before("2"))
-            .with_system(make_exclusive(0).exclusive_system().label("0"))
-            .with_system(make_exclusive(4).exclusive_system().label("4"))
-            .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+            .with_exclusive(make_exclusive(2).exclusive_system().label("2"))
+            .with_exclusive(make_exclusive(1).exclusive_system().after("0").before("2"))
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0"))
+            .with_exclusive(make_exclusive(4).exclusive_system().label("4"))
+            .with_exclusive(make_exclusive(3).exclusive_system().after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1037,14 +1093,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(
+            .with_exclusive(
                 make_exclusive(1)
                     .exclusive_system()
                     .label("first")
                     .after("0"),
             )
-            .with_system(make_exclusive(2).exclusive_system().after("first"))
-            .with_system(
+            .with_exclusive(make_exclusive(2).exclusive_system().after("first"))
+            .with_exclusive(
                 make_exclusive(0)
                     .exclusive_system()
                     .label("first")
@@ -1060,11 +1116,11 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(2).exclusive_system().after("01").label("2"))
-            .with_system(make_exclusive(1).exclusive_system().label("01").after("0"))
-            .with_system(make_exclusive(0).exclusive_system().label("01").label("0"))
-            .with_system(make_exclusive(4).exclusive_system().label("4"))
-            .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+            .with_exclusive(make_exclusive(2).exclusive_system().after("01").label("2"))
+            .with_exclusive(make_exclusive(1).exclusive_system().label("01").after("0"))
+            .with_exclusive(make_exclusive(0).exclusive_system().label("01").label("0"))
+            .with_exclusive(make_exclusive(4).exclusive_system().label("4"))
+            .with_exclusive(make_exclusive(3).exclusive_system().after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1075,16 +1131,16 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(2).exclusive_system().label("234").label("2"))
-            .with_system(
+            .with_exclusive(make_exclusive(2).exclusive_system().label("234").label("2"))
+            .with_exclusive(
                 make_exclusive(1)
                     .exclusive_system()
                     .before("234")
                     .after("0"),
             )
-            .with_system(make_exclusive(0).exclusive_system().label("0"))
-            .with_system(make_exclusive(4).exclusive_system().label("234").label("4"))
-            .with_system(
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0"))
+            .with_exclusive(make_exclusive(4).exclusive_system().label("234").label("4"))
+            .with_exclusive(
                 make_exclusive(3)
                     .exclusive_system()
                     .label("234")
@@ -1105,7 +1161,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(
+            .with_exclusive(
                 make_exclusive(2)
                     .exclusive_system()
                     .label("2")
@@ -1113,7 +1169,7 @@ mod tests {
                     .before("3")
                     .before("3"),
             )
-            .with_system(
+            .with_exclusive(
                 make_exclusive(1)
                     .exclusive_system()
                     .label("1")
@@ -1121,9 +1177,9 @@ mod tests {
                     .after("0")
                     .before("2"),
             )
-            .with_system(make_exclusive(0).exclusive_system().label("0").before("1"))
-            .with_system(make_exclusive(4).exclusive_system().label("4").after("3"))
-            .with_system(
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0").before("1"))
+            .with_exclusive(make_exclusive(4).exclusive_system().label("4").after("3"))
+            .with_exclusive(
                 make_exclusive(3)
                     .exclusive_system()
                     .label("3")
@@ -1144,14 +1200,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(2).exclusive_system().label("2"))
+            .with_exclusive(make_exclusive(2).exclusive_system().label("2"))
             .with_system_set(
                 SystemSet::new()
-                    .with_system(make_exclusive(0).exclusive_system().label("0"))
-                    .with_system(make_exclusive(4).exclusive_system().label("4"))
-                    .with_system(make_exclusive(3).exclusive_system().after("2").before("4")),
+                    .with_exclusive(make_exclusive(0).exclusive_system().label("0"))
+                    .with_exclusive(make_exclusive(4).exclusive_system().label("4"))
+                    .with_exclusive(make_exclusive(3).exclusive_system().after("2").before("4")),
             )
-            .with_system(make_exclusive(1).exclusive_system().after("0").before("2"));
+            .with_exclusive(make_exclusive(1).exclusive_system().after("0").before("2"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1166,13 +1222,13 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).exclusive_system().before("1"))
+            .with_exclusive(make_exclusive(0).exclusive_system().before("1"))
             .with_system_set(
                 SystemSet::new()
                     .with_run_criteria(every_other_time)
-                    .with_system(make_exclusive(1).exclusive_system().label("1")),
+                    .with_exclusive(make_exclusive(1).exclusive_system().label("1")),
             )
-            .with_system(make_exclusive(2).exclusive_system().after("1"));
+            .with_exclusive(make_exclusive(2).exclusive_system().after("1"));
         stage.run(&mut world);
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
@@ -1190,7 +1246,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).exclusive_system().label("0").after("0"));
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0").after("0"));
         stage.run(&mut world);
     }
 
@@ -1200,8 +1256,8 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).exclusive_system().label("0").after("1"))
-            .with_system(make_exclusive(1).exclusive_system().label("1").after("0"));
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0").after("1"))
+            .with_exclusive(make_exclusive(1).exclusive_system().label("1").after("0"));
         stage.run(&mut world);
     }
 
@@ -1211,9 +1267,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).exclusive_system().label("0"))
-            .with_system(make_exclusive(1).exclusive_system().after("0").before("2"))
-            .with_system(make_exclusive(2).exclusive_system().label("2").before("0"));
+            .with_exclusive(make_exclusive(0).exclusive_system().label("0"))
+            .with_exclusive(make_exclusive(1).exclusive_system().after("0").before("2"))
+            .with_exclusive(make_exclusive(2).exclusive_system().label("2").before("0"));
         stage.run(&mut world);
     }
 
@@ -1840,26 +1896,26 @@ mod tests {
         assert_eq!(ambiguities.len(), 2);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("0"))
-            .with_system(empty.exclusive_system().label("1").after("0"))
-            .with_system(empty.exclusive_system().label("2").after("1"))
-            .with_system(empty.exclusive_system().label("3").after("2"))
-            .with_system(empty.exclusive_system().label("4").after("3"))
-            .with_system(empty.exclusive_system().label("5").after("4"))
-            .with_system(empty.exclusive_system().label("6").after("5"))
-            .with_system(empty.exclusive_system().label("7").after("6"));
+            .with_exclusive(empty.label("0"))
+            .with_exclusive(empty.label("1").after("0"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3").after("2"))
+            .with_exclusive(empty.label("4").after("3"))
+            .with_exclusive(empty.label("5").after("4"))
+            .with_exclusive(empty.label("6").after("5"))
+            .with_exclusive(empty.label("7").after("6"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("0").before("1").before("3"))
-            .with_system(empty.exclusive_system().label("1"))
-            .with_system(empty.exclusive_system().label("2").after("1"))
-            .with_system(empty.exclusive_system().label("3"))
-            .with_system(empty.exclusive_system().label("4").after("3").before("5"))
-            .with_system(empty.exclusive_system().label("5"))
-            .with_system(empty.exclusive_system().label("6").after("2").after("5"));
+            .with_exclusive(empty.label("0").before("1").before("3"))
+            .with_exclusive(empty.label("1"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3"))
+            .with_exclusive(empty.label("4").after("3").before("5"))
+            .with_exclusive(empty.label("5"))
+            .with_exclusive(empty.label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
@@ -1890,13 +1946,13 @@ mod tests {
         assert_eq!(ambiguities.len(), 6);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("0").before("1").before("3"))
-            .with_system(empty.exclusive_system().label("1").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("2").after("1"))
-            .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("4").after("3").before("5"))
-            .with_system(empty.exclusive_system().label("5").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("6").after("2").after("5"));
+            .with_exclusive(empty.label("0").before("1").before("3"))
+            .with_exclusive(empty.label("1").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("2").after("1"))
+            .with_exclusive(empty.label("3").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("4").after("3").before("5"))
+            .with_exclusive(empty.label("5").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
@@ -1919,10 +1975,10 @@ mod tests {
         assert_eq!(ambiguities.len(), 4);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("0").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("1").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("2").in_ambiguity_set("a"))
-            .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
+            .with_exclusive(empty.label("0").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("1").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("2").in_ambiguity_set("a"))
+            .with_exclusive(empty.label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);

@@ -141,7 +141,7 @@ fn game_over_system(
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
 // "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_startup_system(startup_system)      Normal:  app.add_system(normal_system)
+// app.add_system(startup_system.startup())      Normal:  app.add_system(normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -276,7 +276,7 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
+        .add_system(startup_system.startup())
         // my_system calls converts normal rust functions into ECS systems:
         .add_system(print_message_system)
         // SYSTEM EXECUTION ORDER
@@ -310,7 +310,7 @@ fn main() {
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system_to_stage(CoreStage::Update, score_system)
+        .add_system(score_system.stage(CoreStage::Update))
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
@@ -325,18 +325,20 @@ fn main() {
             MyStage::AfterRound,
             SystemStage::parallel(),
         )
-        .add_system_to_stage(MyStage::BeforeRound, new_round_system)
-        .add_system_to_stage(MyStage::BeforeRound, new_player_system)
+        .add_system(new_round_system.stage(MyStage::BeforeRound))
+        .add_system(new_player_system.stage(MyStage::BeforeRound))
         // We can ensure that game_over system runs after score_check_system using explicit ordering
         // constraints First, we label the system we want to refer to using `.label`
         // Then, we use either `.before` or `.after` to describe the order we want the relationship
-        .add_system_to_stage(
-            MyStage::AfterRound,
-            score_check_system.label(MyLabels::ScoreCheck),
+        .add_system(
+            score_check_system
+                .stage(MyStage::AfterRound)
+                .label(MyLabels::ScoreCheck),
         )
-        .add_system_to_stage(
-            MyStage::AfterRound,
-            game_over_system.after(MyLabels::ScoreCheck),
+        .add_system(
+            game_over_system
+                .stage(MyStage::AfterRound)
+                .after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)

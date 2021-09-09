@@ -9,7 +9,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(toggle_override)
         .add_system(change_scale_factor)
         .run();

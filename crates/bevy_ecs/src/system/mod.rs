@@ -1,4 +1,5 @@
 mod commands;
+mod config;
 mod exclusive_system;
 mod function_system;
 mod query;
@@ -8,6 +9,7 @@ mod system_chaining;
 mod system_param;
 
 pub use commands::*;
+pub use config::*;
 pub use exclusive_system::*;
 pub use function_system::*;
 pub use query::*;
@@ -27,8 +29,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            ConfigurableSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -183,7 +185,7 @@ mod tests {
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
-            SystemStage::single(World::clear_trackers.exclusive_system()),
+            SystemStage::single_exclusive(World::clear_trackers),
         );
 
         schedule.run(&mut world);

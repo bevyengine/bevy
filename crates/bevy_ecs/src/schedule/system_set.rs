@@ -1,35 +1,17 @@
 use crate::{
     component::Component,
-    schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-        RunCriteriaDescriptorOrLabel, State, SystemDescriptor, SystemLabel,
-    },
+    prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem},
+    schedule::{RunCriteriaDescriptorOrLabel, State},
+    system::{BoxedExclusiveSystem, BoxedSystem, RunCriteraConfig, SystemConfig},
 };
 use std::{fmt::Debug, hash::Hash};
 
-use super::IntoSystemDescriptor;
-
 /// A builder for describing several systems at the same time.
+#[derive(Default)]
 pub struct SystemSet {
-    pub(crate) systems: Vec<SystemDescriptor>,
-    pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub(crate) labels: Vec<BoxedSystemLabel>,
-    pub(crate) before: Vec<BoxedSystemLabel>,
-    pub(crate) after: Vec<BoxedSystemLabel>,
-    pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
-}
-
-impl Default for SystemSet {
-    fn default() -> SystemSet {
-        SystemSet {
-            systems: Vec::new(),
-            run_criteria: None,
-            labels: Vec::new(),
-            before: Vec::new(),
-            after: Vec::new(),
-            ambiguity_sets: Vec::new(),
-        }
-    }
+    pub(crate) systems: Vec<BoxedSystem>,
+    pub(crate) exclusive_systems: Vec<BoxedExclusiveSystem>,
+    pub(crate) config: SystemConfig,
 }
 
 impl SystemSet {
@@ -86,65 +68,78 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
-    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(Box::new(set));
+    pub fn with_system<Params>(mut self, system: impl IntoSystem<(), (), Params>) -> Self {
+        self.systems.push(Box::new(system.system()));
         self
     }
 
-    pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
-        self.systems.push(system.into_descriptor());
+    pub fn with_exclusive<Params, SystemType>(
+        mut self,
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        self.exclusive_systems
+            .push(Box::new(system.exclusive_system()));
         self
     }
 
-    pub fn with_run_criteria<Marker>(mut self, run_criteria: impl IntoRunCriteria<Marker>) -> Self {
-        self.run_criteria = Some(run_criteria.into());
-        self
-    }
-
-    pub fn label(mut self, label: impl SystemLabel) -> Self {
-        self.labels.push(Box::new(label));
-        self
-    }
-
-    pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
-        self
-    }
-
-    pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
-        self
-    }
-
-    pub(crate) fn bake(self) -> (Option<RunCriteriaDescriptorOrLabel>, Vec<SystemDescriptor>) {
+    pub(crate) fn bake(
+        self,
+    ) -> (
+        Option<RunCriteriaDescriptorOrLabel>,
+        Vec<BoxedSystem>,
+        Vec<BoxedExclusiveSystem>,
+    ) {
         let SystemSet {
             mut systems,
-            run_criteria,
-            labels,
-            before,
-            after,
-            ambiguity_sets,
+            mut exclusive_systems,
+            config,
         } = self;
-        for descriptor in &mut systems {
-            match descriptor {
-                SystemDescriptor::Parallel(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-                SystemDescriptor::Exclusive(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-            }
+        for system in &mut systems {
+            system
+                .config_mut()
+                .labels
+                .extend(config.labels.iter().cloned());
+            system
+                .config_mut()
+                .before
+                .extend(config.before.iter().cloned());
+            system
+                .config_mut()
+                .after
+                .extend(config.after.iter().cloned());
+            system
+                .config_mut()
+                .ambiguity_sets
+                .extend(config.ambiguity_sets.iter().cloned());
         }
-        (run_criteria, systems)
+        for system in &mut exclusive_systems {
+            system
+                .config_mut()
+                .labels
+                .extend(config.labels.iter().cloned());
+            system
+                .config_mut()
+                .before
+                .extend(config.before.iter().cloned());
+            system
+                .config_mut()
+                .after
+                .extend(config.after.iter().cloned());
+            system
+                .config_mut()
+                .ambiguity_sets
+                .extend(config.ambiguity_sets.iter().cloned());
+        }
+        (config.run_criteria, systems, exclusive_systems)
+    }
+
+    pub fn config(&self) -> &SystemConfig {
+        &self.config
+    }
+    pub fn config_mut(&mut self) -> &mut SystemConfig {
+        &mut self.config
     }
 }

@@ -13,7 +13,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(load_asset)
+        .add_system(load_asset.startup())
         .add_system(print_asset)
         .run();
 }

@@ -24,13 +24,15 @@ pub mod prelude {
         event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            AmbiguitySetLabel, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
+            RunCriteriaPiping, Schedule, Stage, StageLabel, State, SystemLabel, SystemSet,
+            SystemStage,
         },
         system::{
-            Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,
-            Local, NonSend, NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            AmbiguityConfig, Commands, ConfigurableSystem, ExclusiveConfig, ExclusiveSystem, In,
+            IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
+            QuerySet, RemovedComponents, Res, ResMut, RunCriteraConfig, ScheduleConfig,
+            StageConfig, StartupConfig, System, SystemConfig,
         },
         world::{FromWorld, Mut, World},
     };

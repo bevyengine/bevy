@@ -23,7 +23,7 @@ fn main() {
             frustum_culling_enabled: true,
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(tick.label("Tick"))
         .add_system(move_camera.after("Tick"))
         .run()

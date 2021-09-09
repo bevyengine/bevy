@@ -6,7 +6,6 @@ mod run_criteria;
 mod stage;
 mod state;
 mod system_container;
-mod system_descriptor;
 mod system_set;
 
 pub use executor::*;
@@ -17,12 +16,15 @@ pub use run_criteria::*;
 pub use stage::*;
 pub use state::*;
 pub use system_container::*;
-pub use system_descriptor::*;
 pub use system_set::*;
 
 use std::fmt::Debug;
 
-use crate::{system::System, world::World};
+use crate::{
+    prelude::{ExclusiveSystem, IntoExclusiveSystem, IntoSystem},
+    system::System,
+    world::World,
+};
 use bevy_utils::HashMap;
 
 #[derive(Default)]
@@ -60,15 +62,6 @@ impl Schedule {
 
     pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
         self.set_run_criteria(system);
-        self
-    }
-
-    pub fn with_system_in_stage<Params>(
-        mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> Self {
-        self.add_system_to_stage(stage_label, system);
         self
     }
 
@@ -138,11 +131,10 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage<Params>(
-        &mut self,
-        stage_label: impl StageLabel,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
+    pub fn add_system<Params>(&mut self, system: impl IntoSystem<(), (), Params>) -> &mut Self {
+        let system = system.system();
+        let stage_label = system.config().stage.clone().expect("test");
+
         // Use a function instead of a closure to ensure that it is codegend inside bevy_ecs instead
         // of the game. Closures inherit generic parameters from their enclosing function.
         #[cold]
@@ -154,20 +146,57 @@ impl Schedule {
         }
 
         let stage = self
-            .get_stage_mut::<SystemStage>(&stage_label)
+            .get_stage_mut::<SystemStage>(stage_label.as_ref())
             .unwrap_or_else(move || stage_not_found(&stage_label));
         stage.add_system(system);
         self
     }
 
-    pub fn add_system_set_to_stage(
+    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        let stage_label = system_set.config().stage.clone().expect("test");
+
+        // Use a function instead of a closure to ensure that it is codegend inside bevy_ecs instead
+        // of the game. Closures inherit generic parameters from their enclosing function.
+        #[cold]
+        fn stage_not_found(stage_label: &dyn Debug) -> ! {
+            panic!(
+                "Stage '{:?}' does not exist or is not a SystemStage",
+                stage_label
+            )
+        }
+
+        let stage = self
+            .get_stage_mut::<SystemStage>(stage_label.as_ref())
+            .unwrap_or_else(move || stage_not_found(&stage_label));
+        stage.add_system_set(system_set);
+        self
+    }
+
+    pub fn add_exclusive<Params, SystemType>(
         &mut self,
-        stage_label: impl StageLabel,
-        system_set: SystemSet,
-    ) -> &mut Self {
-        self.stage(stage_label, |stage: &mut SystemStage| {
-            stage.add_system_set(system_set)
-        })
+        system: impl IntoExclusiveSystem<Params, SystemType>,
+    ) -> &mut Self
+    where
+        SystemType: ExclusiveSystem,
+    {
+        let system = system.exclusive_system();
+        let stage_label = system.config().stage.clone().expect("test");
+
+        // Use a function instead of a closure to ensure that it is codegend inside bevy_ecs instead
+        // of the game. Closures inherit generic parameters from their enclosing function.
+        #[cold]
+        fn stage_not_found(stage_label: &dyn Debug) -> ! {
+            panic!(
+                "Stage '{:?}' does not exist or is not a SystemStage",
+                stage_label
+            )
+        }
+
+        let stage = self
+            .get_stage_mut::<SystemStage>(stage_label.as_ref())
+            .unwrap_or_else(move || stage_not_found(&stage_label));
+        stage.add_exclusive(system);
+        self
     }
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(

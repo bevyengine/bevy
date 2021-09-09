@@ -8,6 +8,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::SystemConfig;
+
 /// A [`System`] identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SystemId(pub usize);
@@ -29,7 +31,7 @@ impl SystemId {
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [SystemDescriptor](crate::schedule::SystemDescriptor).
+/// see [SystemConfig](super::SystemConfig) and the other members of the [`config` module](super::config).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -69,6 +71,9 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
+
+    fn config_mut(&mut self) -> &mut SystemConfig;
+    fn config(&self) -> &SystemConfig;
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.

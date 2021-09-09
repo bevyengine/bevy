@@ -5,6 +5,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::SystemConfig;
+
 pub trait ExclusiveSystem: Send + Sync + 'static {
     fn name(&self) -> Cow<'static, str>;
 
@@ -15,6 +17,27 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn initialize(&mut self, world: &mut World);
 
     fn check_change_tick(&mut self, change_tick: u32);
+
+    fn config(&self) -> &SystemConfig;
+
+    fn config_mut(&mut self) -> &mut SystemConfig;
+}
+
+trait ConfigExclusiveSystem {}
+
+pub type BoxedExclusiveSystem = Box<dyn ExclusiveSystem>;
+
+#[derive(Debug, Clone, Copy)]
+pub enum InsertionPoint {
+    AtStart,
+    BeforeCommands,
+    AtEnd,
+}
+
+impl Default for InsertionPoint {
+    fn default() -> Self {
+        Self::AtStart
+    }
 }
 
 pub struct ExclusiveSystemFn {
@@ -22,6 +45,7 @@ pub struct ExclusiveSystemFn {
     name: Cow<'static, str>,
     id: SystemId,
     last_change_tick: u32,
+    config: SystemConfig,
 }
 
 impl ExclusiveSystem for ExclusiveSystemFn {
@@ -53,10 +77,26 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     fn check_change_tick(&mut self, change_tick: u32) {
         check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
     }
+
+    fn config(&self) -> &SystemConfig {
+        &self.config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
+        &mut self.config
+    }
 }
 
 pub trait IntoExclusiveSystem<Params, SystemType> {
     fn exclusive_system(self) -> SystemType;
+}
+
+pub struct AlreadyWasExclusiveSystem;
+
+impl<Sys: ExclusiveSystem> IntoExclusiveSystem<AlreadyWasExclusiveSystem, Sys> for Sys {
+    fn exclusive_system(self) -> Sys {
+        self
+    }
 }
 
 impl<F> IntoExclusiveSystem<&mut World, ExclusiveSystemFn> for F
@@ -69,6 +109,7 @@ where
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
             last_change_tick: 0,
+            config: SystemConfig::default(),
         }
     }
 }
@@ -108,6 +149,14 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     fn check_change_tick(&mut self, change_tick: u32) {
         self.system.check_change_tick(change_tick);
     }
+
+    fn config(&self) -> &SystemConfig {
+        self.system.config()
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
+        self.system.config_mut()
+    }
 }
 
 impl<S, Params> IntoExclusiveSystem<Params, ExclusiveSystemCoerced> for S
@@ -128,7 +177,7 @@ mod tests {
         entity::Entity,
         query::With,
         schedule::{Stage, SystemStage},
-        system::{Commands, IntoExclusiveSystem, Query, ResMut},
+        system::{Commands, Query, ResMut},
         world::World,
     };
     #[test]
@@ -153,7 +202,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
 
-        let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
+        let mut stage = SystemStage::parallel().with_exclusive(removal);
         world.spawn().insert(0.0f32);
         world.insert_resource(0usize);
         stage.run(&mut world);
@@ -177,7 +226,7 @@ mod tests {
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_system(spawn_entity)
-            .with_system(count_entities.exclusive_system());
+            .with_exclusive(count_entities);
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 1]);

@@ -7,7 +7,7 @@ pub mod system;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{prelude::*, schedule::SystemLabel};
 pub use input::*;
 
 pub mod prelude {
@@ -47,18 +47,20 @@ impl Plugin for InputPlugin {
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                keyboard_input_system.label(InputSystem),
+            .add_system(
+                keyboard_input_system
+                    .stage(CoreStage::PreUpdate)
+                    .label(InputSystem),
             )
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                mouse_button_input_system.label(InputSystem),
+            .add_system(
+                mouse_button_input_system
+                    .stage(CoreStage::PreUpdate)
+                    .label(InputSystem),
             )
             // gamepad
             .add_event::<GamepadEvent>()
@@ -67,16 +69,18 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_event_system.label(InputSystem),
+            .add_system(
+                gamepad_event_system
+                    .stage(CoreStage::PreUpdate)
+                    .label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                touch_screen_input_system.label(InputSystem),
+            .add_system(
+                touch_screen_input_system
+                    .stage(CoreStage::PreUpdate)
+                    .label(InputSystem),
             );
     }
 }

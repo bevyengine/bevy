@@ -13,7 +13,8 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
+    prelude::{ScheduleConfig, StageConfig, StartupConfig},
+    schedule::SystemStage,
     system::{IntoExclusiveSystem, Res},
 };
 use bevy_transform::TransformSystem;
@@ -174,38 +175,45 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
-        .add_startup_system_to_stage(StartupStage::PreStartup, check_for_render_resource_context)
-        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system)
-        .add_system_to_stage(CoreStage::PostUpdate, camera::active_cameras_system)
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.before(RenderSystem::VisibleEntities),
+        .add_system(
+            check_for_render_resource_context
+                .startup()
+                .stage(StartupStage::PreStartup),
         )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.before(RenderSystem::VisibleEntities),
+        .add_system(draw::clear_draw_system.stage(CoreStage::PreUpdate))
+        .add_system(camera::active_cameras_system.stage(CoreStage::PostUpdate))
+        .add_system(
+            camera::camera_system::<OrthographicProjection>
+                .stage(CoreStage::PostUpdate)
+                .before(RenderSystem::VisibleEntities),
         )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
+        .add_system(
+            camera::camera_system::<PerspectiveProjection>
+                .stage(CoreStage::PostUpdate)
+                .before(RenderSystem::VisibleEntities),
+        )
+        .add_system(
             camera::visible_entities_system
+                .stage(CoreStage::PostUpdate)
                 .label(RenderSystem::VisibleEntities)
                 .after(TransformSystem::TransformPropagate),
         )
-        .add_system_to_stage(RenderStage::RenderResource, shader::shader_update_system)
-        .add_system_to_stage(
-            RenderStage::RenderResource,
-            mesh::mesh_resource_provider_system,
+        .add_system(shader::shader_update_system.stage(RenderStage::RenderResource))
+        .add_system(mesh::mesh_resource_provider_system.stage(RenderStage::RenderResource))
+        .add_system(Texture::texture_resource_system.stage(RenderStage::RenderResource))
+        .add_exclusive(
+            render_graph::render_graph_schedule_executor_system
+                .exclusive_system()
+                .stage(RenderStage::RenderGraphSystems),
         )
-        .add_system_to_stage(
-            RenderStage::RenderResource,
-            Texture::texture_resource_system,
+        .add_system(Texture::texture_resource_system.stage(RenderStage::RenderResource))
+        .add_exclusive(
+            render_graph::render_graph_schedule_executor_system
+                .exclusive_system()
+                .stage(RenderStage::RenderGraphSystems),
         )
-        .add_system_to_stage(
-            RenderStage::RenderGraphSystems,
-            render_graph::render_graph_schedule_executor_system.exclusive_system(),
-        )
-        .add_system_to_stage(RenderStage::Draw, pipeline::draw_render_pipelines_system)
-        .add_system_to_stage(RenderStage::PostRender, shader::clear_shader_defs_system);
+        .add_system(pipeline::draw_render_pipelines_system.stage(RenderStage::Draw))
+        .add_system(shader::clear_shader_defs_system.stage(RenderStage::PostRender));
 
         if let Some(ref config) = self.base_render_graph_config {
             crate::base::add_base_graph(config, &mut app.world);

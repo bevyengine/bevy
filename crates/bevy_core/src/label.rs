@@ -122,6 +122,7 @@ pub(crate) fn entity_labels_system(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
+        prelude::StageConfig,
         schedule::{Schedule, Stage, SystemStage},
         world::World,
     };
@@ -133,7 +134,7 @@ mod tests {
         world.insert_resource(EntityLabels::default());
         let mut schedule = Schedule::default();
         schedule.add_stage("test", SystemStage::single_threaded());
-        schedule.add_system_to_stage("test", entity_labels_system);
+        schedule.add_system(entity_labels_system.stage("test"));
         (world, schedule)
     }
 

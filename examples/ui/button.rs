@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(button_system)
         .run();
 }

@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemConfig, SystemId},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -51,6 +51,7 @@ impl FixedTimesteps {
 pub struct FixedTimestep {
     state: State,
     internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
+    config: SystemConfig,
 }
 
 impl Default for FixedTimestep {
@@ -58,6 +59,7 @@ impl Default for FixedTimestep {
         Self {
             state: State::default(),
             internal_system: Box::new(Self::prepare_system.system()),
+            config: SystemConfig::default(),
         }
     }
 }
@@ -196,5 +198,13 @@ impl System for FixedTimestep {
 
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
+    }
+
+    fn config(&self) -> &SystemConfig {
+        &self.config
+    }
+
+    fn config_mut(&mut self) -> &mut SystemConfig {
+        &mut self.config
     }
 }

@@ -15,7 +15,7 @@ use bevy::{
 pub fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system(setup.startup())
         .add_system(animate_shader)
         .run();
 }

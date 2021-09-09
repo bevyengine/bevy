@@ -15,7 +15,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         // One time greet
-        .add_startup_system(hello_wasm_system)
+        .add_system(hello_wasm_system.startup())
         // Track ticks (sanity check, whether game loop is running)
         .add_system(counter)
         // Track input events
