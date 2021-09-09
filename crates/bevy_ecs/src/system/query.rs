@@ -507,6 +507,7 @@ where
     /// ```
     ///
     /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
+    #[track_caller]
     pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
     where
         Q::Fetch: ReadOnlyFetch,
@@ -542,7 +543,7 @@ where
     /// # let _check_that_its_a_system = player_scoring_system.system();
     /// ```
     ///
-    /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
+    /// This can only be called for read-only queries, see [`Self::try_single_mut`] for write-queries.
     pub fn try_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -562,6 +563,7 @@ where
 
     /// Gets the query result if it is only a single result, otherwise panics
     /// If you want to handle the error case yourself you can use the [`Self::try_single_mut`] variant.
+    #[track_caller]
     pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
         self.try_single_mut().unwrap()
     }
