@@ -623,7 +623,7 @@ mod tests {
 
         {
             let query = system_state.get(&world);
-            assert!(query.try_single().is_err());
+            assert!(query.get_single().is_err());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;

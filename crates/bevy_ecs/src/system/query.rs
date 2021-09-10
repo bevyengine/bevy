@@ -491,7 +491,7 @@ where
     /// Gets the result of a single-result query.
     ///
     /// Assumes this query has only one result and panics if there are no or multiple results.
-    /// Use [`Self::try_single`] to handle the error cases explicitly
+    /// Use [`Self::get_single`] to handle the error cases explicitly
     ///
     /// # Example
     ///
@@ -512,7 +512,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        self.try_single().unwrap()
+        self.get_single().unwrap()
     }
 
     /// Gets the result of a single-result query.
@@ -529,7 +529,7 @@ where
     /// struct Player;
     /// struct Position(f32, f32);
     /// fn player_system(query: Query<&Position, With<Player>>) {
-    ///     match query.try_single() {
+    ///     match query.get_single() {
     ///         Ok(position) => {
     ///             // do something with position
     ///         }
@@ -544,8 +544,8 @@ where
     /// # let _check_that_its_a_system = player_system.system();
     /// ```
     ///
-    /// This can only be called for read-only queries, see [`Self::try_single_mut`] for write-queries.
-    pub fn try_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    /// This can only be called for read-only queries, see [`Self::get_single_mut`] for write-queries.
+    pub fn get_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -563,15 +563,15 @@ where
     }
 
     /// Gets the query result if it is only a single result, otherwise panics
-    /// If you want to handle the error case yourself you can use the [`Self::try_single_mut`] variant.
+    /// If you want to handle the error case yourself you can use the [`Self::get_single_mut`] variant.
     #[track_caller]
     pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
-        self.try_single_mut().unwrap()
+        self.get_single_mut().unwrap()
     }
 
     /// Gets the query result if it is only a single result, otherwise returns a
     /// [`QuerySingleError`].
-    pub fn try_single_mut(
+    pub fn get_single_mut(
         &mut self,
     ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
