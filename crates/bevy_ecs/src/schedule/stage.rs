@@ -121,7 +121,6 @@ const BEVY_CRATES: [&str; 110] = [
     "bevy_curve",
     "bevy_demo",
     "bevy_editor",
-    "bevy_egui",
     "bevy_event",
     "bevy_executor",
     "bevy_extra",
