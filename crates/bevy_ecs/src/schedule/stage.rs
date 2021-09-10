@@ -75,7 +75,7 @@ pub struct ReportExecutionOrderAmbiguities {
     pub ignore_crates: Vec<String>,
 }
 
-const BEVY_CRATES: [&str; 110] = [
+const BEVY_CRATES: [&str; 109] = [
     "bevy_app",
     "bevy_asset",
     "bevy_audio",
