@@ -75,7 +75,7 @@ fn setup(
 
 // System for rotating and translating the camera
 fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut().unwrap();
+    let mut camera_transform = camera_query.single_mut();
     camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -83,7 +83,7 @@ fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, W
 
 // System for printing the number of sprites on every tick of the timer
 fn tick_system(time: Res<Time>, sprites_query: Query<&Sprite>, mut timer_query: Query<&mut Timer>) {
-    let mut timer = timer_query.single_mut().unwrap();
+    let mut timer = timer_query.single_mut();
     timer.tick(time.delta());
 
     if timer.just_finished() {
