@@ -18,7 +18,9 @@ pub use ui_node::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins};
+    pub use crate::{
+        entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins, UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -39,9 +41,33 @@ pub enum UiSystem {
     Focus,
 }
 
+#[derive(Debug)]
+/// The current scale of the UI for all windows
+///
+/// ## Note
+/// This is purely about the logical scale, and can
+/// be considered like a zoom
+///
+/// This only affects pixel sizes, so a percent size will stay at that
+pub struct UiScale {
+    /// The scale to be applied
+    ///
+    /// # Example
+    ///
+    /// A scale of `2.` will make every pixel size twice as large.
+    pub scale: f64,
+}
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self { scale: 1.0 }
+    }
+}
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FlexSurface>()
+            .init_resource::<UiScale>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

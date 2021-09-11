@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
@@ -198,6 +198,7 @@ pub enum FlexError {
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn flex_node_system(
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
@@ -222,14 +223,18 @@ pub fn flex_node_system(
         1.
     };
 
-    if scale_factor_events.iter().next_back().is_some() {
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
         update_changed(
             &mut *flex_surface,
-            logical_to_physical_factor,
+            logical_to_physical_factor * ui_scale.scale,
             full_node_query,
         );
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed(
+            &mut *flex_surface,
+            logical_to_physical_factor * ui_scale.scale,
+            node_query,
+        );
     }
 
     fn update_changed<F: WorldQuery>(
@@ -251,7 +256,12 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
+        flex_surface.upsert_leaf(
+            entity,
+            style,
+            *calculated_size,
+            logical_to_physical_factor * ui_scale.scale,
+        );
     }
 
     // TODO: handle removed nodes

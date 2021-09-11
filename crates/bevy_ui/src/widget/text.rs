@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, Style, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -49,6 +49,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
@@ -62,7 +63,7 @@ pub fn text_system(
         window.scale_factor()
     } else {
         1.
-    };
+    } * ui_scale.scale;
 
     let inv_scale_factor = 1. / scale_factor;
 

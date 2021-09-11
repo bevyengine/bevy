@@ -437,6 +437,10 @@ path = "examples/ui/text_debug.rs"
 name = "ui"
 path = "examples/ui/ui.rs"
 
+[[example]]
+name = "scaling"
+path = "examples/ui/scaling.rs"
+
 # Window
 [[example]]
 name = "clear_color"
