@@ -239,6 +239,7 @@ Example | File | Description
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
+`scaling` | [`ui/scaling.rs`](./ui/scaling.rs) | Illustrates how to scale the UI
 
 ## Window
 
