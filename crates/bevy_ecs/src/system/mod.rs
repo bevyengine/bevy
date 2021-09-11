@@ -95,8 +95,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            local_value, ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            local_value, ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
+            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
