@@ -4,7 +4,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(SceneInstance::default())
+        .init_resource::<SceneInstance>()
         .add_startup_system(setup)
         .add_system(scene_update)
         .add_system(move_scene_entities)

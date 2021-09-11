@@ -334,7 +334,7 @@ impl App {
     where
         T: Component,
     {
-        self.insert_resource(Events::<T>::default())
+        self.init_resource::<Events<T>>()
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
     }
 
