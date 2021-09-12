@@ -96,6 +96,7 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
         for archetype in archetypes.archetypes[archetype_index_range].iter() {
             self.system.new_archetype(archetype);
         }
+
         self.system.run((), world);
         self.system.apply_buffers(world);
     }
@@ -127,7 +128,7 @@ mod tests {
         entity::Entity,
         query::With,
         schedule::{Stage, SystemStage},
-        system::{Commands, IntoExclusiveSystem, IntoSystem, Query, ResMut},
+        system::{Commands, IntoExclusiveSystem, Query, ResMut},
         world::World,
     };
     #[test]
@@ -145,7 +146,7 @@ mod tests {
             }
         }
 
-        let mut stage = SystemStage::parallel().with_system(removal.system());
+        let mut stage = SystemStage::parallel().with_system(removal);
         world.spawn().insert(0.0f32);
         world.insert_resource(0usize);
         stage.run(&mut world);
@@ -175,7 +176,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(spawn_entity.system())
+            .with_system(spawn_entity)
             .with_system(count_entities.exclusive_system());
         stage.run(&mut world);
         stage.run(&mut world);

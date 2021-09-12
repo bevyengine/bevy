@@ -22,7 +22,7 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
@@ -41,7 +41,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -60,7 +60,9 @@ mod tests {
 
     #[derive(Debug, PartialEq, Eq)]
     struct A(usize);
+    #[derive(Debug, PartialEq, Eq)]
     struct B(usize);
+    #[derive(Debug, PartialEq, Eq)]
     struct C;
 
     #[derive(Clone, Debug)]
@@ -102,21 +104,26 @@ mod tests {
 
     #[test]
     fn bundle_derive() {
+        let mut world = World::new();
+
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
             x: &'static str,
             y: i32,
         }
 
-        assert_eq!(
-            <Foo as Bundle>::type_info(),
-            vec![TypeInfo::of::<&'static str>(), TypeInfo::of::<i32>(),]
-        );
-
-        let mut world = World::new();
         world
             .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
             .unwrap();
+
+        assert_eq!(
+            <Foo as Bundle>::component_ids(world.components_mut()),
+            vec![
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+            ]
+        );
+
         let e1 = world.spawn().insert_bundle(Foo { x: "abc", y: 123 }).id();
         let e2 = world.spawn().insert_bundle(("def", 456, true)).id();
         assert_eq!(*world.get::<&str>(e1).unwrap(), "abc");
@@ -146,12 +153,12 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::type_info(),
+            <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
-                TypeInfo::of::<usize>(),
-                TypeInfo::of::<&'static str>(),
-                TypeInfo::of::<i32>(),
-                TypeInfo::of::<u8>(),
+                world.components_mut().get_or_insert_id::<usize>(),
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+                world.components_mut().get_or_insert_id::<u8>(),
             ]
         );
 
@@ -1391,6 +1398,91 @@ mod tests {
                 },
             ],
             "space between original entities and high entities is used for new entity ids"
+        );
+    }
+
+    #[test]
+    fn insert_or_spawn_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn().insert(A(0)).id();
+        let e1 = Entity::new(1);
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
+
+        world.insert_or_spawn_batch(values).unwrap();
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "new entity was spawned and received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "new entity was spawned and received C component"
+        );
+    }
+
+    #[test]
+    fn insert_or_spawn_batch_invalid() {
+        let mut world = World::default();
+        let e0 = world.spawn().insert(A(0)).id();
+        let e1 = Entity::new(1);
+        let e2 = world.spawn().id();
+        let invalid_e2 = Entity {
+            generation: 1,
+            id: e2.id,
+        };
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
+
+        let result = world.insert_or_spawn_batch(values);
+
+        assert_eq!(
+            result,
+            Err(vec![invalid_e2]),
+            "e2 failed to be spawned or inserted into"
+        );
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "new entity was spawned and received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "new entity was spawned and received C component"
         );
     }
 }

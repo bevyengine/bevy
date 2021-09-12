@@ -24,7 +24,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    pub fn new<T>() -> Self {
+    fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -87,10 +87,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'s, 'w>(
+    pub fn get<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
@@ -101,10 +101,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'s, 'w>(
+    pub fn get_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item {
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
         // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -145,10 +145,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.   
     #[inline]
-    pub unsafe fn get_unchecked_manual<'s, 'w>(
+    pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'s, 'w>>::Item {
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         let change_tick = world.increment_change_tick();
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
@@ -228,7 +228,7 @@ pub struct InputMarker;
 ///
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
+/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -254,7 +254,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// fn local_is_42(local: Local<usize>) {
     ///     assert_eq!(*local, 42);
     /// }
-    /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));
+    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
     /// system.initialize(world);
     /// system.run((), world);
     /// ```

@@ -316,7 +316,7 @@ mod tests {
     use super::SchedulingEvent::{self, *};
     use crate::{
         schedule::{SingleThreadedExecutor, Stage, SystemStage},
-        system::{IntoSystem, NonSend, Query, Res, ResMut},
+        system::{NonSend, Query, Res, ResMut},
         world::World,
     };
     use async_channel::Receiver;
@@ -338,9 +338,9 @@ mod tests {
         let mut world = World::new();
         fn wants_for_nothing() {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system());
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing);
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
@@ -356,24 +356,24 @@ mod tests {
         fn wants_mut(_: ResMut<usize>) {}
         fn wants_ref(_: Res<usize>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -385,24 +385,24 @@ mod tests {
         fn wants_mut(_: Query<&mut usize>) {}
         fn wants_ref(_: Query<&usize>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
@@ -410,8 +410,8 @@ mod tests {
         fn wants_mut_usize(_: Query<(&mut usize, &f32)>) {}
         fn wants_mut_u32(_: Query<(&mut u32, &f32)>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut_usize.system())
-            .with_system(wants_mut_u32.system());
+            .with_system(wants_mut_usize)
+            .with_system(wants_mut_u32);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -426,12 +426,12 @@ mod tests {
         }
         fn empty() {}
         let mut stage = SystemStage::parallel()
-            .with_system(non_send.system())
-            .with_system(non_send.system())
-            .with_system(empty.system())
-            .with_system(empty.system())
-            .with_system(non_send.system())
-            .with_system(non_send.system());
+            .with_system(non_send)
+            .with_system(non_send)
+            .with_system(empty)
+            .with_system(empty)
+            .with_system(non_send)
+            .with_system(non_send);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),

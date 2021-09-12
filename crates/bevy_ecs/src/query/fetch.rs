@@ -137,6 +137,7 @@ impl WorldQuery for Entity {
 }
 
 /// The [`Fetch`] of [`Entity`].
+#[derive(Clone)]
 pub struct EntityFetch {
     entities: *const Entity,
 }
@@ -573,6 +574,7 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+#[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
     matches: bool,
@@ -805,6 +807,21 @@ pub struct ChangeTrackersFetch<T> {
     marker: PhantomData<T>,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<T> Clone for ChangeTrackersFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_ticks: self.table_ticks,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+            marker: self.marker,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 /// SAFETY: access is read only

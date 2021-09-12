@@ -27,13 +27,12 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use std::marker::PhantomData;
+/// use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'s, 'w> {
+/// struct MyParam<'w, 's> {
 ///     foo: Res<'w, usize>,
-///     // TODO: this isn't ideal ... maybe the SystemParam derive can be smarter about world and state lifetimes?
 ///     #[system_param(ignore)]
 ///     marker: PhantomData<&'s usize>,
 /// }
@@ -45,7 +44,7 @@ use std::{
 /// # my_system.system();
 /// ```
 pub trait SystemParam: Sized {
-    type Fetch: for<'s, 'w> SystemParamFetch<'s, 'w>;
+    type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
 
 /// The state of a [`SystemParam`].
@@ -84,21 +83,21 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 /// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
 
-pub trait SystemParamFetch<'s, 'w>: SystemParamState {
+pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     type Item;
     /// # Safety
     ///
     /// This call might access any of the input parameters in an unsafe way. Make sure the data
     /// access is safe in the context of the system scheduler.
     unsafe fn get_param(
-        state: &'s mut Self,
+        state: &'state mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &'world World,
         change_tick: u32,
     ) -> Self::Item;
 }
 
-impl<'s, 'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -150,7 +149,7 @@ where
     fn default_config() {}
 }
 
-impl<'s, 'w, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'s, 'w>
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
@@ -189,7 +188,13 @@ fn assert_component_access_compatibility(
                 query_type, filter_type, system_name, accesses);
 }
 
-pub struct QuerySet<T>(T);
+pub struct QuerySet<'w, 's, T> {
+    query_states: &'s T,
+    world: &'w World,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
@@ -254,7 +259,7 @@ impl<'w, T: Component> AsRef<T> for Res<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Res`].
+/// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -295,7 +300,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResState<T> {
+impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResState<T> {
     type Item = Res<'w, T>;
 
     #[inline]
@@ -323,7 +328,8 @@ impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<Res<T>>`.
+/// The [`SystemParamState`] of [`Option<Res<T>>`].
+/// See: [`Res<T>`]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
@@ -343,7 +349,7 @@ unsafe impl<T: Component> SystemParamState for OptionResState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResState<T> {
+impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for OptionResState<T> {
     type Item = Option<Res<'w, T>>;
 
     #[inline]
@@ -364,7 +370,7 @@ impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`ResMut`].
+/// The [`SystemParamState`] of [`ResMut<T>`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -409,7 +415,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResMutState<T> {
+impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for ResMutState<T> {
     type Item = ResMut<'w, T>;
 
     #[inline]
@@ -439,7 +445,8 @@ impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for ResMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<ResMut<T>>`.
+/// The [`SystemParamState`] of [`Option<ResMut<T>>`].
+/// See: [`ResMut<T>`]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
@@ -456,7 +463,7 @@ unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResMutState<T> {
+impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     type Item = Option<ResMut<'w, T>>;
 
     #[inline]
@@ -479,7 +486,7 @@ impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for OptionResMutState<T> {
     }
 }
 
-impl<'s, 'w> SystemParam for Commands<'s, 'w> {
+impl<'w, 's> SystemParam for Commands<'w, 's> {
     type Fetch = CommandQueue;
 }
 
@@ -501,8 +508,8 @@ unsafe impl SystemParamState for CommandQueue {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for CommandQueue {
-    type Item = Commands<'s, 'w>;
+impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
+    type Item = Commands<'w, 's>;
 
     #[inline]
     unsafe fn get_param(
@@ -571,7 +578,7 @@ impl<'a, T: Component> DerefMut for Local<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Local`].
+/// The [`SystemParamState`] of [`Local<T>`].
 pub struct LocalState<T: Component>(T);
 
 impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T> {
@@ -591,7 +598,7 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
     }
 }
 
-impl<'s, 'w, T: Component + FromWorld> SystemParamFetch<'s, 'w> for LocalState<T> {
+impl<'w, 's, T: Component + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]
@@ -639,7 +646,7 @@ impl<'a, T> RemovedComponents<'a, T> {
 // SAFE: Only reads World components
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
-/// The [`SystemParamState`] of [`RemovedComponents`].
+/// The [`SystemParamState`] of [`RemovedComponents<T>`].
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -664,7 +671,7 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: Component> SystemParamFetch<'s, 'w> for RemovedComponentsState<T> {
+impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T> {
     type Item = RemovedComponents<'w, T>;
 
     #[inline]
@@ -736,7 +743,7 @@ impl<'w, T: 'static> Deref for NonSend<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSend`].
+/// The [`SystemParamState`] of [`NonSend<T>`].
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -779,7 +786,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendState<T> {
+impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     type Item = NonSend<'w, T>;
 
     #[inline]
@@ -809,10 +816,11 @@ impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSend<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSend<T>>`].
+/// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
-impl<'a, T: Component> SystemParam for Option<NonSend<'a, T>> {
+impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
     type Fetch = OptionNonSendState<T>;
 }
 
@@ -829,7 +837,7 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for OptionNonSendState<T> {
+impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     type Item = Option<NonSend<'w, T>>;
 
     #[inline]
@@ -851,7 +859,7 @@ impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for OptionNonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSendMut`].
+/// The [`SystemParamState`] of [`NonSendMut<T>`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -869,7 +877,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         system_meta.set_non_send();
 
-        let component_id = world.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = world.initialize_non_send_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
@@ -898,7 +906,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendMutState<T> {
+impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     type Item = NonSendMut<'w, T>;
 
     #[inline]
@@ -929,7 +937,8 @@ impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for NonSendMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSendMut<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
+/// See: [`NonSendMut<T>`]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
@@ -946,7 +955,7 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
     fn default_config() {}
 }
 
-impl<'s, 'w, T: 'static> SystemParamFetch<'s, 'w> for OptionNonSendMutState<T> {
+impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     type Item = Option<NonSendMut<'w, T>>;
 
     #[inline]
@@ -991,7 +1000,7 @@ unsafe impl SystemParamState for ArchetypesState {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for ArchetypesState {
+impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
     type Item = &'w Archetypes;
 
     #[inline]
@@ -1026,7 +1035,7 @@ unsafe impl SystemParamState for ComponentsState {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for ComponentsState {
+impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
     type Item = &'w Components;
 
     #[inline]
@@ -1061,7 +1070,7 @@ unsafe impl SystemParamState for EntitiesState {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for EntitiesState {
+impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
     type Item = &'w Entities;
 
     #[inline]
@@ -1096,7 +1105,7 @@ unsafe impl SystemParamState for BundlesState {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for BundlesState {
+impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     type Item = &'w Bundles;
 
     #[inline]
@@ -1123,7 +1132,7 @@ impl SystemParam for SystemChangeTick {
     type Fetch = SystemChangeTickState;
 }
 
-/// The [`SystemParamState`] of [`SystemChangeTickState`].
+/// The [`SystemParamState`] of [`SystemChangeTick`].
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {
@@ -1136,7 +1145,7 @@ unsafe impl SystemParamState for SystemChangeTickState {
     fn default_config() {}
 }
 
-impl<'s, 'w> SystemParamFetch<'s, 'w> for SystemChangeTickState {
+impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     type Item = SystemChangeTick;
 
     unsafe fn get_param(
@@ -1163,7 +1172,7 @@ macro_rules! impl_system_param_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'s, 'w, $($param: SystemParamFetch<'s, 'w>),*> SystemParamFetch<'s, 'w> for ($($param,)*) {
+        impl<'w, 's, $($param: SystemParamFetch<'w, 's>),*> SystemParamFetch<'w, 's> for ($($param,)*) {
             type Item = ($($param::Item,)*);
 
             #[inline]

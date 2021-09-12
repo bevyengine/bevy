@@ -1,6 +1,5 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    bundle::Bundle,
     component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
@@ -12,7 +11,7 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
-pub trait FilterFetch: for<'world, 'state> Fetch<'world, 'state> {
+pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
     /// # Safety
     ///
     /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
@@ -257,106 +256,6 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
     #[inline]
     fn is_dense(&self) -> bool {
         self.storage_type == StorageType::Table
-    }
-
-    #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
-
-    #[inline]
-    unsafe fn set_archetype(
-        &mut self,
-        _state: &Self::State,
-        _archetype: &Archetype,
-        _tables: &Tables,
-    ) {
-    }
-
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> bool {
-        true
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, _table_row: usize) -> bool {
-        true
-    }
-}
-
-pub struct WithBundle<T: Bundle>(PhantomData<T>);
-
-impl<T: Bundle> WorldQuery for WithBundle<T> {
-    type Fetch = WithBundleFetch<T>;
-    type State = WithBundleState<T>;
-}
-
-pub struct WithBundleFetch<T: Bundle> {
-    is_dense: bool,
-    marker: PhantomData<T>,
-}
-
-pub struct WithBundleState<T: Bundle> {
-    component_ids: Vec<ComponentId>,
-    is_dense: bool,
-    marker: PhantomData<T>,
-}
-
-// SAFETY: no component access or archetype component access
-unsafe impl<T: Bundle> FetchState for WithBundleState<T> {
-    fn init(world: &mut World) -> Self {
-        let bundle_info = world.bundles.init_info::<T>(&mut world.components);
-        let components = &world.components;
-        Self {
-            component_ids: bundle_info.component_ids.clone(),
-            is_dense: !bundle_info.component_ids.iter().any(|id| unsafe {
-                components.get_info_unchecked(*id).storage_type() != StorageType::Table
-            }),
-            marker: PhantomData,
-        }
-    }
-
-    #[inline]
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-        for component_id in self.component_ids.iter().cloned() {
-            access.add_with(component_id);
-        }
-    }
-
-    #[inline]
-    fn update_archetype_component_access(
-        &self,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        self.component_ids.iter().all(|id| archetype.contains(*id))
-    }
-
-    fn matches_table(&self, table: &Table) -> bool {
-        self.component_ids.iter().all(|id| table.has_column(*id))
-    }
-}
-
-impl<'w, 's, T: Bundle> Fetch<'w, 's> for WithBundleFetch<T> {
-    type Item = bool;
-    type State = WithBundleState<T>;
-
-    unsafe fn init(
-        _world: &World,
-        state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
-    ) -> Self {
-        Self {
-            is_dense: state.is_dense,
-            marker: PhantomData,
-        }
-    }
-
-    #[inline]
-    fn is_dense(&self) -> bool {
-        self.is_dense
     }
 
     #[inline]

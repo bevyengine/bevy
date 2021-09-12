@@ -30,8 +30,8 @@ use crate::{
 /// struct Something;
 ///
 /// SystemStage::parallel()
-///     .with_system(do_something.system().label(Something))
-///     .with_system(do_the_other_thing.system().after(Something))
+///     .with_system(do_something.label(Something))
+///     .with_system(do_the_other_thing.after(Something))
 ///     .with_system(do_something_else.exclusive_system().at_end());
 /// ```
 pub enum SystemDescriptor {
@@ -57,6 +57,12 @@ where
 {
     fn into_descriptor(self) -> SystemDescriptor {
         new_parallel_descriptor(Box::new(self.system())).into_descriptor()
+    }
+}
+
+impl IntoSystemDescriptor<()> for SystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        self
     }
 }
 
