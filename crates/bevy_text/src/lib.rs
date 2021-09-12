@@ -29,7 +29,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{entity::Entity, schedule::ReportExecutionOrderAmbiguities};
 use bevy_render::RenderStage;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
@@ -45,5 +45,10 @@ impl Plugin for TextPlugin {
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(CoreStage::PostUpdate, text2d_system)
             .add_system_to_stage(RenderStage::Draw, text2d::draw_text2d_system);
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_text".to_string());
     }
 }

@@ -8,7 +8,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{
+    ParallelSystemDescriptorCoercion, ReportExecutionOrderAmbiguities, SystemLabel,
+};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
 #[derive(Default)]
@@ -48,5 +50,10 @@ impl Plugin for TransformPlugin {
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             );
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_transform".to_string());
     }
 }

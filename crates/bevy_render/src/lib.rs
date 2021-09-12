@@ -13,7 +13,7 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
+    schedule::{ParallelSystemDescriptorCoercion, ReportExecutionOrderAmbiguities, SystemStage},
     system::{IntoExclusiveSystem, Res},
 };
 use bevy_transform::TransformSystem;
@@ -218,6 +218,11 @@ impl Plugin for RenderPlugin {
                 active_cameras.add(base::camera::CAMERA_2D);
             }
         }
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_render".to_string());
     }
 }
 

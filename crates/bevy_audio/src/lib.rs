@@ -13,7 +13,7 @@ pub use audio_source::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::system::IntoExclusiveSystem;
+use bevy_ecs::{schedule::ReportExecutionOrderAmbiguities, system::IntoExclusiveSystem};
 
 /// Adds support for audio playback to an App
 #[derive(Default)]
@@ -31,5 +31,10 @@ impl Plugin for AudioPlugin {
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         app.init_asset_loader::<Mp3Loader>();
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_audio".to_string());
     }
 }

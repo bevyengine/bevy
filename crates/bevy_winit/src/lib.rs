@@ -11,7 +11,9 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_ecs::{
+    schedule::ReportExecutionOrderAmbiguities, system::IntoExclusiveSystem, world::World,
+};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -43,6 +45,11 @@ impl Plugin for WinitPlugin {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_winit".to_string());
     }
 }
 

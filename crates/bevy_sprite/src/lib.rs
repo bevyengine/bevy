@@ -28,7 +28,10 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::component::{ComponentDescriptor, StorageType};
+use bevy_ecs::{
+    component::{ComponentDescriptor, StorageType},
+    schedule::ReportExecutionOrderAmbiguities,
+};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -96,24 +99,32 @@ impl Plugin for SpritePlugin {
             ))
             .unwrap();
 
-        let world_cell = app.world.cell();
-        let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
-        let mut pipelines = world_cell
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
-        let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
-        crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
+        {
+            let world_cell = app.world.cell();
+            let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
+            let mut pipelines = world_cell
+                .get_resource_mut::<Assets<PipelineDescriptor>>()
+                .unwrap();
+            let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
+            crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
 
-        let mut meshes = world_cell.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let mut color_materials = world_cell
-            .get_resource_mut::<Assets<ColorMaterial>>()
-            .unwrap();
-        color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
-        meshes.set_untracked(
-            QUAD_HANDLE,
-            // Use a flipped quad because the camera is facing "forward" but quads should face
-            // backward
-            Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
-        )
+            let mut meshes = world_cell.get_resource_mut::<Assets<Mesh>>().unwrap();
+            let mut color_materials = world_cell
+                .get_resource_mut::<Assets<ColorMaterial>>()
+                .unwrap();
+            color_materials
+                .set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
+            meshes.set_untracked(
+                QUAD_HANDLE,
+                // Use a flipped quad because the camera is facing "forward" but quads should face
+                // backward
+                Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
+            );
+        }
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_sprite".to_string());
     }
 }
