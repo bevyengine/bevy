@@ -62,6 +62,7 @@ pub enum AmbiguityReportLevel {
 /// The ambiguity checker will ignore ambiguities within official Bevy crates.
 /// To ignore a custom crate, use [`ReportExecutionOrderAmbiguities::ignore`]
 /// with an list of crate names as an argument.
+/// This resource should be added before any bevy internal plugin.
 ///
 /// ## Example
 /// ```ignore
