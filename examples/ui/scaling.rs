@@ -10,8 +10,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(TargetScale {
-            target_scale: 1.0,
             start_scale: 1.0,
+            target_scale: 1.0,
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), false),
         })
         .add_startup_system(setup)
@@ -101,8 +101,8 @@ fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>)
 }
 
 struct TargetScale {
-    target_scale: f64,
     start_scale: f64,
+    target_scale: f64,
     target_time: Timer,
 }
 
