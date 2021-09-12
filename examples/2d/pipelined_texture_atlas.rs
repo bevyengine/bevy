@@ -7,8 +7,7 @@ use bevy::{
     },
     render2::{camera::OrthographicCameraBundle, texture::Image},
     sprite2::{
-        PipelinedSpriteBundle, PipelinedSpriteSheetBundle, TextureAtlas, TextureAtlasBuilder,
-        TextureAtlasEntry,
+        Sprite2dBundle, Sprite2dSheetBundle, TextureAtlas, TextureAtlasBuilder, TextureAtlasEntry,
     },
     PipelinedDefaultPlugins,
 };
@@ -75,7 +74,7 @@ fn setup(
     // set up a scene to display our texture atlas
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     // draw a sprite from the atlas
-    commands.spawn_bundle(PipelinedSpriteSheetBundle {
+    commands.spawn_bundle(Sprite2dSheetBundle {
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
@@ -86,7 +85,7 @@ fn setup(
         ..Default::default()
     });
     // draw the atlas itself
-    commands.spawn_bundle(PipelinedSpriteBundle {
+    commands.spawn_bundle(Sprite2dBundle {
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..Default::default()

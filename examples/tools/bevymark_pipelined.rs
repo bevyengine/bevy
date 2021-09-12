@@ -6,7 +6,7 @@ use bevy::{
     math::Vec3,
     prelude::{App, AssetServer, Handle, MouseButton, Transform},
     render2::{camera::OrthographicCameraBundle, color::Color, texture::Image},
-    sprite2::PipelinedSpriteBundle,
+    sprite2::Sprite2dBundle,
     window::WindowDescriptor,
     PipelinedDefaultPlugins,
 };
@@ -174,7 +174,7 @@ fn spawn_birds(
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
-            .spawn_bundle(PipelinedSpriteBundle {
+            .spawn_bundle(Sprite2dBundle {
                 // material: bird_material.0.clone(),
                 texture: texture.clone(),
                 transform: Transform {

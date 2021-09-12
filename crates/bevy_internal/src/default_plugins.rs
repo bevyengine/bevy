@@ -129,7 +129,10 @@ impl PluginGroup for PipelinedDefaultPlugins {
             group.add(bevy_core_pipeline::CorePipelinePlugin::default());
 
             #[cfg(feature = "bevy_sprite2")]
-            group.add(bevy_sprite2::SpritePlugin::default());
+            group.add(bevy_sprite2::Sprite2dPlugin::default());
+
+            #[cfg(feature = "bevy_sprite2")]
+            group.add(bevy_sprite2::Sprite3dPlugin::default());
 
             #[cfg(feature = "bevy_pbr2")]
             group.add(bevy_pbr2::PbrPlugin::default());
