@@ -5,7 +5,7 @@ const SCALE_TIME: u64 = 400;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
 struct ApplyScaling;
 
-/// This example illustrates the various features of Bevy UI.
+/// This example illustrates the UIScale resource from bevy_ui
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
