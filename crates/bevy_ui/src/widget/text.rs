@@ -60,10 +60,10 @@ pub fn text_system(
     )>,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
+        window.scale_factor() * ui_scale.scale
     } else {
-        1.
-    } * ui_scale.scale;
+        ui_scale.scale
+    };
 
     let inv_scale_factor = 1. / scale_factor;
 
