@@ -24,7 +24,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{
+    ParallelSystemDescriptorCoercion, ReportExecutionOrderAmbiguities, SystemLabel,
+};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
 use bevy_transform::TransformSystem;
@@ -105,5 +107,10 @@ impl Plugin for UiPlugin {
             );
 
         crate::render::build_ui_render(app);
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_ui".to_string());
     }
 }

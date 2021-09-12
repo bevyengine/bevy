@@ -54,5 +54,10 @@ impl Plugin for TextPlugin {
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_text".to_string());
     }
 }

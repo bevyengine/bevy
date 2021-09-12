@@ -31,7 +31,14 @@ pub use texture_atlas_builder::*;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::Transparent2d;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel, ReportExecutionOrderAmbiguities},
+use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
+use bevy_ecs::{
+    component::{ComponentDescriptor, StorageType},
+    schedule::ReportExecutionOrderAmbiguities,
+};
+use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
@@ -77,5 +84,10 @@ impl Plugin for SpritePlugin {
                 .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
                 .add_system_to_stage(RenderStage::Queue, queue_sprites);
         };
+        
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_sprite".to_string());
     }
 }

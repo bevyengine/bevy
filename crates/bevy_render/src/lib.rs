@@ -286,6 +286,11 @@ impl Plugin for RenderPlugin {
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
             .add_plugin(ImagePlugin);
+
+        app.world
+            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
+            .ignore_crates
+            .push("bevy_render".to_string());
     }
 }
 
