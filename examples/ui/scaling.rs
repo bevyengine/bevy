@@ -25,7 +25,6 @@ fn setup(
     asset_server: ResMut<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
 
     let text_style = TextStyle {
@@ -34,7 +33,6 @@ fn setup(
         color: Color::BLACK,
     };
 
-    // root node
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -118,6 +116,15 @@ impl TargetScale {
         let multiplier = ease_in_expo(completion as f64);
         self.start_scale + (self.target_scale - self.start_scale) * multiplier
     }
+
+    fn tick(&mut self, delta: Duration) -> &Self {
+        self.target_time.tick(delta);
+        self
+    }
+
+    fn already_completed(&self) -> bool {
+        self.target_time.finished() && !self.target_time.just_finished()
+    }
 }
 
 fn apply_scaling(
@@ -125,8 +132,7 @@ fn apply_scaling(
     mut target_scale: ResMut<TargetScale>,
     mut ui_scale: ResMut<UiScale>,
 ) {
-    let timer = target_scale.target_time.tick(time.delta());
-    if timer.finished() && !timer.just_finished() {
+    if target_scale.tick(time.delta()).already_completed() {
         return;
     }
 
@@ -137,6 +143,6 @@ fn ease_in_expo(x: f64) -> f64 {
     if x == 0. {
         0.
     } else {
-        (2.0f64).powf(10. * x - 10.)
+        (2.0f64).powf(5. * x - 5.)
     }
 }
