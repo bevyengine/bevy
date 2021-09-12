@@ -260,7 +260,6 @@ If you end up adding a new official Bevy crate to the `bevy` repo:
 
 1. Add the new crate to the [./tools/publish.sh](./tools/publish.sh) file.
 2. Check if a new cargo feature was added, update [cargo_features.md](https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md) as needed.
-3. Add the new crate to the [stage::BEVY_CRATES](./crates/bevy_ecs/src/schedule/stage.rs) array.
 
 When contributing, please:
 
