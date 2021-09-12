@@ -2,7 +2,7 @@ use crate::Rect;
 use bevy_asset::Handle;
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render2::{color::Color, texture::Image};
+use bevy_render2::texture::Image;
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
@@ -22,30 +22,19 @@ pub struct TextureAtlas {
 
 #[derive(Debug, Clone, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
-pub struct TextureAtlasSprite {
-    pub color: Color,
+pub struct TextureAtlasEntry {
     pub index: u32,
-    pub flip_x: bool,
-    pub flip_y: bool,
 }
 
-impl Default for TextureAtlasSprite {
+impl Default for TextureAtlasEntry {
     fn default() -> Self {
-        Self {
-            index: 0,
-            color: Color::WHITE,
-            flip_x: false,
-            flip_y: false,
-        }
+        Self { index: 0 }
     }
 }
 
-impl TextureAtlasSprite {
-    pub fn new(index: u32) -> TextureAtlasSprite {
-        Self {
-            index,
-            ..Default::default()
-        }
+impl TextureAtlasEntry {
+    pub fn new(index: u32) -> TextureAtlasEntry {
+        Self { index }
     }
 }
 

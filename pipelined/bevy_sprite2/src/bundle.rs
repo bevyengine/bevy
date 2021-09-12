@@ -1,5 +1,5 @@
 use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
+    texture_atlas::{TextureAtlas, TextureAtlasEntry},
     Sprite,
 };
 use bevy_asset::Handle;
@@ -30,8 +30,9 @@ impl Default for PipelinedSpriteBundle {
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone)]
 pub struct PipelinedSpriteSheetBundle {
+    pub sprite: Sprite,
     /// The specific sprite from the texture atlas to be drawn
-    pub sprite: TextureAtlasSprite,
+    pub texture_atlas_entry: TextureAtlasEntry,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
     /// Data pertaining to how the sprite is drawn on the screen
@@ -43,6 +44,7 @@ impl Default for PipelinedSpriteSheetBundle {
     fn default() -> Self {
         Self {
             sprite: Default::default(),
+            texture_atlas_entry: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

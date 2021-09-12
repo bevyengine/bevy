@@ -8,7 +8,7 @@ use bevy::{
     render2::{camera::OrthographicCameraBundle, texture::Image},
     sprite2::{
         PipelinedSpriteBundle, PipelinedSpriteSheetBundle, TextureAtlas, TextureAtlasBuilder,
-        TextureAtlasSprite,
+        TextureAtlasEntry,
     },
     PipelinedDefaultPlugins,
 };
@@ -81,7 +81,7 @@ fn setup(
             scale: Vec3::splat(4.0),
             ..Default::default()
         },
-        sprite: TextureAtlasSprite::new(vendor_index as u32),
+        texture_atlas_entry: TextureAtlasEntry::new(vendor_index as u32),
         texture_atlas: atlas_handle,
         ..Default::default()
     });
