@@ -41,7 +41,6 @@ enum EventSystem {
 }
 
 // This is our event that we will send and receive in systems
-#[derive(Debug)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,
