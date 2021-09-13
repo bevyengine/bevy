@@ -92,6 +92,11 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
         self.commands.add(command);
         self
     }
+
+    /// Returns the underlying [`Commands`].
+    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
+        self.commands
+    }
 }
 
 pub trait BuildChildren {
