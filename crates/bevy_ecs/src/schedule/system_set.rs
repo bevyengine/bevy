@@ -9,8 +9,8 @@ use std::{fmt::Debug, hash::Hash};
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
 pub struct SystemSet {
-    pub(crate) systems: Vec<BoxedSystem>,
-    pub(crate) exclusive_systems: Vec<BoxedExclusiveSystem>,
+    pub systems: Vec<BoxedSystem>,
+    pub exclusive_systems: Vec<BoxedExclusiveSystem>,
     pub(crate) config: SystemConfig,
 }
 

@@ -229,6 +229,23 @@ impl App {
     }
 
     pub fn add_system_set(&mut self, set: SystemSet) -> &mut Self {
+        fn ensure_no_conflicts(set: &SystemSet) {
+            let mut conflict = false;
+            for system in set.systems.iter() {
+                if system.config().stage != set.config().stage {
+                    conflict = true;
+                }
+            }
+            for system in set.exclusive_systems.iter() {
+                if system.config().stage != set.config().stage {
+                    conflict = true;
+                }
+            }
+            if conflict {
+                panic!("There is a mismatch between a system set's stage and it's sub systems")
+            }
+        }
+
         if set.config().startup {
             let set = {
                 if set.config().stage.is_some() {
@@ -237,6 +254,7 @@ impl App {
                     set.stage(StartupStage::Startup)
                 }
             };
+            ensure_no_conflicts(&set);
             self.schedule
                 .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                     schedule.add_system_set(set)
@@ -249,6 +267,7 @@ impl App {
                     set.stage(CoreStage::Update)
                 }
             };
+            ensure_no_conflicts(&set);
             self.schedule.add_system_set(set);
         }
         self
