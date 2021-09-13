@@ -92,8 +92,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
+            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -397,6 +397,48 @@ mod tests {
     }
 
     #[test]
+    fn non_send_option_system() {
+        let mut world = World::default();
+
+        world.insert_resource(false);
+        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend2(std::rc::Rc<i32>);
+        world.insert_non_send(NotSend1(std::rc::Rc::new(0)));
+
+        fn sys(
+            op: Option<NonSend<NotSend1>>,
+            mut _op2: Option<NonSendMut<NotSend2>>,
+            mut run: ResMut<bool>,
+        ) {
+            op.expect("NonSend should exist");
+            *run = true;
+        }
+
+        run_system(&mut world, sys);
+        // ensure the system actually ran
+        assert!(*world.get_resource::<bool>().unwrap());
+    }
+
+    #[test]
+    fn non_send_system() {
+        let mut world = World::default();
+
+        world.insert_resource(false);
+        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend2(std::rc::Rc<i32>);
+
+        world.insert_non_send(NotSend1(std::rc::Rc::new(1)));
+        world.insert_non_send(NotSend2(std::rc::Rc::new(2)));
+
+        fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
+            *run = true;
+        }
+
+        run_system(&mut world, sys);
+        assert!(*world.get_resource::<bool>().unwrap());
+    }
+
+    #[test]
     fn remove_tracking() {
         let mut world = World::new();
         struct Despawned(Entity);
@@ -597,7 +639,7 @@ mod tests {
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single().unwrap(),
+            *query.single(),
             B(7),
             "returned component matches initial value"
         );
@@ -624,7 +666,7 @@ mod tests {
         let (a, mut query) = system_state.get_mut(&mut world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single_mut().unwrap(),
+            *query.single_mut(),
             B(7),
             "returned component matches initial value"
         );
@@ -641,18 +683,18 @@ mod tests {
         let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single().unwrap(), A(1));
+            assert_eq!(*query.single(), A(1));
         }
 
         {
             let query = system_state.get(&world);
-            assert!(query.single().is_err());
+            assert!(query.get_single().is_err());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single().unwrap(), A(2));
+            assert_eq!(*query.single(), A(2));
         }
     }
 
