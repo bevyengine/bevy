@@ -10,6 +10,7 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
@@ -1070,10 +1071,12 @@ impl Bytes for Color {
 
 impl_render_resource_bytes!(Color);
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum HexColorError {
+    #[error("Unexpected length of hex string")]
     Length,
-    Hex(hex::FromHexError),
+    #[error("Error parsing hex value")]
+    Hex(#[from] hex::FromHexError),
 }
 
 fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {

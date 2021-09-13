@@ -60,6 +60,12 @@ where
     }
 }
 
+impl IntoSystemDescriptor<()> for SystemDescriptor {
+    fn into_descriptor(self) -> SystemDescriptor {
+        self
+    }
+}
+
 impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
     fn into_descriptor(self) -> SystemDescriptor {
         new_parallel_descriptor(self).into_descriptor()

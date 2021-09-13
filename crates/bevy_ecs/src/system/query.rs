@@ -775,7 +775,38 @@ where
     /// Returns the single immutable query result.
     ///
     /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
-    /// bound). See [`single_mut`](Self::single_mut) for queries that contain at least one
+    /// bound). Use [`single_mut`](Self::single_mut) for queries that contain at least one
+    /// mutable component.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::{IntoSystem, Query, With};
+    /// # struct Player;
+    /// # struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
+    ///     let player_position = query.single();
+    ///     // do something with player_position
+    /// }
+    /// # player_system.system();
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
+    #[track_caller]
+    pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.get_single().unwrap()
+    }
+
+    /// Returns the single immutable query result.
+    ///
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
+    /// bound). Use [`get_single_mut`](Self::get_single_mut) for queries that contain at least one
     /// mutable component.
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
@@ -788,7 +819,7 @@ where
     ///  # use bevy_ecs::prelude::IntoSystem;
     ///  # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
-    ///     match query.single() {
+    ///     match query.get_single() {
     ///         Ok(PlayerScore(score)) => {
     ///             println!("Score: {}", score);
     ///         }
@@ -802,9 +833,7 @@ where
     /// }
     /// # player_scoring_system.system();
     /// ```
-    ///
-    /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    pub fn get_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -823,6 +852,32 @@ where
 
     /// Returns the single mutable query result.
     ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct Player;
+    /// # struct Health(u32);
+    /// #
+    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
+    ///     let mut health = query.single_mut();
+    ///     health.0 += 1;
+    /// }
+    /// # regenerate_player_health_system.system();
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
+    #[track_caller]
+    pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
+        self.get_single_mut().unwrap()
+    }
+
+    /// Returns the single mutable query result.
+    ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     ///
@@ -835,12 +890,14 @@ where
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.single_mut().expect("Error: Could not find a single player.");
+    ///     let mut health = query.get_single_mut().expect("Error: Could not find a single player.");
     ///     health.0 += 1;
     /// }
     /// # regenerate_player_health_system.system();
     /// ```
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
+    pub fn get_single_mut(
+        &mut self,
+    ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
