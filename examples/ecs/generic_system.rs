@@ -11,7 +11,6 @@ use bevy::{ecs::component::Component, prelude::*};
 /// For more advice on working with generic types in Rust, check out https://doc.rust-lang.org/book/ch10-01-syntax.html
 // or https://doc.rust-lang.org/rust-by-example/generics.html
 
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     MainMenu,
@@ -29,7 +28,9 @@ fn main() {
         .add_state(AppState::MainMenu)
         .add_startup_system(setup_system)
         .add_system(print_text_system)
-        .add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(transition_to_in_game_system))
+        .add_system_set(
+            SystemSet::on_update(AppState::MainMenu).with_system(transition_to_in_game_system),
+        )
         // add the cleanup systems
         .add_system_set(
             // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
@@ -65,7 +66,10 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut Timer, &TextToPrint
     }
 }
 
-fn transition_to_in_game_system(mut state: ResMut<State<AppState>>, keyboard_input: Res<Input<KeyCode>>) {
+fn transition_to_in_game_system(
+    mut state: ResMut<State<AppState>>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
     if keyboard_input.pressed(KeyCode::Space) {
         state.set(AppState::InGame).unwrap();
     }
