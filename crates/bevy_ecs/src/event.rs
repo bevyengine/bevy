@@ -508,7 +508,7 @@ mod tests {
         assert_eq!(
             get_events(&events, &mut reader_missed),
             vec![event_2],
-            "reader_missed missed events unread after to update() calls"
+            "reader_missed missed events unread after two update() calls"
         );
     }
 
