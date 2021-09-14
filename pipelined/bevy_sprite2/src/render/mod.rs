@@ -19,7 +19,7 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -188,12 +188,25 @@ pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     images: Res<Assets<Image>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Sprite, &GlobalTransform, &Handle<Image>)>,
-    atlas_query: Query<(&TextureAtlasSprite, &GlobalTransform, &Handle<TextureAtlas>)>,
+    sprite_query: Query<(
+        &ComputedVisibility,
+        &Sprite,
+        &GlobalTransform,
+        &Handle<Image>,
+    )>,
+    atlas_query: Query<(
+        &ComputedVisibility,
+        &TextureAtlasSprite,
+        &GlobalTransform,
+        &Handle<TextureAtlas>,
+    )>,
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     extracted_sprites.sprites.clear();
-    for (sprite, transform, handle) in sprite_query.iter() {
+    for (computed_visibility, sprite, transform, handle) in sprite_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         if let Some(image) = images.get(handle) {
             let size = image.texture_descriptor.size;
 
@@ -213,7 +226,10 @@ pub fn extract_sprites(
             });
         };
     }
-    for (atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+    for (computed_visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = texture_atlas.textures[atlas_sprite.index as usize];
             extracted_sprites.sprites.push(ExtractedSprite {
