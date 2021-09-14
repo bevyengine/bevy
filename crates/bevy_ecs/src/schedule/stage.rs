@@ -83,6 +83,7 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
     apply_buffers: bool,
 }
 
