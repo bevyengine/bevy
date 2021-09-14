@@ -179,7 +179,6 @@ where
         }
     }
 
-
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// # Safety
@@ -270,7 +269,6 @@ where
             self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
         }
     }
-
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
