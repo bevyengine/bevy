@@ -124,3 +124,17 @@ impl Frustum {
         true
     }
 }
+
+#[derive(Debug, Default)]
+pub struct CubeFrusta {
+    pub frusta: [Frustum; 6],
+}
+
+impl CubeFrusta {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Frustum> {
+        self.frusta.iter()
+    }
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut Frustum> {
+        self.frusta.iter_mut()
+    }
+}
