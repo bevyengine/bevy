@@ -25,7 +25,7 @@ use bevy_ecs::schedule::StageLabel;
 
 /// The names of the default App stages
 ///
-/// The relative stages are added by [`AppBuilder::add_default_stages`].
+/// The relative stages are added by [`App::add_default_stages`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
     /// Runs only once at the beginning of the app.

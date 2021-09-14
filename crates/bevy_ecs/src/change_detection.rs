@@ -144,7 +144,7 @@ pub(crate) struct Ticks<'a> {
 ///
 /// # Panics
 ///
-/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
+/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'a, T: Component> {
@@ -158,7 +158,7 @@ impl_debug!(ResMut<'a, T>, Component);
 
 /// Unique borrow of a non-[`Send`] resource.
 ///
-/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`]. In case that the
+/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
 /// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.

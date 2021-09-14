@@ -20,7 +20,7 @@ use std::{any::TypeId, collections::HashMap};
 /// is a very convenient shorthand when working with one-off collections of components. Note
 /// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
 /// particularly useful for spawning multiple empty entities by using
-/// [`Commands::spawn_batch`](bevy_ecs::system::Commands::spawn_batch).
+/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
 ///
 /// # Examples
 ///
@@ -60,10 +60,11 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// - [Bundle::component_id] must return the ComponentId for each component type in the bundle, in the
+///
+/// - [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
 ///   _exact_ order that [Bundle::get_components] is called.
 /// - [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
-///   [Bundle::component_id]
+///   [Bundle::component_ids].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
     fn component_ids(components: &mut Components) -> Vec<ComponentId>;

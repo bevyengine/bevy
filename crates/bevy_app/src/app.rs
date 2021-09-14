@@ -516,7 +516,7 @@ impl App {
     /// Adding those stages is necessary to make some core engine features work, like
     /// adding systems without specifying a stage, or registering events. This is however
     /// done by default by calling `App::default`, which is in turn called by
-    /// [`App::build`].
+    /// [`App::new`].
     ///
     /// # The stages
     ///
@@ -747,7 +747,7 @@ impl App {
     /// Bevy plugins can be grouped into a set of plugins. Bevy provides
     /// built-in PluginGroups that provide core engine functionality.
     ///
-    /// The plugin groups available by default are [`DefaultPlugins`] and [`MinimalPlugins`].
+    /// The plugin groups available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// ## Example
     /// ```
