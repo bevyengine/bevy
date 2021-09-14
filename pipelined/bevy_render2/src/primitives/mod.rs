@@ -34,9 +34,25 @@ impl Aabb {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f32,
+}
+
+impl Sphere {
+    pub fn intersects_obb(&self, aabb: &Aabb, model_to_world: &Mat4) -> bool {
+        let aabb_center_world = *model_to_world * aabb.center.extend(1.0);
+        let axes = [
+            Vec3A::from(model_to_world.x_axis),
+            Vec3A::from(model_to_world.y_axis),
+            Vec3A::from(model_to_world.z_axis),
+        ];
+        let v = Vec3A::from(aabb_center_world) - Vec3A::from(self.center);
+        let d = v.length();
+        let relative_radius = aabb.relative_radius(&(v / d), &axes);
+        d < self.radius + relative_radius
+    }
 }
 
 /// A plane defined by a normal and distance value along the normal
