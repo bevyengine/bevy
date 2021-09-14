@@ -21,9 +21,8 @@ impl Aabb {
     }
 
     /// Calculate the relative radius of the AABB with respect to a plane
-    pub fn relative_radius(&self, p_normal_d: &Vec4, axes: &[Vec3A]) -> f32 {
+    pub fn relative_radius(&self, p_normal: &Vec3A, axes: &[Vec3A]) -> f32 {
         // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
-        let p_normal = Vec3A::from(*p_normal_d);
         let half_extents = Vec3A::from(self.half_extents);
         Vec3A::new(
             p_normal.dot(axes[0]),
@@ -100,7 +99,8 @@ impl Frustum {
         ];
 
         for plane in &self.planes {
-            let relative_radius = aabb.relative_radius(&plane.normal_d, &axes);
+            let p_normal = Vec3A::from(plane.normal_d);
+            let relative_radius = aabb.relative_radius(&p_normal, &axes);
             if plane.normal_d.dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
