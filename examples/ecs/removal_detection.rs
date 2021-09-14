@@ -15,9 +15,9 @@ fn main() {
     // `CoreStage::PostUpdate` stage.
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system_to_stage(CoreStage::Update, remove_component.system())
-        .add_system_to_stage(CoreStage::PostUpdate, react_on_removal.system())
+        .add_startup_system(setup)
+        .add_system_to_stage(CoreStage::Update, remove_component)
+        .add_system_to_stage(CoreStage::PostUpdate, react_on_removal)
         .run();
 }
 

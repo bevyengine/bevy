@@ -9,13 +9,13 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    _asset_server: Res<AssetServer>,
-    // mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // let texture_handle = asset_server.load("branding/icon.png");
+    let texture_handle = asset_server.load("branding/icon.png");
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
-        // material: materials.add(texture_handle.into()),
+        material: materials.add(texture_handle.into()),
         ..Default::default()
     });
 }

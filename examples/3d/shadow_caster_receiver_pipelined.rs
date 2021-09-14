@@ -154,11 +154,11 @@ fn toggle_light(
 fn toggle_shadows(
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
-    queries: QuerySet<(
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+    mut queries: QuerySet<(
+        QueryState<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
+        QueryState<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
+        QueryState<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
+        QueryState<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
     if input.just_pressed(KeyCode::C) {
