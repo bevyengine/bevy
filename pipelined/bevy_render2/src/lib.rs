@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
+pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
