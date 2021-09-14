@@ -4,7 +4,10 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
-use bevy_render2::texture::Image;
+use bevy_render2::{
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+};
 use bevy_transform::components::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone)]
@@ -13,6 +16,10 @@ pub struct PipelinedSpriteBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub texture: Handle<Image>,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for PipelinedSpriteBundle {
@@ -22,6 +29,8 @@ impl Default for PipelinedSpriteBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             texture: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }
@@ -37,6 +46,10 @@ pub struct PipelinedSpriteSheetBundle {
     /// Data pertaining to how the sprite is drawn on the screen
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for PipelinedSpriteSheetBundle {
@@ -46,6 +59,8 @@ impl Default for PipelinedSpriteSheetBundle {
             texture_atlas: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }
