@@ -16,8 +16,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyArrayTexture>()
-        .add_startup_system(setup.system())
-        .add_system(create_array_texture.system())
+        .add_startup_system(setup)
+        .add_system(create_array_texture)
         .run();
 }
 

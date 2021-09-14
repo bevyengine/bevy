@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
@@ -16,12 +16,12 @@ pub trait Command: Send + Sync + 'static {
 }
 
 /// A list of commands that will be run to modify a [`World`].
-pub struct Commands<'s, 'w> {
+pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
 }
 
-impl<'s, 'w> Commands<'s, 'w> {
+impl<'w, 's> Commands<'w, 's> {
     /// Create a new `Commands` from a queue and a world.
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl<'s, 'w> Commands<'s, 'w> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self) -> EntityCommands<'s, 'w, '_> {
+    pub fn spawn<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -58,7 +58,14 @@ impl<'s, 'w> Commands<'s, 'w> {
         }
     }
 
-    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'s, 'w, '_> {
+    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [None] if the `entity` exists with a different generation.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
+    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         self.add(GetOrSpawn { entity });
         EntityCommands {
             entity,
@@ -66,9 +73,8 @@ impl<'s, 'w> Commands<'s, 'w> {
         }
     }
 
-    // TODO: this is a hack to work around the "multiple worlds" limitations:
-    // Right now Commands must allocate entities from their "scheduled" world, but Commands might be applied to other worlds,
-    // such as the "render world"
+    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
+    /// this [Command] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
         self.queue.push(Spawn { bundle })
     }
@@ -113,7 +119,7 @@ impl<'s, 'w> Commands<'s, 'w> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn_bundle<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'s, 'w, '_> {
+    pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
         e.insert_bundle(bundle);
         e
@@ -138,7 +144,13 @@ impl<'s, 'w> Commands<'s, 'w> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'s, 'w, '_> {
+    #[track_caller]
+    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+        assert!(
+            self.entities.contains(entity),
+            "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
+            entity
+        );
         EntityCommands {
             entity,
             commands: self,
@@ -153,6 +165,23 @@ impl<'s, 'w> Commands<'s, 'w> {
         I::Item: Bundle,
     {
         self.queue.push(SpawnBatch { bundles_iter });
+    }
+
+    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
+    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator + Send + Sync + 'static,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
     /// See [`World::insert_resource`].
@@ -174,12 +203,12 @@ impl<'s, 'w> Commands<'s, 'w> {
 }
 
 /// A list of commands that will be run to modify an [`Entity`].
-pub struct EntityCommands<'s, 'w, 'a> {
+pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
-    commands: &'a mut Commands<'s, 'w>,
+    commands: &'a mut Commands<'w, 's>,
 }
 
-impl<'s, 'w, 'a> EntityCommands<'s, 'w, 'a> {
+impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Retrieves the current entity's unique [`Entity`] id.
     #[inline]
     pub fn id(&self) -> Entity {
@@ -267,7 +296,7 @@ impl<'s, 'w, 'a> EntityCommands<'s, 'w, 'a> {
     }
 
     /// Returns the underlying `[Commands]`.
-    pub fn commands(&mut self) -> &mut Commands<'s, 'w> {
+    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
 }
@@ -314,6 +343,32 @@ where
     }
 }
 
+pub struct InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    pub bundles_iter: I,
+}
+
+impl<I, B> Command for InsertOrSpawnBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    fn write(self, world: &mut World) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
+            error!(
+                "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
+                std::any::type_name::<B>(),
+                invalid_entities
+            );
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Despawn {
     pub entity: Entity,
@@ -322,7 +377,9 @@ pub struct Despawn {
 impl Command for Despawn {
     fn write(self, world: &mut World) {
         if !world.despawn(self.entity) {
-            debug!("Failed to despawn non-existent entity {:?}", self.entity);
+            warn!("Could not despawn entity {:?} because it doesn't exist in this World.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", self.entity);
         }
     }
 }
@@ -337,7 +394,13 @@ where
     T: Bundle + 'static,
 {
     fn write(self, world: &mut World) {
-        world.entity_mut(self.entity).insert_bundle(self.bundle);
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert_bundle(self.bundle);
+        } else {
+            panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+        }
     }
 }
 
@@ -352,7 +415,13 @@ where
     T: Component,
 {
     fn write(self, world: &mut World) {
-        world.entity_mut(self.entity).insert(self.component);
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert(self.component);
+        } else {
+            panic!("Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+        }
     }
 }
 

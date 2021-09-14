@@ -34,6 +34,11 @@ pub enum AllocAtWithoutReplacement {
 
 impl Entity {
     /// Creates a new entity reference with a generation of 0.
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a
+    /// scheme worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
@@ -168,6 +173,7 @@ pub struct Entities {
     /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
     pending: Vec<u32>,
     free_cursor: AtomicI64,
+    /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
 }
 
@@ -318,7 +324,7 @@ impl Entities {
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &mut self.meta[entity.id as usize];
-            if current_meta.location.archetype_id == ArchetypeId::invalid() {
+            if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
                 AllocAtWithoutReplacement::Exists(current_meta.location)
@@ -364,12 +370,12 @@ impl Entities {
         }
     }
 
+    /// Returns true if the [`Entities`] contains [`entity`](Entity).
+    // This will return false for entities which have been freed, even if
+    // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
-        // Note that out-of-range IDs are considered to be "contained" because
-        // they must be reserved IDs that we haven't flushed yet.
-        self.meta
-            .get(entity.id as usize)
-            .map_or(true, |meta| meta.generation == entity.generation)
+        self.resolve_from_id(entity.id())
+            .map_or(false, |e| e.generation() == entity.generation)
     }
 
     pub fn clear(&mut self) {
@@ -384,7 +390,7 @@ impl Entities {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
             if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::invalid()
+                || meta.location.archetype_id == ArchetypeId::INVALID
             {
                 return None;
             }
@@ -394,31 +400,23 @@ impl Entities {
         }
     }
 
-    /// Panics if the given id would represent an index outside of `meta`.
+    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
+    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///
-    /// # Safety
-    ///
-    /// Must only be called for currently allocated `id`s.
-    pub unsafe fn resolve_unknown_gen(&self, id: u32) -> Entity {
-        let meta_len = self.meta.len();
-
-        if meta_len > id as usize {
-            let meta = &self.meta[id as usize];
-            Entity {
-                generation: meta.generation,
-                id,
-            }
+    /// Note: This method may return [`Entities`](Entity) which are currently free
+    /// Note that [`contains`](Entities::contains) will correctly return false for freed
+    /// entities, since it checks the generation
+    pub fn resolve_from_id(&self, id: u32) -> Option<Entity> {
+        let idu = id as usize;
+        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+            Some(Entity { generation, id })
         } else {
-            // See if it's pending, but not yet flushed.
+            // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            let num_pending = std::cmp::max(-free_cursor, 0) as usize;
-
-            if meta_len + num_pending > id as usize {
-                // Pending entities will have generation 0.
-                Entity { generation: 0, id }
-            } else {
-                panic!("entity id is out of range");
-            }
+            // If this entity was manually created, then free_cursor might be positive
+            // Returning None handles that case correctly
+            let num_pending = usize::try_from(-free_cursor).ok()?;
+            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
         }
     }
 
@@ -431,7 +429,7 @@ impl Entities {
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
-    /// each time init is called. This _can_ be ArchetypeId::invalid(), provided the Entity has
+    /// each time init is called. This _can_ be ArchetypeId::INVALID, provided the Entity has
     /// not been assigned to an Archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
@@ -476,7 +474,7 @@ impl Entities {
     pub fn flush_as_invalid(&mut self) {
         unsafe {
             self.flush(|_entity, location| {
-                location.archetype_id = ArchetypeId::invalid();
+                location.archetype_id = ArchetypeId::INVALID;
             })
         }
     }
@@ -502,8 +500,8 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
         location: EntityLocation {
-            archetype_id: ArchetypeId::invalid(),
-            index: usize::max_value(), // dummy value, to be filled in
+            archetype_id: ArchetypeId::INVALID,
+            index: usize::MAX, // dummy value, to be filled in
         },
     };
 }

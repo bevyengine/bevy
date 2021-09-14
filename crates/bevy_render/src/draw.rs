@@ -164,7 +164,7 @@ pub enum DrawError {
 }
 
 #[derive(SystemParam)]
-pub struct DrawContext<'s, 'w> {
+pub struct DrawContext<'w, 's> {
     pub pipelines: ResMut<'w, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'w, Assets<Shader>>,
     pub asset_render_resource_bindings: ResMut<'w, AssetRenderResourceBindings>,
@@ -177,7 +177,7 @@ pub struct DrawContext<'s, 'w> {
     marker: PhantomData<&'s usize>,
 }
 
-impl<'s, 'w> DrawContext<'s, 'w> {
+impl<'w, 's> DrawContext<'w, 's> {
     pub fn get_uniform_buffer<T: RenderResource>(
         &mut self,
         render_resource: &T,

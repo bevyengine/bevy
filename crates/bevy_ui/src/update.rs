@@ -54,7 +54,7 @@ fn update_hierarchy(
 mod tests {
     use bevy_ecs::{
         schedule::{Schedule, Stage, SystemStage},
-        system::{CommandQueue, Commands, IntoSystem},
+        system::{CommandQueue, Commands},
         world::World,
     };
     use bevy_transform::{components::Transform, hierarchy::BuildChildren};
@@ -122,7 +122,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(ui_z_system.system());
+        update_stage.add_system(ui_z_system);
         schedule.add_stage("update", update_stage);
         schedule.run(&mut world);
 

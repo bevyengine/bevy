@@ -13,6 +13,7 @@ use bevy_tasks::TaskPool;
 use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
+/// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
@@ -35,6 +36,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
 {
+    /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
@@ -68,6 +70,7 @@ where
         state
     }
 
+    /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
     pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
         // SAFE: the iterator is instantly consumed via `none_remaining` and the implementation of
@@ -78,6 +81,12 @@ where
         }
     }
 
+    /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
+    /// generates new archetypes for the given world.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
     pub fn update_archetypes(&mut self, world: &World) {
         self.validate_world(world);
         let archetypes = world.archetypes();
@@ -98,6 +107,7 @@ where
         }
     }
 
+    /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if self.fetch_state.matches_archetype(archetype)
             && self.filter_state.matches_archetype(archetype)
@@ -121,6 +131,9 @@ where
         }
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
     pub fn get<'w, 's>(
         &'s mut self,
@@ -131,6 +144,17 @@ where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFETY: query is read only
+        unsafe { self.get_unchecked(world, entity) }
+    }
+
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    #[inline]
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+        // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
 
@@ -155,16 +179,8 @@ where
         }
     }
 
-    #[inline]
-    pub fn get_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-        entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
-        // SAFETY: query has unique world access
-        unsafe { self.get_unchecked(world, entity) }
-    }
-
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -184,7 +200,11 @@ where
         )
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
+    /// the current change tick are given.
+    ///
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     pub unsafe fn get_unchecked_manual<'w, 's>(
@@ -219,12 +239,22 @@ where
         }
     }
 
+    /// Returns an [`Iterator`] over the query results for the given [`World`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFETY: query is read only
+        unsafe { self.iter_unchecked(world) }
+    }
+
+    /// Returns an [`Iterator`] over the query results for the given [`World`].
+    #[inline]
+    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
+        // SAFETY: query has unique world access
         unsafe { self.iter_unchecked(world) }
     }
 
@@ -240,12 +270,16 @@ where
         }
     }
 
-    #[inline]
-    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
-        // SAFETY: query has unique world access
-        unsafe { self.iter_unchecked(world) }
-    }
-
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries.
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
+    /// write-queries.
     #[inline]
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
@@ -258,6 +292,13 @@ where
         unsafe { self.iter_combinations_unchecked(world) }
     }
 
+    /// Iterates over all possible combinations of `K` query results for the given [`World`]
+    /// without repetition.
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
     #[inline]
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
@@ -267,6 +308,8 @@ where
         unsafe { self.iter_combinations_unchecked(world) }
     }
 
+    /// Returns an [`Iterator`] over the query results for the given [`World`].
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -280,6 +323,10 @@ where
         self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
+    /// given [`World`] without repetition.
+    /// This can only be called for read-only queries.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -297,7 +344,11 @@ where
         )
     }
 
+    /// Returns an [`Iterator`] for the given [`World`], where the last change and
+    /// the current change tick are given.
+    ///
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
@@ -312,7 +363,12 @@ where
         QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
+    /// given [`World`] without repetition.
+    /// This can only be called for read-only queries.
+    ///
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
@@ -327,6 +383,10 @@ where
         QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
     pub fn for_each<'w, 's>(
         &'s mut self,
@@ -341,6 +401,8 @@ where
         }
     }
 
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// iter_mut() method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w, 's>(
         &'s mut self,
@@ -353,6 +415,11 @@ where
         }
     }
 
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// This can only be called for read-only queries.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -372,6 +439,10 @@ where
         );
     }
 
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    ///
+    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
+    /// write-queries.
     #[inline]
     pub fn par_for_each<'w, 's>(
         &'s mut self,
@@ -388,6 +459,7 @@ where
         }
     }
 
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
     #[inline]
     pub fn par_for_each_mut<'w, 's>(
         &'s mut self,
@@ -402,6 +474,10 @@ where
         }
     }
 
+    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    ///
+    /// This can only be called for read-only queries.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -425,6 +501,10 @@ where
         );
     }
 
+    /// Runs `func` on each query result for the given [`World`], where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -477,6 +557,10 @@ where
         }
     }
 
+    /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries

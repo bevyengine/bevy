@@ -4,7 +4,7 @@ use crate::{
     storage::{TableId, Tables},
     world::World,
 };
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::mem::MaybeUninit;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -217,7 +217,7 @@ where
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     world: &'w World,
-    cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
+    cursors: [QueryIterationCursor<'s, Q, F>; K],
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K>
@@ -239,7 +239,7 @@ where
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
         // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut cursors: [MaybeUninit<QueryIterationCursor<'w, 's, Q, F>>; K] =
+        let mut cursors: [MaybeUninit<QueryIterationCursor<'s, Q, F>>; K] =
             MaybeUninit::uninit().assume_init();
         for (i, cursor) in cursors.iter_mut().enumerate() {
             match i {
@@ -259,8 +259,8 @@ where
         }
 
         // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let cursors: [QueryIterationCursor<'w, 's, Q, F>; K] =
-            (&cursors as *const _ as *const [QueryIterationCursor<'w, 's, Q, F>; K]).read();
+        let cursors: [QueryIterationCursor<'s, Q, F>; K] =
+            (&cursors as *const _ as *const [QueryIterationCursor<'s, Q, F>; K]).read();
 
         QueryCombinationIter {
             world,
@@ -277,9 +277,9 @@ where
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(
+    unsafe fn fetch_next_aliased_unchecked<'a>(
         &mut self,
-    ) -> Option<[<Q::Fetch as Fetch<'w, 's>>::Item; K]>
+    ) -> Option<[<Q::Fetch as Fetch<'a, 's>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -309,7 +309,7 @@ where
         }
 
         // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'w, 's>>::Item>; K] =
+        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a, 's>>::Item>; K] =
             MaybeUninit::uninit().assume_init();
 
         for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
@@ -317,15 +317,15 @@ where
         }
 
         // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let values: [<Q::Fetch as Fetch<'w, 's>>::Item; K] =
-            (&values as *const _ as *const [<Q::Fetch as Fetch<'w, 's>>::Item; K]).read();
+        let values: [<Q::Fetch as Fetch<'a, 's>>::Item; K] =
+            (&values as *const _ as *const [<Q::Fetch as Fetch<'a, 's>>::Item; K]).read();
 
         Some(values)
     }
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'w, 's>>::Item; K]>
+    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_, 's>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -400,7 +400,7 @@ impl<'w, 's, Q: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, ()> {
     }
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
+struct QueryIterationCursor<'s, Q: WorldQuery, F: WorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: Q::Fetch,
@@ -408,10 +408,9 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
     current_len: usize,
     current_index: usize,
     is_dense: bool,
-    marker: PhantomData<&'w usize>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
+impl<'s, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'s, Q, F>
 where
     Q::Fetch: Clone,
     F::Fetch: Clone,
@@ -425,12 +424,11 @@ where
             current_len: self.current_len,
             current_index: self.current_index,
             is_dense: self.is_dense,
-            marker: PhantomData,
         }
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F>
+impl<'s, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'s, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -473,13 +471,12 @@ where
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
             current_index: 0,
-            marker: PhantomData,
         }
     }
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
+    unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
         if self.current_index > 0 {
             if self.is_dense {
                 Some(self.fetch.table_fetch(self.current_index - 1))
@@ -495,7 +492,7 @@ where
     // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
     // We can't currently reuse QueryIterationCursor in QueryIter for performance reasons. See #1763 for context.
     #[inline(always)]
-    unsafe fn next(
+    unsafe fn next<'w>(
         &mut self,
         tables: &'w Tables,
         archetypes: &'w Archetypes,

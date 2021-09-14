@@ -1,16 +1,16 @@
 extern crate proc_macro;
 
-use bevy_macro_utils::{derive_label, BevyManifest};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, Lifetime, LitInt,
-    Result, Token,
+    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, LitInt, Path, Result,
+    Token,
 };
 
 struct AllTuples {
@@ -110,15 +110,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_type_infos = Vec::new();
+    let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
         if *is_bundle {
-            field_type_infos.push(quote! {
-                type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
+            field_component_ids.push(quote! {
+                component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components));
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
@@ -127,8 +127,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
         } else {
-            field_type_infos.push(quote! {
-                type_info.push(#ecs_path::component::TypeInfo::of::<#field_type>());
+            field_component_ids.push(quote! {
+                component_ids.push(components.get_or_insert_id::<#field_type>());
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
@@ -147,10 +147,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
-            fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
-                let mut type_info = Vec::with_capacity(#field_len);
-                #(#field_type_infos)*
-                type_info
+            fn component_ids(
+                components: &mut #ecs_path::component::Components,
+            ) -> Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = Vec::with_capacity(#field_len);
+                #(#field_component_ids)*
+                component_ids
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]
@@ -174,38 +176,26 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
         .collect::<Vec<Ident>>()
 }
 
-fn get_lifetimes(fmt_string: fn(usize) -> String, count: usize) -> Vec<Lifetime> {
-    (0..count)
-        .map(|i| Lifetime::new(&fmt_string(i), Span::call_site()))
-        .collect::<Vec<Lifetime>>()
-}
-
 #[proc_macro]
 pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_queries = 4;
     let queries = get_idents(|i| format!("Q{}", i), max_queries);
     let filters = get_idents(|i| format!("F{}", i), max_queries);
-    let lifetimes = get_lifetimes(|i| format!("'q{}", i), max_queries);
-    let state_lifetimes = get_lifetimes(|i| format!("'qs{}", i), max_queries);
-    let mut query_fns = Vec::new();
     let mut query_fn_muts = Vec::new();
     for i in 0..max_queries {
         let query = &queries[i];
         let filter = &filters[i];
-        let lifetime = &lifetimes[i];
-        let state_lifetime = &state_lifetimes[i];
         let fn_name = Ident::new(&format!("q{}", i), Span::call_site());
-        let fn_name_mut = Ident::new(&format!("q{}_mut", i), Span::call_site());
         let index = Index::from(i);
-        query_fns.push(quote! {
-            pub fn #fn_name(&self) -> &Query<#lifetime, #state_lifetime, #query, #filter> {
-                &self.0.#index
-            }
-        });
         query_fn_muts.push(quote! {
-            pub fn #fn_name_mut(&mut self) -> &mut Query<#lifetime, #state_lifetime, #query, #filter> {
-                &mut self.0.#index
+            pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
+                // SAFE: systems run without conflicts with other systems.
+                // Conflicting queries in QuerySet are not accessible at the same time
+                // QuerySets are guaranteed to not conflict with other SystemParams
+                unsafe {
+                    Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
+                }
             }
         });
     }
@@ -213,12 +203,9 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     for query_count in 1..=max_queries {
         let query = &queries[0..query_count];
         let filter = &filters[0..query_count];
-        let lifetime = &lifetimes[0..query_count];
-        let state_lifetime = &state_lifetimes[0..query_count];
-        let query_fn = &query_fns[0..query_count];
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'s, #(#lifetime,)* #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<(#(Query<#lifetime, 's, #query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
                 type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
@@ -271,10 +258,10 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 fn default_config() {}
             }
 
-            impl<'s, 'w, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'s, 'w> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
-                type Item = QuerySet<(#(Query<'w, 's, #query, #filter>,)*)>;
+                type Item = QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>;
 
                 #[inline]
                 unsafe fn get_param(
@@ -283,15 +270,18 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query, system_meta.last_change_tick, change_tick),)*))
+                    QuerySet {
+                        query_states: &state.0,
+                        world,
+                        last_change_tick: system_meta.last_change_tick,
+                        change_tick,
+                    }
                 }
             }
 
-            impl<#(#state_lifetime,)* #(#lifetime,)* #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<(#(Query<#lifetime, #state_lifetime, #query, #filter>,)*)>
+            impl<'w, 's, #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
-                #(#query_fn)*
                 #(#query_fn_mut)*
             }
         }));
@@ -385,7 +375,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
-            type Fetch = #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
         #[doc(hidden)]
@@ -416,7 +406,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'s, 'w> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             unsafe fn get_param(
                 state: &'s mut Self,
@@ -425,7 +415,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                    #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }
@@ -436,43 +426,46 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, trait_path)
+
+    derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
 
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, Ident::new("StageLabel", Span::call_site())).into()
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
+}
+
+fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
+    let ident = input.ident;
+    let ecs_path: Path = bevy_ecs_path();
+
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
+
+    quote! {
+        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
+            fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
+                Box::new(Clone::clone(self))
+            }
+        }
+    }
 }
 
 fn bevy_ecs_path() -> syn::Path {

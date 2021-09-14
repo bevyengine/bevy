@@ -296,7 +296,7 @@ mod tests {
             .components
             .get_resource_id(TypeId::of::<u32>())
             .unwrap();
-        let resource_archetype = world.archetypes.get(ArchetypeId::resource()).unwrap();
+        let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
         let u32_archetype_component_id = resource_archetype
             .get_archetype_component_id(u32_component_id)
             .unwrap();

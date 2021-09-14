@@ -1,5 +1,6 @@
 use crate::{
     component::ComponentId,
+    prelude::IntoSystem,
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
@@ -8,7 +9,6 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
         SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
-    system::System,
     world::{World, WorldId},
 };
 use bevy_utils::{tracing::info, HashMap, HashSet};
@@ -26,7 +26,7 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl_downcast!(Stage);
 
-/// When this resource is present in the `AppBuilder`'s `Resources`,
+/// When this resource is present in the `App`'s `Resources`,
 /// each `SystemStage` will log a report containing
 /// pairs of systems with ambiguous execution order.
 ///
@@ -83,6 +83,7 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
     apply_buffers: bool,
 }
 
@@ -301,16 +302,19 @@ impl SystemStage {
         self
     }
 
-    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
-        self.set_run_criteria(system);
+    pub fn with_run_criteria<Param, S: IntoSystem<(), ShouldRun, Param>>(
+        mut self,
+        system: S,
+    ) -> Self {
+        self.set_run_criteria(system.system());
         self
     }
 
-    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
+    pub fn set_run_criteria<Param, S: IntoSystem<(), ShouldRun, Param>>(
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.stage_run_criteria.set(Box::new(system));
+        self.stage_run_criteria.set(Box::new(system.system()));
         self
     }
 
@@ -919,14 +923,8 @@ mod tests {
         move |world| world.get_resource_mut::<Vec<usize>>().unwrap().push(tag)
     }
 
-    // This is silly. https://github.com/bevyengine/bevy/issues/1029
-    macro_rules! make_parallel {
-        ($tag:expr) => {{
-            fn parallel(mut resource: ResMut<Vec<usize>>) {
-                resource.push($tag)
-            }
-            parallel
-        }};
+    fn make_parallel(tag: usize) -> impl FnMut(ResMut<Vec<usize>>) {
+        move |mut resource: ResMut<Vec<usize>>| resource.push(tag)
     }
 
     fn every_other_time(mut has_ran: Local<bool>) -> ShouldRun {
@@ -944,7 +942,7 @@ mod tests {
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().at_start())
-            .with_system(make_parallel!(1).system())
+            .with_system(make_parallel(1))
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end());
         stage.run(&mut world);
@@ -963,7 +961,7 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end())
-            .with_system(make_parallel!(1).system())
+            .with_system(make_parallel(1))
             .with_system(make_exclusive(0).exclusive_system().at_start());
         stage.run(&mut world);
         assert_eq!(
@@ -979,10 +977,10 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(2).exclusive_system().before_commands())
-            .with_system(make_parallel!(3).exclusive_system().at_end())
-            .with_system(make_parallel!(1).system())
-            .with_system(make_parallel!(0).exclusive_system().at_start());
+            .with_system(make_parallel(2).exclusive_system().before_commands())
+            .with_system(make_parallel(3).exclusive_system().at_end())
+            .with_system(make_parallel(1))
+            .with_system(make_parallel(0).exclusive_system().at_start());
         stage.run(&mut world);
         assert_eq!(
             *world.get_resource::<Vec<usize>>().unwrap(),
@@ -1239,9 +1237,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(1).system().after("0").label("1"))
-            .with_system(make_parallel!(2).system().after("1"))
-            .with_system(make_parallel!(0).system().label("0"));
+            .with_system(make_parallel(1).after("0").label("1"))
+            .with_system(make_parallel(2).after("1"))
+            .with_system(make_parallel(0).label("0"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1256,9 +1254,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(1).system().label("1").before("2"))
-            .with_system(make_parallel!(2).system().label("2"))
-            .with_system(make_parallel!(0).system().before("1"));
+            .with_system(make_parallel(1).label("1").before("2"))
+            .with_system(make_parallel(2).label("2"))
+            .with_system(make_parallel(0).before("1"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1273,11 +1271,11 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(2).system().label("2"))
-            .with_system(make_parallel!(1).system().after("0").before("2"))
-            .with_system(make_parallel!(0).system().label("0"))
-            .with_system(make_parallel!(4).system().label("4"))
-            .with_system(make_parallel!(3).system().after("2").before("4"));
+            .with_system(make_parallel(2).label("2"))
+            .with_system(make_parallel(1).after("0").before("2"))
+            .with_system(make_parallel(0).label("0"))
+            .with_system(make_parallel(4).label("4"))
+            .with_system(make_parallel(3).after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1292,9 +1290,9 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(1).system().label("first").after("0"))
-            .with_system(make_parallel!(2).system().after("first"))
-            .with_system(make_parallel!(0).system().label("first").label("0"));
+            .with_system(make_parallel(1).label("first").after("0"))
+            .with_system(make_parallel(2).after("first"))
+            .with_system(make_parallel(0).label("first").label("0"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1305,11 +1303,11 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(2).system().after("01").label("2"))
-            .with_system(make_parallel!(1).system().label("01").after("0"))
-            .with_system(make_parallel!(0).system().label("01").label("0"))
-            .with_system(make_parallel!(4).system().label("4"))
-            .with_system(make_parallel!(3).system().after("2").before("4"));
+            .with_system(make_parallel(2).after("01").label("2"))
+            .with_system(make_parallel(1).label("01").after("0"))
+            .with_system(make_parallel(0).label("01").label("0"))
+            .with_system(make_parallel(4).label("4"))
+            .with_system(make_parallel(3).after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1320,17 +1318,11 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(2).system().label("234").label("2"))
-            .with_system(make_parallel!(1).system().before("234").after("0"))
-            .with_system(make_parallel!(0).system().label("0"))
-            .with_system(make_parallel!(4).system().label("234").label("4"))
-            .with_system(
-                make_parallel!(3)
-                    .system()
-                    .label("234")
-                    .after("2")
-                    .before("4"),
-            );
+            .with_system(make_parallel(2).label("234").label("2"))
+            .with_system(make_parallel(1).before("234").after("0"))
+            .with_system(make_parallel(0).label("0"))
+            .with_system(make_parallel(4).label("234").label("4"))
+            .with_system(make_parallel(3).label("234").after("2").before("4"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1346,24 +1338,22 @@ mod tests {
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_system(
-                make_parallel!(2)
-                    .system()
+                make_parallel(2)
                     .label("2")
                     .after("1")
                     .before("3")
                     .before("3"),
             )
             .with_system(
-                make_parallel!(1)
-                    .system()
+                make_parallel(1)
                     .label("1")
                     .after("0")
                     .after("0")
                     .before("2"),
             )
-            .with_system(make_parallel!(0).system().label("0").before("1"))
-            .with_system(make_parallel!(4).system().label("4").after("3"))
-            .with_system(make_parallel!(3).system().label("3").after("2").before("4"));
+            .with_system(make_parallel(0).label("0").before("1"))
+            .with_system(make_parallel(4).label("4").after("3"))
+            .with_system(make_parallel(3).label("3").after("2").before("4"));
         stage.run(&mut world);
         for container in stage.parallel.iter() {
             assert!(container.dependencies().len() <= 1);
@@ -1381,14 +1371,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(2).system().label("2"))
+            .with_system(make_parallel(2).label("2"))
             .with_system_set(
                 SystemSet::new()
-                    .with_system(make_parallel!(0).system().label("0"))
-                    .with_system(make_parallel!(4).system().label("4"))
-                    .with_system(make_parallel!(3).system().after("2").before("4")),
+                    .with_system(make_parallel(0).label("0"))
+                    .with_system(make_parallel(4).label("4"))
+                    .with_system(make_parallel(3).after("2").before("4")),
             )
-            .with_system(make_parallel!(1).system().after("0").before("2"));
+            .with_system(make_parallel(1).after("0").before("2"));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1405,12 +1395,11 @@ mod tests {
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_system(
-                make_parallel!(0)
-                    .system()
+                make_parallel(0)
                     .label("0")
                     .with_run_criteria(every_other_time),
             )
-            .with_system(make_parallel!(1).system().after("0"));
+            .with_system(make_parallel(1).after("0"));
         stage.run(&mut world);
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
@@ -1423,13 +1412,13 @@ mod tests {
 
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(0).system().before("1"))
+            .with_system(make_parallel(0).before("1"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criteria(every_other_time.system())
-                    .with_system(make_parallel!(1).system().label("1")),
+                    .with_run_criteria(every_other_time)
+                    .with_system(make_parallel(1).label("1")),
             )
-            .with_system(make_parallel!(2).system().after("1"));
+            .with_system(make_parallel(2).after("1"));
         stage.run(&mut world);
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
@@ -1444,21 +1433,19 @@ mod tests {
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
             .with_system_run_criteria(every_other_time.label("every other time"))
-            .with_system(make_parallel!(0).system().before("1"))
+            .with_system(make_parallel(0).before("1"))
             .with_system(
-                make_parallel!(1)
-                    .system()
+                make_parallel(1)
                     .label("1")
                     .with_run_criteria("every other time"),
             )
             .with_system(
-                make_parallel!(2)
-                    .system()
+                make_parallel(2)
                     .label("2")
                     .after("1")
                     .with_run_criteria("every other time"),
             )
-            .with_system(make_parallel!(3).system().after("2"));
+            .with_system(make_parallel(3).after("2"));
         stage.run(&mut world);
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
@@ -1480,34 +1467,26 @@ mod tests {
             }
         }
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(0).system().label("0"))
+            .with_system(make_parallel(0).label("0"))
             .with_system(
-                make_parallel!(1)
-                    .system()
+                make_parallel(1)
                     .label("1")
                     .after("0")
-                    .with_run_criteria(every_other_time.system().label("every other time")),
+                    .with_run_criteria(every_other_time.label("every other time")),
             )
             .with_system(
-                make_parallel!(2)
-                    .system()
+                make_parallel(2)
                     .label("2")
                     .after("1")
                     .with_run_criteria(RunCriteria::pipe("every other time", eot_piped.system())),
             )
             .with_system(
-                make_parallel!(3)
-                    .system()
+                make_parallel(3)
                     .label("3")
                     .after("2")
                     .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
             )
-            .with_system(
-                make_parallel!(4)
-                    .system()
-                    .after("3")
-                    .with_run_criteria("piped"),
-            );
+            .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
         for _ in 0..4 {
             stage.run(&mut world);
         }
@@ -1523,27 +1502,16 @@ mod tests {
 
         // Discarding extra criteria with matching labels.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
-        let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(0).system().before("1"))
-            .with_system(
-                make_parallel!(1).system().label("1").with_run_criteria(
-                    every_other_time
-                        .system()
-                        .label_discard_if_duplicate("every other time"),
-                ),
-            )
-            .with_system(
-                make_parallel!(2)
-                    .system()
-                    .label("2")
-                    .after("1")
-                    .with_run_criteria(
-                        every_other_time
-                            .system()
-                            .label_discard_if_duplicate("every other time"),
-                    ),
-            )
-            .with_system(make_parallel!(3).system().after("2"));
+        let mut stage =
+            SystemStage::parallel()
+                .with_system(make_parallel(0).before("1"))
+                .with_system(make_parallel(1).label("1").with_run_criteria(
+                    every_other_time.label_discard_if_duplicate("every other time"),
+                ))
+                .with_system(make_parallel(2).label("2").after("1").with_run_criteria(
+                    every_other_time.label_discard_if_duplicate("every other time"),
+                ))
+                .with_system(make_parallel(3).after("2"));
         stage.run(&mut world);
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
@@ -1561,8 +1529,8 @@ mod tests {
     fn duplicate_run_criteria_label_panic() {
         let mut world = World::new();
         let mut stage = SystemStage::parallel()
-            .with_system_run_criteria(every_other_time.system().label("every other time"))
-            .with_system_run_criteria(every_other_time.system().label("every other time"));
+            .with_system_run_criteria(every_other_time.label("every other time"))
+            .with_system_run_criteria(every_other_time.label("every other time"));
         stage.run(&mut world);
     }
 
@@ -1571,8 +1539,7 @@ mod tests {
     fn parallel_cycle_1() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
-        let mut stage =
-            SystemStage::parallel().with_system(make_parallel!(0).system().label("0").after("0"));
+        let mut stage = SystemStage::parallel().with_system(make_parallel(0).label("0").after("0"));
         stage.run(&mut world);
     }
 
@@ -1582,8 +1549,8 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(0).system().label("0").after("1"))
-            .with_system(make_parallel!(1).system().label("1").after("0"));
+            .with_system(make_parallel(0).label("0").after("1"))
+            .with_system(make_parallel(1).label("1").after("0"));
         stage.run(&mut world);
     }
 
@@ -1594,9 +1561,9 @@ mod tests {
 
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(0).system().label("0"))
-            .with_system(make_parallel!(1).system().after("0").before("2"))
-            .with_system(make_parallel!(2).system().label("2").before("0"));
+            .with_system(make_parallel(0).label("0"))
+            .with_system(make_parallel(1).after("0").before("2"))
+            .with_system(make_parallel(2).label("2").before("0"));
         stage.run(&mut world);
     }
 
@@ -1625,21 +1592,21 @@ mod tests {
         let mut world = World::new();
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("0"))
-            .with_system(empty.system().label("1").after("0"))
-            .with_system(empty.system().label("2"))
-            .with_system(empty.system().label("3").after("2").before("4"))
-            .with_system(empty.system().label("4"));
+            .with_system(empty.label("0"))
+            .with_system(empty.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(empty.label("3").after("2").before("4"))
+            .with_system(empty.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("0"))
-            .with_system(component.system().label("1").after("0"))
-            .with_system(empty.system().label("2"))
-            .with_system(empty.system().label("3").after("2").before("4"))
-            .with_system(component.system().label("4"));
+            .with_system(empty.label("0"))
+            .with_system(component.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(empty.label("3").after("2").before("4"))
+            .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1650,11 +1617,11 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("0"))
-            .with_system(resource.system().label("1").after("0"))
-            .with_system(empty.system().label("2"))
-            .with_system(empty.system().label("3").after("2").before("4"))
-            .with_system(resource.system().label("4"));
+            .with_system(empty.label("0"))
+            .with_system(resource.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(empty.label("3").after("2").before("4"))
+            .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1665,21 +1632,21 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("0"))
-            .with_system(resource.system().label("1").after("0"))
-            .with_system(empty.system().label("2"))
-            .with_system(empty.system().label("3").after("2").before("4"))
-            .with_system(component.system().label("4"));
+            .with_system(empty.label("0"))
+            .with_system(resource.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(empty.label("3").after("2").before("4"))
+            .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0"))
-            .with_system(resource.system().label("1").after("0"))
-            .with_system(empty.system().label("2"))
-            .with_system(component.system().label("3").after("2").before("4"))
-            .with_system(resource.system().label("4"));
+            .with_system(component.label("0"))
+            .with_system(resource.label("1").after("0"))
+            .with_system(empty.label("2"))
+            .with_system(component.label("3").after("2").before("4"))
+            .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1694,17 +1661,11 @@ mod tests {
         assert_eq!(ambiguities.len(), 2);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0"))
-            .with_system(
-                resource
-                    .system()
-                    .label("1")
-                    .after("0")
-                    .in_ambiguity_set("a"),
-            )
-            .with_system(empty.system().label("2"))
-            .with_system(component.system().label("3").after("2").before("4"))
-            .with_system(resource.system().label("4").in_ambiguity_set("a"));
+            .with_system(component.label("0"))
+            .with_system(resource.label("1").after("0").in_ambiguity_set("a"))
+            .with_system(empty.label("2"))
+            .with_system(component.label("3").after("2").before("4"))
+            .with_system(resource.label("4").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1715,9 +1676,9 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0").before("2"))
-            .with_system(component.system().label("1").before("2"))
-            .with_system(component.system().label("2"));
+            .with_system(component.label("0").before("2"))
+            .with_system(component.label("1").before("2"))
+            .with_system(component.label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1728,9 +1689,9 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0"))
-            .with_system(component.system().label("1").after("0"))
-            .with_system(component.system().label("2").after("0"));
+            .with_system(component.label("0"))
+            .with_system(component.label("1").after("0"))
+            .with_system(component.label("2").after("0"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1741,10 +1702,10 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0").before("1").before("2"))
-            .with_system(component.system().label("1"))
-            .with_system(component.system().label("2"))
-            .with_system(component.system().label("3").after("1").after("2"));
+            .with_system(component.label("0").before("1").before("2"))
+            .with_system(component.label("1"))
+            .with_system(component.label("2"))
+            .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1755,20 +1716,20 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0").before("1").before("2"))
-            .with_system(component.system().label("1").in_ambiguity_set("a"))
-            .with_system(component.system().label("2").in_ambiguity_set("a"))
-            .with_system(component.system().label("3").after("1").after("2"));
+            .with_system(component.label("0").before("1").before("2"))
+            .with_system(component.label("1").in_ambiguity_set("a"))
+            .with_system(component.label("2").in_ambiguity_set("a"))
+            .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.system().label("0").before("1").before("2"))
-            .with_system(component.system().label("1").in_ambiguity_set("a"))
-            .with_system(component.system().label("2").in_ambiguity_set("b"))
-            .with_system(component.system().label("3").after("1").after("2"));
+            .with_system(component.label("0").before("1").before("2"))
+            .with_system(component.label("1").in_ambiguity_set("a"))
+            .with_system(component.label("2").in_ambiguity_set("b"))
+            .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_labels(&stage.parallel);
@@ -1781,20 +1742,18 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(
                 component
-                    .system()
                     .label("0")
                     .before("1")
                     .before("2")
                     .before("3")
                     .before("4"),
             )
-            .with_system(component.system().label("1"))
-            .with_system(component.system().label("2"))
-            .with_system(component.system().label("3"))
-            .with_system(component.system().label("4"))
+            .with_system(component.label("1"))
+            .with_system(component.label("2"))
+            .with_system(component.label("3"))
+            .with_system(component.label("4"))
             .with_system(
                 component
-                    .system()
                     .label("5")
                     .after("1")
                     .after("2")
@@ -1833,20 +1792,18 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(
                 component
-                    .system()
                     .label("0")
                     .before("1")
                     .before("2")
                     .before("3")
                     .before("4"),
             )
-            .with_system(component.system().label("1").in_ambiguity_set("a"))
-            .with_system(component.system().label("2").in_ambiguity_set("a"))
-            .with_system(component.system().label("3").in_ambiguity_set("a"))
-            .with_system(component.system().label("4").in_ambiguity_set("a"))
+            .with_system(component.label("1").in_ambiguity_set("a"))
+            .with_system(component.label("2").in_ambiguity_set("a"))
+            .with_system(component.label("3").in_ambiguity_set("a"))
+            .with_system(component.label("4").in_ambiguity_set("a"))
             .with_system(
                 component
-                    .system()
                     .label("5")
                     .after("1")
                     .after("2")
@@ -1861,26 +1818,23 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(
                 component
-                    .system()
                     .label("0")
                     .before("1")
                     .before("2")
                     .before("3")
                     .before("4"),
             )
-            .with_system(component.system().label("1").in_ambiguity_set("a"))
-            .with_system(component.system().label("2").in_ambiguity_set("a"))
+            .with_system(component.label("1").in_ambiguity_set("a"))
+            .with_system(component.label("2").in_ambiguity_set("a"))
             .with_system(
                 component
-                    .system()
                     .label("3")
                     .in_ambiguity_set("a")
                     .in_ambiguity_set("b"),
             )
-            .with_system(component.system().label("4").in_ambiguity_set("b"))
+            .with_system(component.label("4").in_ambiguity_set("b"))
             .with_system(
                 component
-                    .system()
                     .label("5")
                     .after("1")
                     .after("2")
@@ -2011,7 +1965,7 @@ mod tests {
 
         let mut world = World::new();
         world.insert_resource(0_usize);
-        let mut stage = SystemStage::single(query_count_system.system());
+        let mut stage = SystemStage::single(query_count_system);
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
@@ -2034,7 +1988,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(0_usize);
         let mut stage = SystemStage::parallel();
-        stage.add_system(query_count_system.system());
+        stage.add_system(query_count_system);
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
@@ -2056,7 +2010,7 @@ mod tests {
 
         let mut stage = SystemStage::parallel();
         fn work() {}
-        stage.add_system(work.system());
+        stage.add_system(work);
 
         // Overflow twice
         for _ in 0..10 {
@@ -2134,11 +2088,11 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(spawn_entity.system().label("spawn"))
+            .with_system(spawn_entity.label("spawn"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criteria(even_number_of_entities_critiera.system())
-                    .with_system(count_entities.system().before("spawn")),
+                    .with_run_criteria(even_number_of_entities_critiera)
+                    .with_system(count_entities.before("spawn")),
             );
         stage.run(&mut world);
         stage.run(&mut world);
@@ -2169,10 +2123,10 @@ mod tests {
 
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
-        let mut stage_spawn = SystemStage::parallel().with_system(spawn_entity.system());
+        let mut stage_spawn = SystemStage::parallel().with_system(spawn_entity);
         let mut stage_count = SystemStage::parallel()
-            .with_run_criteria(even_number_of_entities_critiera.system())
-            .with_system(count_entities.system());
+            .with_run_criteria(even_number_of_entities_critiera)
+            .with_system(count_entities);
         stage_count.run(&mut world);
         stage_spawn.run(&mut world);
         stage_count.run(&mut world);

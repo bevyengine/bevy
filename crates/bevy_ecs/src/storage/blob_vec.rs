@@ -267,8 +267,12 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::BlobVec;
-    use crate::component::TypeInfo;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
+
+    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    unsafe fn drop_ptr<T>(x: *mut u8) {
+        x.cast::<T>().drop_in_place()
+    }
 
     /// # Safety
     ///
@@ -300,7 +304,7 @@ mod tests {
     #[test]
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
-        let drop = TypeInfo::drop_ptr::<usize>;
+        let drop = drop_ptr::<usize>;
         let mut blob_vec = BlobVec::new(item_layout, drop, 64);
         unsafe {
             for i in 0..1_000 {
@@ -330,7 +334,7 @@ mod tests {
         let drop_counter = Rc::new(RefCell::new(0));
         {
             let item_layout = Layout::new::<Foo>();
-            let drop = TypeInfo::drop_ptr::<Foo>;
+            let drop = drop_ptr::<Foo>;
             let mut blob_vec = BlobVec::new(item_layout, drop, 2);
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
@@ -390,7 +394,7 @@ mod tests {
     #[test]
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
-        let drop = TypeInfo::drop_ptr::<Foo>;
+        let drop = drop_ptr::<Foo>;
         let _ = BlobVec::new(item_layout, drop, 0);
     }
 }
