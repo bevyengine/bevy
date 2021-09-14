@@ -1,6 +1,8 @@
+pub mod visibility;
 pub mod window;
 
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
+pub use visibility::*;
 pub use window::*;
 
 use crate::{
