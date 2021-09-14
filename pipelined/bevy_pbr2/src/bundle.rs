@@ -27,6 +27,7 @@ impl Default for PbrBundle {
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
+    pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -35,6 +36,7 @@ pub struct PointLightBundle {
 #[derive(Debug, Bundle, Default)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
+    pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
