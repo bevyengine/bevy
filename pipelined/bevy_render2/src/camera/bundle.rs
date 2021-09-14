@@ -42,7 +42,6 @@ impl PerspectiveCameraBundle {
         PerspectiveCameraBundle {
             camera: Camera {
                 name: Some(name.to_string()),
-                far: perspective_projection.far(),
                 ..Default::default()
             },
             perspective_projection,
@@ -95,7 +94,6 @@ impl OrthographicCameraBundle {
         OrthographicCameraBundle {
             camera: Camera {
                 name: Some(CameraPlugin::CAMERA_2D.to_string()),
-                far,
                 ..Default::default()
             },
             orthographic_projection,
@@ -122,7 +120,6 @@ impl OrthographicCameraBundle {
         OrthographicCameraBundle {
             camera: Camera {
                 name: Some(CameraPlugin::CAMERA_3D.to_string()),
-                far: orthographic_projection.far(),
                 ..Default::default()
             },
             orthographic_projection,
@@ -145,7 +142,6 @@ impl OrthographicCameraBundle {
         OrthographicCameraBundle {
             camera: Camera {
                 name: Some(name.to_string()),
-                far: orthographic_projection.far(),
                 ..Default::default()
             },
             orthographic_projection,
