@@ -8,6 +8,7 @@ pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn depth_calculation(&self) -> DepthCalculation;
+    fn far(&self) -> f32;
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -30,6 +31,10 @@ impl CameraProjection for PerspectiveProjection {
 
     fn depth_calculation(&self) -> DepthCalculation {
         DepthCalculation::Distance
+    }
+
+    fn far(&self) -> f32 {
+        self.far
     }
 }
 
@@ -145,6 +150,10 @@ impl CameraProjection for OrthographicProjection {
 
     fn depth_calculation(&self) -> DepthCalculation {
         self.depth_calculation
+    }
+
+    fn far(&self) -> f32 {
+        self.far
     }
 }
 
