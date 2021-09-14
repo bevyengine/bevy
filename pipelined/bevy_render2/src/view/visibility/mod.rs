@@ -9,7 +9,7 @@ use bevy_reflect::Reflect;
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 
 use crate::{
-    camera::{CameraProjection, OrthographicProjection, PerspectiveProjection},
+    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
     mesh::Mesh,
     primitives::{Aabb, Frustum},
 };
@@ -128,11 +128,7 @@ pub fn update_frusta<T: CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
-    mut view_query: Query<(
-        &mut VisibleEntities,
-        Option<&RenderLayers>,
-        Option<&Frustum>,
-    )>,
+    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_entity_query: Query<(
         Entity,
         &Visibility,
@@ -142,7 +138,7 @@ pub fn check_visibility(
     bounded_entity_query: Query<(&Aabb, &GlobalTransform)>,
 ) {
     let mut first_view = true;
-    for (mut visible_entities, maybe_view_mask, maybe_frustum) in view_query.iter_mut() {
+    for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
@@ -165,10 +161,8 @@ pub fn check_visibility(
 
             // If we have an aabb, transform, and frustum, do frustum culling
             if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
-                if let Some(frustum) = maybe_frustum {
-                    if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
-                        continue;
-                    }
+                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                    continue;
                 }
             }
 

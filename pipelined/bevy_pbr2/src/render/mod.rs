@@ -21,7 +21,9 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ComputedVisibility, ExtractedView, Msaa, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{
+        ComputedVisibility, ExtractedView, Msaa, ViewUniformOffset, ViewUniforms, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -621,11 +623,7 @@ pub fn queue_meshes(
     view_uniforms: Res<ViewUniforms>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
-    standard_material_meshes: Query<(
-        &Handle<StandardMaterial>,
-        &Handle<Mesh>,
-        &MeshUniform,
-    )>,
+    standard_material_meshes: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -710,7 +708,7 @@ pub fn queue_meshes(
                         }
                     }
                     let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
-    
+
                     // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
                     //       gives the z component of translation of the mesh in view space
                     let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
@@ -720,7 +718,7 @@ pub fn queue_meshes(
                         draw_function: draw_pbr,
                         pipeline: pipeline_id,
                         distance: mesh_z,
-                    });    
+                    });
                 }
             }
         }

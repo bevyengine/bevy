@@ -1,6 +1,7 @@
 use crate::{
-    AmbientLight, DirectionalLight, DirectionalLightShadowMap, MeshUniform, NotShadowCaster,
-    PbrPipeline, PointLight, PointLightShadowMap, TransformBindGroup, SHADOW_SHADER_HANDLE,
+    AmbientLight, CubeFrustaVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
+    MeshUniform, NotShadowCaster, PbrPipeline, PointLight, PointLightShadowMap, TransformBindGroup,
+    SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -14,6 +15,7 @@ use bevy_render2::{
     camera::CameraProjection,
     color::Color,
     mesh::Mesh,
+    primitives::{Aabb, CubeFrusta, Frustum, Sphere},
     render_asset::RenderAssets,
     render_component::DynamicUniformIndex,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -23,11 +25,24 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+    view::{
+        ComputedVisibility, ExtractedView, RenderLayers, ViewUniformOffset, ViewUniforms,
+        Visibility, VisibleEntities, VisibleEntity,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum LightSystems {
+    UpdateDirectionalLightFrusta,
+    UpdatePointLightFrusta,
+    CheckLightVisibility,
+    ExtractLights,
+    PrepareLights,
+    QueueShadows,
+}
 
 pub struct ExtractedAmbientLight {
     color: Color,
@@ -273,14 +288,179 @@ impl SpecializedPipeline for ShadowPipeline {
     }
 }
 
-// TODO: ultimately these could be filtered down to lights relevant to actual views
+pub fn update_directional_light_frusta(
+    mut views: Query<(&GlobalTransform, &DirectionalLight, &mut Frustum)>,
+) {
+    for (transform, directional_light, mut frustum) in views.iter_mut() {
+        let view_projection = directional_light.shadow_projection.get_projection_matrix()
+            * transform.compute_matrix().inverse();
+        *frustum = Frustum::from_view_projection(
+            &view_projection,
+            &transform.translation,
+            &transform.back(),
+            directional_light.shadow_projection.far(),
+        );
+    }
+}
+
+pub fn update_point_light_frusta(
+    mut views: Query<(&GlobalTransform, &PointLight, &mut CubeFrusta)>,
+) {
+    let projection = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+    let view_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
+    for (transform, point_light, mut cube_frusta) in views.iter_mut() {
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        // and ignore rotation because we want the shadow map projections to align with the axes
+        let view_translation = GlobalTransform::from_translation(transform.translation);
+        let view_backward = transform.back();
+
+        for (view_rotation, frustum) in view_rotations.iter().zip(cube_frusta.iter_mut()) {
+            let view = view_translation * *view_rotation;
+            let view_projection = projection * view.compute_matrix().inverse();
+
+            *frustum = Frustum::from_view_projection(
+                &view_projection,
+                &transform.translation,
+                &view_backward,
+                point_light.range,
+            );
+        }
+    }
+}
+
+pub fn check_light_visibility(
+    mut point_lights: Query<
+        (
+            &PointLight,
+            &GlobalTransform,
+            &CubeFrusta,
+            &mut CubeFrustaVisibleEntities,
+            Option<&RenderLayers>,
+        ),
+        With<PointLight>,
+    >,
+    mut directional_lights: Query<
+        (&Frustum, &mut VisibleEntities, Option<&RenderLayers>),
+        With<DirectionalLight>,
+    >,
+    mut visible_entity_query: Query<
+        (
+            Entity,
+            &Visibility,
+            &mut ComputedVisibility,
+            Option<&RenderLayers>,
+        ),
+        Without<NotShadowCaster>,
+    >,
+    bounded_entity_query: Query<(&Aabb, &GlobalTransform)>,
+) {
+    // Directonal lights
+    for (frustum, mut visible_entities, maybe_view_mask) in directional_lights.iter_mut() {
+        visible_entities.entities.clear();
+        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
+        for (entity, visibility, mut computed_visibility, maybe_entity_mask) in
+            visible_entity_query.iter_mut()
+        {
+            if !visibility.is_visible {
+                continue;
+            }
+
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                continue;
+            }
+
+            // If we have an aabb, transform, and frustum, do frustum culling
+            if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
+                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                    continue;
+                }
+            }
+
+            computed_visibility.is_visible = true;
+            visible_entities.entities.push(VisibleEntity { entity });
+        }
+
+        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+        // to prevent holding unneeded memory
+    }
+
+    // Point lights
+    for (point_light, transform, cube_frusta, mut cube_frusta_visible_entities, maybe_view_mask) in
+        point_lights.iter_mut()
+    {
+        for visible_entities in cube_frusta_visible_entities.iter_mut() {
+            visible_entities.entities.clear();
+        }
+        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let light_sphere = Sphere {
+            center: transform.translation,
+            radius: point_light.range,
+        };
+
+        for (entity, visibility, mut computed_visibility, maybe_entity_mask) in
+            visible_entity_query.iter_mut()
+        {
+            if !visibility.is_visible {
+                continue;
+            }
+
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                continue;
+            }
+
+            if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
+                let model_to_world = transform.compute_matrix();
+                // Do a cheap sphere vs obb test to prune out most meshes
+                if light_sphere.intersects_obb(aabb, &model_to_world) {
+                    continue;
+                }
+                for (frustum, visible_entities) in cube_frusta
+                    .iter()
+                    .zip(cube_frusta_visible_entities.iter_mut())
+                {
+                    if frustum.intersects_obb(aabb, &model_to_world) {
+                        computed_visibility.is_visible = true;
+                        visible_entities.entities.push(VisibleEntity { entity });
+                    }
+                }
+            } else {
+                computed_visibility.is_visible = true;
+                for visible_entities in cube_frusta_visible_entities.iter_mut() {
+                    visible_entities.entities.push(VisibleEntity { entity })
+                }
+            }
+        }
+
+        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+        // to prevent holding unneeded memory
+    }
+}
+
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    point_lights: Query<(Entity, &PointLight, &GlobalTransform)>,
-    directional_lights: Query<(Entity, &DirectionalLight, &GlobalTransform)>,
+    point_lights: Query<(
+        Entity,
+        &PointLight,
+        &CubeFrustaVisibleEntities,
+        &GlobalTransform,
+    )>,
+    directional_lights: Query<(
+        Entity,
+        &DirectionalLight,
+        &VisibleEntities,
+        &GlobalTransform,
+    )>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
         color: ambient_light.color,
@@ -298,24 +478,27 @@ pub fn extract_lights(
     // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
-    for (entity, point_light, transform) in point_lights.iter() {
-        commands.get_or_spawn(entity).insert(ExtractedPointLight {
-            color: point_light.color,
-            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-            // for details.
-            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-            range: point_light.range,
-            radius: point_light.radius,
-            transform: *transform,
-            shadow_depth_bias: point_light.shadow_depth_bias,
-            // The factor of SQRT_2 is for the worst-case diagonal offset
-            shadow_normal_bias: point_light.shadow_normal_bias
-                * point_light_texel_size
-                * std::f32::consts::SQRT_2,
-        });
+    for (entity, point_light, cube_frusta_visible_entities, transform) in point_lights.iter() {
+        commands.get_or_spawn(entity).insert_bundle((
+            ExtractedPointLight {
+                color: point_light.color,
+                // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                // for details.
+                intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                range: point_light.range,
+                radius: point_light.radius,
+                transform: *transform,
+                shadow_depth_bias: point_light.shadow_depth_bias,
+                // The factor of SQRT_2 is for the worst-case diagonal offset
+                shadow_normal_bias: point_light.shadow_normal_bias
+                    * point_light_texel_size
+                    * std::f32::consts::SQRT_2,
+            },
+            cube_frusta_visible_entities.clone(),
+        ));
     }
-    for (entity, directional_light, transform) in directional_lights.iter() {
+    for (entity, directional_light, visible_entities, transform) in directional_lights.iter() {
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
@@ -328,9 +511,8 @@ pub fn extract_lights(
             );
         let directional_light_texel_size =
             largest_dimension / directional_light_shadow_map.size as f32;
-        commands
-            .get_or_spawn(entity)
-            .insert(ExtractedDirectionalLight {
+        commands.get_or_spawn(entity).insert_bundle((
+            ExtractedDirectionalLight {
                 color: directional_light.color,
                 illuminance: directional_light.illuminance,
                 direction: transform.forward(),
@@ -340,7 +522,9 @@ pub fn extract_lights(
                 shadow_normal_bias: directional_light.shadow_normal_bias
                     * directional_light_texel_size
                     * std::f32::consts::SQRT_2,
-            });
+            },
+            visible_entities.clone(),
+        ));
     }
 }
 
@@ -420,6 +604,11 @@ pub struct LightMeta {
     pub shadow_view_bind_group: Option<BindGroup>,
 }
 
+pub enum LightEntity {
+    Directional(Entity),
+    Point((Entity, usize)),
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
@@ -431,12 +620,20 @@ pub fn prepare_lights(
     ambient_light: Res<ExtractedAmbientLight>,
     point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
-    point_lights: Query<&ExtractedPointLight>,
-    directional_lights: Query<&ExtractedDirectionalLight>,
+    point_lights: Query<(Entity, &ExtractedPointLight)>,
+    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
     light_meta.view_gpu_lights.clear();
 
     let ambient_color = ambient_light.color.as_rgba_linear() * ambient_light.brightness;
+    // Pre-calculate for PointLights
+    let cube_face_projection =
+        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+    let cube_face_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
     // set up light data for each view
     for entity in views.iter() {
         let point_light_depth_texture = texture_cache.get(
@@ -482,19 +679,15 @@ pub fn prepare_lights(
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for (light_index, light) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
-            let projection =
-                Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
-
+        for (light_index, (light_entity, light)) in
+            point_lights.iter().enumerate().take(MAX_POINT_LIGHTS)
+        {
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
             let view_translation = GlobalTransform::from_translation(light.transform.translation);
 
-            for (face_index, CubeMapFace { target, up }) in CUBE_MAP_FACES.iter().enumerate() {
-                // use the cubemap projection direction
-                let view_rotation = GlobalTransform::identity().looking_at(*target, *up);
-
+            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
                     point_light_depth_texture
                         .texture
@@ -523,17 +716,18 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: point_light_shadow_map.size as u32,
                             height: point_light_shadow_map.size as u32,
-                            transform: view_translation * view_rotation,
-                            projection,
+                            transform: view_translation * *view_rotation,
+                            projection: cube_face_projection,
                         },
                         RenderPhase::<Shadow>::default(),
+                        LightEntity::Point((light_entity, face_index)),
                     ))
                     .id();
                 view_lights.push(view_light_entity);
             }
 
             gpu_lights.point_lights[light_index] = GpuPointLight {
-                projection,
+                projection: cube_face_projection,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: (light.color.as_rgba_linear() * light.intensity).into(),
@@ -547,7 +741,7 @@ pub fn prepare_lights(
             };
         }
 
-        for (i, light) in directional_lights
+        for (i, (light_entity, light)) in directional_lights
             .iter()
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
@@ -613,6 +807,7 @@ pub fn prepare_lights(
                         projection,
                     },
                     RenderPhase::<Shadow>::default(),
+                    LightEntity::Directional(light_entity),
                 ))
                 .id();
             view_lights.push(view_light_entity);
@@ -681,37 +876,50 @@ pub fn queue_shadow_view_bind_group(
 pub fn queue_shadows(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     shadow_pipeline: Res<ShadowPipeline>,
-    casting_meshes: Query<(Entity, &Handle<Mesh>), Without<NotShadowCaster>>,
+    casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     mut pipelines: ResMut<SpecializedPipelines<ShadowPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut view_lights: Query<&ViewLights>,
-    mut view_light_shadow_phases: Query<&mut RenderPhase<Shadow>>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    point_light_entities: Query<&CubeFrustaVisibleEntities, With<ExtractedPointLight>>,
+    directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
 ) {
     for view_lights in view_lights.iter_mut() {
-        // ultimately lights should check meshes for relevancy (ex: light views can "see" different meshes than the main view can)
         let draw_shadow_mesh = shadow_draw_functions
             .read()
             .get_id::<DrawShadowMesh>()
             .unwrap();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let mut shadow_phase = view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            // TODO: this should only queue up meshes that are actually visible by each "light view"
-            for (entity, mesh_handle) in casting_meshes.iter() {
+            let (light_entity, mut shadow_phase) =
+                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let visible_entities = match light_entity {
+                LightEntity::Directional(light_entity) => directional_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get directional light visible entities"),
+                LightEntity::Point((light_entity, face_index)) => point_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get point light visible entities")
+                    .get(*face_index),
+            };
+            for VisibleEntity { entity, .. } in visible_entities.iter() {
                 let mut key = ShadowPipelineKey::empty();
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    if mesh.has_tangents {
-                        key |= ShadowPipelineKey::VERTEX_TANGENTS;
+                if let Ok(mesh_handle) = casting_meshes.get(*entity) {
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        if mesh.has_tangents {
+                            key |= ShadowPipelineKey::VERTEX_TANGENTS;
+                        }
                     }
-                }
-                let pipeline_id = pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
+                    let pipeline_id =
+                        pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
 
-                shadow_phase.add(Shadow {
-                    draw_function: draw_shadow_mesh,
-                    pipeline: pipeline_id,
-                    entity,
-                    distance: 0.0, // TODO: sort back-to-front
-                })
+                    shadow_phase.add(Shadow {
+                        draw_function: draw_shadow_mesh,
+                        pipeline: pipeline_id,
+                        entity: *entity,
+                        distance: 0.0, // TODO: sort back-to-front
+                    });
+                }
             }
         }
     }

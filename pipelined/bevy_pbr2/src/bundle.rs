@@ -3,6 +3,7 @@ use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
     mesh::Mesh,
+    primitives::{CubeFrusta, Frustum},
     view::{ComputedVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -59,7 +60,8 @@ impl CubeFrustaVisibleEntities {
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
-    pub visible_entities: VisibleEntities,
+    pub cube_frusta_visible_entities: CubeFrustaVisibleEntities,
+    pub cube_frusta: CubeFrusta,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -68,6 +70,7 @@ pub struct PointLightBundle {
 #[derive(Debug, Bundle, Default)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
+    pub frustum: Frustum,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
