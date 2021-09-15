@@ -126,11 +126,11 @@ impl Frustum {
 }
 
 #[derive(Debug, Default)]
-pub struct CubeFrusta {
+pub struct CubemapFrusta {
     pub frusta: [Frustum; 6],
 }
 
-impl CubeFrusta {
+impl CubemapFrusta {
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Frustum> {
         self.frusta.iter()
     }

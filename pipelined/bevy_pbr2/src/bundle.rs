@@ -3,7 +3,7 @@ use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
     mesh::Mesh,
-    primitives::{CubeFrusta, Frustum},
+    primitives::{CubemapFrusta, Frustum},
     view::{ComputedVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -34,25 +34,25 @@ impl Default for PbrBundle {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct CubeFrustaVisibleEntities {
-    cube_frusta_visible_entities: [VisibleEntities; 6],
+pub struct CubemapVisibleEntities {
+    data: [VisibleEntities; 6],
 }
 
-impl CubeFrustaVisibleEntities {
+impl CubemapVisibleEntities {
     pub fn get(&self, i: usize) -> &VisibleEntities {
-        &self.cube_frusta_visible_entities[i]
+        &self.data[i]
     }
 
     pub fn get_mut(&mut self, i: usize) -> &mut VisibleEntities {
-        &mut self.cube_frusta_visible_entities[i]
+        &mut self.data[i]
     }
 
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntities> {
-        self.cube_frusta_visible_entities.iter()
+        self.data.iter()
     }
 
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleEntities> {
-        self.cube_frusta_visible_entities.iter_mut()
+        self.data.iter_mut()
     }
 }
 
@@ -60,8 +60,8 @@ impl CubeFrustaVisibleEntities {
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
-    pub cube_frusta_visible_entities: CubeFrustaVisibleEntities,
-    pub cube_frusta: CubeFrusta,
+    pub cubemap_visible_entities: CubemapVisibleEntities,
+    pub cubemap_frusta: CubemapFrusta,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
