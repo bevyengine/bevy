@@ -627,8 +627,14 @@ impl World {
     }
 
     pub fn is_resource_added<T: Component>(&self) -> bool {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
-        let column = self.get_populated_resource_column(component_id).unwrap();
+        let component_id = match self.components.get_resource_id(TypeId::of::<T>()) {
+            Some(id) => id,
+            None => return false,
+        };
+        let column = match self.get_populated_resource_column(component_id) {
+            Some(col) => col,
+            None => return false,
+        };
         // SAFE: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
@@ -1128,5 +1134,23 @@ impl Default for MainThreadValidator {
         Self {
             main_thread: std::thread::current().id(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::World;
+
+    struct TestResource;
+
+    #[test]
+    fn is_resource_added() {
+        let mut world = World::default();
+
+        assert!(!world.is_resource_added::<TestResource>());
+
+        world.insert_resource(TestResource);
+
+        assert!(world.is_resource_added::<TestResource>());
     }
 }
