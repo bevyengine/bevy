@@ -134,15 +134,16 @@ pub fn check_visibility(
         &Visibility,
         &mut ComputedVisibility,
         Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&GlobalTransform>,
     )>,
-    bounded_entity_query: Query<(&Aabb, &GlobalTransform)>,
 ) {
     let mut first_view = true;
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask) in
+        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             visible_entity_query.iter_mut()
         {
             // Initialize the computed visibility to false for the first view, then it is inherited for subsequent views
@@ -159,8 +160,8 @@ pub fn check_visibility(
                 continue;
             }
 
-            // If we have an aabb, transform, and frustum, do frustum culling
-            if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
                     continue;
                 }

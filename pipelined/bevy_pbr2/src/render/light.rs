@@ -354,17 +354,18 @@ pub fn check_light_visibility(
             &Visibility,
             &mut ComputedVisibility,
             Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
         ),
         Without<NotShadowCaster>,
     >,
-    bounded_entity_query: Query<(&Aabb, &GlobalTransform)>,
 ) {
     // Directonal lights
     for (frustum, mut visible_entities, maybe_view_mask) in directional_lights.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask) in
+        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             visible_entity_query.iter_mut()
         {
             if !visibility.is_visible {
@@ -376,8 +377,8 @@ pub fn check_light_visibility(
                 continue;
             }
 
-            // If we have an aabb, transform, and frustum, do frustum culling
-            if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
                     continue;
                 }
@@ -404,7 +405,7 @@ pub fn check_light_visibility(
             radius: point_light.range,
         };
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask) in
+        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             visible_entity_query.iter_mut()
         {
             if !visibility.is_visible {
@@ -416,7 +417,8 @@ pub fn check_light_visibility(
                 continue;
             }
 
-            if let Ok((aabb, transform)) = bounded_entity_query.get(entity) {
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 let model_to_world = transform.compute_matrix();
                 // Do a cheap sphere vs obb test to prune out most meshes
                 if light_sphere.intersects_obb(aabb, &model_to_world) {
