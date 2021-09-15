@@ -36,10 +36,10 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// [Bundle::component_id] must return the ComponentId for each component type in the bundle, in the
+/// [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
 /// _exact_ order that [Bundle::get_components] is called.
 /// [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
-/// [Bundle::component_id]
+/// [Bundle::component_ids]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
     fn component_ids(components: &mut Components) -> Vec<ComponentId>;

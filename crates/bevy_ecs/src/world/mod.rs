@@ -383,6 +383,7 @@ impl World {
     ///     .id();
     /// let position = world.get::<Position>(entity).unwrap();
     /// assert_eq!(position.x, 0.0);
+    /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
         self.get_entity(entity)?.get()
@@ -404,6 +405,7 @@ impl World {
     ///     .id();
     /// let mut position = world.get_mut::<Position>(entity).unwrap();
     /// position.x = 1.0;
+    /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
         self.get_entity_mut(entity)?.get_mut()

@@ -490,6 +490,33 @@ where
 
     /// Gets the result of a single-result query.
     ///
+    /// Assumes this query has only one result and panics if there are no or multiple results.
+    /// Use [`Self::get_single`] to handle the error cases explicitly
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///  # use bevy_ecs::prelude::{IntoSystem, Query, With};
+    /// struct Player;
+    /// struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
+    ///     let player_position = query.single();
+    ///     // do something with player_position
+    /// }
+    /// # let _check_that_its_a_system = player_system.system();
+    /// ```
+    ///
+    /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
+    #[track_caller]
+    pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.get_single().unwrap()
+    }
+
+    /// Gets the result of a single-result query.
+    ///
     /// If the query has exactly one result, returns the result inside `Ok`
     /// otherwise returns either [`QuerySingleError::NoEntities`]
     /// or [`QuerySingleError::MultipleEntities`], as appropriate.
@@ -497,27 +524,28 @@ where
     /// # Examples
     ///
     /// ```
+    ///  # use bevy_ecs::prelude::{IntoSystem, With};
     ///  # use bevy_ecs::system::{Query, QuerySingleError};
-    ///  # use bevy_ecs::prelude::IntoSystem;
-    /// struct PlayerScore(i32);
-    /// fn player_scoring_system(query: Query<&PlayerScore>) {
-    ///     match query.single() {
-    ///         Ok(PlayerScore(score)) => {
-    ///             // do something with score
+    /// struct Player;
+    /// struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
+    ///     match query.get_single() {
+    ///         Ok(position) => {
+    ///             // do something with position
     ///         }
     ///         Err(QuerySingleError::NoEntities(_)) => {
-    ///             // no PlayerScore
+    ///             // no position with Player
     ///         }
     ///         Err(QuerySingleError::MultipleEntities(_)) => {
-    ///             // multiple PlayerScore
+    ///             // multiple position with Player
     ///         }
     ///     }
     /// }
-    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// # let _check_that_its_a_system = player_system.system();
     /// ```
     ///
-    /// This can only be called for read-only queries, see [`Self::single_mut`] for write-queries.
-    pub fn single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    /// This can only be called for read-only queries, see [`Self::get_single_mut`] for write-queries.
+    pub fn get_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -534,9 +562,18 @@ where
         }
     }
 
+    /// Gets the query result if it is only a single result, otherwise panics
+    /// If you want to handle the error case yourself you can use the [`Self::get_single_mut`] variant.
+    #[track_caller]
+    pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
+        self.get_single_mut().unwrap()
+    }
+
     /// Gets the query result if it is only a single result, otherwise returns a
     /// [`QuerySingleError`].
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
+    pub fn get_single_mut(
+        &mut self,
+    ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();

@@ -41,7 +41,6 @@ enum EventSystem {
 }
 
 // This is our event that we will send and receive in systems
-#[derive(Debug)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,
@@ -62,6 +61,9 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 // If an event is received it will be printed to the console
 fn receiving_system(mut event_reader: EventReader<MyEvent>) {
     for my_event in event_reader.iter() {
-        println!("    Received: {:?}", *my_event);
+        println!(
+            "    Received message {:?}, with random value of {}",
+            my_event.message, my_event.random_value
+        );
     }
 }
