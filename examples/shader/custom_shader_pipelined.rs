@@ -37,7 +37,7 @@ pub struct CustomMaterial {
 
 #[derive(Clone)]
 pub struct GpuCustomMaterial {
-    buffer: Buffer,
+    _buffer: Buffer,
     bind_group: BindGroup,
 }
 
@@ -68,7 +68,7 @@ impl RenderAsset for CustomMaterial {
             layout: &custom_pipeline.material_layout,
         });
 
-        Ok(GpuCustomMaterial { buffer, bind_group })
+        Ok(GpuCustomMaterial { _buffer: buffer, bind_group })
     }
 }
 pub struct CustomMaterialPlugin;
