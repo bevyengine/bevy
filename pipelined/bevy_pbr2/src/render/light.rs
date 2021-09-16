@@ -365,8 +365,14 @@ pub fn check_light_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
-            visible_entity_query.iter_mut()
+        for (
+            entity,
+            visibility,
+            mut computed_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in visible_entity_query.iter_mut()
         {
             if !visibility.is_visible {
                 continue;
@@ -405,8 +411,14 @@ pub fn check_light_visibility(
             radius: point_light.range,
         };
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
-            visible_entity_query.iter_mut()
+        for (
+            entity,
+            visibility,
+            mut computed_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in visible_entity_query.iter_mut()
         {
             if !visibility.is_visible {
                 continue;

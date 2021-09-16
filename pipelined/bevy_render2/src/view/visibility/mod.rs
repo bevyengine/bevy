@@ -15,7 +15,8 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
+#[reflect(Component)]
 pub struct Visibility {
     pub is_visible: bool,
 }
@@ -27,7 +28,8 @@ impl Default for Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
+#[reflect(Component)]
 pub struct ComputedVisibility {
     pub is_visible: bool,
 }
@@ -143,8 +145,14 @@ pub fn check_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (entity, visibility, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
-            visible_entity_query.iter_mut()
+        for (
+            entity,
+            visibility,
+            mut computed_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in visible_entity_query.iter_mut()
         {
             // Initialize the computed visibility to false for the first view, then it is inherited for subsequent views
             if first_view {
