@@ -3,6 +3,7 @@ use crate::{
     render_asset::RenderAsset,
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
+    texture::BevyDefault,
 };
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
@@ -25,7 +26,7 @@ pub struct Image {
 
 impl Default for Image {
     fn default() -> Self {
-        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        let format = wgpu::TextureFormat::bevy_default();
         let data = vec![1; format.pixel_size() as usize];
         Image {
             data,
