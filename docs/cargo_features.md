@@ -23,6 +23,7 @@
 |dynamic|Forces bevy to be dynamically linked, which improves iterative compile times.|
 |trace|Enables system tracing (useful in tandem with a feature like trace_chrome).|
 |trace_chrome|Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.|
+|trace_tracy|Enables [Tracy](https://github.com/wolfpld/tracy) as bevy_log output. This allows `Tracy` to connect to and capture profiling data as well as visualize system execution in real-time, present statistics about system execution times, and more.|
 |wgpu_trace|For tracing wgpu.|
 |dds|DDS picture format support.|
 |tga|TGA picture format support.|
