@@ -120,11 +120,9 @@ impl Plugin for LogPlugin {
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
             let subscriber = subscriber.with(fmt_layer);
 
-            #[cfg(all(feature = "tracing-chrome", feature = "tracing-tracy"))]
-            let subscriber = subscriber.with(chrome_layer).with(tracy_layer);
-            #[cfg(all(feature = "tracing-chrome", not(feature = "tracing-tracy")))]
+            #[cfg(feature = "tracing-chrome")]
             let subscriber = subscriber.with(chrome_layer);
-            #[cfg(all(not(feature = "tracing-chrome"), feature = "tracing-tracy"))]
+            #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
 
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
