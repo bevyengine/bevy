@@ -96,7 +96,7 @@ impl Plugin for LogPlugin {
         {
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
             let subscriber = subscriber.with(fmt_layer);
-            #[cfg(feature = "tracing-chrome")]
+            #[cfg(all(feature = "tracing-chrome", not(feature = "tracing-tracy")))]
             {
                 let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
                     .name_fn(Box::new(|event_or_span| match event_or_span {
@@ -118,7 +118,15 @@ impl Plugin for LogPlugin {
                     .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
             }
 
-            #[cfg(not(feature = "tracing-chrome"))]
+            #[cfg(all(feature = "tracing-tracy", not(feature = "tracing-chrome")))]
+            {
+                let tracy_layer = tracing_tracy::TracyLayer::new();
+                let subscriber = subscriber.with(tracy_layer);
+                bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            }
+
+            #[cfg(all(not(feature = "tracing-chrome"), not(feature = "tracing-tracy")))]
             {
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
                     .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
