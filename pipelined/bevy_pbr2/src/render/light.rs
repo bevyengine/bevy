@@ -432,8 +432,8 @@ pub fn check_light_visibility(
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 let model_to_world = transform.compute_matrix();
-                // Do a cheap sphere vs obb test to prune out most meshes
-                if light_sphere.intersects_obb(aabb, &model_to_world) {
+                // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+                if !light_sphere.intersects_obb(aabb, &model_to_world) {
                     continue;
                 }
                 for (frustum, visible_entities) in cubemap_frusta
