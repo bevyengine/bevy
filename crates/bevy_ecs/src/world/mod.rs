@@ -1,5 +1,3 @@
-//! Types for storing and manipulating ECS data.
-
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
@@ -36,17 +34,18 @@ impl Default for WorldId {
     }
 }
 
-/// Stores and exposes operations on [entities](Entity), [components](Component),
+/// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
+///
 /// Each [Entity] has a set of components. Each component can have up to one instance of each
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
 ///
 /// # Resources
 ///
-/// The world can store information not associated to entity data, called *resources*. They
-/// exist on many different forms, where the most common ones are global and
-/// [system local](crate::system::Local) resources.
+/// Worlds can also store *resources*, which are unique instances of a given type that don't
+/// belong to a specific Entity. There are also *non send resources*, which can only be
+/// accessed on the main thread.
 ///
 /// ## Usage of global resources
 ///

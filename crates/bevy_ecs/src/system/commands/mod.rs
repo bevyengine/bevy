@@ -179,7 +179,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// be converted to it).
     ///
     /// The end result of this command is equivalent to iterating `bundles_iter` and calling
-    /// [`spawn`](Self::spawn) on each bundle, but it is slightly more performant due to memory
+    /// [`spawn`](Self::spawn) on each bundle, but it is more performant due to memory
     /// pre-allocation.
     ///
     /// # Example

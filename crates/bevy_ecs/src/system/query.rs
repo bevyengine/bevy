@@ -13,10 +13,13 @@ use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
 ///
-/// Queries allow to iterate over entities and their components as well as filtering them
+/// Queries enable iteration over entities and their components as well as filtering them
 /// on certain conditions. A query matches its parameters against the world to produce a series
 /// of results. Each *query result* is a tuple of components (the same components defined
 /// in the query) that belong to the same entity.
+///
+/// Computational cost of queries is reduced by the fact that they have an internal archetype
+/// cache to avoid re-computing archetype matches on each query access.
 ///
 /// Query functionality is based on the [`WorldQuery`] trait. Both tuples of components
 /// (up to 16 elements) and query filters implement this trait.
@@ -128,7 +131,13 @@ use thiserror::Error;
 /// # system.system();
 /// ```
 ///
-/// See the [`query`](crate::query) module for a full list of available filters.
+/// The following list contains all the available query filters:
+///
+/// - [`Added`](crate::query::Added)
+/// - [`Changed`](crate::query::Changed)
+/// - [`With`](crate::query::With)
+/// - [`Without`](crate::query::Without)
+/// - [`Or`](crate::query::Or)
 ///
 /// ## Optional component access
 ///
@@ -772,7 +781,8 @@ where
         }
     }
 
-    /// Returns the single immutable query result.
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
     ///
     /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
     /// bound). Use [`single_mut`](Self::single_mut) for queries that contain at least one
@@ -803,7 +813,8 @@ where
         self.get_single().unwrap()
     }
 
-    /// Returns the single immutable query result.
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
     ///
     /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
     /// bound). Use [`get_single_mut`](Self::get_single_mut) for queries that contain at least one
@@ -850,7 +861,8 @@ where
         }
     }
 
-    /// Returns the single mutable query result.
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
     ///
     /// # Example
     ///
@@ -876,7 +888,8 @@ where
         self.get_single_mut().unwrap()
     }
 
-    /// Returns the single mutable query result.
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.

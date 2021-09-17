@@ -1,6 +1,6 @@
 //! Tools for controlling behavior in an ECS application.
 //!
-//! Systems define how an ECS based application behave. They have to be registered to a
+//! Systems define how an ECS based application behaves. They have to be registered to a
 //! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually
 //! written as a normal function that will be automatically converted into a system.
 //!
@@ -45,23 +45,23 @@
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
 //!
-//! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
-//! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
-//! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
-//! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
-//! - [`Commands`]
-//! - [`Components`](crate::component::Components) (Provides Components metadata)
-//! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
-//! - [`EventReader`](crate::event::EventReader)
-//! - [`EventWriter`](crate::event::EventWriter)
-//! - [`Local`]
-//! - [`NonSend`] and `Option<NonSend>`
-//! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`Query`]
-//! - [`RemovedComponents`]
 //! - [`Res`] and `Option<Res>`
 //! - [`ResMut`] and `Option<ResMut>`
+//! - [`Commands`]
+//! - [`Local`]
+//! - [`EventReader`](crate::event::EventReader)
+//! - [`EventWriter`](crate::event::EventWriter)
+//! - [`NonSend`] and `Option<NonSend>`
+//! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`RemovedComponents`]
 //! - [`SystemChangeTick`]
+//! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
+//! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
+//! - [`Components`](crate::component::Components) (Provides Components metadata)
+//! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
+//! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
+//! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
 mod commands;
 mod exclusive_system;

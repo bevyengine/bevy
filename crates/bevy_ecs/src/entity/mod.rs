@@ -1,8 +1,9 @@
 //! Entity handling types.
 //!
 //! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
-//! `struct` is just an identification number that [`Component`s](crate::component::Component)
-//! can refer to in order to attach meaningful data to it. This is a fundamental design choice
+//! `struct` is just a *generational index* (a combination of an ID and a generation). Then,
+//! the `Entity` maps to the specific [`Component`s](crate::component::Component). This way,
+//! entities can have meaningful data attached to it. This is a fundamental design choice
 //! that has been taken to enhance performance and usability.
 //!
 //! # Usage

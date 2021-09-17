@@ -593,7 +593,7 @@ impl App {
     /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
     /// before using them. This happens with [`insert_resource`](Self::insert_resource).
     ///
-    /// See also `init_resource` for resources that implement `Default` or `FromResources`.
+    /// See also `init_resource` for resources that implement `Default` or [`FromWorld`].
     ///
     /// ## Example
     /// ```
@@ -642,7 +642,7 @@ impl App {
     ///
     /// If the resource already exists, nothing happens.
     ///
-    /// Adds a resource that implements `Default` or `FromResources` trait.
+    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
     ///
     /// ## Example
     /// ```
@@ -679,7 +679,7 @@ impl App {
 
     /// Initialize a non-send resource in the current [`App`], if it does not exist yet.
     ///
-    /// Adds a resource that implements `Default` or `FromResources` trait.
+    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
     pub fn init_non_send_resource<R>(&mut self) -> &mut Self
     where
         R: FromWorld + 'static,
