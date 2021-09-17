@@ -48,6 +48,9 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
+    /// To directly spawn an entity with a [`Bundle`] included, you can use
+    /// [`spawn_bundle`](Self::spawn_bundle) instead of `.spawn().insert_bundle()`.
+    ///
     /// See [`World::spawn`] for more details.
     ///
     /// # Example
@@ -344,10 +347,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Adds a [`Bundle`] of components to the entity.
-    ///
-    /// If you want to spawn a new entity, consider [`Commands::spawn_bundle`] for a more
-    /// condensed alternative. See
-    /// [`EntityMut::insert_bundle`](crate::world::EntityMut::insert_bundle) for more details.
     ///
     /// # Example
     ///
