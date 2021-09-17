@@ -1,3 +1,5 @@
+//! Types for declaring and storing [`Component`]s.
+
 use crate::storage::SparseSetIndex;
 use std::{
     alloc::Layout,

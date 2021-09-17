@@ -1,3 +1,7 @@
+//! Types for handling [`Bundle`]s.
+//!
+//! This module contains the `Bundle` trait and some other helper types.
+
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -9,15 +13,35 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components, commonly used for spawning entities, and adding and
-/// removing components in bulk.
+/// An ordered collection of components.
 ///
-/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
-/// The `Bundle` trait is automatically implemented for tuples of components:
-/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections
-/// of components. Note that both `()` and `(ComponentA, )` are valid tuples.
+/// Commonly used for spawning entities and adding and removing components in bulk. This
+/// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
+/// is a very convenient shorthand when working with one-off collections of components. Note
+/// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
+/// particularly useful for spawning multiple empty entities by using
+/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
 ///
-/// You can nest bundles like so:
+/// # Examples
+///
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
+/// struct field is a component:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # struct ComponentA;
+/// # struct ComponentB;
+/// # struct ComponentC;
+/// #
+/// #[derive(Bundle)]
+/// struct MyBundle {
+///     a: ComponentA,
+///     b: ComponentB,
+///     c: ComponentC,
+/// }
+/// ```
+///
+/// You can nest bundles using the `#[bundle]` attribute:
 /// ```
 /// # use bevy_ecs::bundle::Bundle;
 ///
@@ -36,10 +60,11 @@ use std::{any::TypeId, collections::HashMap};
 /// ```
 ///
 /// # Safety
-/// [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
-/// _exact_ order that [Bundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
-/// [Bundle::component_ids]
+///
+/// - [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
+///   _exact_ order that [Bundle::get_components] is called.
+/// - [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
+///   [Bundle::component_ids].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
     fn component_ids(components: &mut Components) -> Vec<ComponentId>;
