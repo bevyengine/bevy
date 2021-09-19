@@ -15,7 +15,7 @@ use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
@@ -246,6 +246,7 @@ impl Default for SpriteMeta {
 
 pub fn prepare_sprites(
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     mut extracted_sprites: Query<&mut ExtractedSprite>,
 ) {
@@ -312,8 +313,8 @@ pub fn prepare_sprites(
         }
     }
 
-    sprite_meta.vertices.write_to_staging_buffer(&render_device);
-    sprite_meta.indices.write_to_staging_buffer(&render_device);
+    sprite_meta.vertices.write_buffer(&render_queue);
+    sprite_meta.indices.write_buffer(&render_queue);
 }
 
 #[derive(Default)]
@@ -372,27 +373,6 @@ pub fn queue_sprites(
                 });
             }
         }
-    }
-}
-
-// TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
-pub struct SpriteNode;
-
-impl Node for SpriteNode {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let sprite_buffers = world.get_resource::<SpriteMeta>().unwrap();
-        sprite_buffers
-            .vertices
-            .write_to_buffer(&mut render_context.command_encoder);
-        sprite_buffers
-            .indices
-            .write_to_buffer(&mut render_context.command_encoder);
-        Ok(())
     }
 }
 

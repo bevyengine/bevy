@@ -44,10 +44,5 @@ impl Plugin for SpritePlugin {
             .unwrap()
             .write()
             .add(draw_sprite);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
-        graph.add_node("sprite", SpriteNode);
-        graph
-            .add_node_edge("sprite", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)
-            .unwrap();
     }
 }
