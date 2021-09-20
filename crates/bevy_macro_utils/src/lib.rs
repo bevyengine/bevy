@@ -25,15 +25,19 @@ impl Default for BevyManifest {
 impl BevyManifest {
     pub fn get_path(&self, name: &str) -> syn::Path {
         const BEVY: &str = "bevy";
-        const BEVY_INTERNAL: &str = "bevy_internal";
+
+        let is_bevy = self
+            .manifest
+            .package
+            .as_ref()
+            .map(|it| it.name == BEVY)
+            .unwrap_or(false);
 
         let find_in_deps = |deps: &DepsSet| -> Option<syn::Path> {
-            let package = if let Some(dep) = deps.get(BEVY) {
-                dep.package().unwrap_or(BEVY)
-            } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
-                dep.package().unwrap_or(BEVY_INTERNAL)
+            let package = if is_bevy {
+                BEVY
             } else {
-                return None;
+                deps.get(BEVY)?.package().unwrap_or(BEVY)
             };
 
             let mut path = get_path(package);
@@ -42,7 +46,6 @@ impl BevyManifest {
             }
             Some(path)
         };
-
         let deps = self.manifest.dependencies.as_ref();
         let deps_dev = self.manifest.dev_dependencies.as_ref();
 

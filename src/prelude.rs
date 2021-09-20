@@ -5,30 +5,30 @@ pub use crate::{
     transform::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
-pub use bevy_derive::bevy_main;
+pub use crate::bevy_derive::bevy_main;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_audio")]
 pub use crate::audio::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_pbr")]
+#[cfg(feature = "render")]
 pub use crate::pbr::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_render")]
+#[cfg(feature = "render")]
 pub use crate::render::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_sprite")]
+#[cfg(feature = "render")]
 pub use crate::sprite::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_text")]
+#[cfg(feature = "render")]
 pub use crate::text::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_ui")]
+#[cfg(feature = "render")]
 pub use crate::ui::prelude::*;
 
 #[doc(hidden)]
