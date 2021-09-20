@@ -315,12 +315,12 @@ impl<T: Component> Events<T> {
     pub fn update(&mut self) {
         match self.state {
             State::A => {
-                self.events_b = Vec::new();
+                self.events_b.clear();
                 self.state = State::B;
                 self.b_start_event_count = self.event_count;
             }
             State::B => {
-                self.events_a = Vec::new();
+                self.events_a.clear();
                 self.state = State::A;
                 self.a_start_event_count = self.event_count;
             }
