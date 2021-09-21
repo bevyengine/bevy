@@ -23,6 +23,8 @@ pub struct Camera {
     pub window: WindowId,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
+    pub near: f32,
+    pub far: f32,
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]

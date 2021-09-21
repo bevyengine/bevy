@@ -239,6 +239,23 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
+fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
+    let cluster_dimensions = lights.cluster_dimensions;
+    let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / f32(view.width * view.height)));
+    // FIXME: Precalculate for performance
+    let z_slice = u32(floor(
+        log(view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
+        - f32(cluster_dimensions.z) * log(view.near) / log(view.far / view.near)
+    ));
+    return z_slice * cluster_dimensions.y * cluster_dimensions.x + xy.y * cluster_dimensions.x + xy.x;
+}
+
+fn get_light_id(i: i32) -> i32 {
+    let index = u32(i);
+    let indices = cluster_light_index_lists.data[index >> 2u];
+    return i32((indices >> (8u * (index & 3u))) & 255u);
+}
+
 fn point_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
@@ -310,7 +327,7 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
 }
 
 fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = lights.point_lights[light_id];
+    let light = point_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -390,6 +407,7 @@ fn fetch_directional_shadow(light_id: i32, frag_position: vec4<f32>, surface_nor
 
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
+    [[builtin(position)]] frag_coord: vec4<f32>;
     [[location(0)]] world_position: vec4<f32>;
     [[location(1)]] world_normal: vec3<f32>;
     [[location(2)]] uv: vec2<f32>;
@@ -495,22 +513,33 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
         // accumulate color
         var light_accum: vec3<f32> = vec3<f32>(0.0);
-        let n_point_lights = i32(lights.n_point_lights);
-        let n_directional_lights = i32(lights.n_directional_lights);
+
+        let view_z = dot(vec4<f32>(
+            view.inverse_view.x.z,
+            view.inverse_view.y.z,
+            view.inverse_view.z.z,
+            view.inverse_view.w.z
+        ), in.world_position);
+        let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z);
+        let offset_and_count = cluster_offsets_and_counts.data[cluster_index];
+        let light_offset = i32(offset_and_count >> 8u);
+        let n_point_lights = i32(offset_and_count & 255u);
         for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
-            let light = lights.point_lights[i];
+            let light_id = get_light_id(light_offset + i);
             var shadow: f32;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_point_shadow(i, in.world_position, in.world_normal);
+                shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
             } else {
                 shadow = 1.0;
             }
+            let light = point_lights.data[light_id];
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
+
+        let n_directional_lights = i32(lights.n_directional_lights);
         for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
-            let light = lights.directional_lights[i];
             var shadow: f32;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -518,6 +547,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             } else {
                 shadow = 1.0;
             }
+            let light = lights.directional_lights[i];
             let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
