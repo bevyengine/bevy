@@ -752,13 +752,7 @@ impl App {
     /// ## Example
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummy created to avoid using bevy_internal, which pulls in to many dependencies.
-    /// # struct MinimalPlugins;
-    /// # impl PluginGroup for MinimalPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){;}
-    /// # }
-    /// #
+    /// # use bevy_app::NoopPluginGroup as MinimalPlugins;
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
@@ -779,22 +773,18 @@ impl App {
     /// ## Example
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummies created to avoid using bevy_internal which pulls in to many dependencies.
-    /// # struct DefaultPlugins;
-    /// # impl PluginGroup for DefaultPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
-    /// #         group.add(bevy_log::LogPlugin::default());
-    /// #     }
-    /// # }
-    /// #
+    /// # use bevy_app::NoopPluginGroup as DefaultPlugins;
+    ///
     /// # struct MyOwnPlugin;
     /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
+    /// #     fn build(&self, app: &mut App){}
     /// # }
     /// #
     /// App::new()
     ///      .add_plugins_with(DefaultPlugins, |group| {
+    /// #           // This is hidden since it would be included in DefaultPlugins if we used
+    /// #           // the default version
+    /// #           group.add(bevy_log::LogPlugin::default());
     ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
     ///         });
     /// ```

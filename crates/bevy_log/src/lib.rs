@@ -28,7 +28,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// You can configure this plugin using the resource [`LogSettings`].
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::NoopPluginGroup as DefaultPlugins;
 /// # use bevy_app::App;
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
@@ -49,7 +49,16 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
+/// # // Dummies created to avoid using bevy_internal which pulls in to many dependencies.
+/// # // Note that we can't use NoopPluginGroup here, since we need to add LogPlugin, and
+/// # // keep the group on the same line
+/// # use bevy_app::{PluginGroup, PluginGroupBuilder};
+/// # struct DefaultPlugins;
+/// # impl PluginGroup for DefaultPlugins {
+/// #     fn build(&mut self, group: &mut PluginGroupBuilder){
+/// #         group.add(bevy_log::LogPlugin::default());
+/// #     }
+/// # }
 /// # use bevy_app::App;
 /// # use bevy_log::LogPlugin;
 /// fn main() {
