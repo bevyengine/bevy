@@ -12,10 +12,9 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::{Draw, DrawFunctions, Drawable, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue},
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},

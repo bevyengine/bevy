@@ -15,11 +15,7 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
-use bevy_core_pipeline::Transparent2d;
-use bevy_render2::{
-    render_graph::RenderGraph, render_phase::DrawFunctions, RenderApp, RenderStage,
-};
+use bevy_render2::{render_phase::DrawFunctions, RenderApp, RenderStage};
 
 #[derive(Default)]
 pub struct SpritePlugin;
