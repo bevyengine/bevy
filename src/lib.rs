@@ -187,6 +187,9 @@ pub mod dynamic_plugin {
     pub use bevy_internal::bevy_dynamic_plugin::*;
 }
 
+#[cfg(target_os = "android")]
+pub use bevy_internal::ndk_glue;
+
 #[cfg(feature = "dynamic")]
 #[allow(unused_imports)]
 use bevy_dylib;
