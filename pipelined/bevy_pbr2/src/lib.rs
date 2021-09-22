@@ -1,8 +1,10 @@
+mod alpha;
 mod bundle;
 mod light;
 mod material;
 mod render;
 
+pub use alpha::*;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;

@@ -61,7 +61,9 @@ bitflags::bitflags! {
         const OCCLUSION_TEXTURE          = (1 << 3);
         const DOUBLE_SIDED               = (1 << 4);
         const UNLIT                      = (1 << 5);
-        const NORMAL_MAP_TEXTURE         = (1 << 6);
+        const ALPHA_MODE_OPAQUE          = (1 << 6);
+        const ALPHA_MODE_MASK            = (1 << 7);
+        const ALPHA_MODE_BLEND           = (1 << 8);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -238,9 +240,9 @@ impl FromWorld for PbrPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            StandardMaterialUniformData::std140_size_static() as u64,
-                        ),
+                        // TODO: change this to StandardMaterialUniformData::std140_size_static once crevice fixes this!
+                        // Context: https://github.com/LPGhatguy/crevice/issues/29
+                        min_binding_size: BufferSize::new(64),
                     },
                     count: None,
                 },
@@ -695,10 +697,7 @@ pub fn queue_meshes(
                 {
                     let mut key = PbrPipelineKey::from_msaa_samples(msaa.samples);
                     if let Some(material) = render_materials.get(material_handle) {
-                        if material
-                            .flags
-                            .contains(StandardMaterialFlags::NORMAL_MAP_TEXTURE)
-                        {
+                        if material.has_normal_map {
                             key |= PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP;
                         }
                     } else {
