@@ -6,7 +6,7 @@ use bevy_core::Name;
 use bevy_ecs::world::World;
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
-use bevy_pbr2::{PbrBundle, StandardMaterial};
+use bevy_pbr2::{AlphaMode, PbrBundle, StandardMaterial};
 use bevy_render2::{
     camera::{
         Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -438,6 +438,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
             emissive_texture,
             unlit: material.unlit(),
+            alpha_mode: alpha_mode(material),
             ..Default::default()
         }),
     )
@@ -646,6 +647,14 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
         Mode::Triangles => Ok(PrimitiveTopology::TriangleList),
         Mode::TriangleStrip => Ok(PrimitiveTopology::TriangleStrip),
         mode => Err(GltfError::UnsupportedPrimitive { mode }),
+    }
+}
+
+fn alpha_mode(material: &Material) -> AlphaMode {
+    match material.alpha_mode() {
+        gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
+        gltf::material::AlphaMode::Mask => AlphaMode::Mask(material.alpha_cutoff().unwrap_or(0.5)),
+        gltf::material::AlphaMode::Blend => AlphaMode::Blend,
     }
 }
 
