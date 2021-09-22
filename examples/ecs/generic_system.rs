@@ -9,7 +9,7 @@ use bevy::{ecs::component::Component, prelude::*};
 /// Remember to insert a specialized copy of the system into the schedule for each type that you want to operate on!
 ///
 /// For more advice on working with generic types in Rust, check out https://doc.rust-lang.org/book/ch10-01-syntax.html
-// or https://doc.rust-lang.org/rust-by-example/generics.html
+/// or https://doc.rust-lang.org/rust-by-example/generics.html
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
