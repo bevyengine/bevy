@@ -535,6 +535,19 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+            // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
+            output_color.a = 1.0;
+        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+            if (output_color.a >= material.alpha_cutoff) {
+                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
+                output_color.a = 1.0;
+            }
+            // NOTE: output_color.a < material.alpha_cutoff should not reach here as it will not
+            //       be discarded in the depth prepass and we use the 'equals' depth buffer comparison
+            //       function
+        }
+
         var N: vec3<f32> = normalize(in.world_normal);
 
 #ifdef VERTEX_TANGENTS
