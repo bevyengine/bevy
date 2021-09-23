@@ -712,16 +712,17 @@ mod test {
     fn attribute_multi_mut_works_with_positions_and_normals() {
         let mut mesh = Mesh::from(shape::Box::default());
 
-        let [positions, normals] = mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL]);
+        let [positions, normals] =
+            mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL]);
 
         let positions = match positions.unwrap() {
             VertexAttributeValues::Float32x3(arr) => arr,
-            _ => panic!("Positions were not [f32; 3].")
+            _ => panic!("Positions were not [f32; 3]."),
         };
 
         let normals = match normals.unwrap() {
             VertexAttributeValues::Float32x3(arr) => arr,
-            _ => panic!("Normals were not [f32; 3].")
+            _ => panic!("Normals were not [f32; 3]."),
         };
 
         // Mutating positions and normals.
@@ -737,6 +738,7 @@ mod test {
         let mut mesh = Mesh::from(shape::Box::default());
 
         // Trying to get positions twice.
-        let [_positions1, _positions2] = mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_POSITION]);
+        let [_positions1, _positions2] =
+            mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_POSITION]);
     }
 }
