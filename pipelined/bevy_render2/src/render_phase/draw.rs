@@ -30,24 +30,24 @@ pub trait PhaseItem: Send + Sync + 'static {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DrawFunctionId(usize);
 
-pub struct DrawFunctionsInternal<D: PhaseItem> {
-    pub draw_functions: Vec<Box<dyn Draw<D>>>,
+pub struct DrawFunctionsInternal<P: PhaseItem> {
+    pub draw_functions: Vec<Box<dyn Draw<P>>>,
     pub indices: HashMap<TypeId, DrawFunctionId>,
 }
 
-impl<I: PhaseItem> DrawFunctionsInternal<I> {
-    pub fn add<T: Draw<I>>(&mut self, draw_function: T) -> DrawFunctionId {
+impl<P: PhaseItem> DrawFunctionsInternal<P> {
+    pub fn add<T: Draw<P>>(&mut self, draw_function: T) -> DrawFunctionId {
         self.add_with::<T, T>(draw_function)
     }
 
-    pub fn add_with<T: 'static, D: Draw<I>>(&mut self, draw_function: D) -> DrawFunctionId {
+    pub fn add_with<T: 'static, D: Draw<P>>(&mut self, draw_function: D) -> DrawFunctionId {
         self.draw_functions.push(Box::new(draw_function));
         let id = DrawFunctionId(self.draw_functions.len() - 1);
         self.indices.insert(TypeId::of::<T>(), id);
         id
     }
 
-    pub fn get_mut(&mut self, id: DrawFunctionId) -> Option<&mut dyn Draw<I>> {
+    pub fn get_mut(&mut self, id: DrawFunctionId) -> Option<&mut dyn Draw<P>> {
         self.draw_functions.get_mut(id.0).map(|f| &mut **f)
     }
 
@@ -56,11 +56,11 @@ impl<I: PhaseItem> DrawFunctionsInternal<I> {
     }
 }
 
-pub struct DrawFunctions<I: PhaseItem> {
-    internal: RwLock<DrawFunctionsInternal<I>>,
+pub struct DrawFunctions<P: PhaseItem> {
+    internal: RwLock<DrawFunctionsInternal<P>>,
 }
 
-impl<I: PhaseItem> Default for DrawFunctions<I> {
+impl<P: PhaseItem> Default for DrawFunctions<P> {
     fn default() -> Self {
         Self {
             internal: RwLock::new(DrawFunctionsInternal {
@@ -71,12 +71,12 @@ impl<I: PhaseItem> Default for DrawFunctions<I> {
     }
 }
 
-impl<I: PhaseItem> DrawFunctions<I> {
-    pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<I>> {
+impl<P: PhaseItem> DrawFunctions<P> {
+    pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
         self.internal.read()
     }
 
-    pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<I>> {
+    pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
         self.internal.write()
     }
 }
@@ -110,11 +110,11 @@ macro_rules! render_command_tuple_impl {
 
 all_tuples!(render_command_tuple_impl, 0, 15, C);
 
-pub struct RenderCommandState<P: PhaseItem, D: RenderCommand<P>> {
-    state: SystemState<D::Param>,
+pub struct RenderCommandState<P: PhaseItem, C: RenderCommand<P>> {
+    state: SystemState<C::Param>,
 }
 
-impl<P: PhaseItem, D: RenderCommand<P>> RenderCommandState<P, D> {
+impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
     pub fn new(world: &mut World) -> Self {
         Self {
             state: SystemState::new(world),
@@ -122,9 +122,9 @@ impl<P: PhaseItem, D: RenderCommand<P>> RenderCommandState<P, D> {
     }
 }
 
-impl<P: PhaseItem, D: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, D>
+impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
-    <D::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
 {
     fn draw<'w>(
         &mut self,
@@ -134,28 +134,28 @@ where
         item: &P,
     ) {
         let param = self.state.get(world);
-        D::render(view, item, param, pass);
+        C::render(view, item, param, pass);
     }
 }
 
 pub trait AddRenderCommand {
-    fn add_render_command<I: PhaseItem, D: RenderCommand<I> + Send + Sync + 'static>(
+    fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
     where
-        <D::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
 }
 
 impl AddRenderCommand for App {
-    fn add_render_command<I: PhaseItem, D: RenderCommand<I> + Send + Sync + 'static>(
+    fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
     where
-        <D::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
     {
-        let draw_function = RenderCommandState::<I, D>::new(&mut self.world);
-        let draw_functions = self.world.get_resource::<DrawFunctions<I>>().unwrap();
-        draw_functions.write().add_with::<D, _>(draw_function);
+        let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
+        let draw_functions = self.world.get_resource::<DrawFunctions<P>>().unwrap();
+        draw_functions.write().add_with::<C, _>(draw_function);
         self
     }
 }
