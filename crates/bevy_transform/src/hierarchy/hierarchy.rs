@@ -44,12 +44,12 @@ impl Command for DespawnRecursive {
 
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self);
+    fn despawn_recursive(self);
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self) {
+    fn despawn_recursive(self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
     }
@@ -57,11 +57,10 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
 
 impl<'w> DespawnRecursiveExt for EntityMut<'w> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self) {
+    fn despawn_recursive(self) {
         let entity = self.id();
         unsafe {
             despawn_with_children_recursive(self.world_mut(), entity);
-            self.update_location();
         }
     }
 }
