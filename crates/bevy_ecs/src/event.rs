@@ -1,3 +1,5 @@
+//! Event handling types.
+
 use crate::system::{Local, Res, ResMut, SystemParam};
 use crate::{self as bevy_ecs, system::Resource};
 use bevy_utils::tracing::trace;
@@ -310,12 +312,12 @@ impl<T: Resource> Events<T> {
     pub fn update(&mut self) {
         match self.state {
             State::A => {
-                self.events_b = Vec::new();
+                self.events_b.clear();
                 self.state = State::B;
                 self.b_start_event_count = self.event_count;
             }
             State::B => {
-                self.events_a = Vec::new();
+                self.events_a.clear();
                 self.state = State::A;
                 self.a_start_event_count = self.event_count;
             }
@@ -505,7 +507,7 @@ mod tests {
         assert_eq!(
             get_events(&events, &mut reader_missed),
             vec![event_2],
-            "reader_missed missed events unread after to update() calls"
+            "reader_missed missed events unread after two update() calls"
         );
     }
 

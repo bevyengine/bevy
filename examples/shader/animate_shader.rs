@@ -120,6 +120,6 @@ fn setup(
 /// `time.seconds_since_startup()` as the `value` of the `TimeComponent`. This value will be
 /// accessed by the fragment shader and used to animate the shader.
 fn animate_shader(time: Res<Time>, mut query: Query<&mut TimeUniform>) {
-    let mut time_uniform = query.single_mut().unwrap();
+    let mut time_uniform = query.single_mut();
     time_uniform.value = time.seconds_since_startup() as f32;
 }

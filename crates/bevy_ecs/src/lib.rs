@@ -12,6 +12,7 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+/// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]

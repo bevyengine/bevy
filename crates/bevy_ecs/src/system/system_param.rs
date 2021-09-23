@@ -23,7 +23,8 @@ use std::{
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro.
+/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requirement
+/// is that every struct field must also implement `SystemParam`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -204,6 +205,10 @@ impl<T> Resource for T where T: Send + Sync + 'static {}
 
 /// Shared borrow of a resource.
 ///
+/// See the [`World`] documentation to see the usage of a resource.
+///
+/// If you need a unique mutable borrow, use [`ResMut`] instead.
+///
 /// # Panics
 ///
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
@@ -262,7 +267,7 @@ impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Res`].
+/// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -331,7 +336,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<Res<T>>`.
+/// The [`SystemParamState`] of [`Option<Res<T>>`].
+/// See: [`Res<T>`]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
@@ -372,7 +378,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`ResMut`].
+/// The [`SystemParamState`] of [`ResMut<T>`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -447,7 +453,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<ResMut<T>>`.
+/// The [`SystemParamState`] of [`Option<ResMut<T>>`].
+/// See: [`ResMut<T>`]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
@@ -579,7 +586,7 @@ impl<'a, T: Resource> DerefMut for Local<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Local`].
+/// The [`SystemParamState`] of [`Local<T>`].
 pub struct LocalState<T: Resource>(T);
 
 impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
@@ -649,8 +656,8 @@ impl<'a, T: Component> RemovedComponents<'a, T> {
 // SAFE: Only reads World components
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
-/// The [`SystemParamState`] of [`RemovedComponents`].
-pub struct RemovedComponentsState<T: Component> {
+/// The [`SystemParamState`] of [`RemovedComponents<T>`].
+pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
@@ -746,7 +753,7 @@ impl<'w, T> Deref for NonSend<'w, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSend`].
+/// The [`SystemParamState`] of [`NonSend<T>`].
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -819,10 +826,11 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSend<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSend<T>>`].
+/// See: [`NonSend<T>`]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
-impl<'w, T> SystemParam for Option<NonSend<'w, T>> {
+impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
     type Fetch = OptionNonSendState<T>;
 }
 
@@ -861,7 +869,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSendMut`].
+/// The [`SystemParamState`] of [`NonSendMut<T>`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -879,7 +887,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         system_meta.set_non_send();
 
-        let component_id = world.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = world.initialize_non_send_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
@@ -939,7 +947,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     }
 }
 
-/// The [`SystemParamState`] of `Option<NonSendMut<T>>`.
+/// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
+/// See: [`NonSendMut<T>`]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
@@ -1133,7 +1142,7 @@ impl SystemParam for SystemChangeTick {
     type Fetch = SystemChangeTickState;
 }
 
-/// The [`SystemParamState`] of [`SystemChangeTickState`].
+/// The [`SystemParamState`] of [`SystemChangeTick`].
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {

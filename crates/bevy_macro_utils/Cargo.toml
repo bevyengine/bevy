@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-cargo-manifest = "0.2.3"
+cargo-manifest = "0.2.6"
 syn = "1.0"

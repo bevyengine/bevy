@@ -15,6 +15,7 @@ criterion_group!(
 );
 criterion_main!(benches);
 
+#[derive(Component)]
 struct A(f32);
 
 const RANGE: std::ops::Range<u32> = 5..6;
