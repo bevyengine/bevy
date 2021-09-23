@@ -2,11 +2,11 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    RenderApp, RenderStage,
+    RenderApp, RenderStage, RenderWorld,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::debug, HashMap};
 use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
@@ -20,6 +20,7 @@ pub struct WindowRenderPlugin;
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.sub_app(RenderApp)
+            .init_resource::<ExtractedWindows>()
             .init_resource::<WindowSurfaces>()
             .init_resource::<NonSendMarker>()
             .add_system_to_stage(RenderStage::Extract, extract_windows)
@@ -34,6 +35,7 @@ pub struct ExtractedWindow {
     pub physical_height: u32,
     pub vsync: bool,
     pub swap_chain_frame: Option<TextureView>,
+    pub size_changed: bool,
 }
 
 #[derive(Default)]
@@ -55,23 +57,44 @@ impl DerefMut for ExtractedWindows {
     }
 }
 
-fn extract_windows(mut commands: Commands, windows: Res<Windows>) {
-    let mut extracted_windows = ExtractedWindows::default();
+fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>) {
+    let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
-        extracted_windows.insert(
-            window.id(),
-            ExtractedWindow {
-                id: window.id(),
-                handle: window.raw_window_handle(),
-                physical_width: window.physical_width(),
-                physical_height: window.physical_height(),
-                vsync: window.vsync(),
-                swap_chain_frame: None,
-            },
+        let (new_width, new_height) = (
+            window.physical_width().max(1),
+            window.physical_height().max(1),
         );
-    }
 
-    commands.insert_resource(extracted_windows);
+        let mut extracted_window =
+            extracted_windows
+                .entry(window.id())
+                .or_insert(ExtractedWindow {
+                    id: window.id(),
+                    handle: window.raw_window_handle(),
+                    physical_width: new_width,
+                    physical_height: new_height,
+                    vsync: window.vsync(),
+                    swap_chain_frame: None,
+                    size_changed: false,
+                });
+
+        // NOTE: Drop the swap chain frame here
+        extracted_window.swap_chain_frame = None;
+        extracted_window.size_changed = new_width != extracted_window.physical_width
+            || new_height != extracted_window.physical_height;
+
+        if extracted_window.size_changed {
+            debug!(
+                "Window size changed from {}x{} to {}x{}",
+                extracted_window.physical_width,
+                extracted_window.physical_height,
+                new_width,
+                new_height
+            );
+            extracted_window.physical_width = new_width;
+            extracted_window.physical_height = new_height;
+        }
+    }
 }
 
 #[derive(Default)]
@@ -110,6 +133,13 @@ pub fn prepare_windows(
                 wgpu::PresentMode::Immediate
             },
         };
+
+        if window.size_changed {
+            window_surfaces.swap_chains.insert(
+                window.id,
+                render_device.create_swap_chain(surface, &swap_chain_descriptor),
+            );
+        }
 
         let swap_chain = window_surfaces
             .swap_chains
