@@ -334,16 +334,13 @@ pub fn update_point_light_frusta(
 }
 
 pub fn check_light_visibility(
-    mut point_lights: Query<
-        (
-            &PointLight,
-            &GlobalTransform,
-            &CubemapFrusta,
-            &mut CubemapVisibleEntities,
-            Option<&RenderLayers>,
-        ),
-        With<PointLight>,
-    >,
+    mut point_lights: Query<(
+        &PointLight,
+        &GlobalTransform,
+        &CubemapFrusta,
+        &mut CubemapVisibleEntities,
+        Option<&RenderLayers>,
+    )>,
     mut directional_lights: Query<
         (&Frustum, &mut VisibleEntities, Option<&RenderLayers>),
         With<DirectionalLight>,
