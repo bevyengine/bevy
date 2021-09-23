@@ -294,16 +294,82 @@ impl Mesh {
         self.attributes.insert(name.into(), values);
     }
 
-    /// Retrieve the data currently set behind a vertex attribute.
+    /// Retrieves an immutable reference to the data currently set behind the given vertex attribute.
+    /// Returns None if the mesh has no data for this vertex attribute.
     pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
         self.attributes.get(&name.into())
     }
 
+    /// Retrieves a mutable reference to the data currently set behind the given vertex attribute.
+    /// Returns None if the mesh has no data for this vertex attribute.
     pub fn attribute_mut(
         &mut self,
         name: impl Into<Cow<'static, str>>,
     ) -> Option<&mut VertexAttributeValues> {
         self.attributes.get_mut(&name.into())
+    }
+
+    /// Retrieves multiple mutable references to _distinct_ vertex attributes.
+    /// Returns None at index i if the mesh had no data for the vertex attribute given at index i.
+    ///
+    /// # Panics
+    /// Panics if any of the given attribute names resolve to the same attribute, as this would otherwise allow aliased mutability.
+    ///
+    /// # Example usage
+    /// ```
+    /// use crate::bevy_render::mesh::shape;
+    /// use crate::bevy_render::mesh::Mesh;
+    /// let mut mesh = Mesh::from(shape::Box::default());
+    /// let [positions, normals] = mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL]);
+    /// ```
+    pub fn attribute_multi_mut<const N: usize>(
+        &mut self,
+        names: [impl Into<Cow<'static, str>>; N],
+    ) -> [Option<&mut VertexAttributeValues>; N] {
+        // SAFE: We verify that all the references returned are unique,
+        // therefore no aliased mutability is possible.
+        unsafe {
+            const INIT_POINTER: Option<*mut VertexAttributeValues> = None;
+            let mut pointers = [INIT_POINTER; N];
+
+            for (pointer, name) in pointers.iter_mut().zip(names) {
+                // Get raw mutable pointers to the attributes.
+                // Note that these pointers may indeed alias if the user gave duplicate names!
+                *pointer = self.attributes.get_mut(&name.into()).map(|a| a as *mut _);
+            }
+
+            // Verify that there are no duplicate pointers.
+            // This is critical to ensure no aliased mutability!
+            for i in 1..pointers.len() {
+                let current = match pointers[i - 1] {
+                    // No pointer, no chance for aliasing, so just continue to the next one.
+                    None => continue,
+                    Some(r) => r,
+                };
+                for maybe_pointer in pointers[i..].iter() {
+                    let other = match maybe_pointer {
+                        // No pointer, no chance for aliasing, so just continue to the next one.
+                        None => continue,
+                        Some(r) => r,
+                    };
+
+                    assert_ne!(
+                        current, *other,
+                        "Duplicate names given to attribute_multi_mut."
+                    );
+                }
+            }
+
+            // Convert the pointers to references.
+            // Safe as we have just verified they point to distinct places.
+            const INIT_REFERENCE: Option<&mut VertexAttributeValues> = None;
+            let mut references = [INIT_REFERENCE; N];
+            for (reference, pointer) in references.iter_mut().zip(pointers) {
+                *reference = pointer.map(|p| &mut *p);
+            }
+
+            references
+        }
     }
 
     /// Indices describe how triangles are constructed out of the vertex attributes.
@@ -632,5 +698,45 @@ fn update_entity_mesh(
     {
         // set index buffer into binding
         render_pipelines.bindings.vertex_attribute_buffer = Some(vertex_attribute_buffer_resource);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::mesh::shape;
+
+    use super::*;
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn attribute_multi_mut_works_with_positions_and_normals() {
+        let mut mesh = Mesh::from(shape::Box::default());
+
+        let [positions, normals] = mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL]);
+
+        let positions = match positions.unwrap() {
+            VertexAttributeValues::Float32x3(arr) => arr,
+            _ => panic!("Positions were not [f32; 3].")
+        };
+
+        let normals = match normals.unwrap() {
+            VertexAttributeValues::Float32x3(arr) => arr,
+            _ => panic!("Normals were not [f32; 3].")
+        };
+
+        // Mutating positions and normals.
+        // Just setting them equal to each other for the heck of it.
+        normals[0] = [0.1, 0.2, 0.3];
+        positions[0] = normals[0];
+        assert_eq!(normals[0], positions[0])
+    }
+
+    #[test]
+    #[should_panic]
+    fn attribute_multi_mut_panics_on_duplicate_names() {
+        let mut mesh = Mesh::from(shape::Box::default());
+
+        // Trying to get positions twice.
+        let [_positions1, _positions2] = mesh.attribute_multi_mut([Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_POSITION]);
     }
 }
