@@ -166,24 +166,23 @@ pub fn extract_atlases(
         &Handle<TextureAtlas>,
     )>,
 ) {
+    let mut sprites = Vec::new();
     for (entity, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !texture_atlases.contains(texture_atlas_handle) {
-            continue;
-        }
-
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = texture_atlas.textures[atlas_sprite.index as usize];
-            commands
-                .get_or_spawn(entity)
-                .insert_bundle((ExtractedSprite {
+            sprites.push((
+                entity,
+                (ExtractedSprite {
                     atlas_size: Some(texture_atlas.size),
                     transform: transform.compute_matrix(),
                     rect,
                     handle: texture_atlas.texture.clone_weak(),
                     vertex_index: 0,
-                },));
+                },),
+            ));
         }
     }
+    commands.insert_or_spawn_batch(sprites);
 }
 
 pub fn extract_sprites(
