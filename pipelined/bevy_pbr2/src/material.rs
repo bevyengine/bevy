@@ -1,15 +1,19 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Handle};
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
-    render_asset::{RenderAsset, RenderAssetPlugin},
-    render_resource::{Buffer, BufferInitDescriptor, BufferUsage},
-    renderer::{RenderDevice, RenderQueue},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsage, Sampler, TextureView},
+    renderer::RenderDevice,
     texture::Image,
 };
 use crevice::std140::{AsStd140, Std140};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};
+
+use crate::PbrShaders;
 
 // NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
 bitflags::bitflags! {
@@ -134,16 +138,17 @@ impl Plugin for StandardMaterialPlugin {
 #[derive(Debug, Clone)]
 pub struct GpuStandardMaterial {
     pub buffer: Buffer,
-    // FIXME: image handles feel unnecessary here but the extracted asset is discarded
-    pub base_color_texture: Option<Handle<Image>>,
-    pub emissive_texture: Option<Handle<Image>>,
-    pub metallic_roughness_texture: Option<Handle<Image>>,
-    pub occlusion_texture: Option<Handle<Image>>,
+    pub bind_group: BindGroup,
 }
 
 impl RenderAsset for StandardMaterial {
     type ExtractedAsset = StandardMaterial;
     type PreparedAsset = GpuStandardMaterial;
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<PbrShaders>,
+        SRes<RenderAssets<Image>>,
+    );
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
@@ -151,9 +156,41 @@ impl RenderAsset for StandardMaterial {
 
     fn prepare_asset(
         material: Self::ExtractedAsset,
-        render_device: &RenderDevice,
-        _render_queue: &RenderQueue,
-    ) -> Self::PreparedAsset {
+        (render_device, pbr_shaders, gpu_images): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let (base_color_texture_view, base_color_sampler) = if let Some(result) =
+            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.base_color_texture)
+        {
+            result
+        } else {
+            return Err(PrepareAssetError::RetryNextUpdate(material));
+        };
+
+        let (emissive_texture_view, emissive_sampler) = if let Some(result) =
+            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.emissive_texture)
+        {
+            result
+        } else {
+            return Err(PrepareAssetError::RetryNextUpdate(material));
+        };
+
+        let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
+            image_handle_to_view_sampler(
+                pbr_shaders,
+                gpu_images,
+                &material.metallic_roughness_texture,
+            ) {
+            result
+        } else {
+            return Err(PrepareAssetError::RetryNextUpdate(material));
+        };
+        let (occlusion_texture_view, occlusion_sampler) = if let Some(result) =
+            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.occlusion_texture)
+        {
+            result
+        } else {
+            return Err(PrepareAssetError::RetryNextUpdate(material));
+        };
         let mut flags = StandardMaterialFlags::NONE;
         if material.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -188,12 +225,65 @@ impl RenderAsset for StandardMaterial {
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
             contents: value_std140.as_bytes(),
         });
-        GpuStandardMaterial {
-            buffer,
-            base_color_texture: material.base_color_texture,
-            emissive_texture: material.emissive_texture,
-            metallic_roughness_texture: material.metallic_roughness_texture,
-            occlusion_texture: material.occlusion_texture,
-        }
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(base_color_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(base_color_sampler),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::TextureView(emissive_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::Sampler(emissive_sampler),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::TextureView(metallic_roughness_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::Sampler(metallic_roughness_sampler),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: BindingResource::TextureView(occlusion_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: BindingResource::Sampler(occlusion_sampler),
+                },
+            ],
+            label: None,
+            layout: &pbr_shaders.material_layout,
+        });
+
+        Ok(GpuStandardMaterial { buffer, bind_group })
+    }
+}
+
+fn image_handle_to_view_sampler<'a>(
+    pbr_pipeline: &'a PbrShaders,
+    gpu_images: &'a RenderAssets<Image>,
+    handle_option: &Option<Handle<Image>>,
+) -> Option<(&'a TextureView, &'a Sampler)> {
+    if let Some(handle) = handle_option {
+        let gpu_image = gpu_images.get(handle)?;
+        Some((&gpu_image.texture_view, &gpu_image.sampler))
+    } else {
+        Some((
+            &pbr_pipeline.dummy_white_gpu_image.texture_view,
+            &pbr_pipeline.dummy_white_gpu_image.sampler,
+        ))
     }
 }

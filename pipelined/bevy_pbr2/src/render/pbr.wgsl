@@ -1,4 +1,3 @@
-// TODO: try merging this block with the binding?
 // NOTE: Keep in sync with depth.wgsl
 [[block]]
 struct View {

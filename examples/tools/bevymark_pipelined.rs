@@ -66,11 +66,23 @@ struct BirdTexture(Handle<Image>);
 
 fn setup(
     mut commands: Commands,
-    _window: Res<WindowDescriptor>,
-    _counter: ResMut<BevyCounter>,
+    window: Res<WindowDescriptor>,
+    mut counter: ResMut<BevyCounter>,
     asset_server: Res<AssetServer>,
 ) {
-    // spawn_birds(&mut commands, &window, &mut counter, 10);
+    let texture = asset_server.load("branding/icon.png");
+    if let Some(initial_count) = std::env::args()
+        .nth(1)
+        .and_then(|arg| arg.parse::<u128>().ok())
+    {
+        spawn_birds(
+            &mut commands,
+            &window,
+            &mut counter,
+            initial_count,
+            texture.clone_weak(),
+        );
+    }
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     // commands.spawn_bundle(UiCameraBundle::default());
     // commands.spawn_bundle(TextBundle {
@@ -123,7 +135,7 @@ fn setup(
     //     ..Default::default()
     // });
 
-    commands.insert_resource(BirdTexture(asset_server.load("branding/icon.png")));
+    commands.insert_resource(BirdTexture(texture));
 }
 
 #[allow(clippy::too_many_arguments)]

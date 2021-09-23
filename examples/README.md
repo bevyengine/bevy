@@ -101,6 +101,7 @@ Example | File | Description
 `cornell_box_pipelined` | [`3d/cornell_box_pipelined.rs`](./3d/cornell_box_pipelined.rs) | Re-production of the cornell box
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
 `load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
+`many_cubes_pipelined` | [`3d/many_cubes_pipelined.rs`](./3d/many_cubes_pipelined.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `orthographic_pipelined` | [`3d/orthographic_pipelined.rs`](./3d/orthographic_pipelined.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
@@ -222,6 +223,7 @@ Example | File | Description
 --- | --- | ---
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to animate a shader by accessing a time uniform variable
 `array_texture` | [`shader/array_texture.rs`](./shader/array_texture.rs) | Illustrates how to create a texture for use with a texture2DArray shader uniform variable
+`custom_shader_pipelined` | [`shader/custom_shader_pipelined.rs`](./shader/custom_shader_pipelined.rs) | Illustrates how to create custom shaders
 `hot_shader_reloading` | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs) | Illustrates how to load shaders such that they can be edited while the example is still running
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it

@@ -1,11 +1,12 @@
 mod conversions;
 
 use crate::{
-    render_asset::RenderAsset,
+    render_asset::{PrepareAssetError, RenderAsset},
     render_resource::Buffer,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::EnumVariantMeta;
@@ -540,6 +541,7 @@ pub struct GpuIndexInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
+    type Param = SRes<RenderDevice>;
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
@@ -547,9 +549,8 @@ impl RenderAsset for Mesh {
 
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &RenderDevice,
-        _render_queue: &RenderQueue,
-    ) -> Self::PreparedAsset {
+        render_device: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsage::VERTEX,
@@ -566,9 +567,9 @@ impl RenderAsset for Mesh {
             count: mesh.indices().unwrap().len() as u32,
         });
 
-        GpuMesh {
+        Ok(GpuMesh {
             vertex_buffer,
             index_info,
-        }
+        })
     }
 }

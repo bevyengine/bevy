@@ -7,19 +7,18 @@ pub use main_pass_3d::*;
 pub use main_pass_driver::*;
 
 use bevy_app::{App, Plugin};
+use bevy_asset::Handle;
+use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{sort_phase_system, RenderPhase},
-    render_resource::{
-        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
-        TextureView,
-    },
+    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
+    render_resource::*,
     renderer::RenderDevice,
-    texture::TextureCache,
-    view::{ExtractedView, ViewPlugin},
+    texture::{Image, TextureCache},
+    view::ExtractedView,
     RenderApp, RenderStage, RenderWorld,
 };
 
@@ -76,17 +75,13 @@ impl Plugin for CorePipelinePlugin {
 
         let render_app = app.sub_app(RenderApp);
         render_app
+            .init_resource::<DrawFunctions<Transparent2d>>()
+            .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_clear_color)
             .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)
             .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<Transparent2dPhase>,
-            )
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<Transparent3dPhase>,
-            );
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
@@ -152,16 +147,50 @@ impl Plugin for CorePipelinePlugin {
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
         graph
-            .add_node_edge(ViewPlugin::VIEW_NODE, node::MAIN_PASS_DEPENDENCIES)
-            .unwrap();
-        graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();
     }
 }
 
-pub struct Transparent3dPhase;
-pub struct Transparent2dPhase;
+pub struct Transparent2d {
+    pub sort_key: Handle<Image>,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for Transparent2d {
+    type SortKey = Handle<Image>;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key.clone_weak()
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+}
+
+pub struct Transparent3d {
+    pub distance: f32,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for Transparent3d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        FloatOrd(self.distance)
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+}
 
 pub struct ViewDepthTexture {
     pub texture: Texture,
@@ -184,14 +213,14 @@ pub fn extract_core_pipeline_camera_phases(
         if let Some(entity) = camera_2d.entity {
             commands
                 .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2dPhase>::default());
+                .insert(RenderPhase::<Transparent2d>::default());
         }
     }
     if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
         if let Some(entity) = camera_3d.entity {
             commands
                 .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent3dPhase>::default());
+                .insert(RenderPhase::<Transparent3d>::default());
         }
     }
 }
@@ -200,7 +229,7 @@ pub fn prepare_core_views_system(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3dPhase>>>,
+    views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3d>>>,
 ) {
     for (entity, view) in views.iter() {
         let cached_texture = texture_cache.get(

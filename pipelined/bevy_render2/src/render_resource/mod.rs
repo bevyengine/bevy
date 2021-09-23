@@ -15,15 +15,14 @@ pub use texture::*;
 pub use uniform_vec::*;
 
 // TODO: decide where re-exports should go
-pub use wgpu::util::BufferInitDescriptor;
 pub use wgpu::{
-    AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor,
-    BlendOperation, BlendState, BufferAddress, BufferBindingType, BufferSize, BufferUsage,
-    ColorTargetState, ColorWrite, CompareFunction, ComputePassDescriptor,
+    util::BufferInitDescriptor, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
+    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBindingType, BufferSize,
+    BufferUsage, ColorTargetState, ColorWrite, CompareFunction, ComputePassDescriptor,
     ComputePipelineDescriptor, DepthBiasState, DepthStencilState, Extent3d, Face, FilterMode,
     FragmentState, FrontFace, IndexFormat, InputStepMode, LoadOp, MultisampleState, Operations,
-    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
+    PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor, SamplerDescriptor, ShaderFlags, ShaderModule, ShaderModuleDescriptor,
     ShaderSource, ShaderStage, StencilFaceState, StencilOperation, StencilState,

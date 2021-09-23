@@ -108,6 +108,7 @@ ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+crevice = {path = "crates/crevice"}
 
 [[example]]
 name = "hello_world"
@@ -158,6 +159,10 @@ path = "examples/3d/3d_scene.rs"
 [[example]]
 name = "3d_scene_pipelined"
 path = "examples/3d/3d_scene_pipelined.rs"
+
+[[example]]
+name = "many_cubes_pipelined"
+path = "examples/3d/many_cubes_pipelined.rs"
 
 [[example]]
 name = "cornell_box_pipelined"
@@ -461,6 +466,10 @@ path = "examples/shader/shader_custom_material.rs"
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "custom_shader_pipelined"
+path = "examples/shader/custom_shader_pipelined.rs"
 
 # Tools
 [[example]]
