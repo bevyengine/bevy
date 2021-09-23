@@ -68,7 +68,10 @@ impl RenderAsset for CustomMaterial {
             layout: &custom_pipeline.material_layout,
         });
 
-        Ok(GpuCustomMaterial { _buffer: buffer, bind_group })
+        Ok(GpuCustomMaterial {
+            _buffer: buffer,
+            bind_group,
+        })
     }
 }
 pub struct CustomMaterialPlugin;
