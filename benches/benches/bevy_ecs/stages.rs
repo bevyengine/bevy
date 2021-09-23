@@ -1,6 +1,7 @@
 use bevy::ecs::{
+    component::Component,
     schedule::{Stage, SystemStage},
-    system::{IntoSystem, Query},
+    system::Query,
     world::World,
 };
 use criterion::{criterion_group, criterion_main, Criterion};

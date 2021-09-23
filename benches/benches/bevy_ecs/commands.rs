@@ -99,7 +99,7 @@ fn insert_commands(criterion: &mut Criterion) {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
-        for i in 0..entity_count {
+        for _ in 0..entity_count {
             entities.push(world.spawn().id());
         }
 
@@ -118,7 +118,7 @@ fn insert_commands(criterion: &mut Criterion) {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
-        for i in 0..entity_count {
+        for _ in 0..entity_count {
             entities.push(world.spawn().id());
         }
 
