@@ -233,6 +233,9 @@ pub struct ReadState<T> {
 unsafe impl<T: Component> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
         let component_info = world.components.get_or_insert_info::<T>();
+        if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
+            world.storages.sparse_sets.get_or_insert(component_info);
+        };
         ReadState {
             component_id: component_info.id(),
             marker: PhantomData,

@@ -547,11 +547,6 @@ mod tests {
     fn query_optional_component_sparse_no_match() {
         let mut world = World::new();
 
-        //TODO: fix component registration in queries so this isn't needed.
-        world
-            .register_component(bevy_ecs::component::ComponentDescriptor::new::<SparseStored>())
-            .unwrap();
-
         let e = world
             .spawn()
             .insert_bundle((TableStored("abc"), A(123)))
@@ -1343,9 +1338,7 @@ mod tests {
         let (dropck1, dropped1) = DropCk::new_pair();
         let (dropck2, dropped2) = DropCk::new_pair();
         let mut world = World::default();
-        // world
-        //     .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
-        //     .unwrap();
+
         world.spawn().insert(dropck1).insert(dropck2);
         assert_eq!(dropped1.load(Ordering::Relaxed), 1);
         assert_eq!(dropped2.load(Ordering::Relaxed), 0);
