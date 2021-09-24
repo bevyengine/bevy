@@ -1,3 +1,5 @@
+//! Types for declaring and storing [`Component`]s.
+
 use crate::{storage::SparseSetIndex, system::Resource};
 pub use bevy_ecs_macros::Component;
 use std::{
