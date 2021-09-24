@@ -326,50 +326,52 @@ impl Mesh {
         &mut self,
         names: [impl Into<Cow<'static, str>>; N],
     ) -> [Option<&mut VertexAttributeValues>; N] {
-        // SAFE: We verify that all the references returned are unique,
-        // therefore no aliased mutability is possible.
-        unsafe {
-            const INIT_POINTER: Option<*mut VertexAttributeValues> = None;
-            let mut pointers = [INIT_POINTER; N];
+        const INIT_POINTER: Option<*mut VertexAttributeValues> = None;
+        let mut pointers = [INIT_POINTER; N];
 
-            for (pointer, name) in pointers.iter_mut().zip(names) {
-                // Get raw mutable pointers to the attributes.
-                // Note that these pointers may indeed alias if the user gave duplicate names!
-                *pointer = self.attributes.get_mut(&name.into()).map(|a| a as *mut _);
-            }
+        for (pointer, name) in pointers.iter_mut().zip(names) {
+            // Get raw mutable pointers to the attributes.
+            // Note that these pointers may indeed alias if the user gave duplicate names!
+            *pointer = self.attributes.get_mut(&name.into()).map(|a| a as *mut _);
+        }
 
-            // Verify that there are no duplicate pointers.
-            // This is critical to ensure no aliased mutability!
-            for i in 1..pointers.len() {
-                let current = match pointers[i - 1] {
+        // Verify that there are no duplicate pointers.
+        // This is critical to ensure no aliased mutability!
+        // Note that this check runs in O(n^2).
+        // This could be done theoretically faster with a HashSet,
+        // but n will usually be very small so avoiding the heap allocation is probably better.
+        for i in 1..pointers.len() {
+            let current = match pointers[i - 1] {
+                // No pointer, no chance for aliasing, so just continue to the next one.
+                None => continue,
+                Some(r) => r,
+            };
+            for maybe_pointer in pointers[i..].iter() {
+                let other = match maybe_pointer {
                     // No pointer, no chance for aliasing, so just continue to the next one.
                     None => continue,
                     Some(r) => r,
                 };
-                for maybe_pointer in pointers[i..].iter() {
-                    let other = match maybe_pointer {
-                        // No pointer, no chance for aliasing, so just continue to the next one.
-                        None => continue,
-                        Some(r) => r,
-                    };
 
-                    assert_ne!(
-                        current, *other,
-                        "Duplicate names given to attribute_multi_mut."
-                    );
-                }
+                assert_ne!(
+                    current, *other,
+                    "Duplicate names given to attribute_multi_mut."
+                );
             }
+        }
 
-            // Convert the pointers to references.
-            // Safe as we have just verified they point to distinct places.
-            const INIT_REFERENCE: Option<&mut VertexAttributeValues> = None;
-            let mut references = [INIT_REFERENCE; N];
-            for (reference, pointer) in references.iter_mut().zip(pointers) {
+        // Convert the pointers to references.
+        const INIT_REFERENCE: Option<&mut VertexAttributeValues> = None;
+        let mut references = [INIT_REFERENCE; N];
+        for (reference, pointer) in references.iter_mut().zip(pointers) {
+            // SAFE: We just verified above that all the pointers are unique,
+            // so it is safe to convert them to references, since they won't alias.
+            unsafe {
                 *reference = pointer.map(|p| &mut *p);
             }
-
-            references
         }
+
+        references
     }
 
     /// Indices describe how triangles are constructed out of the vertex attributes.
