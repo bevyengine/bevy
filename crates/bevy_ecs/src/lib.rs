@@ -886,6 +886,8 @@ mod tests {
         let mut world = World::default();
         assert!(world.get_resource::<i32>().is_none());
         assert!(!world.contains_resource::<i32>());
+        assert!(!world.is_resource_added::<i32>());
+        assert!(!world.is_resource_changed::<i32>());
 
         world.insert_resource(123);
         let resource_id = world
@@ -900,6 +902,8 @@ mod tests {
 
         assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
         assert!(world.contains_resource::<i32>());
+        assert!(world.is_resource_added::<i32>());
+        assert!(world.is_resource_changed::<i32>());
 
         world.insert_resource(456u64);
         assert_eq!(

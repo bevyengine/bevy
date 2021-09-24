@@ -664,16 +664,34 @@ impl World {
     }
 
     pub fn is_resource_added<T: Component>(&self) -> bool {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
-        let column = self.get_populated_resource_column(component_id).unwrap();
+        let component_id =
+            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
+                component_id
+            } else {
+                return false;
+            };
+        let column = if let Some(column) = self.get_populated_resource_column(component_id) {
+            column
+        } else {
+            return false;
+        };
         // SAFE: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
     pub fn is_resource_changed<T: Component>(&self) -> bool {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
-        let column = self.get_populated_resource_column(component_id).unwrap();
+        let component_id =
+            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
+                component_id
+            } else {
+                return false;
+            };
+        let column = if let Some(column) = self.get_populated_resource_column(component_id) {
+            column
+        } else {
+            return false;
+        };
         // SAFE: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
