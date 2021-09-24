@@ -195,11 +195,6 @@ Components can be stored in:
 
 Component storage types are configurable, and they default to table storage if the storage is not manually defined. The [`component_storage.rs`](examples/component_storage.rs) example shows how to configure the storage type for a component.
 
-```rust
-// store Position components in Sparse Sets
-world.register_component(ComponentDescriptor::new::<Position>(StorageType::SparseSet));
-```
-
 ### Component Bundles
 
 Define sets of Components that should be added together.

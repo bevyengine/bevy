@@ -5,7 +5,6 @@ pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
-    collections::hash_map::Entry,
 };
 use thiserror::Error;
 
@@ -248,8 +247,7 @@ impl Components {
     ) -> Result<ComponentId, ComponentsError> {
         let index = self.components.len();
         if let Some(type_id) = descriptor.type_id {
-            let index_entry = self.indices.entry(type_id);
-            if let Entry::Occupied(_) = index_entry {
+            if self.indices.contains_key(&type_id) {
                 return Err(ComponentsError::ComponentAlreadyExists {
                     type_id,
                     name: descriptor.name,
