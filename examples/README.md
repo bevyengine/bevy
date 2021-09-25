@@ -238,9 +238,9 @@ Example | File | Description
 --- | --- | ---
 `global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
 `rotation` | [`transforms/rotation.rs`](./transforms/rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
-`scale` | [`transfroms/scalse.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
-`transform` | [`transforms/transfrom.rs`](./transfroms/transform.rs) | Shows multiple transformations of objects
-`translation` | [`transfroms/translation.rs`](./transfroms/translation.rs) | Illustrates how to move an object along an axis
+`scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
+`transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
+`translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
 
 ## UI (User Interface)
 

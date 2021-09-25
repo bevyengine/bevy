@@ -45,7 +45,7 @@ fn setup(
     // it's helpful to add multiple entities that are attached to each other.
     // This way we'll see that the transform in respect to an entities parent is different to the
     // global transform within the visible scene.
-    // This example focuses on translation only to make a simple case for the differences.
+    // This example focuses on translation only to clearly demonstrate the differences.
     let main_entity_spawn: Transform = Transform::from_translation(Vec3::ZERO);
 
     // Spawn a basic cube to have an entity as reference.
