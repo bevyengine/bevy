@@ -247,7 +247,8 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
         log(view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
         - f32(cluster_dimensions.z) * log(view.near) / log(view.far / view.near)
     ));
-    return z_slice * cluster_dimensions.y * cluster_dimensions.x + xy.y * cluster_dimensions.x + xy.x;
+    return (xy.y * cluster_dimensions.x + xy.x) * cluster_dimensions.z + z_slice;
+    // return xy.y * cluster_dimensions.x * cluster_dimensions.z + xy.x * cluster_dimensions.z + z_slice;
 }
 
 fn get_light_id(i: i32) -> i32 {
@@ -526,28 +527,24 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let n_point_lights = i32(offset_and_count & 255u);
         for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
             let light_id = get_light_id(light_offset + i);
-            var shadow: f32;
+            let light = point_lights.data[light_id];
+            var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                 shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
-            } else {
-                shadow = 1.0;
             }
-            let light = point_lights.data[light_id];
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }
 
         let n_directional_lights = i32(lights.n_directional_lights);
         for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
-            var shadow: f32;
+            let light = lights.directional_lights[i];
+            var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                 shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
-            } else {
-                shadow = 1.0;
             }
-            let light = lights.directional_lights[i];
             let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
         }

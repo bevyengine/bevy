@@ -1,6 +1,6 @@
 use crate::{
-    GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
 };
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -556,14 +556,16 @@ pub fn queue_mesh_view_bind_groups(
     mesh_pipeline: Res<MeshPipeline>,
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
+    global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewShadowBindings)>,
+    mut views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
 ) {
-    if let (Some(view_binding), Some(light_binding)) = (
+    if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
+        global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings) in views.iter_mut() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -595,6 +597,24 @@ pub fn queue_mesh_view_bind_groups(
                         resource: BindingResource::Sampler(
                             &shadow_pipeline.directional_light_sampler,
                         ),
+                    },
+                    BindGroupEntry {
+                        binding: 6,
+                        resource: point_light_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 7,
+                        resource: view_cluster_bindings
+                            .cluster_light_index_lists
+                            .binding()
+                            .unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 8,
+                        resource: view_cluster_bindings
+                            .cluster_offsets_and_counts
+                            .binding()
+                            .unwrap(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),

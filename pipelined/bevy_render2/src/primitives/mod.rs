@@ -41,12 +41,12 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn intersects_obb(&self, aabb: &Aabb, model_to_world: &Mat4) -> bool {
-        let aabb_center_world = *model_to_world * aabb.center.extend(1.0);
+    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Mat4) -> bool {
+        let aabb_center_world = *local_to_world * aabb.center.extend(1.0);
         let axes = [
-            Vec3A::from(model_to_world.x_axis),
-            Vec3A::from(model_to_world.y_axis),
-            Vec3A::from(model_to_world.z_axis),
+            Vec3A::from(local_to_world.x_axis),
+            Vec3A::from(local_to_world.y_axis),
+            Vec3A::from(local_to_world.z_axis),
         ];
         let v = Vec3A::from(aabb_center_world) - Vec3A::from(self.center);
         let d = v.length();

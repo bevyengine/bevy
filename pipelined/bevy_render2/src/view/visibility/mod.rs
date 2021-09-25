@@ -40,21 +40,20 @@ impl Default for ComputedVisibility {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct VisibleEntity {
-    pub entity: Entity,
-}
-
-#[derive(Component, Clone, Default, Debug, Reflect)]
+#[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
-    pub entities: Vec<VisibleEntity>,
+    pub entities: Vec<Entity>,
 }
 
 impl VisibleEntities {
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntity> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.entities.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entities.len()
     }
 }
 
@@ -178,7 +177,7 @@ pub fn check_visibility(
             }
 
             computed_visibility.is_visible = true;
-            visible_entities.entities.push(VisibleEntity { entity });
+            visible_entities.entities.push(entity);
         }
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize

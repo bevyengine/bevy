@@ -1,7 +1,7 @@
 use crate::{
-    AmbientLight, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap, DrawMesh,
-    MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
-    SHADOW_SHADER_HANDLE,
+    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
+    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
+    VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -25,11 +25,10 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities, VisibleEntity,
-    },
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashMap;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
 
@@ -314,12 +313,9 @@ pub fn extract_lights(
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    mut point_lights: Query<(
-        Entity,
-        &PointLight,
-        &mut CubemapVisibleEntities,
-        &GlobalTransform,
-    )>,
+    global_point_lights: Res<VisiblePointLights>,
+    // visible_point_lights: Query<&VisiblePointLights>,
+    mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
     mut directional_lights: Query<(
         Entity,
         &DirectionalLight,
@@ -343,28 +339,34 @@ pub fn extract_lights(
     // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
-    for (entity, point_light, cubemap_visible_entities, transform) in point_lights.iter_mut() {
-        let render_cubemap_visible_entities = std::mem::take(cubemap_visible_entities.into_inner());
-        commands.get_or_spawn(entity).insert_bundle((
-            ExtractedPointLight {
-                color: point_light.color,
-                // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                // for details.
-                intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-                range: point_light.range,
-                radius: point_light.radius,
-                transform: *transform,
-                shadows_enabled: point_light.shadows_enabled,
-                shadow_depth_bias: point_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: point_light.shadow_normal_bias
-                    * point_light_texel_size
-                    * std::f32::consts::SQRT_2,
-            },
-            render_cubemap_visible_entities,
-        ));
+
+    for entity in global_point_lights.iter().copied() {
+        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
+        {
+            let render_cubemap_visible_entities =
+                std::mem::take(cubemap_visible_entities.into_inner());
+            commands.get_or_spawn(entity).insert_bundle((
+                ExtractedPointLight {
+                    color: point_light.color,
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                    range: point_light.range,
+                    radius: point_light.radius,
+                    transform: *transform,
+                    shadows_enabled: point_light.shadows_enabled,
+                    shadow_depth_bias: point_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: point_light.shadow_normal_bias
+                        * point_light_texel_size
+                        * std::f32::consts::SQRT_2,
+                },
+                render_cubemap_visible_entities,
+            ));
+        }
     }
+
     for (entity, directional_light, visible_entities, transform) in directional_lights.iter_mut() {
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
@@ -483,6 +485,7 @@ pub struct ViewLightsUniformOffset {
 
 pub struct GlobalLightMeta {
     pub gpu_point_lights: UniformVec<GpuPointLight>,
+    pub entity_to_index: HashMap<Entity, usize>,
 }
 
 #[derive(Default)]
@@ -510,7 +513,7 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<Entity, With<RenderPhase<Transparent3d>>>,
+    views: Query<(Entity, &Clusters), With<RenderPhase<Transparent3d>>>,
     ambient_light: Res<ExtractedAmbientLight>,
     point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
@@ -528,7 +531,12 @@ pub fn prepare_lights(
         .collect::<Vec<_>>();
 
     global_light_meta.gpu_point_lights.clear();
-    for (_, light) in point_lights.iter() {
+    global_light_meta.entity_to_index.clear();
+    let n_point_lights = point_lights.iter().count();
+    if global_light_meta.entity_to_index.capacity() < n_point_lights {
+        global_light_meta.entity_to_index.reserve(n_point_lights);
+    }
+    for (index, (entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         if light.shadows_enabled {
             flags |= PointLightFlags::SHADOWS_ENABLED;
@@ -547,13 +555,14 @@ pub fn prepare_lights(
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
         });
+        global_light_meta.entity_to_index.insert(entity, index);
     }
     global_light_meta
         .gpu_point_lights
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for entity in views.iter() {
+    for (entity, clusters) in views.iter() {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -592,12 +601,16 @@ pub fn prepare_lights(
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
-            cluster_dimensions: UVec4::new(16, 9, 24, 0),
+            cluster_dimensions: clusters.dimensions.extend(0),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for (light_index, (light_entity, light)) in point_lights.iter().enumerate() {
+        for (light_entity, light) in point_lights.iter() {
+            let light_index = *global_light_meta
+                .entity_to_index
+                .get(&light_entity)
+                .unwrap();
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
@@ -778,6 +791,103 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 }
 
+const CLUSTER_OFFSET_MASK: u32 = (1 << 24) - 1;
+const CLUSTER_COUNT_SIZE: u32 = 8;
+const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
+const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
+
+// NOTE: With uniform buffer max binding size as 16384 bytes
+//       that means we can fit say 128 point lights in one uniform
+//       buffer, which means the count can be at most 128 so it
+//       needs 7 bits, use 8 for convenience.
+//       The array of indices can also use u8 and that means the
+//       offset in to the array of indices needs to be able to address
+//       16384 values. lod2(16384) = 21 bits.
+//       This means we can pack the offset into the upper 24 bits of a u32
+//       and the count into the lower 8 bits.
+// FIXME: Probably there are endianness concerns here????!!!!!
+fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
+    ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
+        | (count as u32 & CLUSTER_COUNT_MASK)
+}
+
+#[derive(Component, Default)]
+pub struct ViewClusterBindings {
+    n_indices: usize,
+    pub cluster_light_index_lists: UniformVec<u32>,
+    pub cluster_offsets_and_counts: UniformVec<u32>,
+}
+
+impl ViewClusterBindings {
+    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) -> usize {
+        self.cluster_offsets_and_counts
+            .push(pack_offset_and_count(offset, count))
+    }
+
+    pub fn n_indices(&self) -> usize {
+        self.n_indices
+    }
+
+    pub fn push_index(&mut self, index: usize) {
+        // NOTE: Packing four u8s into a u32 so we need to check whether to add a new
+        //       u32 or to bitwise-or the value into a position in an existing u32
+        let index = index as u32 & POINT_LIGHT_INDEX_MASK;
+
+        // If n_indices % 4 == 0 then we need to add a new value, else we get the current
+        // one
+        let sub_index = self.n_indices & 3; // & 3 is equivalent to % 4
+        if sub_index == 0 {
+            self.cluster_light_index_lists.push(index);
+        } else {
+            let array_index = self.n_indices >> 2; // >> 2 is equivalent to / 4
+            let array_value = self.cluster_light_index_lists.get_mut(array_index);
+            *array_value |= index << (8 * sub_index);
+        }
+
+        self.n_indices += 1;
+    }
+}
+
+pub fn prepare_clusters(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    global_light_meta: Res<GlobalLightMeta>,
+    views: Query<(Entity, &Clusters), With<RenderPhase<Transparent3d>>>,
+) {
+    for (entity, clusters) in views.iter() {
+        let mut view_clusters_bindings = ViewClusterBindings::default();
+
+        let mut cluster_index = 0;
+        for _y in 0..clusters.dimensions.y {
+            for _x in 0..clusters.dimensions.x {
+                for _z in 0..clusters.dimensions.z {
+                    let offset = view_clusters_bindings.n_indices();
+                    let cluster_lights = &clusters.lights[cluster_index];
+                    let count = cluster_lights.len();
+                    view_clusters_bindings.push_offset_and_count(offset, count);
+
+                    for entity in cluster_lights.iter() {
+                        let light_index = *global_light_meta.entity_to_index.get(entity).unwrap();
+                        view_clusters_bindings.push_index(light_index);
+                    }
+
+                    cluster_index += 1;
+                }
+            }
+        }
+
+        view_clusters_bindings
+            .cluster_light_index_lists
+            .write_buffer(&render_device, &render_queue);
+        view_clusters_bindings
+            .cluster_offsets_and_counts
+            .write_buffer(&render_device, &render_queue);
+
+        commands.entity(entity).insert(view_clusters_bindings);
+    }
+}
+
 pub fn queue_shadow_view_bind_group(
     render_device: Res<RenderDevice>,
     shadow_pipeline: Res<ShadowPipeline>,
@@ -832,9 +942,9 @@ pub fn queue_shadows(
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             //       so no meshes will be queued
-            for VisibleEntity { entity, .. } in visible_entities.iter() {
+            for entity in visible_entities.iter().copied() {
                 let mut key = ShadowPipelineKey::empty();
-                if let Ok(mesh_handle) = casting_meshes.get(*entity) {
+                if let Ok(mesh_handle) = casting_meshes.get(entity) {
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
                         if mesh.has_tangents {
                             key |= ShadowPipelineKey::VERTEX_TANGENTS;
@@ -846,7 +956,7 @@ pub fn queue_shadows(
                     shadow_phase.add(Shadow {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
-                        entity: *entity,
+                        entity,
                         distance: 0.0, // TODO: sort back-to-front
                     });
                 }
