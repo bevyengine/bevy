@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-// Define structs to store basic state information.
-struct IsStopped(bool);
+// Define structs to store state information.
+struct Moving;
 struct SpawnLocation(Vec3);
 
 // Define a marker for entities that should stop at a distance in respect to their global transform.
@@ -47,7 +47,7 @@ fn setup(
             ..Default::default()
         })
         .insert(GlobalStop)
-        .insert(IsStopped(false))
+        .insert(Moving)
         .insert(SpawnLocation(main_entity_spawn.translation));
 
     // Define a spawn point for child entities just above the original entity.
@@ -73,12 +73,12 @@ fn setup(
         child_builder
             .spawn_bundle(global_behaviour_child_mesh)
             .insert(GlobalStop)
-            .insert(IsStopped(false))
+            .insert(Moving)
             .insert(SpawnLocation(children_spawn.translation));
         child_builder
             .spawn_bundle(local_behaviour_child_mesh)
             .insert(LocalStop)
-            .insert(IsStopped(false))
+            .insert(Moving)
             .insert(SpawnLocation(children_spawn.translation));
     });
 
@@ -98,9 +98,9 @@ fn setup(
 
 // This system will move all entities that have an EntityState (all cubes).
 // The movement here is restricted to one direction (right in the sense of the cameras view).
-fn move_cubes(mut cubes: Query<(&mut Transform, &IsStopped)>, timer: Res<Time>) {
+fn move_cubes(mut cubes: Query<&mut Transform, With<Moving>>, timer: Res<Time>) {
     // Iterate over every entity with an EntityState that is not stopped.
-    for (mut transform, _) in cubes.iter_mut().filter(|(_, stopped)| !stopped.0) {
+    for mut transform in cubes.iter_mut() {
         let dir = Vec3::X;
         transform.translation += dir * timer.delta_seconds();
     }
@@ -110,11 +110,12 @@ fn move_cubes(mut cubes: Query<(&mut Transform, &IsStopped)>, timer: Res<Time>) 
 // and check if their distance to their original spawn in respect to their global transform
 // is greater than MAX_DISTANCE. If so, we mark that entity as stopped via its EntityState.
 fn stop_too_far_global_distance(
-    mut cubes: Query<(&GlobalTransform, &SpawnLocation, &mut IsStopped), With<GlobalStop>>,
+    mut commands: Commands,
+    mut cubes: Query<(Entity, &GlobalTransform, &SpawnLocation), With<GlobalStop>>,
 ) {
-    for (global_transform, spawn, mut stopped) in cubes.iter_mut() {
+    for (entity, global_transform, spawn) in cubes.iter_mut() {
         if (global_transform.translation - spawn.0).length() >= MAX_DISTANCE {
-            stopped.0 = true;
+            commands.entity(entity).remove::<Moving>();
         }
     }
 }
@@ -124,10 +125,12 @@ fn stop_too_far_global_distance(
 // entities parent (in the case of the green cube this would be the yellow cube).
 // Since the parent (yellow) cube is also moving the green cube with LocalStop will travel further
 // than its red sibling that uses the behaviour tied to GlobalStop.
-fn stop_too_far_local_distance(mut cubes: Query<(&Transform, &SpawnLocation, &mut IsStopped), With<LocalStop>>) {
-    for (transform, spawn, mut stopped) in cubes.iter_mut() {
+fn stop_too_far_local_distance(
+    mut commands: Commands,
+    mut cubes: Query<(Entity, &Transform, &SpawnLocation), With<LocalStop>>) {
+    for (entity, transform, spawn) in cubes.iter_mut() {
         if (transform.translation - spawn.0).length() >= MAX_DISTANCE {
-            stopped.0 = true;
+            commands.entity(entity).remove::<Moving>();
         }
     }
 }
