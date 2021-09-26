@@ -1,3 +1,27 @@
+//! Entity handling types.
+//!
+//! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
+//! `struct` is just a *generational index* (a combination of an ID and a generation). Then,
+//! the `Entity` maps to the specific [`Component`s](crate::component::Component). This way,
+//! entities can have meaningful data attached to it. This is a fundamental design choice
+//! that has been taken to enhance performance and usability.
+//!
+//! # Usage
+//!
+//! Here are links to the methods used to perform common operations
+//! involving entities:
+//!
+//! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
+//! - **Spawning an entity with components:** use
+//!   [`Commands::spawn_bundle`](crate::system::Commands::spawn_bundle).
+//! - **Despawning an entity:** use
+//!   [`EntityCommands::despawn`](crate::system::EntityCommands::despawn).
+//! - **Inserting a component to an entity:** use
+//!   [`EntityCommands::insert`](crate::system::EntityCommands::insert).
+//! - **Adding multiple components to an entity:** use
+//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
+//! - **Removing a component to an entity:** use
+//!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
 mod map_entities;
 mod serde;
 
@@ -26,8 +50,21 @@ pub struct Entity {
     pub(crate) id: u32,
 }
 
+pub enum AllocAtWithoutReplacement {
+    Exists(EntityLocation),
+    DidNotExist,
+    ExistsWithWrongGeneration,
+}
+
 impl Entity {
     /// Creates a new entity reference with a generation of 0.
+    ///
+    /// # Note
+    ///
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
+    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
+    /// only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
@@ -162,6 +199,7 @@ pub struct Entities {
     /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
     pending: Vec<u32>,
     free_cursor: AtomicI64,
+    /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
 }
 
@@ -242,11 +280,8 @@ impl Entities {
     }
 
     /// Allocate an entity ID directly.
-    ///
-    /// Location should be written immediately.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-
         self.len += 1;
         if let Some(id) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as i64;
@@ -294,6 +329,40 @@ impl Entities {
         loc
     }
 
+    /// Allocate a specific entity ID, overwriting its generation.
+    ///
+    /// Returns the location of the entity currently using the given ID, if any.
+    pub fn alloc_at_without_replacement(&mut self, entity: Entity) -> AllocAtWithoutReplacement {
+        self.verify_flushed();
+
+        let result = if entity.id as usize >= self.meta.len() {
+            self.pending.extend((self.meta.len() as u32)..entity.id);
+            let new_free_cursor = self.pending.len() as i64;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
+            self.len += 1;
+            AllocAtWithoutReplacement::DidNotExist
+        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
+            self.pending.swap_remove(index);
+            let new_free_cursor = self.pending.len() as i64;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.len += 1;
+            AllocAtWithoutReplacement::DidNotExist
+        } else {
+            let current_meta = &mut self.meta[entity.id as usize];
+            if current_meta.location.archetype_id == ArchetypeId::INVALID {
+                AllocAtWithoutReplacement::DidNotExist
+            } else if current_meta.generation == entity.generation {
+                AllocAtWithoutReplacement::Exists(current_meta.location)
+            } else {
+                return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
+            }
+        };
+
+        self.meta[entity.id as usize].generation = entity.generation;
+        result
+    }
+
     /// Destroy an entity, allowing it to be reused.
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
@@ -327,37 +396,28 @@ impl Entities {
         }
     }
 
+    /// Returns true if the [`Entities`] contains [`entity`](Entity).
+    // This will return false for entities which have been freed, even if
+    // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
-        // Note that out-of-range IDs are considered to be "contained" because
-        // they must be reserved IDs that we haven't flushed yet.
-        self.meta
-            .get(entity.id as usize)
-            .map_or(true, |meta| meta.generation == entity.generation)
+        self.resolve_from_id(entity.id())
+            .map_or(false, |e| e.generation() == entity.generation)
     }
 
     pub fn clear(&mut self) {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.len = 0;
     }
 
-    /// Access the location storage of an entity.
-    ///
-    /// Must not be called on pending entities.
-    pub fn get_mut(&mut self, entity: Entity) -> Option<&mut EntityLocation> {
-        let meta = &mut self.meta[entity.id as usize];
-        if meta.generation == entity.generation {
-            Some(&mut meta.location)
-        } else {
-            None
-        }
-    }
-
-    /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities.
+    /// Returns `Ok(Location { archetype: Archetype::invalid(), index: undefined })` for pending entities.
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation {
+            if meta.generation != entity.generation
+                || meta.location.archetype_id == ArchetypeId::INVALID
+            {
                 return None;
             }
             Some(meta.location)
@@ -366,31 +426,23 @@ impl Entities {
         }
     }
 
-    /// Panics if the given id would represent an index outside of `meta`.
+    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
+    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///
-    /// # Safety
-    ///
-    /// Must only be called for currently allocated `id`s.
-    pub unsafe fn resolve_unknown_gen(&self, id: u32) -> Entity {
-        let meta_len = self.meta.len();
-
-        if meta_len > id as usize {
-            let meta = &self.meta[id as usize];
-            Entity {
-                generation: meta.generation,
-                id,
-            }
+    /// Note: This method may return [`Entities`](Entity) which are currently free
+    /// Note that [`contains`](Entities::contains) will correctly return false for freed
+    /// entities, since it checks the generation
+    pub fn resolve_from_id(&self, id: u32) -> Option<Entity> {
+        let idu = id as usize;
+        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+            Some(Entity { generation, id })
         } else {
-            // See if it's pending, but not yet flushed.
+            // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            let num_pending = std::cmp::max(-free_cursor, 0) as usize;
-
-            if meta_len + num_pending > id as usize {
-                // Pending entities will have generation 0.
-                Entity { generation: 0, id }
-            } else {
-                panic!("entity id is out of range");
-            }
+            // If this entity was manually created, then free_cursor might be positive
+            // Returning None handles that case correctly
+            let num_pending = usize::try_from(-free_cursor).ok()?;
+            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
         }
     }
 
@@ -400,7 +452,12 @@ impl Entities {
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
     /// `reserve_entities`, then initializes each one using the supplied function.
-    pub fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+    ///
+    /// # Safety
+    /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
+    /// each time init is called. This _can_ be ArchetypeId::INVALID, provided the Entity has
+    /// not been assigned to an Archetype.
+    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -438,6 +495,16 @@ impl Entities {
         }
     }
 
+    // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
+    // unless they are later populated with a valid archetype.
+    pub fn flush_as_invalid(&mut self) {
+        unsafe {
+            self.flush(|_entity, location| {
+                location.archetype_id = ArchetypeId::INVALID;
+            })
+        }
+    }
+
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
@@ -459,8 +526,8 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
         location: EntityLocation {
-            archetype_id: ArchetypeId::empty(),
-            index: usize::max_value(), // dummy value, to be filled in
+            archetype_id: ArchetypeId::INVALID,
+            index: usize::MAX, // dummy value, to be filled in
         },
     };
 }
@@ -492,7 +559,24 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::default();
         e.reserve_entity();
-        e.flush(|_, _| {});
+        unsafe { e.flush(|_, _| {}) };
         assert_eq!(e.len(), 1);
+    }
+
+    #[test]
+    fn get_reserved_and_invalid() {
+        let mut entities = Entities::default();
+        let e = entities.reserve_entity();
+        assert!(entities.contains(e));
+        assert!(entities.get(e).is_none());
+
+        unsafe {
+            entities.flush(|_entity, _location| {
+                // do nothing ... leaving entity location invalid
+            })
+        };
+
+        assert!(entities.contains(e));
+        assert!(entities.get(e).is_none());
     }
 }

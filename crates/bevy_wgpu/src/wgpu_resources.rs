@@ -163,7 +163,7 @@ impl BindGroupCounter {
                     *count > 0
                 };
                 if !retain {
-                    bind_group_usage_counts.remove(&id);
+                    bind_group_usage_counts.remove(id);
                 }
 
                 retain

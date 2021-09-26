@@ -4,16 +4,16 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(keyboard_input_system.system())
+        .add_system(keyboard_input_system)
         .run();
 }
 
 /// This system prints when Ctrl + Shift + A is pressed
 fn keyboard_input_system(input: Res<Input<KeyCode>>) {
-    let shift = input.pressed(KeyCode::LShift) || input.pressed(KeyCode::RShift);
-    let ctrl = input.pressed(KeyCode::LControl) || input.pressed(KeyCode::RControl);
+    let shift = input.any_pressed([KeyCode::LShift, KeyCode::RShift]);
+    let ctrl = input.any_pressed([KeyCode::LControl, KeyCode::RControl]);
 
     if ctrl && shift && input.just_pressed(KeyCode::A) {
         info!("Just pressed Ctrl + Shift + A!");

@@ -9,13 +9,13 @@ use std::time::{Duration, Instant};
 /// This example shows how to use the ECS and the AsyncComputeTaskPool
 /// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env.system())
-        .add_startup_system(add_assets.system())
-        .add_startup_system(spawn_tasks.system())
-        .add_system(handle_tasks.system())
+        .add_startup_system(setup_env)
+        .add_startup_system(add_assets)
+        .add_startup_system(spawn_tasks)
+        .add_system(handle_tasks)
         .run();
 }
 

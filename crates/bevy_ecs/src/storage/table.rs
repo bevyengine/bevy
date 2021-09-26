@@ -179,6 +179,11 @@ impl Column {
         self.ticks.get_unchecked(row).get()
     }
 
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.ticks.clear();
+    }
+
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for component_ticks in &mut self.ticks {
@@ -396,6 +401,13 @@ impl Table {
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
+
+    pub fn clear(&mut self) {
+        self.entities.clear();
+        for column in self.columns.values_mut() {
+            column.clear();
+        }
+    }
 }
 
 pub struct Tables {
@@ -475,6 +487,16 @@ impl Tables {
         self.tables.iter()
     }
 
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Table> {
+        self.tables.iter_mut()
+    }
+
+    pub fn clear(&mut self) {
+        for table in self.tables.iter_mut() {
+            table.clear();
+        }
+    }
+
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for table in self.tables.iter_mut() {
             table.check_change_ticks(change_tick);
@@ -500,17 +522,12 @@ impl IndexMut<TableId> for Tables {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        component::{Components, TypeInfo},
-        entity::Entity,
-        storage::Table,
-    };
+    use crate::{component::Components, entity::Entity, storage::Table};
 
     #[test]
     fn table() {
         let mut components = Components::default();
-        let type_info = TypeInfo::of::<usize>();
-        let component_id = components.get_or_insert_with(type_info.type_id(), || type_info);
+        let component_id = components.get_or_insert_id::<usize>();
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());

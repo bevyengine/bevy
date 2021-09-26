@@ -5,10 +5,10 @@ use bevy::prelude::*;
 /// range should generally be somewhere between 1 (no multi sampling, but cheap) to 8 (crisp but
 /// expensive)
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

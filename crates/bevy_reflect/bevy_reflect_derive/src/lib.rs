@@ -191,8 +191,8 @@ fn impl_struct(
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::Struct;
@@ -335,8 +335,8 @@ fn impl_tuple_struct(
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::TupleStruct;
@@ -448,9 +448,9 @@ fn impl_value(
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
 ) -> TokenStream {
-    let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
+    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_attrs.get_partial_eq_impl();
-    let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
+    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -557,9 +557,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     let ty = &reflect_value_def.type_name;
-    let reflect_attrs = reflect_value_def
-        .attrs
-        .unwrap_or_else(ReflectAttrs::default);
+    let reflect_attrs = reflect_value_def.attrs.unwrap_or_default();
     let registration_data = &reflect_attrs.data;
     let get_type_registration_impl = impl_get_type_registration(
         ty,

@@ -14,14 +14,12 @@ use bevy::{
 
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)
-        .add_system_set(
-            SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
-        )
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline.system()))
+        .add_system_set(SystemSet::on_update(AppState::CreateWindow).with_system(setup_window))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline))
         .run();
 }
 

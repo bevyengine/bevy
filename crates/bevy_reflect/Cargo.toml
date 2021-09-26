@@ -2,14 +2,10 @@
 name = "bevy_reflect"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 readme = "README.md"
 
@@ -28,7 +24,7 @@ parking_lot = "0.11.0"
 thiserror = "1.0"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.15.1", features = ["serde"], optional = true }
+glam = { version = "0.18.0", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.6.2"

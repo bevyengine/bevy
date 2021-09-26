@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
             width: 500.,
@@ -11,8 +11,8 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_system(change_title.system())
-        .add_system(toggle_cursor.system())
+        .add_system(change_title)
+        .add_system(toggle_cursor)
         .run();
 }
 

@@ -3,11 +3,11 @@ use bevy::prelude::*;
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(rotator_system.system())
+        .add_startup_system(setup)
+        .add_system(rotator_system)
         .run();
 }
 

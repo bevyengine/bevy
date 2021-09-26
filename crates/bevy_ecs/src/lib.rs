@@ -12,6 +12,7 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+/// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
@@ -22,7 +23,7 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
@@ -41,7 +42,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -60,7 +61,9 @@ mod tests {
 
     #[derive(Debug, PartialEq, Eq)]
     struct A(usize);
+    #[derive(Debug, PartialEq, Eq)]
     struct B(usize);
+    #[derive(Debug, PartialEq, Eq)]
     struct C;
 
     #[derive(Clone, Debug)]
@@ -102,21 +105,26 @@ mod tests {
 
     #[test]
     fn bundle_derive() {
+        let mut world = World::new();
+
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
             x: &'static str,
             y: i32,
         }
 
-        assert_eq!(
-            <Foo as Bundle>::type_info(),
-            vec![TypeInfo::of::<&'static str>(), TypeInfo::of::<i32>(),]
-        );
-
-        let mut world = World::new();
         world
             .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
             .unwrap();
+
+        assert_eq!(
+            <Foo as Bundle>::component_ids(world.components_mut()),
+            vec![
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+            ]
+        );
+
         let e1 = world.spawn().insert_bundle(Foo { x: "abc", y: 123 }).id();
         let e2 = world.spawn().insert_bundle(("def", 456, true)).id();
         assert_eq!(*world.get::<&str>(e1).unwrap(), "abc");
@@ -146,12 +154,12 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::type_info(),
+            <Nested as Bundle>::component_ids(world.components_mut()),
             vec![
-                TypeInfo::of::<usize>(),
-                TypeInfo::of::<&'static str>(),
-                TypeInfo::of::<i32>(),
-                TypeInfo::of::<u8>(),
+                world.components_mut().get_or_insert_id::<usize>(),
+                world.components_mut().get_or_insert_id::<&'static str>(),
+                world.components_mut().get_or_insert_id::<i32>(),
+                world.components_mut().get_or_insert_id::<u8>(),
             ]
         );
 
@@ -732,7 +740,7 @@ mod tests {
         fn get_added<Com: Component>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Added<Com>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -776,7 +784,7 @@ mod tests {
         {
             world
                 .query_filtered::<Entity, F>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
 
@@ -863,7 +871,7 @@ mod tests {
         fn get_changed(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Changed<A>>()
-                .iter(&world)
+                .iter(world)
                 .collect::<Vec<Entity>>()
         }
         assert_eq!(get_changed(&mut world), vec![e1]);
@@ -878,6 +886,8 @@ mod tests {
         let mut world = World::default();
         assert!(world.get_resource::<i32>().is_none());
         assert!(!world.contains_resource::<i32>());
+        assert!(!world.is_resource_added::<i32>());
+        assert!(!world.is_resource_changed::<i32>());
 
         world.insert_resource(123);
         let resource_id = world
@@ -892,6 +902,8 @@ mod tests {
 
         assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
         assert!(world.contains_resource::<i32>());
+        assert!(world.is_resource_added::<i32>());
+        assert!(world.is_resource_changed::<i32>());
 
         world.insert_resource(456u64);
         assert_eq!(
@@ -1225,5 +1237,257 @@ mod tests {
         drop(world);
         assert_eq!(dropped1.load(Ordering::Relaxed), 1);
         assert_eq!(dropped2.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn clear_entities() {
+        let mut world = World::default();
+        world
+            .register_component(ComponentDescriptor::new::<f32>(StorageType::SparseSet))
+            .unwrap();
+        world.insert_resource::<i32>(0);
+        world.spawn().insert(1u32);
+        world.spawn().insert(1.0f32);
+
+        let mut q1 = world.query::<&u32>();
+        let mut q2 = world.query::<&f32>();
+
+        assert_eq!(q1.iter(&world).len(), 1);
+        assert_eq!(q2.iter(&world).len(), 1);
+        assert_eq!(world.entities().len(), 2);
+
+        world.clear_entities();
+
+        assert_eq!(
+            q1.iter(&world).len(),
+            0,
+            "world should not contain table components"
+        );
+        assert_eq!(
+            q2.iter(&world).len(),
+            0,
+            "world should not contain sparse set components"
+        );
+        assert_eq!(
+            world.entities().len(),
+            0,
+            "world should not have any entities"
+        );
+        assert_eq!(
+            *world.get_resource::<i32>().unwrap(),
+            0,
+            "world should still contain resources"
+        );
+    }
+
+    #[test]
+    fn reserve_entities_across_worlds() {
+        let mut world_a = World::default();
+        let mut world_b = World::default();
+
+        let e1 = world_a.spawn().insert(1u32).id();
+        let e2 = world_a.spawn().insert(2u32).id();
+        let e3 = world_a.entities().reserve_entity();
+        world_a.flush();
+
+        let world_a_max_entities = world_a.entities().meta.len();
+        world_b
+            .entities
+            .reserve_entities(world_a_max_entities as u32);
+        world_b.entities.flush_as_invalid();
+
+        let e4 = world_b.spawn().insert(4u32).id();
+        assert_eq!(
+            e4,
+            Entity {
+                generation: 0,
+                id: 3,
+            },
+            "new entity is created immediately after world_a's max entity"
+        );
+        assert!(world_b.get::<u32>(e1).is_none());
+        assert!(world_b.get_entity(e1).is_none());
+
+        assert!(world_b.get::<u32>(e2).is_none());
+        assert!(world_b.get_entity(e2).is_none());
+
+        assert!(world_b.get::<u32>(e3).is_none());
+        assert!(world_b.get_entity(e3).is_none());
+
+        world_b.get_or_spawn(e1).unwrap().insert(1.0f32);
+        assert_eq!(
+            world_b.get::<f32>(e1),
+            Some(&1.0f32),
+            "spawning into 'world_a' entities works"
+        );
+
+        world_b.get_or_spawn(e4).unwrap().insert(4.0f32);
+        assert_eq!(
+            world_b.get::<f32>(e4),
+            Some(&4.0f32),
+            "spawning into existing `world_b` entities works"
+        );
+        assert_eq!(
+            world_b.get::<u32>(e4),
+            Some(&4u32),
+            "spawning into existing `world_b` entities works"
+        );
+
+        let e4_mismatched_generation = Entity {
+            generation: 1,
+            id: 3,
+        };
+        assert!(
+            world_b.get_or_spawn(e4_mismatched_generation).is_none(),
+            "attempting to spawn on top of an entity with a mismatched entity generation fails"
+        );
+        assert_eq!(
+            world_b.get::<f32>(e4),
+            Some(&4.0f32),
+            "failed mismatched spawn doesn't change existing entity"
+        );
+        assert_eq!(
+            world_b.get::<u32>(e4),
+            Some(&4u32),
+            "failed mismatched spawn doesn't change existing entity"
+        );
+
+        let high_non_existent_entity = Entity {
+            generation: 0,
+            id: 6,
+        };
+        world_b
+            .get_or_spawn(high_non_existent_entity)
+            .unwrap()
+            .insert(10.0f32);
+        assert_eq!(
+            world_b.get::<f32>(high_non_existent_entity),
+            Some(&10.0f32),
+            "inserting into newly allocated high / non-continous entity id works"
+        );
+
+        let high_non_existent_but_reserved_entity = Entity {
+            generation: 0,
+            id: 5,
+        };
+        assert!(
+            world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
+            "entities between high-newly allocated entity and continuous block of existing entities don't exist"
+        );
+
+        let reserved_entities = vec![
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+            world_b.entities().reserve_entity(),
+        ];
+
+        assert_eq!(
+            reserved_entities,
+            vec![
+                Entity {
+                    generation: 0,
+                    id: 5
+                },
+                Entity {
+                    generation: 0,
+                    id: 4
+                },
+                Entity {
+                    generation: 0,
+                    id: 7,
+                },
+                Entity {
+                    generation: 0,
+                    id: 8,
+                },
+            ],
+            "space between original entities and high entities is used for new entity ids"
+        );
+    }
+
+    #[test]
+    fn insert_or_spawn_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn().insert(A(0)).id();
+        let e1 = Entity::new(1);
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
+
+        world.insert_or_spawn_batch(values).unwrap();
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "new entity was spawned and received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "new entity was spawned and received C component"
+        );
+    }
+
+    #[test]
+    fn insert_or_spawn_batch_invalid() {
+        let mut world = World::default();
+        let e0 = world.spawn().insert(A(0)).id();
+        let e1 = Entity::new(1);
+        let e2 = world.spawn().id();
+        let invalid_e2 = Entity {
+            generation: 1,
+            id: e2.id,
+        };
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
+
+        let result = world.insert_or_spawn_batch(values);
+
+        assert_eq!(
+            result,
+            Err(vec![invalid_e2]),
+            "e2 failed to be spawned or inserted into"
+        );
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "new entity was spawned and received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "new entity was spawned and received C component"
+        );
     }
 }

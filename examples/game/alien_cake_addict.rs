@@ -13,34 +13,30 @@ enum GameState {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
-        .add_startup_system(setup_cameras.system())
-        .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup.system()))
+        .add_startup_system(setup_cameras)
+        .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))
         .add_system_set(
             SystemSet::on_update(GameState::Playing)
-                .with_system(move_player.system())
-                .with_system(focus_camera.system())
-                .with_system(rotate_bonus.system())
-                .with_system(scoreboard_system.system()),
+                .with_system(move_player)
+                .with_system(focus_camera)
+                .with_system(rotate_bonus)
+                .with_system(scoreboard_system),
         )
-        .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown.system()))
-        .add_system_set(
-            SystemSet::on_enter(GameState::GameOver).with_system(display_score.system()),
-        )
-        .add_system_set(
-            SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard.system()),
-        )
-        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown.system()))
+        .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown))
+        .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
+        .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
+        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(5.0))
-                .with_system(spawn_bonus.system()),
+                .with_system(spawn_bonus),
         )
-        .add_system(bevy::input::system::exit_on_esc_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
 
@@ -252,14 +248,18 @@ fn move_player(
 fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
-    mut transforms: QuerySet<(Query<(&mut Transform, &Camera)>, Query<&Transform>)>,
+    mut transforms: QuerySet<(
+        QueryState<(&mut Transform, &Camera)>,
+        QueryState<&Transform>,
+    )>,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
     if let (Some(player_entity), Some(bonus_entity)) = (game.player.entity, game.bonus.entity) {
+        let transform_query = transforms.q1();
         if let (Ok(player_transform), Ok(bonus_transform)) = (
-            transforms.q1().get(player_entity),
-            transforms.q1().get(bonus_entity),
+            transform_query.get(player_entity),
+            transform_query.get(bonus_entity),
         ) {
             game.camera_should_focus = player_transform
                 .translation
@@ -284,7 +284,7 @@ fn focus_camera(
         game.camera_is_focus += camera_motion;
     }
     // look at that new camera's actual focus
-    for (mut transform, camera) in transforms.q0_mut().iter_mut() {
+    for (mut transform, camera) in transforms.q0().iter_mut() {
         if camera.name == Some(CAMERA_3D.to_string()) {
             *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
         }
@@ -352,7 +352,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
+    let mut text = query.single_mut();
     text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 

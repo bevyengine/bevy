@@ -2,10 +2,10 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// This example creates a SystemParam struct that counts the number of players
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(PlayerCount(0))
-        .add_startup_system(spawn.system())
-        .add_system(count_players.system())
+        .add_startup_system(spawn)
+        .add_system(count_players)
         .run();
 }
 
@@ -17,12 +17,12 @@ pub struct PlayerCount(usize);
 ///
 /// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
-struct PlayerCounter<'a> {
-    players: Query<'a, &'static Player>,
-    count: ResMut<'a, PlayerCount>,
+struct PlayerCounter<'w, 's> {
+    players: Query<'w, 's, &'static Player>,
+    count: ResMut<'w, PlayerCount>,
 }
 
-impl<'a> PlayerCounter<'a> {
+impl<'w, 's> PlayerCounter<'w, 's> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
     }

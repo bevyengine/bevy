@@ -1,4 +1,4 @@
-use crate::{AppBuilder, Plugin};
+use crate::{App, Plugin};
 use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
@@ -96,7 +96,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    pub fn finish(self, app: &mut AppBuilder) {
+    pub fn finish(self, app: &mut App) {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {

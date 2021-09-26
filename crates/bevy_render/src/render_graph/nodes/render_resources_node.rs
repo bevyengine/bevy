@@ -13,8 +13,9 @@ use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     entity::Entity,
+    prelude::QueryState,
     query::{Changed, Or, With},
-    system::{BoxedSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, QuerySet, RemovedComponents, Res, ResMut},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -400,7 +401,7 @@ where
     T: renderer::RenderResources,
 {
     fn get_system(&self) -> BoxedSystem {
-        let system = render_resources_node_system::<T>.system().config(|config| {
+        let system = render_resources_node_system::<T>.config(|config| {
             config.0 = Some(RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
                 uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
@@ -435,8 +436,11 @@ fn render_resources_node_system<T: RenderResources>(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     removed: RemovedComponents<T>,
     mut queries: QuerySet<(
-        Query<(Entity, &T, &Visible, &mut RenderPipelines), Or<(Changed<T>, Changed<Visible>)>>,
-        Query<(Entity, &T, &Visible, &mut RenderPipelines)>,
+        QueryState<
+            (Entity, &T, &Visible, &mut RenderPipelines),
+            Or<(Changed<T>, Changed<Visible>)>,
+        >,
+        QueryState<(Entity, &T, &Visible, &mut RenderPipelines)>,
     )>,
 ) {
     let state = state.deref_mut();
@@ -444,7 +448,7 @@ fn render_resources_node_system<T: RenderResources>(
     let render_resource_context = &**render_resource_context;
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some((_, first, _, _)) = queries.q0_mut().iter_mut().next() {
+    if let Some((_, first, _, _)) = queries.q0().iter_mut().next() {
         uniform_buffer_arrays.initialize(first, render_resource_context);
     }
 
@@ -454,11 +458,10 @@ fn render_resources_node_system<T: RenderResources>(
 
     // handle entities that were waiting for texture loads on the last update
     for entity in std::mem::take(&mut *entities_waiting_for_textures) {
-        if let Ok((entity, uniforms, _visible, mut render_pipelines)) =
-            queries.q1_mut().get_mut(entity)
+        if let Ok((entity, uniforms, _visible, mut render_pipelines)) = queries.q1().get_mut(entity)
         {
             if !setup_uniform_texture_resources::<T>(
-                &uniforms,
+                uniforms,
                 render_resource_context,
                 &mut render_pipelines.bindings,
             ) {
@@ -467,13 +470,13 @@ fn render_resources_node_system<T: RenderResources>(
         }
     }
 
-    for (entity, uniforms, visible, mut render_pipelines) in queries.q0_mut().iter_mut() {
+    for (entity, uniforms, visible, mut render_pipelines) in queries.q0().iter_mut() {
         if !visible.is_visible {
             continue;
         }
         uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         if !setup_uniform_texture_resources::<T>(
-            &uniforms,
+            uniforms,
             render_resource_context,
             &mut render_pipelines.bindings,
         ) {
@@ -496,8 +499,7 @@ fn render_resources_node_system<T: RenderResources>(
                 // if the buffer array was resized, write all entities to the new buffer, otherwise
                 // only write changes
                 if resized {
-                    for (entity, uniforms, visible, mut render_pipelines) in
-                        queries.q1_mut().iter_mut()
+                    for (entity, uniforms, visible, mut render_pipelines) in queries.q1().iter_mut()
                     {
                         if !visible.is_visible {
                             continue;
@@ -505,7 +507,7 @@ fn render_resources_node_system<T: RenderResources>(
 
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             entity,
-                            &uniforms,
+                            uniforms,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_pipelines.bindings,
@@ -513,8 +515,7 @@ fn render_resources_node_system<T: RenderResources>(
                         );
                     }
                 } else {
-                    for (entity, uniforms, visible, mut render_pipelines) in
-                        queries.q0_mut().iter_mut()
+                    for (entity, uniforms, visible, mut render_pipelines) in queries.q0().iter_mut()
                     {
                         if !visible.is_visible {
                             continue;
@@ -522,7 +523,7 @@ fn render_resources_node_system<T: RenderResources>(
 
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             entity,
-                            &uniforms,
+                            uniforms,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_pipelines.bindings,
@@ -583,15 +584,13 @@ where
     T: renderer::RenderResources + Asset,
 {
     fn get_system(&self) -> BoxedSystem {
-        let system = asset_render_resources_node_system::<T>
-            .system()
-            .config(|config| {
-                config.0 = Some(RenderResourcesNodeState {
-                    command_queue: self.command_queue.clone(),
-                    uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
-                    dynamic_uniforms: self.dynamic_uniforms,
-                })
-            });
+        let system = asset_render_resources_node_system::<T>.config(|config| {
+            config.0 = Some(RenderResourcesNodeState {
+                command_queue: self.command_queue.clone(),
+                uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
+                dynamic_uniforms: self.dynamic_uniforms,
+            })
+        });
 
         Box::new(system)
     }
@@ -621,8 +620,8 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     removed_handles: RemovedComponents<Handle<T>>,
     mut queries: QuerySet<(
-        Query<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
-        Query<&mut RenderPipelines, With<Handle<T>>>,
+        QueryState<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
+        QueryState<&mut RenderPipelines, With<Handle<T>>>,
     )>,
 ) {
     let state = state.deref_mut();
@@ -656,7 +655,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         if let Some(asset) = assets.get(asset_handle) {
             let mut bindings =
                 asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(asset_handle));
-            if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings)
+            if !setup_uniform_texture_resources::<T>(asset, render_resource_context, &mut bindings)
             {
                 asset_state.assets_waiting_for_textures.push(asset_handle);
             }
@@ -689,7 +688,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
         let mut bindings =
             asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
-        if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings) {
+        if !setup_uniform_texture_resources::<T>(asset, render_resource_context, &mut bindings) {
             asset_state.assets_waiting_for_textures.push(*asset_handle);
         }
     }
@@ -719,7 +718,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
                         // TODO: only setup buffer if we haven't seen this handle before
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             asset_handle,
-                            &asset,
+                            asset,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_resource_bindings,
@@ -733,7 +732,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
                         // TODO: only setup buffer if we haven't seen this handle before
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             *asset_handle,
-                            &asset,
+                            asset,
                             state.dynamic_uniforms,
                             render_resource_context,
                             &mut render_resource_bindings,
@@ -752,7 +751,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
 
     // update removed entity asset mapping
     for entity in removed_handles.iter() {
-        if let Ok(mut render_pipelines) = queries.q1_mut().get_mut(entity) {
+        if let Ok(mut render_pipelines) = queries.q1().get_mut(entity) {
             render_pipelines
                 .bindings
                 .remove_asset_with_type(TypeId::of::<T>())
@@ -760,7 +759,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     }
 
     // update changed entity asset mapping
-    for (asset_handle, mut render_pipelines) in queries.q0_mut().iter_mut() {
+    for (asset_handle, mut render_pipelines) in queries.q0().iter_mut() {
         render_pipelines
             .bindings
             .remove_asset_with_type(TypeId::of::<T>());

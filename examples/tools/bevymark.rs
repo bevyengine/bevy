@@ -31,7 +31,7 @@ impl FromWorld for BirdMaterial {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
@@ -44,11 +44,11 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(BevyCounter { count: 0 })
         .init_resource::<BirdMaterial>()
-        .add_startup_system(setup.system())
-        .add_system(mouse_handler.system())
-        .add_system(movement_system.system())
-        .add_system(collision_system.system())
-        .add_system(counter_system.system())
+        .add_startup_system(setup)
+        .add_system(mouse_handler)
+        .add_system(movement_system)
+        .add_system(collision_system)
+        .add_system(counter_system)
         .run();
 }
 

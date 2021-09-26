@@ -2,19 +2,15 @@
 name = "bevy_app"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
 trace = []
-bevy_ci_testing = ["ron"]
+bevy_ci_testing = ["serde", "ron"]
 default = ["bevy_reflect"]
 
 [dependencies]
@@ -25,7 +21,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.6.2", optional = true }
 
 

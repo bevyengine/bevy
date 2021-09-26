@@ -8,20 +8,20 @@ use bevy::{
 /// An implementation of the classic game "Breakout"
 const TIME_STEP: f32 = 1.0 / 60.0;
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(paddle_movement_system.system())
-                .with_system(ball_collision_system.system())
-                .with_system(ball_movement_system.system()),
+                .with_system(paddle_movement_system)
+                .with_system(ball_collision_system)
+                .with_system(ball_movement_system),
         )
-        .add_system(scoreboard_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
+        .add_system(scoreboard_system)
+        .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
 
@@ -185,33 +185,31 @@ fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Transform)>,
 ) {
-    if let Ok((paddle, mut transform)) = query.single_mut() {
-        let mut direction = 0.0;
-        if keyboard_input.pressed(KeyCode::Left) {
-            direction -= 1.0;
-        }
-
-        if keyboard_input.pressed(KeyCode::Right) {
-            direction += 1.0;
-        }
-
-        let translation = &mut transform.translation;
-        // move the paddle horizontally
-        translation.x += direction * paddle.speed * TIME_STEP;
-        // bound the paddle within the walls
-        translation.x = translation.x.min(380.0).max(-380.0);
+    let (paddle, mut transform) = query.single_mut();
+    let mut direction = 0.0;
+    if keyboard_input.pressed(KeyCode::Left) {
+        direction -= 1.0;
     }
+
+    if keyboard_input.pressed(KeyCode::Right) {
+        direction += 1.0;
+    }
+
+    let translation = &mut transform.translation;
+    // move the paddle horizontally
+    translation.x += direction * paddle.speed * TIME_STEP;
+    // bound the paddle within the walls
+    translation.x = translation.x.min(380.0).max(-380.0);
 }
 
 fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
-    if let Ok((ball, mut transform)) = ball_query.single_mut() {
-        transform.translation += ball.velocity * TIME_STEP;
-    }
+    let (ball, mut transform) = ball_query.single_mut();
+    transform.translation += ball.velocity * TIME_STEP;
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
-    text.sections[0].value = format!("Score: {}", scoreboard.score);
+    let mut text = query.single_mut();
+    text.sections[1].value = format!("{}", scoreboard.score);
 }
 
 fn ball_collision_system(
@@ -220,53 +218,52 @@ fn ball_collision_system(
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
     collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
 ) {
-    if let Ok((mut ball, ball_transform, sprite)) = ball_query.single_mut() {
-        let ball_size = sprite.size;
-        let velocity = &mut ball.velocity;
+    let (mut ball, ball_transform, sprite) = ball_query.single_mut();
+    let ball_size = sprite.size;
+    let velocity = &mut ball.velocity;
 
-        // check collision with walls
-        for (collider_entity, collider, transform, sprite) in collider_query.iter() {
-            let collision = collide(
-                ball_transform.translation,
-                ball_size,
-                transform.translation,
-                sprite.size,
-            );
-            if let Some(collision) = collision {
-                // scorable colliders should be despawned and increment the scoreboard on collision
-                if let Collider::Scorable = *collider {
-                    scoreboard.score += 1;
-                    commands.entity(collider_entity).despawn();
-                }
+    // check collision with walls
+    for (collider_entity, collider, transform, sprite) in collider_query.iter() {
+        let collision = collide(
+            ball_transform.translation,
+            ball_size,
+            transform.translation,
+            sprite.size,
+        );
+        if let Some(collision) = collision {
+            // scorable colliders should be despawned and increment the scoreboard on collision
+            if let Collider::Scorable = *collider {
+                scoreboard.score += 1;
+                commands.entity(collider_entity).despawn();
+            }
 
-                // reflect the ball when it collides
-                let mut reflect_x = false;
-                let mut reflect_y = false;
+            // reflect the ball when it collides
+            let mut reflect_x = false;
+            let mut reflect_y = false;
 
-                // only reflect if the ball's velocity is going in the opposite direction of the
-                // collision
-                match collision {
-                    Collision::Left => reflect_x = velocity.x > 0.0,
-                    Collision::Right => reflect_x = velocity.x < 0.0,
-                    Collision::Top => reflect_y = velocity.y < 0.0,
-                    Collision::Bottom => reflect_y = velocity.y > 0.0,
-                }
+            // only reflect if the ball's velocity is going in the opposite direction of the
+            // collision
+            match collision {
+                Collision::Left => reflect_x = velocity.x > 0.0,
+                Collision::Right => reflect_x = velocity.x < 0.0,
+                Collision::Top => reflect_y = velocity.y < 0.0,
+                Collision::Bottom => reflect_y = velocity.y > 0.0,
+            }
 
-                // reflect velocity on the x-axis if we hit something on the x-axis
-                if reflect_x {
-                    velocity.x = -velocity.x;
-                }
+            // reflect velocity on the x-axis if we hit something on the x-axis
+            if reflect_x {
+                velocity.x = -velocity.x;
+            }
 
-                // reflect velocity on the y-axis if we hit something on the y-axis
-                if reflect_y {
-                    velocity.y = -velocity.y;
-                }
+            // reflect velocity on the y-axis if we hit something on the y-axis
+            if reflect_y {
+                velocity.y = -velocity.y;
+            }
 
-                // break if this collide is on a solid, otherwise continue check whether a solid is
-                // also in collision
-                if let Collider::Solid = *collider {
-                    break;
-                }
+            // break if this collide is on a solid, otherwise continue check whether a solid is
+            // also in collision
+            if let Collider::Solid = *collider {
+                break;
             }
         }
     }

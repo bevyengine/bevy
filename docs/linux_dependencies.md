@@ -20,7 +20,7 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 Graphics and audio need to be configured for them to work with WSL 2 backend.
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
-## Fedora 33
+## Fedora
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
@@ -47,12 +47,6 @@ sudo dnf install alsa-lib-devel.x86_64
 
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib
-```
-
-## Solus
-
-```bash
-sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
 ```
 
 ## Void
@@ -103,6 +97,49 @@ mkShell {
 And enter it by just running `nix-shell`.
 
 You should be able compile bevy programms using `cargo` within this nix-shell.
+
+### Fast compilation
+
+According to the Bevy getting started guide (for v0.5), you can enable fast compilation by add a Cargo config file and by adding `lld` and `clang`. As long as you add `clang` and `lld` to your environment, it should mostly work, but you'll still need to modify the Cargo config file so that it doesn't point to `/usr/bin/clang` anymore.
+
+Working off the above files, let's make the necessary changes.
+
+For `.cargo/config.toml`, change the path to the linker from `/usr/bin/clang` to `clang`:
+
+``` diff
+  [target.x86_64-unknown-linux-gnu]
+- linker = "/usr/bin/clang"
++ linker = "clang"
+  rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
+```
+
+In `shell.nix`, add `lld` and `clang`:
+
+``` diff
+  buildInputs = [
+    cargo
+    pkgconfig udev alsaLib lutris
+    x11 xorg.libXcursor xorg.libXrandr xorg.libXi
+    vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
++   clang lld
+  ];
+```
+
+### Building apps and using the GPU
+
+If you run into issues with building basic apps or activating the GPU ('thread 'main' panicked at 'Unable to find a GPU!'), then you may need to update your environment's `LD_LIBRARY_PATH`. To solve issues relating to missing `libudev.so.1` files, `alsa` drivers, and being unable to find a GPU, try updating the environment variable in your `shell.nix` by creating a `shellHook`:
+
+``` diff
+  { pkgs ? import <nixpkgs> { } }:
+  with pkgs;
+  mkShell {
++   shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
++     pkgs.alsaLib
++     pkgs.udev
++     pkgs.vulkan-loader
++   ]}"'';
+    buildInputs = [
+```
 
 ## Opensuse Tumbleweed
 

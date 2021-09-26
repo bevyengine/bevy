@@ -37,7 +37,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
 }
 
 impl Command for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         despawn_with_children_recursive(world, self.entity);
     }
 }
@@ -47,7 +47,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_recursive(&mut self);
 }
 
-impl<'a, 'b> DespawnRecursiveExt for EntityCommands<'a, 'b> {
+impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(&mut self) {
         let entity = self.id();

@@ -28,10 +28,7 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::{
-    component::{ComponentDescriptor, StorageType},
-    system::IntoSystem,
-};
+use bevy_ecs::component::{ComponentDescriptor, StorageType};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -67,43 +64,39 @@ pub const QUAD_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<SpriteResizeMode>()
-            .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
+            .add_system_to_stage(CoreStage::PostUpdate, sprite_system)
+            .add_system_to_stage(CoreStage::PostUpdate, material_texture_detection_system)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                material_texture_detection_system.system(),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                asset_shader_defs_system::<ColorMaterial>.system(),
+                asset_shader_defs_system::<ColorMaterial>,
             );
 
         let sprite_settings = app
-            .world_mut()
+            .world
             .get_resource_or_insert_with(SpriteSettings::default)
             .clone();
         if sprite_settings.frustum_culling_enabled {
             app.add_system_to_stage(
                 CoreStage::PostUpdate,
-                frustum_culling::sprite_frustum_culling_system.system(),
+                frustum_culling::sprite_frustum_culling_system,
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                frustum_culling::atlas_frustum_culling_system.system(),
+                frustum_culling::atlas_frustum_culling_system,
             );
         }
-        let world = app.world_mut();
-        world
+        app.world
             .register_component(ComponentDescriptor::new::<OutsideFrustum>(
                 StorageType::SparseSet,
             ))
             .unwrap();
 
-        let world_cell = world.cell();
+        let world_cell = app.world.cell();
         let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
         let mut pipelines = world_cell
             .get_resource_mut::<Assets<PipelineDescriptor>>()

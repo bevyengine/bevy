@@ -1,12 +1,12 @@
 use bevy::{log::info, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Countdown::default())
-        .add_startup_system(setup_system.system())
-        .add_system(countdown_system.system())
-        .add_system(timer_system.system())
+        .init_resource::<Countdown>()
+        .add_startup_system(setup_system)
+        .add_system(countdown_system)
+        .add_system(timer_system)
         .run();
 }
 
