@@ -15,10 +15,10 @@ const MAX_DISTANCE: f32 = 5.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(move_cubes.system())
-        .add_system(stop_too_far_global_distance.system())
-        .add_system(stop_too_far_local_distance.system())
+        .add_startup_system(setup)
+        .add_system(move_cubes)
+        .add_system(stop_too_far_global_distance)
+        .add_system(stop_too_far_local_distance)
         .run();
 }
 
