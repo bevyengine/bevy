@@ -140,6 +140,14 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         &self.access
     }
 
+    pub(crate) fn with(&self) -> &FixedBitSet {
+        &self.with
+    }
+
+    pub(crate) fn without(&self) -> &FixedBitSet {
+        &self.without
+    }
+
     pub fn add_read(&mut self, index: T) {
         self.access.add_read(index.clone());
         self.add_with(index);

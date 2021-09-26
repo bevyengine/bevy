@@ -1,3 +1,4 @@
+mod append_list;
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
