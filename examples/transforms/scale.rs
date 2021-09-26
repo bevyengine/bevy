@@ -41,7 +41,7 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
-            transform: Transform::from_translation(Vec3::ZERO),
+            transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
             ..Default::default()
         })
         .insert(Scaling::new());
