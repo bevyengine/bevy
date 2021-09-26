@@ -62,6 +62,26 @@ impl Plugin for PbrPlugin {
             .init_resource::<AmbientLight>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                add_clusters
+                    .label(SimulationLightSystems::AddClusters)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_clusters
+                    .label(SimulationLightSystems::UpdateClusters)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AddClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                assign_lights_to_clusters
+                    .label(SimulationLightSystems::AssignLightsToClusters)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
                     .after(TransformSystem::TransformPropagate),
@@ -70,7 +90,8 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 update_point_light_frusta
                     .label(SimulationLightSystems::UpdatePointLightFrusta)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -90,7 +111,20 @@ impl Plugin for PbrPlugin {
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,
+                render::extract_clusters.label(RenderLightSystems::ExtractClusters),
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
                 render::extract_lights.label(RenderLightSystems::ExtractLights),
+            )
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                // FIXME: Is this true?
+                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
+                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
+                render::prepare_clusters
+                    .exclusive_system()
+                    .label(RenderLightSystems::PrepareClusters),
             )
             .add_system_to_stage(
                 RenderStage::Prepare,
