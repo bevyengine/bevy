@@ -18,7 +18,7 @@ struct Center {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(move_cube.system())
