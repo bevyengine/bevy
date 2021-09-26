@@ -12,7 +12,6 @@ struct LocalStop;
 // Define the maximum distance an entity should be able to move away from its spawn.
 const MAX_DISTANCE: f32 = 5.0;
 
-
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -127,7 +126,8 @@ fn stop_too_far_global_distance(
 // than its red sibling that uses the behaviour tied to GlobalStop.
 fn stop_too_far_local_distance(
     mut commands: Commands,
-    mut cubes: Query<(Entity, &Transform, &SpawnLocation), With<LocalStop>>) {
+    mut cubes: Query<(Entity, &Transform, &SpawnLocation), With<LocalStop>>,
+) {
     for (entity, transform, spawn) in cubes.iter_mut() {
         if (transform.translation - spawn.0).length() >= MAX_DISTANCE {
             commands.entity(entity).remove::<Moving>();
