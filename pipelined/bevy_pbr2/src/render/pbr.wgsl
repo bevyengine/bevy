@@ -241,8 +241,9 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
     let cluster_dimensions = lights.cluster_dimensions;
+    // FIXME: Precalculate cluster_dimensions.xy / (view.width * view.height)
     let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / f32(view.width * view.height)));
-    // FIXME: Precalculate for performance
+    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
     let z_slice = u32(floor(
         log(view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
         - f32(cluster_dimensions.z) * log(view.near) / log(view.far / view.near)
@@ -251,9 +252,27 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
     // return xy.y * cluster_dimensions.x * cluster_dimensions.z + xy.x * cluster_dimensions.z + z_slice;
 }
 
+struct ClusterOffsetAndCount {
+    offset: i32;
+    count: i32;
+};
+
+fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
+    let offset_and_count = cluster_offsets_and_counts.data[cluster_index];
+    var output: ClusterOffsetAndCount;
+    // The offset is stored in the upper 24 bits
+    output.offset = i32((offset_and_count >> 8u) & 16777215u);
+    // The count is stored in the lower 8 bits
+    output.count = i32(offset_and_count & 255u);
+    return output;
+}
+
 fn get_light_id(i: i32) -> i32 {
     let index = u32(i);
+    // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
+    // This means the index into cluster_light_index_lists is index / 4
     let indices = cluster_light_index_lists.data[index >> 2u];
+    // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
     return i32((indices >> (8u * (index & 3u))) & 255u);
 }
 
@@ -522,11 +541,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             view.inverse_view.w.z
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z);
-        let offset_and_count = cluster_offsets_and_counts.data[cluster_index];
-        let light_offset = i32(offset_and_count >> 8u);
-        let n_point_lights = i32(offset_and_count & 255u);
-        for (var i: i32 = 0; i < n_point_lights; i = i + 1) {
-            let light_id = get_light_id(light_offset + i);
+        let offset_and_count = unpack_offset_and_count(cluster_index);
+        for (var i: i32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1) {
+            let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -557,6 +574,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
                 emissive.rgb * output_color.a,
             output_color.a);
+
+        // Cluster allocation debug
+        output_color.r = output_color.r * smoothStep(0.0, 16.0, f32(offset_and_count.count));
+        output_color.g = output_color.g * (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);

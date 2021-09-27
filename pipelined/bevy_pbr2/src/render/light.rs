@@ -133,7 +133,7 @@ pub struct GpuLights {
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_POINT_LIGHTS: usize = 10;
+pub const MAX_POINT_LIGHTS: usize = 128;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHTS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
@@ -511,6 +511,7 @@ pub struct ViewLightsUniformOffset {
     pub offset: u32,
 }
 
+#[derive(Default)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: UniformVec<GpuPointLight>,
     pub entity_to_index: HashMap<Entity, usize>,
@@ -584,6 +585,11 @@ pub fn prepare_lights(
             shadow_normal_bias: light.shadow_normal_bias,
         });
         global_light_meta.entity_to_index.insert(entity, index);
+    }
+    for _ in n_point_lights..MAX_POINT_LIGHTS {
+        global_light_meta
+            .gpu_point_lights
+            .push(GpuPointLight::default());
     }
     global_light_meta
         .gpu_point_lights
@@ -847,6 +853,9 @@ pub struct ViewClusterBindings {
 }
 
 impl ViewClusterBindings {
+    const MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS: usize = 16384 / 4;
+    const MAX_CLUSTERS: usize = 4096;
+
     pub fn push_offset_and_count(&mut self, offset: usize, count: usize) -> usize {
         self.cluster_offsets_and_counts
             .push(pack_offset_and_count(offset, count))
@@ -873,6 +882,20 @@ impl ViewClusterBindings {
         }
 
         self.n_indices += 1;
+    }
+
+    pub fn pad_uniform_buffers(&mut self) {
+        // NOTE: We want to allow 'up to' MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS * 4
+        //       light indices and MAX_CLUSTERS clusters and we must always use
+        //       full bindings
+        for _ in self.cluster_light_index_lists.len()
+            ..ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
+        {
+            self.cluster_light_index_lists.push(0);
+        }
+        for _ in self.cluster_light_index_lists.len()..ViewClusterBindings::MAX_CLUSTERS {
+            self.cluster_offsets_and_counts.push(0);
+        }
     }
 }
 
@@ -912,6 +935,9 @@ pub fn prepare_clusters(
             }
         }
 
+        // NOTE: Because cluster_light_index_lists and cluster_offsets_and_counts are uniform buffers,
+        //       they must be a fixed size so we pad them up to the binding sizes.
+        view_clusters_bindings.pad_uniform_buffers();
         view_clusters_bindings
             .cluster_light_index_lists
             .write_buffer(&render_device, &render_queue);

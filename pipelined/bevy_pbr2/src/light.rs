@@ -444,7 +444,9 @@ pub fn update_point_light_frusta(
 }
 
 pub fn check_light_mesh_visibility(
-    visible_point_lights: Query<&VisiblePointLights>,
+    // NOTE: VisiblePointLights is an alias for VisibleEntities so the Without<DirectionalLight>
+    //       is needed to avoid an unnecessary QuerySet
+    visible_point_lights: Query<&VisiblePointLights, Without<DirectionalLight>>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
