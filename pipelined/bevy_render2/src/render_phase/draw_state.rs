@@ -194,4 +194,10 @@ impl<'a> TrackedRenderPass<'a> {
         );
         self.pass.draw_indexed(indices, base_vertex, instances);
     }
+
+    pub fn set_stencil_reference(&mut self, reference: u32) {
+        debug!("set stencil reference: {}", reference);
+
+        self.pass.set_stencil_reference(reference);
+    }
 }
