@@ -239,16 +239,21 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
+fn view_z_to_z_slice(view_z: f32) -> u32 {
+    let n_z_slices = lights.cluster_dimensions.z;
+    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
+    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
+    return u32(floor(
+        log(-view_z) * f32(n_z_slices) / log(view.far / view.near)
+        - f32(n_z_slices) * log(view.near) / log(view.far / view.near)
+    ));
+}
+
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
     let cluster_dimensions = lights.cluster_dimensions;
     // FIXME: Precalculate cluster_dimensions.xy / (view.width * view.height)
     let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / vec2<f32>(view.width, view.height)));
-    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
-    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
-    let z_slice = u32(floor(
-        log(-view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
-        - f32(cluster_dimensions.z) * log(view.near) / log(view.far / view.near)
-    ));
+    let z_slice = view_z_to_z_slice(view_z);
     return (xy.y * cluster_dimensions.x + xy.x) * cluster_dimensions.z + z_slice;
     // return xy.y * cluster_dimensions.x * cluster_dimensions.z + xy.x * cluster_dimensions.z + z_slice;
 }
@@ -426,6 +431,18 @@ fn fetch_directional_shadow(light_id: i32, frag_position: vec4<f32>, surface_nor
     return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
 }
 
+fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
+    let rgb = clamp(
+        abs(
+            ((hue * 6.0 + vec3<f32>(0.0, 4.0, 2.0)) % 6.0) - 3.0
+        ) - 1.0,
+        vec3<f32>(0.0),
+        vec3<f32>(1.0)
+    );
+
+	return value * mix( vec3<f32>(1.0), rgb, vec3<f32>(saturation));
+}
+
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
@@ -576,10 +593,26 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 emissive.rgb * output_color.a,
             output_color.a);
 
-        // Cluster allocation debug
-        output_color.r = smoothStep(0.0, 16.0, f32(offset_and_count.count));
-        output_color.g = (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
-        output_color.b = 0.0;
+        // Cluster allocation debug (using 'over' alpha blending)
+        let cluster_debug_mode = 2;
+        let cluster_overlay_alpha = 0.05;
+        if (cluster_debug_mode == 1) {
+            var z_slice: u32 = view_z_to_z_slice(view_z);
+            // A hack to make the colors alternate a bit more
+            if ((z_slice & 1u) == 1u) {
+                z_slice = z_slice + lights.cluster_dimensions.z / 2u;
+            }
+            let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+            output_color = vec4<f32>(
+                (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
+                output_color.a
+            );
+        } elseif (cluster_debug_mode == 2) {
+            output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
+                + cluster_overlay_alpha * smoothStep(0.0, 16.0, f32(offset_and_count.count));
+            output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
+                + cluster_overlay_alpha * (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
+        }
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);

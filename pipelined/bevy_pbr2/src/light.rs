@@ -294,17 +294,17 @@ pub fn add_clusters(
     // println!("Running add_clusters with {} cameras", cameras.iter().count());
     for (entity, camera) in cameras.iter() {
         let window = windows.get(camera.window).unwrap();
-        let divisions = 4;
+        // let divisions = 8;
         let clusters = Clusters::new(
-            // UVec2::splat(window.physical_width() / 16),
-            UVec2::new(
-                window.physical_width() / divisions,
-                window.physical_height() / divisions,
-            ),
+            UVec2::splat(window.physical_width() / 16),
+            // UVec2::new(
+            //     window.physical_width() / divisions,
+            //     window.physical_height() / divisions,
+            // ),
             // UVec2::new(window.physical_width() / 2, window.physical_height()),
             UVec2::new(window.physical_width(), window.physical_height()),
-            // 24,
-            divisions,
+            24,
+            // divisions,
             // 1,
         );
         // dbg!(&clusters);
