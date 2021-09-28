@@ -1,9 +1,14 @@
 use bevy_utils::Uuid;
 use std::{ops::Deref, sync::Arc};
 
+/// A [`Texture`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct TextureId(Uuid);
 
+/// A GPU-accessible texture.
+///
+/// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
+/// Can be created via [`RenderDevice::create_texture`](crate::renderer::render_device::RenderDevice::create_texture).
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -11,11 +16,13 @@ pub struct Texture {
 }
 
 impl Texture {
+    /// Returns the [`TextureId`].
     #[inline]
     pub fn id(&self) -> TextureId {
         self.id
     }
 
+    /// Creates a view of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
         TextureView::from(self.value.create_view(desc))
     }
@@ -39,15 +46,25 @@ impl Deref for Texture {
     }
 }
 
+/// A [`TextureView`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct TextureViewId(Uuid);
 
+/// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
+/// [`SwapChainFrame`](wgpu::SwapChainFrame) into the same interface.
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
+    /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
     TextureView(Arc<wgpu::TextureView>),
+    /// The value is a wgpu [`SwapChainFrame`](wgpu::SwapChainFrame), but dereferences to
+    /// a [`TextureView`](wgpu::TextureView).
     SwapChainFrame(Arc<wgpu::SwapChainFrame>),
 }
 
+/// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
+///
+/// May be converted from a [`TextureView`](wgpu::TextureView) or [`SwapChainFrame`](wgpu::SwapChainFrame)
+/// or dereferences to a wgpu [`TextureView`](wgpu::TextureView).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
@@ -55,6 +72,7 @@ pub struct TextureView {
 }
 
 impl TextureView {
+    /// Returns the [`TextureViewId`].
     #[inline]
     pub fn id(&self) -> TextureViewId {
         self.id
@@ -91,9 +109,15 @@ impl Deref for TextureView {
     }
 }
 
+/// A [`Sampler`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct SamplerId(Uuid);
 
+/// A Sampler defines how a pipeline will sample from a [`TextureView`].
+/// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
+///
+/// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
+/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::render_device::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
@@ -101,6 +125,7 @@ pub struct Sampler {
 }
 
 impl Sampler {
+    /// Returns the [`SamplerId`].
     #[inline]
     pub fn id(&self) -> SamplerId {
         self.id
