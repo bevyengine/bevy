@@ -2,7 +2,7 @@ use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
     system::{Command, EntityCommands},
-    world::World,
+    world::{EntityMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -44,14 +44,26 @@ impl Command for DespawnRecursive {
 
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self);
+    fn despawn_recursive(self);
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self) {
+    fn despawn_recursive(mut self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
+    }
+}
+
+impl<'w> DespawnRecursiveExt for EntityMut<'w> {
+    /// Despawns the provided entity and its children.
+    fn despawn_recursive(mut self) {
+        let entity = self.id();
+        // SAFE: EntityMut is consumed so even though the location is no longer
+        // valid, it cannot be accessed again with the invalid location.
+        unsafe {
+            despawn_with_children_recursive(self.world_mut(), entity);
+        }
     }
 }
 
