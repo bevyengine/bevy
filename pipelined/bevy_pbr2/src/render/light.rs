@@ -587,6 +587,7 @@ pub fn prepare_lights(
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
+    // NOTE: Pad up to max point lights to meet the fixed size uniform buffer requirement
     for _ in n_point_lights..MAX_POINT_LIGHTS {
         global_light_meta
             .gpu_point_lights
@@ -642,6 +643,9 @@ pub fn prepare_lights(
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for (light_entity, light) in point_lights.iter() {
+            if !light.shadows_enabled {
+                continue;
+            }
             let light_index = *global_light_meta
                 .entity_to_index
                 .get(&light_entity)
