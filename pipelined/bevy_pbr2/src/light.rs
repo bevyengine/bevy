@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render2::{
@@ -187,7 +186,7 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
@@ -251,46 +250,70 @@ fn compute_aabb_for_cluster(
     // Calculate the minimum and maximum points in screen space
     let p_min = ijk.xy() * tile_size;
     let p_max = p_min + tile_size;
+    // dbg!(p_min);
 
     // Convert to view space at the near plane
     // NOTE: 1.0 is the near plane due to using reverse z projections
     let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
     let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
+    // dbg!(p_min);
 
+    // dbg!(z_near);
+    // dbg!(z_far);
     let z_far_over_z_near = -z_far / -z_near;
+    // dbg!(z_far_over_z_near);
     let cluster_near = -z_near * z_far_over_z_near.powf(ijk.z / cluster_dimensions.z as f32);
+    // dbg!(cluster_near);
     // NOTE: This could be simplified to:
     // let cluster_far = cluster_near * z_far_over_z_near;
     let cluster_far = -z_near * z_far_over_z_near.powf((ijk.z + 1.0) / cluster_dimensions.z as f32);
+    // dbg!(cluster_far);
 
     // Calculate the four intersection points of the min and max points with the cluster near and far planes
     let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
+    // dbg!(p_min_near);
     let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
+    // dbg!(p_min_far);
     let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
+    // dbg!(p_max_near);
     let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
+    // dbg!(p_max_far);
 
     let cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
     let cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
 
+    // panic!("blerp");
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
 pub fn add_clusters(
     mut commands: Commands,
     windows: Res<Windows>,
-    cameras: Query<(Entity, &Camera), (With<Opaque3d>, Without<Clusters>)>,
+    cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
+    // println!("Running add_clusters with {} cameras", cameras.iter().count());
     for (entity, camera) in cameras.iter() {
         let window = windows.get(camera.window).unwrap();
-        commands.entity(entity).insert(Clusters::new(
-            UVec2::splat(window.physical_width() / 16),
+        let divisions = 4;
+        let clusters = Clusters::new(
+            // UVec2::splat(window.physical_width() / 16),
+            UVec2::new(
+                window.physical_width() / divisions,
+                window.physical_height() / divisions,
+            ),
+            // UVec2::new(window.physical_width() / 2, window.physical_height()),
             UVec2::new(window.physical_width(), window.physical_height()),
-            24,
-        ));
+            // 24,
+            divisions,
+            // 1,
+        );
+        // dbg!(&clusters);
+        commands.entity(entity).insert(clusters);
     }
 }
 
 pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Clusters)>) {
+    // println!("Running add_clusters with {} cameras", cameras.iter().count());
     for (camera, mut clusters) in views.iter_mut() {
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
@@ -300,10 +323,6 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         let tile_size = tile_size_u32.as_vec2();
         let z_slices = clusters.axis_slices.z;
         clusters.update(tile_size_u32, screen_size_u32, z_slices);
-        println!(
-            "Cluster configuration: {:?} {:?}",
-            clusters.tile_size, clusters.axis_slices
-        );
 
         // Calculate view space AABBs
         // NOTE: It is important that these are iterated in a specific order
@@ -329,11 +348,26 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
                 }
             }
         }
+        // dbg!(&aabbs);
+        // panic!("blerp");
         clusters.aabbs = aabbs;
     }
 }
 
-pub type VisiblePointLights = VisibleEntities;
+#[derive(Clone, Component, Debug, Default)]
+pub struct VisiblePointLights {
+    pub entities: Vec<Entity>,
+}
+
+impl VisiblePointLights {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
+        self.entities.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+}
 
 // NOTE: Run this before update_point_light_frusta!
 pub fn assign_lights_to_clusters(
@@ -349,14 +383,22 @@ pub fn assign_lights_to_clusters(
         let cluster_count = clusters.aabbs.len();
         let mut clusters_lights = Vec::with_capacity(cluster_count);
         let mut visible_lights = HashSet::with_capacity(light_count);
-        for cluster_aabb in clusters.aabbs.iter() {
+        for (cluster_index, cluster_aabb) in clusters.aabbs.iter().enumerate() {
             let mut cluster_lights = Vec::with_capacity(light_count);
-            for (light_entity, transform, light) in lights.iter() {
+            for (light_index, (light_entity, transform, light)) in lights.iter().enumerate() {
                 let light_sphere = Sphere {
                     center: transform.translation,
                     radius: light.range,
                 };
                 if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
+                    // println!("cluster {} assigned light {}", cluster_index, light_index);
+                    // println!(
+                    //     "Light {:?} intersects cluster at {:?} with {:?}",
+                    //     light_sphere,
+                    //     view_transform.transform_vector3(cluster_aabb.center),
+                    //     cluster_aabb.half_extents,
+                    // );
+                    // panic!("blerp");
                     global_lights_set.insert(light_entity);
                     visible_lights.insert(light_entity);
                     cluster_lights.push(light_entity);

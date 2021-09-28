@@ -28,7 +28,7 @@ use bevy_render2::{
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
 
@@ -310,6 +310,7 @@ impl SpecializedPipeline for ShadowPipeline {
     }
 }
 
+#[derive(Component)]
 pub struct ExtractedClusterConfig {
     /// Tile size
     tile_size: UVec2,
@@ -324,7 +325,7 @@ pub struct ExtractedClustersPointLights {
 
 pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters), With<Camera>>) {
     for (entity, clusters) in views.iter() {
-        commands.entity(entity).insert_bundle((
+        commands.get_or_spawn(entity).insert_bundle((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
             },
@@ -542,7 +543,7 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(Entity, &Clusters), With<RenderPhase<Transparent3d>>>,
+    views: Query<(Entity, &ExtractedClusterConfig), With<RenderPhase<Transparent3d>>>,
     ambient_light: Res<ExtractedAmbientLight>,
     point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
@@ -856,9 +857,17 @@ impl ViewClusterBindings {
     const MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS: usize = 16384 / 4;
     const MAX_CLUSTERS: usize = 4096;
 
-    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) -> usize {
+    pub fn reserve(&mut self, render_device: &RenderDevice) {
+        self.cluster_light_index_lists
+            .reserve(Self::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS, render_device);
         self.cluster_offsets_and_counts
-            .push(pack_offset_and_count(offset, count))
+            .reserve(Self::MAX_CLUSTERS, render_device);
+    }
+
+    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) -> usize {
+        let packed = pack_offset_and_count(offset, count);
+        // println!("o {} c {} p {}", offset, count, packed);
+        self.cluster_offsets_and_counts.push(packed)
     }
 
     pub fn n_indices(&self) -> usize {
@@ -874,11 +883,17 @@ impl ViewClusterBindings {
         // one
         let sub_index = self.n_indices & 3; // & 3 is equivalent to % 4
         if sub_index == 0 {
+            // println!("Push new index {}", index);
             self.cluster_light_index_lists.push(index);
         } else {
+            // println!("Or in index {} at {}", index, sub_index);
             let array_index = self.n_indices >> 2; // >> 2 is equivalent to / 4
             let array_value = self.cluster_light_index_lists.get_mut(array_index);
             *array_value |= index << (8 * sub_index);
+            // println!(
+            //     "Index {} ored into subindex {} giving {}",
+            //     index, sub_index, array_value
+            // );
         }
 
         self.n_indices += 1;
@@ -888,12 +903,23 @@ impl ViewClusterBindings {
         // NOTE: We want to allow 'up to' MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS * 4
         //       light indices and MAX_CLUSTERS clusters and we must always use
         //       full bindings
+        // println!(
+        //     "Padding {} index items (i.e. indices / 4) from {}",
+        //     ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
+        //         - self.cluster_light_index_lists.len(),
+        //     self.cluster_light_index_lists.len()
+        // );
         for _ in self.cluster_light_index_lists.len()
             ..ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
         {
             self.cluster_light_index_lists.push(0);
         }
-        for _ in self.cluster_light_index_lists.len()..ViewClusterBindings::MAX_CLUSTERS {
+        // println!(
+        //     "Padding {} cluster offsets and counts from {}",
+        //     ViewClusterBindings::MAX_CLUSTERS - self.cluster_offsets_and_counts.len(),
+        //     self.cluster_offsets_and_counts.len()
+        // );
+        for _ in self.cluster_offsets_and_counts.len()..ViewClusterBindings::MAX_CLUSTERS {
             self.cluster_offsets_and_counts.push(0);
         }
     }
@@ -915,19 +941,33 @@ pub fn prepare_clusters(
 ) {
     for (entity, cluster_config, extracted_clusters) in views.iter() {
         let mut view_clusters_bindings = ViewClusterBindings::default();
+        view_clusters_bindings.reserve(&*render_device);
+
+        let mut indices_full = false;
 
         let mut cluster_index = 0;
         for _y in 0..cluster_config.axis_slices.y {
             for _x in 0..cluster_config.axis_slices.x {
                 for _z in 0..cluster_config.axis_slices.z {
                     let offset = view_clusters_bindings.n_indices();
-                    let cluster_lights = &extracted_clusters[cluster_index];
+                    let cluster_lights = &extracted_clusters.data[cluster_index];
                     let count = cluster_lights.len();
                     view_clusters_bindings.push_offset_and_count(offset, count);
 
-                    for entity in cluster_lights.iter() {
-                        let light_index = *global_light_meta.entity_to_index.get(entity).unwrap();
-                        view_clusters_bindings.push_index(light_index);
+                    if !indices_full {
+                        for entity in cluster_lights.iter() {
+                            if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
+                            {
+                                if view_clusters_bindings.cluster_light_index_lists.len()
+                                    >= ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
+                                {
+                                    warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                                    indices_full = true;
+                                    break;
+                                }
+                                view_clusters_bindings.push_index(*light_index);
+                            }
+                        }
                     }
 
                     cluster_index += 1;
@@ -945,7 +985,11 @@ pub fn prepare_clusters(
             .cluster_offsets_and_counts
             .write_buffer(&render_device, &render_queue);
 
-        commands.entity(entity).insert(view_clusters_bindings);
+        // dbg!(view_clusters_bindings.cluster_light_index_lists.values());
+        // dbg!(view_clusters_bindings.cluster_offsets_and_counts.values());
+        // panic!("SMURF");
+
+        commands.get_or_spawn(entity).insert(view_clusters_bindings);
     }
 }
 

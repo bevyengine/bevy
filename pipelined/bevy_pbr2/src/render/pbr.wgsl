@@ -242,10 +242,11 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
     let cluster_dimensions = lights.cluster_dimensions;
     // FIXME: Precalculate cluster_dimensions.xy / (view.width * view.height)
-    let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / f32(view.width * view.height)));
+    let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / vec2<f32>(view.width, view.height)));
     // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
+    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
     let z_slice = u32(floor(
-        log(view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
+        log(-view_z) * f32(cluster_dimensions.z) / log(view.far / view.near)
         - f32(cluster_dimensions.z) * log(view.near) / log(view.far / view.near)
     ));
     return (xy.y * cluster_dimensions.x + xy.x) * cluster_dimensions.z + z_slice;
@@ -576,8 +577,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             output_color.a);
 
         // Cluster allocation debug
-        output_color.r = output_color.r * smoothStep(0.0, 16.0, f32(offset_and_count.count));
-        output_color.g = output_color.g * (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
+        output_color.r = smoothStep(0.0, 16.0, f32(offset_and_count.count));
+        output_color.g = (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
+        output_color.b = 0.0;
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
