@@ -6,11 +6,22 @@ use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 use thiserror::Error;
 
+/// A command that signals the graph runner to run the sub graph corresponding to the `name`
+/// with the specified `inputs` next.
 pub struct RunSubGraph {
     pub name: Cow<'static, str>,
     pub inputs: Vec<SlotValue>,
 }
 
+/// The context with all graph information required to run a [`Node`](super::node::Node).
+/// This context is created for each node by the
+/// [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner).
+///
+/// The slot input can be read from here and the outputs must be written back to the context for
+/// passing them onto the next node.
+///
+/// Sub graphs can be queued for running by adding a [`RunSubGraph`] command to the context.
+/// After the node has finished running the graph runner is responsible for executing the sub graphs.
 pub struct RenderGraphContext<'a> {
     graph: &'a RenderGraph,
     node: &'a NodeState,
@@ -20,6 +31,7 @@ pub struct RenderGraphContext<'a> {
 }
 
 impl<'a> RenderGraphContext<'a> {
+    /// Creates a new render graph context for the `node`.
     pub fn new(
         graph: &'a RenderGraph,
         node: &'a NodeState,
@@ -35,19 +47,23 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
+    /// Returns the input slot values for the node.
     #[inline]
     pub fn inputs(&self) -> &[SlotValue] {
         self.inputs
     }
 
+    /// Returns the [`SlotInfos`] of the inputs.
     pub fn input_info(&self) -> &SlotInfos {
         &self.node.input_slots
     }
 
+    /// Returns the [`SlotInfos`] of the outputs.
     pub fn output_info(&self) -> &SlotInfos {
         &self.node.output_slots
     }
 
+    /// Retrieves the input slot value referenced by the `label`.
     pub fn get_input(&self, label: impl Into<SlotLabel>) -> Result<&SlotValue, InputSlotError> {
         let label = label.into();
         let index = self
@@ -58,6 +74,7 @@ impl<'a> RenderGraphContext<'a> {
     }
 
     // TODO: should this return an Arc or a reference?
+    /// Retrieves the input slot value referenced by the `label` as a [`TextureView`].
     pub fn get_input_texture(
         &self,
         label: impl Into<SlotLabel>,
@@ -73,6 +90,7 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
+    /// Retrieves the input slot value referenced by the `label` as a [`Sampler`].
     pub fn get_input_sampler(
         &self,
         label: impl Into<SlotLabel>,
@@ -88,6 +106,7 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
+    /// Retrieves the input slot value referenced by the `label` as a [`Buffer`].
     pub fn get_input_buffer(&self, label: impl Into<SlotLabel>) -> Result<&Buffer, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
@@ -100,6 +119,7 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
+    /// Retrieves the input slot value referenced by the `label` as an [`Entity`].
     pub fn get_input_entity(&self, label: impl Into<SlotLabel>) -> Result<Entity, InputSlotError> {
         let label = label.into();
         match self.get_input(label.clone())? {
@@ -112,6 +132,7 @@ impl<'a> RenderGraphContext<'a> {
         }
     }
 
+    /// Sets the output slot value referenced by the `label`.
     pub fn set_output(
         &mut self,
         label: impl Into<SlotLabel>,
@@ -138,6 +159,7 @@ impl<'a> RenderGraphContext<'a> {
         Ok(())
     }
 
+    /// Queues up a sub graph for execution after the node has finished running.
     pub fn run_sub_graph(
         &mut self,
         name: impl Into<Cow<'static, str>>,
@@ -177,6 +199,8 @@ impl<'a> RenderGraphContext<'a> {
         Ok(())
     }
 
+    /// Finishes the context for this [`Node`](super::node::Node) by
+    /// returning the sub graphs to run next.
     pub fn finish(self) -> Vec<RunSubGraph> {
         self.run_sub_graphs
     }
