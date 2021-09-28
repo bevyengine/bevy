@@ -17,7 +17,7 @@ use std::{borrow::Cow, fmt::Debug};
 /// is responsible for executing the entire graph each frame.
 ///
 /// It consists of three main components: [`Nodes`](Node), [`Edges`](Edge)
-/// and [`Slots`](super::node_slot::SlotType).
+/// and [`Slots`](super::SlotType).
 ///
 /// Nodes are responsible for generating draw calls and operating on input and output slots.
 /// Edges specify the order of execution for nodes and connect input and output slots together.
@@ -44,7 +44,7 @@ use std::{borrow::Cow, fmt::Debug};
 /// let mut graph = RenderGraph::default();
 /// graph.add_node("input_node", MyNode);
 /// graph.add_node("output_node", MyNode);
-/// graph.add_node_edge("output_node", "input_node");
+/// graph.add_node_edge("output_node", "input_node").unwrap();
 /// ```
 #[derive(Default)]
 pub struct RenderGraph {

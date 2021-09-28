@@ -13,7 +13,7 @@ pub struct RunSubGraph {
     pub inputs: Vec<SlotValue>,
 }
 
-/// The context with all graph information required to run a [`Node`](super::node::Node).
+/// The context with all graph information required to run a [`Node`](super::Node).
 /// This context is created for each node by the
 /// [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner).
 ///
@@ -199,7 +199,7 @@ impl<'a> RenderGraphContext<'a> {
         Ok(())
     }
 
-    /// Finishes the context for this [`Node`](super::node::Node) by
+    /// Finishes the context for this [`Node`](super::Node) by
     /// returning the sub graphs to run next.
     pub fn finish(self) -> Vec<RunSubGraph> {
         self.run_sub_graphs

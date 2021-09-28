@@ -3,8 +3,8 @@ use std::borrow::Cow;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
-/// A value passed between render [`Nodes`](super::node::Node).
-/// Corresponds to the [SlotType] specified in the [`RenderGraph`](crate::render_graph::RenderGraph).
+/// A value passed between render [`Nodes`](super::Node).
+/// Corresponds to the [SlotType] specified in the [`RenderGraph`](super::RenderGraph).
 ///
 /// Slots can have four different types of values:
 /// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].
@@ -59,7 +59,7 @@ impl From<Entity> for SlotValue {
 }
 
 /// Describes the render resources created (output) or used (input) by
-/// the render [`Nodes`](super::node::Node).
+/// the render [`Nodes`](super::Node).
 ///
 /// This should not be confused with [`SlotValue`], which actually contains the passed data.
 ///
@@ -79,7 +79,7 @@ pub enum SlotType {
 }
 
 /// A [`SlotLabel`] is used to reference a slot by either its name or index
-/// inside the [`RenderGraph`](crate::render_graph::RenderGraph).
+/// inside the [`RenderGraph`](super:RenderGraph).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SlotLabel {
     Index(usize),
@@ -133,7 +133,7 @@ impl SlotInfo {
 }
 
 /// A collection of input or output [`SlotInfos`](SlotInfo) for
-/// a [`NodeState`](super::node::NodeState).
+/// a [`NodeState`](super::NodeState).
 #[derive(Default, Debug)]
 pub struct SlotInfos {
     slots: Vec<SlotInfo>,

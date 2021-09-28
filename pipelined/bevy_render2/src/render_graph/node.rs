@@ -29,7 +29,7 @@ impl NodeId {
     }
 }
 
-/// A render node that can be added to a [`RenderGraph`](crate::render_graph::RenderGraph).
+/// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///
 /// Nodes are the fundamental part of the graph and used to extend its functionality, by
 /// generating draw calls and/or running subgraphs.
@@ -40,7 +40,7 @@ impl NodeId {
 ///
 /// A node can produce outputs used as dependencies by other nodes.
 /// Those inputs and outputs are called slots and are the default way of passing render data
-/// inside the graph. For more information see [`SlotType`](super::node_slot::SlotType).
+/// inside the graph. For more information see [`SlotType`](super::SlotType).
 pub trait Node: Downcast + Send + Sync + 'static {
     /// Specifies the required input slots for this node.
     /// They will then be available during the run method inside the [`RenderContext`].
@@ -155,7 +155,7 @@ impl Edges {
 }
 
 /// The internal representation of a [`Node`], with all data required
-/// by the [`RenderGraph`](crate::render_graph::RenderGraph).
+/// by the [`RenderGraph`](super::RenderGraph).
 ///
 /// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
@@ -237,7 +237,7 @@ impl NodeState {
 }
 
 /// A [`NodeLabel`] is used to reference a [`NodeState`] by either its name or [`NodeId`]
-/// inside the [`RenderGraph`](crate::render_graph::RenderGraph).
+/// inside the [`RenderGraph`](super::RenderGraph).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum NodeLabel {
     Id(NodeId),
@@ -270,7 +270,7 @@ impl From<NodeId> for NodeLabel {
 
 /// A [`Node`] without any inputs, outputs and subgraphs, which does nothing when run.
 /// Used (as a label) to bundle multiple dependencies into one inside
-/// the [`RenderGraph`](crate::render_graph::RenderGraph).
+/// the [`RenderGraph`](super::RenderGraph).
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
