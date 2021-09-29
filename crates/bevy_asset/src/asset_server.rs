@@ -29,6 +29,10 @@ pub enum AssetServerError {
     AssetIoError(#[from] AssetIoError),
 }
 
+pub trait AssetNotify: Send + Sync + 'static {
+    fn notify(&self);
+}
+
 fn format_missing_asset_ext(exts: &[String]) -> String {
     if !exts.is_empty() {
         format!(
@@ -53,6 +57,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
+    asset_notify: RwLock<Option<Box<dyn AssetNotify>>>,
     loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
@@ -86,6 +91,7 @@ impl AssetServer {
                 asset_ref_counter: Default::default(),
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
+                asset_notify: Default::default(),
                 task_pool,
                 asset_io,
             }),
@@ -113,6 +119,10 @@ impl AssetServer {
                 .insert(extension.to_string(), loader_index);
         }
         loaders.push(Arc::new(loader));
+    }
+
+    pub fn replace_notify(&self, asset_notify: Box<dyn AssetNotify>) {
+        *self.server.asset_notify.write() = Some(asset_notify);
     }
 
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
@@ -371,6 +381,8 @@ impl AssetServer {
             .spawn(async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
                     warn!("{}", err);
+                } else if let Some(asset_notify) = &*server.server.asset_notify.read() {
+                    asset_notify.notify();
                 }
             })
             .detach();
@@ -617,6 +629,7 @@ mod test {
                 asset_ref_counter: Default::default(),
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
+                asset_notify: Default::default(),
                 task_pool: Default::default(),
                 asset_io: Box::new(FileAssetIo::new(asset_path)),
             }),

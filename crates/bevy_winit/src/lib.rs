@@ -13,6 +13,7 @@ pub use winit_tick::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
+use bevy_asset::{AssetNotify, AssetServer};
 use bevy_ecs::{
     prelude::NonSend,
     system::{IntoExclusiveSystem, Res},
@@ -25,6 +26,7 @@ use bevy_window::{
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
+use parking_lot::Mutex;
 use winit::event_loop::EventLoopProxy;
 use winit::{
     dpi::PhysicalPosition,
@@ -42,6 +44,16 @@ use winit::dpi::LogicalSize;
 ))]
 use winit::platform::unix::EventLoopExtUnix;
 
+struct WinitNotify {
+    event_loop_proxy: Mutex<EventLoopProxy<()>>,
+}
+
+impl AssetNotify for WinitNotify {
+    fn notify(&self) {
+        let _ = self.event_loop_proxy.lock().send_event(());
+    }
+}
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -53,9 +65,16 @@ impl Plugin for WinitPlugin {
 
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
+            .add_startup_system(setup.exclusive_system())
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system())
             .add_system_to_stage(CoreStage::Last, tick.exclusive_system());
     }
+}
+
+fn setup(asset_server: Res<AssetServer>, event_loop_proxy: NonSend<EventLoopProxy<()>>) {
+    asset_server.replace_notify(Box::new(WinitNotify {
+        event_loop_proxy: Mutex::new(event_loop_proxy.clone()),
+    }));
 }
 
 fn tick(winit_tick: Res<WinitTick>, event_loop_proxy: NonSend<EventLoopProxy<()>>) {
