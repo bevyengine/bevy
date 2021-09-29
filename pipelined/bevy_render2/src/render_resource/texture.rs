@@ -124,34 +124,3 @@ impl Deref for Sampler {
         &self.value
     }
 }
-
-#[derive(Clone, Debug)]
-pub struct SwapChainFrame {
-    id: TextureViewId,
-    value: Arc<wgpu::SwapChainFrame>,
-}
-
-impl SwapChainFrame {
-    #[inline]
-    pub fn id(&self) -> TextureViewId {
-        self.id
-    }
-}
-
-impl From<wgpu::SwapChainFrame> for SwapChainFrame {
-    fn from(value: wgpu::SwapChainFrame) -> Self {
-        Self {
-            id: TextureViewId(Uuid::new_v4()),
-            value: Arc::new(value),
-        }
-    }
-}
-
-impl Deref for SwapChainFrame {
-    type Target = wgpu::SwapChainFrame;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
