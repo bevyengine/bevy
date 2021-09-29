@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// A resource for dynamically control of game tick.
 pub struct WinitTick {
     default_poll_tick: bool,
     should_poll_tick: AtomicBool,
@@ -12,6 +13,11 @@ impl Default for WinitTick {
 }
 
 impl WinitTick {
+    /// Create a `WinitTick` resource with the specified `default_poll_tick`.
+    /// `false` is recommended for GUI applications, animation systems can call
+    /// `poll_tick` with `WinitTick` resource to poll game tick for the next frame.
+    ///
+    /// Default value of `default_poll_tick` parameter is `true`.
     pub fn new(default_poll_tick: bool) -> Self {
         Self {
             default_poll_tick,
