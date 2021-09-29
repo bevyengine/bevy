@@ -24,7 +24,7 @@ pub struct TextureAtlas {
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct TextureAtlasSprite {
     pub color: Color,
-    pub index: u32,
+    pub index: usize,
     pub flip_x: bool,
     pub flip_y: bool,
 }
@@ -41,7 +41,7 @@ impl Default for TextureAtlasSprite {
 }
 
 impl TextureAtlasSprite {
-    pub fn new(index: u32) -> TextureAtlasSprite {
+    pub fn new(index: usize) -> TextureAtlasSprite {
         Self {
             index,
             ..Default::default()

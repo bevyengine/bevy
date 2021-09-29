@@ -166,7 +166,7 @@ pub fn extract_atlases(
     let mut sprites = Vec::new();
     for (entity, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = texture_atlas.textures[atlas_sprite.index as usize];
+            let rect = texture_atlas.textures[atlas_sprite.index];
             sprites.push((
                 entity,
                 (ExtractedSprite {
