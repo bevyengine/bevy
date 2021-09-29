@@ -513,6 +513,10 @@ impl Window {
     }
 }
 
+/// This resource will only be used as initialization to setup the window.
+/// To change those settings during runtime, the [`Windows`](super::windows::Windows)
+/// resource should be used. See example
+/// [window_settings](https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs)
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
     pub width: f32,
