@@ -119,13 +119,15 @@ impl TextureAtlas {
     }
 
     /// Add a sprite to the list of textures in the `TextureAtlas`
+    /// returns an index to the texture which can be used with `TextureAtlasSprite`
     ///
     /// # Arguments
     ///
     /// * `rect` - The section of the atlas that contains the texture to be added,
     /// from the top-left corner of the texture to the bottom-right corner
-    pub fn add_texture(&mut self, rect: Rect) {
+    pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
+        self.textures.len() - 1
     }
 
     /// How many textures are in the `TextureAtlas`
