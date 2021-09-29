@@ -17,10 +17,14 @@ mod tests {
         world::World,
     };
 
+    use super::AnyOf;
+
     #[derive(Debug, Eq, PartialEq)]
     struct A(usize);
     #[derive(Debug, Eq, PartialEq)]
     struct B(usize);
+    #[derive(Debug, Eq, PartialEq)]
+    struct C(usize);
 
     #[test]
     fn query() {
@@ -185,5 +189,22 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
+    }
+
+    #[test]
+    fn any_query() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A(1), B(2)));
+        world.spawn().insert_bundle((A(2),));
+        world.spawn().insert_bundle((C(3),));
+
+        let values: Vec<(Option<&A>, Option<&B>)> =
+            world.query::<AnyOf<(&A, &B)>>().iter(&world).collect();
+
+        assert_eq!(
+            values,
+            vec![(Some(&A(1)), Some(&B(2))), (Some(&A(2)), None),]
+        );
     }
 }
