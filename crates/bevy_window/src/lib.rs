@@ -56,6 +56,7 @@ impl Plugin for WindowPlugin {
                 .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_else(WindowDescriptor::default);
+            app.world.remove_resource::<WindowDescriptor>();
             let mut create_window_event = app
                 .world
                 .get_resource_mut::<Events<CreateWindow>>()
