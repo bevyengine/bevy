@@ -1,9 +1,11 @@
 use bevy::prelude::*;
+use bevy::winit::WinitTick;
 
 /// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(WinitTick::new(false))
         .add_startup_system(setup)
         .run();
 }

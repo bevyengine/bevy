@@ -1,5 +1,6 @@
 mod converters;
 mod winit_config;
+mod winit_tick;
 mod winit_windows;
 
 use bevy_input::{
@@ -8,10 +9,15 @@ use bevy_input::{
     touch::TouchInput,
 };
 pub use winit_config::*;
+pub use winit_tick::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_ecs::{
+    prelude::NonSend,
+    system::{IntoExclusiveSystem, Res},
+    world::World,
+};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -19,6 +25,7 @@ use bevy_window::{
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
+use winit::event_loop::EventLoopProxy;
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -40,9 +47,20 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
+        if app.world.get_resource::<WinitTick>().is_none() {
+            app.init_resource::<WinitTick>();
+        }
+
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system())
+            .add_system_to_stage(CoreStage::Last, tick.exclusive_system());
+    }
+}
+
+fn tick(winit_tick: Res<WinitTick>, event_loop_proxy: NonSend<EventLoopProxy<()>>) {
+    if winit_tick.finish() {
+        let _ = event_loop_proxy.send_event(());
     }
 }
 
@@ -238,7 +256,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = ControlFlow::Poll;
+        *control_flow = ControlFlow::Wait;
 
         if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
             if app_exit_event_reader
