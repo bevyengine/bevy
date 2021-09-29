@@ -225,7 +225,12 @@ fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
 
 fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
     let tex_coord = screen / screen_size;
-    let clip = Vec4::new(tex_coord.x * 2.0 - 1.0, tex_coord.y * 2.0 - 1.0, ndc_z, 1.0);
+    let clip = Vec4::new(
+        tex_coord.x * 2.0 - 1.0,
+        (1.0 - tex_coord.y) * 2.0 - 1.0,
+        ndc_z,
+        1.0,
+    );
     clip_to_view(inverse_projection, clip)
 }
 
