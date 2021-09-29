@@ -430,7 +430,7 @@ pub fn extract_lights(
     }
 }
 
-const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
+pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
 // Can't do `Vec3::Y * -1.0` because mul isn't const
 const NEGATIVE_X: Vec3 = const_vec3!([-1.0, 0.0, 0.0]);
