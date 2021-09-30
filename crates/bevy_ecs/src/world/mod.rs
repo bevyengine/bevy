@@ -25,15 +25,9 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct WorldId(u64);
+mod identifier;
 
-impl Default for WorldId {
-    fn default() -> Self {
-        WorldId(rand::random())
-    }
-}
-
+pub use identifier::WorldId;
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
@@ -94,7 +88,7 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         Self {
-            id: Default::default(),
+            id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
             components: Default::default(),
             archetypes: Default::default(),
@@ -113,12 +107,17 @@ impl Default for World {
 
 impl World {
     /// Creates a new empty [World]
+    /// # Panics
+    ///
+    /// If [`usize::MAX`] [`World`]s have been created.
+    /// This guarantee allows System Parameters to safely uniquely identify a [`World`],
+    /// since its [`WorldId`] is unique
     #[inline]
     pub fn new() -> World {
         World::default()
     }
 
-    /// Retrieves this world's unique ID
+    /// Retrieves this [`World`]'s unique ID
     #[inline]
     pub fn id(&self) -> WorldId {
         self.id
