@@ -259,27 +259,26 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
 }
 
 struct ClusterOffsetAndCount {
-    offset: i32;
-    count: i32;
+    offset: u32;
+    count: u32;
 };
 
 fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
-    let offset_and_count = cluster_offsets_and_counts.data[cluster_index];
+    let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     var output: ClusterOffsetAndCount;
     // The offset is stored in the upper 24 bits
-    output.offset = i32((offset_and_count >> 8u) & 16777215u);
+    output.offset = (offset_and_count >> 8u) & ((1u << 24u) - 1u);
     // The count is stored in the lower 8 bits
-    output.count = i32(offset_and_count & 255u);
+    output.count = offset_and_count & ((1u << 8u) - 1u);
     return output;
 }
 
-fn get_light_id(i: i32) -> i32 {
-    let index = u32(i);
+fn get_light_id(index: u32) -> u32 {
     // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
     // This means the index into cluster_light_index_lists is index / 4
-    let indices = cluster_light_index_lists.data[index >> 2u];
+    let indices = cluster_light_index_lists.data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
-    return i32((indices >> (8u * (index & 3u))) & 255u);
+    return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
 }
 
 fn point_light(
@@ -352,7 +351,7 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
     return (specular_light + diffuse) * light.color.rgb * NoL;
 }
 
-fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = point_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -400,7 +399,7 @@ fn fetch_point_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: v
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
 }
 
-fn fetch_directional_shadow(light_id: i32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = lights.directional_lights[light_id];
 
     // The normal bias is scaled to the texel size.
@@ -560,7 +559,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z);
         let offset_and_count = unpack_offset_and_count(cluster_index);
-        for (var i: i32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1) {
+        for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
             let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
@@ -572,8 +571,8 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             light_accum = light_accum + light_contrib * shadow;
         }
 
-        let n_directional_lights = i32(lights.n_directional_lights);
-        for (var i: i32 = 0; i < n_directional_lights; i = i + 1) {
+        let n_directional_lights = lights.n_directional_lights;
+        for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = lights.directional_lights[i];
             var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u

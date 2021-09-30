@@ -853,25 +853,40 @@ fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
 #[derive(Component, Default)]
 pub struct ViewClusterBindings {
     n_indices: usize,
-    pub cluster_light_index_lists: UniformVec<u32>,
-    pub cluster_offsets_and_counts: UniformVec<u32>,
+    // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
+    pub cluster_light_index_lists: UniformVec<UVec4>,
+    n_offsets: usize,
+    // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
+    pub cluster_offsets_and_counts: UniformVec<UVec4>,
 }
 
 impl ViewClusterBindings {
-    const MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS: usize = 16384 / 4;
+    const MAX_UNIFORM_ITEMS: usize = 16384 / (4 * 4);
+    const MAX_INDICES: usize = 16384;
     const MAX_CLUSTERS: usize = 4096;
 
     pub fn reserve(&mut self, render_device: &RenderDevice) {
         self.cluster_light_index_lists
-            .reserve(Self::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS, render_device);
+            .reserve(Self::MAX_UNIFORM_ITEMS, render_device);
         self.cluster_offsets_and_counts
-            .reserve(Self::MAX_CLUSTERS, render_device);
+            .reserve(Self::MAX_UNIFORM_ITEMS, render_device);
     }
 
-    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) -> usize {
+    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) {
         let packed = pack_offset_and_count(offset, count);
-        // println!("o {} c {} p {}", offset, count, packed);
-        self.cluster_offsets_and_counts.push(packed)
+
+        let sub_indices = self.n_offsets & ((1 << 4) - 1);
+        if sub_indices == 0 {
+            self.cluster_offsets_and_counts
+                .push(UVec4::new(packed, 0, 0, 0));
+        } else {
+            let array_index = self.n_offsets >> 4; // >> 4 is equivalent to / 16
+            let array_value = self.cluster_offsets_and_counts.get_mut(array_index);
+            let component = sub_indices >> 2;
+            array_value[component] = packed;
+        }
+
+        self.n_offsets += 1;
     }
 
     pub fn n_indices(&self) -> usize {
@@ -879,25 +894,22 @@ impl ViewClusterBindings {
     }
 
     pub fn push_index(&mut self, index: usize) {
-        // NOTE: Packing four u8s into a u32 so we need to check whether to add a new
-        //       u32 or to bitwise-or the value into a position in an existing u32
+        // NOTE: Packing four u8s into a u32 and four u32s into a UVec4 so we need to check
+        //       whether to add a new UVec4 or to bitwise-or the value into a position in an existing u32
         let index = index as u32 & POINT_LIGHT_INDEX_MASK;
 
-        // If n_indices % 4 == 0 then we need to add a new value, else we get the current
+        // If n_indices % 16 == 0 then we need to add a new value, else we get the current
         // one
-        let sub_index = self.n_indices & 3; // & 3 is equivalent to % 4
-        if sub_index == 0 {
-            // println!("Push new index {}", index);
-            self.cluster_light_index_lists.push(index);
+        let sub_indices = self.n_indices & ((1 << 4) - 1);
+        if sub_indices == 0 {
+            self.cluster_light_index_lists
+                .push(UVec4::new(index, 0, 0, 0));
         } else {
-            // println!("Or in index {} at {}", index, sub_index);
-            let array_index = self.n_indices >> 2; // >> 2 is equivalent to / 4
+            let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
             let array_value = self.cluster_light_index_lists.get_mut(array_index);
-            *array_value |= index << (8 * sub_index);
-            // println!(
-            //     "Index {} ored into subindex {} giving {}",
-            //     index, sub_index, array_value
-            // );
+            let component = sub_indices >> 2;
+            let sub_index = sub_indices & ((1 << 2) - 1);
+            array_value[component] |= index << (8 * sub_index);
         }
 
         self.n_indices += 1;
@@ -913,18 +925,16 @@ impl ViewClusterBindings {
         //         - self.cluster_light_index_lists.len(),
         //     self.cluster_light_index_lists.len()
         // );
-        for _ in self.cluster_light_index_lists.len()
-            ..ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
-        {
-            self.cluster_light_index_lists.push(0);
+        for _ in self.cluster_light_index_lists.len()..ViewClusterBindings::MAX_UNIFORM_ITEMS {
+            self.cluster_light_index_lists.push(UVec4::ZERO);
         }
         // println!(
         //     "Padding {} cluster offsets and counts from {}",
         //     ViewClusterBindings::MAX_CLUSTERS - self.cluster_offsets_and_counts.len(),
         //     self.cluster_offsets_and_counts.len()
         // );
-        for _ in self.cluster_offsets_and_counts.len()..ViewClusterBindings::MAX_CLUSTERS {
-            self.cluster_offsets_and_counts.push(0);
+        for _ in self.cluster_offsets_and_counts.len()..ViewClusterBindings::MAX_UNIFORM_ITEMS {
+            self.cluster_offsets_and_counts.push(UVec4::ZERO);
         }
     }
 }
@@ -962,8 +972,8 @@ pub fn prepare_clusters(
                         for entity in cluster_lights.iter() {
                             if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
                             {
-                                if view_clusters_bindings.cluster_light_index_lists.len()
-                                    >= ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
+                                if view_clusters_bindings.n_indices()
+                                    >= ViewClusterBindings::MAX_INDICES
                                 {
                                     warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
                                     indices_full = true;

@@ -41,7 +41,7 @@ let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 [[block]]
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
-    directional_lights: array<DirectionalLight, 1>;
+    directional_lights: array<DirectionalLight, 1u>;
     ambient_color: vec4<f32>;
     cluster_dimensions: vec4<u32>; // x/y/z dimensions
     n_directional_lights: u32;
@@ -49,18 +49,18 @@ struct Lights {
 
 [[block]]
 struct PointLights {
-    data: array<PointLight, 128>;
+    data: array<PointLight, 128u>;
 };
 
 [[block]]
 struct ClusterLightIndexLists {
-    data: array<u32, 4096>; // each u32 contains 4 u8 indices into the PointLights array
+    data: array<vec4<u32>, 1024u>; // each u32 contains 4 u8 indices into the PointLights array
 };
 
 [[block]]
 struct ClusterOffsetsAndCounts {
-    data: array<u32, 4096>; // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
-                            // and an 8-bit count of the number of lights in the low 8 bits
+    data: array<vec4<u32>, 1024u>; // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
+                             // and an 8-bit count of the number of lights in the low 8 bits
 };
 
 [[group(0), binding(0)]]
