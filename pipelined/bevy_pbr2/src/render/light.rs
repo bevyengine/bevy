@@ -91,6 +91,11 @@ pub struct GpuPointLight {
     shadow_normal_bias: f32,
 }
 
+#[derive(AsStd140)]
+pub struct GpuPointLights {
+    data: [GpuPointLight; MAX_POINT_LIGHTS],
+}
+
 // NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
 bitflags::bitflags! {
     #[repr(transparent)]
@@ -312,8 +317,6 @@ impl SpecializedPipeline for ShadowPipeline {
 
 #[derive(Component)]
 pub struct ExtractedClusterConfig {
-    /// Tile size
-    tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -330,7 +333,6 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
                 data: clusters.lights.clone(),
             },
             ExtractedClusterConfig {
-                tile_size: clusters.tile_size,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -514,7 +516,7 @@ pub struct ViewLightsUniformOffset {
 
 #[derive(Default)]
 pub struct GlobalLightMeta {
-    pub gpu_point_lights: UniformVec<GpuPointLight>,
+    pub gpu_point_lights: UniformVec<GpuPointLights>,
     pub entity_to_index: HashMap<Entity, usize>,
 }
 
@@ -566,12 +568,13 @@ pub fn prepare_lights(
     if global_light_meta.entity_to_index.capacity() < n_point_lights {
         global_light_meta.entity_to_index.reserve(n_point_lights);
     }
+    let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
     for (index, (entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         if light.shadows_enabled {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
-        global_light_meta.gpu_point_lights.push(GpuPointLight {
+        gpu_point_lights[index] = GpuPointLight {
             projection: cube_face_projection,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
@@ -584,15 +587,12 @@ pub fn prepare_lights(
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
-        });
+        };
         global_light_meta.entity_to_index.insert(entity, index);
     }
-    // NOTE: Pad up to max point lights to meet the fixed size uniform buffer requirement
-    for _ in n_point_lights..MAX_POINT_LIGHTS {
-        global_light_meta
-            .gpu_point_lights
-            .push(GpuPointLight::default());
-    }
+    global_light_meta.gpu_point_lights.push(GpuPointLights {
+        data: gpu_point_lights,
+    });
     global_light_meta
         .gpu_point_lights
         .write_buffer(&render_device, &render_queue);
@@ -854,36 +854,35 @@ fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
 pub struct ViewClusterBindings {
     n_indices: usize,
     // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
-    pub cluster_light_index_lists: UniformVec<UVec4>,
+    pub cluster_light_index_lists: UniformVec<[UVec4; Self::MAX_UNIFORM_ITEMS]>,
     n_offsets: usize,
     // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
-    pub cluster_offsets_and_counts: UniformVec<UVec4>,
+    pub cluster_offsets_and_counts: UniformVec<[UVec4; Self::MAX_UNIFORM_ITEMS]>,
 }
 
 impl ViewClusterBindings {
     const MAX_UNIFORM_ITEMS: usize = 16384 / (4 * 4);
     const MAX_INDICES: usize = 16384;
-    const MAX_CLUSTERS: usize = 4096;
 
-    pub fn reserve(&mut self, render_device: &RenderDevice) {
+    pub fn reserve_and_clear(&mut self) {
+        self.cluster_light_index_lists.clear();
         self.cluster_light_index_lists
-            .reserve(Self::MAX_UNIFORM_ITEMS, render_device);
+            .push([UVec4::ZERO; Self::MAX_UNIFORM_ITEMS]);
+        self.cluster_offsets_and_counts.clear();
         self.cluster_offsets_and_counts
-            .reserve(Self::MAX_UNIFORM_ITEMS, render_device);
+            .push([UVec4::ZERO; Self::MAX_UNIFORM_ITEMS]);
     }
 
     pub fn push_offset_and_count(&mut self, offset: usize, count: usize) {
+        let array_index = self.n_offsets >> 2; // >> 2 is equivalent to / 4
+        if array_index >= Self::MAX_UNIFORM_ITEMS {
+            warn!("cluster offset and count out of bounds!");
+            return;
+        }
+        let component = self.n_offsets & ((1 << 2) - 1);
         let packed = pack_offset_and_count(offset, count);
 
-        let component = self.n_offsets & ((1 << 2) - 1);
-        if component == 0 {
-            self.cluster_offsets_and_counts
-                .push(UVec4::new(packed, 0, 0, 0));
-        } else {
-            let array_index = self.n_offsets >> 2; // >> 2 is equivalent to / 4
-            let array_value = self.cluster_offsets_and_counts.get_mut(array_index);
-            array_value[component] = packed;
-        }
+        self.cluster_offsets_and_counts.get_mut(0)[array_index][component] = packed;
 
         self.n_offsets += 1;
     }
@@ -893,48 +892,15 @@ impl ViewClusterBindings {
     }
 
     pub fn push_index(&mut self, index: usize) {
-        // NOTE: Packing four u8s into a u32 and four u32s into a UVec4 so we need to check
-        //       whether to add a new UVec4 or to bitwise-or the value into a position in an existing u32
+        let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
+        let component = (self.n_indices >> 2) & ((1 << 2) - 1);
+        let sub_index = self.n_indices & ((1 << 2) - 1);
         let index = index as u32 & POINT_LIGHT_INDEX_MASK;
 
-        // If n_indices % 16 == 0 then we need to add a new value, else we get the current
-        // one
-        let sub_indices = self.n_indices & ((1 << 4) - 1);
-        if sub_indices == 0 {
-            self.cluster_light_index_lists
-                .push(UVec4::new(index, 0, 0, 0));
-        } else {
-            let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
-            let array_value = self.cluster_light_index_lists.get_mut(array_index);
-            let component = (sub_indices >> 2) & ((1 << 2) - 1);
-            let sub_index = sub_indices & ((1 << 2) - 1);
-            array_value[component] |= index << (8 * sub_index);
-        }
+        self.cluster_light_index_lists.get_mut(0)[array_index][component] |=
+            index << (8 * sub_index);
 
         self.n_indices += 1;
-    }
-
-    pub fn pad_uniform_buffers(&mut self) {
-        // NOTE: We want to allow 'up to' MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS * 4
-        //       light indices and MAX_CLUSTERS clusters and we must always use
-        //       full bindings
-        // println!(
-        //     "Padding {} index items (i.e. indices / 4) from {}",
-        //     ViewClusterBindings::MAX_CLUSTER_LIGHT_INDEX_LISTS_ITEMS
-        //         - self.cluster_light_index_lists.len(),
-        //     self.cluster_light_index_lists.len()
-        // );
-        for _ in self.cluster_light_index_lists.len()..ViewClusterBindings::MAX_UNIFORM_ITEMS {
-            self.cluster_light_index_lists.push(UVec4::ZERO);
-        }
-        // println!(
-        //     "Padding {} cluster offsets and counts from {}",
-        //     ViewClusterBindings::MAX_CLUSTERS - self.cluster_offsets_and_counts.len(),
-        //     self.cluster_offsets_and_counts.len()
-        // );
-        for _ in self.cluster_offsets_and_counts.len()..ViewClusterBindings::MAX_UNIFORM_ITEMS {
-            self.cluster_offsets_and_counts.push(UVec4::ZERO);
-        }
     }
 }
 
@@ -954,7 +920,7 @@ pub fn prepare_clusters(
 ) {
     for (entity, cluster_config, extracted_clusters) in views.iter() {
         let mut view_clusters_bindings = ViewClusterBindings::default();
-        view_clusters_bindings.reserve(&*render_device);
+        view_clusters_bindings.reserve_and_clear();
 
         let mut indices_full = false;
 
@@ -988,9 +954,6 @@ pub fn prepare_clusters(
             }
         }
 
-        // NOTE: Because cluster_light_index_lists and cluster_offsets_and_counts are uniform buffers,
-        //       they must be a fixed size so we pad them up to the binding sizes.
-        view_clusters_bindings.pad_uniform_buffers();
         view_clusters_bindings
             .cluster_light_index_lists
             .write_buffer(&render_device, &render_queue);

@@ -72,6 +72,7 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                // NOTE: Must come after add_clusters!
                 update_clusters
                     .label(SimulationLightSystems::UpdateClusters)
                     .after(TransformSystem::TransformPropagate)

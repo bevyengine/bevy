@@ -296,29 +296,18 @@ pub fn add_clusters(
     windows: Res<Windows>,
     cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
-    // println!("Running add_clusters with {} cameras", cameras.iter().count());
     for (entity, camera) in cameras.iter() {
         let window = windows.get(camera.window).unwrap();
-        // let divisions = 8;
         let clusters = Clusters::new(
             UVec2::splat(window.physical_width() / 16),
-            // UVec2::new(
-            //     window.physical_width() / divisions,
-            //     window.physical_height() / divisions,
-            // ),
-            // UVec2::new(window.physical_width() / 2, window.physical_height()),
             UVec2::new(window.physical_width(), window.physical_height()),
             24,
-            // divisions,
-            // 1,
         );
-        // dbg!(&clusters);
         commands.entity(entity).insert(clusters);
     }
 }
 
 pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Clusters)>) {
-    // println!("Running add_clusters with {} cameras", cameras.iter().count());
     for (camera, mut clusters) in views.iter_mut() {
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
@@ -353,8 +342,6 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
                 }
             }
         }
-        // dbg!(&aabbs);
-        // panic!("blerp");
         clusters.aabbs = aabbs;
     }
 }
@@ -388,22 +375,14 @@ pub fn assign_lights_to_clusters(
         let cluster_count = clusters.aabbs.len();
         let mut clusters_lights = Vec::with_capacity(cluster_count);
         let mut visible_lights = HashSet::with_capacity(light_count);
-        for (cluster_index, cluster_aabb) in clusters.aabbs.iter().enumerate() {
+        for cluster_aabb in clusters.aabbs.iter() {
             let mut cluster_lights = Vec::with_capacity(light_count);
-            for (light_index, (light_entity, transform, light)) in lights.iter().enumerate() {
+            for (light_entity, transform, light) in lights.iter() {
                 let light_sphere = Sphere {
                     center: transform.translation,
                     radius: light.range,
                 };
                 if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                    // println!("cluster {} assigned light {}", cluster_index, light_index);
-                    // println!(
-                    //     "Light {:?} intersects cluster at {:?} with {:?}",
-                    //     light_sphere,
-                    //     view_transform.transform_vector3(cluster_aabb.center),
-                    //     cluster_aabb.half_extents,
-                    // );
-                    // panic!("blerp");
                     global_lights_set.insert(light_entity);
                     visible_lights.insert(light_entity);
                     cluster_lights.push(light_entity);
