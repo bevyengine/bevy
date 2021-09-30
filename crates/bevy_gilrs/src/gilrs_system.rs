@@ -20,7 +20,6 @@ pub fn gilrs_event_system(
     mut gilrs: NonSendMut<Gilrs>,
     mut event: ResMut<Events<GamepadEventRaw>>,
 ) {
-    event.update();
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {
             EventType::Connected => {
