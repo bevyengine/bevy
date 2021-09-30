@@ -7,7 +7,7 @@ use bevy_render2::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsage, Sampler, TextureView},
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::Image,
 };
 use crevice::std140::{AsStd140, Std140};
@@ -144,11 +144,7 @@ pub struct GpuStandardMaterial {
 impl RenderAsset for StandardMaterial {
     type ExtractedAsset = StandardMaterial;
     type PreparedAsset = GpuStandardMaterial;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<PbrShaders>,
-        SRes<RenderAssets<Image>>,
-    );
+    type Param = (SRes<GpuDevice>, SRes<PbrShaders>, SRes<RenderAssets<Image>>);
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()

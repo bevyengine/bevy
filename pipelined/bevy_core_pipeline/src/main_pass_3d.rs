@@ -7,7 +7,7 @@ use bevy_render2::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
-    renderer::RenderContext,
+    renderer::GpuContext,
     view::ExtractedView,
 };
 
@@ -43,7 +43,7 @@ impl Node for MainPass3dNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let color_attachment_texture = graph.get_input_texture(Self::IN_COLOR_ATTACHMENT)?;
@@ -79,7 +79,7 @@ impl Node for MainPass3dNode {
             .get_manual(world, view_entity)
             .expect("view entity should exist");
 
-        let render_pass = render_context
+        let render_pass = gpu_context
             .command_encoder
             .begin_render_pass(&pass_descriptor);
         let mut draw_functions = draw_functions.write();

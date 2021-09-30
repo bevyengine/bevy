@@ -4,7 +4,7 @@ pub use window::*;
 
 use crate::{
     render_resource::DynamicUniformVec,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -48,14 +48,14 @@ pub struct ViewUniformOffset {
 
 fn prepare_views(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
     mut extracted_views: Query<(Entity, &ExtractedView)>,
 ) {
     view_uniforms
         .uniforms
-        .reserve_and_clear(extracted_views.iter_mut().len(), &render_device);
+        .reserve_and_clear(extracted_views.iter_mut().len(), &gpu_device);
     for (entity, camera) in extracted_views.iter() {
         let projection = camera.projection;
         let view_uniforms = ViewUniformOffset {
@@ -69,5 +69,5 @@ fn prepare_views(
         commands.entity(entity).insert(view_uniforms);
     }
 
-    view_uniforms.uniforms.write_buffer(&render_queue);
+    view_uniforms.uniforms.write_buffer(&gpu_queue);
 }

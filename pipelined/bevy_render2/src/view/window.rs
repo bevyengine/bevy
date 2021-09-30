@@ -1,6 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderDevice, RenderInstance},
+    renderer::{GpuDevice, GpuInstance},
     texture::BevyDefault,
     RenderApp, RenderStage, RenderWorld,
 };
@@ -109,8 +109,8 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
-    render_device: Res<RenderDevice>,
-    render_instance: Res<RenderInstance>,
+    gpu_device: Res<GpuDevice>,
+    gpu_instance: Res<GpuInstance>,
 ) {
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
@@ -119,7 +119,7 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance.create_surface(&window.handle.get_handle())
+                gpu_instance.create_surface(&window.handle.get_handle())
             });
 
         let swap_chain_descriptor = wgpu::SwapChainDescriptor {
@@ -137,20 +137,19 @@ pub fn prepare_windows(
         if window.size_changed {
             window_surfaces.swap_chains.insert(
                 window.id,
-                render_device.create_swap_chain(surface, &swap_chain_descriptor),
+                gpu_device.create_swap_chain(surface, &swap_chain_descriptor),
             );
         }
 
         let swap_chain = window_surfaces
             .swap_chains
             .entry(window.id)
-            .or_insert_with(|| render_device.create_swap_chain(surface, &swap_chain_descriptor));
+            .or_insert_with(|| gpu_device.create_swap_chain(surface, &swap_chain_descriptor));
 
         let frame = match swap_chain.get_current_frame() {
             Ok(swap_chain_frame) => swap_chain_frame,
             Err(wgpu::SwapChainError::Outdated) => {
-                let new_swap_chain =
-                    render_device.create_swap_chain(surface, &swap_chain_descriptor);
+                let new_swap_chain = gpu_device.create_swap_chain(surface, &swap_chain_descriptor);
                 let frame = new_swap_chain
                     .get_current_frame()
                     .expect("Error recreating swap chain");

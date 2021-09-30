@@ -3,7 +3,7 @@ use bevy_ecs::world::World;
 use bevy_render2::{
     camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
-    renderer::RenderContext,
+    renderer::GpuContext,
     view::ExtractedWindows,
 };
 
@@ -13,7 +13,7 @@ impl Node for MainPassDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();

@@ -15,7 +15,7 @@ use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuContext, GpuDevice},
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
@@ -33,11 +33,11 @@ pub struct SpriteShaders {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for SpriteShaders {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let gpu_device = world.get_resource::<GpuDevice>().unwrap();
         let shader = Shader::from_wgsl(include_str!("sprite.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let shader_module = gpu_device.create_shader_module(&shader);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
@@ -53,7 +53,7 @@ impl FromWorld for SpriteShaders {
             label: None,
         });
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let material_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -78,13 +78,13 @@ impl FromWorld for SpriteShaders {
             label: None,
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        let pipeline_layout = gpu_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &material_layout],
         });
 
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
+        let pipeline = gpu_device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
             depth_stencil: None,
             vertex: VertexState {
@@ -245,7 +245,7 @@ impl Default for SpriteMeta {
 }
 
 pub fn prepare_sprites(
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mut sprite_meta: ResMut<SpriteMeta>,
     mut extracted_sprites: Query<&mut ExtractedSprite>,
 ) {
@@ -275,11 +275,11 @@ pub fn prepare_sprites(
 
     sprite_meta.vertices.reserve_and_clear(
         extracted_sprite_len * quad_vertex_positions.len(),
-        &render_device,
+        &gpu_device,
     );
     sprite_meta
         .indices
-        .reserve_and_clear(extracted_sprite_len * quad_indices.len(), &render_device);
+        .reserve_and_clear(extracted_sprite_len * quad_indices.len(), &gpu_device);
 
     for (i, mut extracted_sprite) in extracted_sprites.iter_mut().enumerate() {
         let sprite_rect = extracted_sprite.rect;
@@ -312,8 +312,8 @@ pub fn prepare_sprites(
         }
     }
 
-    sprite_meta.vertices.write_to_staging_buffer(&render_device);
-    sprite_meta.indices.write_to_staging_buffer(&render_device);
+    sprite_meta.vertices.write_to_staging_buffer(&gpu_device);
+    sprite_meta.indices.write_to_staging_buffer(&gpu_device);
 }
 
 #[derive(Default)]
@@ -324,7 +324,7 @@ pub struct ImageBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_shaders: Res<SpriteShaders>,
@@ -334,7 +334,7 @@ pub fn queue_sprites(
     mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
+        sprite_meta.view_bind_group = Some(gpu_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
@@ -350,7 +350,7 @@ pub fn queue_sprites(
                     .entry(sprite.handle.clone_weak())
                     .or_insert_with(|| {
                         let gpu_image = gpu_images.get(&sprite.handle).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
+                        gpu_device.create_bind_group(&BindGroupDescriptor {
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
@@ -382,16 +382,16 @@ impl Node for SpriteNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let sprite_buffers = world.get_resource::<SpriteMeta>().unwrap();
         sprite_buffers
             .vertices
-            .write_to_buffer(&mut render_context.command_encoder);
+            .write_to_buffer(&mut gpu_context.command_encoder);
         sprite_buffers
             .indices
-            .write_to_buffer(&mut render_context.command_encoder);
+            .write_to_buffer(&mut gpu_context.command_encoder);
         Ok(())
     }
 }

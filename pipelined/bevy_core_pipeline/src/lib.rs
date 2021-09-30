@@ -16,7 +16,7 @@ use bevy_render2::{
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
     render_resource::*,
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::{Image, TextureCache},
     view::ExtractedView,
     RenderApp, RenderStage, RenderWorld,
@@ -228,12 +228,12 @@ pub fn extract_core_pipeline_camera_phases(
 pub fn prepare_core_views_system(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3d>>>,
 ) {
     for (entity, view) in views.iter() {
         let cached_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 label: None,
                 size: Extent3d {

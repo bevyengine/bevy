@@ -1,6 +1,6 @@
 use crate::{
     render_resource::DynamicUniformVec,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -85,8 +85,8 @@ impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
 
 fn prepare_uniform_components<C: Component>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
@@ -95,7 +95,7 @@ fn prepare_uniform_components<C: Component>(
     let len = components.iter().len();
     component_uniforms
         .uniforms
-        .reserve_and_clear(len, &render_device);
+        .reserve_and_clear(len, &gpu_device);
     for (entity, component) in components.iter() {
         commands
             .get_or_spawn(entity)
@@ -105,7 +105,7 @@ fn prepare_uniform_components<C: Component>(
             });
     }
 
-    component_uniforms.uniforms.write_buffer(&render_queue);
+    component_uniforms.uniforms.write_buffer(&gpu_queue);
 }
 
 pub struct ExtractComponentPlugin<C, F = ()>(PhantomData<fn() -> (C, F)>);

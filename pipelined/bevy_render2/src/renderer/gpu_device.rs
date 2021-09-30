@@ -7,17 +7,17 @@ use crate::render_resource::{
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct RenderDevice {
+pub struct GpuDevice {
     device: Arc<wgpu::Device>,
 }
 
-impl From<Arc<wgpu::Device>> for RenderDevice {
+impl From<Arc<wgpu::Device>> for GpuDevice {
     fn from(device: Arc<wgpu::Device>) -> Self {
         Self { device }
     }
 }
 
-impl RenderDevice {
+impl GpuDevice {
     /// List all features that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.

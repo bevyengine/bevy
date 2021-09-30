@@ -19,7 +19,7 @@ use bevy::{
             AddRenderCommand, DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass,
         },
         render_resource::*,
-        renderer::RenderDevice,
+        renderer::GpuDevice,
         shader::Shader,
         texture::BevyDefault,
         view::ExtractedView,
@@ -44,7 +44,7 @@ pub struct GpuCustomMaterial {
 impl RenderAsset for CustomMaterial {
     type ExtractedAsset = CustomMaterial;
     type PreparedAsset = GpuCustomMaterial;
-    type Param = (SRes<RenderDevice>, SRes<CustomPipeline>);
+    type Param = (SRes<GpuDevice>, SRes<CustomPipeline>);
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
     }
@@ -129,11 +129,11 @@ pub struct CustomPipeline {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let gpu_device = world.get_resource::<GpuDevice>().unwrap();
         let shader = Shader::from_wgsl(include_str!("../../assets/shaders/custom.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let shader_module = gpu_device.create_shader_module(&shader);
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let material_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStage::FRAGMENT,
@@ -148,7 +148,7 @@ impl FromWorld for CustomPipeline {
         });
         let pbr_pipeline = world.get_resource::<PbrShaders>().unwrap();
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        let pipeline_layout = gpu_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
             bind_group_layouts: &[
@@ -158,7 +158,7 @@ impl FromWorld for CustomPipeline {
             ],
         });
 
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
+        let pipeline = gpu_device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {

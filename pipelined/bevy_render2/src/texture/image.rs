@@ -2,7 +2,7 @@ use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::BevyDefault,
 };
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -350,7 +350,7 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+    type Param = (SRes<GpuDevice>, SRes<GpuQueue>);
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()

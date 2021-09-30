@@ -3,7 +3,7 @@ mod conversions;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::Buffer,
-    renderer::RenderDevice,
+    renderer::GpuDevice,
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -541,7 +541,7 @@ pub struct GpuIndexInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = SRes<GpuDevice>;
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()

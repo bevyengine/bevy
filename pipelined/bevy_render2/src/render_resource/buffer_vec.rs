@@ -1,4 +1,4 @@
-use crate::{render_resource::Buffer, renderer::RenderDevice};
+use crate::{render_resource::Buffer, renderer::GpuDevice};
 use bevy_core::{cast_slice, Pod};
 use wgpu::BufferUsage;
 
@@ -59,17 +59,17 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+    pub fn reserve(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
             let size = (self.item_size * capacity) as wgpu::BufferAddress;
-            self.staging_buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+            self.staging_buffer = Some(gpu_device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size,
                 usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
                 mapped_at_creation: false,
             }));
-            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+            self.buffer = Some(gpu_device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size,
                 usage: BufferUsage::COPY_DST | self.buffer_usage,
@@ -78,16 +78,16 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
+    pub fn reserve_and_clear(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         self.clear();
-        self.reserve(capacity, device);
+        self.reserve(capacity, gpu_device);
     }
 
-    pub fn write_to_staging_buffer(&self, render_device: &RenderDevice) {
+    pub fn write_to_staging_buffer(&self, gpu_device: &GpuDevice) {
         if let Some(staging_buffer) = &self.staging_buffer {
             let end = (self.values.len() * self.item_size) as u64;
             let slice = staging_buffer.slice(0..end);
-            render_device.map_buffer(&slice, wgpu::MapMode::Write);
+            gpu_device.map_buffer(&slice, wgpu::MapMode::Write);
             {
                 let mut data = slice.get_mapped_range_mut();
                 let bytes: &[u8] = cast_slice(&self.values);

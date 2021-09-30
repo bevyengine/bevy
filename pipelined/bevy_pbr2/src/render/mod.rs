@@ -16,7 +16,7 @@ use bevy_render2::{
     render_component::{ComponentUniforms, DynamicUniformIndex},
     render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     shader::Shader,
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
@@ -127,11 +127,11 @@ pub struct PbrShaders {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for PbrShaders {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let gpu_device = world.get_resource::<GpuDevice>().unwrap();
         let shader = Shader::from_wgsl(include_str!("pbr.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let shader_module = gpu_device.create_shader_module(&shader);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -205,7 +205,7 @@ impl FromWorld for PbrShaders {
             label: None,
         });
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let material_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -307,7 +307,7 @@ impl FromWorld for PbrShaders {
             label: None,
         });
 
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let mesh_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
@@ -323,13 +323,13 @@ impl FromWorld for PbrShaders {
             label: None,
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        let pipeline_layout = gpu_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &material_layout, &mesh_layout],
         });
 
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
+        let pipeline = gpu_device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
@@ -416,12 +416,12 @@ impl FromWorld for PbrShaders {
                 &[255u8; 4],
                 TextureFormat::bevy_default(),
             );
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+            let texture = gpu_device.create_texture(&image.texture_descriptor);
+            let sampler = gpu_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
-            render_queue.write_texture(
+            let gpu_queue = world.get_resource_mut::<GpuQueue>().unwrap();
+            gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -466,12 +466,12 @@ pub struct TransformBindGroup {
 pub fn queue_transform_bind_group(
     mut commands: Commands,
     pbr_shaders: Res<PbrShaders>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     transform_uniforms: Res<ComponentUniforms<MeshUniform>>,
 ) {
     if let Some(binding) = transform_uniforms.uniforms().binding() {
         commands.insert_resource(TransformBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
+            value: gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: binding,
@@ -491,7 +491,7 @@ pub struct PbrViewBindGroup {
 pub fn queue_meshes(
     mut commands: Commands,
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     pbr_shaders: Res<PbrShaders>,
     shadow_shaders: Res<ShadowShaders>,
     light_meta: Res<LightMeta>,
@@ -513,7 +513,7 @@ pub fn queue_meshes(
         light_meta.view_gpu_lights.binding(),
     ) {
         for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            let view_bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,

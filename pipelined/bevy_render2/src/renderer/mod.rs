@@ -1,39 +1,28 @@
+mod gpu_device;
 mod graph_runner;
-mod render_device;
 
-use bevy_utils::tracing::info;
+pub use gpu_device::*;
 pub use graph_runner::*;
-pub use render_device::*;
 
 use crate::render_graph::RenderGraph;
 use bevy_ecs::prelude::*;
+use bevy_utils::tracing::info;
 use std::sync::Arc;
 use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
-pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
-    });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
-    let render_device = world.get_resource::<RenderDevice>().unwrap();
-    let render_queue = world.get_resource::<RenderQueue>().unwrap();
-    RenderGraphRunner::run(
-        graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        render_queue,
-        world,
-    )
-    .unwrap();
-}
+pub type GpuQueue = Arc<Queue>;
+pub type GpuInstance = Instance;
 
-pub type RenderQueue = Arc<Queue>;
-pub type RenderInstance = Instance;
+pub struct GpuContext {
+    pub gpu_device: GpuDevice,
+    pub command_encoder: CommandEncoder,
+}
 
 pub async fn initialize_renderer(
     backends: BackendBit,
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
-) -> (RenderInstance, RenderDevice, RenderQueue) {
+) -> (GpuInstance, GpuDevice, GpuQueue) {
     let instance = wgpu::Instance::new(backends);
 
     let adapter = instance
@@ -60,10 +49,21 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (instance, RenderDevice::from(device), queue)
+    (instance, GpuDevice::from(device), queue)
 }
 
-pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
+pub fn render_system(world: &mut World) {
+    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+        graph.update(world);
+    });
+    let graph = world.get_resource::<RenderGraph>().unwrap();
+    let gpu_device = world.get_resource::<GpuDevice>().unwrap();
+    let gpu_queue = world.get_resource::<GpuQueue>().unwrap();
+    RenderGraphRunner::run(
+        graph,
+        gpu_device.clone(), // TODO: is this clone really necessary?
+        gpu_queue,
+        world,
+    )
+    .unwrap();
 }

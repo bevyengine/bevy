@@ -1,6 +1,6 @@
 use crate::{
     render_resource::Buffer,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
 };
 use crevice::std140::{self, AsStd140, DynamicUniform, Std140};
 use std::num::NonZeroU64;
@@ -70,12 +70,12 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+    pub fn reserve(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
             let size = self.item_size * capacity;
             self.scratch.resize(size, 0);
-            self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
+            self.uniform_buffer = Some(gpu_device.create_buffer(&BufferDescriptor {
                 label: None,
                 size: size as wgpu::BufferAddress,
                 usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
@@ -84,12 +84,12 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
+    pub fn reserve_and_clear(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         self.clear();
-        self.reserve(capacity, device);
+        self.reserve(capacity, gpu_device);
     }
 
-    pub fn write_buffer(&mut self, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, queue: &GpuQueue) {
         if let Some(uniform_buffer) = &self.uniform_buffer {
             let range = 0..self.item_size * self.values.len();
             let mut writer = std140::Writer::new(&mut self.scratch[range.clone()]);
@@ -147,17 +147,17 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     }
 
     #[inline]
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        self.uniform_vec.reserve(capacity, device);
+    pub fn reserve(&mut self, capacity: usize, gpu_device: &GpuDevice) {
+        self.uniform_vec.reserve(capacity, gpu_device);
     }
 
     #[inline]
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
-        self.uniform_vec.reserve_and_clear(capacity, device);
+    pub fn reserve_and_clear(&mut self, capacity: usize, gpu_device: &GpuDevice) {
+        self.uniform_vec.reserve_and_clear(capacity, gpu_device);
     }
 
     #[inline]
-    pub fn write_buffer(&mut self, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, queue: &GpuQueue) {
         self.uniform_vec.write_buffer(queue);
     }
 

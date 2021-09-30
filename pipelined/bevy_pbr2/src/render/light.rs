@@ -21,7 +21,7 @@ use bevy_render2::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{GpuContext, GpuDevice, GpuQueue},
     shader::Shader,
     texture::*,
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
@@ -112,12 +112,12 @@ pub struct ShadowShaders {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowShaders {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let gpu_device = world.get_resource::<GpuDevice>().unwrap();
         let pbr_shaders = world.get_resource::<PbrShaders>().unwrap();
         let shader = Shader::from_wgsl(include_str!("depth.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let shader_module = gpu_device.create_shader_module(&shader);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -136,13 +136,13 @@ impl FromWorld for ShadowShaders {
             label: None,
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        let pipeline_layout = gpu_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
         });
 
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
+        let pipeline = gpu_device.create_render_pipeline(&RenderPipelineDescriptor {
             label: None,
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
@@ -206,7 +206,7 @@ impl FromWorld for ShadowShaders {
             shader_module,
             pipeline,
             view_layout,
-            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            point_light_sampler: gpu_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -216,7 +216,7 @@ impl FromWorld for ShadowShaders {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..Default::default()
             }),
-            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            directional_light_sampler: gpu_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -381,8 +381,8 @@ pub struct LightMeta {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<Entity, With<RenderPhase<Transparent3d>>>,
     ambient_light: Res<ExtractedAmbientLight>,
@@ -394,13 +394,13 @@ pub fn prepare_lights(
     // PERF: view.iter().count() could be views.iter().len() if we implemented ExactSizeIterator for archetype-only filters
     light_meta
         .view_gpu_lights
-        .reserve_and_clear(views.iter().count(), &render_device);
+        .reserve_and_clear(views.iter().count(), &gpu_device);
 
     let ambient_color = ambient_light.color.as_rgba_linear() * ambient_light.brightness;
     // set up light data for each view
     for entity in views.iter() {
         let point_light_depth_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
@@ -416,7 +416,7 @@ pub fn prepare_lights(
             },
         );
         let directional_light_depth_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 size: Extent3d {
                     width: directional_light_shadow_map.size as u32,
@@ -613,18 +613,18 @@ pub fn prepare_lights(
         });
     }
 
-    light_meta.view_gpu_lights.write_buffer(&render_queue);
+    light_meta.view_gpu_lights.write_buffer(&gpu_queue);
 }
 
 pub fn queue_shadow_view_bind_group(
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     shadow_shaders: Res<ShadowShaders>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
+            Some(gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
@@ -710,7 +710,7 @@ impl Node for ShadowPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -735,7 +735,7 @@ impl Node for ShadowPassNode {
 
                 let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
 
-                let render_pass = render_context
+                let render_pass = gpu_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
