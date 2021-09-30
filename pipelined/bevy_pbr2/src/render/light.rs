@@ -875,14 +875,13 @@ impl ViewClusterBindings {
     pub fn push_offset_and_count(&mut self, offset: usize, count: usize) {
         let packed = pack_offset_and_count(offset, count);
 
-        let sub_indices = self.n_offsets & ((1 << 4) - 1);
-        if sub_indices == 0 {
+        let component = self.n_offsets & ((1 << 2) - 1);
+        if component == 0 {
             self.cluster_offsets_and_counts
                 .push(UVec4::new(packed, 0, 0, 0));
         } else {
-            let array_index = self.n_offsets >> 4; // >> 4 is equivalent to / 16
+            let array_index = self.n_offsets >> 2; // >> 2 is equivalent to / 4
             let array_value = self.cluster_offsets_and_counts.get_mut(array_index);
-            let component = sub_indices >> 2;
             array_value[component] = packed;
         }
 
@@ -907,7 +906,7 @@ impl ViewClusterBindings {
         } else {
             let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
             let array_value = self.cluster_light_index_lists.get_mut(array_index);
-            let component = sub_indices >> 2;
+            let component = (sub_indices >> 2) & ((1 << 2) - 1);
             let sub_index = sub_indices & ((1 << 2) - 1);
             array_value[component] |= index << (8 * sub_index);
         }
