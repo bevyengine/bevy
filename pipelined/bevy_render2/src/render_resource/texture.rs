@@ -8,7 +8,7 @@ pub struct TextureId(Uuid);
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::render_device::RenderDevice::create_texture).
+/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -117,7 +117,7 @@ pub struct SamplerId(Uuid);
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::render_device::RenderDevice::create_sampler).
+/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,

@@ -39,10 +39,10 @@ pub enum RenderStage {
     /// while rendering the current frame.
     Extract,
 
-    /// Prepare render resources from extracted data.
+    /// Prepare render resources from the extracted data for the GPU.
     Prepare,
 
-    /// Create [`BindGroups`](crate::render_resource::bind_group::BindGroup) that depend on
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
     /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
     /// [`Render`](RenderStage::Render) stage.
     Queue,
@@ -87,7 +87,7 @@ pub struct RenderApp;
 struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderStages`] and creates the rendering sub-app.
+    /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         let (instance, device, queue) =
             futures_lite::future::block_on(renderer::initialize_renderer(

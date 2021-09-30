@@ -8,7 +8,7 @@ pub struct RenderPipelineId(Uuid);
 /// A RenderPipeline represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
-/// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::render_device::RenderDevice::create_render_pipeline).
+/// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
@@ -47,7 +47,7 @@ pub struct ComputePipelineId(Uuid);
 /// A ComputePipeline represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
-/// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::render_device::RenderDevice::create_compute_pipeline).
+/// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,

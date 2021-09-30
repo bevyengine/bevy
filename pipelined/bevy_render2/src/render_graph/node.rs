@@ -117,7 +117,7 @@ impl Edges {
         self.output_edges.contains(edge)
     }
 
-    /// Searches the `input_edges` for a [`SlotEdge`](Edge::SlotEdge),
+    /// Searches the `input_edges` for a [`Edge::SlotEdge`],
     /// which `input_index` matches the `index`;
     pub fn get_input_slot_edge(&self, index: usize) -> Result<&Edge, RenderGraphError> {
         self.input_edges
@@ -135,7 +135,7 @@ impl Edges {
             })
     }
 
-    /// Searches the `output_edges` for a [`SlotEdge`](Edge::SlotEdge),
+    /// Searches the `output_edges` for a [`Edge::SlotEdge`],
     /// which `output_index` matches the `index`;
     pub fn get_output_slot_edge(&self, index: usize) -> Result<&Edge, RenderGraphError> {
         self.output_edges

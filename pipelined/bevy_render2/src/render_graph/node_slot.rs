@@ -79,7 +79,7 @@ pub enum SlotType {
 }
 
 /// A [`SlotLabel`] is used to reference a slot by either its name or index
-/// inside the [`RenderGraph`](super:RenderGraph).
+/// inside the [`RenderGraph`](super::RenderGraph).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SlotLabel {
     Index(usize),

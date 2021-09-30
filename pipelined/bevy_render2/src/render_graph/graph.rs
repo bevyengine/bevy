@@ -13,8 +13,7 @@ use std::{borrow::Cow, fmt::Debug};
 /// It is a retained and stateless (nodes itself my have their internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
-/// The [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner)
-/// is responsible for executing the entire graph each frame.
+/// The `RenderGraphRunner` is responsible for executing the entire graph each frame.
 ///
 /// It consists of three main components: [`Nodes`](Node), [`Edges`](Edge)
 /// and [`Slots`](super::SlotType).
@@ -157,7 +156,7 @@ impl RenderGraph {
         self.get_node_state_mut(label).and_then(|n| n.node_mut())
     }
 
-    /// Adds the [`SlotEdge`](Edge::SlotEdge) to the graph. This guarantees that the `output_node`
+    /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node` and also connects the `output_slot` to the `input_slot`.
     pub fn add_slot_edge(
         &mut self,
@@ -201,7 +200,7 @@ impl RenderGraph {
         Ok(())
     }
 
-    /// Adds the [`NodeEdge`](Edge::NodeEdge) to the graph. This guarantees that the `output_node`
+    /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
     pub fn add_node_edge(
         &mut self,
