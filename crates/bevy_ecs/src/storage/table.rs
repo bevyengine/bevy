@@ -160,7 +160,13 @@ impl Column {
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
-            data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
+            data: unsafe {
+                BlobVec::new(
+                    component_info.layout(),
+                    Option::from(component_info.drop_multiple()),
+                    capacity,
+                )
+            },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
         }
