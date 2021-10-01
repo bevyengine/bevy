@@ -332,7 +332,6 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         for y in 0..clusters.axis_slices.y {
             for x in 0..clusters.axis_slices.x {
                 for z in 0..clusters.axis_slices.z {
-                    // FIXME: Make independent of screen size by dropping tile size and just using i / dim.x?
                     aabbs.push(compute_aabb_for_cluster(
                         camera.near,
                         camera.far,
@@ -444,13 +443,52 @@ pub fn assign_lights_to_clusters(
             };
             let (light_aabb_view_min, light_aabb_view_max) =
                 (light_aabb_view.min(), light_aabb_view.max());
-            let (light_aabb_clip_min, light_aabb_clip_max) = (
-                camera.projection_matrix * light_aabb_view_min.extend(1.0),
-                camera.projection_matrix * light_aabb_view_max.extend(1.0),
+            // Is there a cheaper way to do this? The problem is that because of perspective
+            // the point at max z but min xy may be less xy in screenspace, and similar. As
+            // such, projecting the min and max xy at both the closer and further z and taking
+            // the min and max of those projected points addresses this.
+            let (
+                light_aabb_view_xymin_near,
+                light_aabb_view_xymin_far,
+                light_aabb_view_xymax_near,
+                light_aabb_view_xymax_far,
+            ) = (
+                light_aabb_view_min,
+                light_aabb_view_min.xy().extend(light_aabb_view_max.z),
+                light_aabb_view_max.xy().extend(light_aabb_view_min.z),
+                light_aabb_view_max,
+            );
+            let (
+                light_aabb_clip_xymin_near,
+                light_aabb_clip_xymin_far,
+                light_aabb_clip_xymax_near,
+                light_aabb_clip_xymax_far,
+            ) = (
+                camera.projection_matrix * light_aabb_view_xymin_near.extend(1.0),
+                camera.projection_matrix * light_aabb_view_xymin_far.extend(1.0),
+                camera.projection_matrix * light_aabb_view_xymax_near.extend(1.0),
+                camera.projection_matrix * light_aabb_view_xymax_far.extend(1.0),
+            );
+            let (
+                light_aabb_ndc_xymin_near,
+                light_aabb_ndc_xymin_far,
+                light_aabb_ndc_xymax_near,
+                light_aabb_ndc_xymax_far,
+            ) = (
+                light_aabb_clip_xymin_near.xyz() / light_aabb_clip_xymin_near.w,
+                light_aabb_clip_xymin_far.xyz() / light_aabb_clip_xymin_far.w,
+                light_aabb_clip_xymax_near.xyz() / light_aabb_clip_xymax_near.w,
+                light_aabb_clip_xymax_far.xyz() / light_aabb_clip_xymax_far.w,
             );
             let (light_aabb_ndc_min, light_aabb_ndc_max) = (
-                light_aabb_clip_min.xyz() / light_aabb_clip_min.w,
-                light_aabb_clip_max.xyz() / light_aabb_clip_max.w,
+                light_aabb_ndc_xymin_near
+                    .min(light_aabb_ndc_xymin_far)
+                    .min(light_aabb_ndc_xymax_near)
+                    .min(light_aabb_ndc_xymax_far),
+                light_aabb_ndc_xymin_near
+                    .max(light_aabb_ndc_xymin_far)
+                    .max(light_aabb_ndc_xymax_near)
+                    .max(light_aabb_ndc_xymax_far),
             );
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
