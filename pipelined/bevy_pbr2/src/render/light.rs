@@ -134,6 +134,10 @@ pub struct GpuLights {
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
     ambient_color: Vec4,
     cluster_dimensions: UVec4,
+    // xy are vec2<f32<(cluster_dimensions.xy) / vec2<f32<(view.width, view.height)
+    // z is cluster_dimensions.z / log(far / near)
+    // w is cluster_dimensions.z * log(near) / log(far / near)
+    cluster_factors: Vec4,
     n_directional_lights: u32,
 }
 
@@ -545,7 +549,10 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(Entity, &ExtractedClusterConfig), With<RenderPhase<Transparent3d>>>,
+    views: Query<
+        (Entity, &ExtractedView, &ExtractedClusterConfig),
+        With<RenderPhase<Transparent3d>>,
+    >,
     ambient_light: Res<ExtractedAmbientLight>,
     point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
@@ -598,7 +605,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, clusters) in views.iter() {
+    for (entity, extracted_view, clusters) in views.iter() {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -633,10 +640,18 @@ pub fn prepare_lights(
         );
         let mut view_lights = Vec::new();
 
+        let z_times_ln_far_over_near =
+            clusters.axis_slices.z as f32 / (extracted_view.far / extracted_view.near).ln();
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
+            cluster_factors: Vec4::new(
+                clusters.axis_slices.x as f32 / extracted_view.width as f32,
+                clusters.axis_slices.y as f32 / extracted_view.height as f32,
+                z_times_ln_far_over_near,
+                extracted_view.near.ln() * z_times_ln_far_over_near,
+            ),
             cluster_dimensions: clusters.axis_slices.extend(0),
             n_directional_lights: directional_lights.iter().len() as u32,
         };

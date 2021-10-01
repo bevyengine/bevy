@@ -240,22 +240,14 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
 }
 
 fn view_z_to_z_slice(view_z: f32) -> u32 {
-    let n_z_slices = lights.cluster_dimensions.z;
-    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
-    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
-    return u32(floor(
-        log(-view_z) * f32(n_z_slices) / log(view.far / view.near)
-        - f32(n_z_slices) * log(view.near) / log(view.far / view.near)
-    ));
+    // NOTE: had to use -view_z to make it positive else log(negative) is nan
+    return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
-    let cluster_dimensions = lights.cluster_dimensions;
-    // FIXME: Precalculate cluster_dimensions.xy / (view.width * view.height)
-    let xy = vec2<u32>(floor(vec2<f32>(cluster_dimensions.xy) * frag_coord / vec2<f32>(view.width, view.height)));
+    let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(view_z);
-    return (xy.y * cluster_dimensions.x + xy.x) * cluster_dimensions.z + z_slice;
-    // return xy.y * cluster_dimensions.x * cluster_dimensions.z + xy.x * cluster_dimensions.z + z_slice;
+    return (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice;
 }
 
 struct ClusterOffsetAndCount {
