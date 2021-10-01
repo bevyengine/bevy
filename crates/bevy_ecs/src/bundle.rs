@@ -76,8 +76,6 @@ use std::{any::TypeId, collections::HashMap};
 /// - [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
 ///   [Bundle::component_ids].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    const IS_DENSE: bool;
-
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
     fn component_ids(components: &mut Components) -> Vec<ComponentId>;
 
@@ -105,13 +103,6 @@ macro_rules! tuple_impl {
             fn component_ids(components: &mut Components) -> Vec<ComponentId> {
                 vec![$(components.get_or_insert_id::<$name>()),*]
             }
-
-            const IS_DENSE: bool = true $(&&
-                match <$name::Storage as $crate::component::ComponentStorage>::STORAGE_TYPE {
-                    StorageType::Table => true,
-                    StorageType::SparseSet => false,
-                }
-            )*;
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]

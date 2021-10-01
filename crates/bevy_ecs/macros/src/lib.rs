@@ -115,7 +115,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    let mut is_dense_exprs = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
@@ -129,9 +128,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             field_from_components.push(quote! {
                 #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
-            is_dense_exprs.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::IS_DENSE
-            });
         } else {
             field_component_ids.push(quote! {
                 component_ids.push(components.get_or_insert_id::<#field_type>());
@@ -143,12 +139,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             field_from_components.push(quote! {
                 #field: func().cast::<#field_type>().read(),
             });
-            is_dense_exprs.push(quote! {
-                match <<#field_type as #ecs_path::component::Component>::Storage as #ecs_path::component::ComponentStorage>::STORAGE_TYPE {
-                    #ecs_path::component::StorageType::Table => true,
-                    #ecs_path::component::StorageType::SparseSet => false,
-                }
-            });
         }
     }
     let field_len = field.len();
@@ -159,8 +149,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
-            const IS_DENSE: bool = true #(&& #is_dense_exprs)*;
-
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
             ) -> Vec<#ecs_path::component::ComponentId> {
