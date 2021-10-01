@@ -80,8 +80,8 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn drop(&self) -> unsafe fn(*mut u8) {
-        self.descriptor.drop
+    pub fn drop_multiple(&self) -> unsafe fn(*mut u8, usize) {
+        self.descriptor.drop_multiple
     }
 
     #[inline]
@@ -134,13 +134,15 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
-    drop: unsafe fn(*mut u8),
+    drop_multiple: unsafe fn(*mut u8, usize),
 }
 
 impl ComponentDescriptor {
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+    // SAFETY: The pointer points to a valid array of type `[T; len]` and it is safe to drop this value.
+    unsafe fn drop_ptr_multiple<T>(x: *mut u8, len: usize) {
+        for i in 0..len as isize {
+            x.cast::<T>().offset(i).drop_in_place()
+        }
     }
 
     pub fn new<T: Component>(storage_type: StorageType) -> Self {
@@ -150,7 +152,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop_multiple: Self::drop_ptr_multiple::<T>,
         }
     }
 
@@ -161,7 +163,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop_multiple: Self::drop_ptr_multiple::<T>,
         }
     }
 

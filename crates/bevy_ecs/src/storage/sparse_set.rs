@@ -99,7 +99,11 @@ pub struct ComponentSparseSet {
 impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            dense: BlobVec::new(
+                component_info.layout(),
+                component_info.drop_multiple(),
+                capacity,
+            ),
             ticks: Vec::with_capacity(capacity),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),

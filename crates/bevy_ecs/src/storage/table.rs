@@ -42,7 +42,11 @@ impl Column {
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
             component_id: component_info.id(),
-            data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            data: BlobVec::new(
+                component_info.layout(),
+                component_info.drop_multiple(),
+                capacity,
+            ),
             ticks: Vec::with_capacity(capacity),
         }
     }

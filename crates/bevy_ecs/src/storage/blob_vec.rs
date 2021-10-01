@@ -10,11 +10,15 @@ pub struct BlobVec {
     len: usize,
     data: NonNull<u8>,
     swap_scratch: NonNull<u8>,
-    drop: unsafe fn(*mut u8),
+    drop_multiple: unsafe fn(*mut u8, usize),
 }
 
 impl BlobVec {
-    pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> BlobVec {
+    pub fn new(
+        item_layout: Layout,
+        drop_multiple: unsafe fn(*mut u8, usize),
+        capacity: usize,
+    ) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
                 swap_scratch: NonNull::dangling(),
@@ -22,7 +26,7 @@ impl BlobVec {
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
-                drop,
+                drop_multiple,
             }
         } else {
             let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
@@ -33,7 +37,7 @@ impl BlobVec {
                 capacity: 0,
                 len: 0,
                 item_layout,
-                drop,
+                drop_multiple,
             };
             blob_vec.reserve_exact(capacity);
             blob_vec
@@ -101,7 +105,7 @@ impl BlobVec {
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked(index);
-        (self.drop)(ptr);
+        (self.drop_multiple)(ptr, 1);
         std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
     }
 
@@ -160,7 +164,7 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
         let value = self.swap_remove_and_forget_unchecked(index);
-        (self.drop)(value)
+        (self.drop_multiple)(value, 1)
     }
 
     /// # Safety
@@ -185,13 +189,8 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
-        for i in 0..len {
-            unsafe {
-                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                // will panic here due to self.len being set to 0
-                let ptr = self.get_ptr().as_ptr().add(i * self.item_layout.size());
-                (self.drop)(ptr);
-            }
+        unsafe {
+            (self.drop_multiple)(self.get_ptr().as_ptr(), len);
         }
     }
 }
@@ -268,10 +267,11 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 mod tests {
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
-
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+    // SAFETY: The pointer points to a valid array of type `[T; len]` and it is safe to drop this value.
+    unsafe fn drop_multiple<T>(x: *mut u8, len: usize) {
+        for i in 0..len as isize {
+            x.cast::<T>().offset(i).drop_in_place()
+        }
     }
 
     /// # Safety
@@ -304,8 +304,8 @@ mod tests {
     #[test]
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
-        let drop = drop_ptr::<usize>;
-        let mut blob_vec = BlobVec::new(item_layout, drop, 64);
+
+        let mut blob_vec = BlobVec::new(item_layout, drop_multiple::<usize>, 64);
         unsafe {
             for i in 0..1_000 {
                 push(&mut blob_vec, i as usize);
@@ -334,8 +334,7 @@ mod tests {
         let drop_counter = Rc::new(RefCell::new(0));
         {
             let item_layout = Layout::new::<Foo>();
-            let drop = drop_ptr::<Foo>;
-            let mut blob_vec = BlobVec::new(item_layout, drop, 2);
+            let mut blob_vec = BlobVec::new(item_layout, drop_multiple::<usize>, 2);
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
                 let foo1 = Foo {
@@ -394,7 +393,6 @@ mod tests {
     #[test]
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
-        let drop = drop_ptr::<Foo>;
-        let _ = BlobVec::new(item_layout, drop, 0);
+        let _ = BlobVec::new(item_layout, drop_multiple::<usize>, 0);
     }
 }
