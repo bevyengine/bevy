@@ -163,6 +163,8 @@ impl SparseSetIndex for ComponentId {
 #[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
+    // SAFETY: This must remain private. It must match the statically known StorageType of the
+    // associated rust component type if one exists.
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
