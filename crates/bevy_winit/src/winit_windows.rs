@@ -160,6 +160,12 @@ impl WinitWindows {
     pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
         self.winit_to_window_id.get(&id).cloned()
     }
+
+    pub fn remove_window(&mut self, id: WindowId) -> Option<winit::window::Window> {
+        let winit_id = self.window_id_to_winit.remove(&id)?;
+        self.winit_to_window_id.remove(&winit_id);
+        self.windows.remove(&winit_id)
+    }
 }
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,

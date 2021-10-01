@@ -34,4 +34,8 @@ impl Windows {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.values_mut()
     }
+
+    pub fn remove(&mut self, id: WindowId) -> Option<Window> {
+        self.windows.remove(&id)
+    }
 }

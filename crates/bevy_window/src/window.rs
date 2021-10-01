@@ -180,6 +180,7 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    Close,
 }
 
 /// Defines the way a window is displayed
@@ -506,6 +507,10 @@ impl Window {
             mode,
             resolution: (self.physical_width, self.physical_height),
         });
+    }
+
+    pub fn close(&mut self) {
+        self.command_queue.push(WindowCommand::Close);
     }
 
     #[inline]

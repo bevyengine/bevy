@@ -48,8 +48,9 @@ impl Plugin for WinitPlugin {
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let winit_windows = world.get_resource::<WinitWindows>().unwrap();
+    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    let mut removed_windows = Vec::new();
 
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
@@ -158,8 +159,19 @@ fn change_window(world: &mut World) {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
+                bevy_window::WindowCommand::Close => {
+                    let window = winit_windows.remove_window(id);
+                    // Close the window
+                    drop(window);
+                    removed_windows.push(id);
+                    // Don't run any further commands - this drops the rest of the commands, although the `Window` will be dropped later anyway
+                    break;
+                }
             }
         }
+    }
+    for window in removed_windows {
+        windows.remove(window);
     }
 }
 
