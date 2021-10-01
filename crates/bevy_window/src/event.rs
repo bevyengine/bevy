@@ -18,12 +18,6 @@ pub struct CreateWindow {
     pub descriptor: WindowDescriptor,
 }
 
-/// An event that indicates a window should be closed.
-#[derive(Debug, Clone)]
-pub struct CloseWindow {
-    pub id: WindowId,
-}
-
 /// An event that is sent whenever a new window is created.
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
