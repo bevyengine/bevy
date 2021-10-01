@@ -208,6 +208,10 @@ impl Clusters {
         clusters
     }
 
+    fn update_tile_size(&mut self, screen_size: UVec2) {
+        self.tile_size = (screen_size + UVec2::ONE) / self.axis_slices.xy();
+    }
+
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
         self.tile_size = tile_size;
         self.axis_slices = UVec3::new(
@@ -312,11 +316,10 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
+        clusters.update_tile_size(screen_size_u32);
         let screen_size = screen_size_u32.as_vec2();
         let tile_size_u32 = clusters.tile_size;
         let tile_size = tile_size_u32.as_vec2();
-        let z_slices = clusters.axis_slices.z;
-        clusters.update(tile_size_u32, screen_size_u32, z_slices);
 
         // Calculate view space AABBs
         // NOTE: It is important that these are iterated in a specific order
@@ -386,7 +389,7 @@ fn ndc_position_to_cluster(
     ndc_p: Vec3,
     view_z: f32,
 ) -> UVec3 {
-    let cluster_dimensions_f32 = cluster_dimensions.as_f32();
+    let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
     let frag_coord =
         (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
     // dbg!(ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5));
@@ -395,7 +398,7 @@ fn ndc_position_to_cluster(
     // dbg!(&xy);
     let z_slice = view_z_to_z_slice(cluster_dimensions_f32.z, z_near, z_far, view_z);
     // dbg!(&z_slice);
-    xy.as_u32()
+    xy.as_uvec2()
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
@@ -436,7 +439,7 @@ pub fn assign_lights_to_clusters(
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
             let light_aabb_view = Aabb {
-                center: Vec3::from(inverse_view_transform * light_sphere.center.extend(1.0)),
+                center: (inverse_view_transform * light_sphere.center.extend(1.0)).xyz(),
                 half_extents: Vec3::splat(light_sphere.radius),
             };
             let (light_aabb_view_min, light_aabb_view_max) =
