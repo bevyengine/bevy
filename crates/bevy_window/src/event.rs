@@ -31,6 +31,15 @@ pub struct WindowCloseRequested {
     pub id: WindowId,
 }
 
+/// An event that is sent whenever a window is closed.
+/// This will only be sent in response to the [`Window::close`] method.
+///
+/// [`Window::close`]: `crate::window::Window::close`
+#[derive(Debug, Clone)]
+pub struct WindowClosed {
+    pub id: WindowId,
+}
+
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
     pub id: WindowId,

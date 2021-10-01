@@ -16,8 +16,8 @@ use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
+    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
@@ -170,8 +170,12 @@ fn change_window(world: &mut World) {
             }
         }
     }
-    for window in removed_windows {
-        windows.remove(window);
+    if removed_windows.len() > 0 {
+        let mut events = world.get_resource_mut::<Events<WindowClosed>>().unwrap();
+        for id in removed_windows {
+            windows.remove(id);
+            events.send(WindowClosed { id });
+        }
     }
 }
 

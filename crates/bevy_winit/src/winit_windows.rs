@@ -167,6 +167,7 @@ impl WinitWindows {
         self.windows.remove(&winit_id)
     }
 }
+
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     width: u32,

@@ -40,6 +40,7 @@ impl Plugin for WindowPlugin {
         app.add_event::<WindowResized>()
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
