@@ -1,40 +1,15 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::render_resource::{next_id, Counter, Id};
 use std::{ops::Deref, sync::Arc};
 
-static MAX_TEXTURE_ID: AtomicUsize = AtomicUsize::new(0);
-static MAX_TEXTURE_VIEW_ID: AtomicUsize = AtomicUsize::new(0);
-static MAX_SAMPLER_ID: AtomicUsize = AtomicUsize::new(0);
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureId(usize);
+pub struct TextureId(Id);
 
 impl TextureId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_TEXTURE_ID.fetch_add(1, Ordering::Relaxed))
-    }
-}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureViewId(usize);
-
-impl TextureViewId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_TEXTURE_VIEW_ID.fetch_add(1, Ordering::Relaxed))
-    }
-}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SamplerId(usize);
-
-impl SamplerId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_SAMPLER_ID.fetch_add(1, Ordering::Relaxed))
+    /// Creates a new, unique [`TextureId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -58,7 +33,7 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: TextureId::new(),
+            id: TextureId::new().expect("The system ran out of unique `TextureId`s."),
             value: Arc::new(value),
         }
     }
@@ -70,6 +45,18 @@ impl Deref for Texture {
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct TextureViewId(Id);
+
+impl TextureViewId {
+    /// Creates a new, unique [`TextureViewId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -95,7 +82,7 @@ impl TextureView {
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: TextureViewId::new(),
+            id: TextureViewId::new().expect("The system ran out of unique `TextureViewId`s."),
             value: TextureViewValue::TextureView(Arc::new(value)),
         }
     }
@@ -104,7 +91,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SwapChainFrame> for TextureView {
     fn from(value: wgpu::SwapChainFrame) -> Self {
         TextureView {
-            id: TextureViewId::new(),
+            id: TextureViewId::new().expect("The system ran out of unique `TextureViewId`s."),
             value: TextureViewValue::SwapChainFrame(Arc::new(value)),
         }
     }
@@ -119,6 +106,18 @@ impl Deref for TextureView {
             TextureViewValue::TextureView(value) => value,
             TextureViewValue::SwapChainFrame(value) => &value.output.view,
         }
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct SamplerId(Id);
+
+impl SamplerId {
+    /// Creates a new, unique [`SamplerId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -138,7 +137,7 @@ impl Sampler {
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: SamplerId::new(),
+            id: SamplerId::new().expect("The system ran out of unique `SamplerId`s."),
             value: Arc::new(value),
         }
     }
@@ -169,7 +168,7 @@ impl SwapChainFrame {
 impl From<wgpu::SwapChainFrame> for SwapChainFrame {
     fn from(value: wgpu::SwapChainFrame) -> Self {
         Self {
-            id: TextureViewId::new(),
+            id: TextureViewId::new().expect("The system ran out of unique `TextureViewId`s."),
             value: Arc::new(value),
         }
     }

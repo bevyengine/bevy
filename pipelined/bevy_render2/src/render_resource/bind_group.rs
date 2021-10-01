@@ -1,16 +1,15 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::render_resource::{next_id, Counter, Id};
 use std::sync::Arc;
 
-static MAX_BIND_GROUP_ID: AtomicUsize = AtomicUsize::new(0);
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(usize);
+pub struct BindGroupId(Id);
 
 impl BindGroupId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_BIND_GROUP_ID.fetch_add(1, Ordering::Relaxed))
+    /// Creates a new, unique [`BindGroupId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -35,7 +34,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId::new(),
+            id: BindGroupId::new().expect("The system ran out of unique `BindGroupId`s."),
             value: Arc::new(value),
         }
     }

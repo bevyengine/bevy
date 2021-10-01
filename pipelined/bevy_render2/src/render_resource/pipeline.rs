@@ -1,28 +1,15 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::render_resource::{next_id, Counter, Id};
 use std::{ops::Deref, sync::Arc};
 
-static MAX_RENDER_PIPELINE_ID: AtomicUsize = AtomicUsize::new(0);
-static MAX_COMPUTE_PIPELINE_ID: AtomicUsize = AtomicUsize::new(0);
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct RenderPipelineId(usize);
+pub struct RenderPipelineId(Id);
 
 impl RenderPipelineId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_RENDER_PIPELINE_ID.fetch_add(1, Ordering::Relaxed))
-    }
-}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ComputePipelineId(usize);
-
-impl ComputePipelineId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_COMPUTE_PIPELINE_ID.fetch_add(1, Ordering::Relaxed))
+    /// Creates a new, unique [`RenderPipelineId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -42,7 +29,7 @@ impl RenderPipeline {
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: RenderPipelineId::new(),
+            id: RenderPipelineId::new().expect("The system ran out of unique `RenderPipelineId`s."),
             value: Arc::new(value),
         }
     }
@@ -54,6 +41,19 @@ impl Deref for RenderPipeline {
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct ComputePipelineId(Id);
+
+impl ComputePipelineId {
+    /// Creates a new, unique [`ComputePipelineId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    #[allow(clippy::new_without_default)]
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -73,7 +73,8 @@ impl ComputePipeline {
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: ComputePipelineId::new(),
+            id: ComputePipelineId::new()
+                .expect("The system ran out of unique `ComputePipelineId`s."),
             value: Arc::new(value),
         }
     }

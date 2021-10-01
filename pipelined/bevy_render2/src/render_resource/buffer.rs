@@ -1,19 +1,18 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::render_resource::{next_id, Counter, Id};
 use std::{
     ops::{Bound, Deref, RangeBounds},
     sync::Arc,
 };
 
-static MAX_BUFFER_ID: AtomicUsize = AtomicUsize::new(0);
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(usize);
+pub struct BufferId(Id);
 
 impl BufferId {
-    /// Creates a new id by incrementing the atomic id counter.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(MAX_BUFFER_ID.fetch_add(1, Ordering::Relaxed))
+    /// Creates a new, unique [`BufferId`].
+    /// Returns [`None`] if the supply of unique ids has been exhausted.
+    fn new() -> Option<Self> {
+        static COUNTER: Counter = Counter::new(0);
+        next_id(&COUNTER).map(Self)
     }
 }
 
@@ -51,7 +50,7 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: BufferId::new(),
+            id: BufferId::new().expect("The system ran out of unique `BufferId`s."),
             value: Arc::new(value),
         }
     }
