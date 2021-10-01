@@ -32,6 +32,23 @@ impl Aabb {
         .abs()
         .dot(half_extents)
     }
+
+    pub fn min(&self) -> Vec3 {
+        self.center - self.half_extents
+    }
+
+    pub fn max(&self) -> Vec3 {
+        self.center + self.half_extents
+    }
+}
+
+impl From<Sphere> for Aabb {
+    fn from(sphere: Sphere) -> Self {
+        Self {
+            center: sphere.center,
+            half_extents: Vec3::splat(sphere.radius),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
