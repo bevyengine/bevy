@@ -99,8 +99,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        // TODO: TypeInfo no longer exists, verify safety again
-        /// SAFE: TypeInfo is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
+        /// SAFE: Component is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components) -> Vec<ComponentId> {

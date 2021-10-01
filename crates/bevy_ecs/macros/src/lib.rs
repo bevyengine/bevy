@@ -157,8 +157,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        // TODO: TypeInfo no longer exists, verify safety again
-        /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             const IS_DENSE: bool = true #(&& #is_dense_exprs)*;
 
