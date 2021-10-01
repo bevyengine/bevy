@@ -352,6 +352,12 @@ pub struct VisiblePointLights {
 }
 
 impl VisiblePointLights {
+    pub fn from_light_count(count: usize) -> Self {
+        Self {
+            entities: Vec::with_capacity(count),
+        }
+    }
+
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.entities.iter()
     }
@@ -359,43 +365,129 @@ impl VisiblePointLights {
     pub fn len(&self) -> usize {
         self.entities.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entities.is_empty()
+    }
+}
+
+fn view_z_to_z_slice(n_z_slices: f32, z_near: f32, z_far: f32, view_z: f32) -> u32 {
+    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
+    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
+    ((-view_z).ln() * n_z_slices / (z_far / z_near).ln()
+        - n_z_slices * z_near.ln() / (z_far / z_near).ln())
+    .floor() as u32
+}
+
+fn ndc_position_to_cluster(
+    cluster_dimensions: UVec3,
+    z_near: f32,
+    z_far: f32,
+    ndc_p: Vec3,
+    view_z: f32,
+) -> UVec3 {
+    let cluster_dimensions_f32 = cluster_dimensions.as_f32();
+    let frag_coord =
+        (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+    // dbg!(ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5));
+    // dbg!(&frag_coord);
+    let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
+    // dbg!(&xy);
+    let z_slice = view_z_to_z_slice(cluster_dimensions_f32.z, z_near, z_far, view_z);
+    // dbg!(&z_slice);
+    xy.as_u32()
+        .extend(z_slice)
+        .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
+}
+
+fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
+    ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
 }
 
 // NOTE: Run this before update_point_light_frusta!
 pub fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<VisiblePointLights>,
-    mut views: Query<(Entity, &GlobalTransform, &mut Clusters), With<Camera>>,
+    mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
     lights: Query<(Entity, &GlobalTransform, &PointLight)>,
 ) {
     let light_count = lights.iter().count();
     let mut global_lights_set = HashSet::with_capacity(light_count);
-    for (view_entity, view_transform, mut clusters) in views.iter_mut() {
+    for (view_entity, view_transform, camera, frustum, mut clusters) in views.iter_mut() {
         let view_transform = view_transform.compute_matrix();
+        let inverse_view_transform = view_transform.inverse();
         let cluster_count = clusters.aabbs.len();
-        let mut clusters_lights = Vec::with_capacity(cluster_count);
-        let mut visible_lights = HashSet::with_capacity(light_count);
-        for cluster_aabb in clusters.aabbs.iter() {
-            let mut cluster_lights = Vec::with_capacity(light_count);
-            for (light_entity, transform, light) in lights.iter() {
-                let light_sphere = Sphere {
-                    center: transform.translation,
-                    radius: light.range,
-                };
-                if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                    global_lights_set.insert(light_entity);
-                    visible_lights.insert(light_entity);
-                    cluster_lights.push(light_entity);
+
+        let mut clusters_lights =
+            vec![VisiblePointLights::from_light_count(light_count); cluster_count];
+        let mut visible_lights_set = HashSet::with_capacity(light_count);
+
+        for (light_entity, light_transform, light) in lights.iter() {
+            let light_sphere = Sphere {
+                center: light_transform.translation,
+                radius: light.range,
+            };
+
+            // Check if the light is within the view frustum
+            if !frustum.intersects_sphere(&light_sphere) {
+                continue;
+            }
+
+            // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
+            // points of the AABB, then iterate over just those clusters for this light
+            let light_aabb_view = Aabb {
+                center: Vec3::from(inverse_view_transform * light_sphere.center.extend(1.0)),
+                half_extents: Vec3::splat(light_sphere.radius),
+            };
+            let (light_aabb_view_min, light_aabb_view_max) =
+                (light_aabb_view.min(), light_aabb_view.max());
+            let (light_aabb_clip_min, light_aabb_clip_max) = (
+                camera.projection_matrix * light_aabb_view_min.extend(1.0),
+                camera.projection_matrix * light_aabb_view_max.extend(1.0),
+            );
+            let (light_aabb_ndc_min, light_aabb_ndc_max) = (
+                light_aabb_clip_min.xyz() / light_aabb_clip_min.w,
+                light_aabb_clip_max.xyz() / light_aabb_clip_max.w,
+            );
+            let min_cluster = ndc_position_to_cluster(
+                clusters.axis_slices,
+                camera.near,
+                camera.far,
+                light_aabb_ndc_min,
+                light_aabb_view_min.z,
+            );
+            let max_cluster = ndc_position_to_cluster(
+                clusters.axis_slices,
+                camera.near,
+                camera.far,
+                light_aabb_ndc_max,
+                light_aabb_view_max.z,
+            );
+            let (min_cluster, max_cluster) =
+                (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
+            for y in min_cluster.y..=max_cluster.y {
+                for x in min_cluster.x..=max_cluster.x {
+                    for z in min_cluster.z..=max_cluster.z {
+                        let cluster_index =
+                            cluster_to_index(clusters.axis_slices, UVec3::new(x, y, z));
+                        let cluster_aabb = &clusters.aabbs[cluster_index];
+                        if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
+                            global_lights_set.insert(light_entity);
+                            visible_lights_set.insert(light_entity);
+                            clusters_lights[cluster_index].entities.push(light_entity);
+                        }
+                    }
                 }
             }
-            cluster_lights.shrink_to_fit();
-            clusters_lights.push(VisiblePointLights {
-                entities: cluster_lights,
-            });
         }
+
+        for cluster_lights in clusters_lights.iter_mut() {
+            cluster_lights.entities.shrink_to_fit();
+        }
+
         clusters.lights = clusters_lights;
         commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights.into_iter().collect(),
+            entities: visible_lights_set.into_iter().collect(),
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();
