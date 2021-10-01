@@ -1,8 +1,39 @@
-use bevy_utils::Uuid;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{ops::Deref, sync::Arc};
 
+static MAX_TEXTURE_ID: AtomicU64 = AtomicU64::new(0);
+static MAX_TEXTURE_VIEW_ID: AtomicU64 = AtomicU64::new(0);
+static MAX_SAMPLER_ID: AtomicU64 = AtomicU64::new(0);
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureId(Uuid);
+pub struct TextureId(u64);
+
+impl TextureId {
+    /// Creates a new id by incrementing the atomic id counter.
+    pub fn new() -> Self {
+        Self(MAX_TEXTURE_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct TextureViewId(u64);
+
+impl TextureViewId {
+    /// Creates a new id by incrementing the atomic id counter.
+    pub fn new() -> Self {
+        Self(MAX_TEXTURE_VIEW_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct SamplerId(u64);
+
+impl SamplerId {
+    /// Creates a new id by incrementing the atomic id counter.
+    pub fn new() -> Self {
+        Self(MAX_SAMPLER_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Texture {
@@ -24,7 +55,7 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: TextureId(Uuid::new_v4()),
+            id: TextureId::new(),
             value: Arc::new(value),
         }
     }
@@ -38,9 +69,6 @@ impl Deref for Texture {
         &self.value
     }
 }
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureViewId(Uuid);
 
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
@@ -64,7 +92,7 @@ impl TextureView {
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: TextureViewId(Uuid::new_v4()),
+            id: TextureViewId::new(),
             value: TextureViewValue::TextureView(Arc::new(value)),
         }
     }
@@ -73,7 +101,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SwapChainFrame> for TextureView {
     fn from(value: wgpu::SwapChainFrame) -> Self {
         TextureView {
-            id: TextureViewId(Uuid::new_v4()),
+            id: TextureViewId::new(),
             value: TextureViewValue::SwapChainFrame(Arc::new(value)),
         }
     }
@@ -91,9 +119,6 @@ impl Deref for TextureView {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SamplerId(Uuid);
-
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
@@ -110,7 +135,7 @@ impl Sampler {
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: SamplerId(Uuid::new_v4()),
+            id: SamplerId::new(),
             value: Arc::new(value),
         }
     }
@@ -141,7 +166,7 @@ impl SwapChainFrame {
 impl From<wgpu::SwapChainFrame> for SwapChainFrame {
     fn from(value: wgpu::SwapChainFrame) -> Self {
         Self {
-            id: TextureViewId(Uuid::new_v4()),
+            id: TextureViewId::new(),
             value: Arc::new(value),
         }
     }

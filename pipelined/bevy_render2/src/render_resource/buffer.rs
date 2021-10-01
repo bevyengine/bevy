@@ -1,11 +1,20 @@
-use bevy_utils::Uuid;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     ops::{Bound, Deref, RangeBounds},
     sync::Arc,
 };
 
+static MAX_BUFFER_ID: AtomicU64 = AtomicU64::new(0);
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(Uuid);
+pub struct BufferId(u64);
+
+impl BufferId {
+    /// Creates a new id by incrementing the atomic id counter.
+    pub fn new() -> Self {
+        Self(MAX_BUFFER_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
@@ -41,7 +50,7 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: BufferId(Uuid::new_v4()),
+            id: BufferId::new(),
             value: Arc::new(value),
         }
     }
