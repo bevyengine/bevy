@@ -22,15 +22,20 @@ use bevy_app::{prelude::*, Events};
 use bevy_ecs::system::IntoSystem;
 
 pub struct WindowPlugin {
+    /// Whether to add a default window based on the [`WindowDescriptor`] resource
     pub add_primary_window: bool,
-    pub exit_on_close: bool,
+    /// Whether to close the app when there are no open windows
+    pub exit_on_all_closed: bool,
+    /// Whether to close windows when they are requested to be closed (i.e. when the close button is pressed)
+    pub close_when_requested: bool,
 }
 
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
             add_primary_window: true,
-            exit_on_close: true,
+            close_when_requested: true,
+            exit_on_all_closed: true,
         }
     }
 }
@@ -69,8 +74,11 @@ impl Plugin for WindowPlugin {
             });
         }
 
-        if self.exit_on_close {
-            app.add_system(exit_on_window_close_system.system());
+        if self.exit_on_all_closed {
+            app.add_system(exit_on_all_closed.system());
+        }
+        if self.close_when_requested {
+            app.add_system(close_when_requested.system());
         }
     }
 }

@@ -170,7 +170,7 @@ fn change_window(world: &mut World) {
             }
         }
     }
-    if removed_windows.len() > 0 {
+    if !removed_windows.is_empty() {
         let mut events = world.get_resource_mut::<Events<WindowClosed>>().unwrap();
         for id in removed_windows {
             windows.remove(id);
@@ -280,8 +280,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         window_id
                     } else {
                         warn!(
-                            "Skipped event for unknown winit Window Id {:?}",
-                            winit_window_id
+                            "Skipped event for unknown winit Window Id {:?}: {:?}",
+                            winit_window_id, event
                         );
                         return;
                     };
@@ -289,7 +289,10 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                 let window = if let Some(window) = windows.get_mut(window_id) {
                     window
                 } else {
-                    warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
+                    warn!(
+                        "Skipped event for unknown Window Id {:?}: {:?}",
+                        winit_window_id, event
+                    );
                     return;
                 };
 
