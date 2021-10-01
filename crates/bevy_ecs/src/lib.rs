@@ -130,10 +130,10 @@ mod tests {
         }
 
         assert_eq!(
-            <Foo as Bundle>::component_ids(world.components_mut()),
+            <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages),
             vec![
-                world.components_mut().get_or_insert_id::<TableStored>(),
-                world.components_mut().get_or_insert_id::<SparseStored>(),
+                world.init_component::<TableStored>(),
+                world.init_component::<SparseStored>(),
             ]
         );
 
@@ -178,12 +178,12 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::component_ids(world.components_mut()),
+            <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages),
             vec![
-                world.components_mut().get_or_insert_id::<A>(),
-                world.components_mut().get_or_insert_id::<TableStored>(),
-                world.components_mut().get_or_insert_id::<SparseStored>(),
-                world.components_mut().get_or_insert_id::<B>(),
+                world.init_component::<A>(),
+                world.init_component::<TableStored>(),
+                world.init_component::<SparseStored>(),
+                world.init_component::<B>(),
             ]
         );
 

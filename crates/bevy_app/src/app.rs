@@ -1,6 +1,5 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
-    component::ComponentDescriptor,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
@@ -809,18 +808,6 @@ impl App {
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
-        self
-    }
-
-    /// Registers a new component using the given [ComponentDescriptor].
-    ///
-    /// Components do not need to be manually registered. This just provides a way to
-    /// override default configuration. Attempting to register a component with a type
-    /// that has already been used by [World] will result in an error.
-    ///
-    /// See [World::register_component]
-    pub fn register_component(&mut self, descriptor: ComponentDescriptor) -> &mut Self {
-        self.world.register_component(descriptor).unwrap();
         self
     }
 

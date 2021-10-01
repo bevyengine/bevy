@@ -88,7 +88,7 @@ pub struct WithState<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithState<T> {
     fn init(world: &mut World) -> Self {
-        let component_id = world.register_or_get_id::<T>();
+        let component_id = world.init_component::<T>();
         Self {
             component_id,
             marker: PhantomData,
@@ -207,7 +207,7 @@ pub struct WithoutState<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithoutState<T> {
     fn init(world: &mut World) -> Self {
-        let component_id = world.register_or_get_id::<T>();
+        let component_id = world.init_component::<T>();
         Self {
             component_id,
             marker: PhantomData,
@@ -446,7 +446,7 @@ macro_rules! impl_tick_filter {
 
         $(#[$fetch_meta])*
         pub struct $fetch_name<T> {
-            storage_type: StorageType,
+            storage_type: StorageType, // TODO: remove this?
             table_ticks: *const UnsafeCell<ComponentTicks>,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
@@ -472,9 +472,8 @@ macro_rules! impl_tick_filter {
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that
         unsafe impl<T: Component> FetchState for $state_name<T> {
             fn init(world: &mut World) -> Self {
-                let component_id = world.register_or_get_id::<T>();
                 Self {
-                    component_id,
+                    component_id: world.init_component::<T>(),
                     storage_type: T::Storage::STORAGE_TYPE,
                     marker: PhantomData,
                 }

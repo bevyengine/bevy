@@ -77,7 +77,7 @@ use std::{any::TypeId, collections::HashMap};
 ///   [Bundle::component_ids].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
-    fn component_ids(components: &mut Components) -> Vec<ComponentId>;
+    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's Components
@@ -100,8 +100,8 @@ macro_rules! tuple_impl {
         /// SAFE: Component is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components) -> Vec<ComponentId> {
-                vec![$(components.get_or_insert_id::<$name>()),*]
+            fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
+                vec![$(components.init_component::<$name>(storages)),*]
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -328,10 +328,7 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => {
-                        storages.sparse_sets.get_or_insert(component_info);
-                        new_sparse_set_components.push(component_id)
-                    }
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
             }
         }
@@ -595,10 +592,11 @@ impl Bundles {
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
         components: &mut Components,
+        storages: &mut Storages,
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let component_ids = T::component_ids(components);
+            let component_ids = T::component_ids(components, storages);
             let id = BundleId(bundle_infos.len());
             // SAFE: T::component_id ensures info was created
             let bundle_info = unsafe {

@@ -232,7 +232,7 @@ pub struct ReadState<T> {
 // read
 unsafe impl<T: Component> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
-        let component_id = world.register_or_get_id::<T>();
+        let component_id = world.init_component::<T>();
         ReadState {
             component_id,
             marker: PhantomData,
@@ -411,7 +411,7 @@ pub struct WriteState<T> {
 // written
 unsafe impl<T: Component> FetchState for WriteState<T> {
     fn init(world: &mut World) -> Self {
-        let component_id = world.register_or_get_id::<T>();
+        let component_id = world.init_component::<T>();
         WriteState {
             component_id,
             marker: PhantomData,
@@ -743,7 +743,7 @@ pub struct ChangeTrackersState<T> {
 // read
 unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
-        let component_id = world.register_or_get_id::<T>();
+        let component_id = world.init_component::<T>();
         Self {
             component_id,
             marker: PhantomData,

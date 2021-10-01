@@ -673,7 +673,7 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         Self {
-            component_id: world.components.get_or_insert_id::<T>(),
+            component_id: world.init_component::<T>(),
             marker: PhantomData,
         }
     }

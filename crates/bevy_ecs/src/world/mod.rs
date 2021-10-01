@@ -11,10 +11,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::Ticks,
-    component::{
-        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
-        StorageType,
-    },
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
@@ -174,27 +171,8 @@ impl World {
         WorldCell::new(self)
     }
 
-    pub fn register_component(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> Result<ComponentId, ComponentsError> {
-        let storage_type = descriptor.storage_type();
-        let component_id = self.components.add(descriptor)?;
-        // ensure sparse set is created for SparseSet components
-        if storage_type == StorageType::SparseSet {
-            // SAFE: just created
-            let info = unsafe { self.components.get_info_unchecked(component_id) };
-            self.storages.sparse_sets.get_or_insert(info);
-        }
-
-        Ok(component_id)
-    }
-
-    pub(crate) fn register_or_get_id<T: Component>(&mut self) -> ComponentId {
-        self.register_component(ComponentDescriptor::new::<T>())
-            .unwrap_or_else(|e| match e {
-                ComponentsError::ComponentAlreadyExists { existing_id, .. } => existing_id,
-            })
+    pub fn init_component<T: Component>(&mut self) -> ComponentId {
+        self.components.init_component::<T>(&mut self.storages)
     }
 
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
@@ -614,7 +592,7 @@ impl World {
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn insert_resource<T: Resource>(&mut self, value: T) {
-        let component_id = self.components.get_or_insert_resource_id::<T>();
+        let component_id = self.components.init_resource::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
@@ -624,7 +602,7 @@ impl World {
     #[inline]
     pub fn insert_non_send<T: 'static>(&mut self, value: T) {
         self.validate_non_send_access::<T>();
-        let component_id = self.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = self.components.init_non_send::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
@@ -820,7 +798,9 @@ impl World {
         let iter = iter.into_iter();
         let change_tick = *self.change_tick.get_mut();
 
-        let bundle_info = self.bundles.init_info::<B>(&mut self.components);
+        let bundle_info = self
+            .bundles
+            .init_info::<B>(&mut self.components, &mut self.storages);
         enum SpawnOrInsert<'a, 'b> {
             Spawn(BundleSpawner<'a, 'b>),
             Insert(BundleInserter<'a, 'b>, ArchetypeId),
@@ -1066,14 +1046,14 @@ impl World {
     }
 
     pub(crate) fn initialize_resource<T: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.get_or_insert_resource_id::<T>();
+        let component_id = self.components.init_resource::<T>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
     }
 
     pub(crate) fn initialize_non_send_resource<T: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = self.components.init_non_send::<T>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id

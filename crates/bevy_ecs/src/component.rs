@@ -1,6 +1,9 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::{storage::SparseSetIndex, system::Resource};
+use crate::{
+    storage::{SparseSetIndex, Storages},
+    system::Resource,
+};
 pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
@@ -247,32 +250,21 @@ pub enum ComponentsError {
 }
 
 impl Components {
-    pub(crate) fn add(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> Result<ComponentId, ComponentsError> {
-        let index = self.components.len();
-        if let Some(type_id) = descriptor.type_id {
-            let i = self.indices.get(&type_id);
-            if let Some(&index) = i {
-                return Err(ComponentsError::ComponentAlreadyExists {
-                    type_id,
-                    name: descriptor.name,
-                    existing_id: self.components[index].id,
-                });
-            }
-            self.indices.insert(type_id, index);
-        }
-        self.components
-            .push(ComponentInfo::new(ComponentId(index), descriptor));
-
-        Ok(ComponentId(index))
-    }
-
     #[inline]
-    pub fn get_or_insert_id<T: Component>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe { self.get_or_insert_with(TypeId::of::<T>(), ComponentDescriptor::new::<T>) }
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+        let type_id = TypeId::of::<T>();
+        let components = &mut self.components;
+        let index = self.indices.entry(type_id).or_insert_with(|| {
+            let index = components.len();
+            let descriptor = ComponentDescriptor::new::<T>();
+            let info = ComponentInfo::new(ComponentId(index), descriptor);
+            if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
+                storages.sparse_sets.get_or_insert(&info);
+            }
+            components.push(info);
+            index
+        });
+        ComponentId(*index)
     }
 
     #[inline]
@@ -312,7 +304,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn get_or_insert_resource_id<T: Resource>(&mut self) -> ComponentId {
+    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -322,7 +314,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn get_or_insert_non_send_resource_id<T: Any>(&mut self) -> ComponentId {
+    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -342,26 +334,6 @@ impl Components {
     ) -> ComponentId {
         let components = &mut self.components;
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
-            let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
-        });
-
-        ComponentId(*index)
-    }
-
-    /// # Safety
-    ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
-    #[inline]
-    pub(crate) unsafe fn get_or_insert_with(
-        &mut self,
-        type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
-        let index = self.indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
             components.push(ComponentInfo::new(ComponentId(index), descriptor));
