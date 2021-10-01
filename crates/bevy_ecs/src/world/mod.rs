@@ -190,6 +190,13 @@ impl World {
         Ok(component_id)
     }
 
+    pub(crate) fn register_or_get_id<T: Component>(&mut self) -> ComponentId {
+        self.register_component(ComponentDescriptor::new::<T>())
+            .unwrap_or_else(|e| match e {
+                ComponentsError::ComponentAlreadyExists { existing_id, .. } => existing_id,
+            })
+    }
+
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
     /// This will panic if the `entity` does not exist. Use [World::get_entity] if you want
     /// to check for entity existence instead of implicitly panic-ing.

@@ -163,6 +163,8 @@ impl SparseSetIndex for ComponentId {
 #[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
+    // SAFETY: This must remain private. It must match the statically known StorageType of the
+    // associated rust component type if one exists.
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
@@ -237,7 +239,11 @@ pub struct Components {
 #[derive(Debug, Error)]
 pub enum ComponentsError {
     #[error("A component of type {name:?} ({type_id:?}) already exists")]
-    ComponentAlreadyExists { type_id: TypeId, name: String },
+    ComponentAlreadyExists {
+        type_id: TypeId,
+        name: String,
+        existing_id: ComponentId,
+    },
 }
 
 impl Components {
@@ -247,10 +253,12 @@ impl Components {
     ) -> Result<ComponentId, ComponentsError> {
         let index = self.components.len();
         if let Some(type_id) = descriptor.type_id {
-            if self.indices.contains_key(&type_id) {
+            let i = self.indices.get(&type_id);
+            if let Some(&index) = i {
                 return Err(ComponentsError::ComponentAlreadyExists {
                     type_id,
                     name: descriptor.name,
+                    existing_id: self.components[index].id,
                 });
             }
             self.indices.insert(type_id, index);
@@ -265,13 +273,6 @@ impl Components {
     pub fn get_or_insert_id<T: Component>(&mut self) -> ComponentId {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe { self.get_or_insert_with(TypeId::of::<T>(), ComponentDescriptor::new::<T>) }
-    }
-
-    #[inline]
-    pub fn get_or_insert_info<T: Component>(&mut self) -> &ComponentInfo {
-        let id = self.get_or_insert_id::<T>();
-        // SAFE: component_info with the given `id` initialized above
-        unsafe { self.get_info_unchecked(id) }
     }
 
     #[inline]

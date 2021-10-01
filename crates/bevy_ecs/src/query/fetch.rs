@@ -232,12 +232,9 @@ pub struct ReadState<T> {
 // read
 unsafe impl<T: Component> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
-        let component_info = world.components.get_or_insert_info::<T>();
-        if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
-            world.storages.sparse_sets.get_or_insert(component_info);
-        };
+        let component_id = world.register_or_get_id::<T>();
         ReadState {
-            component_id: component_info.id(),
+            component_id,
             marker: PhantomData,
         }
     }
@@ -414,9 +411,9 @@ pub struct WriteState<T> {
 // written
 unsafe impl<T: Component> FetchState for WriteState<T> {
     fn init(world: &mut World) -> Self {
-        let component_info = world.components.get_or_insert_info::<T>();
+        let component_id = world.register_or_get_id::<T>();
         WriteState {
-            component_id: component_info.id(),
+            component_id,
             marker: PhantomData,
         }
     }
@@ -746,9 +743,9 @@ pub struct ChangeTrackersState<T> {
 // read
 unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
-        let component_info = world.components.get_or_insert_info::<T>();
+        let component_id = world.register_or_get_id::<T>();
         Self {
-            component_id: component_info.id(),
+            component_id,
             marker: PhantomData,
         }
     }

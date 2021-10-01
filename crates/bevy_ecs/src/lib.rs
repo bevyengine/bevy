@@ -82,6 +82,10 @@ mod tests {
         }
     }
 
+    #[derive(Component, Clone, Debug)]
+    #[component(storage = "SparseSet")]
+    struct DropCkSparse(DropCk);
+
     #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
     #[component(storage = "Table")]
     struct TableStored(&'static str);
@@ -1343,7 +1347,10 @@ mod tests {
         let (dropck2, dropped2) = DropCk::new_pair();
         let mut world = World::default();
 
-        world.spawn().insert(dropck1).insert(dropck2);
+        world
+            .spawn()
+            .insert(DropCkSparse(dropck1))
+            .insert(DropCkSparse(dropck2));
         assert_eq!(dropped1.load(Ordering::Relaxed), 1);
         assert_eq!(dropped2.load(Ordering::Relaxed), 0);
         drop(world);

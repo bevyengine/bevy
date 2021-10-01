@@ -88,8 +88,7 @@ impl Plugin for SpritePlugin {
                 frustum_culling::atlas_frustum_culling_system,
             );
         }
-        let world = &mut app.world;
-        let world_cell = world.cell();
+        let world_cell = app.world.cell();
         let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
         let mut pipelines = world_cell
             .get_resource_mut::<Assets<PipelineDescriptor>>()
