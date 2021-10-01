@@ -1,16 +1,17 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{
     ops::{Bound, Deref, RangeBounds},
     sync::Arc,
 };
 
-static MAX_BUFFER_ID: AtomicU64 = AtomicU64::new(0);
+static MAX_BUFFER_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(u64);
+pub struct BufferId(usize);
 
 impl BufferId {
     /// Creates a new id by incrementing the atomic id counter.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(MAX_BUFFER_ID.fetch_add(1, Ordering::Relaxed))
     }

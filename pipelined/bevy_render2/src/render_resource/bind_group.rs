@@ -1,13 +1,14 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-static MAX_BIND_GROUP_ID: AtomicU64 = AtomicU64::new(0);
+static MAX_BIND_GROUP_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(u64);
+pub struct BindGroupId(usize);
 
 impl BindGroupId {
     /// Creates a new id by incrementing the atomic id counter.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(MAX_BIND_GROUP_ID.fetch_add(1, Ordering::Relaxed))
     }

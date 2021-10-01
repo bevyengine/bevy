@@ -238,8 +238,8 @@ impl FromWorld for CustomPipeline {
         });
 
         CustomPipeline {
-            pipeline,
             material_layout,
+            pipeline,
         }
     }
 }

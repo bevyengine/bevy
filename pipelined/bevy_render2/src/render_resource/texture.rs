@@ -1,35 +1,38 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{ops::Deref, sync::Arc};
 
-static MAX_TEXTURE_ID: AtomicU64 = AtomicU64::new(0);
-static MAX_TEXTURE_VIEW_ID: AtomicU64 = AtomicU64::new(0);
-static MAX_SAMPLER_ID: AtomicU64 = AtomicU64::new(0);
+static MAX_TEXTURE_ID: AtomicUsize = AtomicUsize::new(0);
+static MAX_TEXTURE_VIEW_ID: AtomicUsize = AtomicUsize::new(0);
+static MAX_SAMPLER_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureId(u64);
+pub struct TextureId(usize);
 
 impl TextureId {
     /// Creates a new id by incrementing the atomic id counter.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(MAX_TEXTURE_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureViewId(u64);
+pub struct TextureViewId(usize);
 
 impl TextureViewId {
     /// Creates a new id by incrementing the atomic id counter.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(MAX_TEXTURE_VIEW_ID.fetch_add(1, Ordering::Relaxed))
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SamplerId(u64);
+pub struct SamplerId(usize);
 
 impl SamplerId {
     /// Creates a new id by incrementing the atomic id counter.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(MAX_SAMPLER_ID.fetch_add(1, Ordering::Relaxed))
     }
