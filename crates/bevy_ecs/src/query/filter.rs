@@ -446,7 +446,6 @@ macro_rules! impl_tick_filter {
 
         $(#[$fetch_meta])*
         pub struct $fetch_name<T> {
-            storage_type: StorageType, // TODO: remove this?
             table_ticks: *const UnsafeCell<ComponentTicks>,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
@@ -459,7 +458,6 @@ macro_rules! impl_tick_filter {
         $(#[$state_meta])*
         pub struct $state_name<T> {
             component_id: ComponentId,
-            storage_type: StorageType,
             marker: PhantomData<T>,
         }
 
@@ -474,7 +472,6 @@ macro_rules! impl_tick_filter {
             fn init(world: &mut World) -> Self {
                 Self {
                     component_id: world.init_component::<T>(),
-                    storage_type: T::Storage::STORAGE_TYPE,
                     marker: PhantomData,
                 }
             }
@@ -514,7 +511,6 @@ macro_rules! impl_tick_filter {
 
             unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
                 let mut value = Self {
-                    storage_type: state.storage_type,
                     table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
                     entities: ptr::null::<Entity>(),
                     entity_table_rows: ptr::null::<usize>(),
@@ -546,7 +542,7 @@ macro_rules! impl_tick_filter {
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
-                match state.storage_type {
+                match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                         let table = &tables[archetype.table_id()];
@@ -563,7 +559,7 @@ macro_rules! impl_tick_filter {
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
-                match self.storage_type {
+                match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
                         $is_detected(&*(&*self.table_ticks.add(table_row)).get(), self.last_change_tick, self.change_tick)
