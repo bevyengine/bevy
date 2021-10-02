@@ -45,8 +45,8 @@ fn extract_secondary_camera_phases(mut commands: Commands, active_cameras: Res<A
     }
 }
 
-const SECONDARY_CAMERA_NAME: &'static str = "Secondary";
-const SECONDARY_PASS_DRIVER: &'static str = "secondary_pass_driver";
+const SECONDARY_CAMERA_NAME: &str = "Secondary";
+const SECONDARY_PASS_DRIVER: &str = "secondary_pass_driver";
 
 fn create_new_window(
     mut create_window_events: EventWriter<CreateWindow>,
