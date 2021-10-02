@@ -230,18 +230,15 @@ impl App {
 
     pub fn add_system_set(&mut self, set: SystemSet) -> &mut Self {
         fn ensure_no_conflicts(set: &SystemSet) {
-            let mut conflict = false;
-            for system in set.systems.iter() {
-                if system.config().stage != set.config().stage {
-                    conflict = true;
-                }
-            }
-            for system in set.exclusive_systems.iter() {
-                if system.config().stage != set.config().stage {
-                    conflict = true;
-                }
-            }
-            if conflict {
+            let system_conflict = set
+                .systems
+                .iter()
+                .any(|s| s.config().stage != set.config().stage);
+            let exclusive_conflict = set
+                .exclusive_systems
+                .iter()
+                .any(|s| s.config().stage != set.config().stage);
+            if system_conflict || exclusive_conflict {
                 panic!("There is a mismatch between a system set's stage and it's sub systems")
             }
         }
