@@ -1,4 +1,4 @@
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
@@ -9,6 +9,11 @@ use std::ops::{Add, AddAssign};
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
+}
+
+#[derive(Clone, Default)]
+pub struct ControlNode {
+    pub(crate) true_parent: Option<Entity>,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
