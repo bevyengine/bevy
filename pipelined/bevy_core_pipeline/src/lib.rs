@@ -235,7 +235,7 @@ pub fn prepare_core_views_system(
         let cached_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: None,
+                label: Some("view_depth_texture"),
                 size: Extent3d {
                     depth_or_array_layers: 1,
                     width: view.width as u32,
