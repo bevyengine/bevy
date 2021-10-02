@@ -182,14 +182,13 @@ impl ParallelExecutor {
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
                 let system = unsafe { systems[index].system_mut_unsafe() };
+                #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
+                let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
                 let task = async move {
                     start_receiver
                         .recv()
                         .await
                         .unwrap_or_else(|error| unreachable!(error));
-                    #[cfg(feature = "trace")]
-                    let system_span =
-                        bevy_utils::tracing::info_span!("system", name = &*system.name());
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
