@@ -13,7 +13,7 @@ use bevy::{
         view::ExtractedWindows,
         RenderApp, RenderStage,
     },
-    window::{CreateWindow, WindowDescriptor, WindowId},
+    window::{close_on_esc, CreateWindow, WindowDescriptor, WindowId},
     PipelinedDefaultPlugins,
 };
 
@@ -22,7 +22,8 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(PipelinedDefaultPlugins)
         .add_startup_system(setup)
-        .add_startup_system(create_new_window);
+        .add_startup_system(create_new_window)
+        .add_system(close_on_esc);
 
     let render_app = app.sub_app(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
