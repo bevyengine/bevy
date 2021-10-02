@@ -67,8 +67,8 @@ fn extract_cameras(
     for camera in active_cameras.iter() {
         let name = &camera.name;
         if let Some((entity, camera, transform)) = camera.entity.and_then(|e| query.get(e).ok()) {
-            entities.insert(name.clone(), entity);
             if let Some(window) = windows.get(camera.window) {
+                entities.insert(name.clone(), entity);
                 commands.get_or_spawn(entity).insert_bundle((
                     ExtractedCamera {
                         window_id: camera.window,
