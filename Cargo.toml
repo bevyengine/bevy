@@ -108,7 +108,7 @@ ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
-crevice = {path = "crates/crevice"}
+crevice = { path = "crates/crevice" }
 
 [[example]]
 name = "hello_world"
@@ -513,6 +513,10 @@ path = "examples/window/clear_color_pipelined.rs"
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+
+[[example]]
+name = "multiple_windows_pipelined"
+path = "examples/window/multiple_windows_pipelined.rs"
 
 [[example]]
 name = "scale_factor_override"
