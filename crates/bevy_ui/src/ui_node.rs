@@ -11,8 +11,9 @@ pub struct Node {
     pub size: Vec2,
 }
 
-/// If you add this to an entity, it should be the *only* component
-/// on it from bevy_ui.
+/// If you add this to an entity, it should be the *only* component on it from bevy_ui.
+/// This component marks an entity as "transparent" to the UI layout system, meaning the
+/// children of this entity will be treated as the children of this entity s parent by the layout system.
 #[derive(Clone, Default)]
 pub struct ControlNode {
     pub(crate) true_parent: Option<Entity>,
