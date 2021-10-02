@@ -3,6 +3,7 @@ use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     prelude::{ExclusiveSystem, FromWorld, IntoExclusiveSystem, IntoSystem, StageConfig, System},
     schedule::{RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage},
+    system::BoxedSystem,
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -230,17 +231,20 @@ impl App {
 
     pub fn add_system_set(&mut self, set: SystemSet) -> &mut Self {
         fn ensure_no_conflicts(set: &SystemSet) {
-            let system_conflict = set
-                .systems
+            if let Some(l) = set.systems
                 .iter()
-                .any(|s| s.config().stage != set.config().stage);
-            let exclusive_conflict = set
-                .exclusive_systems
+                .filter(|s| s.config().stage != set.config().stage)
+                .next()
+                .and_then(|s| s.config().stage.as_ref()) {
+                    panic!("System set stage conflicts with internal exclusive system's stage: {:?}", l.as_ref());
+                }
+            if let Some(l) = set.exclusive_systems
                 .iter()
-                .any(|s| s.config().stage != set.config().stage);
-            if system_conflict || exclusive_conflict {
-                panic!("There is a mismatch between a system set's stage and it's sub systems")
-            }
+                .filter(|s| s.config().stage != set.config().stage)
+                .next()
+                .and_then(|s| s.config().stage.as_ref()) {
+                    panic!("System set stage conflicts with internal exclusive system's stage: {:?}", l.as_ref());
+                }
         }
 
         if set.config().startup {
