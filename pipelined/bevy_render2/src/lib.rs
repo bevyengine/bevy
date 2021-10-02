@@ -120,58 +120,112 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraph>();
 
         app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
-            // reserve all existing app entities for use in render_app
-            // they can only be spawned using `get_or_spawn()`
-            let meta_len = app_world.entities().meta.len();
-            render_app
-                .world
-                .entities()
-                .reserve_entities(meta_len as u32);
+            #[cfg(feature = "trace")]
+            let render_span = bevy_utils::tracing::info_span!("renderer subapp");
+            #[cfg(feature = "trace")]
+            let _render_guard = render_span.enter();
+            {
+                #[cfg(feature = "trace")]
+                let stage_span =
+                    bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
 
-            // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
-            // these entities cannot be accessed without spawning directly onto them
-            // this _only_ works as expected because clear_entities() is called at the end of every frame.
-            render_app.world.entities_mut().flush_as_invalid();
+                // reserve all existing app entities for use in render_app
+                // they can only be spawned using `get_or_spawn()`
+                let meta_len = app_world.entities().meta.len();
+                render_app
+                    .world
+                    .entities()
+                    .reserve_entities(meta_len as u32);
 
-            // extract
-            extract(app_world, render_app);
+                // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
+                // these entities cannot be accessed without spawning directly onto them
+                // this _only_ works as expected because clear_entities() is called at the end of every frame.
+                render_app.world.entities_mut().flush_as_invalid();
+            }
 
-            // prepare
-            let prepare = render_app
-                .schedule
-                .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
-                .unwrap();
-            prepare.run(&mut render_app.world);
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "extract");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
 
-            // queue
-            let queue = render_app
-                .schedule
-                .get_stage_mut::<SystemStage>(&RenderStage::Queue)
-                .unwrap();
-            queue.run(&mut render_app.world);
+                // extract
+                extract(app_world, render_app);
+            }
 
-            // phase sort
-            let phase_sort = render_app
-                .schedule
-                .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
-                .unwrap();
-            phase_sort.run(&mut render_app.world);
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "prepare");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
 
-            // render
-            let render = render_app
-                .schedule
-                .get_stage_mut::<SystemStage>(&RenderStage::Render)
-                .unwrap();
-            render.run(&mut render_app.world);
+                // prepare
+                let prepare = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                    .unwrap();
+                prepare.run(&mut render_app.world);
+            }
 
-            // cleanup
-            let cleanup = render_app
-                .schedule
-                .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
-                .unwrap();
-            cleanup.run(&mut render_app.world);
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "queue");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
 
-            render_app.world.clear_entities();
+                // queue
+                let queue = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                    .unwrap();
+                queue.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "sort");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // phase sort
+                let phase_sort = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                    .unwrap();
+                phase_sort.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "render");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // render
+                let render = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                    .unwrap();
+                render.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "cleanup");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // cleanup
+                let cleanup = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                    .unwrap();
+                cleanup.run(&mut render_app.world);
+
+                render_app.world.clear_entities();
+            }
         });
 
         app.add_plugin(WindowRenderPlugin)
