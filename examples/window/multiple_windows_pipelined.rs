@@ -67,17 +67,16 @@ fn create_new_window(
         },
     });
     // second window camera
-    commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            camera: Camera {
-                window: window_id,
-                name: Some(SECONDARY_CAMERA_NAME.into()),
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        camera: Camera {
+            window: window_id,
+            name: Some(SECONDARY_CAMERA_NAME.into()),
             ..Default::default()
-        })
-        .insert(RenderPhase::<Transparent3d>::default());
+        },
+        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
+
     active_cameras.add(SECONDARY_CAMERA_NAME);
 }
 
