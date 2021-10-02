@@ -133,17 +133,17 @@ impl FromWorld for ShadowShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("shadow_view_layout"),
         });
 
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
+            label: Some("shadow_pipeline_layout"),
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
+            label: Some("shadow_pipeline"),
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
