@@ -48,7 +48,7 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
-bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_core = { path = "../bevy_core", version = "0.5.0", features = ["bevy"] }
 bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }

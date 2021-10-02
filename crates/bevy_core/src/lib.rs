@@ -66,6 +66,7 @@ impl Plugin for CorePlugin {
             .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system);
 
         register_rust_types(app);
+        #[cfg(feature = "bevy_math")]
         register_math_types(app);
     }
 }
@@ -90,6 +91,7 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<String>>();
 }
 
+#[cfg(feature = "bevy_math")]
 fn register_math_types(app: &mut App) {
     app.register_type::<bevy_math::IVec2>()
         .register_type::<bevy_math::IVec3>()
