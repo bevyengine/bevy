@@ -11,13 +11,10 @@ struct View {
 };
 
 struct PointLight {
-    projection: mat4x4<f32>;
-    color: vec4<f32>;
-    position: vec3<f32>;
-    inverse_square_range: f32;
-    radius: f32;
-    near: f32;
-    far: f32;
+    // NOTE: .z.z .z.w .w.z .w.w
+    projection_lr: vec4<f32>;
+    color_inverse_square_range: vec4<f32>;
+    position_radius: vec4<f32>;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
     shadow_depth_bias: f32;

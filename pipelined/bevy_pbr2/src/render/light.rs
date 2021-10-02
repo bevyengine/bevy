@@ -79,13 +79,10 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, Default, Debug)]
 pub struct GpuPointLight {
-    projection: Mat4,
-    color: Vec4,
-    position: Vec3,
-    inverse_square_range: f32,
-    radius: f32,
-    near: f32,
-    far: f32,
+    // The lower-right 2x2 values of the projection matrix 22 23 32 33
+    projection_lr: Vec4,
+    color_inverse_square_range: Vec4,
+    position_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
@@ -142,7 +139,7 @@ pub struct GpuLights {
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_POINT_LIGHTS: usize = 128;
+pub const MAX_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHTS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
@@ -582,15 +579,19 @@ pub fn prepare_lights(
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
         gpu_point_lights[index] = GpuPointLight {
-            projection: cube_face_projection,
+            projection_lr: Vec4::new(
+                cube_face_projection.z_axis.z,
+                cube_face_projection.z_axis.w,
+                cube_face_projection.w_axis.z,
+                cube_face_projection.w_axis.w,
+            ),
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.intensity,
-            radius: light.radius,
-            position: light.transform.translation,
-            inverse_square_range: 1.0 / (light.range * light.range),
-            near: POINT_LIGHT_NEAR_Z,
-            far: light.range,
+            color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
+                * light.intensity)
+                .xyz()
+                .extend(1.0 / (light.range * light.range)),
+            position_radius: light.transform.translation.extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
