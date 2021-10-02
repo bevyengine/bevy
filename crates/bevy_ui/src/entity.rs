@@ -17,6 +17,8 @@ use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
+/// If you add this to an entity, it should be the *only* bundle
+/// on it from bevy_ui.
 #[derive(Bundle, Clone, Default)]
 pub struct ControlBundle {
     pub control_node: ControlNode,

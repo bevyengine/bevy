@@ -11,6 +11,8 @@ pub struct Node {
     pub size: Vec2,
 }
 
+/// If you add this to an entity, it should be the *only* component
+/// on it from bevy_ui.
 #[derive(Clone, Default)]
 pub struct ControlNode {
     pub(crate) true_parent: Option<Entity>,
