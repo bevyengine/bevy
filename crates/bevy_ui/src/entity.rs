@@ -17,9 +17,9 @@ use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// If you add this to an entity, it should be the *only* bundle
-/// on it from bevy_ui.
-#[derive(Bundle, Clone, Default)]
+/// If you add this to an entity, it should be the *only* bundle on it from bevy_ui.
+/// This bundle will mark the entity as transparent to the UI layout system, meaning the
+/// children of this entity will be treated as the children of this entity s parent by the layout system.
 pub struct ControlBundle {
     pub control_node: ControlNode,
     pub transform: Transform,
