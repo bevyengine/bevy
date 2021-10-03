@@ -1,17 +1,8 @@
-use crate::render_resource::{next_id, Counter, Id};
+use bevy_utils::{Id, IdType};
 use std::sync::Arc;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(Id);
-
-impl BindGroupId {
-    /// Creates a new, unique [`BindGroupId`].
-    /// Returns [`None`] if the supply of unique ids has been exhausted.
-    fn new() -> Option<Self> {
-        static COUNTER: Counter = Counter::new(0);
-        next_id(&COUNTER).map(Self)
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct BindGroupId(IdType);
 
 #[derive(Clone, Debug)]
 pub struct BindGroup {
@@ -34,7 +25,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId::new().expect("The system ran out of unique `BindGroupId`s."),
+            id: BindGroupId::new(),
             value: Arc::new(value),
         }
     }

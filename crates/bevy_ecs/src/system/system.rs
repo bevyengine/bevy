@@ -1,4 +1,4 @@
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, Id, IdType};
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
@@ -9,16 +9,8 @@ use crate::{
 use std::borrow::Cow;
 
 /// A [`System`] identifier.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct SystemId(pub usize);
-
-impl SystemId {
-    /// Creates a new random `SystemId`.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        SystemId(rand::random::<usize>())
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct SystemId(IdType);
 
 /// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
 ///

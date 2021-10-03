@@ -4,6 +4,7 @@ mod app_plugin;
 mod bevy_main;
 mod bytes;
 mod enum_variant_meta;
+mod id;
 mod modules;
 mod render_resource;
 mod render_resources;
@@ -69,4 +70,9 @@ pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let mut trait_path = BevyManifest::default().get_path("bevy_app");
     trait_path.segments.push(format_ident!("AppLabel").into());
     derive_label(input, trait_path)
+}
+
+#[proc_macro_derive(Id)]
+pub fn derive_id(input: TokenStream) -> TokenStream {
+    id::derive_id(input)
 }

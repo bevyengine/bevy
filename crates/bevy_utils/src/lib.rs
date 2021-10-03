@@ -1,9 +1,11 @@
 mod enum_variant_meta;
+mod id;
 pub mod label;
 pub mod slab;
 
 pub use ahash::AHasher;
 pub use enum_variant_meta::*;
+pub use id::*;
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;

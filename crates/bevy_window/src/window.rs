@@ -1,17 +1,13 @@
 use bevy_math::{IVec2, Vec2};
-use bevy_utils::{tracing::warn, Uuid};
+use bevy_utils::{tracing::warn, Id, IdType};
 use raw_window_handle::RawWindowHandle;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct WindowId(Uuid);
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct WindowId(pub IdType);
 
 impl WindowId {
-    pub fn new() -> Self {
-        WindowId(Uuid::new_v4())
-    }
-
     pub fn primary() -> Self {
-        WindowId(Uuid::from_u128(0))
+        WindowId(0)
     }
 
     pub fn is_primary(&self) -> bool {
@@ -25,7 +21,7 @@ use crate::raw_window_handle::RawWindowHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.to_simple().fmt(f)
+        self.0.fmt(f)
     }
 }
 

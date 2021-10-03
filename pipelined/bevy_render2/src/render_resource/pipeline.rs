@@ -1,17 +1,8 @@
-use crate::render_resource::{next_id, Counter, Id};
+use bevy_utils::{Id, IdType};
 use std::{ops::Deref, sync::Arc};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct RenderPipelineId(Id);
-
-impl RenderPipelineId {
-    /// Creates a new, unique [`RenderPipelineId`].
-    /// Returns [`None`] if the supply of unique ids has been exhausted.
-    fn new() -> Option<Self> {
-        static COUNTER: Counter = Counter::new(0);
-        next_id(&COUNTER).map(Self)
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct RenderPipelineId(IdType);
 
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
@@ -29,7 +20,7 @@ impl RenderPipeline {
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: RenderPipelineId::new().expect("The system ran out of unique `RenderPipelineId`s."),
+            id: RenderPipelineId::new(),
             value: Arc::new(value),
         }
     }
@@ -44,18 +35,8 @@ impl Deref for RenderPipeline {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ComputePipelineId(Id);
-
-impl ComputePipelineId {
-    /// Creates a new, unique [`ComputePipelineId`].
-    /// Returns [`None`] if the supply of unique ids has been exhausted.
-    #[allow(clippy::new_without_default)]
-    fn new() -> Option<Self> {
-        static COUNTER: Counter = Counter::new(0);
-        next_id(&COUNTER).map(Self)
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct ComputePipelineId(IdType);
 
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
@@ -73,8 +54,7 @@ impl ComputePipeline {
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: ComputePipelineId::new()
-                .expect("The system ran out of unique `ComputePipelineId`s."),
+            id: ComputePipelineId::new(),
             value: Arc::new(value),
         }
     }

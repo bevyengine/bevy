@@ -19,18 +19,19 @@ use crate::{
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
+use bevy_utils::{Id, IdType};
 use std::{
     any::TypeId,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct WorldId(u64);
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct WorldId(IdType);
 
 impl Default for WorldId {
     fn default() -> Self {
-        WorldId(rand::random())
+        WorldId::new()
     }
 }
 

@@ -1,20 +1,11 @@
-use crate::render_resource::{next_id, Counter, Id};
+use bevy_utils::{Id, IdType};
 use std::{
     ops::{Bound, Deref, RangeBounds},
     sync::Arc,
 };
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(Id);
-
-impl BufferId {
-    /// Creates a new, unique [`BufferId`].
-    /// Returns [`None`] if the supply of unique ids has been exhausted.
-    fn new() -> Option<Self> {
-        static COUNTER: Counter = Counter::new(0);
-        next_id(&COUNTER).map(Self)
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct BufferId(IdType);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
@@ -50,7 +41,7 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: BufferId::new().expect("The system ran out of unique `BufferId`s."),
+            id: BufferId::new(),
             value: Arc::new(value),
         }
     }

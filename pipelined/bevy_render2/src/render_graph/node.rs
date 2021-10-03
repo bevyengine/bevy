@@ -6,24 +6,13 @@ use crate::{
     renderer::GpuContext,
 };
 use bevy_ecs::world::World;
-use bevy_utils::Uuid;
+use bevy_utils::{Id, IdType};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct NodeId(Uuid);
-
-impl NodeId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        NodeId(Uuid::new_v4())
-    }
-
-    pub fn uuid(&self) -> &Uuid {
-        &self.0
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct NodeId(IdType);
 
 pub trait Node: Downcast + Send + Sync + 'static {
     fn input(&self) -> Vec<SlotInfo> {

@@ -1,20 +1,13 @@
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, Uuid};
-use bevy_utils::{tracing::error, BoxedFuture};
+use bevy_reflect::TypeUuid;
+use bevy_utils::{tracing::error, BoxedFuture, Id, IdType};
 use naga::{valid::ModuleInfo, Module, ShaderStage};
 use std::{borrow::Cow, collections::HashMap, marker::Copy};
 use thiserror::Error;
 use wgpu::{ShaderFlags, ShaderModuleDescriptor, ShaderSource};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ShaderId(Uuid);
-
-impl ShaderId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
-    }
-}
+#[derive(Id, Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct ShaderId(IdType);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {
