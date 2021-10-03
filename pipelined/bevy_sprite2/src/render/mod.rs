@@ -50,7 +50,7 @@ impl FromWorld for SpriteShaders {
                 },
                 count: None,
             }],
-            label: None,
+            label: Some("sprite_view_layout"),
         });
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -75,17 +75,17 @@ impl FromWorld for SpriteShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("sprite_material_layout"),
         });
 
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
+            label: Some("sprite_pipeline_layout"),
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &material_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
+            label: Some("sprite_pipeline"),
             depth_stencil: None,
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
@@ -339,7 +339,7 @@ pub fn queue_sprites(
                 binding: 0,
                 resource: view_binding,
             }],
-            label: None,
+            label: Some("sprite_view_bind_group"),
             layout: &sprite_shaders.view_layout,
         }));
         let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
@@ -361,7 +361,7 @@ pub fn queue_sprites(
                                     resource: BindingResource::Sampler(&gpu_image.sampler),
                                 },
                             ],
-                            label: None,
+                            label: Some("sprite_material_bind_group"),
                             layout: &sprite_shaders.material_layout,
                         })
                     });

@@ -133,17 +133,17 @@ impl FromWorld for ShadowShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("shadow_view_layout"),
         });
 
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
+            label: Some("shadow_pipeline_layout"),
             push_constant_ranges: &[],
             bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
+            label: Some("shadow_pipeline"),
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
@@ -412,7 +412,7 @@ pub fn prepare_lights(
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
                 usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
-                label: None,
+                label: Some("point_light_shadow_map_texture"),
             },
         );
         let directional_light_depth_texture = texture_cache.get(
@@ -428,7 +428,7 @@ pub fn prepare_lights(
                 dimension: TextureDimension::D2,
                 format: SHADOW_FORMAT,
                 usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
-                label: None,
+                label: Some("directional_light_shadow_map_texture"),
             },
         );
         let mut view_lights = Vec::new();
@@ -459,7 +459,7 @@ pub fn prepare_lights(
                     point_light_depth_texture
                         .texture
                         .create_view(&TextureViewDescriptor {
-                            label: None,
+                            label: Some("point_light_shadow_map_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
                             aspect: TextureAspect::All,
@@ -549,7 +549,7 @@ pub fn prepare_lights(
                 directional_light_depth_texture
                     .texture
                     .create_view(&TextureViewDescriptor {
-                        label: None,
+                        label: Some("directional_light_shadow_map_texture_view"),
                         format: None,
                         dimension: Some(TextureViewDimension::D2),
                         aspect: TextureAspect::All,
@@ -581,7 +581,7 @@ pub fn prepare_lights(
             point_light_depth_texture
                 .texture
                 .create_view(&TextureViewDescriptor {
-                    label: None,
+                    label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
                     dimension: Some(TextureViewDimension::CubeArray),
                     aspect: TextureAspect::All,
@@ -593,7 +593,7 @@ pub fn prepare_lights(
         let directional_light_depth_texture_view = directional_light_depth_texture
             .texture
             .create_view(&TextureViewDescriptor {
-                label: None,
+                label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
                 dimension: Some(TextureViewDimension::D2Array),
                 aspect: TextureAspect::All,
@@ -629,7 +629,7 @@ pub fn queue_shadow_view_bind_group(
                     binding: 0,
                     resource: view_binding,
                 }],
-                label: None,
+                label: Some("shadow_view_bind_group"),
                 layout: &shadow_shaders.view_layout,
             }));
     }

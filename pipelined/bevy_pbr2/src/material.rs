@@ -221,7 +221,7 @@ impl RenderAsset for StandardMaterial {
         let value_std140 = value.as_std140();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
+            label: Some("pbr_standard_material_uniform_buffer"),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
             contents: value_std140.as_bytes(),
         });
@@ -264,7 +264,7 @@ impl RenderAsset for StandardMaterial {
                     resource: BindingResource::Sampler(occlusion_sampler),
                 },
             ],
-            label: None,
+            label: Some("pbr_standard_material_bind_group"),
             layout: &pbr_shaders.material_layout,
         });
 
