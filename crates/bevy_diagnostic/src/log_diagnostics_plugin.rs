@@ -60,10 +60,10 @@ impl LogDiagnosticsPlugin {
                     diagnostic.name,
                     // Suffix is only used for 's' as in seconds currently,
                     // so we reserve one column for it
-                    format!("{:.6}{:1}", value, diagnostic.suffix),
+                    format_args!("{:.6}{:1}", value, diagnostic.suffix),
                     // Do not reserve one column for the suffix in the average
                     // The ) hugging the value is more aesthetically pleasing
-                    format!("{:.6}{:}", average, diagnostic.suffix),
+                    format_args!("{:.6}{:}", average, diagnostic.suffix),
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             } else {
@@ -71,7 +71,7 @@ impl LogDiagnosticsPlugin {
                     target: "bevy diagnostic",
                     "{:<name_width$}: {:>}",
                     diagnostic.name,
-                    format!("{:.6}{:}", value, diagnostic.suffix),
+                    format_args!("{:.6}{:}", value, diagnostic.suffix),
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             }

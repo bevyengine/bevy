@@ -334,8 +334,7 @@ impl Schedule {
     pub fn run_once(&mut self, world: &mut World) {
         for label in self.stage_order.iter() {
             #[cfg(feature = "trace")]
-            let stage_span =
-                bevy_utils::tracing::info_span!("stage", name = &format!("{:?}", label) as &str);
+            let stage_span = bevy_utils::tracing::info_span!("stage", name = ?label);
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
