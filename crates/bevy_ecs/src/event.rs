@@ -147,6 +147,12 @@ fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, Even
     (&event_instance.event, event_instance.event_id)
 }
 
+fn map_instance_event_with_id_mut<T>(
+    event_instance: &mut EventInstance<T>,
+) -> (&mut T, EventId<T>) {
+    (&mut event_instance.event, event_instance.event_id)
+}
+
 fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
@@ -173,6 +179,27 @@ impl<'w, 's, T: Component> EventWriter<'w, 's, T> {
 
     pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
         self.events.extend(events);
+    }
+}
+
+#[derive(SystemParam)]
+pub struct EventReaderMut<'w, 's, T: Component> {
+    last_event_count: Local<'s, (usize, PhantomData<T>)>,
+    events: ResMut<'w, Events<T>>,
+}
+
+impl<'w, 's, T: Component> EventReaderMut<'w, 's, T> {
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut T> {
+        self.iter_mut_with_id().map(|(event, _id)| event)
+    }
+
+    pub fn iter_mut_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&mut T, EventId<T>)> {
+        internal_event_reader_mut(&mut self.last_event_count.0, &mut self.events).map(
+            |(event, id)| {
+                trace!("EventReader::iter() -> {}", id);
+                (event, id)
+            },
+        )
     }
 }
 
@@ -252,6 +279,54 @@ fn internal_event_reader<'a, T>(
                     .unwrap_or_else(|| &[])
                     .iter()
                     .map(map_instance_event_with_id),
+            ),
+    }
+}
+fn internal_event_reader_mut<'a, T>(
+    last_event_count: &mut usize,
+    events: &'a mut Events<T>,
+) -> impl DoubleEndedIterator<Item = (&'a mut T, EventId<T>)> {
+    // if the reader has seen some of the events in a buffer, find the proper index offset.
+    // otherwise read all events in the buffer
+    let a_index = if *last_event_count > events.a_start_event_count {
+        *last_event_count - events.a_start_event_count
+    } else {
+        0
+    };
+    let b_index = if *last_event_count > events.b_start_event_count {
+        *last_event_count - events.b_start_event_count
+    } else {
+        0
+    };
+    *last_event_count = events.event_count;
+    match events.state {
+        State::A => events
+            .events_b
+            .get_mut(b_index..)
+            .unwrap_or_else(|| &mut [])
+            .iter_mut()
+            .map(map_instance_event_with_id_mut)
+            .chain(
+                events
+                    .events_a
+                    .get_mut(a_index..)
+                    .unwrap_or_else(|| &mut [])
+                    .iter_mut()
+                    .map(map_instance_event_with_id_mut),
+            ),
+        State::B => events
+            .events_a
+            .get_mut(a_index..)
+            .unwrap_or_else(|| &mut [])
+            .iter_mut()
+            .map(map_instance_event_with_id_mut)
+            .chain(
+                events
+                    .events_b
+                    .get_mut(b_index..)
+                    .unwrap_or_else(|| &mut [])
+                    .iter_mut()
+                    .map(map_instance_event_with_id_mut),
             ),
     }
 }
