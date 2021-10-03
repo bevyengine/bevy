@@ -373,18 +373,14 @@ impl VisiblePointLights {
     }
 }
 
-fn view_z_to_z_slice(n_z_slices: f32, z_near: f32, z_far: f32, view_z: f32) -> u32 {
-    // FIXME: Precalculate cluster_dimensions.z / log(far / near) and cluster_dimensions.z * log(near) / log(far / near) for performance
-    // FIXME: NOTE: had to use -view_z to make it positive else log(negative) is nan
-    ((-view_z).ln() * n_z_slices / (z_far / z_near).ln()
-        - n_z_slices * z_near.ln() / (z_far / z_near).ln())
-    .floor() as u32
+fn view_z_to_z_slice(cluster_factors: Vec2, view_z: f32) -> u32 {
+    // NOTE: had to use -view_z to make it positive else log(negative) is nan
+    ((-view_z).ln() * cluster_factors.x - cluster_factors.y).floor() as u32
 }
 
 fn ndc_position_to_cluster(
     cluster_dimensions: UVec3,
-    z_near: f32,
-    z_far: f32,
+    cluster_factors: Vec2,
     ndc_p: Vec3,
     view_z: f32,
 ) -> UVec3 {
@@ -395,7 +391,7 @@ fn ndc_position_to_cluster(
     // dbg!(&frag_coord);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     // dbg!(&xy);
-    let z_slice = view_z_to_z_slice(cluster_dimensions_f32.z, z_near, z_far, view_z);
+    let z_slice = view_z_to_z_slice(cluster_factors, view_z);
     // dbg!(&z_slice);
     xy.as_uvec2()
         .extend(z_slice)
@@ -419,6 +415,12 @@ pub fn assign_lights_to_clusters(
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let cluster_count = clusters.aabbs.len();
+        let z_slices_of_ln_zfar_over_znear =
+            clusters.axis_slices.z as f32 / (camera.far / camera.near).ln();
+        let cluster_factors = Vec2::new(
+            z_slices_of_ln_zfar_over_znear,
+            camera.near.ln() * z_slices_of_ln_zfar_over_znear,
+        );
 
         let mut clusters_lights =
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
@@ -492,15 +494,13 @@ pub fn assign_lights_to_clusters(
             );
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
-                camera.near,
-                camera.far,
+                cluster_factors,
                 light_aabb_ndc_min,
                 light_aabb_view_min.z,
             );
             let max_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
-                camera.near,
-                camera.far,
+                cluster_factors,
                 light_aabb_ndc_max,
                 light_aabb_view_max.z,
             );
