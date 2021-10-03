@@ -469,7 +469,7 @@ pub fn queue_transform_bind_group(
     render_device: Res<RenderDevice>,
     transform_uniforms: Res<ComponentUniforms<MeshUniform>>,
 ) {
-    if let Some(binding) = transform_uniforms.uniforms().binding() {
+    if let Some(binding) = transform_uniforms.binding() {
         commands.insert_resource(TransformBindGroup {
             value: render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {

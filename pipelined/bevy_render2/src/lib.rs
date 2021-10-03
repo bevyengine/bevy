@@ -34,9 +34,9 @@ pub struct RenderPlugin;
 /// The labels of the default App stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
-    /// Extract data from "app world" and insert it into "render world". This step should be kept
-    /// as short as possible to increase the "pipelining potential" for running the next frame
-    /// while rendering the current frame.
+    /// Extract data from the "app world" and insert it into the "render world".
+    /// This step should be kept as short as possible to increase the "pipelining potential" for
+    /// running the next frame while rendering the current frame.
     Extract,
 
     /// Prepare render resources from the extracted data for the GPU.
@@ -188,7 +188,7 @@ impl Plugin for RenderPlugin {
 }
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
-/// This updates the render world with the entities of the current frame.
+/// This updates the render world with the extracted ECS data of the current frame.
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule

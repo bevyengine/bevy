@@ -17,6 +17,7 @@ use bevy_ecs::{
 use crevice::std140::AsStd140;
 use std::{marker::PhantomData, ops::Deref};
 
+/// Stores the index of a uniform inside of [`ComponentUniforms`].
 pub struct DynamicUniformIndex<C: Component> {
     index: u32,
     marker: PhantomData<C>,
@@ -29,13 +30,28 @@ impl<C: Component> DynamicUniformIndex<C> {
     }
 }
 
+/// Describes how a component gets extracted for rendering.
+///
+/// Therefore the component is transferred from the "app world" into the "render world"
+/// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
 pub trait ExtractComponent: Component {
+    /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery;
+    /// Filters the entities with additional constraints.
     type Filter: WorldQuery;
+    /// Defines how the component is transferred into the "render world".
     fn extract_component(item: QueryItem<Self::Query>) -> Self;
 }
 
-/// Extracts assets into gpu-usable data
+/// This plugin prepares the components of the corresponding type for the GPU
+/// by transforming them into uniforms.
+///
+/// They can then be accessed from the [`ComponentUniforms`] resource.
+/// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
+/// for every processed entity.
+///
+/// Therefore it sets up the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step
+/// for the specified [`ExtractComponent`].
 pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
 
 impl<C> Default for UniformComponentPlugin<C> {
@@ -55,6 +71,7 @@ impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
     }
 }
 
+/// Stores all uniforms of the component type.
 pub struct ComponentUniforms<C: Component + AsStd140> {
     uniforms: DynamicUniformVec<C>,
 }
@@ -68,13 +85,6 @@ impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + AsStd140> ComponentUniforms<C> {
-    #[inline]
-    pub fn uniforms(&self) -> &DynamicUniformVec<C> {
-        &self.uniforms
-    }
-}
-
 impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
@@ -83,6 +93,8 @@ impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
     }
 }
 
+/// This system prepares all components of the corresponding component type.
+/// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C: Component>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -108,6 +120,10 @@ fn prepare_uniform_components<C: Component>(
     component_uniforms.uniforms.write_buffer(&render_queue);
 }
 
+/// This plugin extracts the components into the "render world".
+///
+/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
+/// for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()>(PhantomData<fn() -> (C, F)>);
 
 impl<C, F> Default for ExtractComponentPlugin<C, F> {
@@ -128,6 +144,7 @@ where
     }
 }
 
+/// Implements [`ExtractComponent`] for all asset handles.
 impl<T: Asset> ExtractComponent for Handle<T> {
     type Query = Read<Handle<T>>;
     type Filter = ();
@@ -138,6 +155,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     }
 }
 
+/// This system extracts all components of the corresponding [`ExtractComponent`] type.
 pub struct ExtractComponentSystem<C: ExtractComponent>(PhantomData<C>);
 
 impl<C: ExtractComponent> RunSystem for ExtractComponentSystem<C>
@@ -145,12 +163,15 @@ where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
     <C::Query as WorldQuery>::Fetch: ReadOnlyFetch,
 {
+    /// Specifies all required ECS data.
     type Param = (
         SCommands,
+        // the previous amount of extracted components
         Local<'static, usize>,
         SQuery<(Entity, C::Query), C::Filter>,
     );
 
+    /// Runs the system.
     fn run((mut commands, mut previous_len, query): SystemParamItem<Self::Param>) {
         let mut values = Vec::with_capacity(*previous_len);
         for (entity, query_item) in query.iter() {

@@ -175,6 +175,7 @@ impl Mesh {
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.
+    /// Therefore the attributes are located in alphabetical order.
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
     /// # Panics
