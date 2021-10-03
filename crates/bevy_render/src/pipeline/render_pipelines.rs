@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
+    component::Component,
     query::Without,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
@@ -44,7 +45,7 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,

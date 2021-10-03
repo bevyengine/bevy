@@ -18,8 +18,8 @@ fn main() {
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
 // example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
-// FromWorld). The simplest registered component just needs these two derives:
-#[derive(Reflect, Default)]
+// FromResources). The simplest registered component just needs these two derives:
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
@@ -30,7 +30,7 @@ struct ComponentA {
 // ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,

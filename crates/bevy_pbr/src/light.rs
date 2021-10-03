@@ -1,12 +1,12 @@
 use bevy_core::{Pod, Zeroable};
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bevy_render::color::Color;
 use bevy_transform::components::GlobalTransform;
 
 /// A point light
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
@@ -77,7 +77,7 @@ impl PointLightUniform {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component)]
 pub struct DirectionalLight {
     pub color: Color,
