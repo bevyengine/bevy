@@ -49,7 +49,7 @@ struct Lights {
 
 [[block]]
 struct PointLights {
-    data: array<PointLight, 128u>;
+    data: array<PointLight, 256u>;
 };
 
 [[block]]
