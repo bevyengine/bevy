@@ -23,7 +23,7 @@ pub mod prelude {
         change_detection::DetectChanges,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
