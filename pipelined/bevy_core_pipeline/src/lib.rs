@@ -9,12 +9,18 @@ pub use main_pass_driver::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    prelude::*,
+    system::{lifetimeless::SRes, SystemParamItem},
+};
 use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
+    render_phase::{
+        sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase,
+        TrackedRenderPass,
+    },
     render_resource::*,
     renderer::RenderDevice,
     texture::{Image, TextureCache},
@@ -155,6 +161,7 @@ impl Plugin for CorePipelinePlugin {
 pub struct Transparent2d {
     pub sort_key: Handle<Image>,
     pub entity: Entity,
+    pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -174,6 +181,7 @@ impl PhaseItem for Transparent2d {
 
 pub struct Transparent3d {
     pub distance: f32,
+    pub pipeline: CachedPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -189,6 +197,41 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+}
+
+pub struct SetItemPipeline;
+impl RenderCommand<Transparent3d> for SetItemPipeline {
+    type Param = SRes<RenderPipelineCache>;
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: &Transparent3d,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        let pipeline = pipeline_cache
+            .into_inner()
+            .get_state(item.pipeline)
+            .unwrap();
+        pass.set_render_pipeline(pipeline);
+    }
+}
+
+impl RenderCommand<Transparent2d> for SetItemPipeline {
+    type Param = SRes<RenderPipelineCache>;
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: &Transparent2d,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        let pipeline = pipeline_cache
+            .into_inner()
+            .get_state(item.pipeline)
+            .unwrap();
+        pass.set_render_pipeline(pipeline);
     }
 }
 

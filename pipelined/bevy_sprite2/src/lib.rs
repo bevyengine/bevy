@@ -15,20 +15,27 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::Transparent2d;
-use bevy_render2::{render_phase::DrawFunctions, RenderApp, RenderStage};
+use bevy_reflect::TypeUuid;
+use bevy_render2::{render_phase::DrawFunctions, render_resource::Shader, RenderApp, RenderStage};
 
 #[derive(Default)]
 pub struct SpritePlugin;
 
+pub const SPRITE_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
+
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
+        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
+        shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>().register_type::<Sprite>();
         let render_app = app.sub_app(RenderApp);
         render_app
             .init_resource::<ImageBindGroups>()
-            .init_resource::<SpriteShaders>()
+            .init_resource::<SpritePipeline>()
             .init_resource::<SpriteMeta>()
             .add_system_to_stage(RenderStage::Extract, render::extract_atlases)
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)

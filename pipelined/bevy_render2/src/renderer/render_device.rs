@@ -2,7 +2,8 @@ use futures_lite::future;
 use wgpu::util::DeviceExt;
 
 use crate::render_resource::{
-    BindGroup, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture,
+    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
+    RenderPipeline, Sampler, Texture,
 };
 use std::sync::Arc;
 
@@ -81,8 +82,8 @@ impl RenderDevice {
     pub fn create_bind_group_layout(
         &self,
         desc: &wgpu::BindGroupLayoutDescriptor,
-    ) -> wgpu::BindGroupLayout {
-        self.device.create_bind_group_layout(desc)
+    ) -> BindGroupLayout {
+        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
     }
 
     /// Creates a [`PipelineLayout`].
@@ -96,7 +97,7 @@ impl RenderDevice {
 
     /// Creates a [`RenderPipeline`].
     #[inline]
-    pub fn create_render_pipeline(&self, desc: &wgpu::RenderPipelineDescriptor) -> RenderPipeline {
+    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor) -> RenderPipeline {
         let wgpu_render_pipeline = self.device.create_render_pipeline(desc);
         RenderPipeline::from(wgpu_render_pipeline)
     }
