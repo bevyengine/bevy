@@ -21,10 +21,12 @@ use bevy_render2::{
 
 pub mod draw_3d_graph {
     pub mod node {
+        /// Label for the shadow pass node.
         pub const SHADOW_PASS: &str = "shadow_pass";
     }
 }
 
+/// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
 pub struct PbrPlugin;
 

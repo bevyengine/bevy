@@ -80,8 +80,8 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
-/// Stores all [`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset) as long as their
-/// [`RenderAsset`] counterpart exists.
+/// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
+/// of [`RenderAssets`](RenderAsset) as long as they exist.
 pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
