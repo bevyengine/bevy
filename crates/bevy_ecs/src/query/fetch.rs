@@ -1010,11 +1010,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
 
-            #[inline]
-            fn is_dense(&self) -> bool {
-                let ($($name,)*) = &self.0;
-                true $(&& $name.0.is_dense())*
-            }
+            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &Archetype, _tables: &Tables) {
