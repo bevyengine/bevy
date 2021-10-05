@@ -731,7 +731,19 @@ mod test {
         // Just setting them equal to each other for the heck of it.
         normals[0] = [0.1, 0.2, 0.3];
         positions[0] = normals[0];
-        assert_eq!(normals[0], positions[0])
+
+        // Get values again not using attribute_multi_mut to make sure it was updated.
+        let position = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap() {
+            VertexAttributeValues::Float32x3(p) => p[0],
+            _ => panic!("Was not Float32x3"),
+        };
+
+        let normal = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).unwrap() {
+            VertexAttributeValues::Float32x3(n) => n[0],
+            _ => panic!("Was not Float32x3"),
+        };
+
+        assert_eq!(position, normal);
     }
 
     #[test]
