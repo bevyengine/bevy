@@ -41,7 +41,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     }
 }
 
-fn despawn_children_recursive(world: &mut World, entity: Entity) {
+fn despawn_children(world: &mut World, entity: Entity) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in std::mem::take(&mut children.0) {
             despawn_with_children_recursive_inner(world, e);
@@ -57,7 +57,7 @@ impl Command for DespawnRecursive {
 
 impl Command for DespawnChildrenRecursive {
     fn write(self, world: &mut World) {
-        despawn_children_recursive(world, self.entity);
+        despawn_children(world, self.entity);
     }
 }
 
@@ -66,7 +66,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_recursive(self);
 
     /// Despawns the provided entity's children.
-    fn despawn_children_recursive(&mut self);
+    fn despawn_children(&mut self);
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
@@ -76,7 +76,7 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
         self.commands().add(DespawnRecursive { entity });
     }
 
-    fn despawn_children_recursive(&mut self) {
+    fn despawn_children(&mut self) {
         let entity = self.id();
         self.commands().add(DespawnChildrenRecursive { entity });
     }
@@ -93,11 +93,11 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         }
     }
 
-    fn despawn_children_recursive(&mut self) {
+    fn despawn_children(&mut self) {
         let entity = self.id();
         // SAFE: The location is updated.
         unsafe {
-            despawn_children_recursive(self.world_mut(), entity);
+            despawn_children(self.world_mut(), entity);
             self.update_location();
         }
     }
