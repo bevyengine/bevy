@@ -10,6 +10,8 @@ use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
 use std::marker::PhantomData;
 
+use super::Resource;
+
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
@@ -58,6 +60,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+    ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new empty entity and retrieve its id.
     ///     let empty_entity = commands.spawn().id();
@@ -65,9 +74,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Create another empty entity, then add some component to it
     ///     commands.spawn()
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -114,8 +123,16 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
     /// struct Component1;
+    /// #[derive(Component)]
     /// struct Component2;
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
     ///
     /// #[derive(Bundle)]
     /// struct ExampleBundle {
@@ -134,9 +151,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///         // Create a new entity with two components using a "tuple bundle".
     ///         .spawn_bundle((Component1, Component2))
     ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // or insert single components like this:
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -153,15 +170,22 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// use bevy_ecs::prelude::*;
     ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn().id();
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32))
+    ///         .insert_bundle((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
-    ///         .insert("hello world");
+    ///         .insert(Label("hello world"));
     /// }
     /// # example_system.system();
     /// ```
@@ -190,7 +214,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Name(String);
+    /// # #[derive(Component)]
     /// # struct Score(u32);
     /// #
     /// # fn system(mut commands: Commands) {
@@ -256,7 +282,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # system.system();
     /// ```
-    pub fn insert_resource<T: Component>(&mut self, resource: T) {
+    pub fn insert_resource<T: Resource>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
     }
 
@@ -279,7 +305,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # system.system();
     /// ```
-    pub fn remove_resource<T: Component>(&mut self) {
+    pub fn remove_resource<T: Resource>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
         });
@@ -294,8 +320,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// use bevy_ecs::system::InsertBundle;
     /// #
     /// # struct PlayerEntity { entity: Entity }
+    /// # #[derive(Component)]
     /// # struct Health(u32);
+    /// # #[derive(Component)]
     /// # struct Strength(u32);
+    /// # #[derive(Component)]
     /// # struct Defense(u32);
     /// #
     /// # #[derive(Bundle)]
@@ -354,8 +383,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct PlayerEntity { entity: Entity }
+    /// # #[derive(Component)]
     /// # struct Health(u32);
+    /// # #[derive(Component)]
     /// # struct Strength(u32);
+    /// # #[derive(Component)]
     /// # struct Defense(u32);
     /// #
     /// # #[derive(Bundle)]
@@ -401,7 +433,9 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Component1;
+    /// # #[derive(Component)]
     /// # struct Component2;
     /// #
     /// fn example_system(mut commands: Commands) {
@@ -436,8 +470,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// #
     /// # struct PlayerEntity { entity: Entity }
     /// #
+    /// # #[derive(Component)]
+    /// struct Dummy;
     /// # #[derive(Bundle)]
-    /// # struct CombatBundle { a: u32 }; // dummy field, unit bundles are not permitted.
+    /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
     /// #
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();    
@@ -465,6 +501,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct TargetEnemy { entity: Entity }
+    /// # #[derive(Component)]
     /// # struct Enemy;
     /// #
     /// fn convert_enemy_system(mut commands: Commands, enemy: Res<TargetEnemy>) {
@@ -675,21 +712,21 @@ where
     }
 }
 
-pub struct InsertResource<T: Component> {
+pub struct InsertResource<T: Resource> {
     pub resource: T,
 }
 
-impl<T: Component> Command for InsertResource<T> {
+impl<T: Resource> Command for InsertResource<T> {
     fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
 
-pub struct RemoveResource<T: Component> {
+pub struct RemoveResource<T: Resource> {
     pub phantom: PhantomData<T>,
 }
 
-impl<T: Component> Command for RemoveResource<T> {
+impl<T: Resource> Command for RemoveResource<T> {
     fn write(self, world: &mut World) {
         world.remove_resource::<T>();
     }
@@ -699,7 +736,8 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
-        component::{ComponentDescriptor, StorageType},
+        self as bevy_ecs,
+        component::Component,
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -708,7 +746,11 @@ mod tests {
         Arc,
     };
 
-    #[derive(Clone, Debug)]
+    #[derive(Component)]
+    #[component(storage = "SparseSet")]
+    struct SparseDropCk(DropCk);
+
+    #[derive(Component)]
     struct DropCk(Arc<AtomicUsize>);
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
@@ -723,19 +765,22 @@ mod tests {
         }
     }
 
+    #[derive(Component)]
+    struct W<T>(T);
+
     #[test]
     fn commands() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn_bundle((1u32, 2u64))
+            .spawn_bundle((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
         assert!(world.entities().len() == 1);
         let results = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
         // test entity despawn
@@ -746,9 +791,9 @@ mod tests {
         }
         command_queue.apply(&mut world);
         let results2 = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
     }
@@ -757,33 +802,28 @@ mod tests {
     fn remove_components() {
         let mut world = World::default();
 
-        struct DenseDropCk(DropCk);
-        world
-            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
-            .unwrap();
-
         let mut command_queue = CommandQueue::default();
         let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
-        let dense_dropck = DenseDropCk(dense_dropck);
         let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
 
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
+            .insert_bundle((W(1u32), W(2u64), dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results_before, vec![(1u32, 2u64)]);
 
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
-            .remove::<u32>()
-            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+            .remove::<W<u32>>()
+            .remove_bundle::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
@@ -792,15 +832,15 @@ mod tests {
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
 
         let results_after = world
-            .query::<(&u32, &u64)>()
+            .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
         let results_after_u64 = world
-            .query::<&u64>()
+            .query::<&W<u64>>()
             .iter(&world)
-            .copied()
+            .map(|v| v.0)
             .collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
     }

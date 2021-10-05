@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -146,10 +146,6 @@ impl System for FixedTimestep {
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<FixedTimestep>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.internal_system.id()
     }
 
     fn new_archetype(&mut self, archetype: &Archetype) {

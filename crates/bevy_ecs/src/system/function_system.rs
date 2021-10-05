@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
-        SystemParamFetch, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -13,7 +13,6 @@ use std::{borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
-    pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
@@ -30,7 +29,6 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            id: SystemId::new(),
             last_change_tick: 0,
         }
     }
@@ -338,11 +336,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn id(&self) -> SystemId {
-        self.system_meta.id
     }
 
     #[inline]

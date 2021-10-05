@@ -1,4 +1,5 @@
 use bevy::ecs::{
+    component::Component,
     entity::Entity,
     system::{Command, CommandQueue, Commands},
     world::World,
@@ -18,8 +19,11 @@ criterion_group!(
 );
 criterion_main!(benches);
 
+#[derive(Component)]
 struct A;
+#[derive(Component)]
 struct B;
+#[derive(Component)]
 struct C;
 
 fn empty_commands(criterion: &mut Criterion) {
@@ -79,10 +83,10 @@ fn spawn_commands(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Default)]
+#[derive(Default, Component)]
 struct Matrix([[f32; 4]; 4]);
 
-#[derive(Default)]
+#[derive(Default, Component)]
 struct Vec3([f32; 3]);
 
 fn insert_commands(criterion: &mut Criterion) {
@@ -95,14 +99,16 @@ fn insert_commands(criterion: &mut Criterion) {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
-        for i in 0..entity_count {
+        for _ in 0..entity_count {
             entities.push(world.spawn().id());
         }
 
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
             for entity in entities.iter() {
-                commands.entity(*entity).insert_bundle((Matrix::default(), Vec3::default()));
+                commands
+                    .entity(*entity)
+                    .insert_bundle((Matrix::default(), Vec3::default()));
             }
             drop(commands);
             command_queue.apply(&mut world);
@@ -112,7 +118,7 @@ fn insert_commands(criterion: &mut Criterion) {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
-        for i in 0..entity_count {
+        for _ in 0..entity_count {
             entities.push(world.spawn().id());
         }
 

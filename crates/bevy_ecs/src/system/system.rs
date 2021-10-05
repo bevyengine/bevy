@@ -8,18 +8,6 @@ use crate::{
 };
 use std::borrow::Cow;
 
-/// A [`System`] identifier.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct SystemId(pub usize);
-
-impl SystemId {
-    /// Creates a new random `SystemId`.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        SystemId(rand::random::<usize>())
-    }
-}
-
 /// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing [SystemParam](crate::system::SystemParam).
@@ -38,8 +26,6 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
-    /// Returns the system's [`SystemId`].
-    fn id(&self) -> SystemId;
     /// Register a new archetype for this system.
     fn new_archetype(&mut self, archetype: &Archetype);
     /// Returns the system's component [`Access`].

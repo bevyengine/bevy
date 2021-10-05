@@ -24,19 +24,15 @@ fixedbitset = "0.4"
 fxhash = "0.2"
 thiserror = "1.0"
 downcast-rs = "1.2"
-rand = "0.8"
 serde = "1"
 
 [dev-dependencies]
 parking_lot = "0.11"
+rand = "0.8"
 
 [[example]]
 name = "events"
 path = "examples/events.rs"
-
-[[example]]
-name = "component_storage"
-path = "examples/component_storage.rs"
 
 [[example]]
 name = "resources"

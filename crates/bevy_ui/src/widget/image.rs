@@ -1,6 +1,7 @@
 use crate::CalculatedSize;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
+    component::Component,
     query::With,
     system::{Query, Res},
 };
@@ -8,7 +9,7 @@ use bevy_math::Size;
 use bevy_render::texture::Texture;
 use bevy_sprite::ColorMaterial;
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub enum Image {
     KeepAspect,
 }

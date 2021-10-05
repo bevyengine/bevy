@@ -326,11 +326,15 @@ mod tests {
     use super::{BuildChildren, BuildWorldChildren};
     use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{
+        component::Component,
         entity::Entity,
         system::{CommandQueue, Commands},
         world::World,
     };
     use smallvec::{smallvec, SmallVec};
+
+    #[derive(Component)]
+    struct C(u32);
 
     #[test]
     fn build_children() {
@@ -339,11 +343,11 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
 
         let mut children = Vec::new();
-        let parent = commands.spawn().insert(1).id();
+        let parent = commands.spawn().insert(C(1)).id();
         commands.entity(parent).with_children(|parent| {
-            children.push(parent.spawn().insert(2).id());
-            children.push(parent.spawn().insert(3).id());
-            children.push(parent.spawn().insert(4).id());
+            children.push(parent.spawn().insert(C(2)).id());
+            children.push(parent.spawn().insert(C(3)).id());
+            children.push(parent.spawn().insert(C(4)).id());
         });
 
         queue.apply(&mut world);
@@ -369,7 +373,7 @@ mod tests {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -430,7 +434,7 @@ mod tests {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
 
         world.entity_mut(entities[0]).push_children(&entities[1..3]);
