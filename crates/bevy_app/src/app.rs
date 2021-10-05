@@ -1,14 +1,15 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
-    component::{Component, ComponentDescriptor},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
+        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
+        SystemStage,
     },
+    system::Resource,
     world::World,
 };
 use bevy_utils::tracing::debug;
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -493,7 +494,7 @@ impl App {
     /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
@@ -505,7 +506,7 @@ impl App {
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
@@ -582,7 +583,7 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.init_resource::<Events<T>>()
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
@@ -608,7 +609,7 @@ impl App {
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.world.insert_resource(resource);
         self
@@ -807,18 +808,6 @@ impl App {
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
-        self
-    }
-
-    /// Registers a new component using the given [ComponentDescriptor].
-    ///
-    /// Components do not need to be manually registered. This just provides a way to
-    /// override default configuration. Attempting to register a component with a type
-    /// that has already been used by [World] will result in an error.
-    ///
-    /// See [World::register_component]
-    pub fn register_component(&mut self, descriptor: ComponentDescriptor) -> &mut Self {
-        self.world.register_component(descriptor).unwrap();
         self
     }
 

@@ -321,6 +321,11 @@ mod tests {
     };
     use async_channel::Receiver;
 
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    #[derive(Component)]
+    struct W<T>(T);
+
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
         while let Ok(event) = world
@@ -381,9 +386,9 @@ mod tests {
     #[test]
     fn queries() {
         let mut world = World::new();
-        world.spawn().insert(0usize);
-        fn wants_mut(_: Query<&mut usize>) {}
-        fn wants_ref(_: Query<&usize>) {}
+        world.spawn().insert(W(0usize));
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        fn wants_ref(_: Query<&W<usize>>) {}
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
             .with_system(wants_mut);
@@ -406,9 +411,9 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
-        world.spawn().insert_bundle((0usize, 0u32, 0f32));
-        fn wants_mut_usize(_: Query<(&mut usize, &f32)>) {}
-        fn wants_mut_u32(_: Query<(&mut u32, &f32)>) {}
+        world.spawn().insert_bundle((W(0usize), W(0u32), W(0f32)));
+        fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
+        fn wants_mut_u32(_: Query<(&mut W<u32>, &W<f32>)>) {}
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut_usize)
             .with_system(wants_mut_u32);

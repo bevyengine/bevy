@@ -15,7 +15,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,

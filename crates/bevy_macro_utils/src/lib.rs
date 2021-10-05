@@ -1,5 +1,11 @@
 extern crate proc_macro;
 
+mod attrs;
+mod symbol;
+
+pub use attrs::*;
+pub use symbol::*;
+
 use cargo_manifest::{DepsSet, Manifest};
 use proc_macro::TokenStream;
 use std::{env, path::PathBuf};

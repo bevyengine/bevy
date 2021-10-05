@@ -486,7 +486,7 @@ where
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
             <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-        if fetch.is_dense() && filter.is_dense() {
+        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
                 let table = &tables[*table_id];
@@ -541,12 +541,7 @@ where
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
-            let fetch =
-                <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-            let filter =
-                <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-
-            if fetch.is_dense() && filter.is_dense() {
+            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
                     let table = &tables[*table_id];
