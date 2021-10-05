@@ -2,12 +2,13 @@ use crate::renderer::RenderResourceBindings;
 
 use super::Camera;
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     system::{Query, ResMut},
 };
 use bevy_utils::HashMap;
 
-#[derive(Debug, Default)]
+#[derive(Component, Debug, Default)]
 pub struct ActiveCamera {
     pub name: String,
     pub entity: Option<Entity>,

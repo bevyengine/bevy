@@ -1,11 +1,11 @@
-use bevy_ecs::{prelude::Entity, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
-#[derive(Debug, Clone, Default, RenderResources, Reflect)]
+#[derive(Component, Debug, Clone, Default, RenderResources, Reflect)]
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
@@ -57,7 +57,7 @@ impl AddAssign<f32> for Val {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Style {
     pub display: Display,
@@ -259,7 +259,7 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug)]
 pub struct CalculatedSize {
     pub size: Size,
 }

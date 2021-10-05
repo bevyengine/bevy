@@ -46,7 +46,7 @@ bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
-bevy_wgpu = ["bevy_internal/bevy_wgpu"]
+bevy_wgpu = ["bevy_internal/bevy_wgpu"] 
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]

@@ -1,5 +1,7 @@
 extern crate proc_macro;
 
+mod component;
+
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -118,7 +120,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         if *is_bundle {
             field_component_ids.push(quote! {
-                component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components));
+                component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages));
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
@@ -128,7 +130,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
         } else {
             field_component_ids.push(quote! {
-                component_ids.push(components.get_or_insert_id::<#field_type>());
+                component_ids.push(components.init_component::<#field_type>(storages));
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
@@ -145,10 +147,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
+                storages: &mut #ecs_path::storage::Storages,
             ) -> Vec<#ecs_path::component::ComponentId> {
                 let mut component_ids = Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
@@ -468,6 +471,11 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     }
 }
 
-fn bevy_ecs_path() -> syn::Path {
+pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
+}
+
+#[proc_macro_derive(Component, attributes(component))]
+pub fn derive_component(input: TokenStream) -> TokenStream {
+    component::derive_component(input)
 }

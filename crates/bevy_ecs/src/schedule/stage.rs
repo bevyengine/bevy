@@ -905,6 +905,11 @@ mod tests {
         world::World,
     };
 
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    #[derive(Component)]
+    struct W<T>(T);
+
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
         move |world| world.get_resource_mut::<Vec<usize>>().unwrap().push(tag)
     }
@@ -1573,7 +1578,7 @@ mod tests {
 
         fn empty() {}
         fn resource(_: ResMut<usize>) {}
-        fn component(_: Query<&mut f32>) {}
+        fn component(_: Query<&mut W<f32>>) {}
 
         let mut world = World::new();
 
@@ -1957,7 +1962,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
 
-        world.get_entity_mut(entity).unwrap().insert(1);
+        world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
@@ -1980,7 +1985,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
 
-        world.get_entity_mut(entity).unwrap().insert(1);
+        world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
@@ -1991,7 +1996,7 @@ mod tests {
         const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
 
         let mut world = World::new();
-        world.spawn().insert(0usize);
+        world.spawn().insert(W(0usize));
         *world.change_tick.get_mut() += MAX_DELTA + 1;
 
         let mut stage = SystemStage::parallel();
@@ -2001,7 +2006,7 @@ mod tests {
         // Overflow twice
         for _ in 0..10 {
             stage.run(&mut world);
-            for tracker in world.query::<ChangeTrackers<usize>>().iter(&world) {
+            for tracker in world.query::<ChangeTrackers<W<usize>>>().iter(&world) {
                 let time_since_last_check = tracker
                     .change_tick
                     .wrapping_sub(tracker.component_ticks.added);
@@ -2018,6 +2023,9 @@ mod tests {
 
     #[test]
     fn change_query_wrapover() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct C;
         let mut world = World::new();
 
@@ -2053,6 +2061,9 @@ mod tests {
 
     #[test]
     fn run_criteria_with_query() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct Foo;
 
         fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {
@@ -2089,6 +2100,9 @@ mod tests {
 
     #[test]
     fn stage_run_criteria_with_query() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct Foo;
 
         fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {
