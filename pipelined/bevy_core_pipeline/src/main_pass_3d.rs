@@ -73,7 +73,6 @@ impl Node for MainPass3dNode {
         let draw_functions = world
             .get_resource::<DrawFunctions<Transparent3d>>()
             .unwrap();
-
         let transparent_phase = self
             .query
             .get_manual(world, view_entity)

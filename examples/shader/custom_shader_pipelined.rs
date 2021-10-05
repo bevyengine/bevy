@@ -1,13 +1,13 @@
 use bevy::{
-    core_pipeline::Transparent3d,
+    core_pipeline::{SetItemPipeline, Transparent3d},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::{
         prelude::*,
-        system::{lifetimeless::*, SystemParamItem},
+        system::{lifetimeless::*, SystemParamItem, SystemState},
     },
     math::{Vec3, Vec4},
-    pbr2::{DrawMesh, MeshUniform, PbrShaders, SetMeshViewBindGroup, SetTransformBindGroup},
-    prelude::{AddAsset, App, Assets, GlobalTransform, Handle, Plugin, Transform},
+    pbr2::{DrawMesh, MeshUniform, PbrPipeline, SetMeshViewBindGroup, SetTransformBindGroup},
+    prelude::{AddAsset, App, AssetServer, Assets, GlobalTransform, Handle, Plugin, Transform},
     reflect::TypeUuid,
     render2::{
         camera::PerspectiveCameraBundle,
@@ -20,7 +20,6 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        shader::Shader,
         texture::BevyDefault,
         view::ExtractedView,
         RenderApp, RenderStage,
@@ -123,15 +122,20 @@ fn setup(
 
 pub struct CustomPipeline {
     material_layout: BindGroupLayout,
-    pipeline: RenderPipeline,
+    pipeline: CachedPipelineId,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("../../assets/shaders/custom.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let mut state = SystemState::<(
+            Res<RenderDevice>,
+            Res<AssetServer>,
+            Res<PbrPipeline>,
+            ResMut<RenderPipelineCache>,
+        )>::new(world);
+        let (render_device, asset_server, pbr_pipeline, mut pipeline_cache) = state.get_mut(world);
+        asset_server.watch_for_changes().unwrap();
+        let shader = asset_server.load("shaders/custom.wgsl");
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -146,25 +150,16 @@ impl FromWorld for CustomPipeline {
             }],
             label: None,
         });
-        let pbr_pipeline = world.get_resource::<PbrShaders>().unwrap();
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
-            push_constant_ranges: &[],
-            bind_group_layouts: &[
-                &pbr_pipeline.view_layout,
-                &material_layout,
-                &pbr_pipeline.mesh_layout,
-            ],
-        });
-
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
-            vertex: VertexState {
-                buffers: &[VertexBufferLayout {
+        let descriptor = OwnedRenderPipelineDescriptor {
+            vertex: OwnedVertexState {
+                shader: shader.clone_weak(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![OwnedVertexBufferLayout {
                     array_stride: 32,
                     step_mode: VertexStepMode::Vertex,
-                    attributes: &[
+                    attributes: vec![
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
@@ -185,13 +180,12 @@ impl FromWorld for CustomPipeline {
                         },
                     ],
                 }],
-                module: &shader_module,
-                entry_point: "vertex",
             },
-            fragment: Some(FragmentState {
-                module: &shader_module,
-                entry_point: "fragment",
-                targets: &[ColorTargetState {
+            fragment: Some(OwnedFragmentState {
+                shader,
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState {
                         color: BlendComponent {
@@ -208,6 +202,20 @@ impl FromWorld for CustomPipeline {
                     write_mask: ColorWrites::ALL,
                 }],
             }),
+            layout: Some(vec![
+                pbr_pipeline.view_layout.clone(),
+                material_layout.clone(),
+                pbr_pipeline.mesh_layout.clone(),
+            ]),
+            primitive: PrimitiveState {
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+            },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled: true,
@@ -224,21 +232,16 @@ impl FromWorld for CustomPipeline {
                     clamp: 0.0,
                 },
             }),
-            layout: Some(&pipeline_layout),
-            multisample: MultisampleState::default(),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
-                conservative: false,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
             },
-        });
+            label: Some("pbr_pipeline".into()),
+        };
 
         CustomPipeline {
-            pipeline,
+            pipeline: pipeline_cache.queue(descriptor),
             material_layout,
         }
     }
@@ -247,6 +250,7 @@ impl FromWorld for CustomPipeline {
 pub fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     materials: Res<RenderAssets<CustomMaterial>>,
+    custom_pipeline: Res<CustomPipeline>,
     material_meshes: Query<(Entity, &Handle<CustomMaterial>, &MeshUniform), With<Handle<Mesh>>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
@@ -261,6 +265,7 @@ pub fn queue_custom(
             if materials.contains_key(material_handle) {
                 transparent_phase.add(Transparent3d {
                     entity,
+                    pipeline: custom_pipeline.pipeline,
                     draw_function: draw_custom,
                     distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
@@ -270,28 +275,27 @@ pub fn queue_custom(
 }
 
 type DrawCustom = (
-    SetCustomMaterialPipeline,
+    SetItemPipeline,
     SetMeshViewBindGroup<0>,
+    SetCustomMaterialBindGroup,
     SetTransformBindGroup<2>,
     DrawMesh,
 );
 
-struct SetCustomMaterialPipeline;
-impl RenderCommand<Transparent3d> for SetCustomMaterialPipeline {
+struct SetCustomMaterialBindGroup;
+impl RenderCommand<Transparent3d> for SetCustomMaterialBindGroup {
     type Param = (
         SRes<RenderAssets<CustomMaterial>>,
-        SRes<CustomPipeline>,
         SQuery<Read<Handle<CustomMaterial>>>,
     );
     fn render<'w>(
         _view: Entity,
         item: &Transparent3d,
-        (materials, custom_pipeline, query): SystemParamItem<'w, '_, Self::Param>,
+        (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
         let material_handle = query.get(item.entity).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
-        pass.set_render_pipeline(&custom_pipeline.into_inner().pipeline);
         pass.set_bind_group(1, &material.bind_group, &[]);
     }
 }
