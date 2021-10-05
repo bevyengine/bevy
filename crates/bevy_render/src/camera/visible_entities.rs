@@ -1,7 +1,9 @@
 use super::{Camera, DepthCalculation};
 use crate::{draw::OutsideFrustum, prelude::Visible};
 use bevy_core::FloatOrd;
-use bevy_ecs::{entity::Entity, query::Without, reflect::ReflectComponent, system::Query};
+use bevy_ecs::{
+    component::Component, entity::Entity, query::Without, reflect::ReflectComponent, system::Query,
+};
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::GlobalTransform;
 
@@ -11,7 +13,7 @@ pub struct VisibleEntity {
     pub order: FloatOrd,
 }
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
@@ -42,7 +44,7 @@ pub type Layer = u8;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
-#[derive(Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, PartialEq)]
 pub struct RenderLayers(LayerMask);
 

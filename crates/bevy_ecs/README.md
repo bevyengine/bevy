@@ -193,11 +193,15 @@ Components can be stored in:
 * **Tables**: Fast and cache friendly iteration, but slower adding and removing of components. This is the default storage type.
 * **Sparse Sets**: Fast adding and removing of components, but slower iteration.
 
-Component storage types are configurable, and they default to table storage if the storage is not manually defined. The [`component_storage.rs`](examples/component_storage.rs) example shows how to configure the storage type for a component.
+Component storage types are configurable, and they default to table storage if the storage is not manually defined.
 
-```rust
-// store Position components in Sparse Sets
-world.register_component(ComponentDescriptor::new::<Position>(StorageType::SparseSet));
+```rs
+#[derive(Component)]
+struct TableStoredComponent;
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct SparseStoredComponent;
 ```
 
 ### Component Bundles

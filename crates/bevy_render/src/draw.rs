@@ -10,6 +10,7 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
+    component::Component,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut, SystemParam},
 };
@@ -49,7 +50,7 @@ pub enum RenderCommand {
     },
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Visible {
     pub is_visible: bool,
@@ -73,12 +74,13 @@ impl Default for Visible {
 /// This does not handle multiple "views" properly as it is a "global" filter.
 /// This will be resolved in the future. For now, disable frustum culling if you
 /// need to support multiple views (ex: set the `SpriteSettings::frustum_culling_enabled` resource).
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
+#[component(storage = "SparseSet")]
 pub struct OutsideFrustum;
 
 /// A component that indicates how to draw an entity.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Draw {
     #[reflect(ignore)]

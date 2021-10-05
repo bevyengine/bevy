@@ -1,11 +1,11 @@
-use bevy_ecs::{prelude::Entity, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
-#[derive(Debug, Clone, Default, RenderResources, Reflect)]
+#[derive(Component, Debug, Clone, Default, RenderResources, Reflect)]
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
@@ -14,7 +14,7 @@ pub struct Node {
 /// If you add this to an entity, it should be the *only* component on it from bevy_ui.
 /// This component marks an entity as "transparent" to the UI layout system, meaning the
 /// children of this entity will be treated as the children of this entity s parent by the layout system.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Component)]
 pub struct ControlNode {
     pub(crate) true_parent: Option<Entity>,
 }
@@ -57,7 +57,7 @@ impl AddAssign<f32> for Val {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Style {
     pub display: Display,
@@ -259,7 +259,7 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug)]
 pub struct CalculatedSize {
     pub size: Size,
 }

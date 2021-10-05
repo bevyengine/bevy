@@ -21,6 +21,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::DetectChanges,
+        component::Component,
         entity::Entity,
         event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
@@ -42,7 +43,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, ComponentId, StorageType},
+        component::{Component, ComponentId},
         entity::Entity,
         query::{
             Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
@@ -59,14 +60,14 @@ mod tests {
         },
     };
 
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct A(usize);
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct B(usize);
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[derive(Clone, Debug)]
+    #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
@@ -81,26 +82,41 @@ mod tests {
         }
     }
 
+    #[derive(Component, Clone, Debug)]
+    #[component(storage = "SparseSet")]
+    struct DropCkSparse(DropCk);
+
+    #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
+    #[component(storage = "Table")]
+    struct TableStored(&'static str);
+    #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
+    #[component(storage = "SparseSet")]
+    struct SparseStored(u32);
+
     #[test]
     fn random_access() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
-            .unwrap();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
-        assert_eq!(*world.get::<&str>(e).unwrap(), "abc");
-        assert_eq!(*world.get::<i32>(e).unwrap(), 123);
-        assert_eq!(*world.get::<&str>(f).unwrap(), "def");
-        assert_eq!(*world.get::<i32>(f).unwrap(), 456);
+
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), SparseStored(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), SparseStored(456), A(1)))
+            .id();
+        assert_eq!(world.get::<TableStored>(e).unwrap().0, "abc");
+        assert_eq!(world.get::<SparseStored>(e).unwrap().0, 123);
+        assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
+        assert_eq!(world.get::<SparseStored>(f).unwrap().0, 456);
 
         // test archetype get_mut()
-        *world.get_mut::<&'static str>(e).unwrap() = "xyz";
-        assert_eq!(*world.get::<&'static str>(e).unwrap(), "xyz");
+        world.get_mut::<TableStored>(e).unwrap().0 = "xyz";
+        assert_eq!(world.get::<TableStored>(e).unwrap().0, "xyz");
 
         // test sparse set get_mut()
-        *world.get_mut::<i32>(f).unwrap() = 42;
-        assert_eq!(*world.get::<i32>(f).unwrap(), 42);
+        world.get_mut::<SparseStored>(f).unwrap().0 = 42;
+        assert_eq!(world.get::<SparseStored>(f).unwrap().0, 42);
     }
 
     #[test]
@@ -109,79 +125,93 @@ mod tests {
 
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
-            x: &'static str,
-            y: i32,
+            x: TableStored,
+            y: SparseStored,
         }
 
-        world
-            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
-            .unwrap();
-
         assert_eq!(
-            <Foo as Bundle>::component_ids(world.components_mut()),
+            <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages),
             vec![
-                world.components_mut().get_or_insert_id::<&'static str>(),
-                world.components_mut().get_or_insert_id::<i32>(),
+                world.init_component::<TableStored>(),
+                world.init_component::<SparseStored>(),
             ]
         );
 
-        let e1 = world.spawn().insert_bundle(Foo { x: "abc", y: 123 }).id();
-        let e2 = world.spawn().insert_bundle(("def", 456, true)).id();
-        assert_eq!(*world.get::<&str>(e1).unwrap(), "abc");
-        assert_eq!(*world.get::<i32>(e1).unwrap(), 123);
-        assert_eq!(*world.get::<&str>(e2).unwrap(), "def");
-        assert_eq!(*world.get::<i32>(e2).unwrap(), 456);
+        let e1 = world
+            .spawn()
+            .insert_bundle(Foo {
+                x: TableStored("abc"),
+                y: SparseStored(123),
+            })
+            .id();
+        let e2 = world
+            .spawn()
+            .insert_bundle((TableStored("def"), SparseStored(456), A(1)))
+            .id();
+        assert_eq!(world.get::<TableStored>(e1).unwrap().0, "abc");
+        assert_eq!(world.get::<SparseStored>(e1).unwrap().0, 123);
+        assert_eq!(world.get::<TableStored>(e2).unwrap().0, "def");
+        assert_eq!(world.get::<SparseStored>(e2).unwrap().0, 456);
 
         // test archetype get_mut()
-        *world.get_mut::<&'static str>(e1).unwrap() = "xyz";
-        assert_eq!(*world.get::<&'static str>(e1).unwrap(), "xyz");
+        world.get_mut::<TableStored>(e1).unwrap().0 = "xyz";
+        assert_eq!(world.get::<TableStored>(e1).unwrap().0, "xyz");
 
         // test sparse set get_mut()
-        *world.get_mut::<i32>(e2).unwrap() = 42;
-        assert_eq!(*world.get::<i32>(e2).unwrap(), 42);
+        world.get_mut::<SparseStored>(e2).unwrap().0 = 42;
+        assert_eq!(world.get::<SparseStored>(e2).unwrap().0, 42);
 
         assert_eq!(
             world.entity_mut(e1).remove_bundle::<Foo>().unwrap(),
-            Foo { x: "xyz", y: 123 }
+            Foo {
+                x: TableStored("xyz"),
+                y: SparseStored(123),
+            }
         );
 
         #[derive(Bundle, PartialEq, Debug)]
         struct Nested {
-            a: usize,
+            a: A,
             #[bundle]
             foo: Foo,
-            b: u8,
+            b: B,
         }
 
         assert_eq!(
-            <Nested as Bundle>::component_ids(world.components_mut()),
+            <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages),
             vec![
-                world.components_mut().get_or_insert_id::<usize>(),
-                world.components_mut().get_or_insert_id::<&'static str>(),
-                world.components_mut().get_or_insert_id::<i32>(),
-                world.components_mut().get_or_insert_id::<u8>(),
+                world.init_component::<A>(),
+                world.init_component::<TableStored>(),
+                world.init_component::<SparseStored>(),
+                world.init_component::<B>(),
             ]
         );
 
         let e3 = world
             .spawn()
             .insert_bundle(Nested {
-                a: 1,
-                foo: Foo { x: "ghi", y: 789 },
-                b: 2,
+                a: A(1),
+                foo: Foo {
+                    x: TableStored("ghi"),
+                    y: SparseStored(789),
+                },
+                b: B(2),
             })
             .id();
 
-        assert_eq!(*world.get::<&str>(e3).unwrap(), "ghi");
-        assert_eq!(*world.get::<i32>(e3).unwrap(), 789);
-        assert_eq!(*world.get::<usize>(e3).unwrap(), 1);
-        assert_eq!(*world.get::<u8>(e3).unwrap(), 2);
+        assert_eq!(world.get::<TableStored>(e3).unwrap().0, "ghi");
+        assert_eq!(world.get::<SparseStored>(e3).unwrap().0, 789);
+        assert_eq!(world.get::<A>(e3).unwrap().0, 1);
+        assert_eq!(world.get::<B>(e3).unwrap().0, 2);
         assert_eq!(
             world.entity_mut(e3).remove_bundle::<Nested>().unwrap(),
             Nested {
-                a: 1,
-                foo: Foo { x: "ghi", y: 789 },
-                b: 2,
+                a: A(1),
+                foo: Foo {
+                    x: TableStored("ghi"),
+                    y: SparseStored(789),
+                },
+                b: B(2),
             }
         );
     }
@@ -189,113 +219,167 @@ mod tests {
     #[test]
     fn despawn_table_storage() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456)))
+            .id();
         assert_eq!(world.entities.len(), 2);
         assert!(world.despawn(e));
         assert_eq!(world.entities.len(), 1);
-        assert!(world.get::<&str>(e).is_none());
-        assert!(world.get::<i32>(e).is_none());
-        assert_eq!(*world.get::<&str>(f).unwrap(), "def");
-        assert_eq!(*world.get::<i32>(f).unwrap(), 456);
+        assert!(world.get::<TableStored>(e).is_none());
+        assert!(world.get::<A>(e).is_none());
+        assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
+        assert_eq!(world.get::<A>(f).unwrap().0, 456);
     }
 
     #[test]
     fn despawn_mixed_storage() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
-            .unwrap();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456)).id();
+
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), SparseStored(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), SparseStored(456)))
+            .id();
         assert_eq!(world.entities.len(), 2);
         assert!(world.despawn(e));
         assert_eq!(world.entities.len(), 1);
-        assert!(world.get::<&str>(e).is_none());
-        assert!(world.get::<i32>(e).is_none());
-        assert_eq!(*world.get::<&str>(f).unwrap(), "def");
-        assert_eq!(*world.get::<i32>(f).unwrap(), 456);
+        assert!(world.get::<TableStored>(e).is_none());
+        assert!(world.get::<SparseStored>(e).is_none());
+        assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
+        assert_eq!(world.get::<SparseStored>(f).unwrap().0, 456);
     }
 
     #[test]
     fn query_all() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456)))
+            .id();
 
         let ents = world
-            .query::<(Entity, &i32, &&str)>()
+            .query::<(Entity, &A, &TableStored)>()
             .iter(&world)
             .map(|(e, &i, &s)| (e, i, s))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, 123, "abc"), (f, 456, "def")]);
+        assert_eq!(
+            ents,
+            &[
+                (e, A(123), TableStored("abc")),
+                (f, A(456), TableStored("def"))
+            ]
+        );
     }
 
     #[test]
     fn query_all_for_each() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456)))
+            .id();
 
         let mut results = Vec::new();
         world
-            .query::<(Entity, &i32, &&str)>()
+            .query::<(Entity, &A, &TableStored)>()
             .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
-        assert_eq!(results, &[(e, 123, "abc"), (f, 456, "def")]);
+        assert_eq!(
+            results,
+            &[
+                (e, A(123), TableStored("abc")),
+                (f, A(456), TableStored("def"))
+            ]
+        );
     }
 
     #[test]
     fn query_single_component() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), B(1)))
+            .id();
         let ents = world
-            .query::<(Entity, &i32)>()
+            .query::<(Entity, &A)>()
             .iter(&world)
             .map(|(e, &i)| (e, i))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, 123), (f, 456)]);
+        assert_eq!(ents, &[(e, A(123)), (f, A(456))]);
     }
 
     #[test]
     fn stateful_query_handles_new_archetype() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let mut query = world.query::<(Entity, &i32)>();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let mut query = world.query::<(Entity, &A)>();
 
         let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, 123)]);
+        assert_eq!(ents, &[(e, A(123))]);
 
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), B(1)))
+            .id();
         let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, 123), (f, 456)]);
+        assert_eq!(ents, &[(e, A(123)), (f, A(456))]);
     }
 
     #[test]
     fn query_single_component_for_each() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), B(1)))
+            .id();
         let mut results = Vec::new();
         world
-            .query::<(Entity, &i32)>()
+            .query::<(Entity, &A)>()
             .for_each(&world, |(e, &i)| results.push((e, i)));
-        assert_eq!(results, &[(e, 123), (f, 456)]);
+        assert_eq!(results, &[(e, A(123)), (f, A(456))]);
     }
 
     #[test]
     fn par_for_each_dense() {
         let mut world = World::new();
         let task_pool = TaskPool::default();
-        let e1 = world.spawn().insert(1).id();
-        let e2 = world.spawn().insert(2).id();
-        let e3 = world.spawn().insert(3).id();
-        let e4 = world.spawn().insert_bundle((4, true)).id();
-        let e5 = world.spawn().insert_bundle((5, true)).id();
+        let e1 = world.spawn().insert(A(1)).id();
+        let e2 = world.spawn().insert(A(2)).id();
+        let e3 = world.spawn().insert(A(3)).id();
+        let e4 = world.spawn().insert_bundle((A(4), B(1))).id();
+        let e5 = world.spawn().insert_bundle((A(5), B(1))).id();
         let results = Arc::new(Mutex::new(Vec::new()));
         world
-            .query::<(Entity, &i32)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &i)| results.lock().push((e, i)));
+            .query::<(Entity, &A)>()
+            .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
+                results.lock().push((e, i))
+            });
         results.lock().sort();
         assert_eq!(
             &*results.lock(),
@@ -306,19 +390,20 @@ mod tests {
     #[test]
     fn par_for_each_sparse() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
-            .unwrap();
+
         let task_pool = TaskPool::default();
-        let e1 = world.spawn().insert(1).id();
-        let e2 = world.spawn().insert(2).id();
-        let e3 = world.spawn().insert(3).id();
-        let e4 = world.spawn().insert_bundle((4, true)).id();
-        let e5 = world.spawn().insert_bundle((5, true)).id();
+        let e1 = world.spawn().insert(SparseStored(1)).id();
+        let e2 = world.spawn().insert(SparseStored(2)).id();
+        let e3 = world.spawn().insert(SparseStored(3)).id();
+        let e4 = world.spawn().insert_bundle((SparseStored(4), A(1))).id();
+        let e5 = world.spawn().insert_bundle((SparseStored(5), A(1))).id();
         let results = Arc::new(Mutex::new(Vec::new()));
-        world
-            .query::<(Entity, &i32)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &i)| results.lock().push((e, i)));
+        world.query::<(Entity, &SparseStored)>().par_for_each(
+            &world,
+            &task_pool,
+            2,
+            |(e, &SparseStored(i))| results.lock().push((e, i)),
+        );
         results.lock().sort();
         assert_eq!(
             &*results.lock(),
@@ -329,194 +414,218 @@ mod tests {
     #[test]
     fn query_missing_component() {
         let mut world = World::new();
-        world.spawn().insert_bundle(("abc", 123));
-        world.spawn().insert_bundle(("def", 456));
-        assert!(world.query::<(&bool, &i32)>().iter(&world).next().is_none());
+        world.spawn().insert_bundle((TableStored("abc"), A(123)));
+        world.spawn().insert_bundle((TableStored("def"), A(456)));
+        assert!(world.query::<(&B, &A)>().iter(&world).next().is_none());
     }
 
     #[test]
     fn query_sparse_component() {
         let mut world = World::new();
-        world.spawn().insert_bundle(("abc", 123));
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+        world.spawn().insert_bundle((TableStored("abc"), A(123)));
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), B(1)))
+            .id();
         let ents = world
-            .query::<(Entity, &bool)>()
+            .query::<(Entity, &B)>()
             .iter(&world)
             .map(|(e, &b)| (e, b))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(f, true)]);
+        assert_eq!(ents, &[(f, B(1))]);
     }
 
     #[test]
     fn query_filter_with() {
         let mut world = World::new();
-        world.spawn().insert_bundle((123u32, 1.0f32));
-        world.spawn().insert(456u32);
+        world.spawn().insert_bundle((A(123), B(1)));
+        world.spawn().insert(A(456));
         let result = world
-            .query_filtered::<&u32, With<f32>>()
+            .query_filtered::<&A, With<B>>()
             .iter(&world)
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(result, vec![123]);
+        assert_eq!(result, vec![A(123)]);
     }
 
     #[test]
     fn query_filter_with_for_each() {
         let mut world = World::new();
-        world.spawn().insert_bundle((123u32, 1.0f32));
-        world.spawn().insert(456u32);
+        world.spawn().insert_bundle((A(123), B(1)));
+        world.spawn().insert(A(456));
 
         let mut results = Vec::new();
         world
-            .query_filtered::<&u32, With<f32>>()
+            .query_filtered::<&A, With<B>>()
             .for_each(&world, |i| results.push(*i));
-        assert_eq!(results, vec![123]);
+        assert_eq!(results, vec![A(123)]);
     }
 
     #[test]
     fn query_filter_with_sparse() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<f32>(StorageType::SparseSet))
-            .unwrap();
-        world.spawn().insert_bundle((123u32, 1.0f32));
-        world.spawn().insert(456u32);
+
+        world.spawn().insert_bundle((A(123), SparseStored(321)));
+        world.spawn().insert(A(456));
         let result = world
-            .query_filtered::<&u32, With<f32>>()
+            .query_filtered::<&A, With<SparseStored>>()
             .iter(&world)
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(result, vec![123]);
+        assert_eq!(result, vec![A(123)]);
     }
 
     #[test]
     fn query_filter_with_sparse_for_each() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<f32>(StorageType::SparseSet))
-            .unwrap();
-        world.spawn().insert_bundle((123u32, 1.0f32));
-        world.spawn().insert(456u32);
+
+        world.spawn().insert_bundle((A(123), SparseStored(321)));
+        world.spawn().insert(A(456));
         let mut results = Vec::new();
         world
-            .query_filtered::<&u32, With<f32>>()
+            .query_filtered::<&A, With<SparseStored>>()
             .for_each(&world, |i| results.push(*i));
-        assert_eq!(results, vec![123]);
+        assert_eq!(results, vec![A(123)]);
     }
 
     #[test]
     fn query_filter_without() {
         let mut world = World::new();
-        world.spawn().insert_bundle((123u32, 1.0f32));
-        world.spawn().insert(456u32);
+        world.spawn().insert_bundle((A(123), B(321)));
+        world.spawn().insert(A(456));
         let result = world
-            .query_filtered::<&u32, Without<f32>>()
+            .query_filtered::<&A, Without<B>>()
             .iter(&world)
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(result, vec![456]);
+        assert_eq!(result, vec![A(456)]);
     }
 
     #[test]
     fn query_optional_component_table() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), B(1)))
+            .id();
         // this should be skipped
-        world.spawn().insert("abc");
+        world.spawn().insert(TableStored("abc"));
         let ents = world
-            .query::<(Entity, Option<&bool>, &i32)>()
+            .query::<(Entity, Option<&B>, &A)>()
             .iter(&world)
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, None, 123), (f, Some(true), 456)]);
+        assert_eq!(ents, &[(e, None, A(123)), (f, Some(B(1)), A(456))]);
     }
 
     #[test]
     fn query_optional_component_sparse() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<bool>(StorageType::SparseSet))
-            .unwrap();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456, true)).id();
+
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456), SparseStored(1)))
+            .id();
         // // this should be skipped
-        // world.spawn().insert("abc");
+        // SparseStored(1).spawn().insert("abc");
         let ents = world
-            .query::<(Entity, Option<&bool>, &i32)>()
+            .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, None, 123), (f, Some(true), 456)]);
+        assert_eq!(
+            ents,
+            &[(e, None, A(123)), (f, Some(SparseStored(1)), A(456))]
+        );
     }
 
     #[test]
     fn query_optional_component_sparse_no_match() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<bool>(StorageType::SparseSet))
-            .unwrap();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let f = world.spawn().insert_bundle(("def", 456)).id();
+
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let f = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456)))
+            .id();
         // // this should be skipped
-        world.spawn().insert("abc");
+        world.spawn().insert(TableStored("abc"));
         let ents = world
-            .query::<(Entity, Option<&bool>, &i32)>()
+            .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, None, 123), (f, None, 456)]);
+        assert_eq!(ents, &[(e, None, A(123)), (f, None, A(456))]);
     }
 
     #[test]
     fn add_remove_components() {
         let mut world = World::new();
-        let e1 = world.spawn().insert(42).insert_bundle((true, "abc")).id();
-        let e2 = world.spawn().insert(0).insert_bundle((false, "xyz")).id();
+        let e1 = world
+            .spawn()
+            .insert(A(1))
+            .insert_bundle((B(3), TableStored("abc")))
+            .id();
+        let e2 = world
+            .spawn()
+            .insert(A(2))
+            .insert_bundle((B(4), TableStored("xyz")))
+            .id();
 
         assert_eq!(
             world
-                .query::<(Entity, &i32, &bool)>()
+                .query::<(Entity, &A, &B)>()
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
-            &[(e1, 42, true), (e2, 0, false)]
+            &[(e1, A(1), B(3)), (e2, A(2), B(4))]
         );
 
-        assert_eq!(world.entity_mut(e1).remove::<i32>(), Some(42));
+        assert_eq!(world.entity_mut(e1).remove::<A>(), Some(A(1)));
         assert_eq!(
             world
-                .query::<(Entity, &i32, &bool)>()
+                .query::<(Entity, &A, &B)>()
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
-            &[(e2, 0, false)]
+            &[(e2, A(2), B(4))]
         );
         assert_eq!(
             world
-                .query::<(Entity, &bool, &&str)>()
+                .query::<(Entity, &B, &TableStored)>()
                 .iter(&world)
-                .map(|(e, &b, &s)| (e, b, s))
+                .map(|(e, &B(b), &TableStored(s))| (e, b, s))
                 .collect::<Vec<_>>(),
-            &[(e2, false, "xyz"), (e1, true, "abc")]
+            &[(e2, 4, "xyz"), (e1, 3, "abc")]
         );
-        world.entity_mut(e1).insert(43);
+        world.entity_mut(e1).insert(A(43));
         assert_eq!(
             world
-                .query::<(Entity, &i32, &bool)>()
+                .query::<(Entity, &A, &B)>()
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
-            &[(e2, 0, false), (e1, 43, true)]
+            &[(e2, A(2), B(4)), (e1, A(43), B(3))]
         );
-        world.entity_mut(e1).insert(1.0f32);
+        world.entity_mut(e1).insert(C);
         assert_eq!(
             world
-                .query::<(Entity, &f32)>()
+                .query::<(Entity, &C)>()
                 .iter(&world)
                 .map(|(e, &f)| (e, f))
                 .collect::<Vec<_>>(),
-            &[(e1, 1.0)]
+            &[(e1, C)]
         );
     }
 
@@ -525,53 +634,57 @@ mod tests {
         let mut world = World::default();
         let mut entities = Vec::with_capacity(10_000);
         for _ in 0..1000 {
-            entities.push(world.spawn().insert(0.0f32).id());
+            entities.push(world.spawn().insert(B(0)).id());
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            world.entity_mut(entity).insert(i);
+            world.entity_mut(entity).insert(A(i));
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            assert_eq!(world.entity_mut(entity).remove::<usize>(), Some(i));
+            assert_eq!(world.entity_mut(entity).remove::<A>(), Some(A(i)));
         }
     }
 
     #[test]
     fn sparse_set_add_remove_many() {
         let mut world = World::default();
-        world
-            .register_component(ComponentDescriptor::new::<usize>(StorageType::SparseSet))
-            .unwrap();
+
         let mut entities = Vec::with_capacity(1000);
         for _ in 0..4 {
-            entities.push(world.spawn().insert(0.0f32).id());
+            entities.push(world.spawn().insert(A(2)).id());
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            world.entity_mut(entity).insert(i);
+            world.entity_mut(entity).insert(SparseStored(i as u32));
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            assert_eq!(world.entity_mut(entity).remove::<usize>(), Some(i));
+            assert_eq!(
+                world.entity_mut(entity).remove::<SparseStored>(),
+                Some(SparseStored(i as u32))
+            );
         }
     }
 
     #[test]
     fn remove_missing() {
         let mut world = World::new();
-        let e = world.spawn().insert_bundle(("abc", 123)).id();
-        assert!(world.entity_mut(e).remove::<bool>().is_none());
+        let e = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        assert!(world.entity_mut(e).remove::<B>().is_none());
     }
 
     #[test]
     fn spawn_batch() {
         let mut world = World::new();
-        world.spawn_batch((0..100).map(|x| (x, "abc")));
+        world.spawn_batch((0..100).map(|x| (A(x), TableStored("abc"))));
         let values = world
-            .query::<&i32>()
+            .query::<&A>()
             .iter(&world)
-            .copied()
+            .map(|v| v.0)
             .collect::<Vec<_>>();
         let expected = (0..100).collect::<Vec<_>>();
         assert_eq!(values, expected);
@@ -580,17 +693,26 @@ mod tests {
     #[test]
     fn query_get() {
         let mut world = World::new();
-        let a = world.spawn().insert_bundle(("abc", 123)).id();
-        let b = world.spawn().insert_bundle(("def", 456)).id();
-        let c = world.spawn().insert_bundle(("ghi", 789, true)).id();
+        let a = world
+            .spawn()
+            .insert_bundle((TableStored("abc"), A(123)))
+            .id();
+        let b = world
+            .spawn()
+            .insert_bundle((TableStored("def"), A(456)))
+            .id();
+        let c = world
+            .spawn()
+            .insert_bundle((TableStored("ghi"), A(789), B(1)))
+            .id();
 
-        let mut i32_query = world.query::<&i32>();
-        assert_eq!(i32_query.get(&world, a).unwrap(), &123);
-        assert_eq!(i32_query.get(&world, b).unwrap(), &456);
+        let mut i32_query = world.query::<&A>();
+        assert_eq!(i32_query.get(&world, a).unwrap().0, 123);
+        assert_eq!(i32_query.get(&world, b).unwrap().0, 456);
 
-        let mut i32_bool_query = world.query::<(&i32, &bool)>();
+        let mut i32_bool_query = world.query::<(&A, &B)>();
         assert!(i32_bool_query.get(&world, a).is_err());
-        assert_eq!(i32_bool_query.get(&world, c).unwrap(), (&789, &true));
+        assert_eq!(i32_bool_query.get(&world, c).unwrap(), (&A(789), &B(1)));
         assert!(world.despawn(a));
         assert!(i32_query.get(&world, a).is_err());
     }
@@ -598,53 +720,49 @@ mod tests {
     #[test]
     fn remove_tracking() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<&'static str>(
-                StorageType::SparseSet,
-            ))
-            .unwrap();
-        let a = world.spawn().insert_bundle(("abc", 123)).id();
-        let b = world.spawn().insert_bundle(("abc", 123)).id();
+
+        let a = world.spawn().insert_bundle((SparseStored(0), A(123))).id();
+        let b = world.spawn().insert_bundle((SparseStored(1), A(123))).id();
 
         world.entity_mut(a).despawn();
         assert_eq!(
-            world.removed::<i32>().collect::<Vec<_>>(),
+            world.removed::<A>().collect::<Vec<_>>(),
             &[a],
             "despawning results in 'removed component' state for table components"
         );
         assert_eq!(
-            world.removed::<&'static str>().collect::<Vec<_>>(),
+            world.removed::<SparseStored>().collect::<Vec<_>>(),
             &[a],
             "despawning results in 'removed component' state for sparse set components"
         );
 
-        world.entity_mut(b).insert(10.0);
+        world.entity_mut(b).insert(B(1));
         assert_eq!(
-            world.removed::<i32>().collect::<Vec<_>>(),
+            world.removed::<A>().collect::<Vec<_>>(),
             &[a],
             "archetype moves does not result in 'removed component' state"
         );
 
-        world.entity_mut(b).remove::<i32>();
+        world.entity_mut(b).remove::<A>();
         assert_eq!(
-            world.removed::<i32>().collect::<Vec<_>>(),
+            world.removed::<A>().collect::<Vec<_>>(),
             &[a, b],
             "removing a component results in a 'removed component' state"
         );
 
         world.clear_trackers();
         assert_eq!(
-            world.removed::<i32>().collect::<Vec<_>>(),
+            world.removed::<A>().collect::<Vec<_>>(),
             &[],
             "clearning trackers clears removals"
         );
         assert_eq!(
-            world.removed::<&'static str>().collect::<Vec<_>>(),
+            world.removed::<SparseStored>().collect::<Vec<_>>(),
             &[],
             "clearning trackers clears removals"
         );
         assert_eq!(
-            world.removed::<f64>().collect::<Vec<_>>(),
+            world.removed::<B>().collect::<Vec<_>>(),
             &[],
             "clearning trackers clears removals"
         );
@@ -673,61 +791,49 @@ mod tests {
     #[test]
     fn added_tracking() {
         let mut world = World::new();
-        let a = world.spawn().insert(123i32).id();
+        let a = world.spawn().insert(A(123)).id();
 
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
         assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
+            world.query_filtered::<(), Added<A>>().iter(&world).count(),
             1
         );
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
         assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
+            world.query_filtered::<(), Added<A>>().iter(&world).count(),
             1
         );
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
+        assert!(world.query::<&A>().get(&world, a).is_ok());
         assert!(world
-            .query_filtered::<(), Added<i32>>()
+            .query_filtered::<(), Added<A>>()
             .get(&world, a)
             .is_ok());
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
+        assert!(world.query::<&A>().get(&world, a).is_ok());
         assert!(world
-            .query_filtered::<(), Added<i32>>()
+            .query_filtered::<(), Added<A>>()
             .get(&world, a)
             .is_ok());
 
         world.clear_trackers();
 
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
         assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
+            world.query_filtered::<(), Added<A>>().iter(&world).count(),
             0
         );
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
         assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
+            world.query_filtered::<(), Added<A>>().iter(&world).count(),
             0
         );
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
+        assert!(world.query::<&A>().get(&world, a).is_ok());
         assert!(world
-            .query_filtered::<(), Added<i32>>()
+            .query_filtered::<(), Added<A>>()
             .get(&world, a)
             .is_err());
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
+        assert!(world.query::<&A>().get(&world, a).is_ok());
         assert!(world
-            .query_filtered::<(), Added<i32>>()
+            .query_filtered::<(), Added<A>>()
             .get(&world, a)
             .is_err());
     }
@@ -768,7 +874,7 @@ mod tests {
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
-        world.spawn().insert_bundle((A(0), B));
+        world.spawn().insert_bundle((A(0), B(0)));
 
         world.clear_trackers();
 
@@ -796,7 +902,7 @@ mod tests {
         assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing changed state
-        world.entity_mut(e1).insert_bundle((A(0), B));
+        world.entity_mut(e1).insert_bundle((A(0), B(0)));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
             vec![e3, e1],
@@ -979,36 +1085,39 @@ mod tests {
     #[test]
     fn remove_intersection() {
         let mut world = World::default();
-        let e1 = world.spawn().insert_bundle((1, 1.0, "a")).id();
+        let e1 = world
+            .spawn()
+            .insert_bundle((A(1), B(1), TableStored("a")))
+            .id();
 
         let mut e = world.entity_mut(e1);
-        assert_eq!(e.get::<&'static str>(), Some(&"a"));
-        assert_eq!(e.get::<i32>(), Some(&1));
-        assert_eq!(e.get::<f64>(), Some(&1.0));
+        assert_eq!(e.get::<TableStored>(), Some(&TableStored("a")));
+        assert_eq!(e.get::<A>(), Some(&A(1)));
+        assert_eq!(e.get::<B>(), Some(&B(1)));
         assert_eq!(
-            e.get::<usize>(),
+            e.get::<C>(),
             None,
-            "usize is not in the entity, so it should not exist"
+            "C is not in the entity, so it should not exist"
         );
 
-        e.remove_bundle_intersection::<(i32, f64, usize)>();
+        e.remove_bundle_intersection::<(A, B, C)>();
         assert_eq!(
-            e.get::<&'static str>(),
-            Some(&"a"),
-            "&'static str is not in the removed bundle, so it should exist"
+            e.get::<TableStored>(),
+            Some(&TableStored("a")),
+            "TableStored is not in the removed bundle, so it should exist"
         );
         assert_eq!(
-            e.get::<i32>(),
+            e.get::<A>(),
             None,
             "i32 is in the removed bundle, so it should not exist"
         );
         assert_eq!(
-            e.get::<f64>(),
+            e.get::<B>(),
             None,
             "f64 is in the removed bundle, so it should not exist"
         );
         assert_eq!(
-            e.get::<usize>(),
+            e.get::<C>(),
             None,
             "usize is in the removed bundle, so it should not exist"
         );
@@ -1017,48 +1126,57 @@ mod tests {
     #[test]
     fn remove_bundle() {
         let mut world = World::default();
-        world.spawn().insert_bundle((1, 1.0, 1usize)).id();
-        let e2 = world.spawn().insert_bundle((2, 2.0, 2usize)).id();
-        world.spawn().insert_bundle((3, 3.0, 3usize)).id();
+        world
+            .spawn()
+            .insert_bundle((A(1), B(1), TableStored("1")))
+            .id();
+        let e2 = world
+            .spawn()
+            .insert_bundle((A(2), B(2), TableStored("2")))
+            .id();
+        world
+            .spawn()
+            .insert_bundle((A(3), B(3), TableStored("3")))
+            .id();
 
-        let mut query = world.query::<(&f64, &usize)>();
+        let mut query = world.query::<(&B, &TableStored)>();
         let results = query
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
-        assert_eq!(results, vec![(1.0, 1usize), (2.0, 2usize), (3.0, 3usize),]);
+        assert_eq!(results, vec![(1, "1"), (2, "2"), (3, "3"),]);
 
         let removed_bundle = world
             .entity_mut(e2)
-            .remove_bundle::<(f64, usize)>()
+            .remove_bundle::<(B, TableStored)>()
             .unwrap();
-        assert_eq!(removed_bundle, (2.0, 2usize));
+        assert_eq!(removed_bundle, (B(2), TableStored("2")));
 
         let results = query
             .iter(&world)
-            .map(|(a, b)| (*a, *b))
+            .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
-        assert_eq!(results, vec![(1.0, 1usize), (3.0, 3usize),]);
+        assert_eq!(results, vec![(1, "1"), (3, "3"),]);
 
-        let mut i32_query = world.query::<&i32>();
-        let results = i32_query.iter(&world).cloned().collect::<Vec<_>>();
+        let mut a_query = world.query::<&A>();
+        let results = a_query.iter(&world).map(|a| a.0).collect::<Vec<_>>();
         assert_eq!(results, vec![1, 3, 2]);
 
         let entity_ref = world.entity(e2);
         assert_eq!(
-            entity_ref.get::<i32>(),
-            Some(&2),
-            "i32 is not in the removed bundle, so it should exist"
+            entity_ref.get::<A>(),
+            Some(&A(2)),
+            "A is not in the removed bundle, so it should exist"
         );
         assert_eq!(
-            entity_ref.get::<f64>(),
+            entity_ref.get::<B>(),
             None,
-            "f64 is in the removed bundle, so it should not exist"
+            "B is in the removed bundle, so it should not exist"
         );
         assert_eq!(
-            entity_ref.get::<usize>(),
+            entity_ref.get::<TableStored>(),
             None,
-            "usize is in the removed bundle, so it should not exist"
+            "TableStored is in the removed bundle, so it should not exist"
         );
     }
 
@@ -1123,7 +1241,7 @@ mod tests {
     #[should_panic]
     fn duplicate_components_panic() {
         let mut world = World::new();
-        world.spawn().insert_bundle((1, 2));
+        world.spawn().insert_bundle((A(1), A(2)));
     }
 
     #[test]
@@ -1152,7 +1270,7 @@ mod tests {
     fn multiple_worlds_same_query_iter() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
+        let mut query = world_a.query::<&A>();
         query.iter(&world_a);
         query.iter(&world_b);
     }
@@ -1160,19 +1278,19 @@ mod tests {
     #[test]
     fn query_filters_dont_collide_with_fetches() {
         let mut world = World::new();
-        world.query_filtered::<&mut i32, Changed<i32>>();
+        world.query_filtered::<&mut A, Changed<A>>();
     }
 
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
-        let query = world.query_filtered::<&mut i32, Changed<f64>>();
+        let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
-        let i32_id = world.components.get_id(TypeId::of::<i32>()).unwrap();
-        let f64_id = world.components.get_id(TypeId::of::<f64>()).unwrap();
-        expected.add_write(i32_id);
-        expected.add_read(f64_id);
+        let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
+        let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
+        expected.add_write(a_id);
+        expected.add_read(b_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"
@@ -1184,7 +1302,7 @@ mod tests {
     fn multiple_worlds_same_query_get() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
+        let mut query = world_a.query::<&A>();
         let _ = query.get(&world_a, Entity::new(0));
         let _ = query.get(&world_b, Entity::new(0));
     }
@@ -1194,7 +1312,7 @@ mod tests {
     fn multiple_worlds_same_query_for_each() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
+        let mut query = world_a.query::<&A>();
         query.for_each(&world_a, |_| {});
         query.for_each(&world_b, |_| {});
     }
@@ -1228,10 +1346,11 @@ mod tests {
         let (dropck1, dropped1) = DropCk::new_pair();
         let (dropck2, dropped2) = DropCk::new_pair();
         let mut world = World::default();
+
         world
-            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
-            .unwrap();
-        world.spawn().insert(dropck1).insert(dropck2);
+            .spawn()
+            .insert(DropCkSparse(dropck1))
+            .insert(DropCkSparse(dropck2));
         assert_eq!(dropped1.load(Ordering::Relaxed), 1);
         assert_eq!(dropped2.load(Ordering::Relaxed), 0);
         drop(world);
@@ -1242,15 +1361,13 @@ mod tests {
     #[test]
     fn clear_entities() {
         let mut world = World::default();
-        world
-            .register_component(ComponentDescriptor::new::<f32>(StorageType::SparseSet))
-            .unwrap();
-        world.insert_resource::<i32>(0);
-        world.spawn().insert(1u32);
-        world.spawn().insert(1.0f32);
 
-        let mut q1 = world.query::<&u32>();
-        let mut q2 = world.query::<&f32>();
+        world.insert_resource::<i32>(0);
+        world.spawn().insert(A(1));
+        world.spawn().insert(SparseStored(1));
+
+        let mut q1 = world.query::<&A>();
+        let mut q2 = world.query::<&SparseStored>();
 
         assert_eq!(q1.iter(&world).len(), 1);
         assert_eq!(q2.iter(&world).len(), 1);
@@ -1285,8 +1402,8 @@ mod tests {
         let mut world_a = World::default();
         let mut world_b = World::default();
 
-        let e1 = world_a.spawn().insert(1u32).id();
-        let e2 = world_a.spawn().insert(2u32).id();
+        let e1 = world_a.spawn().insert(A(1)).id();
+        let e2 = world_a.spawn().insert(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
         world_a.flush();
 
@@ -1296,7 +1413,7 @@ mod tests {
             .reserve_entities(world_a_max_entities as u32);
         world_b.entities.flush_as_invalid();
 
-        let e4 = world_b.spawn().insert(4u32).id();
+        let e4 = world_b.spawn().insert(A(4)).id();
         assert_eq!(
             e4,
             Entity {
@@ -1305,31 +1422,31 @@ mod tests {
             },
             "new entity is created immediately after world_a's max entity"
         );
-        assert!(world_b.get::<u32>(e1).is_none());
+        assert!(world_b.get::<A>(e1).is_none());
         assert!(world_b.get_entity(e1).is_none());
 
-        assert!(world_b.get::<u32>(e2).is_none());
+        assert!(world_b.get::<A>(e2).is_none());
         assert!(world_b.get_entity(e2).is_none());
 
-        assert!(world_b.get::<u32>(e3).is_none());
+        assert!(world_b.get::<A>(e3).is_none());
         assert!(world_b.get_entity(e3).is_none());
 
-        world_b.get_or_spawn(e1).unwrap().insert(1.0f32);
+        world_b.get_or_spawn(e1).unwrap().insert(B(1));
         assert_eq!(
-            world_b.get::<f32>(e1),
-            Some(&1.0f32),
+            world_b.get::<B>(e1),
+            Some(&B(1)),
             "spawning into 'world_a' entities works"
         );
 
-        world_b.get_or_spawn(e4).unwrap().insert(4.0f32);
+        world_b.get_or_spawn(e4).unwrap().insert(B(4));
         assert_eq!(
-            world_b.get::<f32>(e4),
-            Some(&4.0f32),
+            world_b.get::<B>(e4),
+            Some(&B(4)),
             "spawning into existing `world_b` entities works"
         );
         assert_eq!(
-            world_b.get::<u32>(e4),
-            Some(&4u32),
+            world_b.get::<A>(e4),
+            Some(&A(4)),
             "spawning into existing `world_b` entities works"
         );
 
@@ -1342,13 +1459,13 @@ mod tests {
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
         );
         assert_eq!(
-            world_b.get::<f32>(e4),
-            Some(&4.0f32),
+            world_b.get::<B>(e4),
+            Some(&B(4)),
             "failed mismatched spawn doesn't change existing entity"
         );
         assert_eq!(
-            world_b.get::<u32>(e4),
-            Some(&4u32),
+            world_b.get::<A>(e4),
+            Some(&A(4)),
             "failed mismatched spawn doesn't change existing entity"
         );
 
@@ -1359,10 +1476,10 @@ mod tests {
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
-            .insert(10.0f32);
+            .insert(B(10));
         assert_eq!(
-            world_b.get::<f32>(high_non_existent_entity),
-            Some(&10.0f32),
+            world_b.get::<B>(high_non_existent_entity),
+            Some(&B(10)),
             "inserting into newly allocated high / non-continous entity id works"
         );
 
