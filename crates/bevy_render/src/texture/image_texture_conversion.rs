@@ -97,8 +97,8 @@ impl From<image::DynamicImage> for Texture {
                         unsafe {
                             (
                                 pixel.get_unchecked(0),
+                                pixel.get_unchecked(1),
                                 pixel.get_unchecked(2),
-                                pixel.get_unchecked(3),
                             )
                         }
                     };
