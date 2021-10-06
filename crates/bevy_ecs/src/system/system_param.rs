@@ -17,7 +17,7 @@ use bevy_ecs_macros::{all_tuples, impl_query_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
-    ops::{Add, Deref, DerefMut},
+    ops::{Deref, DerefMut},
 };
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -540,14 +540,14 @@ impl<'w, 's> SystemParam for &'w World {
 unsafe impl<'w, 's> SystemParamState for WorldState {
     type Config = ();
 
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         let mut access = Access::default();
         access.read_all();
-        if (!system_meta
+        if !system_meta
             .archetype_component_access
-            .is_compatible(&access))
+            .is_compatible(&access)
         {
-            panic!("Bad systemparam");
+            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
         system_meta.archetype_component_access.extend(&access);
 
@@ -559,7 +559,7 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
             .get_conflicts(&filtered_access)
             .is_empty()
         {
-            panic!("Bad systemparam");
+            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
         system_meta.component_access_set.add(filtered_access);
 
@@ -572,7 +572,7 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
 impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
     type Item = &'w World;
     unsafe fn get_param(
-        state: &'s mut Self,
+        _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
         _change_tick: u32,
