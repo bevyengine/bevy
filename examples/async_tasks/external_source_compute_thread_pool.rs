@@ -3,7 +3,6 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use crossbeam_channel::{unbounded, Receiver};
-use futures_lite::future;
 use rand::Rng;
 
 fn main() {
@@ -45,13 +44,8 @@ fn setup(
     commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
 }
 
-// This system polls the tasks, and reads from the receiver and sends events to Bevy
-fn read_stream(
-    mut task: ResMut<StreamTask>,
-    receiver: ResMut<StreamReceiver>,
-    mut events: EventWriter<StreamEvent>,
-) {
-    future::block_on(future::poll_once(&mut task.0));
+// This system reads from the receiver and sends events to Bevy
+fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.0.try_iter() {
         events.send(StreamEvent(from_stream))
     }
