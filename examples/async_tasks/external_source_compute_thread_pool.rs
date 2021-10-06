@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use crossbeam_channel::{unbounded, Receiver};
+use crossbeam_channel::{bounded, Receiver};
 use rand::Rng;
 
 fn main() {
@@ -29,7 +29,7 @@ fn setup(
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
-    let (tx, rx) = unbounded::<u32>();
+    let (tx, rx) = bounded::<u32>(10);
     commands.insert_resource(StreamTask(thread_pool.spawn(async move {
         loop {
             // Everything here happens in a thread from the pool `AsyncComputeTaskPool`

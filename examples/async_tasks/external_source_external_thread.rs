@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use crossbeam_channel::{unbounded, Receiver};
+use crossbeam_channel::{bounded, Receiver};
 use rand::Rng;
 
 fn main() {
-    let (tx, rx) = unbounded::<u32>();
+    let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || loop {
         // Everything here happens in another thread
         // This is where you could connect to an external data source
