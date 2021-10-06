@@ -21,7 +21,13 @@ struct StreamReceiver(Receiver<u32>);
 struct StreamTask(Task<()>);
 struct StreamEvent(u32);
 
-fn setup(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+struct LoadedFont(Handle<Font>);
+
+fn setup(
+    mut commands: Commands,
+    thread_pool: Res<AsyncComputeTaskPool>,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     let (tx, rx) = unbounded::<u32>();
@@ -36,6 +42,7 @@ fn setup(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
         }
     })));
     commands.insert_resource(StreamReceiver(rx));
+    commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
 }
 
 // This system polls the tasks, and reads from the receiver and sends events to Bevy
@@ -53,18 +60,10 @@ fn read_stream(
 fn spawn_text(
     mut commands: Commands,
     mut reader: EventReader<StreamEvent>,
-    asset_server: Res<AssetServer>,
-    mut loaded_font: Local<Option<Handle<Font>>>,
+    loaded_font: Res<LoadedFont>,
 ) {
-    let font = if let Some(font) = &*loaded_font {
-        font.clone()
-    } else {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-        *loaded_font = Some(font.clone());
-        font
-    };
     let text_style = TextStyle {
-        font,
+        font: loaded_font.0.clone(),
         font_size: 20.0,
         color: Color::WHITE,
     };
