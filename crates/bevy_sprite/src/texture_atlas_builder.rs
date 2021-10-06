@@ -171,7 +171,7 @@ impl TextureAtlasBuilder {
                     atlas_texture = Texture::new_fill(
                         Extent3d::new(current_width, current_height, 1),
                         TextureDimension::D2,
-                        &[0, 0, 0, 0],
+                        &vec![0; self.format.pixel_size()],
                         self.format,
                     );
                     Some(rect_placements)
