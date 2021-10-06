@@ -530,9 +530,11 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         Commands::new(state, world)
     }
 }
-
+/// The [`SystemParamState`] of [`&World`].
 pub struct WorldState;
 
+/// WARNING:
+/// Will block any other system that mutates the world from running
 impl<'w, 's> SystemParam for &'w World {
     type Fetch = WorldState;
 }
