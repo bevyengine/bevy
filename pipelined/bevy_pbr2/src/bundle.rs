@@ -4,7 +4,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render2::mesh::Mesh;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// A component bundle for PBR entities with a [`Mesh`] and a [`Material`].
+/// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 #[derive(Bundle, Clone)]
 pub struct PbrBundle {
     pub mesh: Handle<Mesh>,

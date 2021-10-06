@@ -13,9 +13,13 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
+// Todo: unused?
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
+/// The binary representation of an image with the corresponding
+/// [`TextureDescriptor`](wgpu::TextureDescriptor) and
+/// [`SamplerDescriptor`](wgpu::SamplerDescriptor) metadata.
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Image {
@@ -50,6 +54,11 @@ impl Default for Image {
 }
 
 impl Image {
+    /// Creates a new image from raw binary data and the corresponding metadata.
+    ///
+    /// # Panics
+    /// Panics if the length of the `data`, volume of the `size` and the size of the `format`
+    /// do not match.
     pub fn new(
         size: Extent3d,
         dimension: TextureDimension,
@@ -71,6 +80,12 @@ impl Image {
         image
     }
 
+    /// Creates a new image from raw binary data and the corresponding metadata, by filling
+    /// the image data with the `pixel` data repeated multiple times.
+    ///
+    /// # Panics
+    /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
+    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -98,10 +113,13 @@ impl Image {
         value
     }
 
+    /// Returns the aspect ratio (height/width) of a 2D image.
     pub fn aspect_2d(&self) -> f32 {
         self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
     }
 
+    /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
+    /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         self.data.resize(
@@ -112,6 +130,9 @@ impl Image {
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
     /// same.
+    ///
+    /// # Panics
+    /// Panics if the `new_size` does not have the same volume as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
             new_size.volume() == self.texture_descriptor.size.volume(),
@@ -123,9 +144,13 @@ impl Image {
         self.texture_descriptor.size = new_size;
     }
 
-    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets
+    /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
+    ///
+    /// # Panics
+    /// Panics if the texture is not 2D, has more than one layers or is not evenly dividable into
+    /// the `layers`.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.texture_descriptor.dimension == TextureDimension::D2);
@@ -139,7 +164,7 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
+    /// Convert an image from a format to another
     /// Only a few formats are supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
@@ -163,9 +188,9 @@ impl Image {
             .map(super::image_texture_conversion::image_to_texture)
     }
 
-    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
-    /// crate`
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
+    /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
+    /// crate.
+    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, ImageError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
                 "image/png" => Ok(image::ImageFormat::Png),
@@ -175,10 +200,10 @@ impl Image {
                 "image/jpeg" => Ok(image::ImageFormat::Jpeg),
                 "image/bmp" => Ok(image::ImageFormat::Bmp),
                 "image/x-bmp" => Ok(image::ImageFormat::Bmp),
-                _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
+                _ => Err(ImageError::InvalidImageMimeType(mime_type.to_string())),
             },
             ImageType::Extension(extension) => image::ImageFormat::from_extension(extension)
-                .ok_or_else(|| TextureError::InvalidImageMimeType(extension.to_string())),
+                .ok_or_else(|| ImageError::InvalidImageMimeType(extension.to_string())),
         }?;
 
         // Load the image in the expected format.
@@ -192,9 +217,9 @@ impl Image {
     }
 }
 
-/// An error that occurs when loading a texture
+/// An error that occurs when loading an image.
 #[derive(Error, Debug)]
-pub enum TextureError {
+pub enum ImageError {
     #[error("invalid image mime type")]
     InvalidImageMimeType(String),
     #[error("invalid image extension")]
@@ -203,31 +228,39 @@ pub enum TextureError {
     ImageError(#[from] image::ImageError),
 }
 
-/// Type of a raw image buffer
+/// The type of a raw image buffer.
 pub enum ImageType<'a> {
-    /// Mime type of an image, for example `"image/png"`
+    /// The mime type of an image, for example `"image/png"`.
     MimeType(&'a str),
-    /// Extension of an image file, for example `"png"`
+    /// The extension of an image file, for example `"png"`.
     Extension(&'a str),
 }
 
+/// Used to calculate the volume of an item.
 pub trait Volume {
     fn volume(&self) -> usize;
 }
 
 impl Volume for Extent3d {
+    /// Calculates the volume of the [`Extend3D`].
     fn volume(&self) -> usize {
         (self.width * self.height * self.depth_or_array_layers) as usize
     }
 }
 
+/// Information about the pixel size in bytes and the number of different components.
 pub struct PixelInfo {
+    /// The size of a component of a pixel in bytes.
     pub type_size: usize,
+    /// The amount of different components (color channels).
     pub num_components: usize,
 }
 
+/// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
+    /// Returns the pixel information of the format.
     fn pixel_info(&self) -> PixelInfo;
+    /// Returns the size of a pixel of the format.
     fn pixel_size(&self) -> usize {
         let info = self.pixel_info();
         info.type_size * info.num_components
@@ -340,6 +373,8 @@ impl TextureFormatPixelInfo for TextureFormat {
     }
 }
 
+/// The GPU-representation of an [`Image`].
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`].
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,
@@ -352,10 +387,12 @@ impl RenderAsset for Image {
     type PreparedAsset = GpuImage;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
+    /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
     }
 
+    /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,

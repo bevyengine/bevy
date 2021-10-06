@@ -587,7 +587,7 @@ impl RenderAsset for Mesh {
         self.clone()
     }
 
-    /// Converts the extracted meshes into [`GpuMeshes`](GpuMesh).
+    /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,
