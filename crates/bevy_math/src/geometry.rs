@@ -1,9 +1,10 @@
+use bevy_ecs::component::Component;
 use bevy_reflect::Reflect;
 use glam::Vec2;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// A two dimensional "size" as defined by a width and height
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size<T: Reflect + PartialEq = f32> {
     pub width: T,
@@ -26,7 +27,7 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 }
 
 /// A rect, as defined by its "side" locations
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Rect<T: Reflect + PartialEq> {
     pub left: T,
