@@ -89,13 +89,18 @@ impl From<image::DynamicImage> for Texture {
                 for pixel in image.into_raw().chunks_exact(3) {
                     let (r, g, b) = {
                         #[cfg(debug_assertions)]
-                        {(pixel[0], pixel[1], pixel[2])}
-
-                        #[cfg(not(debug_assertions))]
-                        unsafe { 
-                            (pixel.get_unchecked(0), pixel.get_unchecked(2), pixel.get_unchecked(3))
+                        {
+                            (pixel[0], pixel[1], pixel[2])
                         }
 
+                        #[cfg(not(debug_assertions))]
+                        unsafe {
+                            (
+                                pixel.get_unchecked(0),
+                                pixel.get_unchecked(2),
+                                pixel.get_unchecked(3),
+                            )
+                        }
                     };
                     let a = u16::MAX;
 
