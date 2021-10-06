@@ -10,10 +10,10 @@ fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_system)
-        .add_system(read_stream_system)
-        .add_system(spawn_text_system)
-        .add_system(move_text_system)
+        .add_startup_system(setup)
+        .add_system(read_stream)
+        .add_system(spawn_text)
+        .add_system(move_text)
         .run();
 }
 
@@ -21,7 +21,7 @@ struct StreamReceiver(Receiver<u32>);
 struct StreamTask(Task<()>);
 struct StreamEvent(u32);
 
-fn setup_system(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+fn setup(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     let (tx, rx) = unbounded::<u32>();
@@ -39,7 +39,7 @@ fn setup_system(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) 
 }
 
 // This system polls the tasks, and reads from the receiver and sends events to Bevy
-fn read_stream_system(
+fn read_stream(
     mut task: ResMut<StreamTask>,
     receiver: ResMut<StreamReceiver>,
     mut events: EventWriter<StreamEvent>,
@@ -50,7 +50,7 @@ fn read_stream_system(
     }
 }
 
-fn spawn_text_system(
+fn spawn_text(
     mut commands: Commands,
     mut reader: EventReader<StreamEvent>,
     asset_server: Res<AssetServer>,
@@ -85,7 +85,7 @@ fn spawn_text_system(
     }
 }
 
-fn move_text_system(
+fn move_text(
     mut commands: Commands,
     mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,

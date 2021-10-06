@@ -17,28 +17,28 @@ fn main() {
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
         .insert_resource(StreamReceiver(rx))
-        .add_startup_system(setup_system)
-        .add_system(read_stream_system)
-        .add_system(spawn_text_system)
-        .add_system(move_text_system)
+        .add_startup_system(setup)
+        .add_system(read_stream)
+        .add_system(spawn_text)
+        .add_system(move_text)
         .run();
 }
 
 struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
-fn setup_system(mut commands: Commands) {
+fn setup(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
 // This system reads from the receiver and sends events to Bevy
-fn read_stream_system(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.0.try_iter() {
         events.send(StreamEvent(from_stream))
     }
 }
 
-fn spawn_text_system(
+fn spawn_text(
     mut commands: Commands,
     mut reader: EventReader<StreamEvent>,
     asset_server: Res<AssetServer>,
@@ -73,7 +73,7 @@ fn spawn_text_system(
     }
 }
 
-fn move_text_system(
+fn move_text(
     mut commands: Commands,
     mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,
