@@ -75,11 +75,11 @@ fn spawn_text_system(
     for (per_frame, event) in reader.iter().enumerate() {
         commands.spawn_bundle(Text2dBundle {
             text: Text::with_section(format!("{}", event.0), text_style.clone(), text_alignment),
-            transform: Transform::from_translation(Vec3::new(
+            transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
                 0.0,
-            )),
+            ),
             ..Default::default()
         });
     }
