@@ -2,7 +2,7 @@ use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Image},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    CalculatedSize, ControlNode, FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -16,6 +16,15 @@ use bevy_render::{
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
+
+/// If you add this to an entity, it should be the *only* bundle on it from bevy_ui.
+/// This bundle will mark the entity as transparent to the UI layout system, meaning the
+/// children of this entity will be treated as the children of this entity s parent by the layout system.
+pub struct ControlBundle {
+    pub control_node: ControlNode,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
 
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
