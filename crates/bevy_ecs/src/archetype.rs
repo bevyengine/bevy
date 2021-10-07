@@ -1,3 +1,6 @@
+//! Types for defining [`Archetype`]s, collections of entities that have the same set of
+//! components.
+
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
@@ -15,19 +18,13 @@ use std::{
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
+    pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
+    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+
     #[inline]
     pub const fn new(index: usize) -> Self {
         ArchetypeId(index)
-    }
-
-    #[inline]
-    pub const fn empty() -> ArchetypeId {
-        ArchetypeId(0)
-    }
-
-    #[inline]
-    pub const fn resource() -> ArchetypeId {
-        ArchetypeId(1)
     }
 
     #[inline]
@@ -60,7 +57,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_add_bundle(
+    pub fn insert_add_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
@@ -81,7 +78,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
+    pub fn insert_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
@@ -94,7 +91,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle_intersection(
+    pub fn insert_remove_bundle_intersection(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
@@ -110,8 +107,8 @@ struct TableInfo {
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
-    pub swapped_entity: Option<Entity>,
-    pub table_row: usize,
+    pub(crate) swapped_entity: Option<Entity>,
+    pub(crate) table_row: usize,
 }
 
 pub(crate) struct ArchetypeComponentInfo {
@@ -309,6 +306,11 @@ impl Archetype {
             .get(component_id)
             .map(|info| info.archetype_component_id)
     }
+
+    pub(crate) fn clear_entities(&mut self) {
+        self.entities.clear();
+        self.table_info.entity_rows.clear();
+    }
 }
 
 /// A generational id that changes every time the set of archetypes changes
@@ -377,7 +379,7 @@ impl Default for Archetypes {
         // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
         // which prevents entities from being added to it
         archetypes.archetypes.push(Archetype::new(
-            ArchetypeId::resource(),
+            ArchetypeId::RESOURCE,
             TableId::empty(),
             Cow::Owned(Vec::new()),
             Cow::Owned(Vec::new()),
@@ -402,7 +404,7 @@ impl Archetypes {
     #[inline]
     pub fn empty(&self) -> &Archetype {
         // SAFE: empty archetype always exists
-        unsafe { self.archetypes.get_unchecked(ArchetypeId::empty().index()) }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
     #[inline]
@@ -410,17 +412,14 @@ impl Archetypes {
         // SAFE: empty archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::empty().index())
+                .get_unchecked_mut(ArchetypeId::EMPTY.index())
         }
     }
 
     #[inline]
     pub fn resource(&self) -> &Archetype {
         // SAFE: resource archetype always exists
-        unsafe {
-            self.archetypes
-                .get_unchecked(ArchetypeId::resource().index())
-        }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::RESOURCE.index()) }
     }
 
     #[inline]
@@ -428,7 +427,7 @@ impl Archetypes {
         // SAFE: resource archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::resource().index())
+                .get_unchecked_mut(ArchetypeId::RESOURCE.index())
         }
     }
 
@@ -518,6 +517,12 @@ impl Archetypes {
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
+    }
+
+    pub fn clear_entities(&mut self) {
+        for archetype in self.archetypes.iter_mut() {
+            archetype.clear_entities();
+        }
     }
 }
 

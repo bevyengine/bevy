@@ -1,5 +1,5 @@
 use super::GlobalTransform;
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -34,7 +34,7 @@ use std::ops::Mul;
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
@@ -114,6 +114,27 @@ impl Transform {
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);
+        self
+    }
+
+    /// Returns this [`Transform`] with a new translation.
+    #[inline]
+    pub fn with_translation(mut self, translation: Vec3) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Returns this [`Transform`] with a new rotation.
+    #[inline]
+    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Returns this [`Transform`] with a new scale.
+    #[inline]
+    pub fn with_scale(mut self, scale: Vec3) -> Self {
+        self.scale = scale;
         self
     }
 

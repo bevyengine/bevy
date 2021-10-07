@@ -20,7 +20,7 @@ pub fn main() {
         .run();
 }
 
-#[derive(RenderResources, Default, TypeUuid)]
+#[derive(Component, RenderResources, Default, TypeUuid)]
 #[uuid = "463e4b8a-d555-4fc2-ba9f-4c880063ba92"]
 struct TimeUniform {
     value: f32,
@@ -120,6 +120,6 @@ fn setup(
 /// `time.seconds_since_startup()` as the `value` of the `TimeComponent`. This value will be
 /// accessed by the fragment shader and used to animate the shader.
 fn animate_shader(time: Res<Time>, mut query: Query<&mut TimeUniform>) {
-    let mut time_uniform = query.single_mut().unwrap();
+    let mut time_uniform = query.single_mut();
     time_uniform.value = time.seconds_since_startup() as f32;
 }

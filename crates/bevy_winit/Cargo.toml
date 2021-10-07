@@ -2,10 +2,6 @@
 name = "bevy_winit"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "A winit window and input backend for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -27,6 +23,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 winit = { version = "0.25.0", default-features = false }
+approx = { version = "0.5.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 winit = { version = "0.25.0", features = ["web-sys"], default-features = false }

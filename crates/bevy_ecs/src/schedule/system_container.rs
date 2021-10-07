@@ -36,7 +36,7 @@ pub(super) struct ExclusiveSystemContainer {
 }
 
 impl ExclusiveSystemContainer {
-    pub fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
+    pub(super) fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
         ExclusiveSystemContainer {
             system: descriptor.system,
             run_criteria_index: None,
@@ -49,7 +49,7 @@ impl ExclusiveSystemContainer {
         }
     }
 
-    pub fn system_mut(&mut self) -> &mut Box<dyn ExclusiveSystem> {
+    pub(super) fn system_mut(&mut self) -> &mut Box<dyn ExclusiveSystem> {
         &mut self.system
     }
 }

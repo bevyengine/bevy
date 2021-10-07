@@ -37,7 +37,6 @@ highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
     { name = "ahash", version = "0.4" },
-    { name = "android_log-sys", version = "0.1" },
     { name = "cfg-if", version = "0.1" },             # https://github.com/rustwasm/console_error_panic_hook/pull/18
     { name = "core-foundation", version = "0.6" },
     { name = "core-foundation", version = "0.7" },
@@ -48,10 +47,8 @@ skip = [
     { name = "hashbrown", version = "0.9" },
     { name = "libm", version = "0.1" },
     { name = "mach", version = "0.2" },
-    { name = "ndk", version = "0.2" },
-    { name = "ndk-glue", version = "0.2" },
-    { name = "num_enum", version = "0.4" },
-    { name = "num_enum_derive", version = "0.4" },
+    { name = "ndk", version = "0.3" },
+    { name = "ndk-glue", version = "0.3" },
     { name = "proc-macro-crate", version = "0.1" },
     { name = "stdweb", version = "0.1" },
 ]

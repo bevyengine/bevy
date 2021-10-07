@@ -1,3 +1,5 @@
+//! Types that enable reflection support.
+
 pub use crate::change_detection::ReflectMut;
 use crate::{
     component::Component,
@@ -10,6 +12,7 @@ use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
 pub struct ReflectComponent {
     add_component: fn(&mut World, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
+    remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
     reflect_component_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
     copy_component: fn(&World, &mut World, Entity, Entity),
@@ -22,6 +25,10 @@ impl ReflectComponent {
 
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
+    }
+
+    pub fn remove_component(&self, world: &mut World, entity: Entity) {
+        (self.remove_component)(world, entity);
     }
 
     pub fn reflect_component<'a>(
@@ -82,6 +89,9 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             apply_component: |world, entity, reflected_component| {
                 let mut component = world.get_mut::<C>(entity).unwrap();
                 component.apply(reflected_component);
+            },
+            remove_component: |world, entity| {
+                world.entity_mut(entity).remove::<C>();
             },
             copy_component: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();

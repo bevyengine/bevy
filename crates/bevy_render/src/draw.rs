@@ -10,11 +10,12 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
+    component::Component,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut, SystemParam},
 };
 use bevy_reflect::Reflect;
-use std::{ops::Range, sync::Arc};
+use std::{marker::PhantomData, ops::Range, sync::Arc};
 use thiserror::Error;
 
 /// A queued command for the renderer
@@ -49,7 +50,7 @@ pub enum RenderCommand {
     },
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Visible {
     pub is_visible: bool,
@@ -73,12 +74,13 @@ impl Default for Visible {
 /// This does not handle multiple "views" properly as it is a "global" filter.
 /// This will be resolved in the future. For now, disable frustum culling if you
 /// need to support multiple views (ex: set the `SpriteSettings::frustum_culling_enabled` resource).
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
+#[component(storage = "SparseSet")]
 pub struct OutsideFrustum;
 
 /// A component that indicates how to draw an entity.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Draw {
     #[reflect(ignore)]
@@ -164,18 +166,20 @@ pub enum DrawError {
 }
 
 #[derive(SystemParam)]
-pub struct DrawContext<'a> {
-    pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
-    pub shaders: ResMut<'a, Assets<Shader>>,
-    pub asset_render_resource_bindings: ResMut<'a, AssetRenderResourceBindings>,
-    pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
-    pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
-    pub shared_buffers: ResMut<'a, SharedBuffers>,
+pub struct DrawContext<'w, 's> {
+    pub pipelines: ResMut<'w, Assets<PipelineDescriptor>>,
+    pub shaders: ResMut<'w, Assets<Shader>>,
+    pub asset_render_resource_bindings: ResMut<'w, AssetRenderResourceBindings>,
+    pub pipeline_compiler: ResMut<'w, PipelineCompiler>,
+    pub render_resource_context: Res<'w, Box<dyn RenderResourceContext>>,
+    pub shared_buffers: ResMut<'w, SharedBuffers>,
     #[system_param(ignore)]
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
+    #[system_param(ignore)]
+    marker: PhantomData<&'s usize>,
 }
 
-impl<'a> DrawContext<'a> {
+impl<'w, 's> DrawContext<'w, 's> {
     pub fn get_uniform_buffer<T: RenderResource>(
         &mut self,
         render_resource: &T,

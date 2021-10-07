@@ -49,7 +49,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("Reflect({})", self.type_name()))
+        write!(f, "Reflect({})", self.type_name())
     }
 }
 

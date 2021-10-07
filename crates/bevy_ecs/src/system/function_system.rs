@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
-        SystemParamFetch, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -13,7 +13,6 @@ use std::{borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
-    pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
@@ -30,7 +29,6 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            id: SystemId::new(),
             last_change_tick: 0,
         }
     }
@@ -87,7 +85,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'a>(&'a mut self, world: &'a World) -> <Param::Fetch as SystemParamFetch<'a>>::Item
+    pub fn get<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
     where
         Param::Fetch: ReadOnlySystemParamFetch,
     {
@@ -98,10 +99,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'a>(
-        &'a mut self,
-        world: &'a mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
         // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -142,10 +143,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.   
     #[inline]
-    pub unsafe fn get_unchecked_manual<'a>(
-        &'a mut self,
-        world: &'a World,
-    ) -> <Param::Fetch as SystemParamFetch<'a>>::Item {
+    pub unsafe fn get_unchecked_manual<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         let change_tick = world.increment_change_tick();
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
@@ -225,7 +226,7 @@ pub struct InputMarker;
 ///
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
+/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -335,11 +336,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn id(&self) -> SystemId {
-        self.system_meta.id
     }
 
     #[inline]

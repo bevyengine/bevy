@@ -9,7 +9,9 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 pub struct Player;
+#[derive(Component)]
 pub struct PlayerCount(usize);
 
 /// The SystemParam struct can contain any types that can also be included in a
@@ -17,12 +19,12 @@ pub struct PlayerCount(usize);
 ///
 /// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
-struct PlayerCounter<'a> {
-    players: Query<'a, &'static Player>,
-    count: ResMut<'a, PlayerCount>,
+struct PlayerCounter<'w, 's> {
+    players: Query<'w, 's, &'static Player>,
+    count: ResMut<'w, PlayerCount>,
 }
 
-impl<'a> PlayerCounter<'a> {
+impl<'w, 's> PlayerCounter<'w, 's> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
     }

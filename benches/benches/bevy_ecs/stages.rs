@@ -1,6 +1,7 @@
 use bevy::ecs::{
+    component::Component,
     schedule::{Stage, SystemStage},
-    system::{IntoSystem, Query},
+    system::Query,
     world::World,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -12,10 +13,15 @@ fn run_stage(stage: &mut SystemStage, world: &mut World) {
     stage.run(world);
 }
 
+#[derive(Component)]
 struct A(f32);
+#[derive(Component)]
 struct B(f32);
+#[derive(Component)]
 struct C(f32);
+#[derive(Component)]
 struct D(f32);
+#[derive(Component)]
 struct E(f32);
 
 const ENTITY_BUNCH: usize = 5000;

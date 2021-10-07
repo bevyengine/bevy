@@ -37,11 +37,13 @@ use rand::random;
 //
 
 // Our game will have a number of "players". Each player has a name that identifies them
+#[derive(Component)]
 struct Player {
     name: String,
 }
 
 // Each player also has a score. This component holds on to that score
+#[derive(Component)]
 struct Score {
     value: usize,
 }
@@ -272,7 +274,7 @@ fn main() {
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
-        // Resources that implement the Default or FromResources trait can be added like this:
+        // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)

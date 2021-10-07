@@ -2,10 +2,6 @@
 name = "bevy_render"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -36,7 +32,7 @@ downcast-rs = "1.2.0"
 thiserror = "1.0"
 anyhow = "1.0.4"
 hex = "0.4.2"
-hexasphere = "4.0.0"
+hexasphere = "5.0.0"
 parking_lot = "0.11.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

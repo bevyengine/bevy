@@ -8,9 +8,10 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
-    query::With,
+    component::Component,
+    query::{QueryState, With},
     reflect::ReflectComponent,
-    system::{Query, QuerySet, Res},
+    system::{QuerySet, Res},
     world::Mut,
 };
 use bevy_reflect::{Reflect, TypeUuid};
@@ -40,7 +41,7 @@ impl Plugin for WireframePlugin {
     }
 }
 
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Component, Debug, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct Wireframe;
 
@@ -62,8 +63,8 @@ pub fn draw_wireframes_system(
     meshes: Res<Assets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     mut query: QuerySet<(
-        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
-        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>,
+        QueryState<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
+        QueryState<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>,
     )>,
 ) {
     let iterator = |(mut draw, mut render_pipelines, mesh_handle, visible): (
@@ -123,8 +124,8 @@ pub fn draw_wireframes_system(
     };
 
     if wireframe_config.global {
-        query.q0_mut().iter_mut().for_each(iterator);
+        query.q0().iter_mut().for_each(iterator);
     } else {
-        query.q1_mut().iter_mut().for_each(iterator);
+        query.q1().iter_mut().for_each(iterator);
     }
 }

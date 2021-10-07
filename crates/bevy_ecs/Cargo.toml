@@ -2,10 +2,6 @@
 name = "bevy_ecs"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -28,20 +24,16 @@ fixedbitset = "0.4"
 fxhash = "0.2"
 thiserror = "1.0"
 downcast-rs = "1.2"
-rand = "0.8"
 serde = "1"
 
 [dev-dependencies]
 parking_lot = "0.11"
 bevy_core = { path = "../bevy_core", version = "0.5.0" }
+rand = "0.8
 
 [[example]]
 name = "events"
 path = "examples/events.rs"
-
-[[example]]
-name = "component_storage"
-path = "examples/component_storage.rs"
 
 [[example]]
 name = "resources"
