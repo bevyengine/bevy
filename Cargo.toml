@@ -148,8 +148,8 @@ name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
 [[example]]
-name = "pipelined_texture_atlas"
-path = "examples/2d/pipelined_texture_atlas.rs"
+name = "pipelined_image_atlas"
+path = "examples/2d/pipelined_image_atlas.rs"
 
 # 3D Rendering
 [[example]]

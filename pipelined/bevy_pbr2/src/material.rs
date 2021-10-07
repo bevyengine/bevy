@@ -5,10 +5,10 @@ use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
+    image::Image,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsage, Sampler, TextureView},
     renderer::RenderDevice,
-    texture::Image,
 };
 use crevice::std140::{AsStd140, Std140};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};

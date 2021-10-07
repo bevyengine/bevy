@@ -18,7 +18,7 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     shader::Shader,
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    image::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
 };
 use bevy_transform::components::GlobalTransform;

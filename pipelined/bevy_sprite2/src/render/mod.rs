@@ -1,7 +1,4 @@
-use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Rect, Sprite,
-};
+use crate::{image_atlas::ImageAtlas, AtlasSprite, Rect, Sprite};
 use bevy_asset::{Assets, Handle};
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
@@ -10,6 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
+    image::{BevyDefault, Image},
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -17,7 +15,6 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     shader::Shader,
-    texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
 };
 use bevy_transform::components::GlobalTransform;
@@ -150,33 +147,28 @@ impl FromWorld for SpriteShaders {
 
 pub struct ExtractedSprite {
     transform: Mat4,
-    rect: Rect,
-    handle: Handle<Image>,
+    region: Rect,
+    image: Handle<Image>,
     atlas_size: Option<Vec2>,
     vertex_index: usize,
 }
 
 pub fn extract_atlases(
     mut commands: Commands,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    atlas_query: Query<(
-        Entity,
-        &TextureAtlasSprite,
-        &GlobalTransform,
-        &Handle<TextureAtlas>,
-    )>,
+    image_atlases: Res<Assets<ImageAtlas>>,
+    atlas_query: Query<(Entity, &AtlasSprite, &GlobalTransform, &Handle<ImageAtlas>)>,
 ) {
     let mut sprites = Vec::new();
-    for (entity, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = texture_atlas.textures[atlas_sprite.index as usize];
+    for (entity, atlas_sprite, transform, image_atlas) in atlas_query.iter() {
+        if let Some(image_atlas) = image_atlases.get(image_atlas) {
+            let region = image_atlas.regions[atlas_sprite.region_index as usize];
             sprites.push((
                 entity,
                 (ExtractedSprite {
-                    atlas_size: Some(texture_atlas.size),
+                    atlas_size: Some(image_atlas.size),
                     transform: transform.compute_matrix(),
-                    rect,
-                    handle: texture_atlas.texture.clone_weak(),
+                    region,
+                    image: image_atlas.source_image.clone_weak(),
                     vertex_index: 0,
                 },),
             ));
@@ -200,13 +192,13 @@ pub fn extract_sprites(
                 (ExtractedSprite {
                     atlas_size: None,
                     transform: transform.compute_matrix(),
-                    rect: Rect {
+                    region: Rect {
                         min: Vec2::ZERO,
                         max: sprite
                             .custom_size
                             .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
                     },
-                    handle: handle.clone_weak(),
+                    image: handle.clone_weak(),
                     vertex_index: 0,
                 },),
             ));
@@ -282,26 +274,25 @@ pub fn prepare_sprites(
         .reserve_and_clear(extracted_sprite_len * quad_indices.len(), &render_device);
 
     for (i, mut extracted_sprite) in extracted_sprites.iter_mut().enumerate() {
-        let sprite_rect = extracted_sprite.rect;
+        let region = extracted_sprite.region;
 
         // Specify the corners of the sprite
-        let bottom_left = Vec2::new(sprite_rect.min.x, sprite_rect.max.y);
-        let top_left = sprite_rect.min;
-        let top_right = Vec2::new(sprite_rect.max.x, sprite_rect.min.y);
-        let bottom_right = sprite_rect.max;
+        let bottom_left = Vec2::new(region.min.x, region.max.y);
+        let top_left = region.min;
+        let top_right = Vec2::new(region.max.x, region.min.y);
+        let bottom_right = region.max;
 
         let atlas_positions: [Vec2; 4] = [bottom_left, top_left, top_right, bottom_right];
 
         extracted_sprite.vertex_index = i;
         for (index, vertex_position) in quad_vertex_positions.iter().enumerate() {
             let mut final_position =
-                Vec3::from(*vertex_position) * extracted_sprite.rect.size().extend(1.0);
+                Vec3::from(*vertex_position) * extracted_sprite.region.size().extend(1.0);
             final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
             sprite_meta.vertices.push(SpriteVertex {
                 position: final_position.into(),
-                uv: (atlas_positions[index]
-                    / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max))
-                .into(),
+                uv: (atlas_positions[index] / extracted_sprite.atlas_size.unwrap_or(region.max))
+                    .into(),
             });
         }
 
@@ -347,9 +338,9 @@ pub fn queue_sprites(
             for (entity, sprite) in extracted_sprites.iter_mut() {
                 image_bind_groups
                     .values
-                    .entry(sprite.handle.clone_weak())
+                    .entry(sprite.image.clone_weak())
                     .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&sprite.handle).unwrap();
+                        let gpu_image = gpu_images.get(&sprite.image).unwrap();
                         render_device.create_bind_group(&BindGroupDescriptor {
                             entries: &[
                                 BindGroupEntry {
@@ -368,7 +359,7 @@ pub fn queue_sprites(
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
                     entity,
-                    sort_key: sprite.handle.clone_weak(),
+                    sort_key: sprite.image.clone_weak(),
                 });
             }
         }
@@ -445,7 +436,7 @@ impl Draw<Transparent2d> for DrawSprite {
             1,
             image_bind_groups
                 .values
-                .get(&extracted_sprite.handle)
+                .get(&extracted_sprite.image)
                 .unwrap(),
             &[],
         );

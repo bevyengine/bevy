@@ -3,6 +3,7 @@ mod buffer;
 mod buffer_vec;
 mod pipeline;
 mod texture;
+mod texture_cache;
 mod uniform_vec;
 
 pub use bind_group::*;
@@ -10,6 +11,7 @@ pub use buffer::*;
 pub use buffer_vec::*;
 pub use pipeline::*;
 pub use texture::*;
+pub use texture_cache::*;
 pub use uniform_vec::*;
 
 // TODO: decide where re-exports should go

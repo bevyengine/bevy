@@ -1,7 +1,7 @@
 use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
-    texture::BevyDefault,
+    image::BevyDefault,
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_app::{App, Plugin};

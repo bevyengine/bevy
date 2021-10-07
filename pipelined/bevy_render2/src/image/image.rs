@@ -1,9 +1,9 @@
-use super::image_texture_conversion::image_to_texture;
+use super::image_conversion::from_dynamic_image;
 use crate::{
+    image::BevyDefault,
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::BevyDefault,
 };
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::TypeUuid;
@@ -12,9 +12,6 @@ use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
     TextureViewDescriptor,
 };
-
-pub const TEXTURE_ASSET_INDEX: u64 = 0;
-pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
@@ -146,7 +143,7 @@ impl Image {
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        super::image_conversion::to_dynamic_image(self)
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {
@@ -160,12 +157,12 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(super::image_texture_conversion::image_to_texture)
+            .map(super::image_conversion::from_dynamic_image)
     }
 
     /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
     /// crate`
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
+    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, ImageError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
                 "image/png" => Ok(image::ImageFormat::Png),
@@ -175,10 +172,10 @@ impl Image {
                 "image/jpeg" => Ok(image::ImageFormat::Jpeg),
                 "image/bmp" => Ok(image::ImageFormat::Bmp),
                 "image/x-bmp" => Ok(image::ImageFormat::Bmp),
-                _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
+                _ => Err(ImageError::InvalidImageMimeType(mime_type.to_string())),
             },
             ImageType::Extension(extension) => image::ImageFormat::from_extension(extension)
-                .ok_or_else(|| TextureError::InvalidImageMimeType(extension.to_string())),
+                .ok_or_else(|| ImageError::InvalidImageMimeType(extension.to_string())),
         }?;
 
         // Load the image in the expected format.
@@ -188,13 +185,13 @@ impl Image {
         // cases.
 
         let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-        Ok(image_to_texture(dyn_img))
+        Ok(from_dynamic_image(dyn_img))
     }
 }
 
 /// An error that occurs when loading a texture
 #[derive(Error, Debug)]
-pub enum TextureError {
+pub enum ImageError {
     #[error("invalid image mime type")]
     InvalidImageMimeType(String),
     #[error("invalid image extension")]

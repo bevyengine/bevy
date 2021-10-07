@@ -13,11 +13,11 @@ use bevy_ecs::prelude::*;
 use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
+    image::Image,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
     render_resource::*,
     renderer::RenderDevice,
-    texture::{Image, TextureCache},
     view::ExtractedView,
     RenderApp, RenderStage, RenderWorld,
 };

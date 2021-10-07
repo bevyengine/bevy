@@ -1,10 +1,23 @@
 use crate::{
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
+    RenderApp, RenderStage,
 };
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::ResMut;
 use bevy_utils::HashMap;
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
+
+/// Adds a [`TextureCache`] to the app, which caches textures that are repeatedly created each frame.
+pub struct TextureCachePlugin;
+
+impl Plugin for TextureCachePlugin {
+    fn build(&self, app: &mut App) {
+        app.sub_app(RenderApp)
+            .init_resource::<TextureCache>()
+            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+    }
+}
 
 struct CachedTextureMeta {
     texture: Texture,

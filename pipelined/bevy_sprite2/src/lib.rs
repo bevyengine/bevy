@@ -1,18 +1,18 @@
 mod bundle;
-mod dynamic_texture_atlas_builder;
+mod dynamic_image_atlas_builder;
+mod image_atlas;
+mod image_atlas_builder;
 mod rect;
 mod render;
 mod sprite;
-mod texture_atlas;
-mod texture_atlas_builder;
 
 pub use bundle::*;
-pub use dynamic_texture_atlas_builder::*;
+pub use dynamic_image_atlas_builder::*;
+pub use image_atlas::*;
+pub use image_atlas_builder::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;
-pub use texture_atlas::*;
-pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
@@ -26,7 +26,7 @@ pub struct SpritePlugin;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<TextureAtlas>().register_type::<Sprite>();
+        app.add_asset::<ImageAtlas>().register_type::<Sprite>();
         let render_app = app.sub_app(RenderApp);
         render_app
             .init_resource::<ImageBindGroups>()
@@ -45,6 +45,7 @@ impl Plugin for SpritePlugin {
             .write()
             .add(draw_sprite);
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        // Todo: extract the name into const
         graph.add_node("sprite", SpriteNode);
         graph
             .add_node_edge("sprite", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)

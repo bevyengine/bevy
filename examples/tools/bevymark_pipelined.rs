@@ -5,7 +5,7 @@ use bevy::{
     input::Input,
     math::Vec3,
     prelude::{App, AssetServer, Handle, MouseButton, Transform},
-    render2::{camera::OrthographicCameraBundle, color::Color, texture::Image},
+    render2::{camera::OrthographicCameraBundle, color::Color, image::Image},
     sprite2::PipelinedSpriteBundle,
     window::WindowDescriptor,
     PipelinedDefaultPlugins,
@@ -62,7 +62,7 @@ fn main() {
         .run();
 }
 
-struct BirdTexture(Handle<Image>);
+struct BirdImage(Handle<Image>);
 
 fn setup(
     mut commands: Commands,
@@ -70,7 +70,7 @@ fn setup(
     mut counter: ResMut<BevyCounter>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture = asset_server.load("branding/icon.png");
+    let image = asset_server.load("branding/icon.png");
     if let Some(initial_count) = std::env::args()
         .nth(1)
         .and_then(|arg| arg.parse::<u128>().ok())
@@ -80,7 +80,7 @@ fn setup(
             &window,
             &mut counter,
             initial_count,
-            texture.clone_weak(),
+            image.clone_weak(),
         );
     }
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
@@ -135,7 +135,7 @@ fn setup(
     //     ..Default::default()
     // });
 
-    commands.insert_resource(BirdTexture(texture));
+    commands.insert_resource(BirdImage(image));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -145,7 +145,7 @@ fn mouse_handler(
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,
-    bird_texture: Res<BirdTexture>,
+    bird_image: Res<BirdImage>,
     // mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
     // mut materials: ResMut<Assets<ColorMaterial>>,
@@ -154,11 +154,11 @@ fn mouse_handler(
     //     let mut rnd = rand::thread_rng();
     //     let color = gen_color(&mut rnd);
 
-    //     let texture_handle = asset_server.load("branding/icon.png");
+    //     let image = asset_server.load("branding/icon.png");
 
     //     bird_material.0 = materials.add(ColorMaterial {
     //         color: BASE_COLOR * color,
-    //         texture: Some(texture_handle),
+    //         image: Some(image),
     //     });
     // }
 
@@ -169,7 +169,7 @@ fn mouse_handler(
             &window,
             &mut counter,
             spawn_count,
-            bird_texture.0.clone(),
+            bird_image.0.clone(),
         );
     }
 }
@@ -179,7 +179,7 @@ fn spawn_birds(
     window: &WindowDescriptor,
     counter: &mut BevyCounter,
     spawn_count: u128,
-    texture: Handle<Image>,
+    image: Handle<Image>,
 ) {
     let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
     let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
@@ -188,7 +188,7 @@ fn spawn_birds(
         commands
             .spawn_bundle(PipelinedSpriteBundle {
                 // material: bird_material.0.clone(),
-                texture: texture.clone(),
+                image: image.clone(),
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
                     scale: Vec3::splat(BIRD_SCALE),

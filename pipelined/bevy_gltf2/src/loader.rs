@@ -13,7 +13,7 @@ use bevy_render2::{
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
-    texture::{Image, ImageType, TextureError},
+    image::{Image, ImageType, ImageError},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -50,7 +50,7 @@ pub enum GltfError {
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
     #[error("You may need to add the feature for the file format: {0}")]
-    ImageError(#[from] TextureError),
+    ImageError(#[from] ImageError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
 }

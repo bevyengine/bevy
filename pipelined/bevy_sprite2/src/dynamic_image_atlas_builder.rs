@@ -1,15 +1,15 @@
-use crate::{Rect, TextureAtlas};
+use crate::{ImageAtlas, Rect};
 use bevy_asset::Assets;
 use bevy_math::Vec2;
-use bevy_render2::texture::{Image, TextureFormatPixelInfo};
+use bevy_render2::image::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
-pub struct DynamicTextureAtlasBuilder {
+pub struct DynamicImageAtlasBuilder {
     pub atlas_allocator: AtlasAllocator,
     pub padding: i32,
 }
 
-impl DynamicTextureAtlasBuilder {
+impl DynamicImageAtlasBuilder {
     pub fn new(size: Vec2, padding: i32) -> Self {
         Self {
             atlas_allocator: AtlasAllocator::new(to_size2(size)),
@@ -17,24 +17,24 @@ impl DynamicTextureAtlasBuilder {
         }
     }
 
-    pub fn add_texture(
+    pub fn add_image(
         &mut self,
-        texture_atlas: &mut TextureAtlas,
-        textures: &mut Assets<Image>,
-        texture: &Image,
+        image_atlas: &mut ImageAtlas,
+        images: &mut Assets<Image>,
+        image: &Image,
     ) -> Option<u32> {
         let allocation = self.atlas_allocator.allocate(size2(
-            texture.texture_descriptor.size.width as i32 + self.padding,
-            texture.texture_descriptor.size.height as i32 + self.padding,
+            image.texture_descriptor.size.width as i32 + self.padding,
+            image.texture_descriptor.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
-            self.place_texture(atlas_texture, allocation, texture);
-            let mut rect: Rect = allocation.rectangle.into();
-            rect.max.x -= self.padding as f32;
-            rect.max.y -= self.padding as f32;
-            texture_atlas.add_texture(rect);
-            Some((texture_atlas.len() - 1) as u32)
+            let atlas_image = images.get_mut(&image_atlas.source_image).unwrap();
+            self.place_image(atlas_image, allocation, image);
+            let mut region: Rect = allocation.rectangle.into();
+            region.max.x -= self.padding as f32;
+            region.max.y -= self.padding as f32;
+            image_atlas.add_region(region);
+            Some((image_atlas.len() - 1) as u32)
         } else {
             None
         }
@@ -63,26 +63,21 @@ impl DynamicTextureAtlasBuilder {
     //     }
     // }
 
-    fn place_texture(
-        &mut self,
-        atlas_texture: &mut Image,
-        allocation: Allocation,
-        texture: &Image,
-    ) {
-        let mut rect = allocation.rectangle;
-        rect.max.x -= self.padding;
-        rect.max.y -= self.padding;
-        let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
-        let rect_width = rect.width() as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+    // Todo: duplicate of ImageAtlasBuilder::copy_image_to_atlas
+    fn place_image(&mut self, atlas_image: &mut Image, allocation: Allocation, image: &Image) {
+        let mut region = allocation.rectangle;
+        region.max.x -= self.padding;
+        region.max.y -= self.padding;
+        let atlas_width = atlas_image.texture_descriptor.size.width as usize;
+        let region_width = region.width() as usize;
+        let pixel_size = atlas_image.texture_descriptor.format.pixel_size();
 
-        for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
-            let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;
-            let end = begin + rect_width * format_size;
-            let texture_begin = texture_y * rect_width * format_size;
-            let texture_end = texture_begin + rect_width * format_size;
-            atlas_texture.data[begin..end]
-                .copy_from_slice(&texture.data[texture_begin..texture_end]);
+        for (texture_y, bound_y) in (region.min.y..region.max.y).map(|i| i as usize).enumerate() {
+            let begin = (bound_y * atlas_width + region.min.x as usize) * pixel_size;
+            let end = begin + region_width * pixel_size;
+            let image_begin = texture_y * region_width * pixel_size;
+            let image_end = image_begin + region_width * pixel_size;
+            atlas_image.data[begin..end].copy_from_slice(&image.data[image_begin..image_end]);
         }
     }
 }

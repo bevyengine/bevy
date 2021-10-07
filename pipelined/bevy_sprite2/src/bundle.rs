@@ -1,18 +1,18 @@
-use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite,
-};
+use crate::{image_atlas::ImageAtlas, AtlasSprite, Sprite};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
-use bevy_render2::texture::Image;
+use bevy_render2::image::Image;
 use bevy_transform::components::{GlobalTransform, Transform};
 
+/// A bundle of components for drawing an sprite.
 #[derive(Bundle, Clone)]
 pub struct PipelinedSpriteBundle {
+    /// The sprite information used to render the image.
     pub sprite: Sprite,
+    /// The image of the sprite.
+    pub image: Handle<Image>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub texture: Handle<Image>,
 }
 
 impl Default for PipelinedSpriteBundle {
@@ -21,29 +21,27 @@ impl Default for PipelinedSpriteBundle {
             sprite: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            texture: Default::default(),
+            image: Default::default(),
         }
     }
 }
 
-/// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
-/// to as a `TextureAtlas`)
+/// A bundle of components for drawing a single sprite from a [`ImageAtlas`].
 #[derive(Bundle, Clone)]
-pub struct PipelinedSpriteSheetBundle {
-    /// The specific sprite from the texture atlas to be drawn
-    pub sprite: TextureAtlasSprite,
-    /// A handle to the texture atlas that holds the sprite images
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// Data pertaining to how the sprite is drawn on the screen
+pub struct PipelinedAtlasSpriteBundle {
+    /// The specific sprite from the texture atlas to be drawn.
+    pub sprite: AtlasSprite,
+    /// The image atlas that holds the image of the sprite.
+    pub image_atlas: Handle<ImageAtlas>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
 
-impl Default for PipelinedSpriteSheetBundle {
+impl Default for PipelinedAtlasSpriteBundle {
     fn default() -> Self {
         Self {
             sprite: Default::default(),
-            texture_atlas: Default::default(),
+            image_atlas: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
         }

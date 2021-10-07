@@ -21,7 +21,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         shader::Shader,
-        texture::BevyDefault,
+        image::BevyDefault,
         view::ExtractedView,
         RenderApp, RenderStage,
     },

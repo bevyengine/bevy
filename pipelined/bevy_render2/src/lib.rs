@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod color;
+pub mod image;
 pub mod mesh;
 pub mod render_asset;
 pub mod render_component;
@@ -8,17 +9,17 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod shader;
-pub mod texture;
 pub mod view;
 
 pub use once_cell;
 
 use crate::{
     camera::CameraPlugin,
+    image::ImagePlugin,
     mesh::MeshPlugin,
     render_graph::RenderGraph,
+    render_resource::TextureCachePlugin,
     renderer::render_system,
-    texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -232,7 +233,8 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .add_plugin(TextureCachePlugin);
     }
 }
 

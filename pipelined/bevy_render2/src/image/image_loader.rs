@@ -3,15 +3,15 @@ use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
 use thiserror::Error;
 
-use crate::texture::{Image, ImageType, TextureError};
+use crate::image::{Image, ImageType, ImageError};
 
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone, Default)]
-pub struct ImageTextureLoader;
+pub struct ImageLoader;
 
 const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg", "bmp"];
 
-impl AssetLoader for ImageTextureLoader {
+impl AssetLoader for ImageLoader {
     fn load<'a>(
         &'a self,
         bytes: &'a [u8],
@@ -22,7 +22,7 @@ impl AssetLoader for ImageTextureLoader {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
             let dyn_img = Image::from_buffer(bytes, ImageType::Extension(ext)).map_err(|err| {
-                FileTextureError {
+                ImageFileError {
                     error: err,
                     path: format!("{}", load_context.path().display()),
                 }
@@ -38,13 +38,14 @@ impl AssetLoader for ImageTextureLoader {
     }
 }
 
+
 /// An error that occurs when loading a texture from a file
 #[derive(Error, Debug)]
-pub struct FileTextureError {
-    error: TextureError,
+pub struct ImageFileError {
+    error: ImageError,
     path: String,
 }
-impl std::fmt::Display for FileTextureError {
+impl std::fmt::Display for ImageFileError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             f,

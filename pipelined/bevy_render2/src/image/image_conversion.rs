@@ -1,9 +1,8 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::image::{Image, TextureFormatPixelInfo};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
-// TODO: fix name?
 /// Helper method to convert a `DynamicImage` to a `Texture`
-pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Image {
+pub(crate) fn from_dynamic_image(dyn_img: image::DynamicImage) -> Image {
     use bevy_core::cast_slice;
     let width;
     let height;
@@ -91,7 +90,7 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Image {
                 let r = pixel[0];
                 let g = pixel[1];
                 let b = pixel[2];
-                let a = u16::max_value();
+                let a = u16::MAX;
 
                 local_data.extend_from_slice(&r.to_ne_bytes());
                 local_data.extend_from_slice(&g.to_ne_bytes());
@@ -126,7 +125,7 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Image {
 
 /// Helper method to convert a `Texture` to a `DynamicImage`. Not all `Texture` formats are
 /// covered, it will return `None` if the format is not supported
-pub(crate) fn texture_to_image(texture: &Image) -> Option<image::DynamicImage> {
+pub(crate) fn to_dynamic_image(texture: &Image) -> Option<image::DynamicImage> {
     match texture.texture_descriptor.format {
         TextureFormat::R8Unorm => image::ImageBuffer::from_raw(
             texture.texture_descriptor.size.width,
