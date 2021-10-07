@@ -58,6 +58,9 @@ impl AssetNotify for WinitNotify {
 #[cfg(target_arch = "wasm32")]
 unsafe impl Send for WinitNotify {}
 
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for WinitNotify {}
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
