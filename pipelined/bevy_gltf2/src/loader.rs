@@ -12,8 +12,8 @@ use bevy_render2::{
         Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
     },
     color::Color,
+    image::{Image, ImageError, ImageType},
     mesh::{Indices, Mesh, VertexAttributeValues},
-    image::{Image, ImageType, ImageError},
 };
 use bevy_scene::Scene;
 use bevy_transform::{

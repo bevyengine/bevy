@@ -11,6 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::Mat4;
 use bevy_render2::{
+    image::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex},
@@ -18,7 +19,6 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     shader::Shader,
-    image::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
 };
 use bevy_transform::components::GlobalTransform;

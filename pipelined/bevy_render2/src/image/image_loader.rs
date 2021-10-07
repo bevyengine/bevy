@@ -3,7 +3,7 @@ use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
 use thiserror::Error;
 
-use crate::image::{Image, ImageType, ImageError};
+use crate::image::{Image, ImageError, ImageType};
 
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone, Default)]
@@ -37,7 +37,6 @@ impl AssetLoader for ImageLoader {
         FILE_EXTENSIONS
     }
 }
-
 
 /// An error that occurs when loading a texture from a file
 #[derive(Error, Debug)]

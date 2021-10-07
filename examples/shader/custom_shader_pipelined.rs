@@ -12,6 +12,7 @@ use bevy::{
     render2::{
         camera::PerspectiveCameraBundle,
         color::Color,
+        image::BevyDefault,
         mesh::{shape, Mesh},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::ExtractComponentPlugin,
@@ -21,7 +22,6 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         shader::Shader,
-        image::BevyDefault,
         view::ExtractedView,
         RenderApp, RenderStage,
     },
