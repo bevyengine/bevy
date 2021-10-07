@@ -25,6 +25,9 @@ Bevy ECS is Bevy's implementation of the ECS pattern. Unlike other Rust ECS impl
 Components are normal Rust structs. They are data stored in a `World` and specific instances of Components correlate to Entities.
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
 ```
 
@@ -45,7 +48,9 @@ Entities are unique identifiers that correlate to zero or more Components.
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
+#[derive(Component)]
 struct Velocity { x: f32, y: f32 }
 
 let mut world = World::new();
@@ -67,6 +72,7 @@ Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can 
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
@@ -117,7 +123,9 @@ Bevy ECS should feel very natural for those familiar with Rust syntax:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
+#[derive(Component)]
 struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
@@ -158,8 +166,11 @@ fn main() {
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
+#[derive(Component)]
 struct Player;
+#[derive(Component)]
 struct Alive;
 
 // Gets the Position component of all Entities with Player component and without the Alive
@@ -179,7 +190,9 @@ Queries can filter for changed Components:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
+#[derive(Component)]
 struct Velocity { x: f32, y: f32 }
 
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
@@ -240,11 +253,11 @@ Define sets of Components that should be added together.
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Default)]
+#[derive(Default, Component)]
 struct Player;
-#[derive(Default)]
+#[derive(Default, Component)]
 struct Position { x: f32, y: f32 }
-#[derive(Default)]
+#[derive(Default, Component)]
 struct Velocity { x: f32, y: f32 }
 
 #[derive(Bundle, Default)]
