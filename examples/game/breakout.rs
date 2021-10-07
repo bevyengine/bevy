@@ -1,7 +1,8 @@
+use rand::Rng;
 use bevy::{
     core::FixedTimestep,
     prelude::*,
-    render::pass::ClearColor,
+    render::{pass::ClearColor, camera::Camera},
     sprite::collide_aabb::{collide, Collision},
 };
 
@@ -12,15 +13,30 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_startup_system(setup)
+        .add_state(GameState::MainMenu)
+        .add_event::<GameOverEvent>()
+        .add_startup_system(setup_cameras)
+
+        .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(ui_system_setup))
+        .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(key_input_system))
+        .add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(teardown))
+
+        .add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup))
         .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+            SystemSet::on_update(GameState::InGame)
                 .with_system(paddle_movement_system)
                 .with_system(ball_collision_system)
-                .with_system(ball_movement_system),
+                .with_system(ball_movement_system)
+                .with_system(scoreboard_system)
+                .with_system(on_game_over),
         )
-        .add_system(scoreboard_system)
+        .add_system_set(SystemSet::on_exit(GameState::InGame).with_system(teardown))
+
+        .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(ui_system_setup))
+        .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(key_input_system))
+        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
+
+        .add_system_set(SystemSet::new().with_run_criteria(FixedTimestep::step(TIME_STEP as f64)))
         .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
@@ -46,16 +62,29 @@ struct Scoreboard {
     score: usize,
 }
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+enum GameState {
+    InGame,
+    GameOver,
+    MainMenu,
+}
+
+struct GameOverEvent(usize);
+
+fn setup_cameras(
+    mut commands: Commands,
+) {
+    // cameras
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
+}
+
 fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     // Add the game's entities to our world
-
-    // cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
     // paddle
     commands
         .spawn_bundle(SpriteBundle {
@@ -160,9 +189,9 @@ fn setup(
     let brick_spacing = 20.0;
     let brick_size = Vec2::new(150.0, 30.0);
     let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
+    let mut rng = rand::thread_rng();
     // center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
-    let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     for row in 0..brick_rows {
         let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {
@@ -172,15 +201,23 @@ fn setup(
                 0.0,
             ) + bricks_offset;
             // brick
+            let brick_material = materials.add(Color::rgb(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)).into());
             commands
                 .spawn_bundle(SpriteBundle {
-                    material: brick_material.clone(),
+                    material: brick_material,
                     sprite: Sprite::new(brick_size),
                     transform: Transform::from_translation(brick_position),
                     ..Default::default()
                 })
                 .insert(Collider::Scorable);
         }
+    }
+}
+
+// remove all entities that are not a camera
+fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+    for entity in entities.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
 
@@ -220,6 +257,7 @@ fn ball_collision_system(
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
     collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
+    mut ev_gameover: EventWriter<GameOverEvent>,
 ) {
     let (mut ball, ball_transform, sprite) = ball_query.single_mut();
     let ball_size = sprite.size;
@@ -261,6 +299,9 @@ fn ball_collision_system(
             // reflect velocity on the y-axis if we hit something on the y-axis
             if reflect_y {
                 velocity.y = -velocity.y;
+                if let Collider::Solid = collider {
+                    ev_gameover.send(GameOverEvent(scoreboard.score));
+                }
             }
 
             // break if this collide is on a solid, otherwise continue check whether a solid is
@@ -269,5 +310,87 @@ fn ball_collision_system(
                 break;
             }
         }
+    }
+}
+
+fn on_game_over(
+    mut ev_gameover: EventReader<GameOverEvent>,
+    mut app_state: ResMut<State<GameState>>,
+) {
+    for _ev in ev_gameover.iter() {
+        app_state.set(GameState::GameOver).unwrap();
+    }
+}
+
+fn ui_system_setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut scoreboard: ResMut<Scoreboard>,
+    app_state: Res<State<GameState>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mut menu_content = "".to_string();
+    if let GameState::GameOver = app_state.current() {
+        menu_content = format!("Game Over\nYour Score: {}", scoreboard.score);
+        scoreboard.score = 0;
+    } else if let GameState::MainMenu = app_state.current() {
+        menu_content = "Main Menu".to_string();
+    }
+
+    commands.spawn_bundle( NodeBundle {
+        style: Style {
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            position_type: PositionType::Absolute,
+
+            margin: Rect::all(Val::Auto),
+
+            align_content: AlignContent::Center,
+            align_items: AlignItems::Center,
+            align_self: AlignSelf::Center,
+
+            justify_content: JustifyContent::Center,
+
+            ..Default::default()
+        },
+        material: materials.add(Color::NONE.into()),
+        ..Default::default() 
+    }).with_children(|parent| {
+        parent.spawn_bundle(TextBundle {
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: menu_content,
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::CRIMSON,
+                        },
+                    },
+                    TextSection {
+                        value: "\n[SPC] to play\n[ESC] to exit".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.5, 0.5, 1.0),
+                        },
+                    },
+                ],
+                alignment: TextAlignment {
+                    horizontal: HorizontalAlign::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+    });
+}
+
+fn key_input_system(mut keys: ResMut<Input<KeyCode>>,
+    mut app_state: ResMut<State<GameState>>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        app_state.set(GameState::InGame).unwrap();
+        keys.reset(KeyCode::Space);
     }
 }
