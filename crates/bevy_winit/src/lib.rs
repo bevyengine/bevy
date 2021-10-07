@@ -54,6 +54,10 @@ impl AssetNotify for WinitNotify {
     }
 }
 
+// SAFETY: We clone the EventLoopProxy in exclusive system, and never destroy it.
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for WinitNotify {}
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
