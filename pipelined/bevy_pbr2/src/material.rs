@@ -6,7 +6,9 @@ use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsage, Sampler, TextureView},
+    render_resource::{
+        BindGroup, Buffer, BufferInitDescriptor, BufferUsages, Sampler, TextureView,
+    },
     renderer::RenderDevice,
     texture::Image,
 };
@@ -222,7 +224,7 @@ impl RenderAsset for StandardMaterial {
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("pbr_standard_material_uniform_buffer"),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             contents: value_std140.as_bytes(),
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {

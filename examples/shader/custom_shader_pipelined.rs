@@ -57,7 +57,7 @@ impl RenderAsset for CustomMaterial {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             contents: color.as_std140().as_bytes(),
             label: None,
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
@@ -136,7 +136,7 @@ impl FromWorld for CustomPipeline {
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -163,7 +163,7 @@ impl FromWorld for CustomPipeline {
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 32,
-                    step_mode: InputStepMode::Vertex,
+                    step_mode: VertexStepMode::Vertex,
                     attributes: &[
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
@@ -205,7 +205,7 @@ impl FromWorld for CustomPipeline {
                             operation: BlendOperation::Add,
                         },
                     }),
-                    write_mask: ColorWrite::ALL,
+                    write_mask: ColorWrites::ALL,
                 }],
             }),
             depth_stencil: Some(DepthStencilState {

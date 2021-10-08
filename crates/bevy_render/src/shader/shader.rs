@@ -106,9 +106,9 @@ pub fn glsl_to_spirv(
 impl Into<shaderc::ShaderKind> for ShaderStage {
     fn into(self) -> shaderc::ShaderKind {
         match self {
-            ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
-            ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
-            ShaderStage::Compute => shaderc::ShaderKind::Compute,
+            ShaderStages::VERTEX => shaderc::ShaderKind::Vertex,
+            ShaderStages::FRAGMENT => shaderc::ShaderKind::Fragment,
+            ShaderStages::COMPUTE => shaderc::ShaderKind::Compute,
         }
     }
 }

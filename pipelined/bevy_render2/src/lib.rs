@@ -25,7 +25,7 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
-use wgpu::BackendBit;
+use wgpu::Backends;
 
 #[derive(Default)]
 pub struct RenderPlugin;
@@ -86,7 +86,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         let (instance, device, queue) =
             futures_lite::future::block_on(renderer::initialize_renderer(
-                BackendBit::PRIMARY,
+                wgpu::util::backend_bits_from_env().unwrap_or(Backends::PRIMARY),
                 &wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     ..Default::default()

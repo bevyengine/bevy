@@ -276,7 +276,7 @@ impl Default for TextureFormat {
 
 bitflags::bitflags! {
     #[repr(transparent)]
-    pub struct TextureUsage: u32 {
+    pub struct TextureUsages: u32 {
         const COPY_SRC = 1;
         const COPY_DST = 2;
         const SAMPLED = 4;

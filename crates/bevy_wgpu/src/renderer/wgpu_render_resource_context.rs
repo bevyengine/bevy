@@ -31,7 +31,8 @@ pub struct WgpuRenderResourceContext {
 }
 
 pub const COPY_BYTES_PER_ROW_ALIGNMENT: usize = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
-pub const BIND_BUFFER_ALIGNMENT: usize = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+// TODO: fix this?
+pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 pub const COPY_BUFFER_ALIGNMENT: usize = wgpu::COPY_BUFFER_ALIGNMENT as usize;
 pub const PUSH_CONSTANT_ALIGNMENT: u32 = wgpu::PUSH_CONSTANT_ALIGNMENT;
 
@@ -94,6 +95,7 @@ impl WgpuRenderResourceContext {
                     y: source_origin[1],
                     z: source_origin[2],
                 },
+                aspect: wgpu::TextureAspect::All,
             },
             wgpu::ImageCopyTexture {
                 texture: destination,
@@ -103,6 +105,7 @@ impl WgpuRenderResourceContext {
                     y: destination_origin[1],
                     z: destination_origin[2],
                 },
+                aspect: wgpu::TextureAspect::All,
             },
             size.wgpu_into(),
         )
@@ -134,6 +137,7 @@ impl WgpuRenderResourceContext {
                     y: source_origin[1],
                     z: source_origin[2],
                 },
+                aspect: wgpu::TextureAspect::All,
             },
             wgpu::ImageCopyBuffer {
                 buffer: destination,
@@ -181,6 +185,7 @@ impl WgpuRenderResourceContext {
                     y: destination_origin[1],
                     z: destination_origin[2],
                 },
+                aspect: wgpu::TextureAspect::All,
             },
             size.wgpu_into(),
         );
@@ -206,11 +211,11 @@ impl WgpuRenderResourceContext {
                 let shader_stage = if binding.shader_stage
                     == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT
                 {
-                    wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT
+                    wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT
                 } else if binding.shader_stage == BindingShaderStage::VERTEX {
-                    wgpu::ShaderStage::VERTEX
+                    wgpu::ShaderStages::VERTEX
                 } else if binding.shader_stage == BindingShaderStage::FRAGMENT {
-                    wgpu::ShaderStage::FRAGMENT
+                    wgpu::ShaderStages::FRAGMENT
                 } else {
                     panic!("Invalid binding shader stage.")
                 };
@@ -230,14 +235,15 @@ impl WgpuRenderResourceContext {
         bind_group_layouts.insert(descriptor.id, bind_group_layout);
     }
 
-    fn try_next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
-        let mut window_swap_chains = self.resources.window_swap_chains.write();
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
+    fn try_next_surface_frame(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
+        let mut window_surfaces = self.resources.window_surfaces.write();
+        let mut surface_frames = self.resources.surface_textures.write();
 
-        let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
-        let next_texture = window_swap_chain.get_current_frame().ok()?;
+        let window_surface = window_surfaces.get_mut(&window_id).unwrap();
+        let next_texture = window_surface.get_current_texture().ok()?;
+        let view = next_texture.texture.create_view(&Default::default());
         let id = TextureId::new();
-        swap_chain_outputs.insert(id, next_texture);
+        surface_frames.insert(id, (view, next_texture));
         Some(id)
     }
 }
@@ -339,7 +345,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .create_shader_module(&wgpu::ShaderModuleDescriptor {
                 label: None,
                 source: wgpu::ShaderSource::SpirV(spirv),
-                flags: Default::default(),
             });
         shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
@@ -358,43 +363,39 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.create_shader_module_from_source(shader_handle, shader);
     }
 
-    fn create_swap_chain(&self, window: &Window) {
+    fn configure_surface(&self, window: &Window) {
         let surfaces = self.resources.window_surfaces.read();
-        let mut window_swap_chains = self.resources.window_swap_chains.write();
 
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
+        let surface_configuration: wgpu::SurfaceConfiguration = window.wgpu_into();
         let surface = surfaces
             .get(&window.id())
             .expect("No surface found for window.");
-        let swap_chain = self
-            .device
-            .create_swap_chain(surface, &swap_chain_descriptor);
-
-        window_swap_chains.insert(window.id(), swap_chain);
+        surface.configure(&self.device, &surface_configuration);
     }
 
-    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> TextureId {
-        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
+    fn next_surface_frame(&self, window: &bevy_window::Window) -> TextureId {
+        if let Some(texture_id) = self.try_next_surface_frame(window.id()) {
             texture_id
         } else {
-            self.resources
-                .window_swap_chains
-                .write()
-                .remove(&window.id());
-            self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id())
+            self.resources.window_surfaces.write().remove(&window.id());
+            self.configure_surface(window);
+            self.try_next_surface_frame(window.id())
                 .expect("Failed to acquire next swap chain texture!")
         }
     }
 
-    fn drop_swap_chain_texture(&self, texture: TextureId) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.remove(&texture);
+    fn drop_surface_frame(&self, texture: TextureId) {
+        let mut surface_frames = self.resources.surface_textures.write();
+        surface_frames.remove(&texture);
     }
 
-    fn drop_all_swap_chain_textures(&self) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.clear();
+    fn drop_all_surface_frames(&self) {
+        let mut surface_frames = self.resources.surface_textures.write();
+        for (_, (_, texture)) in surface_frames.drain() {
+            texture.present();
+        }
+
+        surface_frames.clear();
     }
 
     fn set_asset_resource_untyped(

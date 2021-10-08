@@ -1,4 +1,4 @@
-use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
+use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsages};
 
 /// Describes a texture
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -8,7 +8,7 @@ pub struct TextureDescriptor {
     pub sample_count: u32,
     pub dimension: TextureDimension,
     pub format: TextureFormat,
-    pub usage: TextureUsage,
+    pub usage: TextureUsages,
 }
 
 impl From<&Texture> for TextureDescriptor {
@@ -19,7 +19,7 @@ impl From<&Texture> for TextureDescriptor {
             sample_count: 1,
             dimension: texture.dimension,
             format: texture.format,
-            usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
+            usage: TextureUsages::SAMPLED | TextureUsages::COPY_DST,
         }
     }
 }
@@ -36,7 +36,7 @@ impl Default for TextureDescriptor {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
+            usage: TextureUsages::SAMPLED | TextureUsages::COPY_DST,
         }
     }
 }

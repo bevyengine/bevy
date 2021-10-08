@@ -1,10 +1,10 @@
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
-use naga::{valid::ModuleInfo, Module, ShaderStage};
-use std::{borrow::Cow, collections::HashMap, marker::Copy};
+use naga::{valid::ModuleInfo, Module};
+use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
-use wgpu::{ShaderFlags, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -20,8 +20,8 @@ impl ShaderId {
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
-    #[error(transparent)]
-    GlslParse(#[from] naga::front::glsl::ParseError),
+    #[error("GLSL Parse Error: {0:?}")]
+    GlslParse(Vec<naga::front::glsl::Error>),
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
@@ -33,7 +33,7 @@ pub enum ShaderReflectError {
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub enum Shader {
     Wgsl(Cow<'static, str>),
-    Glsl(Cow<'static, str>),
+    Glsl(Cow<'static, str>, naga::ShaderStage),
     SpirV(Vec<u8>),
     // TODO: consider the following
     // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
@@ -54,6 +54,7 @@ impl ShaderReflection {
                 flags: naga::back::spv::WriterFlags::empty(),
                 ..naga::back::spv::Options::default()
             },
+            None,
         )
     }
 
@@ -67,17 +68,11 @@ impl Shader {
         let module = match &self {
             // TODO: process macros here
             Shader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
-            Shader::Glsl(source) => {
-                let mut entry_points = HashMap::default();
-                entry_points.insert("vertex".to_string(), ShaderStage::Vertex);
-                entry_points.insert("fragment".to_string(), ShaderStage::Fragment);
-                naga::front::glsl::parse_str(
-                    source,
-                    &naga::front::glsl::Options {
-                        entry_points,
-                        defines: Default::default(),
-                    },
-                )?
+            Shader::Glsl(source, shader_stage) => {
+                let mut parser = naga::front::glsl::Parser::default();
+                parser
+                    .parse(&naga::front::glsl::Options::from(*shader_stage), source)
+                    .map_err(ShaderReflectError::GlslParse)?
             }
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
@@ -103,8 +98,8 @@ impl Shader {
         Shader::Wgsl(source.into())
     }
 
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>) -> Shader {
-        Shader::Glsl(source.into())
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+        Shader::Glsl(source.into(), stage)
     }
 
     pub fn from_spirv(source: Vec<u8>) -> Shader {
@@ -143,11 +138,10 @@ impl AssetLoader for ShaderLoader {
 impl<'a> From<&'a Shader> for ShaderModuleDescriptor<'a> {
     fn from(shader: &'a Shader) -> Self {
         ShaderModuleDescriptor {
-            flags: ShaderFlags::default(),
             label: None,
             source: match shader {
                 Shader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
-                Shader::Glsl(_source) => {
+                Shader::Glsl(_source, _stage) => {
                     let reflection = shader.reflect().unwrap();
                     let wgsl = reflection.get_wgsl().unwrap();
                     ShaderSource::Wgsl(wgsl.into())
