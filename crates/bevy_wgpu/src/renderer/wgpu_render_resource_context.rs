@@ -32,7 +32,7 @@ pub struct WgpuRenderResourceContext {
 
 pub const COPY_BYTES_PER_ROW_ALIGNMENT: usize = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
 // TODO: fix this?
-pub const BIND_BUFFER_ALIGNMENT: usize = 256 as usize;
+pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 pub const COPY_BUFFER_ALIGNMENT: usize = wgpu::COPY_BUFFER_ALIGNMENT as usize;
 pub const PUSH_CONSTANT_ALIGNMENT: u32 = wgpu::PUSH_CONSTANT_ALIGNMENT;
 
