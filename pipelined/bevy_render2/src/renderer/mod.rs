@@ -41,11 +41,17 @@ pub fn render_system(world: &mut World) {
 pub type RenderQueue = Arc<Queue>;
 pub type RenderInstance = Instance;
 
+pub struct Renderer {
+    pub instance: RenderInstance,
+    pub device: RenderDevice,
+    pub queue: RenderQueue,
+}
+
 pub async fn initialize_renderer(
     backends: Backends,
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
-) -> (RenderInstance, RenderDevice, RenderQueue) {
+) -> Renderer {
     let instance = wgpu::Instance::new(backends);
 
     let adapter = instance
@@ -72,7 +78,11 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (instance, RenderDevice::from(device), queue)
+    Renderer {
+        instance,
+        device: RenderDevice::from(device),
+        queue,
+    }
 }
 
 pub struct RenderContext {

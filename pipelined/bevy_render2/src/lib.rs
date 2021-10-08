@@ -84,17 +84,21 @@ struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        let (instance, device, queue) =
-            futures_lite::future::block_on(renderer::initialize_renderer(
-                wgpu::util::backend_bits_from_env().unwrap_or(Backends::PRIMARY),
-                &wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    ..Default::default()
-                },
-                &wgpu::DeviceDescriptor::default(),
-            ));
-        app.insert_resource(device.clone())
-            .insert_resource(queue.clone())
+        let renderer = app
+            .world
+            .remove_resource::<renderer::Renderer>()
+            .unwrap_or_else(|| {
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    wgpu::util::backend_bits_from_env().unwrap_or(Backends::PRIMARY),
+                    &wgpu::RequestAdapterOptions {
+                        power_preference: wgpu::PowerPreference::HighPerformance,
+                        ..Default::default()
+                    },
+                    &wgpu::DeviceDescriptor::default(),
+                ))
+            });
+        app.insert_resource(renderer.device.clone())
+            .insert_resource(renderer.queue.clone())
             .init_resource::<ScratchRenderWorld>();
         let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
@@ -113,9 +117,9 @@ impl Plugin for RenderPlugin {
                 SystemStage::parallel().with_system(render_system.exclusive_system()),
             )
             .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-            .insert_resource(instance)
-            .insert_resource(device)
-            .insert_resource(queue)
+            .insert_resource(renderer.instance)
+            .insert_resource(renderer.device)
+            .insert_resource(renderer.queue)
             .insert_resource(asset_server)
             .init_resource::<RenderGraph>();
 
