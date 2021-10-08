@@ -50,6 +50,7 @@
 //! - [`Query`]
 //! - [`Res`] and `Option<Res>`
 //! - [`ResMut`] and `Option<ResMut>`
+//! - [`&World`]
 //! - [`Commands`]
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
