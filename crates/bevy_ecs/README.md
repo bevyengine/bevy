@@ -89,12 +89,8 @@ Apps often require unique resources, such as asset collections, renderers, audio
 ```rust
 use bevy_ecs::prelude::*;
 
-// Bevy does provide its own more advanced Time as a resource, but we
-// use this for the example.
 #[derive(Default)]
-struct Time {
-    seconds: f32,
-}
+struct Time(f32);
 
 let mut world = World::new();
 
@@ -104,7 +100,7 @@ let time = world.get_resource::<Time>().unwrap();
 
 // You can also access resources from Systems
 fn print_time(time: Res<Time>) {
-    println!("{}", time.seconds);
+    println!("{}", time.0);
 }
 ```
 
@@ -211,8 +207,9 @@ fn system_added(query: Query<&Position, Added<Velocity>>) {
 Resources also expose change state:
 
 ```rust
-use bevy_core::Time;
 use bevy_ecs::prelude::*;
+
+struct Time(f32);
 
 // Prints "time changed!" if the Time resource has changed since the last run of the System
 fn system(time: Res<Time>) {
