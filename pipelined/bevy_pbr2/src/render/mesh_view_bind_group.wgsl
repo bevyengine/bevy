@@ -76,8 +76,8 @@ var directional_shadow_textures: texture_depth_2d_array;
 [[group(0), binding(5)]]
 var directional_shadow_textures_sampler: sampler_comparison;
 [[group(0), binding(6)]]
-var point_lights: PointLights;
+var<uniform> point_lights: PointLights;
 [[group(0), binding(7)]]
-var cluster_light_index_lists: ClusterLightIndexLists;
+var<uniform> cluster_light_index_lists: ClusterLightIndexLists;
 [[group(0), binding(8)]]
-var cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+var<uniform> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
