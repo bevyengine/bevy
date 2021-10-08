@@ -85,7 +85,8 @@ pub struct WgpuResources {
     pub buffer_infos: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
-    pub surface_textures: Arc<RwLock<HashMap<TextureId, (wgpu::TextureView, wgpu::SurfaceTexture)>>>,
+    pub surface_textures:
+        Arc<RwLock<HashMap<TextureId, (wgpu::TextureView, wgpu::SurfaceTexture)>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
     pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
