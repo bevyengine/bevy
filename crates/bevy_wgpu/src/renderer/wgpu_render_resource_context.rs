@@ -391,6 +391,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn drop_all_surface_frames(&self) {
         let mut surface_frames = self.resources.surface_textures.write();
+        for (_, (_, texture)) in surface_frames.drain() {
+            texture.present();
+        }
+
         surface_frames.clear();
     }
 
