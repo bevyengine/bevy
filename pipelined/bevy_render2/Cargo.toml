@@ -29,7 +29,7 @@ bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
 image = { version = "0.23.12", default-features = false }
 
 # misc
-wgpu = { version = "0.11.0", features = ["spirv"] }
+wgpu = { version = "0.11.0", features = ["spirv", "webgl"] }
 naga = { version = "0.7.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
