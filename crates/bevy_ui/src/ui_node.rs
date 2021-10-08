@@ -57,6 +57,10 @@ impl AddAssign<f32> for Val {
     }
 }
 
+/// UI node style.
+/// 
+/// The UI layout system follows the CSS layout model specification (see
+/// [this section](https://www.w3.org/TR/CSS2/visuren.html) in particular).
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Style {
