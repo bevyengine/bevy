@@ -57,12 +57,14 @@ impl WgpuRenderer {
         #[cfg(not(feature = "trace"))]
         let trace_path = None;
 
+        let adapter_limits = adapter.limits();
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: options.device_label.as_ref().map(|a| a.as_ref()),
                     features: options.features.wgpu_into(),
-                    limits: options.limits.wgpu_into(),
+                    limits: adapter_limits,
                 },
                 trace_path,
             )
