@@ -20,8 +20,8 @@ impl ShaderId {
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
-    #[error(transparent)]
-    GlslParse(#[from] naga::front::glsl::Error),
+    #[error("GLSL Parse Error: {0:?}")]
+    GlslParse(Vec<naga::front::glsl::Error>),
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
@@ -33,7 +33,7 @@ pub enum ShaderReflectError {
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub enum Shader {
     Wgsl(Cow<'static, str>),
-    Glsl(Cow<'static, str>),
+    Glsl(Cow<'static, str>, naga::ShaderStage),
     SpirV(Vec<u8>),
     // TODO: consider the following
     // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
@@ -68,7 +68,12 @@ impl Shader {
         let module = match &self {
             // TODO: process macros here
             Shader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
-            Shader::Glsl(_source) => unimplemented!("GLSL reflection not implemented"),
+            Shader::Glsl(source, shader_stage) => {
+                let mut parser = naga::front::glsl::Parser::default();
+                parser
+                    .parse(&naga::front::glsl::Options::from(*shader_stage), source)
+                    .map_err(ShaderReflectError::GlslParse)?
+            }
             Shader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
                 &naga::front::spv::Options {
@@ -93,8 +98,8 @@ impl Shader {
         Shader::Wgsl(source.into())
     }
 
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>) -> Shader {
-        Shader::Glsl(source.into())
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+        Shader::Glsl(source.into(), stage)
     }
 
     pub fn from_spirv(source: Vec<u8>) -> Shader {
@@ -136,7 +141,7 @@ impl<'a> From<&'a Shader> for ShaderModuleDescriptor<'a> {
             label: None,
             source: match shader {
                 Shader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
-                Shader::Glsl(_source) => {
+                Shader::Glsl(_source, _stage) => {
                     let reflection = shader.reflect().unwrap();
                     let wgsl = reflection.get_wgsl().unwrap();
                     ShaderSource::Wgsl(wgsl.into())
