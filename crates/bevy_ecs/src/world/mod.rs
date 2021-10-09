@@ -186,7 +186,7 @@ impl World {
     /// ```
     #[inline]
     pub fn entity(&self, entity: Entity) -> EntityRef {
-        self.get_entity(entity).expect("Entity does not exist")
+        self.get_entity(entity).expect(&format!("Entity #{} does not exist (generation #{})", entity.id(), entity.generation()))
     }
 
     /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
@@ -211,7 +211,7 @@ impl World {
     /// ```
     #[inline]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
-        self.get_entity_mut(entity).expect("Entity does not exist")
+        self.get_entity_mut(entity).expect(&format!("Entity #{} does not exist (generation #{})", entity.id(), entity.generation()))
     }
 
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
