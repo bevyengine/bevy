@@ -186,7 +186,14 @@ impl World {
     /// ```
     #[inline]
     pub fn entity(&self, entity: Entity) -> EntityRef {
-        self.get_entity(entity).expect(&format!("Entity #{} does not exist (generation #{})", entity.id(), entity.generation()))
+        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
+        self.get_entity(entity).unwrap_or_else(|| {
+            panic!(
+                "Entity #{} does not exist (generation #{})",
+                entity.id(),
+                entity.generation()
+            )
+        })
     }
 
     /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
@@ -207,11 +214,18 @@ impl World {
     ///     .id();
     ///
     /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
-    /// position.x = 1.0;
+    /// position.x = 1.0;F
     /// ```
     #[inline]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
-        self.get_entity_mut(entity).expect(&format!("Entity #{} does not exist (generation #{})", entity.id(), entity.generation()))
+        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
+        self.get_entity_mut(entity).unwrap_or_else(|| {
+            panic!(
+                "Entity #{} does not exist (generation #{})",
+                entity.id(),
+                entity.generation()
+            )
+        })
     }
 
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
