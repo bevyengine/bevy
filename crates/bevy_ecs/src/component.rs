@@ -39,7 +39,7 @@ pub struct TableStorage;
 pub struct SparseStorage;
 
 pub trait ComponentStorage: sealed::Sealed {
-    // because the trait is selaed, those items are private API.
+    // because the trait is sealed, those items are private API.
     const STORAGE_TYPE: StorageType;
 }
 
