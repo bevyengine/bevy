@@ -214,7 +214,7 @@ impl World {
     ///     .id();
     ///
     /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
-    /// position.x = 1.0;F
+    /// position.x = 1.0;
     /// ```
     #[inline]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
