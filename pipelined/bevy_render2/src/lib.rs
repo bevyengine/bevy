@@ -21,8 +21,9 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
+use bevy_derive::AppLabel;
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
 use wgpu::Backends;

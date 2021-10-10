@@ -4,8 +4,9 @@ mod draw_state;
 pub use draw::*;
 pub use draw_state::*;
 
-use bevy_ecs::prelude::Query;
+use bevy_ecs::prelude::{Component, Query};
 
+#[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
     pub items: Vec<I>,
 }

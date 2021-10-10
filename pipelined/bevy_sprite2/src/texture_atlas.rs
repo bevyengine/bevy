@@ -1,5 +1,6 @@
 use crate::Rect;
 use bevy_asset::Handle;
+use bevy_ecs::prelude::Component;
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render2::{color::Color, texture::Image};
@@ -20,7 +21,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Debug, Clone, TypeUuid, Reflect)]
+#[derive(Component, Debug, Clone, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct TextureAtlasSprite {
     pub color: Color,

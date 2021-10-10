@@ -22,7 +22,7 @@ crevice-derive = { version = "0.6.0", path = "crevice-derive" }
 
 bytemuck = "1.4.1"
 mint = "0.5.5"
-glam = "0.15.1"
+glam = "0.19"
 
 [dev-dependencies]
 crevice-derive = { version = "0.6.0", path = "crevice-derive" }

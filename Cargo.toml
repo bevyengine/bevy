@@ -2,10 +2,6 @@
 name = "bevy"
 version = "0.5.0"
 edition = "2018"
-authors = [
-  "Bevy Contributors <bevyengine@gmail.com>",
-  "Carter Anderson <mcanders1@gmail.com>",
-]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
@@ -24,7 +20,6 @@ members = ["crates/*", "pipelined/*", "examples/ios", "tools/ci"]
 default = [
   "bevy_audio",
   "bevy_core_pipeline",
-  "bevy_dynamic_plugin",
   "bevy_gilrs",
   "bevy_gltf2",
   "bevy_wgpu",
@@ -56,7 +51,7 @@ bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
-bevy_wgpu = ["bevy_internal/bevy_wgpu"]
+bevy_wgpu = ["bevy_internal/bevy_wgpu"] 
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
@@ -66,6 +61,7 @@ bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
 bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
+trace_tracy = ["bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 

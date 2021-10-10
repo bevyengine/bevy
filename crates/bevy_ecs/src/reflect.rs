@@ -1,3 +1,5 @@
+//! Types that enable reflection support.
+
 pub use crate::change_detection::ReflectMut;
 use crate::{
     component::Component,

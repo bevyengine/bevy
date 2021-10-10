@@ -1,7 +1,8 @@
+use bevy_ecs::prelude::Component;
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 
-#[derive(Debug, Default, Clone, TypeUuid, Reflect)]
+#[derive(Component, Debug, Default, Clone, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[repr(C)]
 pub struct Sprite {

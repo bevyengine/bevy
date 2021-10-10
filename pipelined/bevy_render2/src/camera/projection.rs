@@ -1,4 +1,5 @@
 use super::DepthCalculation;
+use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Mat4;
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -10,7 +11,7 @@ pub trait CameraProjection {
     fn depth_calculation(&self) -> DepthCalculation;
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct PerspectiveProjection {
     pub fov: f32,
@@ -66,7 +67,7 @@ pub enum ScalingMode {
     FixedHorizontal,
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct OrthographicProjection {
     pub left: f32,

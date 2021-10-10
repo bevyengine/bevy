@@ -1,16 +1,15 @@
-pub use bevy_derive::AppLabel;
-
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
 use bevy_ecs::{
-    component::{Component, ComponentDescriptor},
-    prelude::{FromWorld, IntoExclusiveSystem, IntoSystem},
+    prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, SystemSet, SystemStage,
+        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
+        SystemStage,
     },
+    system::Resource,
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -20,9 +19,10 @@ bevy_utils::define_label!(AppLabel);
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
-/// of the App, which by default executes the App schedule once. Apps are constructed using the
-/// builder pattern.
+/// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
+/// an ECS-based application. It also stores a pointer to a
+/// [runner function](App::set_runner), which by default executes the App schedule
+/// once. Apps are constructed with the builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
@@ -32,7 +32,7 @@ bevy_utils::define_label!(AppLabel);
 ///
 /// fn main() {
 ///    App::new()
-///        .add_system(hello_world_system.system())
+///        .add_system(hello_world_system)
 ///        .run();
 /// }
 ///
@@ -85,6 +85,9 @@ impl App {
         }
     }
 
+    /// Advances the execution of the [`Schedule`] by one cycle.
+    ///
+    /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let bevy_frame_update_span = info_span!("frame");
@@ -156,6 +159,24 @@ impl App {
         self
     }
 
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
+    /// after the stage labeled by `target`.
+    ///
+    /// The `target` label must refer to a stage inside the startup schedule.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = App::new();
+    /// #
+    /// app.add_startup_stage_after(
+    ///     StartupStage::Startup,
+    ///     "my_startup_stage",
+    ///     SystemStage::parallel()
+    /// );
+    /// ```
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -169,6 +190,24 @@ impl App {
         self
     }
 
+    /// Adds a [startup stage](Self::add_default_stages) with the given `label`, immediately
+    /// before the stage labeled by `target`.
+    ///
+    /// The `target` label must refer to a stage inside the startup schedule.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = App::new();
+    /// #
+    /// app.add_startup_stage_before(
+    ///     StartupStage::Startup,
+    ///     "my_startup_stage",
+    ///     SystemStage::parallel()
+    /// );
+    /// ```
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -182,6 +221,30 @@ impl App {
         self
     }
 
+    /// Fetches the [`Stage`] of type `T` marked with `label` from the [`Schedule`], then
+    /// executes the provided `func` passing the fetched stage to it as an argument.
+    ///
+    /// The `func` argument should be a function or a closure that accepts a mutable reference
+    /// to a struct implementing `Stage` and returns the same type. That means that it should
+    /// also assume that the stage has already been fetched successfully.
+    ///
+    /// See [`Schedule::stage`] for more details.
+    ///
+    /// # Example
+    ///
+    /// Here the closure is used to add a system to the update stage:
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn my_system() {}
+    /// #
+    /// app.stage(CoreStage::Update, |stage: &mut SystemStage| {
+    ///     stage.add_system(my_system)
+    /// });
+    /// ```
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
         label: impl StageLabel,
@@ -191,40 +254,63 @@ impl App {
         self
     }
 
-    /// Adds a system that runs every time `app.update()` is called by the runner
+    /// Adds a system to the [update stage](Self::add_default_stages) of the app's [`Schedule`].
     ///
-    /// Systems are the main building block in the Bevy ECS app model. You can define
-    /// normal rust functions, and call `.system()` to make them be Bevy systems.
+    /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
+    /// can be defined.
     ///
-    /// System functions can have parameters, through which one can query and
-    /// mutate Bevy ECS states.
-    /// See [The Bevy Book](https://bevyengine.org/learn/book/introduction/) for more information.
+    /// # Example
     ///
-    /// Systems are run in parallel, and the execution order is not deterministic.
-    /// If you want more fine-grained control for order, see [`App::add_system_to_stage`].
-    ///
-    /// For adding a system that runs only at app startup, see [`App::add_startup_system`].
-    ///
-    /// ## Example
     /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_system(_commands: Commands) {
-    ///     println!("My system, triggered once per frame");
-    /// }
-    ///
-    /// App::new()
-    ///     .add_system(my_system.system());
+    /// # fn my_system() {}
+    /// # let mut app = App::new();
+    /// #
+    /// app.add_system(my_system);
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
         self.add_system_to_stage(CoreStage::Update, system)
     }
 
+    /// Adds a [`SystemSet`] to the [update stage](Self::add_default_stages).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn system_c() {}
+    /// #
+    /// app.add_system_set(
+    ///     SystemSet::new()
+    ///         .with_system(system_a)
+    ///         .with_system(system_b)
+    ///         .with_system(system_c),
+    /// );
+    /// ```
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.add_system_set_to_stage(CoreStage::Update, system_set)
     }
 
+    /// Adds a system to the [`Stage`] identified by `stage_label`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn my_system() {}
+    /// #
+    /// app.add_system_to_stage(CoreStage::PostUpdate, my_system);
+    /// ```
     pub fn add_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
@@ -234,6 +320,27 @@ impl App {
         self
     }
 
+    /// Adds a [`SystemSet`] to the [`Stage`] identified by `stage_label`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn system_c() {}
+    /// #
+    /// app.add_system_set_to_stage(
+    ///     CoreStage::PostUpdate,
+    ///     SystemSet::new()
+    ///         .with_system(system_a)
+    ///         .with_system(system_b)
+    ///         .with_system(system_c),
+    /// );
+    /// ```
     pub fn add_system_set_to_stage(
         &mut self,
         stage_label: impl StageLabel,
@@ -244,13 +351,10 @@ impl App {
         self
     }
 
-    /// Adds a system that is run once at application startup
+    /// Adds a system to the [startup stage](Self::add_default_stages) of the app's [`Schedule`].
     ///
-    /// Startup systems run exactly once BEFORE all other systems. These are generally used for
-    /// app initialization code (ex: adding entities and resources).
-    ///
-    /// * For adding a system that runs for every frame, see [`App::add_system`].
-    /// * For adding a system to specific stage, see [`App::add_system_to_stage`].
+    /// * For adding a system that runs for every frame, see [`add_system`](Self::add_system).
+    /// * For adding a system to specific stage, see [`add_system_to_stage`](Self::add_system_to_stage).
     ///
     /// ## Example
     /// ```
@@ -271,10 +375,46 @@ impl App {
         self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
+    /// Adds a [`SystemSet`] to the [startup stage](Self::add_default_stages)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn startup_system_a() {}
+    /// # fn startup_system_b() {}
+    /// # fn startup_system_c() {}
+    /// #
+    /// app.add_startup_system_set(
+    ///     SystemSet::new()
+    ///         .with_system(startup_system_a)
+    ///         .with_system(startup_system_b)
+    ///         .with_system(startup_system_c),
+    /// );
+    /// ```
     pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
     }
 
+    /// Adds a system to the [startup schedule](Self::add_default_stages), in the stage
+    /// identified by `stage_label`.
+    ///
+    /// `stage_label` must refer to a stage inside the startup schedule.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn my_startup_system() {}
+    /// #
+    /// app.add_startup_system_to_stage(StartupStage::PreStartup, my_startup_system);
+    /// ```
     pub fn add_startup_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
@@ -287,6 +427,30 @@ impl App {
         self
     }
 
+    /// Adds a [`SystemSet`] to the [startup schedule](Self::add_default_stages), in the stage
+    /// identified by `stage_label`.
+    ///
+    /// `stage_label` must refer to a stage inside the startup schedule.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn startup_system_a() {}
+    /// # fn startup_system_b() {}
+    /// # fn startup_system_c() {}
+    /// #
+    /// app.add_startup_system_set_to_stage(
+    ///     StartupStage::PreStartup,
+    ///     SystemSet::new()
+    ///         .with_system(startup_system_a)
+    ///         .with_system(startup_system_b)
+    ///         .with_system(startup_system_c),
+    /// );
+    /// ```
     pub fn add_startup_system_set_to_stage(
         &mut self,
         stage_label: impl StageLabel,
@@ -306,7 +470,7 @@ impl App {
     /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
@@ -318,12 +482,47 @@ impl App {
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
     }
 
+    /// Adds utility stages to the [`Schedule`], giving it a standardized structure.
+    ///
+    /// Adding those stages is necessary to make some core engine features work, like
+    /// adding systems without specifying a stage, or registering events. This is however
+    /// done by default by calling `App::default`, which is in turn called by
+    /// [`App::new`].
+    ///
+    /// # The stages
+    ///
+    /// All the added stages, with the exception of the startup stage, run every time the
+    /// schedule is invoked. The stages are the following, in order of execution:
+    /// - **First:** Runs at the very start of the schedule execution cycle, even before the
+    ///   startup stage.
+    /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
+    ///   when the app starts.
+    ///     - **Pre-startup:** Intended for systems that need to run before other startup systems.
+    ///     - **Startup:** The main startup stage. Startup systems are added here by default.
+    ///     - **Post-startup:** Intended for systems that need to run after other startup systems.
+    /// - **Pre-update:** Often used by plugins to prepare their internal state before the
+    ///   update stage begins.
+    /// - **Update:** Intended for user defined logic. Systems are added here by default.
+    /// - **Post-update:** Often used by plugins to finalize their internal state after the
+    ///   world changes that happened during the update stage.
+    /// - **Last:** Runs right before the end of the schedule execution cycle.
+    ///
+    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`]
+    /// `enum`s.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// let app = App::empty().add_default_stages();
+    /// ```
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
             .add_stage(
@@ -344,20 +543,34 @@ impl App {
     ///
     /// This is done by adding a `Resource` of type `Events::<T>`,
     /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
+    ///
+    /// See [`Events`](bevy_ecs::event::Events) for defining events.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct MyEvent;
+    /// # let mut app = App::new();
+    /// #
+    /// app.add_event::<MyEvent>();
+    /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
-        self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
+        self.init_resource::<Events<T>>()
+            .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     ///
     /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
-    /// before using them. This happens with [`App::insert_resource`].
+    /// before using them. This happens with [`insert_resource`](Self::insert_resource).
     ///
-    /// See also `init_resource` for resources that implement `Default` or [`FromResources`].
+    /// See also `init_resource` for resources that implement `Default` or [`FromWorld`].
     ///
     /// ## Example
     /// ```
@@ -372,7 +585,7 @@ impl App {
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Component,
+        T: Resource,
     {
         self.world.insert_resource(resource);
         self
@@ -402,10 +615,11 @@ impl App {
         self
     }
 
-    /// Initialize a resource in the current [App], if it does not exist yet
+    /// Initialize a resource in the current [`App`], if it does not exist yet
     ///
-    /// Adds a resource that implements `Default` or [`FromResources`] trait.
-    /// If the resource already exists, `init_resource` does nothing.
+    /// If the resource already exists, nothing happens.
+    ///
+    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
     ///
     /// ## Example
     /// ```
@@ -440,6 +654,9 @@ impl App {
         self
     }
 
+    /// Initialize a non-send resource in the current [`App`], if it does not exist yet.
+    ///
+    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
     pub fn init_non_send_resource<R>(&mut self) -> &mut Self
     where
         R: FromWorld + 'static,
@@ -452,12 +669,14 @@ impl App {
         self
     }
 
-    /// Sets the main runner loop function for this Bevy App
+    /// Sets the function that will be called when the app is run.
     ///
-    /// Usually the main loop is handled by Bevy integrated plugins ([`WinitPlugin`]), but
-    /// in some cases one might wish to implement their own main loop.
+    /// The runner function (`run_fn`) is called only once by [`App::run`]. If the
+    /// presence of a main loop in the app is desired, it is responsibility of the runner
+    /// function to provide it.
     ///
-    /// This method sets the main loop function, overwriting a previous runner if any.
+    /// The runner function is usually not set manually, but by Bevy integrated plugins
+    /// (e.g. winit plugin).
     ///
     /// ## Example
     /// ```
@@ -483,7 +702,7 @@ impl App {
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
     /// as plugins. This includes internal features like the renderer.
     ///
-    /// Bevy also provides a few sets of default plugins. See [`App::add_plugins`].
+    /// Bevy also provides a few sets of default plugins. See [`add_plugins`](Self::add_plugins).
     ///
     /// ## Example
     /// ```
@@ -568,17 +787,7 @@ impl App {
         self
     }
 
-    /// Registers a new component using the given [ComponentDescriptor]. Components do not need to
-    /// be manually registered. This just provides a way to override default configuration.
-    /// Attempting to register a component with a type that has already been used by [World]
-    /// will result in an error.
-    ///
-    /// See [World::register_component]
-    pub fn register_component(&mut self, descriptor: ComponentDescriptor) -> &mut Self {
-        self.world.register_component(descriptor).unwrap();
-        self
-    }
-
+    /// Adds the type `T` to the type registry resource.
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {

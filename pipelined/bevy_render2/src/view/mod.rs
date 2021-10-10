@@ -23,6 +23,7 @@ impl Plugin for ViewPlugin {
     }
 }
 
+#[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
@@ -42,6 +43,7 @@ pub struct ViewUniforms {
     pub uniforms: DynamicUniformVec<ViewUniform>,
 }
 
+#[derive(Component)]
 pub struct ViewUniformOffset {
     pub offset: u32,
 }

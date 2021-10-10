@@ -2,10 +2,6 @@
 name = "bevy_internal"
 version = "0.5.0"
 edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -17,6 +13,7 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 wgpu_trace = ["bevy_wgpu/trace"]
 trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render2/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
+trace_tracy = [ "bevy_log/tracing-tracy" ]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr", "bevy_render2/hdr" ]
@@ -84,4 +81,4 @@ bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = {version = "0.2", features = ["logger"]}
+ndk-glue = {version = "0.4", features = ["logger"]}

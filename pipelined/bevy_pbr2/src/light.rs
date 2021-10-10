@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::Component;
 use bevy_render2::{camera::OrthographicProjection, color::Color};
 
 /// A light that emits light in all directions from a central point.
@@ -17,7 +18,7 @@ use bevy_render2::{camera::OrthographicProjection, color::Color};
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -86,7 +87,7 @@ impl Default for PointLightShadowMap {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -153,6 +154,8 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a `Mesh` not cast shadows
+#[derive(Component)]
 pub struct NotShadowCaster;
 /// Add this component to make a `Mesh` not receive shadows
+#[derive(Component)]
 pub struct NotShadowReceiver;

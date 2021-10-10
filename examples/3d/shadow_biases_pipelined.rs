@@ -216,6 +216,7 @@ fn adjust_directional_light_biases(
     }
 }
 
+#[derive(Component)]
 struct CameraController {
     pub enabled: bool,
     pub sensitivity: f32,

@@ -1,6 +1,6 @@
-use crate::app::{App, AppExit};
-use bevy_ecs::system::IntoSystem;
 use serde::Deserialize;
+
+use crate::{app::AppExit, App};
 
 /// Configuration for automated testing on CI
 #[derive(Deserialize)]
@@ -30,7 +30,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     )
     .expect("error deserializing CI testing configuration file");
     app.insert_resource(config)
-        .add_system(ci_testing_exit_after.system());
+        .add_system(ci_testing_exit_after);
 
     app
 }

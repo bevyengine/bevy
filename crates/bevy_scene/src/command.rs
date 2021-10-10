@@ -23,7 +23,7 @@ pub trait SpawnSceneCommands {
     fn spawn_scene(&mut self, scene: Handle<Scene>);
 }
 
-impl<'s, 'w> SpawnSceneCommands for Commands<'s, 'w> {
+impl<'w, 's> SpawnSceneCommands for Commands<'w, 's> {
     fn spawn_scene(&mut self, scene_handle: Handle<Scene>) {
         self.add(SpawnScene { scene_handle });
     }
@@ -45,7 +45,7 @@ pub trait SpawnSceneAsChildCommands {
     fn spawn_scene(&mut self, scene: Handle<Scene>) -> &mut Self;
 }
 
-impl<'s, 'w, 'a> SpawnSceneAsChildCommands for ChildBuilder<'s, 'w, 'a> {
+impl<'w, 's, 'a> SpawnSceneAsChildCommands for ChildBuilder<'w, 's, 'a> {
     fn spawn_scene(&mut self, scene_handle: Handle<Scene>) -> &mut Self {
         self.add_command(SpawnSceneAsChild {
             scene_handle,

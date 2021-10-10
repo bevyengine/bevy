@@ -258,6 +258,16 @@ where
         unsafe { self.iter_unchecked(world) }
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries.
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
+    /// write-queries.
     #[inline]
     pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, Q, F>
     where
@@ -524,7 +534,7 @@ where
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
             <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-        if fetch.is_dense() && filter.is_dense() {
+        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
                 let table = &tables[*table_id];
@@ -579,12 +589,7 @@ where
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
-            let fetch =
-                <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-            let filter =
-                <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-
-            if fetch.is_dense() && filter.is_dense() {
+            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
                     let table = &tables[*table_id];

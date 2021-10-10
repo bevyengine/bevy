@@ -28,6 +28,7 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct Movable;
 
 /// set up a simple 3D scene

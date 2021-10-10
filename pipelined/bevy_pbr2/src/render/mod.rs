@@ -28,7 +28,7 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
-#[derive(AsStd140, Clone)]
+#[derive(Component, AsStd140, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -484,6 +484,7 @@ pub fn queue_transform_bind_group(
     }
 }
 
+#[derive(Component)]
 pub struct PbrViewBindGroup {
     pub value: BindGroup,
 }

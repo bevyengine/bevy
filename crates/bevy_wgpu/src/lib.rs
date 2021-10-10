@@ -10,10 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    system::{IntoExclusiveSystem, IntoSystem},
-    world::World,
-};
+use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_render::{
     renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
     RenderStage,
@@ -108,10 +105,7 @@ impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut App) {
         let render_system = get_wgpu_render_system(&mut app.world);
         app.add_system_to_stage(RenderStage::Render, render_system.exclusive_system())
-            .add_system_to_stage(
-                RenderStage::PostRender,
-                shared_buffers_update_system.system(),
-            );
+            .add_system_to_stage(RenderStage::PostRender, shared_buffers_update_system);
     }
 }
 
@@ -119,7 +113,7 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
     let options = world
         .get_resource::<WgpuOptions>()
         .cloned()
-        .unwrap_or_else(WgpuOptions::default);
+        .unwrap_or_default();
     let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
 
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());

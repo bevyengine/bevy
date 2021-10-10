@@ -7,19 +7,11 @@ mod enum_variant_meta;
 mod modules;
 mod render_resource;
 mod render_resources;
-mod resource;
 mod shader_defs;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
-
-/// Derives the FromResources trait. Each field must also implement the FromResources trait or this
-/// will fail. FromResources is automatically implemented for types that implement Default.
-#[proc_macro_derive(FromResources)]
-pub fn derive_from_resources(input: TokenStream) -> TokenStream {
-    resource::derive_from_resources(input)
-}
 
 /// Derives the Bytes trait. Each field must also implements Bytes or this will fail.
 #[proc_macro_derive(Bytes)]

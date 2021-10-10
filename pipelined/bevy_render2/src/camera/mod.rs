@@ -51,7 +51,7 @@ pub struct ExtractedCameraNames {
     pub entities: HashMap<String, Entity>,
 }
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 pub struct ExtractedCamera {
     pub window_id: WindowId,
     pub name: Option<String>,

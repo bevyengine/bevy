@@ -23,7 +23,7 @@ impl<'a> Serializable<'a> {
 
 fn get_serializable<E: serde::ser::Error>(reflect_value: &dyn Reflect) -> Result<Serializable, E> {
     reflect_value.serializable().ok_or_else(|| {
-        serde::ser::Error::custom(&format!(
+        serde::ser::Error::custom(format_args!(
             "Type '{}' does not support ReflectValue serialization",
             reflect_value.type_name()
         ))

@@ -1,3 +1,6 @@
+//! Types for defining [`Archetype`]s, collections of entities that have the same set of
+//! components.
+
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},

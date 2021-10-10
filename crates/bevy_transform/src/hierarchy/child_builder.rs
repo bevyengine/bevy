@@ -40,8 +40,8 @@ pub struct PushChildren {
     children: SmallVec<[Entity; 8]>,
 }
 
-pub struct ChildBuilder<'s, 'w, 'a> {
-    commands: &'a mut Commands<'s, 'w>,
+pub struct ChildBuilder<'w, 's, 'a> {
+    commands: &'a mut Commands<'w, 's>,
     push_children: PushChildren,
 }
 
@@ -71,14 +71,14 @@ impl Command for PushChildren {
     }
 }
 
-impl<'s, 'w, 'a> ChildBuilder<'s, 'w, 'a> {
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'s, 'w, '_> {
+impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn_bundle(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
-    pub fn spawn(&mut self) -> EntityCommands<'s, 'w, '_> {
+    pub fn spawn(&mut self) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn();
         self.push_children.children.push(e.id());
         e
@@ -100,7 +100,7 @@ pub trait BuildChildren {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 }
 
-impl<'s, 'w, 'a> BuildChildren for EntityCommands<'s, 'w, 'a> {
+impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let push_children = {
@@ -219,7 +219,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -227,6 +227,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
+            self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.extend(children.iter().cloned());
@@ -239,7 +241,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFE: parent entity is not modified
+            // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
                 world
@@ -247,6 +249,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                     // FIXME: don't erase the previous parent (see #1545)
                     .insert_bundle((Parent(parent), PreviousParent(parent)));
             }
+            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
+            self.update_location();
         }
 
         if let Some(mut children_component) = self.get_mut::<Children>() {
@@ -322,11 +326,15 @@ mod tests {
     use super::{BuildChildren, BuildWorldChildren};
     use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{
+        component::Component,
         entity::Entity,
         system::{CommandQueue, Commands},
         world::World,
     };
     use smallvec::{smallvec, SmallVec};
+
+    #[derive(Component)]
+    struct C(u32);
 
     #[test]
     fn build_children() {
@@ -335,11 +343,11 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
 
         let mut children = Vec::new();
-        let parent = commands.spawn().insert(1).id();
+        let parent = commands.spawn().insert(C(1)).id();
         commands.entity(parent).with_children(|parent| {
-            children.push(parent.spawn().insert(2).id());
-            children.push(parent.spawn().insert(3).id());
-            children.push(parent.spawn().insert(4).id());
+            children.push(parent.spawn().insert(C(2)).id());
+            children.push(parent.spawn().insert(C(3)).id());
+            children.push(parent.spawn().insert(C(4)).id());
         });
 
         queue.apply(&mut world);
@@ -365,7 +373,7 @@ mod tests {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -426,7 +434,7 @@ mod tests {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
 
         world.entity_mut(entities[0]).push_children(&entities[1..3]);
@@ -470,5 +478,12 @@ mod tests {
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(parent)
         );
+    }
+
+    #[test]
+    fn regression_push_children_same_archetype() {
+        let mut world = World::new();
+        let child = world.spawn().id();
+        world.spawn().push_children(&[child]);
     }
 }

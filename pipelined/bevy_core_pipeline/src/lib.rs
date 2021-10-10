@@ -192,6 +192,7 @@ impl PhaseItem for Transparent3d {
     }
 }
 
+#[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
     pub view: TextureView,

@@ -147,6 +147,7 @@ impl FromWorld for SpriteShaders {
     }
 }
 
+#[derive(Component)]
 pub struct ExtractedSprite {
     transform: Mat4,
     rect: Rect,

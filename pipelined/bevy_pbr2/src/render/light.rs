@@ -34,7 +34,7 @@ pub struct ExtractedAmbientLight {
     color: Color,
     brightness: f32,
 }
-
+#[derive(Component)]
 pub struct ExtractedPointLight {
     color: Color,
     /// luminous intensity in lumens per steradian
@@ -47,7 +47,7 @@ pub struct ExtractedPointLight {
 }
 
 pub type ExtractedPointLightShadowMap = PointLightShadowMap;
-
+#[derive(Component)]
 pub struct ExtractedDirectionalLight {
     color: Color,
     illuminance: f32,
@@ -357,11 +357,13 @@ fn face_index_to_name(face_index: usize) -> &'static str {
     }
 }
 
+#[derive(Component)]
 pub struct ViewLight {
     pub depth_texture_view: TextureView,
     pub pass_name: String,
 }
 
+#[derive(Component)]
 pub struct ViewLights {
     pub point_light_depth_texture: Texture,
     pub point_light_depth_texture_view: TextureView,

@@ -12,6 +12,7 @@ fn main() {
 }
 
 /// this component indicates what entities should rotate
+#[derive(Component)]
 struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating

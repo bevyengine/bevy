@@ -17,6 +17,7 @@ use bevy_ecs::{
 use crevice::std140::AsStd140;
 use std::{marker::PhantomData, ops::Deref};
 
+#[derive(Component)]
 pub struct DynamicUniformIndex<C: Component> {
     index: u32,
     marker: PhantomData<C>,

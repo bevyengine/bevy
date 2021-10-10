@@ -1,3 +1,7 @@
+//! Types for handling [`Bundle`]s.
+//!
+//! This module contains the `Bundle` trait and some other helper types.
+
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -9,40 +13,71 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components, commonly used for spawning entities, and adding and
-/// removing components in bulk.
+/// An ordered collection of components.
 ///
-/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
-/// The `Bundle` trait is automatically implemented for tuples of components:
-/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections
-/// of components. Note that both `()` and `(ComponentA, )` are valid tuples.
+/// Commonly used for spawning entities and adding and removing components in bulk. This
+/// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
+/// is a very convenient shorthand when working with one-off collections of components. Note
+/// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
+/// particularly useful for spawning multiple empty entities by using
+/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
 ///
-/// You can nest bundles like so:
+/// # Examples
+///
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
+/// struct field is a component:
+///
 /// ```
-/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// #
+/// #[derive(Bundle)]
+/// struct MyBundle {
+///     a: ComponentA,
+///     b: ComponentB,
+///     c: ComponentC,
+/// }
+/// ```
+///
+/// You can nest bundles using the `#[bundle]` attribute:
+/// ```
+/// # use bevy_ecs::{component::Component, bundle::Bundle};
+///
+/// #[derive(Component)]
+/// struct X(i32);
+/// #[derive(Component)]
+/// struct Y(u64);
+/// #[derive(Component)]
+/// struct Z(String);
 ///
 /// #[derive(Bundle)]
 /// struct A {
-///     x: i32,
-///     y: u64,
+///     x: X,
+///     y: Y,
 /// }
 ///
 /// #[derive(Bundle)]
 /// struct B {
 ///     #[bundle]
 ///     a: A,
-///     z: String,
+///     z: Z,
 /// }
 /// ```
 ///
 /// # Safety
-/// [Bundle::component_id] must return the ComponentId for each component type in the bundle, in the
-/// _exact_ order that [Bundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
-/// [Bundle::component_id]
+///
+/// - [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
+///   _exact_ order that [Bundle::get_components] is called.
+/// - [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
+///   [Bundle::component_ids].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
-    fn component_ids(components: &mut Components) -> Vec<ComponentId>;
+    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's Components
@@ -62,11 +97,11 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        /// SAFE: TypeInfo is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
+        /// SAFE: Component is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components) -> Vec<ComponentId> {
-                vec![$(components.get_or_insert_id::<$name>()),*]
+            fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
+                vec![$(components.init_component::<$name>(storages)),*]
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -293,10 +328,7 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => {
-                        storages.sparse_sets.get_or_insert(component_info);
-                        new_sparse_set_components.push(component_id)
-                    }
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
             }
         }
@@ -560,10 +592,11 @@ impl Bundles {
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
         components: &mut Components,
+        storages: &mut Storages,
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let component_ids = T::component_ids(components);
+            let component_ids = T::component_ids(components, storages);
             let id = BundleId(bundle_infos.len());
             // SAFE: T::component_id ensures info was created
             let bundle_info = unsafe {
