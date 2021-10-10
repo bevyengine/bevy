@@ -478,10 +478,6 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        if let Some(name) = self.system_name {
-            println!("world despawn from {}", name);
-            self.despawned.push((entity, name));
-        }
         self.get_entity_mut(entity)
             .map(|e| {
                 e.despawn();

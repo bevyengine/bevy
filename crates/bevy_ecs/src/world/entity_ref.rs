@@ -411,6 +411,11 @@ impl<'w> EntityMut<'w> {
         let table_row;
         let moved_entity;
         {
+            if let Some(name) = world.system_name {
+                println!("world despawn from {}", name);
+                world.despawned.push((self.entity, name));
+            }
+
             let archetype = &mut world.archetypes[location.archetype_id];
             for component_id in archetype.components() {
                 let removed_components = world
