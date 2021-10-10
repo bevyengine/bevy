@@ -740,6 +740,11 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
 
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World) {
+        if world.despawned.len() > 0 {
+            println!("despawned clear {}", world.despawned.len());
+            world.despawned.clear();
+        }
+
         if let Some(world_id) = self.world_id {
             assert!(
                 world.id() == world_id,

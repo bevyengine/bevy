@@ -35,6 +35,7 @@ pub trait Command: Send + Sync + 'static {
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
+    pub(crate) name: &'static str,
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -43,7 +44,13 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue,
             entities: world.entities(),
+            name: "",
         }
+    }
+
+    pub fn with_name(mut self, name: &'static str) -> Self {
+        self.name = name;
+        self
     }
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
@@ -346,6 +353,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.entity
     }
 
+    pub fn system_name(&self) -> &'static str {
+        self.commands.name
+    }
+
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// # Example
@@ -506,6 +517,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
+            name: self.commands.name,
         })
     }
 
@@ -586,15 +598,19 @@ where
 #[derive(Debug)]
 pub struct Despawn {
     pub entity: Entity,
+    pub name: &'static str,
 }
 
 impl Command for Despawn {
     fn write(self, world: &mut World) {
+        println!("despawn from {}", self.name);
+        world.set_system_name(Some(self.name));
         if !world.despawn(self.entity) {
             warn!("Could not despawn entity {:?} because it doesn't exist in this World.\n\
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
                     This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", self.entity);
         }
+        world.set_system_name(None);
     }
 }
 
@@ -611,9 +627,15 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert_bundle(self.bundle);
         } else {
+            let name = world
+                .despawned
+                .iter()
+                .find_map(|(e, n)| if *e == self.entity { Some(n) } else { None })
+                .unwrap_or(&"unknown system");
             panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
+                    Entity was despawned in {}.\n\
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity, name);
         }
     }
 }
@@ -632,9 +654,15 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.component);
         } else {
+            let name = world
+                .despawned
+                .iter()
+                .find_map(|(e, n)| if *e == self.entity { Some(n) } else { None })
+                .unwrap_or(&"unknown system");
             panic!("Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
+                    Entity was despawned in {}.\n\
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity, name);
         }
     }
 }
@@ -751,6 +779,25 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Entity was despawned in test commands")]
+    fn use_after_despawn() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let entity = {
+            Commands::new(&mut command_queue, &world)
+                .spawn_bundle((1u32, 2u64))
+                .id()
+        };
+        command_queue.apply(&mut world);
+        {
+            let mut commands = Commands::new(&mut command_queue, &world).with_name("test commands");
+            commands.entity(entity).despawn();
+            commands.entity(entity).insert(5);
+        }
+        command_queue.apply(&mut world);
     }
 
     #[test]

@@ -83,6 +83,8 @@ pub struct World {
     main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
+    pub(crate) despawned: Vec<(Entity, &'static str)>,
+    pub(crate) system_name: Option<&'static str>,
 }
 
 impl Default for World {
@@ -101,6 +103,8 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
+            despawned: Vec::new(),
+            system_name: None,
         }
     }
 }
@@ -115,6 +119,12 @@ impl World {
     #[inline]
     pub fn new() -> World {
         World::default()
+    }
+
+    #[inline]
+    pub fn set_system_name(&mut self, name: Option<&'static str>) {
+        println!("set system name {:?}", name);
+        self.system_name = name;
     }
 
     /// Retrieves this [`World`]'s unique ID
@@ -468,6 +478,10 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        if let Some(name) = self.system_name {
+            println!("world despawn from {}", name);
+            self.despawned.push((entity, name));
+        }
         self.get_entity_mut(entity)
             .map(|e| {
                 e.despawn();

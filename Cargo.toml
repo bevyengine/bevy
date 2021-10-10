@@ -315,6 +315,10 @@ path = "examples/ecs/system_sets.rs"
 name = "timers"
 path = "examples/ecs/timers.rs"
 
+[[example]]
+name = "use_after_despawn"
+path = "examples/ecs/use_after_despawn.rs"
+
 # Games
 [[example]]
 name = "alien_cake_addict"

@@ -519,11 +519,15 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
     #[inline]
     unsafe fn get_param(
         state: &'s mut Self,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Commands::new(state, world)
+        let name: &'static str = match system_meta.name {
+            std::borrow::Cow::Borrowed(s) => s,
+            std::borrow::Cow::Owned(_) => "owned",
+        };
+        Commands::new(state, world).with_name(name)
     }
 }
 
