@@ -530,6 +530,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         Commands::new(state, world)
     }
 }
+
+/// SAFE: only reads world
+unsafe impl ReadOnlySystemParamFetch for WorldState {}
+
 /// The [`SystemParamState`] of [`&World`].
 pub struct WorldState;
 
