@@ -187,13 +187,8 @@ impl World {
     #[inline]
     pub fn entity(&self, entity: Entity) -> EntityRef {
         // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity(entity).unwrap_or_else(|| {
-            panic!(
-                "Entity #{} does not exist (generation #{})",
-                entity.id(),
-                entity.generation()
-            )
-        })
+        self.get_entity(entity)
+            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
     /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
@@ -219,13 +214,8 @@ impl World {
     #[inline]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
         // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity_mut(entity).unwrap_or_else(|| {
-            panic!(
-                "Entity #{} does not exist (generation #{})",
-                entity.id(),
-                entity.generation()
-            )
-        })
+        self.get_entity_mut(entity)
+            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
