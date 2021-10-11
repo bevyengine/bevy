@@ -50,13 +50,13 @@
 //! - [`Query`]
 //! - [`Res`] and `Option<Res>`
 //! - [`ResMut`] and `Option<ResMut>`
-//! - [`&World`]
 //! - [`Commands`]
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`&World`]
 //! - [`RemovedComponents`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
