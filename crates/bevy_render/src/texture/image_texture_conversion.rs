@@ -87,21 +87,9 @@ impl From<image::DynamicImage> for Texture {
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    let (r, g, b) = {
-                        #[cfg(debug_assertions)]
-                        {
-                            (pixel[0], pixel[1], pixel[2])
-                        }
-
-                        #[cfg(not(debug_assertions))]
-                        unsafe {
-                            (
-                                pixel.get_unchecked(0),
-                                pixel.get_unchecked(1),
-                                pixel.get_unchecked(2),
-                            )
-                        }
-                    };
+                    let r = pixel[0];
+                    let g = pixel[1];
+                    let b = pixel[2];
                     let a = u16::MAX;
 
                     local_data.extend_from_slice(&r.to_ne_bytes());
