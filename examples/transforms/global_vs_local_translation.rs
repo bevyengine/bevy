@@ -1,24 +1,16 @@
 use bevy::prelude::*;
 
-// Define structs to store state information.
-struct Moving;
-struct SpawnLocation(Vec3);
-
-// Define a marker for entities that should stop at a distance in respect to their global transform.
-struct GlobalStop;
-// Define a marker for entities that should stop at a distance in respect to their local transform.
-struct LocalStop;
-
-// Define the maximum distance an entity should be able to move away from its spawn.
-const MAX_DISTANCE: f32 = 5.0;
+// Define a marker for entities that should be changed via their global transform.
+struct ChangeGlobal;
+// Define a marker for entities that should be changed via their local transform.
+struct ChangeLocal;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(move_cubes)
-        .add_system(stop_too_far_global_distance)
-        .add_system(stop_too_far_local_distance)
+        .add_system(move_cubes_according_to_global_transform)
+        .add_system(move_cubes_according_to_local_transform)
         .run();
 }
 
@@ -31,10 +23,9 @@ fn setup(
     // To show the difference between a local transform (rotation, scale and position in respect to a given entity)
     // and global transform (rotation, scale and position in respect to the base coordinate system of the visible scene)
     // it's helpful to add multiple entities that are attached to each other.
-    // This way we'll see that the transform in respect to an entities parent is different to the
+    // This way we'll see that the transform in respect to an entity's parent is different to the
     // global transform within the visible scene.
     // This example focuses on translation only to clearly demonstrate the differences.
-    let main_entity_spawn: Transform = Transform::from_translation(Vec3::ZERO);
 
     // Spawn a basic cube to have an entity as reference.
     let mut main_entity = commands.spawn();
@@ -42,49 +33,37 @@ fn setup(
         .insert_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::YELLOW.into()),
-            transform: main_entity_spawn,
+            transform: Transform::from_translation(Vec3::ZERO),
             ..Default::default()
         })
-        .insert(GlobalStop)
-        .insert(Moving)
-        .insert(SpawnLocation(main_entity_spawn.translation));
-
-    // Define a spawn point for child entities just above the original entity.
-    let children_spawn = Transform::from_translation(Vec3::Y);
-    let global_behaviour_child_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::RED.into()),
-        transform: children_spawn,
-        ..Default::default()
-    };
-    let local_behaviour_child_mesh = PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::GREEN.into()),
-        transform: children_spawn,
-        ..Default::default()
-    };
+        .insert(ChangeLocal);
 
     // Spawn two entities as children above the original main entity.
-    // The red entity spawned here will change its behaviour depending on its global transform
-    // where the green one will change its behaviour depending on its local transform.
+    // The red entity spawned here will be changed via its global transform
+    // where the green one will be changed via its local transform.
     main_entity.with_children(|child_builder| {
         // also see parenting example
         child_builder
-            .spawn_bundle(global_behaviour_child_mesh)
-            .insert(GlobalStop)
-            .insert(Moving)
-            .insert(SpawnLocation(children_spawn.translation));
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                material: materials.add(Color::RED.into()),
+                transform: Transform::from_translation(Vec3::Y - Vec3::Z),
+                ..Default::default()
+            })
+            .insert(ChangeGlobal);
         child_builder
-            .spawn_bundle(local_behaviour_child_mesh)
-            .insert(LocalStop)
-            .insert(Moving)
-            .insert(SpawnLocation(children_spawn.translation));
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                material: materials.add(Color::GREEN.into()),
+                transform: Transform::from_translation(Vec3::Y + Vec3::Z),
+                ..Default::default()
+            })
+            .insert(ChangeLocal);
     });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 10.0, 20.0)
-            .looking_at(main_entity_spawn.translation, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
 
@@ -95,42 +74,32 @@ fn setup(
     });
 }
 
-// This system will move all entities that have an EntityState (all cubes).
-// The movement here is restricted to one direction (right in the sense of the cameras view).
-fn move_cubes(mut cubes: Query<&mut Transform, With<Moving>>, timer: Res<Time>) {
-    // Iterate over every entity with an EntityState that is not stopped.
+// This system will move all cubes that are marked as ChangeGlobal according to their global transform.
+fn move_cubes_according_to_global_transform(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut cubes: Query<&mut GlobalTransform, With<ChangeGlobal>>,
+    timer: Res<Time>,
+) {
+    for mut global_transform in cubes.iter_mut() {
+        let direction = direction_from_input(&keyboard_input);
+        global_transform.translation += Vec3::X * direction * timer.delta_seconds();
+    }
+}
+
+// This system will move all cubes that are marked as ChangeLocal according to their local transform.
+fn move_cubes_according_to_local_transform(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut cubes: Query<&mut Transform, With<ChangeLocal>>,
+    timer: Res<Time>,
+) {
     for mut transform in cubes.iter_mut() {
-        let dir = Vec3::X;
-        transform.translation += dir * timer.delta_seconds();
+        let direction = direction_from_input(&keyboard_input);
+        transform.translation += Vec3::X * direction * timer.delta_seconds();
     }
 }
 
-// This system will check all entities with an EntityState and the GlobalStop marker
-// and check if their distance to their original spawn in respect to their global transform
-// is greater than MAX_DISTANCE. If so, we mark that entity as stopped via its EntityState.
-fn stop_too_far_global_distance(
-    mut commands: Commands,
-    mut cubes: Query<(Entity, &GlobalTransform, &SpawnLocation), With<GlobalStop>>,
-) {
-    for (entity, global_transform, spawn) in cubes.iter_mut() {
-        if (global_transform.translation - spawn.0).length() >= MAX_DISTANCE {
-            commands.entity(entity).remove::<Moving>();
-        }
-    }
-}
-
-// This system will do essentially the same thing as in stop_too_far_global_distance but
-// using the local transform. Thus we'll check the traveling distance with respect to the
-// entities parent (in the case of the green cube this would be the yellow cube).
-// Since the parent (yellow) cube is also moving the green cube with LocalStop will travel further
-// than its red sibling that uses the behaviour tied to GlobalStop.
-fn stop_too_far_local_distance(
-    mut commands: Commands,
-    mut cubes: Query<(Entity, &Transform, &SpawnLocation), With<LocalStop>>,
-) {
-    for (entity, transform, spawn) in cubes.iter_mut() {
-        if (transform.translation - spawn.0).length() >= MAX_DISTANCE {
-            commands.entity(entity).remove::<Moving>();
-        }
-    }
+// A quick helper function to determine the cubes movement direction based on left/right-input
+fn direction_from_input(keyboard_input: &Res<Input<KeyCode>>) -> f32 {
+    (keyboard_input.pressed(KeyCode::Right) as i32 - keyboard_input.pressed(KeyCode::Left) as i32)
+        as f32
 }
