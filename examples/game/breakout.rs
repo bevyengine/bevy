@@ -1,10 +1,10 @@
-use rand::Rng;
 use bevy::{
     core::FixedTimestep,
     prelude::*,
-    render::{pass::ClearColor, camera::Camera},
+    render::{camera::Camera, pass::ClearColor},
     sprite::collide_aabb::{collide, Collision},
 };
+use rand::Rng;
 
 /// An implementation of the classic game "Breakout"
 const TIME_STEP: f32 = 1.0 / 60.0;
@@ -16,11 +16,9 @@ fn main() {
         .add_state(GameState::MainMenu)
         .add_event::<GameOverEvent>()
         .add_startup_system(setup_cameras)
-
         .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(ui_system_setup))
         .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(key_input_system))
         .add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(teardown))
-
         .add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup))
         .add_system_set(
             SystemSet::on_update(GameState::InGame)
@@ -31,11 +29,9 @@ fn main() {
                 .with_system(on_game_over),
         )
         .add_system_set(SystemSet::on_exit(GameState::InGame).with_system(teardown))
-
         .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(ui_system_setup))
         .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(key_input_system))
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
-
         .add_system_set(SystemSet::new().with_run_criteria(FixedTimestep::step(TIME_STEP as f64)))
         .add_system(bevy::input::system::exit_on_esc_system)
         .run();
@@ -71,9 +67,7 @@ enum GameState {
 
 struct GameOverEvent(usize);
 
-fn setup_cameras(
-    mut commands: Commands,
-) {
+fn setup_cameras(mut commands: Commands) {
     // cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
@@ -201,7 +195,14 @@ fn setup(
                 0.0,
             ) + bricks_offset;
             // brick
-            let brick_material = materials.add(Color::rgb(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0)).into());
+            let brick_material = materials.add(
+                Color::rgb(
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                )
+                .into(),
+            );
             commands
                 .spawn_bundle(SpriteBundle {
                     material: brick_material,
@@ -337,58 +338,58 @@ fn ui_system_setup(
         menu_content = "Main Menu".to_string();
     }
 
-    commands.spawn_bundle( NodeBundle {
-        style: Style {
-            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-            position_type: PositionType::Absolute,
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                position_type: PositionType::Absolute,
 
-            margin: Rect::all(Val::Auto),
+                margin: Rect::all(Val::Auto),
 
-            align_content: AlignContent::Center,
-            align_items: AlignItems::Center,
-            align_self: AlignSelf::Center,
+                align_content: AlignContent::Center,
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
 
-            justify_content: JustifyContent::Center,
+                justify_content: JustifyContent::Center,
 
+                ..Default::default()
+            },
+            material: materials.add(Color::NONE.into()),
             ..Default::default()
-        },
-        material: materials.add(Color::NONE.into()),
-        ..Default::default() 
-    }).with_children(|parent| {
-        parent.spawn_bundle(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: menu_content,
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::CRIMSON,
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle {
+                text: Text {
+                    sections: vec![
+                        TextSection {
+                            value: menu_content,
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::CRIMSON,
+                            },
                         },
-                    },
-                    TextSection {
-                        value: "\n[SPC] to play\n[ESC] to exit".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.5, 0.5, 1.0),
+                        TextSection {
+                            value: "\n[SPC] to play\n[ESC] to exit".to_string(),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.5, 0.5, 1.0),
+                            },
                         },
+                    ],
+                    alignment: TextAlignment {
+                        horizontal: HorizontalAlign::Center,
+                        ..Default::default()
                     },
-                ],
-                alignment: TextAlignment {
-                    horizontal: HorizontalAlign::Center,
                     ..Default::default()
                 },
                 ..Default::default()
-            },
-            ..Default::default()
+            });
         });
-    });
 }
 
-fn key_input_system(mut keys: ResMut<Input<KeyCode>>,
-    mut app_state: ResMut<State<GameState>>,
-) {
+fn key_input_system(mut keys: ResMut<Input<KeyCode>>, mut app_state: ResMut<State<GameState>>) {
     if keys.just_pressed(KeyCode::Space) {
         app_state.set(GameState::InGame).unwrap();
         keys.reset(KeyCode::Space);
