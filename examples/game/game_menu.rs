@@ -8,9 +8,26 @@ enum GameState {
     Game,
 }
 
+#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+enum DisplayQuality {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Debug)]
+struct Settings {
+    quality: DisplayQuality,
+    volume: u32,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(Settings {
+            quality: DisplayQuality::Medium,
+            volume: 5,
+        })
         .add_startup_system(setup)
         .add_state(GameState::Menu)
         .add_plugin(menu::MenuPlugin)
@@ -48,6 +65,7 @@ mod game {
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         mut materials: ResMut<Assets<ColorMaterial>>,
+        settings: Res<super::Settings>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -96,6 +114,22 @@ mod game {
                     ),
                     ..Default::default()
                 });
+                parent.spawn_bundle(TextBundle {
+                    style: Style {
+                        margin: Rect::all(Val::Px(50.0)),
+                        ..Default::default()
+                    },
+                    text: Text::with_section(
+                        format!("{:?}", *settings),
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 40.0,
+                            color: super::TEXT_COLOR,
+                        },
+                        Default::default(),
+                    ),
+                    ..Default::default()
+                });
             });
         commands.spawn_bundle((GameTimer(Timer::from_seconds(5.0, false)), ScreenGame));
     }
@@ -138,6 +172,9 @@ mod menu {
                         .with_system(display_preferences_menu_setup),
                 )
                 .add_system_set(
+                    SystemSet::on_update(MenuState::PrefDisplay).with_system(quality_button),
+                )
+                .add_system_set(
                     SystemSet::on_exit(MenuState::PrefDisplay)
                         .with_system(super::despawn_screen::<ScreenMenuPrefDisplay>),
                 )
@@ -146,16 +183,11 @@ mod menu {
                         .with_system(sound_preferences_menu_setup),
                 )
                 .add_system_set(
+                    SystemSet::on_update(MenuState::PrefSound).with_system(volume_button),
+                )
+                .add_system_set(
                     SystemSet::on_exit(MenuState::PrefSound)
                         .with_system(super::despawn_screen::<ScreenMenuPrefSound>),
-                )
-                .add_system_set(
-                    SystemSet::on_enter(MenuState::PrefControls)
-                        .with_system(controls_preferences_menu_setup),
-                )
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::PrefControls)
-                        .with_system(super::despawn_screen::<ScreenMenuPrefControls>),
                 )
                 .add_system_set(
                     SystemSet::on_update(super::GameState::Menu)
@@ -171,7 +203,6 @@ mod menu {
         Preferences,
         PrefDisplay,
         PrefSound,
-        PrefControls,
         Disabled,
     }
     #[derive(Component)]
@@ -183,12 +214,11 @@ mod menu {
     struct ScreenMenuPrefDisplay;
     #[derive(Component)]
     struct ScreenMenuPrefSound;
-    #[derive(Component)]
-    struct ScreenMenuPrefControls;
 
     struct ButtonMaterials {
         normal: Handle<ColorMaterial>,
         hovered: Handle<ColorMaterial>,
+        hovered_pressed: Handle<ColorMaterial>,
         pressed: Handle<ColorMaterial>,
     }
 
@@ -198,10 +228,14 @@ mod menu {
             ButtonMaterials {
                 normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
                 hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
+                hovered_pressed: materials.add(Color::rgb(0.25, 0.65, 0.25).into()),
                 pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
             }
         }
     }
+
+    #[derive(Component)]
+    struct SelectedOption;
 
     #[derive(Component)]
     enum MenuButtonAction {
@@ -209,7 +243,6 @@ mod menu {
         Preferences,
         PrefDisplay,
         PrefSound,
-        PrefControls,
         BackToMainMenu,
         BackToPreferences,
         Quit,
@@ -218,21 +251,88 @@ mod menu {
     fn button_system(
         button_materials: Res<ButtonMaterials>,
         mut interaction_query: Query<
-            (&Interaction, &mut Handle<ColorMaterial>),
+            (
+                &Interaction,
+                &mut Handle<ColorMaterial>,
+                Option<&SelectedOption>,
+            ),
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut material) in interaction_query.iter_mut() {
+        for (interaction, mut material, selected) in interaction_query.iter_mut() {
             match *interaction {
                 Interaction::Clicked => {
                     *material = button_materials.pressed.clone();
                 }
                 Interaction::Hovered => {
-                    *material = button_materials.hovered.clone();
+                    if selected.is_some() {
+                        *material = button_materials.hovered_pressed.clone();
+                    } else {
+                        *material = button_materials.hovered.clone();
+                    }
                 }
                 Interaction::None => {
-                    *material = button_materials.normal.clone();
+                    if selected.is_some() {
+                        *material = button_materials.pressed.clone();
+                    } else {
+                        *material = button_materials.normal.clone();
+                    }
                 }
+            }
+        }
+    }
+
+    fn quality_button(
+        button_materials: Res<ButtonMaterials>,
+        interaction_query: Query<
+            (&Interaction, &super::DisplayQuality, Entity),
+            (Changed<Interaction>, With<Button>),
+        >,
+        mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
+        mut commands: Commands,
+        mut settings: ResMut<super::Settings>,
+    ) {
+        for (interaction, quality, entity) in interaction_query.iter() {
+            match *interaction {
+                Interaction::Clicked => {
+                    if settings.quality != *quality {
+                        let (previous_button, mut previous_material) = selected_query.single_mut();
+                        *previous_material = button_materials.normal.clone();
+                        commands.entity(previous_button).remove::<SelectedOption>();
+                        commands.entity(entity).insert(SelectedOption);
+                        settings.quality = *quality;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    #[derive(Component)]
+    struct Volume(u32);
+
+    fn volume_button(
+        button_materials: Res<ButtonMaterials>,
+        interaction_query: Query<
+            (&Interaction, &Volume, Entity),
+            (Changed<Interaction>, With<Button>),
+        >,
+        mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
+        mut commands: Commands,
+        mut settings: ResMut<super::Settings>,
+    ) {
+        for (interaction, volume, entity) in interaction_query.iter() {
+            match *interaction {
+                Interaction::Clicked => {
+                    if settings.volume != volume.0 {
+                        let (previous_button, mut previous_material) = selected_query.single_mut();
+                        *previous_material = button_materials.normal.clone();
+                        commands.entity(previous_button).remove::<SelectedOption>();
+                        commands.entity(entity).insert(SelectedOption);
+                        settings.volume = volume.0;
+                    }
+                }
+                _ => (),
             }
         }
     }
@@ -411,23 +511,6 @@ mod menu {
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
-                        style: button_style.clone(),
-                        material: button_materials.normal.clone(),
-                        ..Default::default()
-                    })
-                    .insert(MenuButtonAction::PrefControls)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Controls",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..Default::default()
-                        });
-                    });
-                parent
-                    .spawn_bundle(ButtonBundle {
                         style: button_style,
                         material: button_materials.normal.clone(),
                         ..Default::default()
@@ -447,6 +530,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
+        settings: Res<super::Settings>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -476,14 +560,52 @@ mod menu {
             })
             .insert(ScreenMenuPrefDisplay)
             .with_children(|parent| {
-                parent.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Here you could display preferences about display",
-                        button_text_style.clone(),
-                        Default::default(),
-                    ),
-                    ..Default::default()
-                });
+                parent
+                    .spawn_bundle(NodeBundle {
+                        style: Style {
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        },
+                        material: materials.add(Color::CRIMSON.into()),
+                        ..Default::default()
+                    })
+                    .with_children(|parent| {
+                        parent.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                "Display Quality",
+                                button_text_style.clone(),
+                                Default::default(),
+                            ),
+                            ..Default::default()
+                        });
+                        for quality in [
+                            super::DisplayQuality::Low,
+                            super::DisplayQuality::Medium,
+                            super::DisplayQuality::High,
+                        ] {
+                            let mut entity = parent.spawn_bundle(ButtonBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                                    ..button_style.clone()
+                                },
+                                material: button_materials.normal.clone(),
+                                ..Default::default()
+                            });
+                            entity.insert(quality).with_children(|parent| {
+                                parent.spawn_bundle(TextBundle {
+                                    text: Text::with_section(
+                                        format!("{:?}", quality),
+                                        button_text_style.clone(),
+                                        Default::default(),
+                                    ),
+                                    ..Default::default()
+                                });
+                            });
+                            if settings.quality == quality {
+                                entity.insert(SelectedOption);
+                            }
+                        }
+                    });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
@@ -505,6 +627,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
+        settings: Res<super::Settings>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -534,72 +657,39 @@ mod menu {
             })
             .insert(ScreenMenuPrefSound)
             .with_children(|parent| {
-                parent.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Here you could display preferences about sound",
-                        button_text_style.clone(),
-                        Default::default(),
-                    ),
-                    ..Default::default()
-                });
                 parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style,
-                        material: button_materials.normal.clone(),
+                    .spawn_bundle(NodeBundle {
+                        style: Style {
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        },
+                        material: materials.add(Color::CRIMSON.into()),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::BackToPreferences)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
+                            text: Text::with_section(
+                                "Volume",
+                                button_text_style.clone(),
+                                Default::default(),
+                            ),
                             ..Default::default()
                         });
+                        for volume in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
+                            let mut entity = parent.spawn_bundle(ButtonBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(30.0), Val::Px(65.0)),
+                                    ..button_style.clone()
+                                },
+                                material: button_materials.normal.clone(),
+                                ..Default::default()
+                            });
+                            entity.insert(Volume(volume));
+                            if settings.volume == volume {
+                                entity.insert(SelectedOption);
+                            }
+                        }
                     });
-            });
-    }
-
-    fn controls_preferences_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        button_materials: Res<ButtonMaterials>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
-        let button_style = Style {
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Rect::all(Val::Px(20.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..Default::default()
-        };
-        let button_text_style = TextStyle {
-            font: font.clone(),
-            font_size: 40.0,
-            color: super::TEXT_COLOR,
-        };
-
-        commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
-                    margin: Rect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                },
-                material: materials.add(Color::CRIMSON.into()),
-                ..Default::default()
-            })
-            .insert(ScreenMenuPrefControls)
-            .with_children(|parent| {
-                parent.spawn_bundle(TextBundle {
-                    text: Text::with_section(
-                        "Here you could display preferences about controls",
-                        button_text_style.clone(),
-                        Default::default(),
-                    ),
-                    ..Default::default()
-                });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
@@ -640,9 +730,6 @@ mod menu {
                         menu_state.set(MenuState::PrefDisplay).unwrap()
                     }
                     MenuButtonAction::PrefSound => menu_state.set(MenuState::PrefSound).unwrap(),
-                    MenuButtonAction::PrefControls => {
-                        menu_state.set(MenuState::PrefControls).unwrap()
-                    }
                     MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
                     MenuButtonAction::BackToPreferences => {
                         menu_state.set(MenuState::Preferences).unwrap()
