@@ -88,17 +88,17 @@ mod splash {
                 material: materials.add(icon.into()),
                 ..Default::default()
             })
-            .insert(OnSplashScreen)
-            .insert(SplashTimer(Timer::from_seconds(1.0, false)));
+            .insert(OnSplashScreen);
+        commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, false)));
     }
 
     // Tick the timer, and change state when finished
     fn countdown(
         mut game_state: ResMut<State<GameState>>,
         time: Res<Time>,
-        mut timer: Query<&mut SplashTimer>,
+        mut timer: ResMut<SplashTimer>,
     ) {
-        if timer.single_mut().0.tick(time.delta()).finished() {
+        if timer.0.tick(time.delta()).finished() {
             game_state.set(GameState::Menu).unwrap();
         }
     }
@@ -193,16 +193,16 @@ mod game {
                 });
             });
         // Spawn a 5 timer to trigger going back to the menu
-        commands.spawn_bundle((GameTimer(Timer::from_seconds(5.0, false)), OnGameScreen));
+        commands.insert_resource(GameTimer(Timer::from_seconds(5.0, false)));
     }
 
     // Tick the timer, and change state when finished
     fn game(
         time: Res<Time>,
         mut game_state: ResMut<State<GameState>>,
-        mut timer: Query<&mut GameTimer>,
+        mut timer: ResMut<GameTimer>,
     ) {
-        if timer.single_mut().0.tick(time.delta()).finished() {
+        if timer.0.tick(time.delta()).finished() {
             game_state.set(GameState::Menu).unwrap();
         }
     }
