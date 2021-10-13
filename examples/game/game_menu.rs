@@ -20,21 +20,15 @@ enum DisplayQuality {
     High,
 }
 
-// Simple settings struct, it will be added as a resource to the Bevy app
-#[derive(Debug)]
-struct Settings {
-    quality: DisplayQuality,
-    volume: u32,
-}
+#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+struct Volume(u32);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Insert the settings struct as a resource with its initial values
-        .insert_resource(Settings {
-            quality: DisplayQuality::Medium,
-            volume: 7,
-        })
+        // Insert as resource the initial value for the settings resources
+        .insert_resource(DisplayQuality::Medium)
+        .insert_resource(Volume(7))
         .add_startup_system(setup)
         // Start the game in the Splash state
         .add_state(GameState::Splash)
@@ -113,7 +107,7 @@ mod splash {
 mod game {
     use bevy::prelude::*;
 
-    use super::{despawn_screen, GameState, Settings, TEXT_COLOR};
+    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
@@ -140,7 +134,8 @@ mod game {
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<Settings>,
+        display_quality: Res<DisplayQuality>,
+        volume: Res<Volume>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -186,7 +181,7 @@ mod game {
                         ..Default::default()
                     },
                     text: Text::with_section(
-                        format!("{:?}", *settings),
+                        format!("quality: {:?} - {:?}", *display_quality, *volume),
                         TextStyle {
                             font: font.clone(),
                             font_size: 60.0,
@@ -216,7 +211,7 @@ mod game {
 mod menu {
     use bevy::{app::AppExit, prelude::*};
 
-    use super::{despawn_screen, DisplayQuality, GameState, Settings, TEXT_COLOR};
+    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
@@ -252,7 +247,8 @@ mod menu {
                         .with_system(display_settings_menu_setup),
                 )
                 .add_system_set(
-                    SystemSet::on_update(MenuState::SettingsDisplay).with_system(quality_button),
+                    SystemSet::on_update(MenuState::SettingsDisplay)
+                        .with_system(setting_button::<DisplayQuality>),
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsDisplay)
@@ -264,7 +260,8 @@ mod menu {
                         .with_system(sound_settings_menu_setup),
                 )
                 .add_system_set(
-                    SystemSet::on_update(MenuState::SettingsSound).with_system(volume_button),
+                    SystemSet::on_update(MenuState::SettingsSound)
+                        .with_system(setting_button::<Volume>),
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsSound)
@@ -376,48 +373,20 @@ mod menu {
     }
 
     // This system updates the settings when a new value for display quality is selected
-    fn quality_button(
+    fn setting_button<T: Component + PartialEq + Copy>(
         button_materials: Res<ButtonMaterials>,
-        interaction_query: Query<
-            (&Interaction, &DisplayQuality, Entity),
-            (Changed<Interaction>, With<Button>),
-        >,
+        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
         mut commands: Commands,
-        mut settings: ResMut<Settings>,
+        mut setting: ResMut<T>,
     ) {
         for (interaction, quality, entity) in interaction_query.iter() {
-            if *interaction == Interaction::Clicked && settings.quality != *quality {
+            if *interaction == Interaction::Clicked && *setting != *quality {
                 let (previous_button, mut previous_material) = selected_query.single_mut();
                 *previous_material = button_materials.normal.clone();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
-                settings.quality = *quality;
-            }
-        }
-    }
-
-    #[derive(Component)]
-    struct Volume(u32);
-
-    // This system updates the settings when a new value for volume is selected
-    fn volume_button(
-        button_materials: Res<ButtonMaterials>,
-        interaction_query: Query<
-            (&Interaction, &Volume, Entity),
-            (Changed<Interaction>, With<Button>),
-        >,
-        mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
-        mut commands: Commands,
-        mut settings: ResMut<Settings>,
-    ) {
-        for (interaction, volume, entity) in interaction_query.iter() {
-            if *interaction == Interaction::Clicked && settings.volume != volume.0 {
-                let (previous_button, mut previous_material) = selected_query.single_mut();
-                *previous_material = button_materials.normal.clone();
-                commands.entity(previous_button).remove::<SelectedOption>();
-                commands.entity(entity).insert(SelectedOption);
-                settings.volume = volume.0;
+                *setting = *quality;
             }
         }
     }
@@ -621,7 +590,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<Settings>,
+        display_quality: Res<DisplayQuality>,
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
@@ -671,7 +640,7 @@ mod menu {
                             ..Default::default()
                         });
                         // Display a button for each possible value
-                        for quality in [
+                        for quality_setting in [
                             DisplayQuality::Low,
                             DisplayQuality::Medium,
                             DisplayQuality::High,
@@ -684,17 +653,17 @@ mod menu {
                                 material: button_materials.normal.clone(),
                                 ..Default::default()
                             });
-                            entity.insert(quality).with_children(|parent| {
+                            entity.insert(quality_setting).with_children(|parent| {
                                 parent.spawn_bundle(TextBundle {
                                     text: Text::with_section(
-                                        format!("{:?}", quality),
+                                        format!("{:?}", quality_setting),
                                         button_text_style.clone(),
                                         Default::default(),
                                     ),
                                     ..Default::default()
                                 });
                             });
-                            if settings.quality == quality {
+                            if *display_quality == quality_setting {
                                 entity.insert(SelectedOption);
                             }
                         }
@@ -721,7 +690,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<Settings>,
+        volume: Res<Volume>,
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
@@ -767,7 +736,7 @@ mod menu {
                             ),
                             ..Default::default()
                         });
-                        for volume in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
+                        for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                             let mut entity = parent.spawn_bundle(ButtonBundle {
                                 style: Style {
                                     size: Size::new(Val::Px(30.0), Val::Px(65.0)),
@@ -776,8 +745,8 @@ mod menu {
                                 material: button_materials.normal.clone(),
                                 ..Default::default()
                             });
-                            entity.insert(Volume(volume));
-                            if settings.volume == volume {
+                            entity.insert(Volume(volume_setting));
+                            if *volume == Volume(volume_setting) {
                                 entity.insert(SelectedOption);
                             }
                         }
