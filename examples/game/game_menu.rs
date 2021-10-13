@@ -57,14 +57,14 @@ mod splash {
                 .add_system_set(SystemSet::on_update(GameState::Splash).with_system(countdown))
                 .add_system_set(
                     SystemSet::on_exit(GameState::Splash)
-                        .with_system(despawn_screen::<ScreenSplash>),
+                        .with_system(despawn_screen::<OnSplashScreen>),
                 );
         }
     }
 
     // Tag component used to tag entities added on the splash screen
     #[derive(Component)]
-    struct ScreenSplash;
+    struct OnSplashScreen;
 
     #[derive(Component)]
     struct SplashTimer(Timer);
@@ -88,7 +88,7 @@ mod splash {
                 material: materials.add(icon.into()),
                 ..Default::default()
             })
-            .insert(ScreenSplash)
+            .insert(OnSplashScreen)
             .insert(SplashTimer(Timer::from_seconds(1.0, false)));
     }
 
@@ -118,14 +118,14 @@ mod game {
             app.add_system_set(SystemSet::on_enter(GameState::Game).with_system(game_setup))
                 .add_system_set(SystemSet::on_update(GameState::Game).with_system(game))
                 .add_system_set(
-                    SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<ScreenGame>),
+                    SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
                 );
         }
     }
 
     // Tag component used to tag entities added on the game screen
     #[derive(Component)]
-    struct ScreenGame;
+    struct OnGameScreen;
 
     #[derive(Component)]
     struct GameTimer(Timer);
@@ -156,7 +156,7 @@ mod game {
                 material: materials.add(Color::BLACK.into()),
                 ..Default::default()
             })
-            .insert(ScreenGame)
+            .insert(OnGameScreen)
             .with_children(|parent| {
                 // Display two lines of text, the second one with the current settings
                 parent.spawn_bundle(TextBundle {
@@ -193,7 +193,7 @@ mod game {
                 });
             });
         // Spawn a 5 timer to trigger going back to the menu
-        commands.spawn_bundle((GameTimer(Timer::from_seconds(5.0, false)), ScreenGame));
+        commands.spawn_bundle((GameTimer(Timer::from_seconds(5.0, false)), OnGameScreen));
     }
 
     // Tick the timer, and change state when finished
@@ -231,7 +231,7 @@ mod menu {
                 .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
                 .add_system_set(
                     SystemSet::on_exit(MenuState::Main)
-                        .with_system(despawn_screen::<ScreenMenuMain>),
+                        .with_system(despawn_screen::<OnMainMenuScreen>),
                 )
                 // Systems to handle the settings menu screen
                 .add_system_set(
@@ -239,7 +239,7 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::Settings)
-                        .with_system(despawn_screen::<ScreenMenuSettings>),
+                        .with_system(despawn_screen::<OnSettingsMenuScreen>),
                 )
                 // Systems to handle the display settings screen
                 .add_system_set(
@@ -252,7 +252,7 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsDisplay)
-                        .with_system(despawn_screen::<ScreenMenuSettingsDisplay>),
+                        .with_system(despawn_screen::<OnDisplaySettingsMenuScreen>),
                 )
                 // Systems to handle the sound settings screen
                 .add_system_set(
@@ -265,7 +265,7 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsSound)
-                        .with_system(despawn_screen::<ScreenMenuSettingsSound>),
+                        .with_system(despawn_screen::<OnSoundSettingsMenuScreen>),
                 )
                 // Common systems to all screens that handles buttons behaviour
                 .add_system_set(
@@ -288,19 +288,19 @@ mod menu {
 
     // Tag component used to tag entities added on the main menu screen
     #[derive(Component)]
-    struct ScreenMenuMain;
+    struct OnMainMenuScreen;
 
     // Tag component used to tag entities added on the settings menu screen
     #[derive(Component)]
-    struct ScreenMenuSettings;
+    struct OnSettingsMenuScreen;
 
     // Tag component used to tag entities added on the display settings menu screen
     #[derive(Component)]
-    struct ScreenMenuSettingsDisplay;
+    struct OnDisplaySettingsMenuScreen;
 
     // Tag component used to tag entities added on the sound settings menu screen
     #[derive(Component)]
-    struct ScreenMenuSettingsSound;
+    struct OnSoundSettingsMenuScreen;
 
     struct ButtonMaterials {
         normal: Handle<ColorMaterial>,
@@ -427,7 +427,7 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuMain)
+            .insert(OnMainMenuScreen)
             .with_children(|parent| {
                 // Display the game name
                 parent.spawn_bundle(TextBundle {
@@ -531,7 +531,7 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuSettings)
+            .insert(OnSettingsMenuScreen)
             .with_children(|parent| {
                 // Display two buttons for the submenus
                 parent
@@ -616,7 +616,7 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuSettingsDisplay)
+            .insert(OnDisplaySettingsMenuScreen)
             .with_children(|parent| {
                 // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                 // use the default value, `FlexDirection::Row`, from left to right.
@@ -716,7 +716,7 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuSettingsSound)
+            .insert(OnSoundSettingsMenuScreen)
             .with_children(|parent| {
                 parent
                     .spawn_bundle(NodeBundle {
