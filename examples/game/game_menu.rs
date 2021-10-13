@@ -293,14 +293,12 @@ mod menu {
         mut settings: ResMut<super::Settings>,
     ) {
         for (interaction, quality, entity) in interaction_query.iter() {
-            if *interaction == Interaction::Clicked {
-                if settings.quality != *quality {
-                    let (previous_button, mut previous_material) = selected_query.single_mut();
-                    *previous_material = button_materials.normal.clone();
-                    commands.entity(previous_button).remove::<SelectedOption>();
-                    commands.entity(entity).insert(SelectedOption);
-                    settings.quality = *quality;
-                }
+            if *interaction == Interaction::Clicked && settings.quality != *quality {
+                let (previous_button, mut previous_material) = selected_query.single_mut();
+                *previous_material = button_materials.normal.clone();
+                commands.entity(previous_button).remove::<SelectedOption>();
+                commands.entity(entity).insert(SelectedOption);
+                settings.quality = *quality;
             }
         }
     }
@@ -319,14 +317,12 @@ mod menu {
         mut settings: ResMut<super::Settings>,
     ) {
         for (interaction, volume, entity) in interaction_query.iter() {
-            if *interaction == Interaction::Clicked {
-                if settings.volume != volume.0 {
-                    let (previous_button, mut previous_material) = selected_query.single_mut();
-                    *previous_material = button_materials.normal.clone();
-                    commands.entity(previous_button).remove::<SelectedOption>();
-                    commands.entity(entity).insert(SelectedOption);
-                    settings.volume = volume.0;
-                }
+            if *interaction == Interaction::Clicked && settings.volume != volume.0 {
+                let (previous_button, mut previous_material) = selected_query.single_mut();
+                *previous_material = button_materials.normal.clone();
+                commands.entity(previous_button).remove::<SelectedOption>();
+                commands.entity(entity).insert(SelectedOption);
+                settings.volume = volume.0;
             }
         }
     }
