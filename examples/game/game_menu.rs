@@ -293,17 +293,14 @@ mod menu {
         mut settings: ResMut<super::Settings>,
     ) {
         for (interaction, quality, entity) in interaction_query.iter() {
-            match *interaction {
-                Interaction::Clicked => {
-                    if settings.quality != *quality {
-                        let (previous_button, mut previous_material) = selected_query.single_mut();
-                        *previous_material = button_materials.normal.clone();
-                        commands.entity(previous_button).remove::<SelectedOption>();
-                        commands.entity(entity).insert(SelectedOption);
-                        settings.quality = *quality;
-                    }
+            if *interaction == Interaction::Clicked {
+                if settings.quality != *quality {
+                    let (previous_button, mut previous_material) = selected_query.single_mut();
+                    *previous_material = button_materials.normal.clone();
+                    commands.entity(previous_button).remove::<SelectedOption>();
+                    commands.entity(entity).insert(SelectedOption);
+                    settings.quality = *quality;
                 }
-                _ => (),
             }
         }
     }
@@ -322,17 +319,14 @@ mod menu {
         mut settings: ResMut<super::Settings>,
     ) {
         for (interaction, volume, entity) in interaction_query.iter() {
-            match *interaction {
-                Interaction::Clicked => {
-                    if settings.volume != volume.0 {
-                        let (previous_button, mut previous_material) = selected_query.single_mut();
-                        *previous_material = button_materials.normal.clone();
-                        commands.entity(previous_button).remove::<SelectedOption>();
-                        commands.entity(entity).insert(SelectedOption);
-                        settings.volume = volume.0;
-                    }
+            if *interaction == Interaction::Clicked {
+                if settings.volume != volume.0 {
+                    let (previous_button, mut previous_material) = selected_query.single_mut();
+                    *previous_material = button_materials.normal.clone();
+                    commands.entity(previous_button).remove::<SelectedOption>();
+                    commands.entity(entity).insert(SelectedOption);
+                    settings.volume = volume.0;
                 }
-                _ => (),
             }
         }
     }
@@ -348,7 +342,6 @@ mod menu {
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -447,8 +440,6 @@ mod menu {
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -457,7 +448,7 @@ mod menu {
             ..Default::default()
         };
         let button_text_style = TextStyle {
-            font: font.clone(),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: super::TEXT_COLOR,
         };
@@ -532,8 +523,6 @@ mod menu {
         mut materials: ResMut<Assets<ColorMaterial>>,
         settings: Res<super::Settings>,
     ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -542,7 +531,7 @@ mod menu {
             ..Default::default()
         };
         let button_text_style = TextStyle {
-            font: font.clone(),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: super::TEXT_COLOR,
         };
@@ -629,8 +618,6 @@ mod menu {
         mut materials: ResMut<Assets<ColorMaterial>>,
         settings: Res<super::Settings>,
     ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -639,7 +626,7 @@ mod menu {
             ..Default::default()
         };
         let button_text_style = TextStyle {
-            font: font.clone(),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: super::TEXT_COLOR,
         };
