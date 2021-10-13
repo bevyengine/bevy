@@ -1,9 +1,14 @@
 use bevy::prelude::*;
 
+// This example will display a simple menu using Bevy UI where you can start a new game,
+// change some settings or quit. There are no actual game, it will just display the current
+// settings for 5 seconds before going back to the menu.
+
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
+    Splash,
     Menu,
     Game,
 }
@@ -15,6 +20,7 @@ enum DisplayQuality {
     High,
 }
 
+// Simple settings struct, it will be added as a resource to the Bevy app
 #[derive(Debug)]
 struct Settings {
     quality: DisplayQuality,
@@ -24,24 +30,92 @@ struct Settings {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Insert the settings struct as a resource with its initial values
         .insert_resource(Settings {
             quality: DisplayQuality::Medium,
-            volume: 5,
+            volume: 7,
         })
         .add_startup_system(setup)
-        .add_state(GameState::Menu)
+        // Start the game in the Splash state
+        .add_state(GameState::Splash)
+        // Adds the plugins for each state
+        .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
         .run();
 }
 
+// As there isn't an actual game, setup is just adding a `UiCameraBundle`
 fn setup(mut commands: Commands) {
     commands.spawn_bundle(UiCameraBundle::default());
+}
+
+mod splash {
+    use bevy::prelude::*;
+
+    // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
+    pub struct SplashPlugin;
+
+    impl Plugin for SplashPlugin {
+        fn build(&self, app: &mut bevy::prelude::App) {
+            app.add_system_set(
+                SystemSet::on_enter(super::GameState::Splash).with_system(splash_setup),
+            )
+            .add_system_set(SystemSet::on_update(super::GameState::Splash).with_system(countdown))
+            .add_system_set(
+                SystemSet::on_exit(super::GameState::Splash)
+                    .with_system(super::despawn_screen::<ScreenSplash>),
+            );
+        }
+    }
+
+    // Tag component used to tag entities added on the splash screen
+    #[derive(Component)]
+    struct ScreenSplash;
+
+    #[derive(Component)]
+    struct SplashTimer(Timer);
+
+    fn splash_setup(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        mut materials: ResMut<Assets<ColorMaterial>>,
+    ) {
+        let icon = asset_server.load("branding/icon.png");
+        // Display the logo
+        commands
+            .spawn_bundle(ImageBundle {
+                style: Style {
+                    // This will center the logo
+                    margin: Rect::all(Val::Auto),
+                    // This will set the logo to be 200px wide, and auto adjust its height
+                    size: Size::new(Val::Px(200.0), Val::Auto),
+                    ..Default::default()
+                },
+                material: materials.add(icon.into()),
+                ..Default::default()
+            })
+            .insert(ScreenSplash)
+            .insert(SplashTimer(Timer::from_seconds(1.0, false)));
+    }
+
+    // Tick the timer, and change state when finished
+    fn countdown(
+        mut game_state: ResMut<State<super::GameState>>,
+        time: Res<Time>,
+        mut timer: Query<&mut SplashTimer>,
+    ) {
+        if timer.single_mut().0.tick(time.delta()).finished() {
+            game_state.set(super::GameState::Menu).unwrap();
+        }
+    }
 }
 
 mod game {
     use bevy::prelude::*;
 
+    // This plugin will contain the game. In this case, it's just be a screen that will
+    // display the current settings for 5 seconds before returning to the menu
     pub struct GamePlugin;
 
     impl Plugin for GamePlugin {
@@ -55,6 +129,7 @@ mod game {
         }
     }
 
+    // Tag component used to tag entities added on the game screen
     #[derive(Component)]
     struct ScreenGame;
 
@@ -70,10 +145,16 @@ mod game {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
         commands
+            // First create a `NodeBundle` for centering what we want to display
             .spawn_bundle(NodeBundle {
                 style: Style {
+                    // This will center the current node
                     margin: Rect::all(Val::Auto),
+                    // This will display its children in a column, from top to bottom
                     flex_direction: FlexDirection::ColumnReverse,
+                    // `align_items` will align children on the cross axis. Here the main axis is
+                    // vertical (column), so the cross axis is horizontal. This will center the
+                    // children
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
@@ -82,22 +163,7 @@ mod game {
             })
             .insert(ScreenGame)
             .with_children(|parent| {
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
-                        margin: Rect::all(Val::Px(50.0)),
-                        ..Default::default()
-                    },
-                    text: Text::with_section(
-                        "Good Game!",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 80.0,
-                            color: super::TEXT_COLOR,
-                        },
-                        Default::default(),
-                    ),
-                    ..Default::default()
-                });
+                // Display two lines of text, the second one with the current settings
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(50.0)),
@@ -123,7 +189,7 @@ mod game {
                         format!("{:?}", *settings),
                         TextStyle {
                             font: font.clone(),
-                            font_size: 40.0,
+                            font_size: 60.0,
                             color: super::TEXT_COLOR,
                         },
                         Default::default(),
@@ -131,9 +197,11 @@ mod game {
                     ..Default::default()
                 });
             });
+        // Spawn a 5 timer to trigger going back to the menu
         commands.spawn_bundle((GameTimer(Timer::from_seconds(5.0, false)), ScreenGame));
     }
 
+    // Tick the timer, and change state when finished
     fn game(
         time: Res<Time>,
         mut game_state: ResMut<State<super::GameState>>,
@@ -148,47 +216,59 @@ mod game {
 mod menu {
     use bevy::{app::AppExit, prelude::*};
 
+    // This plugin manages the menu, with 5 different screens:
+    // - a main menu with "New Game", "Settings", "Quit"
+    // - a settings menu with two submenus and a back button
+    // - two settings screen with a setting that can be set and a back button
     pub struct MenuPlugin;
 
     impl Plugin for MenuPlugin {
         fn build(&self, app: &mut bevy::prelude::App) {
             app.init_resource::<ButtonMaterials>()
+                // At start, the menu is not enabled. This will be changed in `menu_setup` when
+                // entering the `GameState::Menu` state.
+                // Current screen in the menu is handled by an indepent state from `GameState`
                 .add_state(MenuState::Disabled)
                 .add_system_set(SystemSet::on_enter(super::GameState::Menu).with_system(menu_setup))
+                // Systems to handle the main menu screen
                 .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
                 .add_system_set(
                     SystemSet::on_exit(MenuState::Main)
                         .with_system(super::despawn_screen::<ScreenMenuMain>),
                 )
+                // Systems to handle the settings menu screen
                 .add_system_set(
-                    SystemSet::on_enter(MenuState::Preferences).with_system(preferences_menu_setup),
+                    SystemSet::on_enter(MenuState::Settings).with_system(settings_menu_setup),
                 )
                 .add_system_set(
-                    SystemSet::on_exit(MenuState::Preferences)
-                        .with_system(super::despawn_screen::<ScreenMenuPreferences>),
+                    SystemSet::on_exit(MenuState::Settings)
+                        .with_system(super::despawn_screen::<ScreenMenuSettings>),
+                )
+                // Systems to handle the display settings screen
+                .add_system_set(
+                    SystemSet::on_enter(MenuState::SettingsDisplay)
+                        .with_system(display_settings_menu_setup),
                 )
                 .add_system_set(
-                    SystemSet::on_enter(MenuState::PrefDisplay)
-                        .with_system(display_preferences_menu_setup),
+                    SystemSet::on_update(MenuState::SettingsDisplay).with_system(quality_button),
                 )
                 .add_system_set(
-                    SystemSet::on_update(MenuState::PrefDisplay).with_system(quality_button),
+                    SystemSet::on_exit(MenuState::SettingsDisplay)
+                        .with_system(super::despawn_screen::<ScreenMenuSettingsDisplay>),
+                )
+                // Systems to handle the sound settings screen
+                .add_system_set(
+                    SystemSet::on_enter(MenuState::SettingsSound)
+                        .with_system(sound_settings_menu_setup),
                 )
                 .add_system_set(
-                    SystemSet::on_exit(MenuState::PrefDisplay)
-                        .with_system(super::despawn_screen::<ScreenMenuPrefDisplay>),
+                    SystemSet::on_update(MenuState::SettingsSound).with_system(volume_button),
                 )
                 .add_system_set(
-                    SystemSet::on_enter(MenuState::PrefSound)
-                        .with_system(sound_preferences_menu_setup),
+                    SystemSet::on_exit(MenuState::SettingsSound)
+                        .with_system(super::despawn_screen::<ScreenMenuSettingsSound>),
                 )
-                .add_system_set(
-                    SystemSet::on_update(MenuState::PrefSound).with_system(volume_button),
-                )
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::PrefSound)
-                        .with_system(super::despawn_screen::<ScreenMenuPrefSound>),
-                )
+                // Common systems to all screens that handles buttons behaviour
                 .add_system_set(
                     SystemSet::on_update(super::GameState::Menu)
                         .with_system(menu_action)
@@ -197,23 +277,31 @@ mod menu {
         }
     }
 
+    // State used for the current menu screen
     #[derive(Clone, Eq, PartialEq, Debug, Hash)]
     enum MenuState {
         Main,
-        Preferences,
-        PrefDisplay,
-        PrefSound,
+        Settings,
+        SettingsDisplay,
+        SettingsSound,
         Disabled,
     }
+
+    // Tag component used to tag entities added on the main menu screen
     #[derive(Component)]
     struct ScreenMenuMain;
 
+    // Tag component used to tag entities added on the settings menu screen
     #[derive(Component)]
-    struct ScreenMenuPreferences;
+    struct ScreenMenuSettings;
+
+    // Tag component used to tag entities added on the display settings menu screen
     #[derive(Component)]
-    struct ScreenMenuPrefDisplay;
+    struct ScreenMenuSettingsDisplay;
+
+    // Tag component used to tag entities added on the sound settings menu screen
     #[derive(Component)]
-    struct ScreenMenuPrefSound;
+    struct ScreenMenuSettingsSound;
 
     struct ButtonMaterials {
         normal: Handle<ColorMaterial>,
@@ -234,20 +322,23 @@ mod menu {
         }
     }
 
+    // Tag component used to mark wich setting is currently selected
     #[derive(Component)]
     struct SelectedOption;
 
+    // All actions that can be triggered from a button click
     #[derive(Component)]
     enum MenuButtonAction {
         Play,
-        Preferences,
-        PrefDisplay,
-        PrefSound,
+        Settings,
+        SettingsDisplay,
+        SettingsSound,
         BackToMainMenu,
-        BackToPreferences,
+        BackToSettings,
         Quit,
     }
 
+    // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         button_materials: Res<ButtonMaterials>,
         mut interaction_query: Query<
@@ -282,6 +373,7 @@ mod menu {
         }
     }
 
+    // This system updates the settings when a new value for display quality is selected
     fn quality_button(
         button_materials: Res<ButtonMaterials>,
         interaction_query: Query<
@@ -306,6 +398,7 @@ mod menu {
     #[derive(Component)]
     struct Volume(u32);
 
+    // This system updates the settings when a new value for volume is selected
     fn volume_button(
         button_materials: Res<ButtonMaterials>,
         interaction_query: Query<
@@ -338,6 +431,7 @@ mod menu {
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+        // Common style for all buttons on the screen
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -364,6 +458,7 @@ mod menu {
             })
             .insert(ScreenMenuMain)
             .with_children(|parent| {
+                // Display the game name
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(50.0)),
@@ -380,6 +475,11 @@ mod menu {
                     ),
                     ..Default::default()
                 });
+
+                // Display three buttons for each action available from the main menu:
+                // - new game
+                // - settings
+                // - quit
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
@@ -403,11 +503,11 @@ mod menu {
                         material: button_materials.normal.clone(),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::Preferences)
+                    .insert(MenuButtonAction::Settings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
-                                "Preferences",
+                                "Settings",
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
@@ -430,7 +530,7 @@ mod menu {
             });
     }
 
-    fn preferences_menu_setup(
+    fn settings_menu_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
@@ -460,15 +560,16 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuPreferences)
+            .insert(ScreenMenuSettings)
             .with_children(|parent| {
+                // Display two buttons for the submenus
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         material: button_materials.normal.clone(),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::PrefDisplay)
+                    .insert(MenuButtonAction::SettingsDisplay)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
@@ -485,7 +586,7 @@ mod menu {
                         material: button_materials.normal.clone(),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::PrefSound)
+                    .insert(MenuButtonAction::SettingsSound)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
@@ -496,6 +597,7 @@ mod menu {
                             ..Default::default()
                         });
                     });
+                // Display the back button to return to the main menu screen
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
@@ -512,7 +614,7 @@ mod menu {
             });
     }
 
-    fn display_preferences_menu_setup(
+    fn display_settings_menu_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
@@ -543,8 +645,10 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuPrefDisplay)
+            .insert(ScreenMenuSettingsDisplay)
             .with_children(|parent| {
+                // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
+                // use the default value, `FlexDirection::Row`, from left to right.
                 parent
                     .spawn_bundle(NodeBundle {
                         style: Style {
@@ -555,6 +659,7 @@ mod menu {
                         ..Default::default()
                     })
                     .with_children(|parent| {
+                        // Display a label for the current setting
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
                                 "Display Quality",
@@ -563,6 +668,7 @@ mod menu {
                             ),
                             ..Default::default()
                         });
+                        // Display a button for each possible value
                         for quality in [
                             super::DisplayQuality::Low,
                             super::DisplayQuality::Medium,
@@ -591,13 +697,14 @@ mod menu {
                             }
                         }
                     });
+                // Display the back button to return to the settings screen
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         material: button_materials.normal.clone(),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::BackToPreferences)
+                    .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Back", button_text_style, Default::default()),
@@ -607,7 +714,7 @@ mod menu {
             });
     }
 
-    fn sound_preferences_menu_setup(
+    fn sound_settings_menu_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
@@ -638,7 +745,7 @@ mod menu {
                 material: materials.add(Color::CRIMSON.into()),
                 ..Default::default()
             })
-            .insert(ScreenMenuPrefSound)
+            .insert(ScreenMenuSettingsSound)
             .with_children(|parent| {
                 parent
                     .spawn_bundle(NodeBundle {
@@ -679,7 +786,7 @@ mod menu {
                         material: button_materials.normal.clone(),
                         ..Default::default()
                     })
-                    .insert(MenuButtonAction::BackToPreferences)
+                    .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Back", button_text_style, Default::default()),
@@ -706,16 +813,16 @@ mod menu {
                         game_state.set(super::GameState::Game).unwrap();
                         menu_state.set(MenuState::Disabled).unwrap()
                     }
-                    MenuButtonAction::Preferences => {
-                        menu_state.set(MenuState::Preferences).unwrap()
+                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
+                    MenuButtonAction::SettingsDisplay => {
+                        menu_state.set(MenuState::SettingsDisplay).unwrap()
                     }
-                    MenuButtonAction::PrefDisplay => {
-                        menu_state.set(MenuState::PrefDisplay).unwrap()
+                    MenuButtonAction::SettingsSound => {
+                        menu_state.set(MenuState::SettingsSound).unwrap()
                     }
-                    MenuButtonAction::PrefSound => menu_state.set(MenuState::PrefSound).unwrap(),
                     MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
-                    MenuButtonAction::BackToPreferences => {
-                        menu_state.set(MenuState::Preferences).unwrap()
+                    MenuButtonAction::BackToSettings => {
+                        menu_state.set(MenuState::Settings).unwrap()
                     }
                 }
             }
