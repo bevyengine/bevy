@@ -53,19 +53,18 @@ fn setup(mut commands: Commands) {
 mod splash {
     use bevy::prelude::*;
 
+    use super::{despawn_screen, GameState};
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub struct SplashPlugin;
 
     impl Plugin for SplashPlugin {
         fn build(&self, app: &mut bevy::prelude::App) {
-            app.add_system_set(
-                SystemSet::on_enter(super::GameState::Splash).with_system(splash_setup),
-            )
-            .add_system_set(SystemSet::on_update(super::GameState::Splash).with_system(countdown))
-            .add_system_set(
-                SystemSet::on_exit(super::GameState::Splash)
-                    .with_system(super::despawn_screen::<ScreenSplash>),
-            );
+            app.add_system_set(SystemSet::on_enter(GameState::Splash).with_system(splash_setup))
+                .add_system_set(SystemSet::on_update(GameState::Splash).with_system(countdown))
+                .add_system_set(
+                    SystemSet::on_exit(GameState::Splash)
+                        .with_system(despawn_screen::<ScreenSplash>),
+                );
         }
     }
 
@@ -101,12 +100,12 @@ mod splash {
 
     // Tick the timer, and change state when finished
     fn countdown(
-        mut game_state: ResMut<State<super::GameState>>,
+        mut game_state: ResMut<State<GameState>>,
         time: Res<Time>,
         mut timer: Query<&mut SplashTimer>,
     ) {
         if timer.single_mut().0.tick(time.delta()).finished() {
-            game_state.set(super::GameState::Menu).unwrap();
+            game_state.set(GameState::Menu).unwrap();
         }
     }
 }
@@ -114,17 +113,18 @@ mod splash {
 mod game {
     use bevy::prelude::*;
 
+    use super::{despawn_screen, GameState, Settings, TEXT_COLOR};
+
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
     pub struct GamePlugin;
 
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
-            app.add_system_set(SystemSet::on_enter(super::GameState::Game).with_system(game_setup))
-                .add_system_set(SystemSet::on_update(super::GameState::Game).with_system(game))
+            app.add_system_set(SystemSet::on_enter(GameState::Game).with_system(game_setup))
+                .add_system_set(SystemSet::on_update(GameState::Game).with_system(game))
                 .add_system_set(
-                    SystemSet::on_exit(super::GameState::Game)
-                        .with_system(super::despawn_screen::<ScreenGame>),
+                    SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<ScreenGame>),
                 );
         }
     }
@@ -140,7 +140,7 @@ mod game {
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<super::Settings>,
+        settings: Res<Settings>,
     ) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -174,7 +174,7 @@ mod game {
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
-                            color: super::TEXT_COLOR,
+                            color: TEXT_COLOR,
                         },
                         Default::default(),
                     ),
@@ -190,7 +190,7 @@ mod game {
                         TextStyle {
                             font: font.clone(),
                             font_size: 60.0,
-                            color: super::TEXT_COLOR,
+                            color: TEXT_COLOR,
                         },
                         Default::default(),
                     ),
@@ -204,17 +204,19 @@ mod game {
     // Tick the timer, and change state when finished
     fn game(
         time: Res<Time>,
-        mut game_state: ResMut<State<super::GameState>>,
+        mut game_state: ResMut<State<GameState>>,
         mut timer: Query<&mut GameTimer>,
     ) {
         if timer.single_mut().0.tick(time.delta()).finished() {
-            game_state.set(super::GameState::Menu).unwrap();
+            game_state.set(GameState::Menu).unwrap();
         }
     }
 }
 
 mod menu {
     use bevy::{app::AppExit, prelude::*};
+
+    use super::{despawn_screen, DisplayQuality, GameState, Settings, TEXT_COLOR};
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
@@ -229,12 +231,12 @@ mod menu {
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an indepent state from `GameState`
                 .add_state(MenuState::Disabled)
-                .add_system_set(SystemSet::on_enter(super::GameState::Menu).with_system(menu_setup))
+                .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
                 // Systems to handle the main menu screen
                 .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
                 .add_system_set(
                     SystemSet::on_exit(MenuState::Main)
-                        .with_system(super::despawn_screen::<ScreenMenuMain>),
+                        .with_system(despawn_screen::<ScreenMenuMain>),
                 )
                 // Systems to handle the settings menu screen
                 .add_system_set(
@@ -242,7 +244,7 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::Settings)
-                        .with_system(super::despawn_screen::<ScreenMenuSettings>),
+                        .with_system(despawn_screen::<ScreenMenuSettings>),
                 )
                 // Systems to handle the display settings screen
                 .add_system_set(
@@ -254,7 +256,7 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsDisplay)
-                        .with_system(super::despawn_screen::<ScreenMenuSettingsDisplay>),
+                        .with_system(despawn_screen::<ScreenMenuSettingsDisplay>),
                 )
                 // Systems to handle the sound settings screen
                 .add_system_set(
@@ -266,11 +268,11 @@ mod menu {
                 )
                 .add_system_set(
                     SystemSet::on_exit(MenuState::SettingsSound)
-                        .with_system(super::despawn_screen::<ScreenMenuSettingsSound>),
+                        .with_system(despawn_screen::<ScreenMenuSettingsSound>),
                 )
                 // Common systems to all screens that handles buttons behaviour
                 .add_system_set(
-                    SystemSet::on_update(super::GameState::Menu)
+                    SystemSet::on_update(GameState::Menu)
                         .with_system(menu_action)
                         .with_system(button_system),
                 );
@@ -377,12 +379,12 @@ mod menu {
     fn quality_button(
         button_materials: Res<ButtonMaterials>,
         interaction_query: Query<
-            (&Interaction, &super::DisplayQuality, Entity),
+            (&Interaction, &DisplayQuality, Entity),
             (Changed<Interaction>, With<Button>),
         >,
         mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
         mut commands: Commands,
-        mut settings: ResMut<super::Settings>,
+        mut settings: ResMut<Settings>,
     ) {
         for (interaction, quality, entity) in interaction_query.iter() {
             if *interaction == Interaction::Clicked && settings.quality != *quality {
@@ -407,7 +409,7 @@ mod menu {
         >,
         mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
         mut commands: Commands,
-        mut settings: ResMut<super::Settings>,
+        mut settings: ResMut<Settings>,
     ) {
         for (interaction, volume, entity) in interaction_query.iter() {
             if *interaction == Interaction::Clicked && settings.volume != volume.0 {
@@ -442,7 +444,7 @@ mod menu {
         let button_text_style = TextStyle {
             font: font.clone(),
             font_size: 40.0,
-            color: super::TEXT_COLOR,
+            color: TEXT_COLOR,
         };
 
         commands
@@ -469,7 +471,7 @@ mod menu {
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
-                            color: super::TEXT_COLOR,
+                            color: TEXT_COLOR,
                         },
                         Default::default(),
                     ),
@@ -546,7 +548,7 @@ mod menu {
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
-            color: super::TEXT_COLOR,
+            color: TEXT_COLOR,
         };
 
         commands
@@ -619,7 +621,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<super::Settings>,
+        settings: Res<Settings>,
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
@@ -631,7 +633,7 @@ mod menu {
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
-            color: super::TEXT_COLOR,
+            color: TEXT_COLOR,
         };
 
         commands
@@ -670,9 +672,9 @@ mod menu {
                         });
                         // Display a button for each possible value
                         for quality in [
-                            super::DisplayQuality::Low,
-                            super::DisplayQuality::Medium,
-                            super::DisplayQuality::High,
+                            DisplayQuality::Low,
+                            DisplayQuality::Medium,
+                            DisplayQuality::High,
                         ] {
                             let mut entity = parent.spawn_bundle(ButtonBundle {
                                 style: Style {
@@ -719,7 +721,7 @@ mod menu {
         asset_server: Res<AssetServer>,
         button_materials: Res<ButtonMaterials>,
         mut materials: ResMut<Assets<ColorMaterial>>,
-        settings: Res<super::Settings>,
+        settings: Res<Settings>,
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
@@ -731,7 +733,7 @@ mod menu {
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
-            color: super::TEXT_COLOR,
+            color: TEXT_COLOR,
         };
 
         commands
@@ -803,14 +805,14 @@ mod menu {
         >,
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<State<MenuState>>,
-        mut game_state: ResMut<State<super::GameState>>,
+        mut game_state: ResMut<State<GameState>>,
     ) {
         for (interaction, menu_button_action) in interaction_query.iter() {
             if *interaction == Interaction::Clicked {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
-                        game_state.set(super::GameState::Game).unwrap();
+                        game_state.set(GameState::Game).unwrap();
                         menu_state.set(MenuState::Disabled).unwrap()
                     }
                     MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
