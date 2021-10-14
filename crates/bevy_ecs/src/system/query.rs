@@ -708,7 +708,7 @@ where
             .state
             .fetch_state
             .get_id::<T>()
-            .expect("Missing read access!");
+            .ok_or(QueryComponentError::MissingReadAccess)?;
 
         let location = self
             .world
@@ -780,9 +780,11 @@ where
             .state
             .fetch_state
             .get_id::<T>()
-            .expect("There is no access!");
+            .ok_or(QueryComponentError::MissingReadAccess)?;
 
-        assert_eq!(write_flag, RWAccess::Write, "Missing write access!");
+        if write_flag != RWAccess::Write {
+            return Err(QueryComponentError::MissingWriteAccess);
+        }
 
         let location = self
             .world
