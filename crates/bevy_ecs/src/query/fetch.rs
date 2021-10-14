@@ -9,6 +9,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use std::{
+    any::TypeId,
     cell::UnsafeCell,
     marker::PhantomData,
     ptr::{self, NonNull},
@@ -126,6 +127,14 @@ pub unsafe trait FetchState: Send + Sync + Sized {
     );
     fn matches_archetype(&self, archetype: &Archetype) -> bool;
     fn matches_table(&self, table: &Table) -> bool;
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)>;
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum RWAccess {
+    Read,
+    Write,
 }
 
 /// A fetch that is read only. This must only be implemented for read-only fetches.
@@ -171,6 +180,10 @@ unsafe impl FetchState for EntityState {
     #[inline]
     fn matches_table(&self, _table: &Table) -> bool {
         true
+    }
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+        None
     }
 }
 
@@ -265,6 +278,10 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 
     fn matches_table(&self, table: &Table) -> bool {
         table.has_column(self.component_id)
+    }
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+        (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
     }
 }
 
@@ -445,6 +462,10 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     fn matches_table(&self, table: &Table) -> bool {
         table.has_column(self.component_id)
     }
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+        (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Write))
+    }
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
@@ -603,6 +624,10 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
 
     fn matches_table(&self, _table: &Table) -> bool {
         true
+    }
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+        self.state.get_id::<C>()
     }
 }
 
@@ -776,6 +801,10 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 
     fn matches_table(&self, table: &Table) -> bool {
         table.has_column(self.component_id)
+    }
+
+    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+        (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
     }
 }
 
@@ -975,6 +1004,11 @@ macro_rules! impl_tuple_fetch {
             fn matches_table(&self, _table: &Table) -> bool {
                 let ($($name,)*) = self;
                 true $(&& $name.matches_table(_table))*
+            }
+
+            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+                let ($($name,)*) = self;
+                None $(.or_else(|| $name.get_id::<Comp>() ))*
             }
         }
 

@@ -1,14 +1,15 @@
 use crate::{
-    component::Component,
+    change_detection::Ticks,
+    component::{Component, ComponentStorage},
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
-        ReadOnlyFetch, WorldQuery,
+        Fetch, FetchState, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        QueryState, RWAccess, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use std::{any::TypeId, fmt::Debug};
+use std::fmt::Debug;
 use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
@@ -703,28 +704,28 @@ where
         &self,
         entity: Entity,
     ) -> Result<&'w T, QueryComponentError> {
-        let world = self.world;
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
+        let (component_id, _) = self
             .state
-            .archetype_component_access
-            .has_read(archetype_component)
-        {
-            entity_ref
-                .get::<T>()
-                .ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingReadAccess)
+            .fetch_state
+            .get_id::<T>()
+            .expect("Missing read access!");
+
+        let location = self
+            .world
+            .entities()
+            .get(entity)
+            .ok_or(QueryComponentError::NoSuchEntity)?;
+
+        unsafe {
+            crate::world::get_component(
+                self.world,
+                component_id,
+                entity,
+                location,
+                T::Storage::STORAGE_TYPE,
+            )
+            .map(|x| &*x.cast())
+            .ok_or(QueryComponentError::MissingComponent)
         }
     }
 
@@ -775,29 +776,36 @@ where
         &self,
         entity: Entity,
     ) -> Result<Mut<'_, T>, QueryComponentError> {
-        let world = self.world;
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
+        let (component_id, write_flag) = self
             .state
-            .archetype_component_access
-            .has_write(archetype_component)
-        {
-            entity_ref
-                .get_unchecked_mut::<T>(self.last_change_tick, self.change_tick)
-                .ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingWriteAccess)
-        }
+            .fetch_state
+            .get_id::<T>()
+            .expect("There is no access!");
+
+        assert_eq!(write_flag, RWAccess::Write, "Missing write access!");
+
+        let location = self
+            .world
+            .entities()
+            .get(entity)
+            .ok_or(QueryComponentError::NoSuchEntity)?;
+
+        crate::world::get_component_and_ticks(
+            self.world,
+            component_id,
+            entity,
+            location,
+            T::Storage::STORAGE_TYPE,
+        )
+        .map(|(value, ticks)| Mut {
+            value: &mut *value.cast::<T>(),
+            ticks: Ticks {
+                component_ticks: &mut *ticks,
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
+        })
+        .ok_or(QueryComponentError::MissingComponent)
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching

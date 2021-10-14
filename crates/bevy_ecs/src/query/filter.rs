@@ -7,7 +7,9 @@ use crate::{
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
-use std::{cell::UnsafeCell, marker::PhantomData, ptr};
+use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData, ptr};
+
+use super::RWAccess;
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
@@ -114,6 +116,10 @@ unsafe impl<T: Component> FetchState for WithState<T> {
 
     fn matches_table(&self, table: &Table) -> bool {
         table.has_column(self.component_id)
+    }
+
+    fn get_id<C>(&self) -> Option<(ComponentId, RWAccess)> {
+        None
     }
 }
 
@@ -233,6 +239,10 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
 
     fn matches_table(&self, table: &Table) -> bool {
         !table.has_column(self.component_id)
+    }
+
+    fn get_id<C>(&self) -> Option<(ComponentId, RWAccess)> {
+        None
     }
 }
 
@@ -425,6 +435,11 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &self.0;
                 false $(|| $filter.matches_table(table))*
             }
+
+            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+                let ($($filter,)*) = &self.0;
+                None $(.or_else(|| $filter.get_id::<Comp>() ))*
+            }
         }
     };
 }
@@ -502,6 +517,10 @@ macro_rules! impl_tick_filter {
 
             fn matches_table(&self, table: &Table) -> bool {
                 table.has_column(self.component_id)
+            }
+
+            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+                (TypeId::of::<Comp>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
             }
         }
 
