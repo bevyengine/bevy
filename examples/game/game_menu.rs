@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 // This example will display a simple menu using Bevy UI where you can start a new game,
-// change some settings or quit. There are no actual game, it will just display the current
+// change some settings or quit. There is no actual game, it will just display the current
 // settings for 5 seconds before going back to the menu.
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -145,7 +145,8 @@ mod game {
                 style: Style {
                     // This will center the current node
                     margin: Rect::all(Val::Auto),
-                    // This will display its children in a column, from top to bottom
+                    // This will display its children in a column, from top to bottom. Unlike
+                    // in Flexbox, Bevy origin is on bottom left, so the vertical axis is reversed
                     flex_direction: FlexDirection::ColumnReverse,
                     // `align_items` will align children on the cross axis. Here the main axis is
                     // vertical (column), so the cross axis is horizontal. This will center the
@@ -224,7 +225,7 @@ mod menu {
             app.init_resource::<ButtonMaterials>()
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.
-                // Current screen in the menu is handled by an indepent state from `GameState`
+                // Current screen in the menu is handled by an independent state from `GameState`
                 .add_state(MenuState::Disabled)
                 .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
                 // Systems to handle the main menu screen
