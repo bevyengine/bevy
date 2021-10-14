@@ -19,4 +19,4 @@
 * Alien from [Kenney's Space Kit](https://www.kenney.nl/assets/space-kit)
 * Cake from [Kenney's Food Kit](https://www.kenney.nl/assets/food-kit)
 * Ground tile from [Kenney's Tower Defense Kit](https://www.kenney.nl/assets/tower-defense-kit)
-* Game icons from [Kenney's Game Iconss](https://www.kenney.nl/assets/game-icons)
+* Game icons from [Kenney's Game Icons](https://www.kenney.nl/assets/game-icons)
