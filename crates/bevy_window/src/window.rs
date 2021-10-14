@@ -468,7 +468,6 @@ impl Window {
 
     /// The current mouse position, in physical pixels.
     #[inline]
-    #[doc(alias = "mouse position")]
     pub fn physical_cursor_position(&self) -> Option<DVec2> {
         self.physical_cursor_position
     }
