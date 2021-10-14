@@ -405,10 +405,23 @@ mod menu {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         // Common style for all buttons on the screen
         let button_style = Style {
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+            size: Size::new(Val::Px(250.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            ..Default::default()
+        };
+        let button_icon_style = Style {
+            size: Size::new(Val::Px(30.0), Val::Auto),
+            // This takes the icons out of the flexbox flow, to be positionned exactly
+            position_type: PositionType::Absolute,
+            // The icon will be close to the left border of the button
+            position: Rect {
+                left: Val::Px(10.0),
+                right: Val::Auto,
+                top: Val::Auto,
+                bottom: Val::Auto,
+            },
             ..Default::default()
         };
         let button_text_style = TextStyle {
@@ -460,6 +473,12 @@ mod menu {
                     })
                     .insert(MenuButtonAction::Play)
                     .with_children(|parent| {
+                        let icon = asset_server.load("textures/Game Icons/right.png");
+                        parent.spawn_bundle(ImageBundle {
+                            style: button_icon_style.clone(),
+                            material: materials.add(icon.into()),
+                            ..Default::default()
+                        });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
                                 "New Game",
@@ -477,6 +496,12 @@ mod menu {
                     })
                     .insert(MenuButtonAction::Settings)
                     .with_children(|parent| {
+                        let icon = asset_server.load("textures/Game Icons/wrench.png");
+                        parent.spawn_bundle(ImageBundle {
+                            style: button_icon_style.clone(),
+                            material: materials.add(icon.into()),
+                            ..Default::default()
+                        });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
                                 "Settings",
@@ -494,6 +519,12 @@ mod menu {
                     })
                     .insert(MenuButtonAction::Quit)
                     .with_children(|parent| {
+                        let icon = asset_server.load("textures/Game Icons/exitRight.png");
+                        parent.spawn_bundle(ImageBundle {
+                            style: button_icon_style,
+                            material: materials.add(icon.into()),
+                            ..Default::default()
+                        });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Quit", button_text_style, Default::default()),
                             ..Default::default()
