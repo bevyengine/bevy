@@ -200,6 +200,16 @@ impl<T> ManualEventReader<T> {
     ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
         internal_event_reader(&mut self.last_event_count, events)
     }
+
+    /// See [`EventReader::len`]
+    pub fn len(&self, events: &Events<T>) -> usize {
+        event_reader_len(self.last_event_count, events)
+    }
+
+    /// See [`EventReader::is_empty`]
+    pub fn is_empty(&self, events: &Events<T>) -> bool {
+        self.len(events) == 0
+    }
 }
 
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
@@ -253,6 +263,31 @@ fn internal_event_reader<'a, T>(
     }
 }
 
+/// Determines how many events are in the reader after the given `last_event_count` parameter
+fn event_reader_len<T>(last_event_count: usize, events: &Events<T>) -> usize {
+    let a_count = if last_event_count <= events.a_start_event_count {
+        events.events_a.len()
+    } else {
+        events
+            .events_a
+            .len()
+            .checked_sub(last_event_count - events.a_start_event_count)
+            .unwrap_or_default()
+    };
+
+    let b_count = if last_event_count <= events.b_start_event_count {
+        events.events_b.len()
+    } else {
+        events
+            .events_b
+            .len()
+            .checked_sub(last_event_count - events.b_start_event_count)
+            .unwrap_or_default()
+    };
+
+    a_count + b_count
+}
+
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
@@ -267,6 +302,16 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
             trace!("EventReader::iter() -> {}", id);
             (event, id)
         })
+    }
+
+    /// Determines the number of events available to be read from this EventReader without consuming any.
+    pub fn len(&self) -> usize {
+        event_reader_len(self.last_event_count.0, &self.events)
+    }
+
+    /// Determines if are any events available to be read without consuming any.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -580,5 +625,47 @@ mod tests {
         // due to double buffering.
         events.update();
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_event_reader_len_empty() {
+        let events = Events::<TestEvent>::default();
+        assert_eq!(events.get_reader().len(&events), 0);
+        assert!(events.get_reader().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_filled() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(events.get_reader().len(&events), 1);
+        assert!(!events.get_reader().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_current() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        let reader = events.get_reader_current();
+        assert!(reader.is_empty(&events));
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 1);
+        assert!(!reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_update() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 0 });
+        let mut reader = events.get_reader();
+        assert_eq!(reader.len(&events), 2);
+        events.update();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 3);
+        events.update();
+        assert_eq!(reader.len(&events), 1);
+        events.update();
+        assert!(reader.is_empty(&events));
     }
 }
