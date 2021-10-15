@@ -128,7 +128,7 @@ pub unsafe trait FetchState: Send + Sync + Sized {
     fn matches_archetype(&self, archetype: &Archetype) -> bool;
     fn matches_table(&self, table: &Table) -> bool;
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)>;
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)>;
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -626,7 +626,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
         true
     }
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)> {
         self.state.get_id::<C>()
     }
 }
@@ -1006,7 +1006,7 @@ macro_rules! impl_tuple_fetch {
                 true $(&& $name.matches_table(_table))*
             }
 
-            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+            fn get_id<Comp: Component>(&self) -> Option<(ComponentId, RWAccess)> {
                 let ($($name,)*) = self;
                 None $(.or_else(|| $name.get_id::<Comp>() ))*
             }

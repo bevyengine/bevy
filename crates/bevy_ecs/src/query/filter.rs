@@ -436,7 +436,7 @@ macro_rules! impl_query_filter_tuple {
                 false $(|| $filter.matches_table(table))*
             }
 
-            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+            fn get_id<Comp: Component>(&self) -> Option<(ComponentId, RWAccess)> {
                 let ($($filter,)*) = &self.0;
                 None $(.or_else(|| $filter.get_id::<Comp>() ))*
             }
