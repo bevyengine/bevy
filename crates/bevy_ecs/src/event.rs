@@ -187,6 +187,7 @@ impl<T> Default for ManualEventReader<T> {
     }
 }
 
+#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<T> ManualEventReader<T> {
     /// See [`EventReader::iter`]
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
@@ -658,7 +659,7 @@ mod tests {
         let mut events = Events::<TestEvent>::default();
         events.send(TestEvent { i: 0 });
         events.send(TestEvent { i: 0 });
-        let mut reader = events.get_reader();
+        let reader = events.get_reader();
         assert_eq!(reader.len(&events), 2);
         events.update();
         events.send(TestEvent { i: 0 });
