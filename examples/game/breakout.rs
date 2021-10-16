@@ -1,7 +1,7 @@
 use bevy::{
     core::FixedTimestep,
     prelude::*,
-    render::{camera::Camera, pass::ClearColor},
+    render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
 };
 use rand::Rng;
@@ -18,7 +18,7 @@ fn main() {
         .add_startup_system(setup_cameras)
         .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(ui_system_setup))
         .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(key_input_system))
-        .add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(teardown))
+        .add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(teardown::<OnUIScreen>))
         .add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup))
         .add_system_set(
             SystemSet::on_update(GameState::InGame)
@@ -28,14 +28,20 @@ fn main() {
                 .with_system(scoreboard_system)
                 .with_system(on_game_over),
         )
-        .add_system_set(SystemSet::on_exit(GameState::InGame).with_system(teardown))
+        .add_system_set(SystemSet::on_exit(GameState::InGame).with_system(teardown::<OnGameScreen>))
         .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(ui_system_setup))
         .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(key_input_system))
-        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
+        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown::<OnUIScreen>))
         .add_system_set(SystemSet::new().with_run_criteria(FixedTimestep::step(TIME_STEP as f64)))
         .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
+
+#[derive(Component)]
+struct OnUIScreen;
+
+#[derive(Component)]
+struct OnGameScreen;
 
 #[derive(Component)]
 struct Paddle {
@@ -88,7 +94,8 @@ fn setup(
             ..Default::default()
         })
         .insert(Paddle { speed: 500.0 })
-        .insert(Collider::Paddle);
+        .insert(Collider::Paddle)
+        .insert(OnGameScreen);
     // ball
     commands
         .spawn_bundle(SpriteBundle {
@@ -99,7 +106,8 @@ fn setup(
         })
         .insert(Ball {
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
-        });
+        })
+        .insert(OnGameScreen);
     // scoreboard
     commands.spawn_bundle(TextBundle {
         text: Text {
@@ -133,7 +141,8 @@ fn setup(
             ..Default::default()
         },
         ..Default::default()
-    });
+    })
+    .insert(OnGameScreen);
 
     // Add walls
     let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
@@ -148,7 +157,8 @@ fn setup(
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider::Solid)
+        .insert(OnGameScreen);
     // right
     commands
         .spawn_bundle(SpriteBundle {
@@ -157,7 +167,8 @@ fn setup(
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider::Solid)
+        .insert(OnGameScreen);
     // bottom
     commands
         .spawn_bundle(SpriteBundle {
@@ -166,7 +177,8 @@ fn setup(
             sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider::Solid)
+        .insert(OnGameScreen);
     // top
     commands
         .spawn_bundle(SpriteBundle {
@@ -175,7 +187,8 @@ fn setup(
             sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider::Solid)
+        .insert(OnGameScreen);
 
     // Add bricks
     let brick_rows = 4;
@@ -210,13 +223,14 @@ fn setup(
                     transform: Transform::from_translation(brick_position),
                     ..Default::default()
                 })
-                .insert(Collider::Scorable);
+                .insert(Collider::Scorable)
+                .insert(OnGameScreen);
         }
     }
 }
 
 // remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+fn teardown<T: Component>(mut commands: Commands, entities: Query<Entity, With<T>>) {
     for entity in entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
@@ -357,6 +371,7 @@ fn ui_system_setup(
             material: materials.add(Color::NONE.into()),
             ..Default::default()
         })
+        .insert(OnUIScreen)
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
                 text: Text {
