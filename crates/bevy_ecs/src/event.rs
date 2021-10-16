@@ -188,7 +188,7 @@ impl<T> Default for ManualEventReader<T> {
 }
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<T> ManualEventReader<T> {
+impl<T: Resource> ManualEventReader<T> {
     /// See [`EventReader::iter`]
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
@@ -204,7 +204,7 @@ impl<T> ManualEventReader<T> {
 
     /// See [`EventReader::len`]
     pub fn len(&self, events: &Events<T>) -> usize {
-        event_reader_len(self.last_event_count, events)
+        events.event_reader_len(self.last_event_count)
     }
 
     /// See [`EventReader::is_empty`]
@@ -264,31 +264,6 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-/// Determines how many events are in the reader after the given `last_event_count` parameter
-fn event_reader_len<T>(last_event_count: usize, events: &Events<T>) -> usize {
-    let a_count = if last_event_count <= events.a_start_event_count {
-        events.events_a.len()
-    } else {
-        events
-            .events_a
-            .len()
-            .checked_sub(last_event_count - events.a_start_event_count)
-            .unwrap_or_default()
-    };
-
-    let b_count = if last_event_count <= events.b_start_event_count {
-        events.events_b.len()
-    } else {
-        events
-            .events_b
-            .len()
-            .checked_sub(last_event_count - events.b_start_event_count)
-            .unwrap_or_default()
-    };
-
-    a_count + b_count
-}
-
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
@@ -307,7 +282,7 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
 
     /// Determines the number of events available to be read from this EventReader without consuming any.
     pub fn len(&self) -> usize {
-        event_reader_len(self.last_event_count.0, &self.events)
+        self.events.event_reader_len(self.last_event_count.0)
     }
 
     /// Determines if are any events available to be read without consuming any.
@@ -425,6 +400,29 @@ impl<T: Resource> Events<T> {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
+    }
+
+    /// Determines how many events are in the reader after the given `last_event_count` parameter
+    fn event_reader_len(&self, last_event_count: usize) -> usize {
+        let a_count = if last_event_count <= self.a_start_event_count {
+            self.events_a.len()
+        } else {
+            self.events_a
+                .len()
+                .checked_sub(last_event_count - self.a_start_event_count)
+                .unwrap_or_default()
+        };
+
+        let b_count = if last_event_count <= self.b_start_event_count {
+            self.events_b.len()
+        } else {
+            self.events_b
+                .len()
+                .checked_sub(last_event_count - self.b_start_event_count)
+                .unwrap_or_default()
+        };
+
+        a_count + b_count
     }
 }
 
