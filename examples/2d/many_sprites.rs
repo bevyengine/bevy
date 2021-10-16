@@ -17,8 +17,12 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(tick_system.label("Tick"))
-        .add_system(move_camera_system.after("Tick"))
+        .add_system(
+            print_sprite_count
+                .config(|((), timer, ())| *timer = Some(Timer::from_seconds(1.0, true)))
+                .label("Tick"),
+        )
+        .add_system(move_camera.after("Tick"))
         .run()
 }
 
@@ -37,7 +41,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(Timer::from_seconds(1.0, true))
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     // Builds and spawns the sprites
@@ -68,7 +71,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 // System for rotating and translating the camera
-fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
     camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
     *camera_transform = *camera_transform
@@ -76,11 +79,10 @@ fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, W
 }
 
 // System for printing the number of sprites on every tick of the timer
-fn tick_system(time: Res<Time>, sprites_query: Query<&Sprite>, mut timer_query: Query<&mut Timer>) {
-    let mut timer = timer_query.single_mut();
+fn print_sprite_count(time: Res<Time>, mut timer: Local<Timer>, sprites: Query<&Sprite>) {
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites_query.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count(),);
     }
 }
