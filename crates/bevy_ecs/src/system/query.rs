@@ -780,7 +780,7 @@ where
             .state
             .fetch_state
             .get_id::<T>()
-            .ok_or(QueryComponentError::MissingReadAccess)?;
+            .ok_or(QueryComponentError::MissingWriteAccess)?;
 
         if write_flag != RWAccess::Write {
             return Err(QueryComponentError::MissingWriteAccess);
