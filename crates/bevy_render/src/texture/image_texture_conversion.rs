@@ -87,7 +87,7 @@ impl From<image::DynamicImage> for Texture {
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO unsafe_get in release builds?
+                    //TODO use the array_chunks method once stabilised
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
