@@ -33,8 +33,7 @@ impl DynamicTextureAtlasBuilder {
             let mut rect: Rect = allocation.rectangle.into();
             rect.max.x -= self.padding as f32;
             rect.max.y -= self.padding as f32;
-            texture_atlas.add_texture(rect);
-            Some(texture_atlas.len() - 1)
+            Some(texture_atlas.add_texture(rect))
         } else {
             None
         }
