@@ -145,12 +145,8 @@ impl RenderDevice {
     ///
     /// - A old [`SwapChainFrame`] is still alive referencing an old swapchain.
     /// - Texture format requested is unsupported on the swap chain.
-    pub fn create_swap_chain(
-        &self,
-        surface: &wgpu::Surface,
-        desc: &wgpu::SwapChainDescriptor,
-    ) -> wgpu::SwapChain {
-        self.device.create_swap_chain(surface, desc)
+    pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
+        surface.configure(&self.device, config)
     }
 
     pub fn wgpu_device(&self) -> &wgpu::Device {

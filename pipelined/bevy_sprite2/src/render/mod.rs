@@ -12,10 +12,9 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderDevice, RenderQueue},
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
@@ -40,7 +39,7 @@ impl FromWorld for SpriteShaders {
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
@@ -57,7 +56,7 @@ impl FromWorld for SpriteShaders {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: false },
@@ -67,7 +66,7 @@ impl FromWorld for SpriteShaders {
                 },
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -90,7 +89,7 @@ impl FromWorld for SpriteShaders {
             vertex: VertexState {
                 buffers: &[VertexBufferLayout {
                     array_stride: 20,
-                    step_mode: InputStepMode::Vertex,
+                    step_mode: VertexStepMode::Vertex,
                     attributes: &[
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
@@ -124,7 +123,7 @@ impl FromWorld for SpriteShaders {
                             operation: BlendOperation::Add,
                         },
                     }),
-                    write_mask: ColorWrite::ALL,
+                    write_mask: ColorWrites::ALL,
                 }],
             }),
             layout: Some(&pipeline_layout),
@@ -232,8 +231,8 @@ pub struct SpriteMeta {
 impl Default for SpriteMeta {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsage::VERTEX),
-            indices: BufferVec::new(BufferUsage::INDEX),
+            vertices: BufferVec::new(BufferUsages::VERTEX),
+            indices: BufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
             quad: Quad {
                 size: Vec2::new(1.0, 1.0),
@@ -246,6 +245,7 @@ impl Default for SpriteMeta {
 
 pub fn prepare_sprites(
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     mut extracted_sprites: Query<&mut ExtractedSprite>,
 ) {
@@ -312,8 +312,8 @@ pub fn prepare_sprites(
         }
     }
 
-    sprite_meta.vertices.write_to_staging_buffer(&render_device);
-    sprite_meta.indices.write_to_staging_buffer(&render_device);
+    sprite_meta.vertices.write_buffer(&render_queue);
+    sprite_meta.indices.write_buffer(&render_queue);
 }
 
 #[derive(Default)]
@@ -372,27 +372,6 @@ pub fn queue_sprites(
                 });
             }
         }
-    }
-}
-
-// TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
-pub struct SpriteNode;
-
-impl Node for SpriteNode {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let sprite_buffers = world.get_resource::<SpriteMeta>().unwrap();
-        sprite_buffers
-            .vertices
-            .write_to_buffer(&mut render_context.command_encoder);
-        sprite_buffers
-            .indices
-            .write_to_buffer(&mut render_context.command_encoder);
-        Ok(())
     }
 }
 

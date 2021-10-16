@@ -1,14 +1,14 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_utils::tracing::info;
+use bevy_utils::tracing::{info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
-use crate::render_graph::RenderGraph;
+use crate::{render_graph::RenderGraph, view::ExtractedWindows};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{Backends, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
@@ -24,13 +24,25 @@ pub fn render_system(world: &mut World) {
         world,
     )
     .unwrap();
+    {
+        let span = info_span!("present_frames");
+        let _guard = span.enter();
+        let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
+        for window in windows.values_mut() {
+            if let Some(texture_view) = window.swap_chain_texture.take() {
+                if let Some(surface_texture) = texture_view.take_surface_texture() {
+                    surface_texture.present();
+                }
+            }
+        }
+    }
 }
 
 pub type RenderQueue = Arc<Queue>;
 pub type RenderInstance = Instance;
 
 pub async fn initialize_renderer(
-    backends: BackendBit,
+    backends: Backends,
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
 ) -> (RenderInstance, RenderDevice, RenderQueue) {

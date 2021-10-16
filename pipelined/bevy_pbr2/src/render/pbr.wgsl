@@ -18,9 +18,9 @@ struct Mesh {
 let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
 
 [[group(0), binding(0)]]
-var view: View;
+var<uniform> view: View;
 [[group(2), binding(0)]]
-var mesh: Mesh;
+var<uniform> mesh: Mesh;
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -136,7 +136,7 @@ struct Lights {
 
 
 [[group(0), binding(1)]]
-var lights: Lights;
+var<uniform> lights: Lights;
 [[group(0), binding(2)]]
 var point_shadow_textures: texture_depth_cube_array;
 [[group(0), binding(3)]]
@@ -147,7 +147,7 @@ var directional_shadow_textures: texture_depth_2d_array;
 var directional_shadow_textures_sampler: sampler_comparison;
 
 [[group(1), binding(0)]]
-var material: StandardMaterial;
+var<uniform> material: StandardMaterial;
 [[group(1), binding(1)]]
 var base_color_texture: texture_2d<f32>;
 [[group(1), binding(2)]]
@@ -293,7 +293,7 @@ fn reinhard(color: vec3<f32>) -> vec3<f32> {
 }
 
 fn reinhard_extended(color: vec3<f32>, max_white: f32) -> vec3<f32> {
-    let numerator = color * (1.0f + (color / vec3<f32>(max_white * max_white)));
+    let numerator = color * (1.0 + (color / vec3<f32>(max_white * max_white)));
     return numerator / (1.0 + color);
 }
 
@@ -310,14 +310,14 @@ fn change_luminance(c_in: vec3<f32>, l_out: f32) -> vec3<f32> {
 
 fn reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
     let l_old = luminance(color);
-    let l_new = l_old / (1.0f + l_old);
+    let l_new = l_old / (1.0 + l_old);
     return change_luminance(color, l_new);
 }
 
 fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> {
     let l_old = luminance(color);
-    let numerator = l_old * (1.0f + (l_old / (max_white_l * max_white_l)));
-    let l_new = numerator / (1.0f + l_old);
+    let numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
+    let l_new = numerator / (1.0 + l_old);
     return change_luminance(color, l_new);
 }
 

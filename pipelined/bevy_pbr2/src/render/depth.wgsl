@@ -6,7 +6,7 @@ struct View {
     world_position: vec3<f32>;
 };
 [[group(0), binding(0)]]
-var view: View;
+var<uniform> view: View;
 
 
 [[block]]
@@ -18,7 +18,7 @@ struct Mesh {
 };
 
 [[group(1), binding(0)]]
-var mesh: Mesh;
+var<uniform> mesh: Mesh;
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
