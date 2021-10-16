@@ -318,7 +318,7 @@ fn on_game_over(
     mut ev_gameover: EventReader<GameOverEvent>,
     mut app_state: ResMut<State<GameState>>,
 ) {
-    for _ev in ev_gameover.iter() {
+    if ev_gameover.iter().next().is_some() {
         app_state.set(GameState::GameOver).unwrap();
     }
 }
