@@ -29,6 +29,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // To show the difference between a local transform (rotation, scale and position in respect to a given entity)
     // and global transform (rotation, scale and position in respect to the base coordinate system of the visible scene)
@@ -88,6 +89,25 @@ fn setup(
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..Default::default()
     });
+
+    // Add a UI cam and text to explain what is happening.
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(TextBundle {
+        text: Text::with_section(
+            "Press the Arrow Keys to move the cubes.
+The green cube will move more than the other two since its local transform is added onto the transform of its parent.
+The red cube is moved through its GlobalTransform and thus stays in the same relative position to the yellow parent cube.",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 30.0,
+                color: Color::WHITE,
+            },
+            TextAlignment {
+                vertical: VerticalAlign::Center,
+                horizontal: HorizontalAlign::Left,
+            }
+        ),
+        ..Default::default()});
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.
