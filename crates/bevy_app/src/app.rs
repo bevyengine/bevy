@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -55,6 +55,7 @@ pub struct App {
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    plugins: HashMap<std::any::TypeId, Option<&'static str>>,
 }
 
 /// Each [`SubApp`] has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -98,6 +99,7 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugins: Default::default(),
         }
     }
 
@@ -769,8 +771,36 @@ impl App {
         T: Plugin,
     {
         debug!("added plugin: {}", plugin.name());
+        self.register_plugin(&std::any::TypeId::of::<T>(), plugin.name(), None);
         plugin.build(self);
         self
+    }
+
+    /// Checks that a plugin has not already been added to an application. It will panic with an
+    /// helpful message the second time a plugin is being added.
+    pub(crate) fn register_plugin(
+        &mut self,
+        plugin_type: &TypeId,
+        plugin_name: &str,
+        from_group: Option<&'static str>,
+    ) {
+        if let Some(existing_from_group) = self.plugins.insert(*plugin_type, from_group) {
+            match (from_group, existing_from_group) {
+                (None, None) => panic!("Plugin \"{}\" was already added", plugin_name),
+                (None, Some(existing_from_group)) => panic!(
+                    "Plugin \"{}\" was already added with group \"{}\"",
+                    plugin_name, existing_from_group
+                ),
+                (Some(from_group), None) => panic!(
+                    "Plugin \"{}\" from group \"{}\" was already added",
+                    plugin_name, from_group
+                ),
+                (Some(from_group), Some(existing_from_group)) => panic!(
+                    "Plugin \"{}\" from group \"{}\" was already added with group \"{}\"",
+                    plugin_name, from_group, existing_from_group
+                ),
+            };
+        }
     }
 
     /// Adds a group of plugins
@@ -794,9 +824,20 @@ impl App {
     ///     .add_plugins(MinimalPlugins);
     /// ```
     pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
+        if self
+            .plugins
+            .insert(std::any::TypeId::of::<T>(), None)
+            .is_some()
+        {
+            panic!(
+                "Plugin Group \"{}\" was already added",
+                std::any::type_name::<T>()
+            );
+        }
+
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+        plugin_group_builder.finish::<T>(self);
         self
     }
 
@@ -834,10 +875,21 @@ impl App {
         T: PluginGroup,
         F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
     {
+        if self
+            .plugins
+            .insert(std::any::TypeId::of::<T>(), None)
+            .is_some()
+        {
+            panic!(
+                "Plugin Group \"{}\" was already added",
+                std::any::type_name::<T>()
+            );
+        }
+
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+        plugin_group_builder.finish::<T>(self);
         self
     }
 
