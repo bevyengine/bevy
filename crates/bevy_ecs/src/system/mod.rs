@@ -787,7 +787,7 @@ mod tests {
     }
 }
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -806,7 +806,7 @@ mod tests {
 #[cfg(doctest)]
 fn system_query_iter_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -821,7 +821,7 @@ fn system_query_iter_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_query_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -842,7 +842,7 @@ fn system_query_get_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_query_set_iter_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -863,7 +863,7 @@ fn system_query_set_iter_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_query_set_iter_flip_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -882,7 +882,7 @@ fn system_query_set_iter_flip_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_query_set_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// struct A(usize);
@@ -900,7 +900,7 @@ fn system_query_set_get_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_query_set_get_flip_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0502
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemState;
 /// #[derive(Component)]
@@ -929,7 +929,7 @@ fn system_query_set_get_flip_lifetime_safety_test() {}
 #[cfg(doctest)]
 fn system_state_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0502
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemState;
 /// #[derive(Component)]
