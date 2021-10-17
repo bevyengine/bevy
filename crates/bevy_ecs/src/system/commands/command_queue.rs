@@ -1,9 +1,12 @@
-use super::Command;
+use std::marker::PhantomData;
+
+use super::{Command, IteratorCommand};
 use crate::world::World;
 
 struct CommandMeta {
     offset: usize,
-    func: unsafe fn(value: *mut u8, world: &mut World),
+    iter_item_count: usize,
+    func: unsafe fn(value: *mut u8, world: &mut World, iter_item_count: usize),
 }
 
 /// A queue of [`Command`]s
@@ -28,45 +31,139 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push<C>(&mut self, command: C)
-    where
-        C: Command,
-    {
-        /// SAFE: This function is only every called when the `command` bytes is the associated
-        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
-        /// accesses are safe.
-        unsafe fn write_command<T: Command>(command: *mut u8, world: &mut World) {
-            let command = command.cast::<T>().read_unaligned();
-            command.write(world);
-        }
+    pub fn push<C: Command>(&mut self, command: C) {
+        self.push_with_iterator(std::iter::empty(), command);
+    }
 
-        let size = std::mem::size_of::<C>();
+    /// Push a [`Command`] onto the queue.
+    #[inline]
+    pub fn push_with_iterator<C, I>(&mut self, iterator: I, command: C)
+    where
+        C: IteratorCommand,
+        I: IntoIterator<Item = C::IterItem>,
+    {
+        let iter = iterator.into_iter();
+
+        let cmd_size = std::mem::size_of::<C>();
+        let iter_item_size = std::mem::size_of::<C::IterItem>();
         let old_len = self.bytes.len();
 
-        self.metas.push(CommandMeta {
-            offset: old_len,
-            func: write_command::<C>,
-        });
+        // The hints are never relied on for soundness.
+        let (iter_min_hint, iter_max_hint) = iter.size_hint();
+        let iter_item_count_hint = iter_max_hint.unwrap_or(iter_min_hint);
 
-        if size > 0 {
-            self.bytes.reserve(size);
+        // Use checked_add to guard against malicious iterator impls.
+        let alloc_hint = cmd_size
+            // no overflow checks here, as even if these overflow every item also has a separate reserve call.
+            .checked_add(iter_item_count_hint * iter_item_size)
+            .unwrap_or(cmd_size);
+        self.bytes.reserve(alloc_hint);
 
+        if cmd_size > 0 {
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), and the vector has
             // its length set appropriately.
-            // Also `command` is forgotten at the end of this function so that
-            // when `apply` is called later, a double `drop` does not occur.
             unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &command as *const C as *const u8,
-                    self.bytes.as_mut_ptr().add(old_len),
-                    size,
-                );
-                self.bytes.set_len(old_len + size);
+                self.bytes
+                    .as_mut_ptr()
+                    .add(self.bytes.len())
+                    .cast::<C>()
+                    .write_unaligned(command);
+                self.bytes.set_len(self.bytes.len() + cmd_size);
             }
         }
 
-        std::mem::forget(command);
+        let mut iter_item_count = 0;
+        if iter_item_size > 0 {
+            for item in iter {
+                self.bytes.reserve(iter_item_size);
+                // SAFE: The internal `bytes` vector has enough storage for the
+                // command (see the call the `reserve` above), and the vector has
+                // its length set appropriately.
+                unsafe {
+                    self.bytes
+                        .as_mut_ptr()
+                        .add(self.bytes.len())
+                        .cast::<C::IterItem>()
+                        .write_unaligned(item);
+
+                    self.bytes.set_len(self.bytes.len() + iter_item_size);
+                }
+                iter_item_count += 1;
+            }
+        } else {
+            iter_item_count = iter.count();
+        }
+
+        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// [`Commands`] `C` type. Also this only reads the data via `read_unaligned` so unaligned
+        /// accesses are safe.
+        unsafe fn write_command<C: IteratorCommand>(
+            command: *mut u8,
+            world: &mut World,
+            iter_item_count: usize,
+        ) {
+            let read_base = command.add(std::mem::size_of::<C>());
+            let indexes = 0..iter_item_count;
+            let command = command.cast::<C>().read_unaligned();
+
+            struct ByteReadIterator<T: Send + Sync + 'static> {
+                indexes: std::ops::Range<usize>,
+                read_base: *mut u8,
+                _marker: PhantomData<T>,
+            }
+
+            impl<T: Send + Sync + 'static> Iterator for ByteReadIterator<T> {
+                type Item = T;
+
+                fn size_hint(&self) -> (usize, Option<usize>) {
+                    self.indexes.size_hint()
+                }
+
+                fn next(&mut self) -> Option<Self::Item> {
+                    unsafe {
+                        self.indexes
+                            .next()
+                            .map(|index| self.read_base.cast::<T>().add(index).read_unaligned())
+                    }
+                }
+            }
+
+            impl<T: Send + Sync + 'static> std::iter::DoubleEndedIterator for ByteReadIterator<T> {
+                fn next_back(&mut self) -> Option<Self::Item> {
+                    unsafe {
+                        self.indexes
+                            .next_back()
+                            .map(|index| self.read_base.cast::<T>().add(index).read_unaligned())
+                    }
+                }
+            }
+
+            impl<T: Send + Sync + 'static> std::iter::ExactSizeIterator for ByteReadIterator<T> {}
+
+            impl<T: Send + Sync + 'static> std::iter::FusedIterator for ByteReadIterator<T> {}
+
+            impl<T: Send + Sync + 'static> Drop for ByteReadIterator<T> {
+                fn drop(&mut self) {
+                    self.for_each(drop);
+                }
+            }
+
+            command.write_with_iterator(
+                world,
+                ByteReadIterator {
+                    read_base,
+                    indexes,
+                    _marker: PhantomData,
+                },
+            );
+        }
+
+        self.metas.push(CommandMeta {
+            offset: old_len,
+            iter_item_count,
+            func: write_command::<C>,
+        });
     }
 
     /// Execute the queued [`Command`]s in the world.
@@ -101,7 +198,7 @@ impl CommandQueue {
             // SAFE: The implementation of `write_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
-                (meta.func)(byte_ptr.add(meta.offset), world);
+                (meta.func)(byte_ptr.add(meta.offset), world, meta.iter_item_count);
             }
         }
     }

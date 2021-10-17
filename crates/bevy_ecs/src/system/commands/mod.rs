@@ -17,6 +17,25 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
+pub trait IteratorCommand: Send + Sync + 'static {
+    type IterItem: Send + Sync + 'static;
+
+    fn write_with_iterator<I>(self, world: &mut World, iterator: I)
+    where
+        I: Iterator<Item = Self::IterItem>,
+        I: std::iter::DoubleEndedIterator,
+        I: std::iter::ExactSizeIterator,
+        I: std::iter::FusedIterator;
+}
+
+impl<C: Command> IteratorCommand for C {
+    type IterItem = ();
+
+    fn write_with_iterator<I: Iterator<Item = ()>>(self, world: &mut World, _: I) {
+        self.write(world);
+    }
+}
+
 /// A list of commands that modify a [`World`], running at the end of the stage where they
 /// have been invoked.
 ///
@@ -348,6 +367,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
+    }
+
+    pub fn add_with_iterator<I, C>(&mut self, iterator: I, command: C)
+    where
+        C: IteratorCommand,
+        I: IntoIterator<Item = C::IterItem>,
+    {
+        self.queue.push_with_iterator(iterator, command);
     }
 }
 
