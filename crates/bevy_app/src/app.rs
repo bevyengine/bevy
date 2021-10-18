@@ -1018,3 +1018,49 @@ fn run_once(mut app: App) {
 /// An event that indicates the app should exit. This will fully exit the app process.
 #[derive(Debug, Clone)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+}
