@@ -41,7 +41,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
 /// to the browser console.
 ///
-/// You can configure this plugin using the resource [`LogSettings`].
+/// You can configure this plugin using the startup resource [`LogSettings`].
 /// ```no_run
 /// # use bevy_internal::DefaultPlugins;
 /// # use bevy_app::App;
@@ -49,7 +49,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
 ///     App::new()
-///         .insert_resource(LogSettings {
+///         .insert_startup_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info".to_string(),
 ///         })
@@ -106,7 +106,9 @@ impl Default for LogSettings {
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
         let default_filter = {
-            let settings = app.world.get_resource_or_insert_with(LogSettings::default);
+            let settings = app
+                .consume_startup_resource::<LogSettings>()
+                .unwrap_or_default();
             format!("{},{}", settings.level, settings.filter)
         };
         LogTracer::init().unwrap();
