@@ -160,8 +160,9 @@ impl ImageSampler {
 
 /// Global resource for [`Image`] settings.
 ///
-/// Can be set via `insert_resource` during app initialization to change the default settings.
+/// Can be set via `insert_setup_resource` during app initialization to change the default settings.
 #[derive(Resource)]
+#[resource(setup)]
 pub struct ImageSettings {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: wgpu::SamplerDescriptor<'static>,

@@ -99,9 +99,7 @@ impl Plugin for WindowPlugin {
 
         if settings.add_primary_window {
             let window_descriptor = app
-                .world
-                .get_resource::<WindowDescriptor>()
-                .cloned()
+                .consume_setup_resource::<WindowDescriptor>()
                 .unwrap_or_default();
             let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {

@@ -4,7 +4,7 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 #[bevy_main]
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
             ..default()

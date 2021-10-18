@@ -859,6 +859,7 @@ pub enum MonitorSelection {
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Resource, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[resource(setup)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///

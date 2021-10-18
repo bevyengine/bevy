@@ -11,7 +11,10 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{
+    tracing::{debug, error},
+    HashMap,
+};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -27,6 +30,10 @@ bevy_utils::define_label!(
 #[cfg(feature = "bevy_reflect")]
 #[derive(Resource, Clone, Deref, DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+
+/// Wrapper struct for setting setup resources aside
+#[derive(Resource)]
+struct Setup<T>(T);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -68,6 +75,7 @@ pub struct App {
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
+    setup_resources: HashMap<std::any::TypeId, &'static str>,
 }
 
 impl Debug for App {
@@ -131,6 +139,7 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            setup_resources: Default::default(),
         }
     }
 
@@ -155,6 +164,8 @@ impl App {
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
+
+        self.check_all_setup_resources_consumed();
 
         let mut app = std::mem::replace(self, App::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
@@ -672,6 +683,52 @@ impl App {
                 .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
         }
         self
+    }
+
+    /// Inserts a setup resource to the current [App] and overwrites any resource
+    /// previously added of the same type.
+    ///
+    /// A setup resource is used at startup for plugin initialisation and configuration.
+    /// All setup resources inserted must be consumed by a plugin and removed before the
+    /// application is ran.
+    pub fn insert_setup_resource<R>(&mut self, resource: R) -> &mut Self
+    where
+        R: Resource,
+    {
+        if R::IS_SETUP_RESOURCE {
+            self.setup_resources
+                .insert(std::any::TypeId::of::<R>(), std::any::type_name::<R>());
+            self.insert_resource(Setup(resource));
+        } else {
+            // Using `eprintln` here as this is supposed to be called before logs are set up
+            eprintln!(
+                "Resource {} is not a setup resource",
+                std::any::type_name::<R>()
+            );
+        }
+        self
+    }
+
+    /// Consumes a setup resource, and removes it from the current [App] so that a plugin
+    /// can use it for its setup.
+    pub fn consume_setup_resource<R>(&mut self) -> Option<R>
+    where
+        R: Resource,
+    {
+        self.setup_resources.remove(&std::any::TypeId::of::<R>());
+        self.world
+            .remove_resource::<Setup<R>>()
+            .map(|setup| setup.0)
+    }
+
+    /// Check that all setup resources have been consumed, panicking otherwise.
+    fn check_all_setup_resources_consumed(&self) {
+        self.setup_resources
+            .values()
+            .for_each(|v| error!("Setup resource \"{}\" has not been consumed", v));
+        if !self.setup_resources.is_empty() {
+            panic!("Not all setup resources have been consumed. This can happen if you inserted a setup resource after the plugin consuming it.")
+        }
     }
 
     /// Inserts a [`Resource`] to the current [`App`] and overwrites any [`Resource`] previously added of the same type.

@@ -439,9 +439,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        if !R::IS_SETUP_RESOURCE {
+            self.queue.push(InitResource::<R> {
+                _phantom: PhantomData::<R>::default(),
+            });
+        } else {
+            error!("Initializing resource {} during execution has no effect. It should be added during setup using `insert_setup_resource`.", std::any::type_name::<R>());
+        }
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -470,7 +474,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(InsertResource { resource });
+        if !R::IS_SETUP_RESOURCE {
+            self.queue.push(InsertResource { resource });
+        } else {
+            error!("Inserting resource {} during execution has no effect. It should be added during setup using `insert_setup_resource`.", std::any::type_name::<R>());
+        }
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].

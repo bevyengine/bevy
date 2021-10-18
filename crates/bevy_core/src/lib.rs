@@ -29,9 +29,7 @@ pub struct CorePlugin;
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
-        app.world
-            .get_resource::<DefaultTaskPoolOptions>()
-            .cloned()
+        app.consume_setup_resource::<DefaultTaskPoolOptions>()
             .unwrap_or_default()
             .create_default_pools();
 

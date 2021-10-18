@@ -15,7 +15,7 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),

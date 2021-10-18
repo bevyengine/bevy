@@ -67,10 +67,9 @@ impl Plugin for ImagePlugin {
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         let default_sampler = app
-            .world
-            .get_resource_or_insert_with(ImageSettings::default)
-            .default_sampler
-            .clone();
+            .consume_setup_resource::<ImageSettings>()
+            .unwrap_or_default()
+            .default_sampler;
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();

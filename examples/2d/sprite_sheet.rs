@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
+        .insert_setup_resource(ImageSettings::default_nearest()) // prevents blurry sprites
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(animate_sprite)

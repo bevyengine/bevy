@@ -35,6 +35,7 @@ impl TaskPoolThreadAssignmentPolicy {
 /// insert the default task pools into the resource map manually. If the pools are already inserted,
 /// this helper will do nothing.
 #[derive(Clone, Resource)]
+#[resource(setup)]
 pub struct DefaultTaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using
     /// min_total_threads

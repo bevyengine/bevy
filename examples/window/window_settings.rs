@@ -9,7 +9,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
             width: 500.,
             height: 300.,

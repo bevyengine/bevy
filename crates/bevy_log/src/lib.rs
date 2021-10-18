@@ -47,14 +47,14 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
 /// to the browser console.
 ///
-/// You can configure this plugin using the resource [`LogSettings`].
+/// You can configure this plugin using the setup resource [`LogSettings`].
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
 ///     App::new()
-///         .insert_resource(LogSettings {
+///         .insert_setup_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         })
@@ -92,6 +92,7 @@ pub struct LogPlugin;
 
 /// `LogPlugin` settings
 #[derive(Resource)]
+#[resource(setup)]
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
@@ -122,7 +123,9 @@ impl Plugin for LogPlugin {
         }
 
         let default_filter = {
-            let settings = app.world.get_resource_or_insert_with(LogSettings::default);
+            let settings = app
+                .consume_setup_resource::<LogSettings>()
+                .unwrap_or_default();
             format!("{},{}", settings.level, settings.filter)
         };
         LogTracer::init().unwrap();

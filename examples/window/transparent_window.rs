@@ -10,7 +10,7 @@ fn main() {
     App::new()
         // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             // Setting `transparent` allows the `ClearColor`'s alpha value to take effect
             transparent: true,
             // Disabling window decorations to make it feel more like a widget than a window

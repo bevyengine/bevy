@@ -76,7 +76,7 @@ impl Plugin for DebugAssetServerPlugin {
         });
         let mut debug_asset_app = App::new();
         debug_asset_app
-            .insert_resource(AssetServerSettings {
+            .insert_setup_resource(AssetServerSettings {
                 asset_folder: "crates".to_string(),
                 watch_for_changes: true,
             })

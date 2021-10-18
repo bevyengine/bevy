@@ -45,11 +45,11 @@ Controls:
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .insert_resource(AssetServerSettings {
+    .insert_setup_resource(AssetServerSettings {
         asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
         watch_for_changes: true,
     })
-    .insert_resource(WindowDescriptor {
+    .insert_setup_resource(WindowDescriptor {
         title: "bevy scene viewer".to_string(),
         ..default()
     })

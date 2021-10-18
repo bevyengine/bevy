@@ -19,7 +19,7 @@ struct Dimensions {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             width: MAX_WIDTH.try_into().unwrap(),
             height: MAX_HEIGHT.try_into().unwrap(),
             scale_factor_override: Some(1.),

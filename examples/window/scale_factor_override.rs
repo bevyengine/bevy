@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             width: 500.,
             height: 300.,
             ..default()

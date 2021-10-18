@@ -258,7 +258,9 @@ impl_param_set!();
 /// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + Sync + 'static {
+    const IS_SETUP_RESOURCE: bool = false;
+}
 
 /// Shared borrow of a [`Resource`].
 ///

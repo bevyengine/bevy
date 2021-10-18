@@ -8,7 +8,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             present_mode: PresentMode::AutoNoVsync,
             ..default()
         })

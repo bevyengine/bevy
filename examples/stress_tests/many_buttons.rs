@@ -11,7 +11,7 @@ const FONT_SIZE: f32 = 7.0;
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
             ..default()
         })

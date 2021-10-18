@@ -5,7 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         // Uncomment this to override the default log settings:
-        // .insert_resource(bevy::log::LogSettings {
+        // .insert_setup_resource(bevy::log::LogSettings {
         //     level: bevy::log::Level::TRACE,
         //     filter: "wgpu=warn,bevy_ecs=info".to_string(),
         // })
@@ -24,7 +24,7 @@ fn log_system() {
     error!("something failed");
 
     // by default, trace and debug logs are ignored because they are "noisy"
-    // you can control what level is logged by adding the LogSettings resource
+    // you can control what level is logged by adding the LogSettings setup resource
     // alternatively you can set the log level via the RUST_LOG=LEVEL environment variable
     // ex: RUST_LOG=trace, RUST_LOG=info,bevy_ecs=warn
     // the format used here is super flexible. check out this documentation for more info:

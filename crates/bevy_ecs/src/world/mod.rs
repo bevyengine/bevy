@@ -21,7 +21,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, error};
 use std::{
     any::TypeId,
     fmt,
@@ -734,13 +734,20 @@ impl World {
     /// you will overwrite any existing data.
     #[inline]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
-        let component_id = self.components.init_resource::<R>();
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R
-            unsafe {
-                self.insert_resource_by_id(component_id, ptr);
-            }
-        });
+        if !R::IS_SETUP_RESOURCE {
+            let component_id = self.components.init_resource::<R>();
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                unsafe {
+                    self.insert_resource_by_id(component_id, ptr);
+                }
+            });
+        } else {
+            error!(
+                "Inserting setup resource {} as a normal resource, ignoring",
+                std::any::type_name::<R>()
+            );
+        }
     }
 
     /// Inserts a new non-send resource with standard starting values.

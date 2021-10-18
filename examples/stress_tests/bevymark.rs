@@ -29,7 +29,7 @@ struct Bird {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_setup_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,

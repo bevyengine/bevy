@@ -2,6 +2,7 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
+mod resource;
 
 use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
@@ -454,9 +455,9 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
 }
 
-#[proc_macro_derive(Resource)]
+#[proc_macro_derive(Resource, attributes(resource))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
-    component::derive_resource(input)
+    resource::derive_resource(input)
 }
 
 #[proc_macro_derive(Component, attributes(component))]
