@@ -818,7 +818,9 @@ impl App {
         T: Plugin,
     {
         debug!("added plugin: {}", plugin.name());
-        self.register_plugin(&std::any::TypeId::of::<T>(), plugin.name(), None);
+        if plugin.is_unique() {
+            self.register_plugin(&std::any::TypeId::of::<T>(), plugin.name(), None);
+        }
         plugin.build(self);
         self
     }

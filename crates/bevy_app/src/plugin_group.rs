@@ -115,7 +115,13 @@ impl PluginGroupBuilder {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
                     debug!("added plugin from group: {}", entry.plugin.name());
-                    app.register_plugin(ty, entry.plugin.name(), Some(std::any::type_name::<T>()));
+                    if entry.plugin.is_unique() {
+                        app.register_plugin(
+                            ty,
+                            entry.plugin.name(),
+                            Some(std::any::type_name::<T>()),
+                        );
+                    }
                     entry.plugin.build(app);
                 }
             }
