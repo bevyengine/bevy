@@ -4,7 +4,10 @@ use std::any::Any;
 /// A collection of Bevy App logic and configuration
 ///
 /// Plugins configure an [`App`](crate::App). When an [`App`](crate::App) registers
-/// a plugin, the plugin's [`Plugin::build`] function is run.
+/// a plugin, the plugin's [`Plugin::build`] function is run. By default, a plugin
+/// can only be added once to an [`App`](crate::App). If the plugin may need to be
+/// added twice or more, the function [`is_unique`](Plugin::is_unique) should be
+/// overriden to return `false`.
 pub trait Plugin: Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
