@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{WindowDescriptor, WindowId};
+use super::{WindowId, WindowInitializationDescriptor};
 use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a windows logical size has changed
@@ -17,7 +17,7 @@ pub struct WindowResized {
 #[derive(Debug, Clone)]
 pub struct CreateWindow {
     pub id: WindowId,
-    pub descriptor: WindowDescriptor,
+    pub descriptor: WindowInitializationDescriptor,
 }
 
 /// An event that indicates a window should be closed.

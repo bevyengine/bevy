@@ -1,6 +1,6 @@
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use bevy_window::{Window, WindowId, WindowInitializationDescriptor, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
@@ -16,7 +16,7 @@ impl WinitWindows {
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
-        window_descriptor: &WindowDescriptor,
+        window_descriptor: &WindowInitializationDescriptor,
     ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
@@ -44,7 +44,7 @@ impl WinitWindows {
                 )),
             )),
             _ => {
-                let WindowDescriptor {
+                let WindowInitializationDescriptor {
                     width,
                     height,
                     position,

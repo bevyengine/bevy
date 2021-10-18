@@ -24,7 +24,7 @@ struct Bird {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
+        .insert_startup_resource(WindowInitializationDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,

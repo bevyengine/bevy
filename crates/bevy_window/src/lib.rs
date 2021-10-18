@@ -16,7 +16,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        Window, WindowDescriptor, WindowMoved, Windows,
+        Window, WindowInitializationDescriptor, WindowMoved, Windows,
     };
 }
 
@@ -56,9 +56,7 @@ impl Plugin for WindowPlugin {
 
         if self.add_primary_window {
             let window_descriptor = app
-                .world
-                .get_resource::<WindowDescriptor>()
-                .map(|descriptor| (*descriptor).clone())
+                .consume_startup_resource::<WindowInitializationDescriptor>()
                 .unwrap_or_default();
             let mut create_window_event = app
                 .world
