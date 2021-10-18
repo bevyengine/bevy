@@ -787,8 +787,9 @@ mod tests {
     }
 }
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
 ///     let mut iter = query.iter_mut();
@@ -802,11 +803,12 @@ mod tests {
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_iter_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn system(mut query: Query<&mut A>, e: Res<Entity>) {
 ///     let mut a1 = query.get_mut(*e).unwrap();
@@ -816,11 +818,12 @@ fn system_query_iter_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
 ///     let mut q2 = queries.q0();
@@ -836,11 +839,12 @@ fn system_query_get_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_set_iter_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
 ///     let q1 = queries.q1();
@@ -856,11 +860,12 @@ fn system_query_set_iter_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_set_iter_flip_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
 ///     let mut q2 = queries.q0();
@@ -874,11 +879,12 @@ fn system_query_set_iter_flip_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_set_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0499
 /// use bevy_ecs::prelude::*;
+/// #[derive(Component)]
 /// struct A(usize);
 /// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
 ///     let q1 = queries.q1();
@@ -891,13 +897,15 @@ fn system_query_set_get_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_query_set_get_flip_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0502
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemState;
+/// #[derive(Component)]
 /// struct A(usize);
+/// #[derive(Component)]
 /// struct B(usize);
 /// struct State {
 ///     state_r: SystemState<Query<'static, 'static, &'static A>>,
@@ -918,13 +926,15 @@ fn system_query_set_get_flip_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_state_get_lifetime_safety_test() {}
 
-/// ```compile_fail
+/// ```compile_fail E0502
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemState;
+/// #[derive(Component)]
 /// struct A(usize);
+/// #[derive(Component)]
 /// struct B(usize);
 /// struct State {
 ///     state_r: SystemState<Query<'static, 'static, &'static A>>,
@@ -943,5 +953,5 @@ fn system_state_get_lifetime_safety_test() {}
 /// }
 /// ```
 #[allow(unused)]
-#[cfg(doc)]
+#[cfg(doctest)]
 fn system_state_iter_lifetime_safety_test() {}
