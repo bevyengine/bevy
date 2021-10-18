@@ -797,7 +797,7 @@ impl Draw<Shadow> for DrawShadowMesh {
             let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             if let Some(index_info) = &gpu_mesh.index_info {
-                pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
+                pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
                 pass.draw_indexed(0..index_info.count, 0, 0..1);
             } else {
                 panic!("non-indexed drawing not supported yet")
