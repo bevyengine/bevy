@@ -260,6 +260,53 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
+    pub fn spawn_batch_eager<B: Bundle>(&mut self, bundles: impl Iterator<Item = B>) {
+        self.add_with_iterator(bundles, SpawnBatchEager(PhantomData));
+    }
+
+    pub fn insert_batch<T: Component>(
+        &mut self,
+        entities: impl Iterator<Item = Entity>,
+        components: impl Iterator<Item = T> + Send + Sync + 'static,
+    ) {
+        self.add_with_iterator(
+            entities,
+            InsertBatch {
+                iterator: components,
+            },
+        );
+    }
+
+    pub fn insert_batch_eager<T: Component>(
+        &mut self,
+        entities: impl Iterator<Item = (Entity, T)>,
+    ) {
+        self.add_with_iterator(entities, InsertBatchEager(PhantomData));
+    }
+
+    pub fn insert_bundle_batch<B: Bundle>(
+        &mut self,
+        entities: impl Iterator<Item = Entity>,
+        bundles: impl Iterator<Item = B> + Send + Sync + 'static,
+    ) {
+        self.add_with_iterator(entities, InsertBundleBatch { iterator: bundles });
+    }
+
+    pub fn insert_bundle_batch_eager<B: Bundle>(
+        &mut self,
+        entities: impl Iterator<Item = (Entity, B)>,
+    ) {
+        self.add_with_iterator(entities, InsertBundleBatchEager(PhantomData));
+    }
+
+    pub fn remove_batch<T: Component, I: Iterator<Item = Entity>>(&mut self, entities: I) {
+        self.add_with_iterator(entities, RemoveBatch::<T>(PhantomData));
+    }
+
+    pub fn despawn_batch(&mut self, entities: impl Iterator<Item = Entity>) {
+        self.add_with_iterator(entities, DespawnBatch);
+    }
+
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
     /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
     ///
@@ -621,6 +668,19 @@ where
     }
 }
 
+pub struct SpawnBatchEager<B>(PhantomData<B>);
+
+impl<B> IteratorCommand for SpawnBatchEager<B>
+where
+    B: Bundle,
+{
+    type IterItem = B;
+
+    fn write_with_iterator<I: Iterator<Item = B>>(self, world: &mut World, iter: I) {
+        world.spawn_batch(iter);
+    }
+}
+
 pub struct InsertOrSpawnBatch<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
@@ -662,6 +722,19 @@ impl Command for Despawn {
     }
 }
 
+pub struct DespawnBatch;
+
+impl IteratorCommand for DespawnBatch {
+    type IterItem = Entity;
+
+    fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
+        // TODO: Try optimizing this
+        for entity in iterator {
+            world.despawn(entity);
+        }
+    }
+}
+
 pub struct InsertBundle<T> {
     pub entity: Entity,
     pub bundle: T,
@@ -678,6 +751,38 @@ where
             panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
                     This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+        }
+    }
+}
+
+pub struct InsertBundleBatch<I: Iterator + 'static> {
+    iterator: I,
+}
+
+impl<II: Iterator + Send + Sync + 'static> IteratorCommand for InsertBundleBatch<II>
+where
+    II::Item: Bundle,
+{
+    type IterItem = Entity;
+
+    fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
+        for (entity, bundle) in iterator.zip(self.iterator) {
+            world.entity_mut(entity).insert_bundle(bundle);
+        }
+    }
+}
+
+pub struct InsertBundleBatchEager<B>(PhantomData<B>);
+
+impl<B> IteratorCommand for InsertBundleBatchEager<B>
+where
+    B: Bundle,
+{
+    type IterItem = (Entity, B);
+
+    fn write_with_iterator<I: Iterator<Item = (Entity, B)>>(self, world: &mut World, iterator: I) {
+        for (entity, component) in iterator {
+            world.entity_mut(entity).insert_bundle(component);
         }
     }
 }
@@ -703,6 +808,38 @@ where
     }
 }
 
+pub struct InsertBatch<I: Iterator + 'static> {
+    iterator: I,
+}
+
+impl<II: Iterator + Send + Sync + 'static> IteratorCommand for InsertBatch<II>
+where
+    II::Item: Component,
+{
+    type IterItem = Entity;
+
+    fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
+        for (entity, component) in iterator.zip(self.iterator) {
+            world.entity_mut(entity).insert(component);
+        }
+    }
+}
+
+pub struct InsertBatchEager<T>(PhantomData<T>);
+
+impl<T> IteratorCommand for InsertBatchEager<T>
+where
+    T: Component,
+{
+    type IterItem = (Entity, T);
+
+    fn write_with_iterator<I: Iterator<Item = (Entity, T)>>(self, world: &mut World, iterator: I) {
+        for (entity, component) in iterator {
+            world.entity_mut(entity).insert(component);
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Remove<T> {
     pub entity: Entity,
@@ -716,6 +853,24 @@ where
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
+        }
+    }
+}
+
+pub struct RemoveBatch<T>(PhantomData<T>);
+
+impl<T> IteratorCommand for RemoveBatch<T>
+where
+    T: Component,
+{
+    type IterItem = Entity;
+
+    fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
+        // TODO: Try optimizing this
+        for entity in iterator {
+            if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                entity_mut.remove::<T>();
+            }
         }
     }
 }
