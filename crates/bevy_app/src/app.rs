@@ -657,7 +657,7 @@ impl App {
             .remove(&std::any::TypeId::of::<T>());
         self.world
             .remove_resource::<Init<T>>()
-            .map(|startup| startup.0)
+            .map(|initialization| initialization.0)
     }
 
     /// Check that all initialization resources have been consumed, panicking otherwise.
