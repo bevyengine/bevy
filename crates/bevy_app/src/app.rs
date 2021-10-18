@@ -666,7 +666,7 @@ impl App {
             .values()
             .for_each(|v| error!("Initialization resource \"{}\" has not been consumed", v));
         if !self.initialization_resources.is_empty() {
-            panic!("All initialization resources have not been consumed. This can happen if you inserted a initialization resource after the plugin consuming it.")
+            panic!("All initialization resources have not been consumed. This can happen if you inserted an initialization resource after the plugin consuming it.")
         }
     }
 
