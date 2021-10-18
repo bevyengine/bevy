@@ -19,8 +19,8 @@ use std::{any::TypeId, fmt::Debug};
 use bevy_utils::tracing::info_span;
 bevy_utils::define_label!(AppLabel);
 
-/// Wrapper struct for setting startup resource aside
-struct Startup<T>(T);
+/// Wrapper struct for setting initialization resources aside
+struct Init<T>(T);
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -62,7 +62,7 @@ pub struct App {
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
     plugins: HashMap<std::any::TypeId, Option<&'static str>>,
-    startup_resources: HashMap<std::any::TypeId, &'static str>,
+    initialization_resources: HashMap<std::any::TypeId, &'static str>,
 }
 
 /// Each [`SubApp`] has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -107,7 +107,7 @@ impl App {
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugins: Default::default(),
-            startup_resources: Default::default(),
+            initialization_resources: Default::default(),
         }
     }
 
@@ -137,7 +137,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_app_run_guard = bevy_app_run_span.enter();
 
-        self.check_all_startup_resources_consumed();
+        self.check_all_initialization_resources_consumed();
 
         let mut app = std::mem::replace(self, App::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
@@ -631,40 +631,42 @@ impl App {
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
     }
 
-    /// Inserts a startup resource to the current [App] and overwrites any resource previously
-    /// added of the same type.
+    /// Inserts an initialization resource to the current [App] and overwrites any resource
+    /// previously added of the same type.
     ///
-    /// A startup resource is used at startup for plugin initialisation and configuration. All
-    /// startup resources inserted must be consumed before the application is ran.
-    pub fn insert_startup_resource<T>(&mut self, resource: T) -> &mut Self
+    /// An initialization resource is used at startup for plugin initialisation and configuration.
+    /// All initialization resources inserted must be consumed by a plugin and removed before the
+    /// application is ran.
+    pub fn insert_initialization_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Resource,
     {
-        self.startup_resources
+        self.initialization_resources
             .insert(std::any::TypeId::of::<T>(), std::any::type_name::<T>());
-        self.insert_resource(Startup(resource));
+        self.insert_resource(Init(resource));
         self
     }
 
     /// Consumes a startup resource, and removes it from the current [App] so that a plugin
     /// can use it for its configuration.
-    pub fn consume_startup_resource<T>(&mut self) -> Option<T>
+    pub fn consume_initialization_resource<T>(&mut self) -> Option<T>
     where
         T: Resource,
     {
-        self.startup_resources.remove(&std::any::TypeId::of::<T>());
+        self.initialization_resources
+            .remove(&std::any::TypeId::of::<T>());
         self.world
-            .remove_resource::<Startup<T>>()
+            .remove_resource::<Init<T>>()
             .map(|startup| startup.0)
     }
 
-    /// Check that all startup resources have been consumed, panicing otherwise.
-    fn check_all_startup_resources_consumed(&self) {
-        self.startup_resources
+    /// Check that all initialization resources have been consumed, panicking otherwise.
+    fn check_all_initialization_resources_consumed(&self) {
+        self.initialization_resources
             .values()
-            .for_each(|v| error!("Startup resource \"{}\" has not been consumed", v));
-        if !self.startup_resources.is_empty() {
-            panic!("All startup resources have not been consumed. This can happen if you inserted a startup resource after the plugin consuming it.")
+            .for_each(|v| error!("Initialization resource \"{}\" has not been consumed", v));
+        if !self.initialization_resources.is_empty() {
+            panic!("All initialization resources have not been consumed. This can happen if you inserted a initialization resource after the plugin consuming it.")
         }
     }
 

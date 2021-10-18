@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// This example illustrates how to customize the default window settings
 fn main() {
     App::new()
-        .insert_startup_resource(WindowInitializationDescriptor {
+        .insert_initialization_resource(WindowInitializationDescriptor {
             title: "I am a window!".to_string(),
             width: 500.,
             height: 300.,

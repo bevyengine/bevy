@@ -49,7 +49,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
 ///     App::new()
-///         .insert_startup_resource(LogSettings {
+///         .insert_initialization_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info".to_string(),
 ///         })
@@ -107,7 +107,7 @@ impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
         let default_filter = {
             let settings = app
-                .consume_startup_resource::<LogSettings>()
+                .consume_initialization_resource::<LogSettings>()
                 .unwrap_or_default();
             format!("{},{}", settings.level, settings.filter)
         };

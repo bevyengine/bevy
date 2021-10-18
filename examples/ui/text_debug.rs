@@ -6,7 +6,7 @@ use bevy::{
 /// This example is for debugging text layout
 fn main() {
     App::new()
-        .insert_startup_resource(WindowInitializationDescriptor {
+        .insert_initialization_resource(WindowInitializationDescriptor {
             present_mode: PresentMode::Immediate,
             ..Default::default()
         })

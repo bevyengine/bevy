@@ -56,7 +56,7 @@ impl Plugin for WindowPlugin {
 
         if self.add_primary_window {
             let window_descriptor = app
-                .consume_startup_resource::<WindowInitializationDescriptor>()
+                .consume_initialization_resource::<WindowInitializationDescriptor>()
                 .unwrap_or_default();
             let mut create_window_event = app
                 .world
