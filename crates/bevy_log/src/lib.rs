@@ -41,7 +41,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
 /// to the browser console.
 ///
-/// You can configure this plugin using the startup resource [`LogSettings`].
+/// You can configure this plugin using the initialization resource [`LogSettings`].
 /// ```no_run
 /// # use bevy_internal::DefaultPlugins;
 /// # use bevy_app::App;

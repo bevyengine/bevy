@@ -647,7 +647,7 @@ impl App {
         self
     }
 
-    /// Consumes a startup resource, and removes it from the current [App] so that a plugin
+    /// Consumes an initialization resource, and removes it from the current [App] so that a plugin
     /// can use it for its configuration.
     pub fn consume_initialization_resource<T>(&mut self) -> Option<T>
     where

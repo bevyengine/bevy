@@ -23,7 +23,7 @@ fn log_system() {
     error!("something failed");
 
     // by default, trace and debug logs are ignored because they are "noisy"
-    // you can control what level is logged by adding the LogSettings startup resource
+    // you can control what level is logged by adding the LogSettings initialization resource
     // alternatively you can set the log level via the RUST_LOG=LEVEL environment variable
     // ex: RUST_LOG=trace, RUST_LOG=info,bevy_ecs=warn
     // the format used here is super flexible. check out this documentation for more info:
