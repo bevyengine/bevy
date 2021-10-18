@@ -538,6 +538,7 @@ pub struct GpuMesh {
 pub struct GpuIndexInfo {
     pub buffer: Buffer,
     pub count: u32,
+    pub index_format: IndexFormat,
 }
 
 impl RenderAsset for Mesh {
@@ -567,6 +568,7 @@ impl RenderAsset for Mesh {
                 label: None,
             }),
             count: mesh.indices().unwrap().len() as u32,
+            index_format: mesh.indices().unwrap().into(),
         });
 
         Ok(GpuMesh {
