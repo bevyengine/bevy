@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
+// Enum that will be used as a global state for the game
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
     Splash,
@@ -13,6 +14,7 @@ enum GameState {
     Game,
 }
 
+// One of the two settings that can be set through the menu. It will be a resource in the app
 #[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Low,
@@ -20,6 +22,7 @@ enum DisplayQuality {
     High,
 }
 
+// One of the two settings that can be set through the menu. It will be a resource in the app
 #[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
@@ -30,7 +33,7 @@ fn main() {
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         .add_startup_system(setup)
-        // Start the game in the Splash state
+        // Declare the game state, and set its startup value
         .add_state(GameState::Splash)
         // Adds the plugins for each state
         .add_plugin(splash::SplashPlugin)
@@ -48,13 +51,19 @@ mod splash {
     use bevy::prelude::*;
 
     use super::{despawn_screen, GameState};
+
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub struct SplashPlugin;
 
     impl Plugin for SplashPlugin {
         fn build(&self, app: &mut bevy::prelude::App) {
-            app.add_system_set(SystemSet::on_enter(GameState::Splash).with_system(splash_setup))
+            // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
+            app
+                // When entering the state, spawn everything needed for this screen
+                .add_system_set(SystemSet::on_enter(GameState::Splash).with_system(splash_setup))
+                // While in this state, run the `countdown` system
                 .add_system_set(SystemSet::on_update(GameState::Splash).with_system(countdown))
+                // When exiting the state, despawn everything that was spawned for this screen
                 .add_system_set(
                     SystemSet::on_exit(GameState::Splash)
                         .with_system(despawn_screen::<OnSplashScreen>),
@@ -67,6 +76,7 @@ mod splash {
     struct OnSplashScreen;
 
     #[derive(Component)]
+    // Newtype to use a `Timer` for this screen as a resource
     struct SplashTimer(Timer);
 
     fn splash_setup(
@@ -89,6 +99,7 @@ mod splash {
                 ..Default::default()
             })
             .insert(OnSplashScreen);
+        // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, false)));
     }
 
@@ -193,7 +204,7 @@ mod game {
                     ..Default::default()
                 });
             });
-        // Spawn a 5 timer to trigger going back to the menu
+        // Spawn a 5 seconds timer to trigger going back to the menu
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, false)));
     }
 
@@ -303,6 +314,8 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
+    // Helper struct used as a resource that will hold the different materials for the buttons.
+    // It will be created from its `FromWorld` implementation when added to the application.
     struct ButtonMaterials {
         normal: Handle<ColorMaterial>,
         hovered: Handle<ColorMaterial>,
@@ -373,7 +386,8 @@ mod menu {
         }
     }
 
-    // This system updates the settings when a new value for display quality is selected
+    // This system updates the settings when a new value for a setting is selected, and marks
+    // the button as the one currently selected
     fn setting_button<T: Component + PartialEq + Copy>(
         button_materials: Res<ButtonMaterials>,
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
@@ -833,6 +847,7 @@ mod menu {
     }
 }
 
+// Generic system that takes a component as a parameter, and will despawn all entities with that component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in to_despawn.iter() {
         commands.entity(entity).despawn_recursive();
