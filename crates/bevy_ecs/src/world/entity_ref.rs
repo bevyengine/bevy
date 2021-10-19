@@ -4,6 +4,7 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    ptr::OwningPtr,
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
@@ -536,15 +537,15 @@ unsafe fn get_component_and_ticks(
 /// - `component_id` must be valid
 /// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
-unsafe fn take_component(
+unsafe fn take_component<'a>(
     components: &Components,
-    storages: &mut Storages,
+    storages: &'a mut Storages,
     archetype: &Archetype,
     removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> *mut u8 {
+) -> OwningPtr<'a> {
     let component_info = components.get_info_unchecked(component_id);
     let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
     removed_components.push(entity);

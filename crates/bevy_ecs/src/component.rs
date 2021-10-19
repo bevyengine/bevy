@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    ptr::OwningPtr,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -118,7 +119,7 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn drop(&self) -> unsafe fn(*mut u8) {
+    pub fn drop(&self) -> unsafe fn(OwningPtr<'_>) {
         self.descriptor.drop
     }
 
@@ -163,7 +164,6 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-#[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -174,13 +174,25 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
-    drop: unsafe fn(*mut u8),
+    drop: for<'a> unsafe fn(OwningPtr<'a>),
+}
+
+impl std::fmt::Debug for ComponentDescriptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComponentDescriptor")
+            .field("name", &self.name)
+            .field("storage_type", &self.storage_type)
+            .field("is_send_and_sync", &self.is_send_and_sync)
+            .field("type_id", &self.type_id)
+            .field("layout", &self.layout)
+            .finish()
+    }
 }
 
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+    unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
+        x.inner().cast::<T>().drop_in_place()
     }
 
     pub fn new<T: Component>() -> Self {

@@ -336,7 +336,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_data_ptr().cast::<T>();
+                self.table_components = column.get_data_ptr().inner_nonnull().cast::<T>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -345,9 +345,10 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         self.table_components = table
-            .get_column(state.component_id)
+            .get_column_mut(state.component_id)
             .unwrap()
-            .get_data_ptr()
+            .get_data_ptr_mut()
+            .inner_nonnull()
             .cast::<T>();
     }
 
@@ -360,7 +361,12 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
             }
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
-                &*(*self.sparse_set).get(entity).unwrap().cast::<T>()
+                &*(*self.sparse_set)
+                    .get(entity)
+                    .unwrap()
+                    .inner_nonnull()
+                    .cast::<T>()
+                    .as_ptr()
             }
         }
     }
@@ -496,7 +502,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = column.get_data_ptr().cast::<T>();
+                self.table_components = column.get_data_ptr().inner_nonnull().cast::<T>();
                 self.table_ticks = column.get_ticks_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
@@ -506,7 +512,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         let column = table.get_column(state.component_id).unwrap();
-        self.table_components = column.get_data_ptr().cast::<T>();
+        self.table_components = column.get_data_ptr().inner_nonnull().cast::<T>();
         self.table_ticks = column.get_ticks_ptr();
     }
 
@@ -529,7 +535,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
                 let (component, component_ticks) =
                     (*self.sparse_set).get_with_ticks(entity).unwrap();
                 Mut {
-                    value: &mut *component.cast::<T>(),
+                    value: &mut *component.inner_nonnull().cast::<T>().as_ptr(),
                     ticks: Ticks {
                         component_ticks: &mut *component_ticks,
                         change_tick: self.change_tick,

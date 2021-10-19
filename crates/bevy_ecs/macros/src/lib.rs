@@ -133,11 +133,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 component_ids.push(components.init_component::<#field_type>(storages));
             });
             field_get_components.push(quote! {
-                func((&mut self.#field as *mut #field_type).cast::<u8>());
-                std::mem::forget(self.#field);
+                #ecs_path::ptr::OwningPtr::make(self.#field, func);
             });
             field_from_components.push(quote! {
-                #field: func().cast::<#field_type>().read(),
+                #field: func().inner().cast::<#field_type>().read(),
             });
         }
     }
@@ -159,14 +158,17 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]
-            unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
+            unsafe fn from_components<'a, F>(func: F) -> Self
+            where
+                F: FnMut() -> #ecs_path::ptr::OwningPtr<'a> + 'a
+            {
                 Self {
                     #(#field_from_components)*
                 }
             }
 
             #[allow(unused_variables, unused_mut, forget_copy, forget_ref)]
-            fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
+            fn get_components(self, mut func: impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
                 #(#field_get_components)*
             }
         }

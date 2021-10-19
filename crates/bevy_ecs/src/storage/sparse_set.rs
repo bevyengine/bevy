@@ -1,6 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks},
     entity::Entity,
+    ptr::{OwningPtr, Ptr},
     storage::BlobVec,
 };
 use std::{cell::UnsafeCell, marker::PhantomData};
@@ -130,7 +131,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the `Layout`
     ///  inside the `ComponentInfo` given when constructing this sparse set.
-    pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
+    pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
             *self.ticks.get_unchecked_mut(dense_index) =
@@ -155,7 +156,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub fn get(&self, entity: Entity) -> Option<*mut u8> {
+    pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
         self.sparse.get(entity).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.get_unchecked(*dense_index) }
@@ -165,7 +166,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentTicks)> {
+    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, *mut ComponentTicks)> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
         Some((
@@ -184,7 +185,7 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists). It is the caller's responsibility to drop the returned ptr (if Some is
     /// returned).
-    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
+    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity).map(|dense_index| {
             self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);

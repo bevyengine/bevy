@@ -1,6 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
+    ptr::{OwningPtr, Ptr, PtrMut},
     storage::{BlobVec, SparseSet},
 };
 use bevy_utils::{AHasher, HashMap};
@@ -8,7 +9,6 @@ use std::{
     cell::UnsafeCell,
     hash::{Hash, Hasher},
     ops::{Index, IndexMut},
-    ptr::NonNull,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,7 +54,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize(&mut self, row: usize, data: *mut u8, ticks: ComponentTicks) {
+    pub unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, ticks: ComponentTicks) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.ticks.get_unchecked_mut(row).get_mut() = ticks;
@@ -66,7 +66,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn replace(&mut self, row: usize, data: *mut u8, change_tick: u32) {
+    pub unsafe fn replace(&mut self, row: usize, data: OwningPtr<'_>, change_tick: u32) {
         debug_assert!(row < self.len());
         self.data.replace_unchecked(row, data);
         self.ticks
@@ -78,7 +78,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize_data(&mut self, row: usize, data: *mut u8) {
+    pub unsafe fn initialize_data(&mut self, row: usize, data: OwningPtr<'_>) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
     }
@@ -113,7 +113,7 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: usize,
-    ) -> (*mut u8, ComponentTicks) {
+    ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
         let ticks = self.ticks.swap_remove(row).into_inner();
         (data, ticks)
@@ -121,7 +121,7 @@ impl Column {
 
     // # Safety
     // - ptr must point to valid data of this column's component type
-    pub(crate) unsafe fn push(&mut self, ptr: *mut u8, ticks: ComponentTicks) {
+    pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
         let row = self.data.push_uninit();
         self.data.initialize_unchecked(row, ptr);
         self.ticks.push(UnsafeCell::new(ticks));
@@ -136,8 +136,15 @@ impl Column {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_data_ptr(&self) -> NonNull<u8> {
+    pub unsafe fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
+    }
+
+    /// # Safety
+    /// must ensure rust mutability rules are not violated
+    #[inline]
+    pub unsafe fn get_data_ptr_mut(&self) -> PtrMut<'_> {
+        self.data.get_ptr_mut()
     }
 
     #[inline]
@@ -156,7 +163,7 @@ impl Column {
     /// - no other reference to the data of the same row can exist at the same time
     /// - pointer cannot be dereferenced after mutable reference to this `Column` was live
     #[inline]
-    pub unsafe fn get_data_unchecked(&self, row: usize) -> *mut u8 {
+    pub unsafe fn get_data_unchecked(&self, row: usize) -> Ptr<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked(row)
     }
@@ -524,6 +531,7 @@ impl IndexMut<TableId> for Tables {
 mod tests {
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{component::Components, entity::Entity, storage::Table};
     #[derive(Component)]
@@ -543,11 +551,12 @@ mod tests {
             unsafe {
                 let row = table.allocate(*entity);
                 let mut value = row;
-                let value_ptr = ((&mut value) as *mut usize).cast::<u8>();
-                table
-                    .get_column_mut(component_id)
-                    .unwrap()
-                    .initialize_data(row, value_ptr);
+                OwningPtr::make(value, |value_ptr| {
+                    table
+                        .get_column_mut(component_id)
+                        .unwrap()
+                        .initialize_data(row, value_ptr);
+                });
             };
         }
 

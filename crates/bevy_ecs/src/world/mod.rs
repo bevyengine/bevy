@@ -641,7 +641,7 @@ impl World {
         // ptr value / drop is called when T is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
         // SAFE: column is of type T
-        Some(unsafe { ptr.cast::<T>().read() })
+        Some(unsafe { ptr.read::<T>() })
     }
 
     /// Returns `true` if a resource of type `T` exists. Otherwise returns `false`.
@@ -927,7 +927,7 @@ impl World {
         };
         // SAFE: pointer is of type T
         let value = Mut {
-            value: unsafe { &mut *ptr.cast::<T>() },
+            value: unsafe { &mut *ptr.deref_mut::<T>() },
             ticks: Ticks {
                 component_ticks: &mut ticks,
                 last_change_tick: self.last_change_tick(),
@@ -955,7 +955,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<&T> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_data_ptr().as_ptr().cast::<T>())
+        Some(column.get_data_ptr().deref::<T>())
     }
 
     /// # Safety
@@ -968,7 +968,7 @@ impl World {
     ) -> Option<Mut<'_, T>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            value: column.get_data_ptr_mut().deref_mut(),
             ticks: Ticks {
                 component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
                 last_change_tick: self.last_change_tick(),
