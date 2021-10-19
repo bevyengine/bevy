@@ -75,7 +75,6 @@ mod splash {
     #[derive(Component)]
     struct OnSplashScreen;
 
-    #[derive(Component)]
     // Newtype to use a `Timer` for this screen as a resource
     struct SplashTimer(Timer);
 
@@ -138,7 +137,6 @@ mod game {
     #[derive(Component)]
     struct OnGameScreen;
 
-    #[derive(Component)]
     struct GameTimer(Timer);
 
     fn game_setup(
@@ -192,15 +190,35 @@ mod game {
                         margin: Rect::all(Val::Px(50.0)),
                         ..Default::default()
                     },
-                    text: Text::with_section(
-                        format!("quality: {:?} - {:?}", *display_quality, *volume),
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 60.0,
-                            color: TEXT_COLOR,
-                        },
-                        Default::default(),
-                    ),
+                    text: Text {
+                        sections: vec![
+                            TextSection {
+                                value: format!("quality: {:?}", *display_quality),
+                                style: TextStyle {
+                                    font: font.clone(),
+                                    font_size: 60.0,
+                                    color: Color::BLUE,
+                                },
+                            },
+                            TextSection {
+                                value: " - ".to_string(),
+                                style: TextStyle {
+                                    font: font.clone(),
+                                    font_size: 60.0,
+                                    color: TEXT_COLOR,
+                                },
+                            },
+                            TextSection {
+                                value: format!("volume: {:?}", *volume),
+                                style: TextStyle {
+                                    font: font.clone(),
+                                    font_size: 60.0,
+                                    color: Color::GREEN,
+                                },
+                            },
+                        ],
+                        ..Default::default()
+                    },
                     ..Default::default()
                 });
             });
@@ -364,23 +382,19 @@ mod menu {
         >,
     ) {
         for (interaction, mut material, selected) in interaction_query.iter_mut() {
-            match *interaction {
-                Interaction::Clicked => {
+            match (*interaction, selected) {
+                (Interaction::Clicked, _) => *material = button_materials.pressed.clone(),
+                (Interaction::Hovered, Some(_)) => {
+                    *material = button_materials.hovered_pressed.clone()
+                }
+                (Interaction::Hovered, None) => {
+                    *material = button_materials.hovered.clone();
+                }
+                (Interaction::None, Some(_)) => {
                     *material = button_materials.pressed.clone();
                 }
-                Interaction::Hovered => {
-                    if selected.is_some() {
-                        *material = button_materials.hovered_pressed.clone();
-                    } else {
-                        *material = button_materials.hovered.clone();
-                    }
-                }
-                Interaction::None => {
-                    if selected.is_some() {
-                        *material = button_materials.pressed.clone();
-                    } else {
-                        *material = button_materials.normal.clone();
-                    }
+                (Interaction::None, None) => {
+                    *material = button_materials.normal.clone();
                 }
             }
         }
@@ -395,13 +409,13 @@ mod menu {
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        for (interaction, quality, entity) in interaction_query.iter() {
-            if *interaction == Interaction::Clicked && *setting != *quality {
+        for (interaction, button_setting, entity) in interaction_query.iter() {
+            if *interaction == Interaction::Clicked && *setting != *button_setting {
                 let (previous_button, mut previous_material) = selected_query.single_mut();
                 *previous_material = button_materials.normal.clone();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
-                *setting = *quality;
+                *setting = *button_setting;
             }
         }
     }
