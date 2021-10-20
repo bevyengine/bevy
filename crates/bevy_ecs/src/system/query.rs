@@ -700,7 +700,7 @@ where
     /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> 
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
         let (component_id, _) = self
             .state
             .fetch_state
