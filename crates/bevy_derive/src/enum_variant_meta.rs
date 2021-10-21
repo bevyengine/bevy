@@ -21,7 +21,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     let indices = 0..names.len();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_util_path::EnumVariantMeta for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_util_path::EnumVariantMeta for #struct_name #ty_generics #where_clause {
             fn enum_variant_index(&self) -> usize {
                 match self {
                     #(#struct_name::#idents {..} => #indices,)*
