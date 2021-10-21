@@ -778,7 +778,7 @@ mod tests {
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
-        println!("We have {} components", world.components().len());
+        world.spawn().insert_bundle((W(0u32), W(42u64)));
     }
 
     #[test]
@@ -810,14 +810,26 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
 
+        // test adding simple (FnOnce) commands
         {
             let mut commands = Commands::new(&mut command_queue, &world);
+
+            // set up a simple command using a closure that adds one additional entity
             commands.add(|world: &mut World| {
-                println!("We have {} entities", world.entities().len());
+                world.spawn().insert_bundle((W(42u32), W(0u64)));
             });
 
+            // set up a simple command using a function that adds one additional entity
             commands.add(simple_command);
         }
+        command_queue.apply(&mut world);
+        let results3 = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+
+        assert_eq!(results3, vec![(42u32, 0u64), (0u32, 42u64)]);
     }
 
     #[test]
