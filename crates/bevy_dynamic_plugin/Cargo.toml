@@ -5,7 +5,7 @@ authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
     "Carter Anderson <mcanders1@gmail.com>",
 ]
-edition = "2018"
+edition = "2021"
 description = "Provides dynamic plugin loading capabilities for non-wasm platforms"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
