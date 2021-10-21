@@ -382,20 +382,12 @@ mod menu {
         >,
     ) {
         for (interaction, mut material, selected) in interaction_query.iter_mut() {
-            match (*interaction, selected) {
-                (Interaction::Clicked, _) => *material = button_materials.pressed.clone(),
-                (Interaction::Hovered, Some(_)) => {
-                    *material = button_materials.hovered_pressed.clone()
-                }
-                (Interaction::Hovered, None) => {
-                    *material = button_materials.hovered.clone();
-                }
-                (Interaction::None, Some(_)) => {
-                    *material = button_materials.pressed.clone();
-                }
-                (Interaction::None, None) => {
-                    *material = button_materials.normal.clone();
-                }
+            *material = match (*interaction, selected) {
+                (Interaction::Clicked, _) => button_materials.pressed.clone(),
+                (Interaction::Hovered, Some(_)) => button_materials.hovered_pressed.clone(),
+                (Interaction::Hovered, None) => button_materials.hovered.clone(),
+                (Interaction::None, Some(_)) => button_materials.pressed.clone(),
+                (Interaction::None, None) => button_materials.normal.clone(),
             }
         }
     }
