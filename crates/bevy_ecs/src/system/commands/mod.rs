@@ -552,6 +552,15 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 }
 
+impl<F> Command for F
+where
+    F: FnOnce(&mut World) + Send + Sync + 'static,
+{
+    fn write(self, world: &mut World) {
+        self(world)
+    }
+}
+
 #[derive(Debug)]
 pub struct Spawn<T> {
     pub bundle: T,
@@ -768,6 +777,10 @@ mod tests {
     #[derive(Component)]
     struct W<T>(T);
 
+    fn simple_command(world: &mut World) {
+        println!("We have {} components", world.components().len());
+    }
+
     #[test]
     fn commands() {
         let mut world = World::default();
@@ -796,6 +809,15 @@ mod tests {
             .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
+
+        {
+            let mut commands = Commands::new(&mut command_queue, &world);
+            commands.add(|world: &mut World| {
+                println!("We have {} entities", world.entities().len());
+            });
+
+            commands.add(simple_command);
+        }
     }
 
     #[test]
