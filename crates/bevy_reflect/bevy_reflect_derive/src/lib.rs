@@ -557,9 +557,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     let ty = &reflect_value_def.type_name;
-    let reflect_attrs = reflect_value_def
-        .attrs
-        .unwrap_or_else(ReflectAttrs::default);
+    let reflect_attrs = reflect_value_def.attrs.unwrap_or_default();
     let registration_data = &reflect_attrs.data;
     let get_type_registration_impl = impl_get_type_registration(
         ty,
