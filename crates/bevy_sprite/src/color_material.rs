@@ -1,14 +1,21 @@
 use bevy_app::{EventReader, Events, ManualEventReader};
 use bevy_asset::{self, AssetEvent, Assets, Handle};
+use bevy_core::Bytes;
 use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
-use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
+use bevy_render::{
+    color::Color,
+    renderer::{RenderResource, RenderResourceType, RenderResources},
+    shader::ShaderDefs,
+    texture::Texture,
+};
 use bevy_utils::{HashMap, HashSet};
 
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "506cff92-a9f3-4543-862d-6851c7fdfc99"]
 pub struct ColorMaterial {
     pub color: Color,
+    pub border: Border,
     #[shader_def]
     pub texture: Option<Handle<Texture>>,
 }
@@ -17,6 +24,7 @@ impl ColorMaterial {
     pub fn color(color: Color) -> Self {
         ColorMaterial {
             color,
+            border: Default::default(),
             texture: None,
         }
     }
@@ -24,6 +32,7 @@ impl ColorMaterial {
     pub fn texture(texture: Handle<Texture>) -> Self {
         ColorMaterial {
             color: Color::WHITE,
+            border: Default::default(),
             texture: Some(texture),
         }
     }
@@ -31,8 +40,14 @@ impl ColorMaterial {
     pub fn modulated_texture(texture: Handle<Texture>, color: Color) -> Self {
         ColorMaterial {
             color,
+            border: Default::default(),
             texture: Some(texture),
         }
+    }
+
+    pub fn with_border_radius(mut self, radius: f32) -> Self {
+        self.border.radius = radius;
+        self
     }
 }
 
@@ -40,6 +55,7 @@ impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
             color: Color::rgb(1.0, 1.0, 1.0),
+            border: Default::default(),
             texture: None,
         }
     }
@@ -54,6 +70,29 @@ impl From<Color> for ColorMaterial {
 impl From<Handle<Texture>> for ColorMaterial {
     fn from(texture: Handle<Texture>) -> Self {
         ColorMaterial::texture(texture)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Border {
+    pub radius: f32,
+}
+
+impl RenderResource for Border {
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.radius.write_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(std::mem::size_of::<f32>())
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
     }
 }
 
