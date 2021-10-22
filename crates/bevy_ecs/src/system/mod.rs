@@ -493,6 +493,8 @@ mod tests {
         world.clear_trackers();
 
         // Then, try removing a component
+        world.spawn().insert(W(3)).id();
+        world.spawn().insert(W(4)).id();
         world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
 
         fn validate_remove(
