@@ -42,6 +42,10 @@ pub struct StandardMaterial {
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
+    /// This allows for flat shading even with indiced meshes.
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub flat_shading: bool,
 }
 
 impl Default for StandardMaterial {
@@ -69,6 +73,7 @@ impl Default for StandardMaterial {
             emissive: Color::BLACK,
             emissive_texture: None,
             unlit: false,
+            flat_shading: false,
         }
     }
 }

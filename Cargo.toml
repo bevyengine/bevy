@@ -181,6 +181,10 @@ path = "examples/3d/wireframe.rs"
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
+[[example]]
+name = "flat_shading"
+path = "examples/3d/flat_shading.rs"
+
 # Application
 [[example]]
 name = "custom_loop"

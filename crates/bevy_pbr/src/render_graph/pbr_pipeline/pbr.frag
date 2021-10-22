@@ -43,14 +43,17 @@ struct PointLight {
     vec4 color;
     vec4 lightParams;
 };
- 
+
 struct DirectionalLight {
     vec4 direction;
     vec4 color;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
+
+#ifndef STANDARDMATERIAL_FLAT_SHADING
 layout(location = 1) in vec3 v_WorldNormal;
+#endif
 layout(location = 2) in vec2 v_Uv;
 
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -368,7 +371,12 @@ void main() {
 
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
-    vec3 N = normalize(v_WorldNormal);
+#    ifdef STANDARDMATERIAL_FLAT_SHADING
+    vec3 N = normalize(cross(dFdy(v_WorldPosition), dFdx(v_WorldPosition)));
+#    endif
+#    ifndef STANDARDMATERIAL_FLAT_SHADING
+    vec3 N = v_WorldNormal;
+#    endif
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
     vec3 T = normalize(v_WorldTangent.xyz);
