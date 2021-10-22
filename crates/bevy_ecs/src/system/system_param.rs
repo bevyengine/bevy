@@ -631,8 +631,8 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 /// note that the `RemovedComponents` list will not be automatically cleared for you,
 /// and will need to be manually flushed using [`World::clear_trackers`]
 ///
-/// Ordinarily, this is done for `bevy_app` users in a system added by `MinimalPlugins`
-/// at the end of each loop.
+/// For users of `bevy` itself, this is automatically done in a system added by `MinimalPlugins`
+/// at the end of each pass of the game loop.
 ///
 /// # Examples
 ///
