@@ -101,6 +101,7 @@ fn setup(
                 material: materials.add(ColorMaterial {
                     color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     texture: Some(texture_handle.clone()),
+                    ..Default::default()
                 }),
                 transform,
                 ..Default::default()

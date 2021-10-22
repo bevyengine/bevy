@@ -23,6 +23,7 @@ fn setup(
             material: materials.add(ColorMaterial {
                 color: Color::WHITE,
                 texture: Some(texture.clone()),
+                ..Default::default()
             }),
             ..Default::default()
         })
@@ -38,6 +39,7 @@ fn setup(
                 material: materials.add(ColorMaterial {
                     color: Color::BLUE,
                     texture: Some(texture.clone()),
+                    ..Default::default()
                 }),
                 ..Default::default()
             });
@@ -59,6 +61,7 @@ fn setup(
             material: materials.add(ColorMaterial {
                 color: Color::RED,
                 texture: Some(texture.clone()),
+                ..Default::default()
             }),
             ..Default::default()
         })
@@ -77,6 +80,7 @@ fn setup(
             material: materials.add(ColorMaterial {
                 color: Color::GREEN,
                 texture: Some(texture),
+                ..Default::default()
             }),
             ..Default::default()
         })

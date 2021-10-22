@@ -127,6 +127,7 @@ fn mouse_handler(
         bird_material.0 = materials.add(ColorMaterial {
             color: BASE_COLOR * color,
             texture: Some(texture_handle),
+            ..Default::default()
         });
     }
 
