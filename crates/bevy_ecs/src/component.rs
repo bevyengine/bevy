@@ -344,6 +344,16 @@ impl Components {
     }
 }
 
+impl<'c> IntoIterator for &'c Components {
+    type Item = &'c ComponentInfo;
+
+    type IntoIter = std::slice::Iter<'c, ComponentInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.components.iter()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
@@ -406,5 +416,39 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
     // Clamp to max delta
     if tick_delta > MAX_DELTA {
         *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        component::{Component, ComponentInfo},
+        world::World,
+    };
+
+    #[derive(Component)]
+    struct W<T>(T);
+
+    #[test]
+    fn components_iteration() {
+        let mut world = World::default();
+        world.spawn().insert(W(42u32)).insert(W(12.3f32));
+        world.spawn().insert(W(123u32)).insert(W(true));
+
+        let component_names: Vec<&str> = world
+            .components()
+            .into_iter()
+            .map(|ci: &ComponentInfo| ci.name())
+            .collect();
+
+        assert_eq!(
+            component_names,
+            vec![
+                "bevy_ecs::component::tests::W<u32>",
+                "bevy_ecs::component::tests::W<f32>",
+                "bevy_ecs::component::tests::W<bool>"
+            ]
+        );
     }
 }
