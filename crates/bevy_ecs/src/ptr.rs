@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
 /// Type-erased pointer into memory. Guaranteed to be correctly aligned, non-null and safe to read for a particular type.
 #[derive(Copy, Clone)]
@@ -9,63 +9,6 @@ pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 /// Type-erased pointer into memory. Guaranteed to be correctly aligned, non-null and safe to move out of for a particular type.
 pub struct OwningPtr<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
-
-pub struct ThinSlicePtr<'a, T> {
-    ptr: NonNull<T>,
-    #[cfg(debug_assertions)]
-    len: usize,
-    _marker: PhantomData<&'a [T]>,
-}
-
-impl<T> Clone for ThinSlicePtr<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
-    }
-}
-impl<T> Copy for ThinSlicePtr<'_, T> {}
-
-impl<'a, T> ThinSlicePtr<'a, T> {
-    pub fn new(slice: &'a [T]) -> Self {
-        unsafe {
-            Self {
-                ptr: NonNull::new_unchecked(slice.as_ptr() as *mut _),
-                #[cfg(debug_assertions)]
-                len: slice.len(),
-                _marker: PhantomData,
-            }
-        }
-    }
-
-    /// # Safety
-    /// ptr must be valid for the returned lifetime.
-    pub unsafe fn new_raw(ptr: NonNull<T>, #[cfg(debug_assertions)] len: usize) -> Self {
-        Self {
-            ptr,
-            #[cfg(debug_assertions)]
-            len,
-            _marker: PhantomData,
-        }
-    }
-
-    /// # Safety
-    /// index must not be out of bounds
-    pub unsafe fn index(self, index: usize) -> &'a T {
-        debug_assert!(index < self.len);
-        &*self.ptr.as_ptr().add(index)
-    }
-
-    /// # Safety
-    /// index must not be out of bounds, and the same element must not be mutably accessed twice.
-    pub unsafe fn index_mut(self, index: usize) -> &'a mut T {
-        debug_assert!(index < self.len);
-        &mut *self.ptr.as_ptr().add(index)
-    }
-}
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
@@ -145,5 +88,18 @@ impl<'a> OwningPtr<'a> {
     /// must point to a valid T.
     pub unsafe fn read<T>(self) -> T {
         self.inner().cast::<T>().read()
+    }
+}
+
+pub(crate) trait UnsafeCellDeref<'a, T> {
+    unsafe fn deref_mut(self) -> &'a mut T;
+    unsafe fn deref(self) -> &'a T;
+}
+impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
+    unsafe fn deref_mut(self) -> &'a mut T {
+        &mut *self.get()
+    }
+    unsafe fn deref(self) -> &'a T {
+        &*self.get()
     }
 }

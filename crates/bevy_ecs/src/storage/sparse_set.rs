@@ -153,8 +153,6 @@ impl ComponentSparseSet {
         self.sparse.contains(entity)
     }
 
-    /// # Safety
-    /// ensure the same entity is not accessed twice at the same time
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
         self.sparse.get(entity).map(|dense_index| {
@@ -163,8 +161,6 @@ impl ComponentSparseSet {
         })
     }
 
-    /// # Safety
-    /// ensure the same entity is not accessed twice at the same time
     #[inline]
     pub unsafe fn get_with_ticks(
         &self,

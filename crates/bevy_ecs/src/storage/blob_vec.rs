@@ -1,9 +1,10 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
+    cell::UnsafeCell,
     ptr::NonNull,
 };
 
-use crate::ptr::{OwningPtr, Ptr, PtrMut, ThinSlicePtr};
+use crate::ptr::{OwningPtr, Ptr, PtrMut};
 
 pub struct BlobVec {
     item_layout: Layout,
@@ -211,15 +212,9 @@ impl BlobVec {
     ///
     /// # Safety
     /// The type `T` must be the type of the items in this BlobVec.
-    pub unsafe fn get_thin_slice<T>(&self) -> ThinSlicePtr<'_, T> {
+    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFE: the inner data will remain valid for as long as 'self.
-        ThinSlicePtr::new_raw(
-            self.data.cast(),
-            #[cfg(debug_assertions)]
-            {
-                self.len
-            },
-        )
+        std::slice::from_raw_parts(self.data.as_ptr() as *const _, self.len)
     }
 
     /// Gets a [PtrMut] to the start of the vec

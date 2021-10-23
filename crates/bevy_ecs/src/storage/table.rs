@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
-    ptr::{OwningPtr, Ptr, PtrMut, ThinSlicePtr},
+    ptr::{OwningPtr, Ptr, PtrMut},
     storage::{BlobVec, SparseSet},
 };
 use bevy_utils::{AHasher, HashMap};
@@ -140,8 +140,8 @@ impl Column {
 
     /// # Safety
     /// The type `T` must be the type of the items in this column.
-    pub unsafe fn get_data_slice<T>(&self) -> ThinSlicePtr<'_, T> {
-        self.data.get_thin_slice()
+    pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
+        self.data.get_slice()
     }
 
     #[inline]

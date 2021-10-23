@@ -2,8 +2,9 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    ptr::ThinSlicePtr,
-    query::{Access, Fetch, FetchInit, FetchState, FilteredAccess, WorldQuery},
+    query::{
+        debug_checked_unreachable, Access, Fetch, FetchInit, FetchState, FilteredAccess, WorldQuery,
+    },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
 };
@@ -484,10 +485,10 @@ macro_rules! impl_tick_filter {
 
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+            table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
+            entity_table_rows: Option<&'w [usize]>,
             marker: PhantomData<T>,
-            entities: Option<ThinSlicePtr<'w, Entity>>,
+            entities: Option<&'w [Entity]>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
@@ -578,37 +579,33 @@ macro_rules! impl_tick_filter {
             type Item = bool;
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                self.table_ticks = Some(ThinSlicePtr::new(table
-                    .get_column(state.component_id).unwrap()
-                    .get_ticks()));
+                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        self.entity_table_rows = Some(ThinSlicePtr::new(archetype.entity_table_rows()));
+                        self.entity_table_rows = Some(archetype.entity_table_rows());
                         let table = &tables[archetype.table_id()];
-                        self.table_ticks = Some(ThinSlicePtr::new(table
-                            .get_column(state.component_id).unwrap()
-                            .get_ticks()));
+                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
                     }
-                    StorageType::SparseSet => self.entities = Some(ThinSlicePtr::new(archetype.entities())),
+                    StorageType::SparseSet => self.entities = Some(archetype.entities()),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(table_row)).get(), self.last_change_tick, self.change_tick)
+                $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(table_row)).get(), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let table_row = *self.entity_table_rows.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(archetype_index);
-                        $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(table_row)).get(), self.last_change_tick, self.change_tick)
+                        let table_row = *self.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(archetype_index);
+                        $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(table_row)).get(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let entity = *self.entities.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(archetype_index);
-                        let ticks = self.sparse_set.unwrap_or_else(|| std::hint::unreachable_unchecked()).get_ticks(entity).cloned().unwrap();
+                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(archetype_index);
+                        let ticks = self.sparse_set.unwrap_or_else(|| debug_checked_unreachable()).get_ticks(entity).cloned().unwrap();
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

@@ -3,8 +3,8 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    ptr::ThinSlicePtr,
-    query::{Access, FilteredAccess},
+    ptr::UnsafeCellDeref,
+    query::{debug_checked_unreachable, Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
     world::{Mut, World},
 };
@@ -159,7 +159,7 @@ impl WorldQuery for Entity {
 /// The [`Fetch`] of [`Entity`].
 #[derive(Clone)]
 pub struct EntityFetch<'w> {
-    entities: Option<ThinSlicePtr<'w, Entity>>,
+    entities: Option<&'w [Entity]>,
 }
 
 /// SAFETY: access is read only
@@ -219,28 +219,26 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch<'w> {
         archetype: &'w Archetype,
         _tables: &Tables,
     ) {
-        self.entities = Some(ThinSlicePtr::new(archetype.entities()));
+        self.entities = Some(archetype.entities());
     }
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, table: &'w Table) {
-        self.entities = Some(ThinSlicePtr::new(table.entities()));
+        self.entities = Some(table.entities());
     }
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        *self
-            .entities
-            .unwrap_or_else(|| std::hint::unreachable_unchecked())
-            .index(table_row)
+        let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
+        debug_assert!(table_row < entities.len());
+        *entities.get_unchecked(table_row)
     }
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        *self
-            .entities
-            .unwrap_or_else(|| std::hint::unreachable_unchecked())
-            .index(archetype_index)
+        let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
+        debug_assert!(archetype_index < entities.len());
+        *entities.get_unchecked(archetype_index)
     }
 }
 
@@ -310,10 +308,10 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 /// The [`Fetch`] of `&T`.
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
-    table_components: Option<ThinSlicePtr<'w, T>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table_components: Option<&'w [UnsafeCell<T>]>,
+    entity_table_rows: Option<&'w [usize]>,
     // T::Storage = SparseStorage
-    entities: Option<ThinSlicePtr<'w, Entity>>,
+    entities: Option<&'w [Entity]>,
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
@@ -364,13 +362,13 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(ThinSlicePtr::new(archetype.entity_table_rows()));
+                self.entity_table_rows = Some(archetype.entity_table_rows());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
                 self.table_components = Some(column.get_data_slice());
             }
-            StorageType::SparseSet => self.entities = Some(ThinSlicePtr::new(archetype.entities())),
+            StorageType::SparseSet => self.entities = Some(archetype.entities()),
         }
     }
 
@@ -391,16 +389,19 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
                 let (entity_table_rows, table_components) = self
                     .entity_table_rows
                     .zip(self.table_components)
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked());
-                let table_row = *entity_table_rows.index(archetype_index);
-                table_components.index(table_row)
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entity_table_rows.len());
+                let table_row = *entity_table_rows.get_unchecked(archetype_index);
+                debug_assert!(table_row < table_components.len());
+                table_components.get_unchecked(table_row).deref_mut()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked());
-                let entity = *entities.index(archetype_index);
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entities.len());
+                let entity = *entities.get_unchecked(archetype_index);
                 sparse_set.get(entity).unwrap().deref::<T>()
             }
         }
@@ -408,9 +409,11 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        self.table_components
-            .unwrap_or_else(|| std::hint::unreachable_unchecked())
-            .index(table_row)
+        let components = self
+            .table_components
+            .unwrap_or_else(|| debug_checked_unreachable());
+        debug_assert!(table_row < components.len());
+        components.get_unchecked(table_row).deref_mut()
     }
 }
 
@@ -433,10 +436,10 @@ impl<T: Component> WorldQuery for &mut T {
 
 /// The [`Fetch`] of `&mut T`.
 pub struct WriteFetch<'w, T> {
-    table_components: Option<ThinSlicePtr<'w, T>>,
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entities: Option<ThinSlicePtr<'w, Entity>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table_components: Option<&'w [UnsafeCell<T>]>,
+    table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
+    entities: Option<&'w [Entity]>,
+    entity_table_rows: Option<&'w [usize]>,
     sparse_set: Option<&'w ComponentSparseSet>,
     last_change_tick: u32,
     change_tick: u32,
@@ -537,14 +540,14 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(ThinSlicePtr::new(archetype.entity_table_rows()));
+                self.entity_table_rows = Some(archetype.entity_table_rows());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
                 self.table_components = Some(column.get_data_slice());
-                self.table_ticks = Some(ThinSlicePtr::new(column.get_ticks()));
+                self.table_ticks = Some(column.get_ticks());
             }
-            StorageType::SparseSet => self.entities = Some(ThinSlicePtr::new(archetype.entities())),
+            StorageType::SparseSet => self.entities = Some(archetype.entities()),
         }
     }
 
@@ -552,7 +555,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
         let column = table.get_column(state.component_id).unwrap();
         self.table_components = Some(column.get_data_slice());
-        self.table_ticks = Some(ThinSlicePtr::new(column.get_ticks()));
+        self.table_ticks = Some(column.get_ticks());
     }
 
     #[inline]
@@ -562,12 +565,14 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
                 let (entity_table_rows, (table_components, table_ticks)) = self
                     .entity_table_rows
                     .zip(self.table_components.zip(self.table_ticks))
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked());
-                let table_row = *entity_table_rows.index(archetype_index);
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entity_table_rows.len());
+                let table_row = *entity_table_rows.get_unchecked(archetype_index);
+                debug_assert!(table_row < table_components.len());
                 Mut {
-                    value: table_components.index_mut(table_row),
+                    value: table_components.get_unchecked(table_row).deref_mut(),
                     ticks: Ticks {
-                        component_ticks: &mut *table_ticks.index(table_row).get(),
+                        component_ticks: table_ticks.get_unchecked(table_row).deref_mut(),
                         change_tick: self.change_tick,
                         last_change_tick: self.last_change_tick,
                     },
@@ -577,13 +582,14 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
                 let (entities, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked());
-                let entity = *entities.index(archetype_index);
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entities.len());
+                let entity = *entities.get_unchecked(archetype_index);
                 let (component, component_ticks) = sparse_set.get_with_ticks(entity).unwrap();
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: Ticks {
-                        component_ticks: &mut *component_ticks.get(),
+                        component_ticks: component_ticks.deref_mut(),
                         change_tick: self.change_tick,
                         last_change_tick: self.last_change_tick,
                     },
@@ -597,11 +603,12 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
         let (table_components, table_ticks) = self
             .table_components
             .zip(self.table_ticks)
-            .unwrap_or_else(|| std::hint::unreachable_unchecked());
+            .unwrap_or_else(|| debug_checked_unreachable());
+        debug_assert!(table_row < table_components.len());
         Mut {
-            value: table_components.index_mut(table_row),
+            value: table_components.get_unchecked(table_row).deref_mut(),
             ticks: Ticks {
-                component_ticks: &mut *(table_ticks.index(table_row)).get(),
+                component_ticks: table_ticks.get_unchecked(table_row).deref_mut(),
                 change_tick: self.change_tick,
                 last_change_tick: self.last_change_tick,
             },
@@ -859,9 +866,9 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 
 /// The [`Fetch`] of [`ChangeTrackers`].
 pub struct ChangeTrackersFetch<'w, T> {
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    entities: Option<ThinSlicePtr<'w, Entity>>,
+    table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
+    entity_table_rows: Option<&'w [usize]>,
+    entities: Option<&'w [Entity]>,
     sparse_set: Option<&'w ComponentSparseSet>,
     marker: PhantomData<T>,
     last_change_tick: u32,
@@ -921,52 +928,51 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(ThinSlicePtr::new(archetype.entity_table_rows()));
+                self.entity_table_rows = Some(archetype.entity_table_rows());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_ticks = Some(ThinSlicePtr::new(column.get_ticks()));
+                self.table_ticks = Some(column.get_ticks());
             }
-            StorageType::SparseSet => self.entities = Some(ThinSlicePtr::new(archetype.entities())),
+            StorageType::SparseSet => self.entities = Some(archetype.entities()),
         }
     }
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.table_ticks = Some(ThinSlicePtr::new(
-            table.get_column(state.component_id).unwrap().get_ticks(),
-        ));
+        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
     }
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let table_row = *self
+                let entity_table_rows = self
                     .entity_table_rows
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked())
-                    .index(archetype_index);
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entity_table_rows.len());
+                let table_row = *entity_table_rows.get_unchecked(archetype_index);
                 ChangeTrackers {
-                    component_ticks: (&*self
-                        .table_ticks
-                        .unwrap_or_else(|| std::hint::unreachable_unchecked())
-                        .index(table_row)
-                        .get())
-                        .clone(),
+                    component_ticks: {
+                        let table_ticks = self
+                            .table_ticks
+                            .unwrap_or_else(|| debug_checked_unreachable());
+                        debug_assert!(table_row < table_ticks.len());
+                        table_ticks.get_unchecked(table_row).deref().clone()
+                    },
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
                 }
             }
             StorageType::SparseSet => {
-                let entity = *self
-                    .entities
-                    .unwrap_or_else(|| std::hint::unreachable_unchecked())
-                    .index(archetype_index);
+                let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(archetype_index < entities.len());
+                let entity = *entities.get_unchecked(archetype_index);
                 ChangeTrackers {
                     component_ticks: self
                         .sparse_set
-                        .unwrap_or_else(|| std::hint::unreachable_unchecked())
+                        .unwrap_or_else(|| debug_checked_unreachable())
                         .get_ticks(entity)
                         .cloned()
                         .unwrap(),
@@ -981,12 +987,13 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<'w, T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         ChangeTrackers {
-            component_ticks: (&*self
-                .table_ticks
-                .unwrap_or_else(|| std::hint::unreachable_unchecked())
-                .index(table_row)
-                .get())
-                .clone(),
+            component_ticks: {
+                let table_ticks = self
+                    .table_ticks
+                    .unwrap_or_else(|| debug_checked_unreachable());
+                debug_assert!(table_row < table_ticks.len());
+                table_ticks.get_unchecked(table_row).deref().clone()
+            },
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
