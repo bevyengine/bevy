@@ -403,6 +403,16 @@ impl Components {
     }
 }
 
+impl<'c> IntoIterator for &'c Components {
+    type Item = &'c ComponentInfo;
+
+    type IntoIter = std::slice::Iter<'c, ComponentInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.components.iter()
+    }
+}
+
 /// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
@@ -481,5 +491,39 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
     // so long as this check always runs before that can happen.
     if age > MAX_CHANGE_AGE {
         *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        component::{Component, ComponentInfo},
+        world::World,
+    };
+
+    #[derive(Component)]
+    struct W<T>(T);
+
+    #[test]
+    fn components_iteration() {
+        let mut world = World::default();
+        world.spawn().insert(W(42u32)).insert(W(12.3f32));
+        world.spawn().insert(W(123u32)).insert(W(true));
+
+        let component_names: Vec<&str> = world
+            .components()
+            .into_iter()
+            .map(|ci: &ComponentInfo| ci.name())
+            .collect();
+
+        assert_eq!(
+            component_names,
+            vec![
+                "bevy_ecs::component::tests::W<u32>",
+                "bevy_ecs::component::tests::W<f32>",
+                "bevy_ecs::component::tests::W<bool>"
+            ]
+        );
     }
 }
