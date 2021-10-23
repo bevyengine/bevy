@@ -1,7 +1,8 @@
 [package]
 name = "benches"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 
 [dev-dependencies]
 criterion = "0.3"
