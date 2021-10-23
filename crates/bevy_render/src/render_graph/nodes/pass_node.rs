@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
-    query::{QueryState, ReadOnlyFetch, WorldQuery},
+    query::{QueryState, ReadOnlyQuery, WorldQuery},
     world::{Mut, World},
 };
 use bevy_utils::{tracing::debug, HashMap};
@@ -117,7 +117,7 @@ impl<Q: WorldQuery> PassNode<Q> {
 
 impl<Q: WorldQuery + Send + Sync + 'static> Node for PassNode<Q>
 where
-    Q::Fetch: ReadOnlyFetch,
+    Q: ReadOnlyQuery,
 {
     fn input(&self) -> &[ResourceSlotInfo] {
         &self.inputs

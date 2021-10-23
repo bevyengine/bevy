@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
-        ReadOnlyFetch, WorldQuery,
+        FilterFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
+        QueryState, ReadOnlyQuery, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -242,7 +242,7 @@ use thiserror::Error;
 /// (or `iter_mut.next()`) to only get the first query result.
 pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
@@ -252,7 +252,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     /// Creates a new query.
     ///
@@ -301,7 +301,7 @@ where
     #[inline]
     pub fn iter(&'s self) -> QueryIter<'w, 's, Q, F>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
@@ -351,7 +351,7 @@ where
     #[inline]
     pub fn iter_combinations<const K: usize>(&self) -> QueryCombinationIter<'_, '_, Q, F, K>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
@@ -458,9 +458,9 @@ where
     /// # report_names_system.system();
     /// ```
     #[inline]
-    pub fn for_each(&'s self, f: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item))
+    pub fn for_each(&'s self, f: impl FnMut(QueryItem<'w, 's, Q>))
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
@@ -496,7 +496,7 @@ where
     /// # gravity_system.system();
     /// ```
     #[inline]
-    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)) {
+    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(QueryItem<'a, 'a, Q>)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -518,9 +518,9 @@ where
         &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        f: impl Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
     ) where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -542,7 +542,7 @@ where
         &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone,
+        f: impl Fn(QueryItem<'a, 'a, Q>) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -590,12 +590,9 @@ where
     /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
-    pub fn get(
-        &'s self,
-        entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
+    pub fn get(&'s self, entity: Entity) -> Result<QueryItem<'w, 's, Q>, QueryEntityError>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
@@ -634,10 +631,7 @@ where
     /// # poison_system.system();
     /// ```
     #[inline]
-    pub fn get_mut(
-        &mut self,
-        entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<'_, '_, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -663,7 +657,7 @@ where
     pub unsafe fn get_unchecked(
         &self,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'_, '_, Q>, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
@@ -717,9 +711,10 @@ where
             .archetype_component_access
             .has_read(archetype_component)
         {
-            entity_ref
-                .get::<T>()
-                .ok_or(QueryComponentError::MissingComponent)
+            unsafe {
+                crate::world::get(world, entity, entity_ref.location())
+                    .ok_or(QueryComponentError::MissingComponent)
+            }
         } else {
             Err(QueryComponentError::MissingReadAccess)
         }
@@ -824,9 +819,9 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    pub fn single(&'s self) -> QueryItem<'w, 's, Q>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         self.get_single().unwrap()
     }
@@ -863,9 +858,9 @@ where
     /// }
     /// # player_scoring_system.system();
     /// ```
-    pub fn get_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    pub fn get_single(&'s self) -> Result<QueryItem<'w, 's, Q>, QuerySingleError>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         let mut query = self.iter();
         let first = query.next();
@@ -905,7 +900,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
+    pub fn single_mut(&mut self) -> QueryItem<'_, '_, Q> {
         self.get_single_mut().unwrap()
     }
 
@@ -931,9 +926,7 @@ where
     /// }
     /// # regenerate_player_health_system.system();
     /// ```
-    pub fn get_single_mut(
-        &mut self,
-    ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
+    pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, '_, Q>, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();

@@ -13,7 +13,8 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
-    query::{FilterFetch, QueryState, WorldQuery},
+    ptr::OwningPtr,
+    query::{FilterFetch, QueryFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
@@ -192,7 +193,8 @@ impl World {
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
     ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// let entity = world.entity(entity);
+    /// let position = entity.get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
@@ -220,7 +222,8 @@ impl World {
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
     ///
-    /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
+    /// let mut entity = world.entity_mut(entity);
+    /// let mut position = entity.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
     /// ```
     #[inline]
@@ -332,7 +335,7 @@ impl World {
     ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// let position = world.get::<Position>(entity).unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn(&mut self) -> EntityMut {
@@ -409,7 +412,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        self.get_entity(entity)?.get()
+        unsafe { get(self, entity, self.get_entity(entity)?.location()) }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
@@ -432,7 +435,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.get_entity_mut(entity)?.get_mut()
+        unsafe { get_mut(self, entity, self.get_entity(entity)?.location()) }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -538,7 +541,7 @@ impl World {
     /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
-        QueryState::new(self)
+        self.query_filtered::<Q, ()>()
     }
 
     /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
@@ -563,7 +566,7 @@ impl World {
     #[inline]
     pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
     where
-        F::Fetch: FilterFetch,
+        for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
     {
         QueryState::new(self)
     }
@@ -908,6 +911,9 @@ impl World {
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
     pub fn resource_scope<T: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<T>) -> U) -> U {
+        let last_change_tick = self.last_change_tick();
+        let change_tick = self.change_tick();
+
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
@@ -925,25 +931,31 @@ impl World {
             // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
+        let mut val = unsafe { ptr.read::<T>() };
         // SAFE: pointer is of type T
         let value = Mut {
-            value: unsafe { &mut *ptr.deref_mut::<T>() },
+            value: &mut val,
             ticks: Ticks {
                 component_ticks: &mut ticks,
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.change_tick(),
+                last_change_tick,
+                change_tick,
             },
         };
         let result = f(self, value);
+        assert!(self.get_resource::<T>().is_none());
+
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
-        unsafe {
-            // SAFE: pointer is of type T
-            column.push(ptr, ticks);
-        }
+
+        OwningPtr::make(val, |ptr| {
+            unsafe {
+                // SAFE: pointer is of type T
+                column.push(ptr, ticks);
+            }
+        });
         result
     }
 
@@ -968,9 +980,9 @@ impl World {
     ) -> Option<Mut<'_, T>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: column.get_data_ptr_mut().deref_mut(),
+            value: column.get_data_ptr().assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                component_ticks: column.get_ticks_mut_unchecked(0),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },
@@ -1003,17 +1015,17 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
-            let data = (&mut value as *mut T).cast::<u8>();
-            std::mem::forget(value);
-            column.push(data, ComponentTicks::new(change_tick));
+            OwningPtr::make(value, |ptr| {
+                column.push(ptr, ComponentTicks::new(change_tick));
+            });
         } else {
             // SAFE: column is of type T and has already been allocated
-            *column.get_data_unchecked(0).cast::<T>() = value;
+            *column.get_data_unchecked_mut(0).deref_mut::<T>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }

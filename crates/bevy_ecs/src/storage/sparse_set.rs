@@ -166,12 +166,15 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, *mut ComponentTicks)> {
+    pub unsafe fn get_with_ticks(
+        &self,
+        entity: Entity,
+    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
         Some((
             self.dense.get_unchecked(dense_index),
-            self.ticks.get_unchecked(dense_index).get(),
+            self.ticks.get_unchecked(dense_index),
         ))
     }
 
@@ -186,7 +189,7 @@ impl ComponentSparseSet {
     /// it exists). It is the caller's responsibility to drop the returned ptr (if Some is
     /// returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
-        self.sparse.remove(entity).map(|dense_index| {
+        self.sparse.remove(entity).map(move |dense_index| {
             self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;

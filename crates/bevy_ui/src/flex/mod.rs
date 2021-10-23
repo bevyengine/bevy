@@ -4,7 +4,7 @@ use crate::{CalculatedSize, ControlNode, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, FilterFetch, With, Without, WorldQuery},
+    query::{Changed, FilterFetch, QueryFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
@@ -275,7 +275,11 @@ pub fn flex_node_system(
             full_node_query,
         );
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed::<(With<Node>, Changed<Style>)>(
+            &mut *flex_surface,
+            logical_to_physical_factor,
+            node_query,
+        );
     }
 
     fn update_changed<F: WorldQuery>(
@@ -283,7 +287,7 @@ pub fn flex_node_system(
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) where
-        F::Fetch: FilterFetch,
+        for<'w, 's> QueryFetch<'w, 's, F>: FilterFetch<'w, 's>,
     {
         // update changed nodes
         for (entity, style, calculated_size) in query.iter() {

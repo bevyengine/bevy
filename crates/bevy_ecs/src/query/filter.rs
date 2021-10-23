@@ -2,16 +2,17 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
+    ptr::ThinSlicePtr,
+    query::{Access, Fetch, FetchInit, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
-use std::{cell::UnsafeCell, marker::PhantomData, ptr};
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
-pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
+pub trait FilterFetch<'w, 's>: Fetch<'w, 's> {
     /// # Safety
     ///
     /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
@@ -25,9 +26,9 @@ pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
     unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool;
 }
 
-impl<T> FilterFetch for T
+impl<'w, 's, T> FilterFetch<'w, 's> for T
 where
-    T: for<'w, 's> Fetch<'w, 's, Item = bool>,
+    T: Fetch<'w, 's, Item = bool>,
 {
     #[inline]
     unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
@@ -70,8 +71,21 @@ where
 pub struct With<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for With<T> {
-    type Fetch = WithFetch<T>;
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
+
+    type FetchInit = Self;
     type State = WithState<T>;
+
+    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
+        item: super::QueryItem<'wlong, 'slong, Self>,
+    ) -> super::QueryItem<'wshort, 'sshort, Self> {
+        item
+    }
 }
 
 /// The [`Fetch`] of [`With`].
@@ -117,27 +131,26 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
-    type Item = bool;
+impl<T: Component> FetchInit<'_, '_> for With<T> {
     type State = WithState<T>;
+    type Fetch = WithFetch<T>;
+    type Item = bool;
 
-    unsafe fn init(
+    unsafe fn fetch_init(
         _world: &World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
-    ) -> Self {
-        Self {
+    ) -> Self::Fetch {
+        Self::Fetch {
             marker: PhantomData,
         }
     }
+}
 
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
+    type Item = bool;
+    type State = WithState<T>;
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -189,8 +202,21 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
 pub struct Without<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for Without<T> {
-    type Fetch = WithoutFetch<T>;
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
+
+    type FetchInit = Self;
     type State = WithoutState<T>;
+
+    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
+        item: super::QueryItem<'wlong, 'slong, Self>,
+    ) -> super::QueryItem<'wshort, 'sshort, Self> {
+        item
+    }
 }
 
 /// The [`Fetch`] of [`Without`].
@@ -236,27 +262,26 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
-    type Item = bool;
+impl<T: Component> FetchInit<'_, '_> for Without<T> {
     type State = WithoutState<T>;
+    type Fetch = WithoutFetch<T>;
+    type Item = bool;
 
-    unsafe fn init(
+    unsafe fn fetch_init(
         _world: &World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
-    ) -> Self {
-        Self {
+    ) -> Self::Fetch {
+        WithoutFetch {
             marker: PhantomData,
         }
     }
+}
 
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
+    type Item = bool;
+    type State = WithoutState<T>;
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -314,16 +339,17 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
 pub struct Or<T>(pub T);
 
 /// The [`Fetch`] of [`Or`].
-pub struct OrFetch<T: FilterFetch> {
+pub struct OrFetch<'w, 's, T: FilterFetch<'w, 's>> {
     fetch: T,
     matches: bool,
+    _marker: PhantomData<(&'w (), &'s ())>,
 }
 
 macro_rules! impl_query_filter_tuple {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'a, $($filter: FilterFetch),*> FilterFetch for ($($filter,)*) {
+        impl<'w, 's, $($filter: FilterFetch<'w, 's>),*> FilterFetch<'w, 's> for ($($filter,)*) {
             #[inline]
             unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
                 let ($($filter,)*) = self;
@@ -337,32 +363,50 @@ macro_rules! impl_query_filter_tuple {
             }
         }
 
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
         impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)>
-            where $($filter::Fetch: FilterFetch),*
+            where $(for<'w, 's> <$filter::FetchInit as FetchInit<'w, 's>>::Fetch: FilterFetch<'w, 's>),*
         {
-            type Fetch = Or<($(OrFetch<$filter::Fetch>,)*)>;
-            type State = Or<($($filter::State,)*)>;
-        }
+            const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
+            type FetchInit = Or<($($filter::FetchInit,)*)>;
+            type State = Or<($($filter::State,)*)>;
+
+            fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
+                item: super::QueryItem<'wlong, 'slong, Self>,
+            ) -> super::QueryItem<'wshort, 'sshort, Self> {
+                item
+            }
+        }
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, 's, $($filter: FilterFetch),*> Fetch<'w, 's> for Or<($(OrFetch<$filter>,)*)> {
+        impl<'w, 's, $($filter: FetchInit<'w, 's>),*> FetchInit<'w, 's> for Or<($($filter,)*)>
+            where $($filter::Fetch: FilterFetch<'w, 's>),*
+        {
+            type Fetch = Or<($(OrFetch<'w, 's, $filter::Fetch>,)*)>;
+            type State = Or<($($filter::State,)*)>;
+            type Item = bool;
+
+            unsafe fn fetch_init(world: &'w World, state: &'s Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
+                let ($($filter,)*) = &state.0;
+                Or(($(OrFetch {
+                    fetch: $filter::fetch_init(world, $filter, last_change_tick, change_tick),
+                    matches: false,
+                    _marker: PhantomData,
+                },)*))
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<'w, 's, $($filter: FilterFetch<'w, 's>),*> Fetch<'w, 's> for Or<($(OrFetch<'w, 's, $filter>,)*)> {
             type State = Or<($(<$filter as Fetch<'w, 's>>::State,)*)>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
-                let ($($filter,)*) = &state.0;
-                Or(($(OrFetch {
-                    fetch: $filter::init(world, $filter, last_change_tick, change_tick),
-                    matches: false,
-                },)*))
-            }
-
-            const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
-
             #[inline]
-            unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+            unsafe fn set_table(&mut self, state: &'s Self::State, table: &'w Table) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
@@ -374,7 +418,7 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline]
-            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
+            unsafe fn set_archetype(&mut self, state: &'s Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
@@ -445,12 +489,12 @@ macro_rules! impl_tick_filter {
         pub struct $name<T>(PhantomData<T>);
 
         $(#[$fetch_meta])*
-        pub struct $fetch_name<T> {
-            table_ticks: *const UnsafeCell<ComponentTicks>,
-            entity_table_rows: *const usize,
+        pub struct $fetch_name<'w, T> {
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
             marker: PhantomData<T>,
-            entities: *const Entity,
-            sparse_set: *const ComponentSparseSet,
+            entities: Option<ThinSlicePtr<'w, Entity>>,
+            sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
         }
@@ -462,8 +506,21 @@ macro_rules! impl_tick_filter {
         }
 
         impl<T: Component> WorldQuery for $name<T> {
-            type Fetch = $fetch_name<T>;
+            const IS_DENSE: bool = {
+                match T::Storage::STORAGE_TYPE {
+                    StorageType::Table => true,
+                    StorageType::SparseSet => false,
+                }
+            };
+
+            type FetchInit = Self;
             type State = $state_name<T>;
+
+            fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
+                item: super::QueryItem<'wlong, 'slong, Self>,
+            ) -> super::QueryItem<'wshort, 'sshort, Self> {
+                item
+            }
         }
 
 
@@ -505,68 +562,63 @@ macro_rules! impl_tick_filter {
             }
         }
 
-        impl<'w, 's, T: Component> Fetch<'w, 's> for $fetch_name<T> {
+        impl<'w, T: Component> FetchInit<'w, '_> for $name<T> {
             type State = $state_name<T>;
+            type Fetch = $fetch_name<'w, T>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
-                let mut value = Self {
-                    table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
-                    entities: ptr::null::<Entity>(),
-                    entity_table_rows: ptr::null::<usize>(),
-                    sparse_set: ptr::null::<ComponentSparseSet>(),
+            unsafe fn fetch_init(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
+                Self::Fetch {
+                    table_ticks: None,
+                    entities: None,
+                    entity_table_rows: None,
+                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| world
+                        .storages()
+                        .sparse_sets
+                        .get(state.component_id).unwrap()),
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
-                };
-                if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
-                    value.sparse_set = world
-                        .storages()
-                        .sparse_sets
-                        .get(state.component_id).unwrap();
                 }
-                value
             }
+        }
 
-            const IS_DENSE: bool = {
-                match T::Storage::STORAGE_TYPE {
-                    StorageType::Table => true,
-                    StorageType::SparseSet => false,
-                }
-            };
+        impl<'w, 's, T: Component> Fetch<'w, 's> for $fetch_name<'w, T> {
+            type State = $state_name<T>;
+            type Item = bool;
 
-            unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
-                self.table_ticks = table
+            unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
+                self.table_ticks = Some(ThinSlicePtr::new(table
                     .get_column(state.component_id).unwrap()
-                    .get_ticks_ptr();
+                    .get_ticks()));
             }
 
-            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
+            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        self.entity_table_rows = archetype.entity_table_rows().as_ptr();
+                        self.entity_table_rows = Some(ThinSlicePtr::new(archetype.entity_table_rows()));
                         let table = &tables[archetype.table_id()];
-                        self.table_ticks = table
+                        self.table_ticks = Some(ThinSlicePtr::new(table
                             .get_column(state.component_id).unwrap()
-                            .get_ticks_ptr();
+                            .get_ticks()));
                     }
-                    StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
+                    StorageType::SparseSet => self.entities = Some(ThinSlicePtr::new(archetype.entities())),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*(&*self.table_ticks.add(table_row)).get(), self.last_change_tick, self.change_tick)
+                $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(table_row)).get(), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let table_row = *self.entity_table_rows.add(archetype_index);
-                        $is_detected(&*(&*self.table_ticks.add(table_row)).get(), self.last_change_tick, self.change_tick)
+                        let table_row = *self.entity_table_rows.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(archetype_index);
+                        $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(table_row)).get(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let entity = *self.entities.add(archetype_index);
-                        let ticks = (&*self.sparse_set).get_ticks(entity).cloned().unwrap();
+                        let entity = *self.entities.unwrap_or_else(|| std::hint::unreachable_unchecked()).index(archetype_index);
+                        let ticks = self.sparse_set.unwrap_or_else(|| std::hint::unreachable_unchecked()).get_ticks(entity).cloned().unwrap();
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

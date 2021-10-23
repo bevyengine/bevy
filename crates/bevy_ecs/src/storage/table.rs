@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
-    ptr::{OwningPtr, Ptr, PtrMut},
+    ptr::{OwningPtr, Ptr, PtrMut, ThinSlicePtr},
     storage::{BlobVec, SparseSet},
 };
 use bevy_utils::{AHasher, HashMap};
@@ -133,39 +133,38 @@ impl Column {
         self.ticks.reserve_exact(additional);
     }
 
-    /// # Safety
-    /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_data_ptr(&self) -> Ptr<'_> {
+    pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
     }
 
     /// # Safety
-    /// must ensure rust mutability rules are not violated
-    #[inline]
-    pub unsafe fn get_data_ptr_mut(&self) -> PtrMut<'_> {
-        self.data.get_ptr_mut()
+    /// The type `T` must be the type of the items in this column.
+    pub unsafe fn get_data_slice<T>(&self) -> ThinSlicePtr<'_, T> {
+        self.data.get_thin_slice()
     }
 
     #[inline]
-    pub fn get_ticks_ptr(&self) -> *const UnsafeCell<ComponentTicks> {
-        self.ticks.as_ptr()
-    }
-
-    #[inline]
-    pub fn get_ticks_const_ptr(&self) -> *const ComponentTicks {
-        // cast is valid, because UnsafeCell is repr(transparent)
-        self.get_ticks_ptr() as *const ComponentTicks
+    pub fn get_ticks(&self) -> &[UnsafeCell<ComponentTicks>] {
+        &self.ticks
     }
 
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
-    /// - pointer cannot be dereferenced after mutable reference to this `Column` was live
     #[inline]
     pub unsafe fn get_data_unchecked(&self, row: usize) -> Ptr<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked(row)
+    }
+
+    /// # Safety
+    /// - index must be in-bounds
+    /// - no other reference to the data of the same row can exist at the same time
+    #[inline]
+    pub unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
+        debug_assert!(row < self.data.len());
+        self.data.get_unchecked_mut(row)
     }
 
     /// # Safety
@@ -179,11 +178,18 @@ impl Column {
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the ticks of the same row can exist at the same time
-    /// - pointer cannot be dereferenced after mutable reference to this column was live
     #[inline]
-    pub unsafe fn get_ticks_mut_ptr_unchecked(&self, row: usize) -> *mut ComponentTicks {
+    pub unsafe fn get_ticks_mut_unchecked(&self, row: usize) -> &mut ComponentTicks {
         debug_assert!(row < self.ticks.len());
-        self.ticks.get_unchecked(row).get()
+        &mut *self.ticks.get_unchecked(row).get()
+    }
+
+    /// # Safety
+    /// - index must be in-bounds
+    #[inline]
+    pub unsafe fn get_ticks_mut_ptr_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
+        debug_assert!(row < self.ticks.len());
+        self.ticks.get_unchecked(row)
     }
 
     pub fn clear(&mut self) {
@@ -265,8 +271,9 @@ impl Table {
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for column in self.columns.values_mut() {
+            let component_id = column.component_id;
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-            if let Some(new_column) = new_table.get_column_mut(column.component_id) {
+            if let Some(new_column) = new_table.get_column_mut(component_id) {
                 new_column.initialize(new_row, data, ticks);
             }
         }
@@ -550,7 +557,7 @@ mod tests {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
-                let mut value = row;
+                let value = row;
                 OwningPtr::make(value, |value_ptr| {
                     table
                         .get_column_mut(component_id)

@@ -1,10 +1,12 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, FilterFetch, QueryState, ReadOnlyFetch, WorldQuery},
+    query::{Fetch, FilterFetch, QueryState, ReadOnlyQuery, WorldQuery},
     storage::{TableId, Tables},
     world::World,
 };
 use std::mem::MaybeUninit;
+
+use super::{FetchInit, QueryFetch, QueryItem};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -12,7 +14,7 @@ use std::mem::MaybeUninit;
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
 pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
@@ -20,15 +22,15 @@ where
     world: &'w World,
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    fetch: Q::Fetch,
-    filter: F::Fetch,
+    fetch: QueryFetch<'w, 's, Q>,
+    filter: QueryFetch<'w, 's, F>,
     current_len: usize,
     current_index: usize,
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -41,13 +43,13 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = <Q::Fetch as Fetch>::init(
+        let fetch = <Q::FetchInit as FetchInit<'w, 's>>::fetch_init(
             world,
             &query_state.fetch_state,
             last_change_tick,
             change_tick,
         );
-        let filter = <F::Fetch as Fetch>::init(
+        let filter = <F::FetchInit as FetchInit<'w, 's>>::fetch_init(
             world,
             &query_state.filter_state,
             last_change_tick,
@@ -74,7 +76,7 @@ where
         // NOTE: this mimics the behavior of `QueryIter::next()`, except that it
         // never gets a `Self::Item`.
         unsafe {
-            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+            if Q::IS_DENSE && F::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = match self.table_id_iter.next() {
@@ -127,9 +129,9 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
-    type Item = <Q::Fetch as Fetch<'w, 's>>::Item;
+    type Item = QueryItem<'w, 's, Q>;
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -137,7 +139,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+            if Q::IS_DENSE && F::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
@@ -209,18 +211,18 @@ where
 
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     world: &'w World,
-    cursors: [QueryIterationCursor<'s, Q, F>; K],
+    cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -237,7 +239,7 @@ where
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
         // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut cursors: [MaybeUninit<QueryIterationCursor<'s, Q, F>>; K] =
+        let mut cursors: [MaybeUninit<QueryIterationCursor<'w, 's, Q, F>>; K] =
             MaybeUninit::uninit().assume_init();
         for (i, cursor) in cursors.iter_mut().enumerate() {
             match i {
@@ -257,8 +259,8 @@ where
         }
 
         // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let cursors: [QueryIterationCursor<'s, Q, F>; K] =
-            (&cursors as *const _ as *const [QueryIterationCursor<'s, Q, F>; K]).read();
+        let cursors: [QueryIterationCursor<'w, 's, Q, F>; K] =
+            (&cursors as *const _ as *const [QueryIterationCursor<'w, 's, Q, F>; K]).read();
 
         QueryCombinationIter {
             world,
@@ -275,12 +277,10 @@ where
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked<'a>(
-        &mut self,
-    ) -> Option<[<Q::Fetch as Fetch<'a, 's>>::Item; K]>
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, 's, Q>; K]>
     where
-        Q::Fetch: Clone,
-        F::Fetch: Clone,
+        for<'x, 'y> QueryFetch<'x, 'y, Q>: Clone,
+        for<'x, 'y> QueryFetch<'x, 'y, F>: Clone,
     {
         if K == 0 {
             return None;
@@ -307,7 +307,7 @@ where
         }
 
         // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a, 's>>::Item>; K] =
+        let mut values: [MaybeUninit<QueryItem<'w, 's, Q>>; K] =
             MaybeUninit::uninit().assume_init();
 
         for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
@@ -315,36 +315,41 @@ where
         }
 
         // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let values: [<Q::Fetch as Fetch<'a, 's>>::Item; K] =
-            (&values as *const _ as *const [<Q::Fetch as Fetch<'a, 's>>::Item; K]).read();
+        let values: [QueryItem<'w, 's, Q>; K] =
+            (&values as *const _ as *const [QueryItem<'w, 's, Q>; K]).read();
 
         Some(values)
     }
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_, 's>>::Item; K]>
+    pub fn fetch_next<'a>(&'a mut self) -> Option<[QueryItem<'a, 's, Q>; K]>
     where
-        Q::Fetch: Clone,
-        F::Fetch: Clone,
+        'w: 'a,
+        for<'x, 'y> QueryFetch<'x, 'y, Q>: Clone,
+        for<'x, 'y> QueryFetch<'x, 'y, F>: Clone,
     {
         // safety: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
-        unsafe { self.fetch_next_aliased_unchecked() }
+        unsafe {
+            self.fetch_next_aliased_unchecked()
+                .map(|array| array.map(Q::shrink))
+        }
     }
 }
 
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because  calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
-    for QueryCombinationIter<'w, 's, Q, F, K>
+impl<'w, 's, Q, F, const K: usize> Iterator for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    Q::Fetch: Clone + ReadOnlyFetch,
-    F::Fetch: Clone + FilterFetch + ReadOnlyFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, Q>: Clone,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: Clone + FilterFetch<'x, 'y>,
+    Q: WorldQuery + ReadOnlyQuery,
+    F: WorldQuery + ReadOnlyQuery,
 {
-    type Item = [<Q::Fetch as Fetch<'w, 's>>::Item; K];
+    type Item = [QueryItem<'w, 's, Q>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -398,19 +403,19 @@ impl<'w, 's, Q: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, ()> {
     }
 }
 
-struct QueryIterationCursor<'s, Q: WorldQuery, F: WorldQuery> {
+struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    fetch: Q::Fetch,
-    filter: F::Fetch,
+    fetch: QueryFetch<'w, 's, Q>,
+    filter: QueryFetch<'w, 's, F>,
     current_len: usize,
     current_index: usize,
 }
 
-impl<'s, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'s, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
 where
-    Q::Fetch: Clone,
-    F::Fetch: Clone,
+    for<'x, 'y> QueryFetch<'x, 'y, Q>: Clone,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -424,12 +429,12 @@ where
     }
 }
 
-impl<'s, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'s, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     unsafe fn init_empty(
-        world: &World,
+        world: &'w World,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
@@ -442,18 +447,18 @@ where
     }
 
     unsafe fn init(
-        world: &World,
+        world: &'w World,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = <Q::Fetch as Fetch>::init(
+        let fetch = <Q::FetchInit as FetchInit<'_, 's>>::fetch_init(
             world,
             &query_state.fetch_state,
             last_change_tick,
             change_tick,
         );
-        let filter = <F::Fetch as Fetch>::init(
+        let filter = <F::FetchInit as FetchInit<'_, 's>>::fetch_init(
             world,
             &query_state.filter_state,
             last_change_tick,
@@ -471,9 +476,9 @@ where
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
+    unsafe fn peek_last(&mut self) -> Option<QueryItem<'w, 's, Q>> {
         if self.current_index > 0 {
-            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+            if Q::IS_DENSE && F::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
             } else {
                 Some(self.fetch.archetype_fetch(self.current_index - 1))
@@ -487,13 +492,13 @@ where
     // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
     // We can't currently reuse QueryIterationCursor in QueryIter for performance reasons. See #1763 for context.
     #[inline(always)]
-    unsafe fn next<'w>(
+    unsafe fn next(
         &mut self,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
-    ) -> Option<<Q::Fetch as Fetch<'w, 's>>::Item> {
-        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+    ) -> Option<QueryItem<'w, 's, Q>> {
+        if Q::IS_DENSE && F::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;

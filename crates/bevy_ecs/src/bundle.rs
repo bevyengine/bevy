@@ -86,9 +86,9 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
     /// Components
-    unsafe fn from_components<'a, F>(func: F) -> Self
+    unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
     where
-        F: FnMut() -> OwningPtr<'a> + 'a,
+        F: FnMut(&mut T) -> OwningPtr<'_>,
         Self: Sized;
 
     /// Calls `func` on each value, in the order of this bundle's Components. This will
@@ -108,13 +108,13 @@ macro_rules! tuple_impl {
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]
-            unsafe fn from_components<'a, F>(func: F) -> Self
+            unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
             where
-                F: FnMut() -> OwningPtr<'a> + 'a
+                F: FnMut(&mut T) -> OwningPtr<'_>
             {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = (
-                    $(func().inner().cast::<$name>(),)*
+                    $(func(ctx).inner().cast::<$name>(),)*
                 );
                 ($($name.read(),)*)
             }
@@ -124,7 +124,7 @@ macro_rules! tuple_impl {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    OwningPtr::make($name, func);
+                    OwningPtr::make($name, &mut func);
                 )*
             }
         }

@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
-        ReadOnlyFetch, WorldQuery,
+        ReadOnlyQuery, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -13,10 +13,12 @@ use bevy_tasks::TaskPool;
 use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
+use super::{FetchInit, QueryFetch, QueryItem};
+
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -34,7 +36,7 @@ where
 
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
 where
-    F::Fetch: FilterFetch,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
@@ -134,9 +136,9 @@ where
         &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFETY: query is read only
         unsafe { self.get_unchecked(world, entity) }
@@ -148,7 +150,7 @@ where
         &'s mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
@@ -164,7 +166,7 @@ where
         &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
         self.get_unchecked_manual(
             world,
@@ -187,7 +189,7 @@ where
         entity: Entity,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         let location = world
             .entities
             .get(entity)
@@ -199,10 +201,18 @@ where
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
         let archetype = &world.archetypes[location.archetype_id];
-        let mut fetch =
-            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter =
-            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
+        let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
+            world,
+            &self.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let mut filter = <F::FetchInit as FetchInit>::fetch_init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -219,7 +229,7 @@ where
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, Q, F>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFETY: query is read only
         unsafe { self.iter_unchecked(world) }
@@ -248,7 +258,7 @@ where
         world: &'w World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFE: query is read only
         unsafe { self.iter_combinations_unchecked(world) }
@@ -350,12 +360,9 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
-    pub fn for_each<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
-    ) where
-        Q::Fetch: ReadOnlyFetch,
+    pub fn for_each<'w, 's>(&'s mut self, world: &'w World, func: impl FnMut(QueryItem<'w, 's, Q>))
+    where
+        Q: ReadOnlyQuery,
     {
         // SAFETY: query is read only
         unsafe {
@@ -369,7 +376,7 @@ where
     pub fn for_each_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
+        func: impl FnMut(QueryItem<'w, 's, Q>),
     ) {
         // SAFETY: query has unique world access
         unsafe {
@@ -390,7 +397,7 @@ where
     pub unsafe fn for_each_unchecked<'w, 's>(
         &'s mut self,
         world: &'w World,
-        func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
+        func: impl FnMut(QueryItem<'w, 's, Q>),
     ) {
         self.validate_world_and_update_archetypes(world);
         self.for_each_unchecked_manual(
@@ -411,9 +418,9 @@ where
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        func: impl Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
     ) where
-        Q::Fetch: ReadOnlyFetch,
+        Q: ReadOnlyQuery,
     {
         // SAFETY: query is read only
         unsafe {
@@ -428,7 +435,7 @@ where
         world: &'w mut World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        func: impl Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
     ) {
         // SAFETY: query has unique world access
         unsafe {
@@ -450,7 +457,7 @@ where
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        func: impl Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
     ) {
         self.validate_world_and_update_archetypes(world);
         self.par_for_each_unchecked_manual(
@@ -476,17 +483,25 @@ where
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        mut func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
+        mut func: impl FnMut(QueryItem<'w, 's, Q>),
         last_change_tick: u32,
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch =
-            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter =
-            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+        let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
+            world,
+            &self.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let mut filter = <F::FetchInit as FetchInit>::fetch_init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+        if Q::IS_DENSE && F::IS_DENSE {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
                 let table = &tables[*table_id];
@@ -534,14 +549,14 @@ where
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
-        func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        func: impl Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
         last_change_tick: u32,
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
-            if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+            if Q::IS_DENSE && F::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
                     let table = &tables[*table_id];
@@ -549,13 +564,13 @@ where
                     while offset < table.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(
+                            let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
                                 world,
                                 &self.fetch_state,
                                 last_change_tick,
                                 change_tick,
                             );
-                            let mut filter = <F::Fetch as Fetch>::init(
+                            let mut filter = <F::FetchInit as FetchInit>::fetch_init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
@@ -585,13 +600,13 @@ where
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(
+                            let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
                                 world,
                                 &self.fetch_state,
                                 last_change_tick,
                                 change_tick,
                             );
-                            let mut filter = <F::Fetch as Fetch>::init(
+                            let mut filter = <F::FetchInit as FetchInit>::fetch_init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,

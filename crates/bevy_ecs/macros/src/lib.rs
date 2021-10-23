@@ -126,17 +126,17 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self.#field.get_components(&mut func);
             });
             field_from_components.push(quote! {
-                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
+                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut func),
             });
         } else {
             field_component_ids.push(quote! {
                 component_ids.push(components.init_component::<#field_type>(storages));
             });
             field_get_components.push(quote! {
-                #ecs_path::ptr::OwningPtr::make(self.#field, func);
+                #ecs_path::ptr::OwningPtr::make(self.#field, &mut func);
             });
             field_from_components.push(quote! {
-                #field: func().inner().cast::<#field_type>().read(),
+                #field: func(ctx).inner().cast::<#field_type>().read(),
             });
         }
     }
@@ -158,9 +158,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]
-            unsafe fn from_components<'a, F>(func: F) -> Self
+            unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
             where
-                F: FnMut() -> #ecs_path::ptr::OwningPtr<'a> + 'a
+                F: FnMut(&mut T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self {
                     #(#field_from_components)*
@@ -211,20 +211,20 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
             impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+                where #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             {
                 type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
             }
 
-            // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
+            // SAFE: All Queries are constrained to ReadOnlyQuery, so World is only read
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> ReadOnlySystemParamFetch for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-            where #(#query::Fetch: ReadOnlyFetch,)* #(#filter::Fetch: FilterFetch,)*
+            where #(#query: ReadOnlyQuery,)* #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             { }
 
             // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
             // with any prior access, a panic will occur.
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+                where #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             {
                 type Config = ();
                 fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
@@ -264,7 +264,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             }
 
             impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+                where #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             {
                 type Item = QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>;
 
@@ -285,7 +285,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             }
 
             impl<'w, 's, #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+                where #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             {
                 #(#query_fn_mut)*
             }

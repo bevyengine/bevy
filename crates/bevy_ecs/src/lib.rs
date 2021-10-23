@@ -42,6 +42,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::query::QueryFetch;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
@@ -887,7 +888,7 @@ mod tests {
 
         fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
         where
-            F::Fetch: FilterFetch,
+            for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
         {
             world
                 .query_filtered::<Entity, F>()
