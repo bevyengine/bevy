@@ -178,6 +178,7 @@ impl Column {
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the ticks of the same row can exist at the same time
+    #[allow(clippy::mut_from_ref)]
     #[inline]
     pub unsafe fn get_ticks_mut_unchecked(&self, row: usize) -> &mut ComponentTicks {
         debug_assert!(row < self.ticks.len());
