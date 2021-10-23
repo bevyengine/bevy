@@ -42,7 +42,11 @@ pub struct StandardMaterial {
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
-    /// This allows for flat shading even with indiced meshes.
+    /// Flat shading makes the shader generate normals per face instead of per vertex.
+    /// This means that you get a uniform color over the whole triangle (think Virtua Racing).
+    /// The method uses fragment shader derivatives which can cause some artifacts in some cases.
+    /// An alternative is using `Mesh::duplicate_vertices()` and `Mesh::compute_flat_normals()`
+    /// and setting this setting to false, this will make sure no artifacts occur.
     #[render_resources(ignore)]
     #[shader_def]
     pub flat_shading: bool,

@@ -373,9 +373,8 @@ void main() {
 
 #    ifdef STANDARDMATERIAL_FLAT_SHADING
     vec3 N = normalize(cross(dFdy(v_WorldPosition), dFdx(v_WorldPosition)));
-#    endif
-#    ifndef STANDARDMATERIAL_FLAT_SHADING
-    vec3 N = v_WorldNormal;
+#    else
+    vec3 N = normalize(v_WorldNormal);
 #    endif
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
