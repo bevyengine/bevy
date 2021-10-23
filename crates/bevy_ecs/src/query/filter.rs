@@ -78,7 +78,6 @@ impl<T: Component> WorldQuery for With<T> {
         }
     };
 
-    type FetchInit = Self;
     type State = WithState<T>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -131,14 +130,13 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 }
 
-impl<T: Component> FetchInit<'_, '_> for With<T> {
-    type State = WithState<T>;
+impl<T: Component> FetchInit<'_, '_> for WithState<T> {
     type Fetch = WithFetch<T>;
     type Item = bool;
 
     unsafe fn fetch_init(
+        &self,
         _world: &World,
-        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self::Fetch {
@@ -209,7 +207,6 @@ impl<T: Component> WorldQuery for Without<T> {
         }
     };
 
-    type FetchInit = Self;
     type State = WithoutState<T>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -262,14 +259,13 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 }
 
-impl<T: Component> FetchInit<'_, '_> for Without<T> {
-    type State = WithoutState<T>;
+impl<T: Component> FetchInit<'_, '_> for WithoutState<T> {
     type Fetch = WithoutFetch<T>;
     type Item = bool;
 
     unsafe fn fetch_init(
+        &self,
         _world: &World,
-        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self::Fetch {
@@ -366,11 +362,10 @@ macro_rules! impl_query_filter_tuple {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)>
-            where $(for<'w, 's> <$filter::FetchInit as FetchInit<'w, 's>>::Fetch: FilterFetch<'w, 's>),*
+            where $(for<'w, 's> <$filter::State as FetchInit<'w, 's>>::Fetch: FilterFetch<'w, 's>),*
         {
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
-            type FetchInit = Or<($($filter::FetchInit,)*)>;
             type State = Or<($($filter::State,)*)>;
 
             fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -386,13 +381,12 @@ macro_rules! impl_query_filter_tuple {
             where $($filter::Fetch: FilterFetch<'w, 's>),*
         {
             type Fetch = Or<($(OrFetch<'w, 's, $filter::Fetch>,)*)>;
-            type State = Or<($($filter::State,)*)>;
             type Item = bool;
 
-            unsafe fn fetch_init(world: &'w World, state: &'s Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
-                let ($($filter,)*) = &state.0;
+            unsafe fn fetch_init(&'s self, world: &'w World, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
+                let ($($filter,)*) = &self.0;
                 Or(($(OrFetch {
-                    fetch: $filter::fetch_init(world, $filter, last_change_tick, change_tick),
+                    fetch: $filter.fetch_init(world, last_change_tick, change_tick),
                     matches: false,
                     _marker: PhantomData,
                 },)*))
@@ -513,7 +507,6 @@ macro_rules! impl_tick_filter {
                 }
             };
 
-            type FetchInit = Self;
             type State = $state_name<T>;
 
             fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -562,20 +555,17 @@ macro_rules! impl_tick_filter {
             }
         }
 
-        impl<'w, T: Component> FetchInit<'w, '_> for $name<T> {
-            type State = $state_name<T>;
+        impl<'w, T: Component> FetchInit<'w, '_> for $state_name<T> {
             type Fetch = $fetch_name<'w, T>;
             type Item = bool;
 
-            unsafe fn fetch_init(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
+            unsafe fn fetch_init(&self, world: &'w World, last_change_tick: u32, change_tick: u32) -> Self::Fetch {
                 Self::Fetch {
                     table_ticks: None,
                     entities: None,
                     entity_table_rows: None,
-                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| world
-                        .storages()
-                        .sparse_sets
-                        .get(state.component_id).unwrap()),
+                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                        .then(|| world.storages().sparse_sets.get(self.component_id).unwrap()),
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,

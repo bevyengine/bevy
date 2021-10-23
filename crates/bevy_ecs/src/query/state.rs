@@ -201,18 +201,12 @@ where
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
         let archetype = &world.archetypes[location.archetype_id];
-        let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
-            world,
-            &self.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let mut filter = <F::FetchInit as FetchInit>::fetch_init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch = self
+            .fetch_state
+            .fetch_init(world, last_change_tick, change_tick);
+        let mut filter = self
+            .filter_state
+            .fetch_init(world, last_change_tick, change_tick);
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -489,18 +483,12 @@ where
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
-            world,
-            &self.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let mut filter = <F::FetchInit as FetchInit>::fetch_init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch = self
+            .fetch_state
+            .fetch_init(world, last_change_tick, change_tick);
+        let mut filter = self
+            .filter_state
+            .fetch_init(world, last_change_tick, change_tick);
         if Q::IS_DENSE && F::IS_DENSE {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
@@ -564,18 +552,12 @@ where
                     while offset < table.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
-                                world,
-                                &self.fetch_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let mut filter = <F::FetchInit as FetchInit>::fetch_init(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
+                            let mut fetch =
+                                self.fetch_state
+                                    .fetch_init(world, last_change_tick, change_tick);
+                            let mut filter =
+                                self.filter_state
+                                    .fetch_init(world, last_change_tick, change_tick);
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
@@ -600,18 +582,12 @@ where
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::FetchInit as FetchInit>::fetch_init(
-                                world,
-                                &self.fetch_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let mut filter = <F::FetchInit as FetchInit>::fetch_init(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
+                            let mut fetch =
+                                self.fetch_state
+                                    .fetch_init(world, last_change_tick, change_tick);
+                            let mut filter =
+                                self.filter_state
+                                    .fetch_init(world, last_change_tick, change_tick);
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];
                             fetch.set_archetype(&self.fetch_state, archetype, tables);

@@ -45,20 +45,18 @@ pub trait WorldQuery {
     /// [`Fetch::archetype_fetch`] will be called for iterators.
     const IS_DENSE: bool;
 
-    type FetchInit: for<'world, 'state> FetchInit<'world, 'state, State = Self::State>;
-    type State: FetchState;
+    type State: FetchState + for<'world, 'state> FetchInit<'world, 'state>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
         item: QueryItem<'wlong, 'slong, Self>,
     ) -> QueryItem<'wshort, 'sshort, Self>;
 }
 
-pub type QueryFetch<'w, 's, Q> = <<Q as WorldQuery>::FetchInit as FetchInit<'w, 's>>::Fetch;
-pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::FetchInit as FetchInit<'w, 's>>::Item;
+pub type QueryFetch<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::Fetch;
+pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::Item;
 
-pub trait FetchInit<'world, 'state> {
-    type State: FetchState;
-    type Fetch: Fetch<'world, 'state, State = Self::State, Item = Self::Item>;
+pub trait FetchInit<'world, 'state>: FetchState {
+    type Fetch: Fetch<'world, 'state, State = Self, Item = Self::Item>;
     type Item;
 
     /// Creates a new instance of this fetch.
@@ -68,8 +66,8 @@ pub trait FetchInit<'world, 'state> {
     /// `state` must have been initialized (via [FetchState::init]) using the same `world` passed in
     /// to this function.
     unsafe fn fetch_init(
+        &'state self,
         world: &'world World,
-        state: &'state Self::State,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self::Fetch;
@@ -149,7 +147,6 @@ pub unsafe trait ReadOnlyQuery: WorldQuery {}
 impl WorldQuery for Entity {
     const IS_DENSE: bool = true;
 
-    type FetchInit = Self;
     type State = EntityState;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -197,14 +194,13 @@ unsafe impl FetchState for EntityState {
     }
 }
 
-impl<'w> FetchInit<'w, '_> for Entity {
-    type State = EntityState;
+impl<'w> FetchInit<'w, '_> for EntityState {
     type Fetch = EntityFetch<'w>;
     type Item = Entity;
 
     unsafe fn fetch_init(
+        &self,
         _world: &'w World,
-        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> EntityFetch<'w> {
@@ -256,7 +252,6 @@ impl<T: Component> WorldQuery for &T {
         }
     };
 
-    type FetchInit = Self;
     type State = ReadState<T>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -336,14 +331,13 @@ impl<T> Clone for ReadFetch<'_, T> {
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQuery for &T {}
 
-impl<'w, T: Component> FetchInit<'w, '_> for &T {
+impl<'w, T: Component> FetchInit<'w, '_> for ReadState<T> {
     type Fetch = ReadFetch<'w, T>;
-    type State = ReadState<T>;
     type Item = &'w T;
 
     unsafe fn fetch_init(
+        &self,
         world: &'w World,
-        state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> ReadFetch<'w, T> {
@@ -351,13 +345,8 @@ impl<'w, T: Component> FetchInit<'w, '_> for &T {
             table_components: None,
             entity_table_rows: None,
             entities: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap()
-            }),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(self.component_id).unwrap()),
         }
     }
 }
@@ -433,7 +422,6 @@ impl<T: Component> WorldQuery for &mut T {
         }
     };
 
-    type FetchInit = Self;
     type State = WriteState<T>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -514,14 +502,13 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     }
 }
 
-impl<'w, T: Component> FetchInit<'w, '_> for &mut T {
-    type State = WriteState<T>;
+impl<'w, T: Component> FetchInit<'w, '_> for WriteState<T> {
     type Fetch = WriteFetch<'w, T>;
     type Item = Mut<'w, T>;
 
     unsafe fn fetch_init(
+        &self,
         world: &'w World,
-        state: &Self::State,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self::Fetch {
@@ -529,13 +516,8 @@ impl<'w, T: Component> FetchInit<'w, '_> for &mut T {
             table_components: None,
             entities: None,
             entity_table_rows: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap()
-            }),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(self.component_id).unwrap()),
             table_ticks: None,
             last_change_tick,
             change_tick,
@@ -630,7 +612,6 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
 impl<T: WorldQuery> WorldQuery for Option<T> {
     const IS_DENSE: bool = T::IS_DENSE;
 
-    type FetchInit = Option<T::FetchInit>;
     type State = OptionState<T::State>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -688,19 +669,18 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     }
 }
 
-impl<'w, 's, T: FetchInit<'w, 's>> FetchInit<'w, 's> for Option<T> {
-    type State = OptionState<T::State>;
+impl<'w, 's, T: FetchState + FetchInit<'w, 's>> FetchInit<'w, 's> for OptionState<T> {
     type Fetch = OptionFetch<T::Fetch>;
     type Item = Option<T::Item>;
 
     unsafe fn fetch_init(
+        &'s self,
         world: &'w World,
-        state: &'s Self::State,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self::Fetch {
         Self::Fetch {
-            fetch: T::fetch_init(world, &state.state, last_change_tick, change_tick),
+            fetch: self.state.fetch_init(world, last_change_tick, change_tick),
             matches: false,
         }
     }
@@ -822,7 +802,6 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
         }
     };
 
-    type FetchInit = Self;
     type State = ChangeTrackersState<T>;
 
     fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
@@ -906,14 +885,13 @@ impl<T> Clone for ChangeTrackersFetch<'_, T> {
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQuery for ChangeTrackers<T> {}
 
-impl<'w, T: Component> FetchInit<'w, '_> for ChangeTrackers<T> {
-    type State = ChangeTrackersState<T>;
+impl<'w, T: Component> FetchInit<'w, '_> for ChangeTrackersState<T> {
     type Fetch = ChangeTrackersFetch<'w, T>;
     type Item = ChangeTrackers<T>;
 
     unsafe fn fetch_init(
+        &self,
         world: &'w World,
-        state: &Self::State,
         last_change_tick: u32,
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
@@ -921,13 +899,8 @@ impl<'w, T: Component> FetchInit<'w, '_> for ChangeTrackers<T> {
             table_ticks: None,
             entities: None,
             entity_table_rows: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap()
-            }),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(self.component_id).unwrap()),
             marker: PhantomData,
             last_change_tick,
             change_tick,
@@ -1026,14 +999,13 @@ macro_rules! impl_tuple_fetch {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<'w, 's, $($name: FetchInit<'w, 's>),*> FetchInit<'w, 's> for ($($name,)*) {
-            type State = ($($name::State,)*);
             type Fetch = ($($name::Fetch,)*);
             type Item = ($($name::Item,)*);
 
             #[allow(clippy::unused_unit)]
-            unsafe fn fetch_init(_world: &'w World, state: &'s Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch {
-                let ($($name,)*) = state;
-                ($($name::fetch_init(_world, $name, _last_change_tick, _change_tick),)*)
+            unsafe fn fetch_init(&'s self, _world: &'w World, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch {
+                let ($($name,)*) = self;
+                ($($name.fetch_init(_world, _last_change_tick, _change_tick),)*)
             }
         }
 
@@ -1105,7 +1077,6 @@ macro_rules! impl_tuple_fetch {
         impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
-            type FetchInit = ($($name::FetchInit,)*);
             type State = ($($name::State,)*);
 
             fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(

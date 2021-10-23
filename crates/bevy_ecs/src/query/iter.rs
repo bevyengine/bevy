@@ -43,18 +43,12 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = <Q::FetchInit as FetchInit<'w, 's>>::fetch_init(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = <F::FetchInit as FetchInit<'w, 's>>::fetch_init(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = query_state
+            .fetch_state
+            .fetch_init(world, last_change_tick, change_tick);
+        let filter = query_state
+            .filter_state
+            .fetch_init(world, last_change_tick, change_tick);
 
         QueryIter {
             world,
@@ -452,18 +446,12 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = <Q::FetchInit as FetchInit<'_, 's>>::fetch_init(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = <F::FetchInit as FetchInit<'_, 's>>::fetch_init(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = query_state
+            .fetch_state
+            .fetch_init(world, last_change_tick, change_tick);
+        let filter = query_state
+            .filter_state
+            .fetch_init(world, last_change_tick, change_tick);
         QueryIterationCursor {
             fetch,
             filter,
