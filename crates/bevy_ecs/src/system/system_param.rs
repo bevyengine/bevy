@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components},
+    component::{Component, ComponentTicks, DataId, WorldData},
     entity::{Entities, Entity},
     query::{
         FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
@@ -113,7 +113,7 @@ where
 {
 }
 
-// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// SAFE: Relevant query DataId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
 where
@@ -172,8 +172,8 @@ fn assert_component_access_compatibility(
     system_name: &str,
     query_type: &'static str,
     filter_type: &'static str,
-    system_access: &FilteredAccessSet<ComponentId>,
-    current: &FilteredAccess<ComponentId>,
+    system_access: &FilteredAccessSet<DataId>,
+    current: &FilteredAccess<DataId>,
     world: &World,
 ) {
     let mut conflicts = system_access.get_conflicts(current);
@@ -182,7 +182,7 @@ fn assert_component_access_compatibility(
     }
     let conflicting_components = conflicts
         .drain(..)
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
+        .map(|component_id| world.data.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
     panic!("Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
@@ -269,7 +269,7 @@ impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
 
 /// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -277,7 +277,7 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// SAFE: Res DataId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState for ResState<T> {
     type Config = ();
@@ -380,7 +380,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
 
 /// The [`SystemParamState`] of [`ResMut<T>`].
 pub struct ResMutState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -388,7 +388,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// SAFE: Res DataId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
     type Config = ();
@@ -642,7 +642,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 /// ```
 pub struct RemovedComponents<'a, T: Component> {
     world: &'a World,
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -658,7 +658,7 @@ unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T>
 
 /// The [`SystemParamState`] of [`RemovedComponents<T>`].
 pub struct RemovedComponentsState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -755,7 +755,7 @@ impl<'w, T> Deref for NonSend<'w, T> {
 
 /// The [`SystemParamState`] of [`NonSend<T>`].
 pub struct NonSendState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<fn() -> T>,
 }
 
@@ -763,7 +763,7 @@ impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type Fetch = NonSendState<T>;
 }
 
-// SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// SAFE: NonSend DataId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     type Config = ();
@@ -871,7 +871,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
 
 /// The [`SystemParamState`] of [`NonSendMut<T>`].
 pub struct NonSendMutState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<fn() -> T>,
 }
 
@@ -879,7 +879,7 @@ impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type Fetch = NonSendMutState<T>;
 }
 
-// SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// SAFE: NonSendMut DataId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     type Config = ();
@@ -1024,18 +1024,18 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
     }
 }
 
-impl<'a> SystemParam for &'a Components {
-    type Fetch = ComponentsState;
+impl<'a> SystemParam for &'a WorldData {
+    type Fetch = WorldDataState;
 }
 
 // SAFE: Only reads World components
-unsafe impl ReadOnlySystemParamFetch for ComponentsState {}
+unsafe impl ReadOnlySystemParamFetch for WorldDataState {}
 
-/// The [`SystemParamState`] of [`Components`].
-pub struct ComponentsState;
+/// The [`SystemParamState`] of [`WorldData`].
+pub struct WorldDataState;
 
 // SAFE: no component value access
-unsafe impl SystemParamState for ComponentsState {
+unsafe impl SystemParamState for WorldDataState {
     type Config = ();
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
@@ -1045,8 +1045,8 @@ unsafe impl SystemParamState for ComponentsState {
     fn default_config() {}
 }
 
-impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
-    type Item = &'w Components;
+impl<'w, 's> SystemParamFetch<'w, 's> for WorldDataState {
+    type Item = &'w WorldData;
 
     #[inline]
     unsafe fn get_param(
@@ -1055,7 +1055,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        world.components()
+        world.data()
     }
 }
 

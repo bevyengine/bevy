@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::ComponentId,
+    component::DataId,
     query::{Access, FilteredAccessSet},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
@@ -14,7 +14,7 @@ use std::{borrow::Cow, marker::PhantomData};
 /// The metadata of a [`System`].
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
+    pub(crate) component_access_set: FilteredAccessSet<DataId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
@@ -345,7 +345,7 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &Access<DataId> {
         self.system_meta.component_access_set.combined_access()
     }
 

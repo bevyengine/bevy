@@ -147,12 +147,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFE: DataId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::WorldData,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
+            ) -> Vec<#ecs_path::component::DataId> {
                 let mut component_ids = Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
@@ -195,7 +195,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
                 // SAFE: systems run without conflicts with other systems.
                 // Conflicting queries in QuerySet are not accessible at the same time
-                // QuerySets are guaranteed to not conflict with other SystemParams
+                // QuerySets are guaranteed to not onflict with other SystemParams
                 unsafe {
                     Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
                 }
@@ -219,7 +219,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             where #(#query::Fetch: ReadOnlyFetch,)* #(#filter::Fetch: FilterFetch,)*
             { }
 
-            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
+            // SAFE: Relevant query DataId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
             // with any prior access, a panic will occur.
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*

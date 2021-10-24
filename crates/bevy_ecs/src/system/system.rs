@@ -2,7 +2,7 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::ComponentId,
+    component::DataId,
     query::Access,
     world::World,
 };
@@ -29,7 +29,7 @@ pub trait System: Send + Sync + 'static {
     /// Register a new archetype for this system.
     fn new_archetype(&mut self, archetype: &Archetype);
     /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
+    fn component_access(&self) -> &Access<DataId>;
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].

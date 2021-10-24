@@ -38,7 +38,7 @@ impl DynamicScene {
 
             for component_id in archetype.components() {
                 let reflect_component = world
-                    .components()
+                    .data()
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());

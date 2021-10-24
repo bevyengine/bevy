@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components},
+    component::{ComponentTicks, DataId, DataInfo, WorldData},
     entity::Entity,
     storage::{BlobVec, SparseSet},
 };
@@ -32,14 +32,14 @@ impl TableId {
 }
 
 pub struct Column {
-    pub(crate) component_id: ComponentId,
+    pub(crate) component_id: DataId,
     pub(crate) data: BlobVec,
     pub(crate) ticks: Vec<UnsafeCell<ComponentTicks>>,
 }
 
 impl Column {
     #[inline]
-    pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub fn with_capacity(component_info: &DataInfo, capacity: usize) -> Self {
         Column {
             component_id: component_info.id(),
             data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
@@ -193,7 +193,7 @@ impl Column {
 }
 
 pub struct Table {
-    columns: SparseSet<ComponentId, Column>,
+    columns: SparseSet<DataId, Column>,
     entities: Vec<Entity>,
 }
 
@@ -217,7 +217,7 @@ impl Table {
         &self.entities
     }
 
-    pub fn add_column(&mut self, component_info: &ComponentInfo) {
+    pub fn add_column(&mut self, component_info: &DataInfo) {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.entities.capacity()),
@@ -335,17 +335,17 @@ impl Table {
     }
 
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
+    pub fn get_column(&self, component_id: DataId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
     #[inline]
-    pub fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
+    pub fn get_column_mut(&mut self, component_id: DataId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
     #[inline]
-    pub fn has_column(&self, component_id: ComponentId) -> bool {
+    pub fn has_column(&self, component_id: DataId) -> bool {
         self.columns.contains(component_id)
     }
 
@@ -466,8 +466,8 @@ impl Tables {
     /// `component_ids` must contain components that exist in `components`
     pub unsafe fn get_id_or_insert(
         &mut self,
-        component_ids: &[ComponentId],
-        components: &Components,
+        component_ids: &[DataId],
+        components: &WorldData,
     ) -> TableId {
         let mut hasher = AHasher::default();
         component_ids.hash(&mut hasher);
@@ -525,13 +525,13 @@ mod tests {
     use crate as bevy_ecs;
     use crate::component::Component;
     use crate::storage::Storages;
-    use crate::{component::Components, entity::Entity, storage::Table};
+    use crate::{component::WorldData, entity::Entity, storage::Table};
     #[derive(Component)]
     struct W<T>(T);
 
     #[test]
     fn table() {
-        let mut components = Components::default();
+        let mut components = WorldData::default();
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<usize>>(&mut storages);
         let columns = &[component_id];

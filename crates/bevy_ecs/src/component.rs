@@ -91,14 +91,14 @@ impl Default for StorageType {
 }
 
 #[derive(Debug)]
-pub struct ComponentInfo {
-    id: ComponentId,
-    descriptor: ComponentDescriptor,
+pub struct DataInfo {
+    id: DataId,
+    descriptor: DataDescriptor,
 }
 
-impl ComponentInfo {
+impl DataInfo {
     #[inline]
-    pub fn id(&self) -> ComponentId {
+    pub fn id(&self) -> DataId {
         self.id
     }
 
@@ -132,18 +132,18 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+    fn new(id: DataId, descriptor: DataDescriptor) -> Self {
+        DataInfo { id, descriptor }
     }
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(usize);
+pub struct DataId(usize);
 
-impl ComponentId {
+impl DataId {
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(index: usize) -> DataId {
+        DataId(index)
     }
 
     #[inline]
@@ -152,7 +152,7 @@ impl ComponentId {
     }
 }
 
-impl SparseSetIndex for ComponentId {
+impl SparseSetIndex for DataId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index()
@@ -164,7 +164,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 #[derive(Debug)]
-pub struct ComponentDescriptor {
+pub struct DataDescriptor {
     name: String,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
@@ -177,7 +177,7 @@ pub struct ComponentDescriptor {
     drop: unsafe fn(*mut u8),
 }
 
-impl ComponentDescriptor {
+impl DataDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: *mut u8) {
         x.cast::<T>().drop_in_place()
@@ -233,8 +233,8 @@ impl ComponentDescriptor {
 }
 
 #[derive(Debug, Default)]
-pub struct Components {
-    components: Vec<ComponentInfo>,
+pub struct WorldData {
+    data: Vec<DataInfo>,
     indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
     resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
 }
@@ -245,112 +245,112 @@ pub enum ComponentsError {
     ComponentAlreadyExists {
         type_id: TypeId,
         name: String,
-        existing_id: ComponentId,
+        existing_id: DataId,
     },
 }
 
-impl Components {
+impl WorldData {
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> DataId {
         let type_id = TypeId::of::<T>();
-        let components = &mut self.components;
+        let components = &mut self.data;
         let index = self.indices.entry(type_id).or_insert_with(|| {
             let index = components.len();
-            let descriptor = ComponentDescriptor::new::<T>();
-            let info = ComponentInfo::new(ComponentId(index), descriptor);
+            let descriptor = DataDescriptor::new::<T>();
+            let info = DataInfo::new(DataId(index), descriptor);
             if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
                 storages.sparse_sets.get_or_insert(&info);
             }
             components.push(info);
             index
         });
-        ComponentId(*index)
+        DataId(*index)
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.components.len()
+        self.data.len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.components.len() == 0
+        self.data.len() == 0
     }
 
     #[inline]
-    pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
+    pub fn get_info(&self, id: DataId) -> Option<&DataInfo> {
+        self.data.get(id.0)
     }
 
     /// # Safety
     ///
-    /// `id` must be a valid [ComponentId]
+    /// `id` must be a valid [DataId]
     #[inline]
-    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+    pub unsafe fn get_info_unchecked(&self, id: DataId) -> &DataInfo {
+        debug_assert!(id.index() < self.data.len());
+        self.data.get_unchecked(id.0)
     }
 
     #[inline]
-    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+    pub fn get_id(&self, type_id: TypeId) -> Option<DataId> {
+        self.indices.get(&type_id).map(|index| DataId(*index))
     }
 
     #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<DataId> {
         self.resource_indices
             .get(&type_id)
-            .map(|index| ComponentId(*index))
+            .map(|index| DataId(*index))
     }
 
     #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+    pub fn init_resource<T: Resource>(&mut self) -> DataId {
+        // SAFE: The [`DataDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>(StorageType::default())
+                DataDescriptor::new_resource::<T>(StorageType::default())
             })
         }
     }
 
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+    pub fn init_non_send<T: Any>(&mut self) -> DataId {
+        // SAFE: The [`DataDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                DataDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
     }
 
     /// # Safety
     ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
+    /// The [`DataDescriptor`] must match the [`TypeId`]
     #[inline]
     unsafe fn get_or_insert_resource_with(
         &mut self,
         type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
+        func: impl FnOnce() -> DataDescriptor,
+    ) -> DataId {
+        let components = &mut self.data;
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
+            components.push(DataInfo::new(DataId(index), descriptor));
             index
         });
 
-        ComponentId(*index)
+        DataId(*index)
     }
 }
 
-impl<'c> IntoIterator for &'c Components {
-    type Item = &'c ComponentInfo;
+impl<'c> IntoIterator for &'c WorldData {
+    type Item = &'c DataInfo;
 
-    type IntoIter = std::slice::Iter<'c, ComponentInfo>;
+    type IntoIter = std::slice::Iter<'c, DataInfo>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.components.iter()
+        self.data.iter()
     }
 }
 
@@ -423,7 +423,7 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::{Component, ComponentInfo},
+        component::{Component, DataInfo},
         world::World,
     };
 
@@ -437,9 +437,9 @@ mod tests {
         world.spawn().insert(W(123u32)).insert(W(true));
 
         let component_names: Vec<&str> = world
-            .components()
+            .data()
             .into_iter()
-            .map(|ci: &ComponentInfo| ci.name())
+            .map(|ci: &DataInfo| ci.name())
             .collect();
 
         assert_eq!(

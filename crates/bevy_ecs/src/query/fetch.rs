@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentStorage, ComponentTicks, DataId, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
@@ -118,7 +118,7 @@ pub trait Fetch<'world, 'state>: Sized {
 /// [`Fetch::table_fetch`].
 pub unsafe trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>);
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>);
     fn update_archetype_component_access(
         &self,
         archetype: &Archetype,
@@ -154,7 +154,7 @@ unsafe impl FetchState for EntityState {
         Self
     }
 
-    fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(&self, _access: &mut FilteredAccess<DataId>) {}
 
     fn update_archetype_component_access(
         &self,
@@ -224,7 +224,7 @@ impl<T: Component> WorldQuery for &T {
 
 /// The [`FetchState`] of `&T`.
 pub struct ReadState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -239,7 +239,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         if access.access().has_write(self.component_id) {
             panic!("&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>());
@@ -403,7 +403,7 @@ impl<T> Clone for WriteFetch<T> {
 
 /// The [`FetchState`] of `&mut T`.
 pub struct WriteState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -418,7 +418,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         if access.access().has_read(self.component_id) {
             panic!("&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
                 std::any::type_name::<T>());
@@ -582,7 +582,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         self.state.update_component_access(access);
     }
 
@@ -735,7 +735,7 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 
 /// The [`FetchState`] of [`ChangeTrackers`].
 pub struct ChangeTrackersState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -750,7 +750,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         if access.access().has_write(self.component_id) {
             panic!("ChangeTrackers<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>());
@@ -957,7 +957,7 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init(_world),)*)
             }
 
-            fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, _access: &mut FilteredAccess<DataId>) {
                 let ($($name,)*) = self;
                 $($name.update_component_access(_access);)*
             }

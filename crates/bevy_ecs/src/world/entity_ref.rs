@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentTicks, DataId, StorageType, WorldData},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -51,7 +51,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         contains_component_with_id(self.world, component_id, self.location)
     }
 
@@ -133,7 +133,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         contains_component_with_id(self.world, component_id, self.location)
     }
 
@@ -194,11 +194,11 @@ impl<'w> EntityMut<'w> {
         let bundle_info = self
             .world
             .bundles
-            .init_info::<T>(&mut self.world.components, &mut self.world.storages);
+            .init_info::<T>(&mut self.world.data, &mut self.world.storages);
         let mut bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &mut self.world.components,
+            &mut self.world.data,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -215,7 +215,7 @@ impl<'w> EntityMut<'w> {
     pub fn remove_bundle<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let components = &mut self.world.data;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
@@ -337,7 +337,7 @@ impl<'w> EntityMut<'w> {
     pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let components = &mut self.world.data;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
@@ -470,13 +470,13 @@ impl<'w> EntityMut<'w> {
 #[inline]
 unsafe fn get_component(
     world: &World,
-    component_id: ComponentId,
+    component_id: DataId,
     entity: Entity,
     location: EntityLocation,
 ) -> Option<*mut u8> {
     let archetype = &world.archetypes[location.archetype_id];
     // SAFE: component_id exists and is therefore valid
-    let component_info = world.components.get_info_unchecked(component_id);
+    let component_info = world.data.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &world.storages.tables[archetype.table_id()];
@@ -499,12 +499,12 @@ unsafe fn get_component(
 #[inline]
 unsafe fn get_component_and_ticks(
     world: &World,
-    component_id: ComponentId,
+    component_id: DataId,
     entity: Entity,
     location: EntityLocation,
 ) -> Option<(*mut u8, *mut ComponentTicks)> {
     let archetype = &world.archetypes[location.archetype_id];
-    let component_info = world.components.get_info_unchecked(component_id);
+    let component_info = world.data.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &world.storages.tables[archetype.table_id()];
@@ -537,11 +537,11 @@ unsafe fn get_component_and_ticks(
 /// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
 unsafe fn take_component(
-    components: &Components,
+    components: &WorldData,
     storages: &mut Storages,
     archetype: &Archetype,
-    removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
-    component_id: ComponentId,
+    removed_components: &mut SparseSet<DataId, Vec<Entity>>,
+    component_id: DataId,
     entity: Entity,
     location: EntityLocation,
 ) -> *mut u8 {
@@ -574,7 +574,7 @@ unsafe fn get_component_with_type(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<*mut u8> {
-    let component_id = world.components.get_id(type_id)?;
+    let component_id = world.data.get_id(type_id)?;
     get_component(world, component_id, entity, location)
 }
 
@@ -586,12 +586,12 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<(*mut u8, *mut ComponentTicks)> {
-    let component_id = world.components.get_id(type_id)?;
+    let component_id = world.data.get_id(type_id)?;
     get_component_and_ticks(world, component_id, entity, location)
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
+    if let Some(component_id) = world.data.get_id(type_id) {
         contains_component_with_id(world, component_id, location)
     } else {
         false
@@ -600,7 +600,7 @@ fn contains_component_with_type(world: &World, type_id: TypeId, location: Entity
 
 fn contains_component_with_id(
     world: &World,
-    component_id: ComponentId,
+    component_id: DataId,
     location: EntityLocation,
 ) -> bool {
     world.archetypes[location.archetype_id].contains(component_id)
@@ -618,7 +618,7 @@ fn contains_component_with_id(
 unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
-    components: &mut Components,
+    components: &mut WorldData,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,

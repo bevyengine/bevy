@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentStorage, ComponentTicks, DataId, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
@@ -81,7 +81,7 @@ pub struct WithFetch<T> {
 
 /// The [`FetchState`] of [`With`].
 pub struct WithState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -96,7 +96,7 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 
     #[inline]
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         access.add_with(self.component_id);
     }
 
@@ -200,7 +200,7 @@ pub struct WithoutFetch<T> {
 
 /// The [`FetchState`] of [`Without`].
 pub struct WithoutState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -215,7 +215,7 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 
     #[inline]
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         access.add_without(self.component_id);
     }
 
@@ -406,7 +406,7 @@ macro_rules! impl_query_filter_tuple {
                 Or(($($filter::init(world),)*))
             }
 
-            fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
                 let ($($filter,)*) = &self.0;
                 $($filter.update_component_access(access);)*
             }
@@ -457,7 +457,7 @@ macro_rules! impl_tick_filter {
 
         $(#[$state_meta])*
         pub struct $state_name<T> {
-            component_id: ComponentId,
+            component_id: DataId,
             marker: PhantomData<T>,
         }
 
@@ -477,7 +477,7 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline]
-            fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
                 if access.access().has_write(self.component_id) {
                     panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                         std::any::type_name::<T>());
