@@ -501,24 +501,29 @@ mod tests {
     #[derive(Component)]
     struct W<T>(T);
 
+    struct TestResource<T>(T);
+
     #[test]
     fn components_iteration() {
         let mut world = World::default();
         world.spawn().insert(W(42u32)).insert(W(12.3f32));
         world.spawn().insert(W(123u32)).insert(W(true));
 
-        let component_names: Vec<&str> = world
+        world.insert_resource(TestResource("hello world"));
+
+        let data_names: Vec<&str> = world
             .data()
             .into_iter()
             .map(|ci: &DataInfo| ci.name())
             .collect();
 
         assert_eq!(
-            component_names,
+            data_names,
             vec![
                 "bevy_ecs::component::tests::W<u32>",
                 "bevy_ecs::component::tests::W<f32>",
-                "bevy_ecs::component::tests::W<bool>"
+                "bevy_ecs::component::tests::W<bool>",
+                "bevy_ecs::component::tests::TestResource<&str>",
             ]
         );
     }
