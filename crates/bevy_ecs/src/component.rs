@@ -394,8 +394,23 @@ impl WorldData {
         DataId(*index)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &DataInfo> + '_ {
-        self.data.iter()
+    #[inline]
+    pub(crate) fn indices(
+        &self,
+    ) -> &std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher> {
+        &self.indices
+    }
+
+    #[inline]
+    pub(crate) fn resource_indices(
+        &self,
+    ) -> &std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher> {
+        &self.resource_indices
+    }
+
+    #[inline]
+    pub(crate) fn data(&self) -> &Vec<DataInfo> {
+        &self.data
     }
 }
 
