@@ -1149,6 +1149,11 @@ impl<'w> Components<'w> {
     pub fn len(&self) -> usize {
         self.world.data.indices().len()
     }
+
+    /// Returns whether there are no components.
+    pub fn is_empty(&self) -> bool {
+        self.world.data.indices().is_empty()
+    }
 }
 
 impl<'a> SystemParam for Components<'a> {
@@ -1199,9 +1204,14 @@ pub struct Resources<'w> {
 }
 
 impl<'w> Resources<'w> {
-    /// Returns the number of components in the World.
+    /// Returns the number of resources in the World.
     pub fn len(&self) -> usize {
         self.world.data.resource_indices().len()
+    }
+
+    /// Returns whether there are no resources.
+    pub fn is_empty(&self) -> bool {
+        self.world.data.indices().is_empty()
     }
 }
 
