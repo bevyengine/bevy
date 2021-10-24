@@ -342,6 +342,25 @@ impl WorldData {
 
         DataId(*index)
     }
+
+    #[inline]
+    pub(crate) fn indices(
+        &self,
+    ) -> &std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher> {
+        &self.indices
+    }
+
+    #[inline]
+    pub(crate) fn resource_indices(
+        &self,
+    ) -> &std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher> {
+        &self.resource_indices
+    }
+
+    #[inline]
+    pub(crate) fn data(&self) -> &Vec<DataInfo> {
+        &self.data
+    }
 }
 
 impl<'c> IntoIterator for &'c WorldData {

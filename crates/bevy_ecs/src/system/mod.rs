@@ -60,7 +60,9 @@
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
 //! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
-//! - [`Components`](crate::component::Components) (Provides Components metadata)
+//! - [`WorldData`](crate::component::WorldData) (Provides metadata on components and resources)
+//! - [`Components`](crate::system::Components) (Provides Component metadata)
+//! - [`Resources`](crate::system::Resources) (Provides Resource metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
@@ -95,8 +97,9 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            Components, ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
+            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, Resources, System,
+            SystemState,
         },
         world::{FromWorld, World},
     };
@@ -447,6 +450,48 @@ mod tests {
 
         run_system(&mut world, sys);
         assert!(*world.get_resource::<bool>().unwrap());
+    }
+
+    #[test]
+    fn iterate_components() {
+        let mut world = World::default();
+        world.insert_resource(Vec::<String>::new());
+
+        world.spawn().insert(A).insert(B);
+
+        world.spawn().insert(A).insert(C);
+
+        fn sys(components: Components, mut names: ResMut<Vec<String>>) {
+            for component_info in &components {
+                names.push(component_info.name().to_string());
+            }
+        }
+
+        run_system(&mut world, sys);
+        assert_eq!(world.get_resource::<Vec<String>>().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn iterate_resources() {
+        let mut world = World::default();
+        world.insert_resource(Vec::<String>::new());
+        world.insert_resource(42usize);
+
+        world.spawn().insert(A).insert(B);
+
+        world.spawn().insert(A).insert(C);
+
+        fn sys(resources: Resources, mut names: ResMut<Vec<String>>) {
+            for resource_info in &resources {
+                names.push(resource_info.name().to_string());
+            }
+        }
+
+        run_system(&mut world, sys);
+        assert!(world
+            .get_resource::<Vec<String>>()
+            .unwrap()
+            .contains(&"usize".to_string()),);
     }
 
     #[test]
