@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentStorage, ComponentTicks, DataId, StorageType},
     entity::Entity,
     query::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
@@ -64,7 +64,7 @@ pub struct WithFetch<T> {
 /// The [`FetchState`] of [`With`].
 #[doc(hidden)]
 pub struct WithState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -79,7 +79,7 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 
     #[inline]
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         access.add_with(self.component_id);
     }
 
@@ -91,7 +91,7 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     ) {
     }
 
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         set_contains_id(self.component_id)
     }
 }
@@ -204,7 +204,7 @@ pub struct WithoutFetch<T> {
 /// The [`FetchState`] of [`Without`].
 #[doc(hidden)]
 pub struct WithoutState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -219,7 +219,7 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 
     #[inline]
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         access.add_without(self.component_id);
     }
 
@@ -230,7 +230,7 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
         _access: &mut Access<ArchetypeComponentId>,
     ) {
     }
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         !set_contains_id(self.component_id)
     }
 }
@@ -433,7 +433,7 @@ macro_rules! impl_query_filter_tuple {
                 Or(($($filter::init(world),)*))
             }
 
-            fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
                 let ($($filter,)*) = &self.0;
 
                 // We do not unconditionally add `$filter`'s `with`/`without` accesses to `access`
@@ -470,7 +470,7 @@ macro_rules! impl_query_filter_tuple {
                 $($filter.update_archetype_component_access(archetype, access);)*
             }
 
-            fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
                 let ($($filter,)*) = &self.0;
                 false $(|| $filter.matches_component_set(_set_contains_id))*
             }
@@ -511,7 +511,7 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$state_meta])*
         pub struct $state_name<T> {
-            component_id: ComponentId,
+            component_id: DataId,
             marker: PhantomData<T>,
         }
 
@@ -533,7 +533,7 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline]
-            fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
                 if access.access().has_write(self.component_id) {
                     panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                         std::any::type_name::<T>());
@@ -552,7 +552,7 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
                 set_contains_id(self.component_id)
             }
         }

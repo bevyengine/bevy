@@ -104,7 +104,7 @@ mod tests {
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
-        component::{Component, Components},
+        component::{Component, WorldData},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
@@ -591,7 +591,7 @@ mod tests {
         world.spawn().insert_bundle((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
-            components: &Components,
+            components: &WorldData,
             entities: &Entities,
             bundles: &Bundles,
             query: Query<Entity, With<W<i32>>>,
@@ -611,7 +611,7 @@ mod tests {
                 for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
-                        "every bundle component exists in Components"
+                        "every bundle component exists in WorldData"
                     );
                 }
                 assert_eq!(
@@ -641,11 +641,8 @@ mod tests {
         y.initialize(&mut world);
 
         let conflicts = x.component_access().get_conflicts(y.component_access());
-        let b_id = world
-            .components()
-            .get_resource_id(TypeId::of::<B>())
-            .unwrap();
-        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        let b_id = world.data().get_resource_id(TypeId::of::<B>()).unwrap();
+        let d_id = world.data().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
     }
 

@@ -29,12 +29,12 @@ where
 
         let bundle_info = world
             .bundles
-            .init_info::<I::Item>(&mut world.components, &mut world.storages);
+            .init_info::<I::Item>(&mut world.data, &mut world.storages);
         world.entities.reserve(length as u32);
         let mut spawner = bundle_info.get_bundle_spawner(
             &mut world.entities,
             &mut world.archetypes,
-            &mut world.components,
+            &mut world.data,
             &mut world.storages,
             *world.change_tick.get_mut(),
         );

@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentStorage, ComponentTicks, DataId, StorageType},
     entity::Entity,
     query::{debug_checked_unreachable, Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
@@ -425,13 +425,13 @@ pub trait Fetch<'world>: Sized {
 /// [`Fetch::table_fetch`].
 pub unsafe trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>);
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>);
     fn update_archetype_component_access(
         &self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     );
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool;
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool;
 }
 
 /// A fetch that is read only.
@@ -469,7 +469,7 @@ unsafe impl FetchState for EntityState {
         Self
     }
 
-    fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(&self, _access: &mut FilteredAccess<DataId>) {}
 
     fn update_archetype_component_access(
         &self,
@@ -479,7 +479,7 @@ unsafe impl FetchState for EntityState {
     }
 
     #[inline]
-    fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         true
     }
 }
@@ -546,7 +546,7 @@ impl<T: Component> WorldQuery for &T {
 /// The [`FetchState`] of `&T`.
 #[doc(hidden)]
 pub struct ReadState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -561,7 +561,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         assert!(
             !access.access().has_write(self.component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -582,7 +582,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
         }
     }
 
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         set_contains_id(self.component_id)
     }
 }
@@ -779,7 +779,7 @@ impl<T> Clone for ReadOnlyWriteFetch<'_, T> {
 /// The [`FetchState`] of `&mut T`.
 #[doc(hidden)]
 pub struct WriteState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -794,7 +794,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         assert!(
             !access.access().has_read(self.component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
@@ -815,7 +815,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
         }
     }
 
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         set_contains_id(self.component_id)
     }
 }
@@ -1076,7 +1076,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
         // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
         // regardless of whether it has a `U` component. If we dont do this the query will not conflict with
@@ -1100,7 +1100,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
         }
     }
 
-    fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         true
     }
 }
@@ -1250,7 +1250,7 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 /// The [`FetchState`] of [`ChangeTrackers`].
 #[doc(hidden)]
 pub struct ChangeTrackersState<T> {
-    component_id: ComponentId,
+    component_id: DataId,
     marker: PhantomData<T>,
 }
 
@@ -1265,7 +1265,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
         }
     }
 
-    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&self, access: &mut FilteredAccess<DataId>) {
         assert!(
             !access.access().has_write(self.component_id),
             "ChangeTrackers<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -1286,7 +1286,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
         }
     }
 
-    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         set_contains_id(self.component_id)
     }
 }
@@ -1526,7 +1526,7 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init(_world),)*)
             }
 
-            fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, _access: &mut FilteredAccess<DataId>) {
                 let ($($name,)*) = self;
                 $($name.update_component_access(_access);)*
             }
@@ -1536,7 +1536,7 @@ macro_rules! impl_tuple_fetch {
                 $($name.update_archetype_component_access(_archetype, _access);)*
             }
 
-            fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
                 let ($($name,)*) = self;
                 true $(&& $name.matches_component_set(_set_contains_id))*
             }
@@ -1644,7 +1644,7 @@ macro_rules! impl_anytuple_fetch {
                 AnyOf(($($name::init(_world),)*))
             }
 
-            fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(&self, _access: &mut FilteredAccess<DataId>) {
                 let ($($name,)*) = &self.0;
 
                 // We do not unconditionally add `$name`'s `with`/`without` accesses to `_access`
@@ -1684,7 +1684,7 @@ macro_rules! impl_anytuple_fetch {
                     }
                 )*
             }
-            fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
                 let ($($name,)*) = &self.0;
                 false $(|| $name.matches_component_set(_set_contains_id))*
             }

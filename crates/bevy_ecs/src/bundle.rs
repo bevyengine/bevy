@@ -6,7 +6,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentTicks, DataId, StorageType, WorldData},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
@@ -72,26 +72,26 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// # Safety
 ///
-/// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
+/// - [`Bundle::component_ids`] must return the [`DataId`] for each component type in the
 /// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
-/// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
+/// - [`Bundle::from_components`] must call `func` exactly once for each [`DataId`] returned by
 ///   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
-    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`WorldData`]s
+    fn component_ids(components: &mut WorldData, storages: &mut Storages) -> Vec<DataId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
-    /// this bundle's [`Component`]s
+    /// this bundle's [`WorldData`]s
     ///
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
-    /// [`Component`]s
+    /// [`WorldData`]s
     unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
     where
         F: FnMut(&mut T) -> OwningPtr<'_>,
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
+    /// Calls `func` on each value, in the order of this bundle's [`WorldData`]s. This will
     /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
     /// if that is desirable.
     fn get_components(self, func: impl FnMut(OwningPtr<'_>));
@@ -101,7 +101,7 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
+            fn component_ids(components: &mut WorldData, storages: &mut Storages) -> Vec<DataId> {
                 vec![$(components.init_component::<$name>(storages)),*]
             }
 
@@ -152,7 +152,7 @@ impl SparseSetIndex for BundleId {
 
 pub struct BundleInfo {
     pub(crate) id: BundleId,
-    pub(crate) component_ids: Vec<ComponentId>,
+    pub(crate) component_ids: Vec<DataId>,
     pub(crate) storage_types: Vec<StorageType>,
 }
 
@@ -163,7 +163,7 @@ impl BundleInfo {
     }
 
     #[inline]
-    pub fn components(&self) -> &[ComponentId] {
+    pub fn components(&self) -> &[DataId] {
         &self.component_ids
     }
 
@@ -176,7 +176,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
         change_tick: u32,
@@ -236,7 +236,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &'a mut Storages,
         change_tick: u32,
     ) -> BundleSpawner<'a, 'b> {
@@ -309,7 +309,7 @@ impl BundleInfo {
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
-        components: &mut Components,
+        components: &mut WorldData,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -592,7 +592,7 @@ impl Bundles {
 
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &mut Storages,
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
@@ -613,12 +613,12 @@ impl Bundles {
 
 /// # Safety
 ///
-/// `component_id` must be valid [`ComponentId`]'s
+/// `component_id` must be valid [`DataId`]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
-    component_ids: Vec<ComponentId>,
+    component_ids: Vec<DataId>,
     id: BundleId,
-    components: &mut Components,
+    components: &mut WorldData,
 ) -> BundleInfo {
     let mut storage_types = Vec::new();
 

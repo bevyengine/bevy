@@ -1,7 +1,7 @@
 use bevy_utils::tracing::warn;
 
 use crate::{
-    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
+    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::DataId,
     query::Access, schedule::SystemLabel, world::World,
 };
 use std::borrow::Cow;
@@ -26,7 +26,7 @@ pub trait System: Send + Sync + 'static {
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
     /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
+    fn component_access(&self) -> &Access<DataId>;
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].

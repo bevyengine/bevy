@@ -163,7 +163,7 @@ impl SceneSpawner {
                     for component_id in archetype.components() {
                         let component_info = scene
                             .world
-                            .components()
+                            .data()
                             .get_info(component_id)
                             .expect("component_ids in archetypes should have ComponentInfo");
 
