@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use thiserror::Error;
 
 use super::{Extent3d, Texture, TextureDimension, TextureFormat};

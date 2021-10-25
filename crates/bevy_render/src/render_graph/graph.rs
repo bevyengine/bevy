@@ -308,7 +308,6 @@ mod tests {
     };
     use bevy_ecs::world::World;
     use bevy_utils::HashSet;
-    use std::iter::FromIterator;
 
     #[derive(Debug)]
     struct TestNode {

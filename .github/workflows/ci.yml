@@ -71,6 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
       - name: Install Cargo APK
@@ -145,6 +149,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
@@ -155,7 +163,7 @@ jobs:
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
-  
+
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
     steps:
