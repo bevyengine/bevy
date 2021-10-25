@@ -478,10 +478,11 @@ macro_rules! impl_tick_filter {
 
             #[inline]
             fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-                if access.access().has_write(self.component_id) {
-                    panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                        std::any::type_name::<T>());
-                }
+                assert!(
+                    !access.access().has_write(self.component_id),
+                    "$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                    std::any::type_name::<T>()
+                );
                 access.add_read(self.component_id);
             }
 

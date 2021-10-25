@@ -478,7 +478,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 // redundant copies
                 let move_result = self
                     .table
-                    .move_to_superset_unchecked(result.table_row, &mut *new_table);
+                    .move_to_superset_unchecked(result.table_row, *new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 self.entities.meta[entity.id as usize].location = new_location;
 
@@ -630,9 +630,11 @@ unsafe fn initialize_bundle(
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    if deduped.len() != component_ids.len() {
-        panic!("Bundle {} has duplicate components", bundle_type_name);
-    }
+    assert!(
+        deduped.len() == component_ids.len(),
+        "Bundle {} has duplicate components",
+        bundle_type_name
+    );
 
     BundleInfo {
         id,

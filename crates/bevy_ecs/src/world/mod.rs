@@ -918,9 +918,11 @@ impl World {
             let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
                 panic!("resource does not exist: {}", std::any::type_name::<T>())
             });
-            if column.is_empty() {
-                panic!("resource does not exist: {}", std::any::type_name::<T>());
-            }
+            assert!(
+                !column.is_empty(),
+                "resource does not exist: {}",
+                std::any::type_name::<T>()
+            );
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
@@ -1079,12 +1081,11 @@ impl World {
     }
 
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
-        if !self.main_thread_validator.is_main_thread() {
-            panic!(
-                "attempted to access NonSend resource {} off of the main thread",
-                std::any::type_name::<T>()
-            );
-        }
+        assert!(
+            self.main_thread_validator.is_main_thread(),
+            "attempted to access NonSend resource {} off of the main thread",
+            std::any::type_name::<T>()
+        );
     }
 
     /// Empties queued entities and adds them to the empty [Archetype].

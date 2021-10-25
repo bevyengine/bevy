@@ -88,10 +88,11 @@ where
     ///
     /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
     pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
-        if world.id() != self.world_id {
-            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>());
-        }
+        assert!(
+            world.id() == self.world_id,
+            "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
+            std::any::type_name::<Self>()
+        );
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);

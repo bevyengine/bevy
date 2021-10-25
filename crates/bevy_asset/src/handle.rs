@@ -277,9 +277,10 @@ impl HandleUntyped {
 
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
-            if T::TYPE_UUID != type_uuid {
-                panic!("Attempted to convert handle to invalid type.");
-            }
+            assert!(
+                T::TYPE_UUID == type_uuid,
+                "Attempted to convert handle to invalid type."
+            );
         }
         let handle_type = match &self.handle_type {
             HandleType::Strong(sender) => HandleType::Strong(sender.clone()),
