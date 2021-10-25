@@ -17,6 +17,8 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
+/// A more complex version of the [`Command`] trait, which is designed to work
+/// with [`Commands::add_with_iterator`]. See that for details.
 pub trait IteratorCommand: Send + Sync + 'static {
     type IterItem: Send + Sync + 'static;
 
@@ -260,10 +262,15 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
+    /// Same as [`Self::spawn_batch`], but will eagerly consume the given iterator.
+    /// Use this instead if your iterator isn't `'static`.
     pub fn spawn_batch_eager<B: Bundle>(&mut self, bundles: impl Iterator<Item = B>) {
         self.add_with_iterator(bundles, SpawnBatchEager(PhantomData));
     }
 
+    /// This will eagerly consume the entity iterator and store them in the underlying [`CommandQueue`].
+    /// Then, during command execution time the entities will be zipped with `components` and the components
+    /// will be merged into the corresponding entity. Ideal for inserting identical components into lots of entities.
     pub fn insert_batch<T: Component>(
         &mut self,
         entities: impl Iterator<Item = Entity>,
@@ -277,6 +284,8 @@ impl<'w, 's> Commands<'w, 's> {
         );
     }
 
+    /// Same as [`Self::insert_batch`], but will eagerly consume the given iterator.
+    /// Use this instead if your component iterator isn't `'static`.
     pub fn insert_batch_eager<T: Component>(
         &mut self,
         entities: impl Iterator<Item = (Entity, T)>,
@@ -284,6 +293,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.add_with_iterator(entities, InsertBatchEager(PhantomData));
     }
 
+    /// This will eagerly consume `entities` and store them in the underlying [`CommandQueue`].
+    /// Then, during command execution time the entities will be zipped with `bundles` and the components
+    /// will be merged into the corresponding entity. Ideal for inserting identical bundles into lots of entities.
     pub fn insert_bundle_batch<B: Bundle>(
         &mut self,
         entities: impl Iterator<Item = Entity>,
@@ -292,6 +304,8 @@ impl<'w, 's> Commands<'w, 's> {
         self.add_with_iterator(entities, InsertBundleBatch { iterator: bundles });
     }
 
+    /// Same as [`Self::insert_bundle_batch`], but will eagerly consume the given iterator.
+    /// Use this instead if your bundle iterator isn't `'static`.
     pub fn insert_bundle_batch_eager<B: Bundle>(
         &mut self,
         entities: impl Iterator<Item = (Entity, B)>,
@@ -299,10 +313,18 @@ impl<'w, 's> Commands<'w, 's> {
         self.add_with_iterator(entities, InsertBundleBatchEager(PhantomData));
     }
 
+    /// This is semantically equilavent to looping over the given iterator and
+    /// then calling `commands.entity(entity).remove::<T>()`. This will be more optimized than
+    /// the former for groups of entities in the future though, so if your use case fits it's recommended
+    /// to use this instead.
     pub fn remove_batch<T: Component, I: Iterator<Item = Entity>>(&mut self, entities: I) {
         self.add_with_iterator(entities, RemoveBatch::<T>(PhantomData));
     }
 
+    /// This is semantically equilavent to looping over the given iterator and
+    /// then calling `commands.entity(entity).despawn()`. This will be more optimized than
+    /// the former for groups of entities in the future though, so if your use case fits it's recommended
+    /// to use this instead.
     pub fn despawn_batch(&mut self, entities: impl Iterator<Item = Entity>) {
         self.add_with_iterator(entities, DespawnBatch);
     }
@@ -416,6 +438,8 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(command);
     }
 
+    /// Consumes the iterator, storing the returned items in the underlying [`CommandQueue`].
+    /// These items can later be retrieved using the iterator passed to the given commands `write_with_iterator` method.
     pub fn add_with_iterator<I, C>(&mut self, iterator: I, command: C)
     where
         C: IteratorCommand,
