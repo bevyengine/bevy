@@ -277,8 +277,9 @@ impl HandleUntyped {
 
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
-            assert!(
-                T::TYPE_UUID == type_uuid,
+            assert_eq!(
+                T::TYPE_UUID,
+                type_uuid,
                 "Attempted to convert handle to invalid type."
             );
         }
