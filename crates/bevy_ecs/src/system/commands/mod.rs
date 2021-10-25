@@ -866,7 +866,7 @@ where
     type IterItem = Entity;
 
     fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
-        // TODO: Try optimizing this
+        // PERF: Try optimizing this
         for entity in iterator {
             if let Some(mut entity_mut) = world.get_entity_mut(entity) {
                 entity_mut.remove::<T>();
