@@ -133,6 +133,10 @@ name = "sprite"
 path = "examples/2d/sprite.rs"
 
 [[example]]
+name = "pipelined_sprite"
+path = "examples/2d/pipelined_sprite.rs"
+
+[[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
 

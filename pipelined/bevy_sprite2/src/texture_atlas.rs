@@ -27,6 +27,7 @@ pub struct TextureAtlasSprite {
     pub index: u32,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub border_radius: f32,
 }
 
 impl Default for TextureAtlasSprite {
@@ -36,6 +37,7 @@ impl Default for TextureAtlasSprite {
             color: Color::WHITE,
             flip_x: false,
             flip_y: false,
+            border_radius: 0.0,
         }
     }
 }

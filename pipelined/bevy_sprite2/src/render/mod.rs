@@ -22,11 +22,13 @@ use bevy_render2::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+use crevice::std140::AsStd140;
 
 pub struct SpriteShaders {
     pipeline: RenderPipeline,
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
+    uniforms_layout: BindGroupLayout,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
@@ -77,10 +79,26 @@ impl FromWorld for SpriteShaders {
             label: Some("sprite_material_layout"),
         });
 
+        let uniforms_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
+                    // Context: https://github.com/LPGhatguy/crevice/issues/29
+                    min_binding_size: BufferSize::new(144),
+                },
+                count: None,
+            }],
+            label: Some("sprite_uniforms_layout"),
+        });
+
         let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("sprite_pipeline_layout"),
             push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &material_layout],
+            bind_group_layouts: &[&view_layout, &material_layout, &uniforms_layout],
         });
 
         let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -143,6 +161,7 @@ impl FromWorld for SpriteShaders {
             pipeline,
             view_layout,
             material_layout,
+            uniforms_layout,
         }
     }
 }
@@ -153,6 +172,9 @@ pub struct ExtractedSprite {
     handle: Handle<Image>,
     atlas_size: Option<Vec2>,
     vertex_index: usize,
+    render_size: Vec2,
+    border_radius: f32,
+    uniforms_offset: u32,
 }
 
 pub fn extract_atlases(
@@ -177,6 +199,12 @@ pub fn extract_atlases(
                     rect,
                     handle: texture_atlas.texture.clone_weak(),
                     vertex_index: 0,
+                    render_size: Vec2::new(
+                        rect.width() * transform.scale.x,
+                        rect.height() * transform.scale.y,
+                    ),
+                    border_radius: atlas_sprite.border_radius,
+                    uniforms_offset: 0,
                 },),
             ));
         }
@@ -193,6 +221,9 @@ pub fn extract_sprites(
     for (entity, sprite, transform, handle) in sprite_query.iter() {
         if let Some(image) = images.get(handle) {
             let size = image.texture_descriptor.size;
+            let sprite_size = sprite
+                .custom_size
+                .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32));
 
             sprites.push((
                 entity,
@@ -201,12 +232,16 @@ pub fn extract_sprites(
                     transform: transform.compute_matrix(),
                     rect: Rect {
                         min: Vec2::ZERO,
-                        max: sprite
-                            .custom_size
-                            .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
+                        max: sprite_size,
                     },
                     handle: handle.clone_weak(),
                     vertex_index: 0,
+                    render_size: Vec2::new(
+                        sprite_size.x * transform.scale.x,
+                        sprite_size.y * transform.scale.y,
+                    ),
+                    border_radius: sprite.border_radius,
+                    uniforms_offset: 0,
                 },),
             ));
         };
@@ -221,11 +256,21 @@ struct SpriteVertex {
     pub uv: [f32; 2],
 }
 
+#[derive(Clone, AsStd140)]
+struct SpriteUniforms {
+    size: Vec2,
+    uv_min: Vec2,
+    uv_max: Vec2,
+    border_radius: f32,
+}
+
 pub struct SpriteMeta {
     vertices: BufferVec<SpriteVertex>,
     indices: BufferVec<u32>,
     quad: Mesh,
     view_bind_group: Option<BindGroup>,
+    uniforms: DynamicUniformVec<SpriteUniforms>,
+    uniforms_bind_group: Option<BindGroup>,
 }
 
 impl Default for SpriteMeta {
@@ -239,6 +284,8 @@ impl Default for SpriteMeta {
                 ..Default::default()
             }
             .into(),
+            uniforms: Default::default(),
+            uniforms_bind_group: None,
         }
     }
 }
@@ -280,6 +327,9 @@ pub fn prepare_sprites(
     sprite_meta
         .indices
         .reserve_and_clear(extracted_sprite_len * quad_indices.len(), &render_device);
+    sprite_meta
+        .uniforms
+        .reserve_and_clear(extracted_sprite_len, &render_device);
 
     for (i, mut extracted_sprite) in extracted_sprites.iter_mut().enumerate() {
         let sprite_rect = extracted_sprite.rect;
@@ -310,10 +360,18 @@ pub fn prepare_sprites(
                 .indices
                 .push((i * quad_vertex_positions.len()) as u32 + *index);
         }
+
+        extracted_sprite.uniforms_offset = sprite_meta.uniforms.push(SpriteUniforms {
+            size: extracted_sprite.render_size,
+            uv_min: top_left / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max),
+            uv_max: bottom_right / extracted_sprite.atlas_size.unwrap_or(sprite_rect.max),
+            border_radius: extracted_sprite.border_radius,
+        });
     }
 
     sprite_meta.vertices.write_buffer(&render_queue);
     sprite_meta.indices.write_buffer(&render_queue);
+    sprite_meta.uniforms.write_buffer(&render_queue);
 }
 
 #[derive(Default)]
@@ -373,6 +431,18 @@ pub fn queue_sprites(
             }
         }
     }
+
+    if let Some(uniforms_binding) = sprite_meta.uniforms.binding() {
+        sprite_meta.uniforms_bind_group =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: uniforms_binding,
+                }],
+                label: Some("sprite_uniforms_bind_group"),
+                layout: &sprite_shaders.uniforms_layout,
+            }));
+    }
 }
 
 pub struct DrawSprite {
@@ -427,6 +497,11 @@ impl Draw<Transparent2d> for DrawSprite {
                 .get(&extracted_sprite.handle)
                 .unwrap(),
             &[],
+        );
+        pass.set_bind_group(
+            2,
+            sprite_meta.uniforms_bind_group.as_ref().unwrap(),
+            &[extracted_sprite.uniforms_offset],
         );
 
         pass.draw_indexed(
