@@ -728,7 +728,7 @@ impl IteratorCommand for DespawnBatch {
     type IterItem = Entity;
 
     fn write_with_iterator<I: Iterator<Item = Entity>>(self, world: &mut World, iterator: I) {
-        // TODO: Try optimizing this
+        // PERF: Try optimizing this
         for entity in iterator {
             world.despawn(entity);
         }
