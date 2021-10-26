@@ -181,6 +181,10 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "msaa_pipelined"
+path = "examples/3d/msaa_pipelined.rs"
+
+[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 

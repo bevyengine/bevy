@@ -1,4 +1,4 @@
-use crate::ViewDepthTexture;
+use crate::{ExtractedMsaa, ViewDepthTexture};
 use bevy_ecs::world::World;
 use bevy_render2::{
     camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames},
@@ -18,6 +18,7 @@ impl Node for MainPassDriverNode {
     ) -> Result<(), NodeRunError> {
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
         let extracted_windows = world.get_resource::<ExtractedWindows>().unwrap();
+        let msaa = world.get_resource::<ExtractedMsaa>().unwrap();
 
         if let Some(camera_2d) = extracted_cameras.entities.get(CameraPlugin::CAMERA_2D) {
             let extracted_camera = world.entity(*camera_2d).get::<ExtractedCamera>().unwrap();
@@ -29,10 +30,25 @@ impl Node for MainPassDriverNode {
                 .clone();
             graph.run_sub_graph(
                 crate::draw_2d_graph::NAME,
-                vec![
-                    SlotValue::Entity(*camera_2d),
-                    SlotValue::TextureView(swap_chain_texture),
-                ],
+                if msaa.samples > 1 {
+                    vec![
+                        SlotValue::Entity(*camera_2d),
+                        SlotValue::TextureView(
+                            extracted_window
+                                .sampled_color_attachment
+                                .as_ref()
+                                .unwrap()
+                                .clone(),
+                        ),
+                        SlotValue::TextureView(swap_chain_texture),
+                    ]
+                } else {
+                    vec![
+                        SlotValue::Entity(*camera_2d),
+                        SlotValue::TextureView(swap_chain_texture.clone()),
+                        SlotValue::TextureView(swap_chain_texture),
+                    ]
+                },
             )?;
         }
 
@@ -47,11 +63,27 @@ impl Node for MainPassDriverNode {
                 .clone();
             graph.run_sub_graph(
                 crate::draw_3d_graph::NAME,
-                vec![
-                    SlotValue::Entity(*camera_3d),
-                    SlotValue::TextureView(swap_chain_texture),
-                    SlotValue::TextureView(depth_texture.view.clone()),
-                ],
+                if msaa.samples > 1 {
+                    vec![
+                        SlotValue::Entity(*camera_3d),
+                        SlotValue::TextureView(
+                            extracted_window
+                                .sampled_color_attachment
+                                .as_ref()
+                                .unwrap()
+                                .clone(),
+                        ),
+                        SlotValue::TextureView(swap_chain_texture),
+                        SlotValue::TextureView(depth_texture.view.clone()),
+                    ]
+                } else {
+                    vec![
+                        SlotValue::Entity(*camera_3d),
+                        SlotValue::TextureView(swap_chain_texture.clone()),
+                        SlotValue::TextureView(swap_chain_texture),
+                        SlotValue::TextureView(depth_texture.view.clone()),
+                    ]
+                },
             )?;
         }
 

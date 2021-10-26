@@ -103,6 +103,7 @@ Example | File | Description
 `load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
 `many_cubes_pipelined` | [`3d/many_cubes_pipelined.rs`](./3d/many_cubes_pipelined.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
+`msaa_pipelined` | [`3d/msaa_pipelined.rs`](./3d/msaa_pipelined.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `orthographic_pipelined` | [`3d/orthographic_pipelined.rs`](./3d/orthographic_pipelined.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations

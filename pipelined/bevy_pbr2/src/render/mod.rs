@@ -7,7 +7,7 @@ use crate::{
     PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_core_pipeline::{SetItemPipeline, Transparent3d};
+use bevy_core_pipeline::{ExtractedMsaa, SetItemPipeline, Transparent3d};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -368,16 +368,35 @@ impl FromWorld for PbrPipeline {
     }
 }
 
-// TODO: add actual specialization key: MSAA, normal maps, shadeless, etc
+// TODO: add actual specialization key: normal maps, shadeless, etc
 bitflags::bitflags! {
     #[repr(transparent)]
-    pub struct PbrPipelineKey: u32 { }
+    // NOTE: Apparently quadro drivers support up to 64x MSAA.
+    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    pub struct PbrPipelineKey: u32 {
+        const NONE               = 0;
+        const MSAA_RESERVED_BITS = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
+    }
+}
+
+impl PbrPipelineKey {
+    const MSAA_MASK_BITS: u32 = 0b111111;
+    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+
+    pub fn new(msaa_samples: u32) -> Self {
+        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        PbrPipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn msaa_samples(&self) -> u32 {
+        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
 }
 
 impl SpecializedPipeline for PbrPipeline {
     type Key = PbrPipelineKey;
 
-    fn specialize(&self, _key: Self::Key) -> OwnedRenderPipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> OwnedRenderPipelineDescriptor {
         OwnedRenderPipelineDescriptor {
             vertex: OwnedVertexState {
                 shader: PBR_SHADER_HANDLE.typed::<Shader>(),
@@ -460,7 +479,7 @@ impl SpecializedPipeline for PbrPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: 1,
+                count: key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -504,6 +523,7 @@ pub fn queue_meshes(
     render_device: Res<RenderDevice>,
     pbr_pipeline: Res<PbrPipeline>,
     shadow_shaders: Res<ShadowPipeline>,
+    msaa: Res<ExtractedMsaa>,
     mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     light_meta: Res<LightMeta>,
@@ -579,7 +599,7 @@ pub fn queue_meshes(
                     continue;
                 }
 
-                let key = PbrPipelineKey::empty();
+                let key = PbrPipelineKey::new(msaa.samples);
                 let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
                 // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
                 //       gives the z component of translation of the mesh in view space

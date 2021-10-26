@@ -1,4 +1,4 @@
-use crate::{ClearColor, Transparent3d};
+use crate::{ClearColor, ExtractedMsaa, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -17,6 +17,7 @@ pub struct MainPass3dNode {
 
 impl MainPass3dNode {
     pub const IN_COLOR_ATTACHMENT: &'static str = "color_attachment";
+    pub const IN_COLOR_RESOLVE_TARGET: &'static str = "color_resolve_target";
     pub const IN_DEPTH: &'static str = "depth";
     pub const IN_VIEW: &'static str = "view";
 
@@ -31,6 +32,10 @@ impl Node for MainPass3dNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![
             SlotInfo::new(MainPass3dNode::IN_COLOR_ATTACHMENT, SlotType::TextureView),
+            SlotInfo::new(
+                MainPass3dNode::IN_COLOR_RESOLVE_TARGET,
+                SlotType::TextureView,
+            ),
             SlotInfo::new(MainPass3dNode::IN_DEPTH, SlotType::TextureView),
             SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity),
         ]
@@ -48,12 +53,19 @@ impl Node for MainPass3dNode {
     ) -> Result<(), NodeRunError> {
         let color_attachment_texture = graph.get_input_texture(Self::IN_COLOR_ATTACHMENT)?;
         let clear_color = world.get_resource::<ClearColor>().unwrap();
+        let color_resolve_target_texture =
+            graph.get_input_texture(Self::IN_COLOR_RESOLVE_TARGET)?;
         let depth_texture = graph.get_input_texture(Self::IN_DEPTH)?;
+        let msaa = world.get_resource::<ExtractedMsaa>().unwrap();
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_3d"),
             color_attachments: &[RenderPassColorAttachment {
                 view: color_attachment_texture,
-                resolve_target: None,
+                resolve_target: if msaa.samples > 1 {
+                    Some(color_resolve_target_texture)
+                } else {
+                    None
+                },
                 ops: Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,

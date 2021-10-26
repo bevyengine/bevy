@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::TextureView,
+    render_resource::{Texture, TextureView},
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
     RenderApp, RenderStage, RenderWorld,
@@ -34,6 +34,8 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub vsync: bool,
+    pub sampled_color_attachment_texture: Option<Texture>,
+    pub sampled_color_attachment: Option<TextureView>,
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
 }
@@ -74,6 +76,8 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
                     physical_width: new_width,
                     physical_height: new_height,
                     vsync: window.vsync(),
+                    sampled_color_attachment_texture: None,
+                    sampled_color_attachment: None,
                     swap_chain_texture: None,
                     size_changed: false,
                 });
