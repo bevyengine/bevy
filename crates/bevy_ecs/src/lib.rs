@@ -52,6 +52,7 @@ mod tests {
     };
     use bevy_tasks::TaskPool;
     use parking_lot::Mutex;
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         sync::{
@@ -1417,7 +1418,7 @@ mod tests {
         assert_eq!(
             e4,
             Entity {
-                generation: 0,
+                generation: NonZeroU32::new(1).unwrap(),
                 id: 3,
             },
             "new entity is created immediately after world_a's max entity"
@@ -1451,7 +1452,7 @@ mod tests {
         );
 
         let e4_mismatched_generation = Entity {
-            generation: 1,
+            generation: NonZeroU32::new(2).unwrap(),
             id: 3,
         };
         assert!(
@@ -1470,7 +1471,7 @@ mod tests {
         );
 
         let high_non_existent_entity = Entity {
-            generation: 0,
+            generation: NonZeroU32::new(1).unwrap(),
             id: 6,
         };
         world_b
@@ -1484,7 +1485,7 @@ mod tests {
         );
 
         let high_non_existent_but_reserved_entity = Entity {
-            generation: 0,
+            generation: NonZeroU32::new(1).unwrap(),
             id: 5,
         };
         assert!(
@@ -1503,19 +1504,19 @@ mod tests {
             reserved_entities,
             vec![
                 Entity {
-                    generation: 0,
+                    generation: NonZeroU32::new(1).unwrap(),
                     id: 5
                 },
                 Entity {
-                    generation: 0,
+                    generation: NonZeroU32::new(1).unwrap(),
                     id: 4
                 },
                 Entity {
-                    generation: 0,
+                    generation: NonZeroU32::new(1).unwrap(),
                     id: 7,
                 },
                 Entity {
-                    generation: 0,
+                    generation: NonZeroU32::new(1).unwrap(),
                     id: 8,
                 },
             ],
@@ -1567,7 +1568,7 @@ mod tests {
         let e1 = Entity::new(1);
         let e2 = world.spawn().id();
         let invalid_e2 = Entity {
-            generation: 1,
+            generation: NonZeroU32::new(2).unwrap(),
             id: e2.id,
         };
 

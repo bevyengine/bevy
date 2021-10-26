@@ -33,6 +33,7 @@ use std::{
     convert::TryFrom,
     fmt, mem,
     sync::atomic::{AtomicI64, Ordering},
+    num::NonZeroU32,
 };
 
 /// Lightweight unique ID of an entity.
@@ -46,7 +47,7 @@ use std::{
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
-    pub(crate) generation: u32,
+    pub(crate) generation: NonZeroU32,
     pub(crate) id: u32,
 }
 
@@ -57,7 +58,7 @@ pub enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// Creates a new entity reference with a generation of 0.
+    /// Creates a new entity reference with a generation of 1.
     ///
     /// # Note
     ///
@@ -66,7 +67,10 @@ impl Entity {
     /// only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
-        Entity { id, generation: 0 }
+        Entity { 
+            id, 
+            generation: unsafe{ NonZeroU32::new_unchecked(1) } 
+        }
     }
 
     /// Convert to a form convenient for passing outside of rust.
@@ -76,17 +80,17 @@ impl Entity {
     ///
     /// No particular structure is guaranteed for the returned bits.
     pub fn to_bits(self) -> u64 {
-        u64::from(self.generation) << 32 | u64::from(self.id)
+        u64::from(self.generation.get()) << 32 | u64::from(self.id)
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub fn from_bits(bits: u64) -> Self {
-        Self {
-            generation: (bits >> 32) as u32,
+    pub fn from_bits(bits: u64) -> Option<Self> {
+        Some(Self{
+            generation: NonZeroU32::new((bits >> 32) as u32)?,
             id: bits as u32,
-        }
+        })
     }
 
     /// Return a transiently unique identifier.
@@ -104,7 +108,7 @@ impl Entity {
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub fn generation(self) -> u32 {
-        self.generation
+        self.generation.get()
     }
 }
 
@@ -147,7 +151,10 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
                 generation: self.meta[id as usize].generation,
                 id,
             })
-            .or_else(|| self.id_range.next().map(|id| Entity { generation: 0, id }))
+            .or_else(|| self.id_range.next().map(|id| Entity { 
+                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
+                id,
+            }))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -265,7 +272,7 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             Entity {
-                generation: 0,
+                generation: unsafe{ NonZeroU32::new_unchecked(1) },
                 id: u32::try_from(self.meta.len() as i64 - n).expect("too many entities"),
             }
         }
@@ -293,7 +300,10 @@ impl Entities {
         } else {
             let id = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            Entity { generation: 0, id }
+            Entity { 
+                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
+                id,
+            }
         }
     }
 
@@ -373,7 +383,12 @@ impl Entities {
         if meta.generation != entity.generation {
             return None;
         }
-        meta.generation += 1;
+        
+        meta.generation = unsafe{ NonZeroU32::new_unchecked(
+            meta.generation.get()
+                .checked_add(1)
+                .unwrap_or(1)) 
+        };
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
@@ -401,7 +416,7 @@ impl Entities {
     // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_id(entity.id())
-            .map_or(false, |e| e.generation() == entity.generation)
+            .map_or(false, |e| e.generation == entity.generation)
     }
 
     pub fn clear(&mut self) {
@@ -442,7 +457,10 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
+            (idu < self.meta.len() + num_pending).then(|| Entity { 
+                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
+                id
+            })
         }
     }
 
@@ -518,13 +536,13 @@ impl Entities {
 
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
-    pub generation: u32,
+    pub generation: NonZeroU32,
     pub location: EntityLocation,
 }
 
 impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
-        generation: 0,
+        generation: unsafe{ NonZeroU32::new_unchecked(1) },
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
             index: usize::MAX, // dummy value, to be filled in
@@ -549,10 +567,53 @@ mod tests {
     #[test]
     fn entity_bits_roundtrip() {
         let e = Entity {
-            generation: 0xDEADBEEF,
+            generation: NonZeroU32::new(0xDEADBEEF).unwrap(),
             id: 0xBAADF00D,
         };
-        assert_eq!(Entity::from_bits(e.to_bits()), e);
+        assert_eq!(Entity::from_bits(e.to_bits()).unwrap(), e);
+    }
+
+    #[test]
+    fn entity_bad_bits() {
+        let bits: u64 = 0xBAADF00D;
+        assert_eq!(Entity::from_bits(bits), None);
+    }
+
+    #[test]
+    fn entity_option_size_optimized() {
+        assert_eq!(
+            core::mem::size_of::<Option<Entity>>(), 
+            core::mem::size_of::<Entity>()
+        );
+    }
+
+    #[test]
+    fn entities_generation_increment() {
+        let mut entities = Entities::default();
+
+        let entity_old = entities.alloc();
+        entities.free(entity_old);
+        let entity_new = entities.alloc();
+
+        assert_eq!(entity_old.id,               entity_new.id          );
+        assert_eq!(entity_old.generation() + 1, entity_new.generation());
+    }
+
+    #[test]
+    fn entities_generation_wrap() {
+        let mut entities = Entities::default();
+        let mut entity_old = entities.alloc();
+
+        // Modify generation on entity and entities to cause overflow on free
+        entity_old.generation = NonZeroU32::new(u32::MAX).unwrap();
+        entities.meta[entity_old.id as usize].generation = entity_old.generation;
+        entities.free(entity_old);
+
+        // Get just free-d entity back
+        let entity_new = entities.alloc();
+
+        assert_eq!(entity_old.id, entity_new.id);
+        assert_eq!(entity_new.generation(), 1);
     }
 
     #[test]
