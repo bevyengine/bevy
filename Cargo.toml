@@ -1,7 +1,7 @@
 [package]
 name = "bevy"
 version = "0.5.0"
-edition = "2018"
+edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
