@@ -195,7 +195,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
                 // SAFE: systems run without conflicts with other systems.
                 // Conflicting queries in QuerySet are not accessible at the same time
-                // QuerySets are guaranteed to not onflict with other SystemParams
+                // QuerySets are guaranteed to not conflict with other SystemParams
                 unsafe {
                     Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
                 }
