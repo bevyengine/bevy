@@ -6,10 +6,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgba(0.0, 0.0, 0.0, 0.0)))
+        // rgba value needs to be [0, 0, 0, 0], otherwise some color will bleed through
+        .insert_resource(ClearColor(Color::TRANSPARENT))
         .insert_resource(WindowDescriptor {
-            vsync: false,
+            // setting transparent allows the window to become transparent when clear color has the correct value
             transparent: true,
+            // Disabling window desoration to make it feel more like a widget than a window
             decorations: false,
             ..Default::default()
         })
