@@ -1,9 +1,9 @@
 use crate::{
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupLayout, BindGroupLayoutId, ProcessShaderError, RawFragmentState,
-        RawRenderPipelineDescriptor, RawVertexState, RenderPipeline, RenderPipelineDescriptor,
-        Shader, ShaderProcessor,
+        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ProcessShaderError,
+        RawFragmentState, RawRenderPipelineDescriptor, RawVertexState, RenderPipeline,
+        RenderPipelineDescriptor, Shader, ShaderProcessor,
     },
     renderer::RenderDevice,
     RenderWorld,
@@ -54,7 +54,10 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let processed = self.processor.process_shader(shader, shader_defs)?;
-                entry.insert(Arc::new(render_device.create_shader_module(&processed)))
+                let module_descriptor = processed.get_module_descriptor()?;
+                entry.insert(Arc::new(
+                    render_device.create_shader_module(&module_descriptor),
+                ))
             }
         };
         Ok(module.clone())
@@ -139,6 +142,8 @@ pub enum RenderPipelineError {
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]
     ProcessShaderError(#[from] ProcessShaderError),
+    #[error(transparent)]
+    AsModuleDescriptorError(#[from] AsModuleDescriptorError),
 }
 
 impl RenderPipelineCache {
@@ -204,7 +209,8 @@ impl RenderPipelineCache {
                 CachedPipelineState::Err(err) => {
                     match err {
                         RenderPipelineError::ShaderNotLoaded(_) => { /* retry */ }
-                        RenderPipelineError::ProcessShaderError(_) => {
+                        RenderPipelineError::ProcessShaderError(_)
+                        | RenderPipelineError::AsModuleDescriptorError(_) => {
                             // shader could not be processed ... retrying won't help
                             continue;
                         }

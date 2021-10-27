@@ -81,6 +81,38 @@ impl ProcessedShader {
             module_info,
         })
     }
+
+    pub fn get_module_descriptor(&self) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
+        Ok(ShaderModuleDescriptor {
+            label: None,
+            source: match self {
+                ProcessedShader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
+                ProcessedShader::Glsl(_source, _stage) => {
+                    let reflection = self.reflect()?;
+                    // TODO: it probably makes more sense to convert this to spirv, but as of writing
+                    // this comment, naga's spirv conversion is broken
+                    let wgsl = reflection.get_wgsl()?;
+                    ShaderSource::Wgsl(wgsl.into())
+                }
+                ProcessedShader::SpirV(_) => {
+                    // TODO: we can probably just transmute the u8 array to u32?
+                    let reflection = self.reflect()?;
+                    let spirv = reflection.get_spirv()?;
+                    ShaderSource::SpirV(Cow::Owned(spirv))
+                }
+            },
+        })
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum AsModuleDescriptorError {
+    #[error(transparent)]
+    ShaderReflectError(#[from] ShaderReflectError),
+    #[error(transparent)]
+    WgslConversion(#[from] naga::back::wgsl::Error),
+    #[error(transparent)]
+    SpirVConversion(#[from] naga::back::spv::Error),
 }
 
 pub struct ShaderReflection {
@@ -153,30 +185,6 @@ impl AssetLoader for ShaderLoader {
 
     fn extensions(&self) -> &[&str] {
         &["spv", "wgsl", "vert", "frag"]
-    }
-}
-
-impl<'a> From<&'a ProcessedShader> for ShaderModuleDescriptor<'a> {
-    fn from(shader: &'a ProcessedShader) -> Self {
-        ShaderModuleDescriptor {
-            label: None,
-            source: match shader {
-                ProcessedShader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
-                ProcessedShader::Glsl(_source, _stage) => {
-                    let reflection = shader.reflect().unwrap();
-                    // TODO: it probably makes more sense to convert this to spirv, but as of writing
-                    // this comment, naga's spirv conversion is broken
-                    let wgsl = reflection.get_wgsl().unwrap();
-                    ShaderSource::Wgsl(wgsl.into())
-                }
-                ProcessedShader::SpirV(_) => {
-                    // TODO: we can probably just transmute the u8 array to u32?
-                    let reflection = shader.reflect().unwrap();
-                    let spirv = reflection.get_spirv().unwrap();
-                    ShaderSource::SpirV(Cow::Owned(spirv))
-                }
-            },
-        }
     }
 }
 
