@@ -94,33 +94,30 @@ impl Plugin for RenderPlugin {
         let surface = {
             let world = app.world.cell();
             let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
-            let raw_handle = windows.get_primary().map(|window| {
-                unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                }
+            let raw_handle = windows.get_primary().map(|window| unsafe {
+                let handle = window.raw_window_handle().get_handle();
+                instance.create_surface(&handle)
             });
             raw_handle
         };
-        let (device, queue) =
-            futures_lite::future::block_on(renderer::initialize_renderer(
-                &instance,
-                &wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    compatible_surface: surface.as_ref(),
-                    ..Default::default()
+        let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
+            &instance,
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: surface.as_ref(),
+                ..Default::default()
+            },
+            &wgpu::DeviceDescriptor {
+                features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                #[cfg(not(target_arch = "wasm32"))]
+                limits: wgpu::Limits::default(),
+                #[cfg(target_arch = "wasm32")]
+                limits: wgpu::Limits {
+                    ..wgpu::Limits::downlevel_webgl2_defaults()
                 },
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-                    #[cfg(not(target_arch = "wasm32"))]
-                    limits: wgpu::Limits::default(),
-                    #[cfg(target_arch = "wasm32")]
-                    limits: wgpu::Limits {
-                        ..wgpu::Limits::downlevel_webgl2_defaults()
-                    },
-                    ..Default::default()
-                },
-            ));
+                ..Default::default()
+            },
+        ));
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
             .init_resource::<ScratchRenderWorld>();

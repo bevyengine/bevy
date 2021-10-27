@@ -43,7 +43,7 @@ impl Plugin for WinitPlugin {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
-        let mut event_loop = EventLoop::new();  
+        let mut event_loop = EventLoop::new();
         handle_initial_window_events(&mut app.world, &mut event_loop);
         app.insert_non_send_resource(event_loop);
     }
@@ -208,7 +208,6 @@ where
 {
     panic!("Run return is not supported on this platform!")
 }
-
 
 pub fn winit_runner(app: App) {
     winit_runner_with(app);
@@ -531,10 +530,7 @@ fn handle_create_window_events(
     }
 }
 
-fn handle_initial_window_events(
-    world: &mut World,
-    event_loop: &EventLoop<()>,
-) {
+fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
     let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();

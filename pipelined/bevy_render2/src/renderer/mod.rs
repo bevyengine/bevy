@@ -46,7 +46,6 @@ pub async fn initialize_renderer(
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
 ) -> (RenderDevice, RenderQueue) {
-
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await

@@ -140,6 +140,5 @@ impl PluginGroup for PipelinedDefaultPlugins {
             #[cfg(feature = "bevy_gltf2")]
             group.add(bevy_gltf2::GltfPlugin::default());
         }
-
     }
 }
