@@ -418,6 +418,10 @@ path = "examples/shader/shader_defs.rs"
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
 
+[[example]]
+name = "custom_shader_manual"
+path = "examples/shader/custom_shader_manual.rs"
+
 # Tools
 [[example]]
 name = "bevymark"
