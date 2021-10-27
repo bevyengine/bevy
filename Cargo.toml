@@ -422,6 +422,10 @@ path = "examples/shader/shader_material.rs"
 name = "custom_shader_manual"
 path = "examples/shader/custom_shader_manual.rs"
 
+[[example]]
+name = "custom_shader_pipelined_glsl"
+path = "examples/shader/custom_shader_pipelined_glsl.rs"
+
 # Tools
 [[example]]
 name = "bevymark"
