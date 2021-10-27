@@ -504,7 +504,7 @@ pub fn queue_meshes(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     render_device: Res<RenderDevice>,
     pbr_pipeline: Res<PbrPipeline>,
-    shadow_shaders: Res<ShadowPipeline>,
+    shadow_pipeline: Res<ShadowPipeline>,
     mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     light_meta: Res<LightMeta>,
@@ -544,7 +544,7 @@ pub fn queue_meshes(
                     },
                     BindGroupEntry {
                         binding: 3,
-                        resource: BindingResource::Sampler(&shadow_shaders.point_light_sampler),
+                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
                     },
                     BindGroupEntry {
                         binding: 4,
@@ -555,7 +555,7 @@ pub fn queue_meshes(
                     BindGroupEntry {
                         binding: 5,
                         resource: BindingResource::Sampler(
-                            &shadow_shaders.directional_light_sampler,
+                            &shadow_pipeline.directional_light_sampler,
                         ),
                     },
                 ],

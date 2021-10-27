@@ -610,7 +610,7 @@ pub fn prepare_lights(
 
 pub fn queue_shadow_view_bind_group(
     render_device: Res<RenderDevice>,
-    shadow_shaders: Res<ShadowPipeline>,
+    shadow_pipeline: Res<ShadowPipeline>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
@@ -622,7 +622,7 @@ pub fn queue_shadow_view_bind_group(
                     resource: view_binding,
                 }],
                 label: Some("shadow_view_bind_group"),
-                layout: &shadow_shaders.view_layout,
+                layout: &shadow_pipeline.view_layout,
             }));
     }
 }
