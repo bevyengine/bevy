@@ -38,7 +38,7 @@ impl RenderDevice {
     /// Creates a shader module from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
-        self.device.create_shader_module(&desc)
+        self.device.create_shader_module(desc)
     }
 
     /// Check for resource cleanups and mapping callbacks.
