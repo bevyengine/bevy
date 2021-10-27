@@ -107,6 +107,10 @@ serde = { version = "1", features = ["derive"] }
 futures-lite = "1.11.3"
 crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
