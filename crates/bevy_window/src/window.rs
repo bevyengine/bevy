@@ -1,4 +1,4 @@
-use bevy_math::{IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
@@ -125,8 +125,8 @@ pub struct Window {
     decorations: bool,
     cursor_visible: bool,
     cursor_locked: bool,
-    cursor_position: Option<Vec2>,
     raw_window_handle: RawWindowHandleWrapper,
+    physical_cursor_position: Option<DVec2>,
     focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
@@ -220,8 +220,8 @@ impl Window {
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
-            cursor_position: None,
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
+            physical_cursor_position: None,
             focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
@@ -472,10 +472,18 @@ impl Window {
         });
     }
 
+    /// The current mouse position, in physical pixels.
+    #[inline]
+    pub fn physical_cursor_position(&self) -> Option<DVec2> {
+        self.physical_cursor_position
+    }
+
+    /// The current mouse position, in logical pixels, taking into account the screen scale factor.
     #[inline]
     #[doc(alias = "mouse position")]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.cursor_position
+        self.physical_cursor_position
+            .map(|p| (p / self.scale_factor()).as_vec2())
     }
 
     pub fn set_cursor_position(&mut self, position: Vec2) {
@@ -491,8 +499,8 @@ impl Window {
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn update_cursor_position_from_backend(&mut self, cursor_position: Option<Vec2>) {
-        self.cursor_position = cursor_position;
+    pub fn update_cursor_physical_position_from_backend(&mut self, cursor_position: Option<DVec2>) {
+        self.physical_cursor_position = cursor_position;
     }
 
     #[inline]
