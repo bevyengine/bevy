@@ -85,6 +85,7 @@ jobs:
           key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
       - name: Uninstall android-31
         run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
+          override: true
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
       - name: Install Cargo APK
