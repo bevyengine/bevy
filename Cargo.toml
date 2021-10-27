@@ -107,7 +107,8 @@ serde = { version = "1", features = ["derive"] }
 futures-lite = "1.11.3"
 crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 
-
+# Set opt level when building Bevy not in release. This is interesting when running examples, but
+# it will make build time slower for development. It has no impact on crates depending on Bevy.
 [profile.dev.package."*"]
 opt-level = 3
 
