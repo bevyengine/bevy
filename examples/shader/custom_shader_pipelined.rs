@@ -150,8 +150,8 @@ impl FromWorld for CustomPipeline {
 
         let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
         let mut descriptor = pbr_pipeline.specialize(PbrPipelineKey::empty());
-        descriptor.vertex.shader = shader.clone_weak();
-        descriptor.fragment.as_mut().unwrap().shader = shader.clone_weak();
+        descriptor.vertex.shader = shader.clone();
+        descriptor.fragment.as_mut().unwrap().shader = shader;
         descriptor.layout = Some(vec![
             pbr_pipeline.view_layout.clone(),
             material_layout.clone(),
