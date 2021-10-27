@@ -148,7 +148,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
@@ -377,7 +377,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
             type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
@@ -410,7 +410,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
-            type Item = #struct_name#ty_generics;
+            type Item = #struct_name #ty_generics;
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &#path::system::SystemMeta,
