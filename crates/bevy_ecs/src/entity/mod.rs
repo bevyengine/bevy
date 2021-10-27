@@ -32,8 +32,8 @@ use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
     convert::TryFrom,
     fmt, mem,
-    sync::atomic::{AtomicI64, Ordering},
     num::NonZeroU32,
+    sync::atomic::{AtomicI64, Ordering},
 };
 
 /// Lightweight unique ID of an entity.
@@ -67,9 +67,9 @@ impl Entity {
     /// only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     pub fn new(id: u32) -> Entity {
-        Entity { 
-            id, 
-            generation: unsafe{ NonZeroU32::new_unchecked(1) } 
+        Entity {
+            id,
+            generation: GENERATION_ONE,
         }
     }
 
@@ -80,14 +80,14 @@ impl Entity {
     ///
     /// No particular structure is guaranteed for the returned bits.
     pub fn to_bits(self) -> u64 {
-        u64::from(self.generation.get()) << 32 | u64::from(self.id)
+        u64::from(self.generation()) << 32 | u64::from(self.id)
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
     pub fn from_bits(bits: u64) -> Option<Self> {
-        Some(Self{
+        Some(Self {
             generation: NonZeroU32::new((bits >> 32) as u32)?,
             id: bits as u32,
         })
@@ -148,13 +148,15 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
         self.id_iter
             .next()
             .map(|&id| Entity {
-                generation: self.meta[id as usize].generation,
+                generation: self.meta[id as usize].generation.unwrap(),
                 id,
             })
-            .or_else(|| self.id_range.next().map(|id| Entity { 
-                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
-                id,
-            }))
+            .or_else(|| {
+                self.id_range.next().map(|id| Entity {
+                    generation: GENERATION_ONE,
+                    id,
+                })
+            })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -262,7 +264,7 @@ impl Entities {
             // Allocate from the freelist.
             let id = self.pending[(n - 1) as usize];
             Entity {
-                generation: self.meta[id as usize].generation,
+                generation: self.meta[id as usize].generation.unwrap(), // Safe, meta from pending list, so generation is valid
                 id,
             }
         } else {
@@ -272,7 +274,7 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             Entity {
-                generation: unsafe{ NonZeroU32::new_unchecked(1) },
+                generation: GENERATION_ONE,
                 id: u32::try_from(self.meta.len() as i64 - n).expect("too many entities"),
             }
         }
@@ -294,14 +296,14 @@ impl Entities {
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
-                generation: self.meta[id as usize].generation,
+                generation: self.meta[id as usize].generation.unwrap(), // Safe, meta from pending list, so generation is valid
                 id,
             }
         } else {
             let id = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            Entity { 
-                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
+            Entity {
+                generation: GENERATION_ONE,
                 id,
             }
         }
@@ -334,7 +336,7 @@ impl Entities {
             ))
         };
 
-        self.meta[entity.id as usize].generation = entity.generation;
+        self.meta[entity.id as usize].generation = Some(entity.generation);
 
         loc
     }
@@ -362,14 +364,14 @@ impl Entities {
             let current_meta = &mut self.meta[entity.id as usize];
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
-            } else if current_meta.generation == entity.generation {
+            } else if current_meta.generation == Some(entity.generation) {
                 AllocAtWithoutReplacement::Exists(current_meta.location)
             } else {
                 return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
             }
         };
 
-        self.meta[entity.id as usize].generation = entity.generation;
+        self.meta[entity.id as usize].generation = Some(entity.generation);
         result
     }
 
@@ -380,24 +382,21 @@ impl Entities {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.id as usize];
-        if meta.generation != entity.generation {
+        if meta.generation != Some(entity.generation) {
             return None;
         }
-        
-        meta.generation = unsafe{ NonZeroU32::new_unchecked(
-            meta.generation.get()
-                .checked_add(1)
-                .unwrap_or(1)) 
-        };
 
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
+        meta.generation = NonZeroU32::new(meta.generation.unwrap().get().wrapping_add(1));
 
-        self.pending.push(entity.id);
+        if meta.generation.is_some() {
+            self.pending.push(entity.id);
 
-        let new_free_cursor = self.pending.len() as i64;
-        *self.free_cursor.get_mut() = new_free_cursor;
-        self.len -= 1;
-        Some(loc)
+            let new_free_cursor = self.pending.len() as i64;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.len -= 1;
+        }
+
+        Some(mem::replace(&mut meta.location, EntityMeta::EMPTY.location))
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
@@ -412,8 +411,8 @@ impl Entities {
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
-    // This will return false for entities which have been freed, even if
-    // not reallocated since the generation is incremented in `free`
+    /// This will return false for entities which have been freed, even if
+    /// not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_id(entity.id())
             .map_or(false, |e| e.generation == entity.generation)
@@ -430,7 +429,8 @@ impl Entities {
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation
+            if meta.generation.is_none()
+                || meta.generation.unwrap() != entity.generation
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {
                 return None;
@@ -450,16 +450,16 @@ impl Entities {
     pub fn resolve_from_id(&self, id: u32) -> Option<Entity> {
         let idu = id as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
-            Some(Entity { generation, id })
+            generation.map(|generation| Entity { generation, id })
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then(|| Entity { 
-                generation: unsafe{ NonZeroU32::new_unchecked(1) }, 
-                id
+            (idu < self.meta.len() + num_pending).then(|| Entity {
+                generation: GENERATION_ONE,
+                id,
             })
         }
     }
@@ -487,13 +487,15 @@ impl Entities {
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
             self.len += -current_free_cursor as u32;
             for (id, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(
-                    Entity {
-                        id: id as u32,
-                        generation: meta.generation,
-                    },
-                    &mut meta.location,
-                );
+                if let Some(generation) = meta.generation {
+                    init(
+                        Entity {
+                            id: id as u32,
+                            generation,
+                        },
+                        &mut meta.location,
+                    );
+                }
             }
 
             *free_cursor = 0;
@@ -506,7 +508,7 @@ impl Entities {
             init(
                 Entity {
                     id,
-                    generation: meta.generation,
+                    generation: meta.generation.unwrap(), // Safe, meta from pending list, so generation is valid
                 },
                 &mut meta.location,
             );
@@ -536,13 +538,13 @@ impl Entities {
 
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
-    pub generation: NonZeroU32,
+    pub generation: Option<NonZeroU32>,
     pub location: EntityLocation,
 }
 
 impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
-        generation: unsafe{ NonZeroU32::new_unchecked(1) },
+        generation: Some(GENERATION_ONE),
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
             index: usize::MAX, // dummy value, to be filled in
@@ -559,6 +561,14 @@ pub struct EntityLocation {
     /// The index of the entity in the archetype
     pub index: usize,
 }
+
+// Constant for the initial generation value, removes the need to unwrap in opt-0 code but doesn't
+// require unsafe. When rust 1.57 drops, we can exchange [][1] for panic!().
+const GENERATION_ONE: NonZeroU32 = if let Some(gen) = NonZeroU32::new(1) {
+    gen
+} else {
+    [][1]
+};
 
 #[cfg(test)]
 mod tests {
@@ -582,7 +592,7 @@ mod tests {
     #[test]
     fn entity_option_size_optimized() {
         assert_eq!(
-            core::mem::size_of::<Option<Entity>>(), 
+            core::mem::size_of::<Option<Entity>>(),
             core::mem::size_of::<Entity>()
         );
     }
@@ -595,24 +605,23 @@ mod tests {
         entities.free(entity_old);
         let entity_new = entities.alloc();
 
-        assert_eq!(entity_old.id,               entity_new.id          );
+        assert_eq!(entity_old.id, entity_new.id);
         assert_eq!(entity_old.generation() + 1, entity_new.generation());
     }
 
     #[test]
-    fn entities_generation_wrap() {
+    fn entities_generation_overflow() {
         let mut entities = Entities::default();
         let mut entity_old = entities.alloc();
 
         // Modify generation on entity and entities to cause overflow on free
         entity_old.generation = NonZeroU32::new(u32::MAX).unwrap();
-        entities.meta[entity_old.id as usize].generation = entity_old.generation;
+        entities.meta[entity_old.id as usize].generation = Some(entity_old.generation);
         entities.free(entity_old);
 
-        // Get just free-d entity back
+        // Request new entity, we shouldn't get the one we just freed since it overflowed
         let entity_new = entities.alloc();
-
-        assert_eq!(entity_old.id, entity_new.id);
+        assert!(entity_old.id != entity_new.id);
         assert_eq!(entity_new.generation(), 1);
     }
 
