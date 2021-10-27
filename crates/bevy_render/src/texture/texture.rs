@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
