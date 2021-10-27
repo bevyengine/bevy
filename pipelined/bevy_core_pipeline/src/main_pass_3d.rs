@@ -8,16 +8,21 @@ use bevy_render2::{
         RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::ExtractedView,
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 
 pub struct MainPass3dNode {
-    query: QueryState<&'static RenderPhase<Transparent3d>, With<ExtractedView>>,
+    query: QueryState<
+        (
+            &'static RenderPhase<Transparent3d>,
+            &'static ViewTarget,
+            &'static ViewDepthTexture,
+        ),
+        With<ExtractedView>,
+    >,
 }
 
 impl MainPass3dNode {
-    pub const IN_COLOR_ATTACHMENT: &'static str = "color_attachment";
-    pub const IN_DEPTH: &'static str = "depth";
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -29,11 +34,7 @@ impl MainPass3dNode {
 
 impl Node for MainPass3dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![
-            SlotInfo::new(MainPass3dNode::IN_COLOR_ATTACHMENT, SlotType::TextureView),
-            SlotInfo::new(MainPass3dNode::IN_DEPTH, SlotType::TextureView),
-            SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity),
-        ]
+        vec![SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -46,21 +47,32 @@ impl Node for MainPass3dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let color_attachment_texture = graph.get_input_texture(Self::IN_COLOR_ATTACHMENT)?;
+        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let (transparent_phase, target, depth) = self
+            .query
+            .get_manual(world, view_entity)
+            .expect("view entity should exist");
         let clear_color = world.get_resource::<ClearColor>().unwrap();
-        let depth_texture = graph.get_input_texture(Self::IN_DEPTH)?;
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_3d"),
             color_attachments: &[RenderPassColorAttachment {
-                view: color_attachment_texture,
-                resolve_target: None,
+                view: if let Some(sampled_target) = &target.sampled_target {
+                    sampled_target
+                } else {
+                    &target.view
+                },
+                resolve_target: if target.sampled_target.is_some() {
+                    Some(&target.view)
+                } else {
+                    None
+                },
                 ops: Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,
                 },
             }],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: depth_texture,
+                view: &depth.view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(0.0),
                     store: true,
@@ -69,14 +81,9 @@ impl Node for MainPass3dNode {
             }),
         };
 
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let draw_functions = world
             .get_resource::<DrawFunctions<Transparent3d>>()
             .unwrap();
-        let transparent_phase = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
 
         let render_pass = render_context
             .command_encoder

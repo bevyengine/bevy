@@ -5,15 +5,15 @@ use bevy_render2::{
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
-    view::ExtractedView,
+    view::{ExtractedView, ViewTarget},
 };
 
 pub struct MainPass2dNode {
-    query: QueryState<&'static RenderPhase<Transparent2d>, With<ExtractedView>>,
+    query:
+        QueryState<(&'static RenderPhase<Transparent2d>, &'static ViewTarget), With<ExtractedView>>,
 }
 
 impl MainPass2dNode {
-    pub const IN_COLOR_ATTACHMENT: &'static str = "color_attachment";
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -25,10 +25,7 @@ impl MainPass2dNode {
 
 impl Node for MainPass2dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![
-            SlotInfo::new(MainPass2dNode::IN_COLOR_ATTACHMENT, SlotType::TextureView),
-            SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity),
-        ]
+        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -41,12 +38,16 @@ impl Node for MainPass2dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let color_attachment_texture = graph.get_input_texture(Self::IN_COLOR_ATTACHMENT)?;
+        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let (transparent_phase, target) = self
+            .query
+            .get_manual(world, view_entity)
+            .expect("view entity should exist");
         let clear_color = world.get_resource::<ClearColor>().unwrap();
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[RenderPassColorAttachment {
-                view: color_attachment_texture,
+                view: &target.view,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
@@ -56,15 +57,9 @@ impl Node for MainPass2dNode {
             depth_stencil_attachment: None,
         };
 
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let draw_functions = world
             .get_resource::<DrawFunctions<Transparent2d>>()
             .unwrap();
-
-        let transparent_phase = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
 
         let render_pass = render_context
             .command_encoder

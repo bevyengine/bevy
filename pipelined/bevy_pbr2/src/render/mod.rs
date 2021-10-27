@@ -21,7 +21,7 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -369,16 +369,34 @@ impl FromWorld for PbrPipeline {
     }
 }
 
-// TODO: add actual specialization key: MSAA, normal maps, shadeless, etc
 bitflags::bitflags! {
     #[repr(transparent)]
-    pub struct PbrPipelineKey: u32 { }
+    // NOTE: Apparently quadro drivers support up to 64x MSAA.
+    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    pub struct PbrPipelineKey: u32 {
+        const NONE               = 0;
+        const MSAA_RESERVED_BITS = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
+    }
+}
+
+impl PbrPipelineKey {
+    const MSAA_MASK_BITS: u32 = 0b111111;
+    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+
+    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        PbrPipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn msaa_samples(&self) -> u32 {
+        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
 }
 
 impl SpecializedPipeline for PbrPipeline {
     type Key = PbrPipelineKey;
 
-    fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: PBR_SHADER_HANDLE.typed::<Shader>(),
@@ -461,7 +479,7 @@ impl SpecializedPipeline for PbrPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: 1,
+                count: key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -508,6 +526,7 @@ pub fn queue_meshes(
     mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     light_meta: Res<LightMeta>,
+    msaa: Res<Msaa>,
     view_uniforms: Res<ViewUniforms>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
     standard_material_meshes: Query<
@@ -525,6 +544,7 @@ pub fn queue_meshes(
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
+        let msaa_key = PbrPipelineKey::from_msaa_samples(msaa.samples);
         for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
@@ -580,8 +600,8 @@ pub fn queue_meshes(
                     continue;
                 }
 
-                let key = PbrPipelineKey::empty();
-                let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
+                let pipeline_id =
+                    pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, msaa_key);
                 // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
                 //       gives the z component of translation of the mesh in view space
                 let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
@@ -689,6 +709,17 @@ impl RenderCommand<Transparent3d> for DrawMesh {
             pass.draw_indexed(0..index_info.count, 0, 0..1);
         } else {
             panic!("non-indexed drawing not supported yet")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PbrPipelineKey;
+    #[test]
+    fn pbr_key_msaa_samples() {
+        for i in 1..=64 {
+            assert_eq!(PbrPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }
 }

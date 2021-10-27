@@ -17,6 +17,11 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
+#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum WindowSystem {
+    Prepare,
+}
+
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.sub_app(RenderApp)
@@ -24,7 +29,10 @@ impl Plugin for WindowRenderPlugin {
             .init_resource::<WindowSurfaces>()
             .init_resource::<NonSendMarker>()
             .add_system_to_stage(RenderStage::Extract, extract_windows)
-            .add_system_to_stage(RenderStage::Prepare, prepare_windows);
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_windows.label(WindowSystem::Prepare),
+            );
     }
 }
 
