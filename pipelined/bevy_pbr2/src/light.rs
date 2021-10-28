@@ -135,7 +135,7 @@ impl Default for DirectionalLightShadowMap {
     }
 }
 
-/// An Ambient light, which lights the entire scene equally.
+/// An ambient light, which lights the entire scene equally.
 #[derive(Debug)]
 pub struct AmbientLight {
     pub color: Color,
