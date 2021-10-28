@@ -1,13 +1,18 @@
 use bevy::{
     core_pipeline::Transparent3d,
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_phase::{
+            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
+            SetItemPipeline, TrackedRenderPass,
+        },
         render_resource::*,
+        renderer::{RenderDevice, RenderQueue},
         view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
     },
@@ -46,12 +51,27 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app(RenderApp)
+        let render_device = app.world.get_resource::<RenderDevice>().unwrap();
+        let buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("time uniform buffer"),
+            size: std::mem::size_of::<f32>() as u64,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
+            .insert_resource(TimeMeta {
+                buffer,
+                bind_group: None,
+            })
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedPipelines<CustomPipeline>>()
+            .add_system_to_stage(RenderStage::Extract, extract_time)
             .add_system_to_stage(RenderStage::Extract, extract_custom_material)
-            .add_system_to_stage(RenderStage::Queue, queue_custom);
+            .add_system_to_stage(RenderStage::Prepare, prepare_time)
+            .add_system_to_stage(RenderStage::Queue, queue_custom)
+            .add_system_to_stage(RenderStage::Queue, queue_time_bind_group);
     }
 }
 
@@ -84,7 +104,8 @@ fn queue_custom(
         .get_id::<DrawCustom>()
         .unwrap();
 
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let key = MeshPipelineKey::from_msaa_samples(msaa.samples)
+        | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
     let pipeline = pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key);
 
     for (view, mut transparent_phase) in views.iter_mut() {
@@ -101,21 +122,87 @@ fn queue_custom(
     }
 }
 
+#[derive(Default)]
+struct ExtractedTime {
+    seconds_since_startup: f32,
+}
+
+// extract the passed time into a resource in the render world
+fn extract_time(mut commands: Commands, time: Res<Time>) {
+    commands.insert_resource(ExtractedTime {
+        seconds_since_startup: time.seconds_since_startup() as f32,
+    });
+}
+
+struct TimeMeta {
+    buffer: Buffer,
+    bind_group: Option<BindGroup>,
+}
+
+// write the extracted time into the corresponding uniform buffer
+fn prepare_time(
+    time: Res<ExtractedTime>,
+    time_meta: ResMut<TimeMeta>,
+    render_queue: Res<RenderQueue>,
+) {
+    render_queue.write_buffer(
+        &time_meta.buffer,
+        0,
+        bevy::core::cast_slice(&[time.seconds_since_startup]),
+    );
+}
+
+// create a bind group for the time uniform buffer
+fn queue_time_bind_group(
+    render_device: Res<RenderDevice>,
+    mut time_meta: ResMut<TimeMeta>,
+    pipeline: Res<CustomPipeline>,
+) {
+    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        label: None,
+        layout: &pipeline.time_bind_group_layout,
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: time_meta.buffer.as_entire_binding(),
+        }],
+    });
+    time_meta.bind_group = Some(bind_group);
+}
+
 pub struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,
+    time_bind_group_layout: BindGroupLayout,
 }
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let shader = asset_server.load("shaders/custom_minimal.wgsl");
+        let shader = asset_server.load("shaders/animate_shader.wgsl");
+
+        let render_device = world.get_resource_mut::<RenderDevice>().unwrap();
+        let time_bind_group_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("time bind group"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(std::mem::size_of::<f32>() as u64),
+                    },
+                    count: None,
+                }],
+            });
+
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
         CustomPipeline {
             shader,
             mesh_pipeline: mesh_pipeline.clone(),
+            time_bind_group_layout,
         }
     }
 }
@@ -130,6 +217,7 @@ impl SpecializedPipeline for CustomPipeline {
         descriptor.layout = Some(vec![
             self.mesh_pipeline.view_layout.clone(),
             self.mesh_pipeline.mesh_layout.clone(),
+            self.time_bind_group_layout.clone(),
         ]);
         descriptor
     }
@@ -139,5 +227,23 @@ type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
+    SetTimeBindGroup<2>,
     DrawMesh,
 );
+
+struct SetTimeBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
+    type Param = SRes<TimeMeta>;
+
+    fn render<'w>(
+        _view: Entity,
+        _item: Entity,
+        time_meta: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let time_bind_group = time_meta.into_inner().bind_group.as_ref().unwrap();
+        pass.set_bind_group(I, time_bind_group, &[]);
+
+        RenderCommandResult::Success
+    }
+}
