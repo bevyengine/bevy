@@ -169,6 +169,7 @@ Example | File | Description
 `system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 `system_sets` | [`ecs/system_sets.rs`](./ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
+`relation` | [ecs/relation.rs](./ecs/relation.rs) | Illustrates creating a relationship between parent and child `Transform`s
 
 ## Games
 

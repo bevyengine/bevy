@@ -288,6 +288,10 @@ name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 
 [[example]]
+name = "relation"
+path = "examples/ecs/relation.rs"
+
+[[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
 

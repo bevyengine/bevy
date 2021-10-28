@@ -1,4 +1,4 @@
-use super::Transform;
+use super::{Relation, Transform};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
@@ -207,12 +207,35 @@ impl GlobalTransform {
         }
     }
 
+    /// Multiplies `self` with ['Relation']-mapped `transform` component by component, returning the
+    /// resulting [`GlobalTransform`]
+    #[inline]
+    pub fn mul_transform_relative(&self, transform: Transform, relation: Relation) -> GlobalTransform {
+        let translation = self.mul_vec3_relative(transform.translation, relation);
+        let rotation = relation.rotation.map_or(transform.rotation, |f| { let mut rot = self.rotation.clone(); (f)(&mut rot); rot * transform.rotation });
+        let scale = relation.scale.map_or(transform.scale, |f| { let mut scl = self.scale.clone(); (f)(&mut scl); scl * transform.scale });
+        GlobalTransform {
+            translation,
+            rotation,
+            scale,
+        }
+    }
+
     /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
     pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
         value = self.rotation * value;
         value = self.scale * value;
         value += self.translation;
+        value
+    }
+
+    /// Returns a [`Vec3`] of this ['Relation']-mapped [`Transform`] and applied to `value`.
+    #[inline]
+    pub fn mul_vec3_relative(&self, mut value: Vec3, relation: Relation) -> Vec3 {
+        value = relation.rotation.map_or(value, |f| { let mut rot = self.rotation.clone(); (f)(&mut rot); rot * value });
+        value = relation.scale.map_or(value, |f| { let mut scl = self.scale.clone(); (f)(&mut scl); scl * value });
+        value += relation.translation.map_or(Vec3::ZERO, |f| { let mut trn = self.translation.clone(); (f)(&mut trn); trn });
         value
     }
 
