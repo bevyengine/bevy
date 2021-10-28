@@ -102,6 +102,7 @@ anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
+bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 
@@ -425,6 +426,10 @@ path = "examples/shader/custom_shader_manual.rs"
 [[example]]
 name = "custom_shader_pipelined_glsl"
 path = "examples/shader/custom_shader_pipelined_glsl.rs"
+
+[[example]]
+name = "custom_shader_instancing_pipelined"
+path = "examples/shader/custom_shader_instancing_pipelined.rs"
 
 # Tools
 [[example]]
