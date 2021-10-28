@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -50,8 +50,8 @@ impl Transform {
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self::from_translation(Vec3::new(x, y, z))
+    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(const_vec3!([x, y, z]))
     }
 
     /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
@@ -81,30 +81,30 @@ impl Transform {
     /// Creates a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
     /// all axes.
     #[inline]
-    pub fn from_translation(translation: Vec3) -> Self {
+    pub const fn from_translation(translation: Vec3) -> Self {
         Transform {
             translation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     /// Creates a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
     /// all axes.
     #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
+    pub const fn from_rotation(rotation: Quat) -> Self {
         Transform {
             rotation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     /// Creates a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
     /// all axes.
     #[inline]
-    pub fn from_scale(scale: Vec3) -> Self {
+    pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
@@ -119,21 +119,21 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new translation.
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     /// Returns this [`Transform`] with a new rotation.
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     /// Returns this [`Transform`] with a new scale.
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
