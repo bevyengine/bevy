@@ -471,6 +471,10 @@ path = "examples/shader/shader_defs.rs"
 name = "custom_shader_pipelined"
 path = "examples/shader/custom_shader_pipelined.rs"
 
+[[example]]
+name = "shader_defs_pipelined"
+path = "examples/shader/shader_defs_pipelined.rs"
+
 # Tools
 [[example]]
 name = "bevymark"

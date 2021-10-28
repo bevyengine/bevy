@@ -1,6 +1,6 @@
 use crate::{
     AmbientLight, DirectionalLight, DirectionalLightShadowMap, MeshUniform, NotShadowCaster,
-    PbrShaders, PointLight, PointLightShadowMap, TransformBindGroup,
+    PbrPipeline, PointLight, PointLightShadowMap, TransformBindGroup, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -22,7 +22,6 @@ use bevy_render2::{
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    shader::Shader,
     texture::*,
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
 };
@@ -101,21 +100,18 @@ pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHTS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-pub struct ShadowShaders {
-    pub shader_module: ShaderModule,
-    pub pipeline: RenderPipeline,
+pub struct ShadowPipeline {
+    pub pipeline: CachedPipelineId,
     pub view_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
     pub directional_light_sampler: Sampler,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for ShadowShaders {
+impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
+        let world = world.cell();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let pbr_shaders = world.get_resource::<PbrShaders>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("depth.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -136,19 +132,16 @@ impl FromWorld for ShadowShaders {
             label: Some("shadow_view_layout"),
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("shadow_pipeline_layout"),
-            push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
-        });
-
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("shadow_pipeline"),
+        let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
+        let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                buffers: &[VertexBufferLayout {
+                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![VertexBufferLayout {
                     array_stride: 32,
                     step_mode: VertexStepMode::Vertex,
-                    attributes: &[
+                    attributes: vec![
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
@@ -169,10 +162,18 @@ impl FromWorld for ShadowShaders {
                         },
                     ],
                 }],
-                module: &shader_module,
-                entry_point: "vertex",
             },
             fragment: None,
+            layout: Some(vec![view_layout.clone(), pbr_pipeline.mesh_layout.clone()]),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
+            },
             depth_stencil: Some(DepthStencilState {
                 format: SHADOW_FORMAT,
                 depth_write_enabled: true,
@@ -189,22 +190,13 @@ impl FromWorld for ShadowShaders {
                     clamp: 0.0,
                 },
             }),
-            layout: Some(&pipeline_layout),
             multisample: MultisampleState::default(),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
-                conservative: false,
-            },
-        });
+            label: Some("shadow_pipeline".into()),
+        };
 
-        ShadowShaders {
-            shader_module,
-            pipeline,
+        let mut render_pipeline_cache = world.get_resource_mut::<RenderPipelineCache>().unwrap();
+        ShadowPipeline {
+            pipeline: render_pipeline_cache.queue(descriptor),
             view_layout,
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
@@ -618,7 +610,7 @@ pub fn prepare_lights(
 
 pub fn queue_shadow_view_bind_group(
     render_device: Res<RenderDevice>,
-    shadow_shaders: Res<ShadowShaders>,
+    shadow_pipeline: Res<ShadowPipeline>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
@@ -630,13 +622,14 @@ pub fn queue_shadow_view_bind_group(
                     resource: view_binding,
                 }],
                 label: Some("shadow_view_bind_group"),
-                layout: &shadow_shaders.view_layout,
+                layout: &shadow_pipeline.view_layout,
             }));
     }
 }
 
 pub fn queue_shadows(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+    shadow_pipeline: Res<ShadowPipeline>,
     casting_meshes: Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
     mut view_lights: Query<&ViewLights>,
     mut view_light_shadow_phases: Query<&mut RenderPhase<Shadow>>,
@@ -653,6 +646,7 @@ pub fn queue_shadows(
             for entity in casting_meshes.iter() {
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
+                    pipeline: shadow_pipeline.pipeline,
                     entity,
                     distance: 0.0, // TODO: sort back-to-front
                 })
@@ -664,6 +658,7 @@ pub fn queue_shadows(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
+    pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -734,7 +729,6 @@ impl Node for ShadowPassNode {
                 };
 
                 let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
-
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
@@ -753,7 +747,7 @@ impl Node for ShadowPassNode {
 
 pub struct DrawShadowMesh {
     params: SystemState<(
-        SRes<ShadowShaders>,
+        SRes<RenderPipelineCache>,
         SRes<LightMeta>,
         SRes<TransformBindGroup>,
         SRes<RenderAssets<Mesh>>,
@@ -778,34 +772,36 @@ impl Draw<Shadow> for DrawShadowMesh {
         view: Entity,
         item: &Shadow,
     ) {
-        let (shadow_shaders, light_meta, transform_bind_group, meshes, items, views) =
+        let (pipeline_cache, light_meta, transform_bind_group, meshes, items, views) =
             self.params.get(world);
         let (transform_index, mesh_handle) = items.get(item.entity).unwrap();
         let view_uniform_offset = views.get(view).unwrap();
-        pass.set_render_pipeline(&shadow_shaders.into_inner().pipeline);
-        pass.set_bind_group(
-            0,
-            light_meta
-                .into_inner()
-                .shadow_view_bind_group
-                .as_ref()
-                .unwrap(),
-            &[view_uniform_offset.offset],
-        );
+        if let Some(pipeline) = pipeline_cache.into_inner().get(item.pipeline) {
+            pass.set_render_pipeline(pipeline);
+            pass.set_bind_group(
+                0,
+                light_meta
+                    .into_inner()
+                    .shadow_view_bind_group
+                    .as_ref()
+                    .unwrap(),
+                &[view_uniform_offset.offset],
+            );
 
-        pass.set_bind_group(
-            1,
-            &transform_bind_group.into_inner().value,
-            &[transform_index.index()],
-        );
+            pass.set_bind_group(
+                1,
+                &transform_bind_group.into_inner().value,
+                &[transform_index.index()],
+            );
 
-        let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-        if let Some(index_info) = &gpu_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
-            pass.draw_indexed(0..index_info.count, 0, 0..1);
-        } else {
-            panic!("non-indexed drawing not supported yet")
+            let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
+            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+            if let Some(index_info) = &gpu_mesh.index_info {
+                pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
+                pass.draw_indexed(0..index_info.count, 0, 0..1);
+            } else {
+                panic!("non-indexed drawing not supported yet")
+            }
         }
     }
 }
