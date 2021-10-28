@@ -424,16 +424,20 @@ name = "custom_shader_manual"
 path = "examples/shader/custom_shader_manual.rs"
 
 [[example]]
-name = "custom_shader_pipelined_glsl"
-path = "examples/shader/custom_shader_pipelined_glsl.rs"
+name = "shader_material_glsl"
+path = "examples/shader/shader_material_glsl.rs"
 
 [[example]]
-name = "custom_shader_instancing_pipelined"
-path = "examples/shader/custom_shader_instancing_pipelined.rs"
+name = "shader_instancing"
+path = "examples/shader/shader_instancing.rs"
 
 [[example]]
-name = "animate_shader_pipelined"
-path = "examples/shader/animate_shader_pipelined.rs"
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
+[[example]]
+name = "compute_shader_game_of_life"
+path = "examples/shader/compute_shader_game_of_life.rs"
 
 # Tools
 [[example]]
