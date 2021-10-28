@@ -9,6 +9,8 @@ struct Move;
 // Define a resource for the current movement direction;
 #[derive(Default)]
 struct Direction(Vec3);
+// Define component to decide when an entity should be ignored by the movement systems.
+struct ToggledBy(KeyCode);
 
 fn main() {
     App::new()
@@ -44,8 +46,9 @@ fn setup(
             transform: Transform::from_translation(Vec3::ZERO),
             ..Default::default()
         })
-        .insert(ChangeLocal)
-        .insert(Move);
+        .insert(ChangeGlobal)
+        .insert(Move)
+        .insert(ToggledBy(KeyCode::Key1));
 
     // Spawn two entities as children above the original main entity.
     // The red entity spawned here will be changed via its global transform
@@ -60,7 +63,8 @@ fn setup(
                 ..Default::default()
             })
             .insert(ChangeGlobal)
-            .insert(Move);
+            .insert(Move)
+            .insert(ToggledBy(KeyCode::Key2));
         child_builder
             .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
@@ -69,7 +73,8 @@ fn setup(
                 ..Default::default()
             })
             .insert(ChangeLocal)
-            .insert(Move);
+            .insert(Move)
+            .insert(ToggledBy(KeyCode::Key3));
     });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
@@ -108,39 +113,42 @@ fn move_cubes_according_to_local_transform(
 }
 
 // A quick helper function to determine the cubes movement direction based on left/right-input
-fn update_directional_input(mut direction: ResMut<Direction>, keyboard_input: Res<Input<KeyCode>>){
-    let horizontal_movement = Vec3::X * (keyboard_input.pressed(KeyCode::Right) as i32 - keyboard_input.pressed(KeyCode::Left) as i32)
-        as f32;
-    let vertical_movement = Vec3::Y * (keyboard_input.pressed(KeyCode::Up) as i32 - keyboard_input.pressed(KeyCode::Down) as i32) as f32;
+fn update_directional_input(mut direction: ResMut<Direction>, keyboard_input: Res<Input<KeyCode>>) {
+    let horizontal_movement = Vec3::X
+        * (keyboard_input.pressed(KeyCode::Right) as i32
+            - keyboard_input.pressed(KeyCode::Left) as i32) as f32;
+    let vertical_movement = Vec3::Y
+        * (keyboard_input.pressed(KeyCode::Up) as i32
+            - keyboard_input.pressed(KeyCode::Down) as i32) as f32;
     direction.0 = horizontal_movement + vertical_movement;
 }
 
+// Enable/disable movement for each entity if the assigned key is pressed.
 fn toggle_movement(
     mut commands: Commands,
-    moving_entities: Query<(Entity, &Handle<StandardMaterial>), With<Move>>,
-    static_entities: Query<(Entity, &Handle<StandardMaterial>), Without<Move>>,
-    materials: Res<Assets<StandardMaterial>>,
-    keyboard_input: Res<Input<KeyCode>>
+    moving_entities: Query<(Entity, &Handle<StandardMaterial>, &ToggledBy), With<Move>>,
+    static_entities: Query<(Entity, &Handle<StandardMaterial>, &ToggledBy), Without<Move>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
-    let selected_color = if keyboard_input.just_pressed(KeyCode::Key1){
-        Color::YELLOW
-    }else if keyboard_input.just_pressed(KeyCode::Key2){
-        Color::RED
-    }else if keyboard_input.just_pressed(KeyCode::Key3){
-        Color::GREEN
-    }else{
-        return;
-    };
-    for (entity, material_handle) in moving_entities.iter() {
-        let mesh_color = materials.get(material_handle).unwrap().base_color;
-        if selected_color == mesh_color {
+    for (entity, material_handle, toggled_by) in moving_entities.iter() {
+        if keyboard_input.just_pressed(toggled_by.0) {
+            materials
+                .get_mut(material_handle)
+                .unwrap()
+                .base_color
+                .set_a(0.5);
             commands.entity(entity).remove::<Move>();
         }
-    };
-    for (entity, material_handle) in static_entities.iter() {
-        let mesh_color = materials.get(material_handle).unwrap().base_color;
-        if selected_color == mesh_color {
+    }
+    for (entity, material_handle, toggled_by) in static_entities.iter() {
+        if keyboard_input.just_pressed(toggled_by.0) {
+            materials
+                .get_mut(material_handle)
+                .unwrap()
+                .base_color
+                .set_a(1.0);
             commands.entity(entity).insert(Move);
         }
-    };
+    }
 }
