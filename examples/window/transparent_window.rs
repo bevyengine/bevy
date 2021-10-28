@@ -7,7 +7,7 @@ use bevy::{
 fn main() {
     App::new()
         // rgba value needs to be [0, 0, 0, 0], otherwise some color will bleed through
-        .insert_resource(ClearColor(Color::TRANSPARENT))
+        .insert_resource(ClearColor(Color::NONE))
         .insert_resource(WindowDescriptor {
             // setting transparent allows the window to become transparent when clear color has the correct value
             transparent: true,

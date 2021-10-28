@@ -85,7 +85,6 @@ impl Color {
     pub const SILVER: Color = Color::rgb(0.75, 0.75, 0.75);
     pub const TEAL: Color = Color::rgb(0.0, 0.5, 0.5);
     pub const TOMATO: Color = Color::rgb(1.0, 0.39, 0.28);
-    pub const TRANSPARENT: Color = Color::rgba(0., 0., 0., 0.);
     pub const TURQUOISE: Color = Color::rgb(0.25, 0.88, 0.82);
     pub const VIOLET: Color = Color::rgb(0.93, 0.51, 0.93);
     pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
