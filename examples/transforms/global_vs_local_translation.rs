@@ -4,13 +4,21 @@ use bevy::prelude::*;
 struct ChangeGlobal;
 // Define a marker for entities that should be changed via their local transform.
 struct ChangeLocal;
+// Define a marker for entities that should move.
+struct Move;
+// Define a resource for the current movement direction;
+#[derive(Default)]
+struct Direction(Vec3);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
+        .init_resource::<Direction>()
         .add_system(move_cubes_according_to_global_transform)
         .add_system(move_cubes_according_to_local_transform)
+        .add_system(update_directional_input)
+        .add_system(toggle_movement)
         .run();
 }
 
@@ -36,7 +44,8 @@ fn setup(
             transform: Transform::from_translation(Vec3::ZERO),
             ..Default::default()
         })
-        .insert(ChangeLocal);
+        .insert(ChangeLocal)
+        .insert(Move);
 
     // Spawn two entities as children above the original main entity.
     // The red entity spawned here will be changed via its global transform
@@ -50,7 +59,8 @@ fn setup(
                 transform: Transform::from_translation(Vec3::Y - Vec3::Z),
                 ..Default::default()
             })
-            .insert(ChangeGlobal);
+            .insert(ChangeGlobal)
+            .insert(Move);
         child_builder
             .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
@@ -58,7 +68,8 @@ fn setup(
                 transform: Transform::from_translation(Vec3::Y + Vec3::Z),
                 ..Default::default()
             })
-            .insert(ChangeLocal);
+            .insert(ChangeLocal)
+            .insert(Move);
     });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
@@ -76,30 +87,60 @@ fn setup(
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.
 fn move_cubes_according_to_global_transform(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut cubes: Query<&mut GlobalTransform, With<ChangeGlobal>>,
+    mut cubes: Query<&mut GlobalTransform, (With<ChangeGlobal>, With<Move>)>,
+    direction: Res<Direction>,
     timer: Res<Time>,
 ) {
     for mut global_transform in cubes.iter_mut() {
-        let direction = direction_from_input(&keyboard_input);
-        global_transform.translation += Vec3::X * direction * timer.delta_seconds();
+        global_transform.translation += direction.0 * timer.delta_seconds();
     }
 }
 
 // This system will move all cubes that are marked as ChangeLocal according to their local transform.
 fn move_cubes_according_to_local_transform(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut cubes: Query<&mut Transform, With<ChangeLocal>>,
+    mut cubes: Query<&mut Transform, (With<ChangeLocal>, With<Move>)>,
+    direction: Res<Direction>,
     timer: Res<Time>,
 ) {
     for mut transform in cubes.iter_mut() {
-        let direction = direction_from_input(&keyboard_input);
-        transform.translation += Vec3::X * direction * timer.delta_seconds();
+        transform.translation += direction.0 * timer.delta_seconds();
     }
 }
 
 // A quick helper function to determine the cubes movement direction based on left/right-input
-fn direction_from_input(keyboard_input: &Res<Input<KeyCode>>) -> f32 {
-    (keyboard_input.pressed(KeyCode::Right) as i32 - keyboard_input.pressed(KeyCode::Left) as i32)
-        as f32
+fn update_directional_input(mut direction: ResMut<Direction>, keyboard_input: Res<Input<KeyCode>>){
+    let horizontal_movement = Vec3::X * (keyboard_input.pressed(KeyCode::Right) as i32 - keyboard_input.pressed(KeyCode::Left) as i32)
+        as f32;
+    let vertical_movement = Vec3::Y * (keyboard_input.pressed(KeyCode::Up) as i32 - keyboard_input.pressed(KeyCode::Down) as i32) as f32;
+    direction.0 = horizontal_movement + vertical_movement;
+}
+
+fn toggle_movement(
+    mut commands: Commands,
+    moving_entities: Query<(Entity, &Handle<StandardMaterial>), With<Move>>,
+    static_entities: Query<(Entity, &Handle<StandardMaterial>), Without<Move>>,
+    materials: Res<Assets<StandardMaterial>>,
+    keyboard_input: Res<Input<KeyCode>>
+) {
+    let selected_color = if keyboard_input.just_pressed(KeyCode::Key1){
+        Color::YELLOW
+    }else if keyboard_input.just_pressed(KeyCode::Key2){
+        Color::RED
+    }else if keyboard_input.just_pressed(KeyCode::Key3){
+        Color::GREEN
+    }else{
+        return;
+    };
+    for (entity, material_handle) in moving_entities.iter() {
+        let mesh_color = materials.get(material_handle).unwrap().base_color;
+        if selected_color == mesh_color {
+            commands.entity(entity).remove::<Move>();
+        }
+    };
+    for (entity, material_handle) in static_entities.iter() {
+        let mesh_color = materials.get(material_handle).unwrap().base_color;
+        if selected_color == mesh_color {
+            commands.entity(entity).insert(Move);
+        }
+    };
 }
