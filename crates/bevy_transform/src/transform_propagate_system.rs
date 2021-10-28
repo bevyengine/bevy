@@ -41,7 +41,10 @@ pub fn transform_propagate_system(
 fn propagate_recursive(
     parent: &GlobalTransform,
     changed_transform_query: &Query<Entity, Changed<Transform>>,
-    transform_query: &mut Query<(&Transform, &mut GlobalTransform, Option<&Relation>), With<Parent>>,
+    transform_query: &mut Query<
+        (&Transform, &mut GlobalTransform, Option<&Relation>),
+        With<Parent>,
+    >,
     children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
