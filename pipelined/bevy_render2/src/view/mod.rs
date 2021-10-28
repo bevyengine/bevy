@@ -34,6 +34,10 @@ impl Plugin for ViewPlugin {
 
 #[derive(Clone)]
 pub struct Msaa {
+    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+    /// smoother edges. Note that WGPU currently only supports 1 or 4 samples.
+    /// Ultimately we plan on supporting whatever is natively supported on a given device.
+    /// Check out this issue for more info: https://github.com/gfx-rs/wgpu/issues/1832
     pub samples: u32,
 }
 
