@@ -70,7 +70,8 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
-            .init_resource::<SpecializedPipelines<PbrPipeline>>();
+            .init_resource::<SpecializedPipelines<PbrPipeline>>()
+            .init_resource::<SpecializedPipelines<ShadowPipeline>>();
 
         let draw_shadow_mesh = DrawShadowMesh::new(&mut render_app.world);
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);

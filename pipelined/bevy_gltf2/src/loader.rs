@@ -128,12 +128,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_tangents()
-            //     .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-            // {
-            //     mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
@@ -382,15 +382,16 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
-    // let normal_map: Option<Handle<Texture>> = if let Some(normal_texture) = material.normal_texture() {
-    //     // TODO: handle normal_texture.scale
-    //     // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-    //     let label = texture_label(&normal_texture.texture());
-    //     let path = AssetPath::new_ref(load_context.path(), Some(&label));
-    //     Some(load_context.get_handle(path))
-    // } else {
-    //     None
-    // };
+    let normal_map_texture: Option<Handle<Image>> =
+        if let Some(normal_texture) = material.normal_texture() {
+            // TODO: handle normal_texture.scale
+            // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+            let label = texture_label(&normal_texture.texture());
+            let path = AssetPath::new_ref(load_context.path(), Some(&label));
+            Some(load_context.get_handle(path))
+        } else {
+            None
+        };
 
     let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
@@ -430,7 +431,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             metallic_roughness_texture,
-            // normal_map,
+            normal_map_texture,
             double_sided: material.double_sided(),
             occlusion_texture,
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
