@@ -8,7 +8,7 @@ pub use render_device::*;
 use crate::{render_graph::RenderGraph, view::ExtractedWindows};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{Backends, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
@@ -42,12 +42,10 @@ pub type RenderQueue = Arc<Queue>;
 pub type RenderInstance = Instance;
 
 pub async fn initialize_renderer(
-    backends: Backends,
+    instance: &Instance,
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
-) -> (RenderInstance, RenderDevice, RenderQueue) {
-    let instance = wgpu::Instance::new(backends);
-
+) -> (RenderDevice, RenderQueue) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -72,7 +70,7 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (instance, RenderDevice::from(device), queue)
+    (RenderDevice::from(device), queue)
 }
 
 pub struct RenderContext {
