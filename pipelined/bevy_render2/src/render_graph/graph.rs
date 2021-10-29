@@ -38,7 +38,8 @@ use std::{borrow::Cow, fmt::Debug};
 /// # impl Node for MyNode {
 /// #     fn run(&self, graph: &mut RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
 /// #         unimplemented!()
-/// #     }}
+/// #     }
+/// # }
 /// #
 /// let mut graph = RenderGraph::default();
 /// graph.add_node("input_node", MyNode);

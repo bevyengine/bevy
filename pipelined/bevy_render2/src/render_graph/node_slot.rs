@@ -62,10 +62,6 @@ impl From<Entity> for SlotValue {
 /// the render [`Nodes`](super::Node).
 ///
 /// This should not be confused with [`SlotValue`], which actually contains the passed data.
-///
-/// Slots can have four different types:
-/// [`Buffer`](SlotType::Buffer), [`TextureView`](SlotType::TextureView),
-/// [`Sampler`](SlotType::Sampler) and [`Entity`](SlotType::Entity).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SlotType {
     /// A GPU-accessible [`Buffer`].

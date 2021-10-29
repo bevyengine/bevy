@@ -32,7 +32,7 @@ bitflags::bitflags! {
 
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures can be found here
-/// `<https://google.github.io/filament/Material%20Properties.pdf>`.
+/// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Debug, Clone, TypeUuid)]
@@ -73,7 +73,7 @@ impl Default for StandardMaterial {
             emissive: Color::BLACK,
             emissive_texture: None,
             // This is the minimum the roughness is clamped to in shader code
-            // See `<https://google.github.io/filament/Filament.html#materialsystem/parameterization/>`
+            // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
             // It's the minimum floating point value that won't be rounded down to 0 in the
             // calculations used. Although technically for 32-bit floats, 0.045 could be
             // used.
@@ -84,7 +84,7 @@ impl Default for StandardMaterial {
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
-            // `<https://google.github.io/filament/Material%20Properties.pdf>`
+            // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
             occlusion_texture: None,
             double_sided: false,
