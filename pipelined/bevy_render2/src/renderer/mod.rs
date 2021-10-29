@@ -8,7 +8,7 @@ pub use render_device::*;
 use crate::{render_graph::RenderGraph, view::ExtractedWindows};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{Backends, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {

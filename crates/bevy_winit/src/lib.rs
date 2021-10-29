@@ -33,8 +33,6 @@ use winit::dpi::LogicalSize;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-use winit::platform::unix::EventLoopExtUnix;
-
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -43,8 +41,8 @@ impl Plugin for WinitPlugin {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
-        let mut event_loop = EventLoop::new();
-        handle_initial_window_events(&mut app.world, &mut event_loop);
+        let event_loop = EventLoop::new();
+        handle_initial_window_events(&mut app.world, &event_loop);
         app.insert_non_send_resource(event_loop);
     }
 }
