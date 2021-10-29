@@ -217,12 +217,12 @@ impl GlobalTransform {
     ) -> GlobalTransform {
         let translation = self.mul_vec3_relative(transform.translation, relation);
         let rotation = relation.rotation.map_or(transform.rotation, |f| {
-            let mut rot = self.rotation.clone();
+            let mut rot = self.rotation;
             (f)(&mut rot);
             rot * transform.rotation
         });
         let scale = relation.scale.map_or(transform.scale, |f| {
-            let mut scl = self.scale.clone();
+            let mut scl = self.scale;
             (f)(&mut scl);
             scl * transform.scale
         });
@@ -246,17 +246,17 @@ impl GlobalTransform {
     #[inline]
     pub fn mul_vec3_relative(&self, mut value: Vec3, relation: Relation) -> Vec3 {
         value = relation.rotation.map_or(value, |f| {
-            let mut rot = self.rotation.clone();
+            let mut rot = self.rotation;
             (f)(&mut rot);
             rot * value
         });
         value = relation.scale.map_or(value, |f| {
-            let mut scl = self.scale.clone();
+            let mut scl = self.scale;
             (f)(&mut scl);
             scl * value
         });
         value += relation.translation.map_or(Vec3::ZERO, |f| {
-            let mut trn = self.translation.clone();
+            let mut trn = self.translation;
             (f)(&mut trn);
             trn
         });
