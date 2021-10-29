@@ -92,7 +92,6 @@ fn move_parent(mut parent_query: Query<(&mut Transform, &mut ParentMarker)>, tim
 
 // Child movement system
 // Demonstrates that we can still modify the transform of the child
-// Note: This system is unnecessary; you could replace this by modifying the LocalSpace and get the same result!
 fn move_child(mut child_query: Query<(&mut Transform, &mut ChildMarker)>, time: Res<Time>) {
     for (mut transform, mut child) in child_query.iter_mut() {
         // just a simple endless cycle of going back and forth
