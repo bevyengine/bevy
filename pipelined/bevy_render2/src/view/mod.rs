@@ -1,10 +1,13 @@
 pub mod window;
 
+use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 pub use window::*;
 
 use crate::{
-    render_resource::DynamicUniformVec,
+    camera::{ExtractedCamera, ExtractedCameraNames},
+    render_resource::{DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
+    texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -17,10 +20,36 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<Msaa>();
         app.sub_app(RenderApp)
             .init_resource::<ViewUniforms>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_views);
+            .add_system_to_stage(RenderStage::Extract, extract_msaa)
+            .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_view_targets.after(WindowSystem::Prepare),
+            );
     }
+}
+
+#[derive(Clone)]
+pub struct Msaa {
+    /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
+    /// smoother edges. Note that WGPU currently only supports 1 or 4 samples.
+    /// Ultimately we plan on supporting whatever is natively supported on a given device.
+    /// Check out this issue for more info: https://github.com/gfx-rs/wgpu/issues/1832
+    pub samples: u32,
+}
+
+impl Default for Msaa {
+    fn default() -> Self {
+        Self { samples: 4 }
+    }
+}
+
+pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
+    // NOTE: windows.is_changed() handles cases where a window was resized
+    commands.insert_resource(msaa.clone());
 }
 
 pub struct ExtractedView {
@@ -46,17 +75,27 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
-fn prepare_views(
+pub struct ViewTarget {
+    pub view: TextureView,
+    pub sampled_target: Option<TextureView>,
+}
+
+pub struct ViewDepthTexture {
+    pub texture: Texture,
+    pub view: TextureView,
+}
+
+fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    mut extracted_views: Query<(Entity, &ExtractedView)>,
+    mut views: Query<(Entity, &ExtractedView)>,
 ) {
     view_uniforms
         .uniforms
-        .reserve_and_clear(extracted_views.iter_mut().len(), &render_device);
-    for (entity, camera) in extracted_views.iter() {
+        .reserve_and_clear(views.iter_mut().len(), &render_device);
+    for (entity, camera) in views.iter() {
         let projection = camera.projection;
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
@@ -70,4 +109,58 @@ fn prepare_views(
     }
 
     view_uniforms.uniforms.write_buffer(&render_queue);
+}
+
+fn prepare_view_targets(
+    mut commands: Commands,
+    camera_names: Res<ExtractedCameraNames>,
+    windows: Res<ExtractedWindows>,
+    msaa: Res<Msaa>,
+    render_device: Res<RenderDevice>,
+    mut texture_cache: ResMut<TextureCache>,
+    cameras: Query<&ExtractedCamera>,
+) {
+    for entity in camera_names.entities.values().copied() {
+        let camera = if let Ok(camera) = cameras.get(entity) {
+            camera
+        } else {
+            continue;
+        };
+        let window = if let Some(window) = windows.get(&camera.window_id) {
+            window
+        } else {
+            continue;
+        };
+        let swap_chain_texture = if let Some(texture) = &window.swap_chain_texture {
+            texture
+        } else {
+            continue;
+        };
+        let sampled_target = if msaa.samples > 1 {
+            let sampled_texture = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("sampled_color_attachment_texture"),
+                    size: Extent3d {
+                        width: window.physical_width,
+                        height: window.physical_height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::bevy_default(),
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                },
+            );
+            Some(sampled_texture.default_view.clone())
+        } else {
+            None
+        };
+
+        commands.entity(entity).insert(ViewTarget {
+            view: swap_chain_texture.clone(),
+            sampled_target,
+        });
+    }
 }

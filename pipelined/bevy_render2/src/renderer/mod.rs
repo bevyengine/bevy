@@ -5,7 +5,10 @@ use bevy_utils::tracing::{info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
-use crate::{render_graph::RenderGraph, view::ExtractedWindows};
+use crate::{
+    render_graph::RenderGraph,
+    view::{ExtractedWindows, ViewTarget},
+};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
@@ -27,6 +30,17 @@ pub fn render_system(world: &mut World) {
     {
         let span = info_span!("present_frames");
         let _guard = span.enter();
+
+        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
+        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
+        let view_entities = world
+            .query_filtered::<Entity, With<ViewTarget>>()
+            .iter(world)
+            .collect::<Vec<_>>();
+        for view_entity in view_entities {
+            world.entity_mut(view_entity).remove::<ViewTarget>();
+        }
+
         let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
         for window in windows.values_mut() {
             if let Some(texture_view) = window.swap_chain_texture.take() {
