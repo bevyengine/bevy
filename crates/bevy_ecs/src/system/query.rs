@@ -713,6 +713,22 @@ where
             .get(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
 
+        let archetype_component_id = self
+            .world
+            .archetypes()
+            .get(location.archetype_id)
+            .ok_or(QueryComponentError::MissingComponent)?
+            .get_archetype_component_id(component_id)
+            .ok_or(QueryComponentError::MissingComponent)?;
+
+        if !self
+            .state
+            .archetype_component_access
+            .has_read(archetype_component_id)
+        {
+            return Err(QueryComponentError::MissingReadAccess);
+        }
+
         unsafe {
             crate::world::get_component(
                 self.world,
@@ -788,6 +804,22 @@ where
             .entities()
             .get(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
+
+        let archetype_component_id = self
+            .world
+            .archetypes()
+            .get(location.archetype_id)
+            .ok_or(QueryComponentError::MissingComponent)?
+            .get_archetype_component_id(component_id)
+            .ok_or(QueryComponentError::MissingComponent)?;
+
+        if !self
+            .state
+            .archetype_component_access
+            .has_write(archetype_component_id)
+        {
+            return Err(QueryComponentError::MissingWriteAccess);
+        }
 
         crate::world::get_component_and_ticks(
             self.world,
