@@ -43,7 +43,7 @@ impl Plugin for CorePlugin {
         app.world
             .get_resource::<DefaultTaskPoolOptions>()
             .cloned()
-            .unwrap_or_else(DefaultTaskPoolOptions::default)
+            .unwrap_or_default()
             .create_default_pools(&mut app.world);
 
         app.init_resource::<Time>()

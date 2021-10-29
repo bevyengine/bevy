@@ -7,7 +7,7 @@ use crate::{
         LoadOp, Operations, PassDescriptor, RenderPassColorAttachment,
         RenderPassDepthStencilAttachment, TextureAttachment,
     },
-    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
+    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     Color,
 };
 use bevy_ecs::{reflect::ReflectComponent, world::World};
@@ -126,7 +126,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     dimension: TextureDimension::D2,
                     format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                           * bit depth for better performance */
-                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                    usage: TextureUsages::OUTPUT_ATTACHMENT,
                 },
             ),
         );
@@ -220,7 +220,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
                     format: TextureFormat::default(),
-                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                    usage: TextureUsages::OUTPUT_ATTACHMENT,
                 },
             ),
         );

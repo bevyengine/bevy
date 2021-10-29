@@ -21,7 +21,7 @@ pub fn derive_from_resources(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_app_path::FromResources for #struct_name#ty_generics {
+        impl #impl_generics #bevy_app_path::FromResources for #struct_name #ty_generics {
             fn from_resources(resources: &Resources) -> Self {
                 use #bevy_app_path::FromResources;
                 #struct_name {

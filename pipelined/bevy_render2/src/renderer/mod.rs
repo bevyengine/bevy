@@ -1,14 +1,18 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_utils::tracing::{info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
-use crate::render_graph::RenderGraph;
+use crate::{
+    render_graph::RenderGraph,
+    view::{ExtractedWindows, ViewTarget},
+};
 use bevy_ecs::prelude::*;
 use bevy_utils::tracing::info;
 use std::sync::Arc;
-use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -25,6 +29,29 @@ pub fn render_system(world: &mut World) {
         world,
     )
     .unwrap();
+    {
+        let span = info_span!("present_frames");
+        let _guard = span.enter();
+
+        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
+        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
+        let view_entities = world
+            .query_filtered::<Entity, With<ViewTarget>>()
+            .iter(world)
+            .collect::<Vec<_>>();
+        for view_entity in view_entities {
+            world.entity_mut(view_entity).remove::<ViewTarget>();
+        }
+
+        let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
+        for window in windows.values_mut() {
+            if let Some(texture_view) = window.swap_chain_texture.take() {
+                if let Some(surface_texture) = texture_view.take_surface_texture() {
+                    surface_texture.present();
+                }
+            }
+        }
+    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -37,12 +64,10 @@ pub type RenderInstance = Instance;
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    backends: BackendBit,
+    instance: &Instance,
     request_adapter_options: &RequestAdapterOptions<'_>,
     device_descriptor: &DeviceDescriptor<'_>,
-) -> (RenderInstance, RenderDevice, RenderQueue) {
-    let instance = wgpu::Instance::new(backends);
-
+) -> (RenderDevice, RenderQueue) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -67,7 +92,7 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (instance, RenderDevice::from(device), queue)
+    (RenderDevice::from(device), queue)
 }
 
 /// The context with all information required to interact with the GPU.

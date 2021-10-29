@@ -2,9 +2,12 @@ mod light;
 
 pub use light::*;
 
-use crate::{NotShadowCaster, NotShadowReceiver, StandardMaterial, StandardMaterialUniformData};
+use crate::{
+    NotShadowCaster, NotShadowReceiver, StandardMaterial, StandardMaterialUniformData,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
-use bevy_core_pipeline::Transparent3d;
+use bevy_core_pipeline::{SetItemPipeline, Transparent3d};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -17,9 +20,8 @@ use bevy_render2::{
     render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    shader::Shader,
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -114,9 +116,8 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_values);
 }
 
-pub struct PbrShaders {
-    pub pipeline: RenderPipeline,
-    pub shader_module: ShaderModule,
+#[derive(Clone)]
+pub struct PbrPipeline {
     pub view_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -124,19 +125,15 @@ pub struct PbrShaders {
     pub dummy_white_gpu_image: GpuImage,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for PbrShaders {
+impl FromWorld for PbrPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("pbr.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
-
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -149,7 +146,7 @@ impl FromWorld for PbrShaders {
                 // Lights
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -162,7 +159,7 @@ impl FromWorld for PbrShaders {
                 // Point Shadow Texture Cube Array
                 BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
@@ -173,7 +170,7 @@ impl FromWorld for PbrShaders {
                 // Point Shadow Texture Array Sampler
                 BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: true,
                         filtering: true,
@@ -183,7 +180,7 @@ impl FromWorld for PbrShaders {
                 // Directional Shadow Texture Array
                 BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
@@ -194,7 +191,7 @@ impl FromWorld for PbrShaders {
                 // Directional Shadow Texture Array Sampler
                 BindGroupLayoutEntry {
                     binding: 5,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: true,
                         filtering: true,
@@ -202,14 +199,14 @@ impl FromWorld for PbrShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("pbr_view_layout"),
         });
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -222,7 +219,7 @@ impl FromWorld for PbrShaders {
                 // Base Color Texture
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -233,7 +230,7 @@ impl FromWorld for PbrShaders {
                 // Base Color Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -243,7 +240,7 @@ impl FromWorld for PbrShaders {
                 // Emissive Texture
                 BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -254,7 +251,7 @@ impl FromWorld for PbrShaders {
                 // Emissive Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 4,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -264,7 +261,7 @@ impl FromWorld for PbrShaders {
                 // Metallic Roughness Texture
                 BindGroupLayoutEntry {
                     binding: 5,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -275,7 +272,7 @@ impl FromWorld for PbrShaders {
                 // Metallic Roughness Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 6,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -285,7 +282,7 @@ impl FromWorld for PbrShaders {
                 // Occlusion Texture
                 BindGroupLayoutEntry {
                     binding: 7,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: true },
@@ -296,7 +293,7 @@ impl FromWorld for PbrShaders {
                 // Occlusion Texture Sampler
                 BindGroupLayoutEntry {
                     binding: 8,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -304,13 +301,13 @@ impl FromWorld for PbrShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("pbr_material_layout"),
         });
 
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
@@ -320,94 +317,8 @@ impl FromWorld for PbrShaders {
                 },
                 count: None,
             }],
-            label: None,
+            label: Some("pbr_mesh_layout"),
         });
-
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
-            push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &material_layout, &mesh_layout],
-        });
-
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
-            vertex: VertexState {
-                buffers: &[VertexBufferLayout {
-                    array_stride: 32,
-                    step_mode: InputStepMode::Vertex,
-                    attributes: &[
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                }],
-                module: &shader_module,
-                entry_point: "vertex",
-            },
-            fragment: Some(FragmentState {
-                module: &shader_module,
-                entry_point: "fragment",
-                targets: &[ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::SrcAlpha,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: ColorWrite::ALL,
-                }],
-            }),
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Greater,
-                stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-            layout: Some(&pipeline_layout),
-            multisample: MultisampleState::default(),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
-                conservative: false,
-            },
-        });
-
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::new_fill(
@@ -426,6 +337,7 @@ impl FromWorld for PbrShaders {
                     texture: &texture,
                     mip_level: 0,
                     origin: Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
                 },
                 &image.data,
                 ImageDataLayout {
@@ -448,13 +360,130 @@ impl FromWorld for PbrShaders {
                 sampler,
             }
         };
-        PbrShaders {
-            pipeline,
-            shader_module,
+        PbrPipeline {
             view_layout,
             material_layout,
             mesh_layout,
             dummy_white_gpu_image,
+        }
+    }
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    // NOTE: Apparently quadro drivers support up to 64x MSAA.
+    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    pub struct PbrPipelineKey: u32 {
+        const NONE               = 0;
+        const MSAA_RESERVED_BITS = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
+    }
+}
+
+impl PbrPipelineKey {
+    const MSAA_MASK_BITS: u32 = 0b111111;
+    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+
+    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        PbrPipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn msaa_samples(&self) -> u32 {
+        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+}
+
+impl SpecializedPipeline for PbrPipeline {
+    type Key = PbrPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![VertexBufferLayout {
+                    array_stride: 32,
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 24,
+                            shader_location: 2,
+                        },
+                    ],
+                }],
+            },
+            fragment: Some(FragmentState {
+                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                }],
+            }),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.material_layout.clone(),
+                self.mesh_layout.clone(),
+            ]),
+            primitive: PrimitiveState {
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Greater,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: MultisampleState {
+                count: key.msaa_samples(),
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            label: Some("pbr_pipeline".into()),
         }
     }
 }
@@ -465,7 +494,7 @@ pub struct TransformBindGroup {
 
 pub fn queue_transform_bind_group(
     mut commands: Commands,
-    pbr_shaders: Res<PbrShaders>,
+    pbr_pipeline: Res<PbrPipeline>,
     render_device: Res<RenderDevice>,
     transform_uniforms: Res<ComponentUniforms<MeshUniform>>,
 ) {
@@ -476,8 +505,8 @@ pub fn queue_transform_bind_group(
                     binding: 0,
                     resource: binding,
                 }],
-                label: None,
-                layout: &pbr_shaders.mesh_layout,
+                label: Some("transform_bind_group"),
+                layout: &pbr_pipeline.mesh_layout,
             }),
         });
     }
@@ -492,9 +521,12 @@ pub fn queue_meshes(
     mut commands: Commands,
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     render_device: Res<RenderDevice>,
-    pbr_shaders: Res<PbrShaders>,
-    shadow_shaders: Res<ShadowShaders>,
+    pbr_pipeline: Res<PbrPipeline>,
+    shadow_pipeline: Res<ShadowPipeline>,
+    mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
     light_meta: Res<LightMeta>,
+    msaa: Res<Msaa>,
     view_uniforms: Res<ViewUniforms>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
     standard_material_meshes: Query<
@@ -512,6 +544,7 @@ pub fn queue_meshes(
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
+        let msaa_key = PbrPipelineKey::from_msaa_samples(msaa.samples);
         for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
@@ -531,7 +564,7 @@ pub fn queue_meshes(
                     },
                     BindGroupEntry {
                         binding: 3,
-                        resource: BindingResource::Sampler(&shadow_shaders.point_light_sampler),
+                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
                     },
                     BindGroupEntry {
                         binding: 4,
@@ -542,12 +575,12 @@ pub fn queue_meshes(
                     BindGroupEntry {
                         binding: 5,
                         resource: BindingResource::Sampler(
-                            &shadow_shaders.directional_light_sampler,
+                            &shadow_pipeline.directional_light_sampler,
                         ),
                     },
                 ],
-                label: None,
-                layout: &pbr_shaders.view_layout,
+                label: Some("pbr_view_bind_group"),
+                layout: &pbr_pipeline.view_layout,
             });
 
             commands.entity(entity).insert(PbrViewBindGroup {
@@ -566,6 +599,9 @@ pub fn queue_meshes(
                 if !render_materials.contains_key(material_handle) {
                     continue;
                 }
+
+                let pipeline_id =
+                    pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, msaa_key);
                 // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
                 //       gives the z component of translation of the mesh in view space
                 let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
@@ -573,6 +609,7 @@ pub fn queue_meshes(
                 transparent_phase.add(Transparent3d {
                     entity,
                     draw_function: draw_pbr,
+                    pipeline: pipeline_id,
                     distance: mesh_z,
                 });
             }
@@ -581,26 +618,12 @@ pub fn queue_meshes(
 }
 
 pub type DrawPbr = (
-    SetPbrPipeline,
+    SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetStandardMaterialBindGroup<1>,
     SetTransformBindGroup<2>,
     DrawMesh,
 );
-
-pub struct SetPbrPipeline;
-impl RenderCommand<Transparent3d> for SetPbrPipeline {
-    type Param = SRes<PbrShaders>;
-    #[inline]
-    fn render<'w>(
-        _view: Entity,
-        _item: &Transparent3d,
-        pbr_shaders: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) {
-        pass.set_render_pipeline(&pbr_shaders.into_inner().pipeline);
-    }
-}
 
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
@@ -682,10 +705,21 @@ impl RenderCommand<Transparent3d> for DrawMesh {
         let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         if let Some(index_info) = &gpu_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
+            pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
             pass.draw_indexed(0..index_info.count, 0, 0..1);
         } else {
             panic!("non-indexed drawing not supported yet")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PbrPipelineKey;
+    #[test]
+    fn pbr_key_msaa_samples() {
+        for i in 1..=64 {
+            assert_eq!(PbrPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }
 }

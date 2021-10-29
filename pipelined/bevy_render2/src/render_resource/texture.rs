@@ -56,9 +56,15 @@ pub struct TextureViewId(Uuid);
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
     TextureView(Arc<wgpu::TextureView>),
+
     /// The value is a wgpu [`SwapChainFrame`](wgpu::SwapChainFrame), but dereferences to
     /// a [`TextureView`](wgpu::TextureView).
-    SwapChainFrame(Arc<wgpu::SwapChainFrame>),
+    SurfaceTexture {
+        // NOTE: The order of these fields is important because the view must be dropped before the
+        // frame is dropped
+        view: Arc<wgpu::TextureView>,
+        texture: Arc<wgpu::SurfaceTexture>,
+    },
 }
 
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
@@ -77,6 +83,14 @@ impl TextureView {
     pub fn id(&self) -> TextureViewId {
         self.id
     }
+
+    #[inline]
+    pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
+        match self.value {
+            TextureViewValue::TextureView(_) => None,
+            TextureViewValue::SurfaceTexture { texture, .. } => Arc::try_unwrap(texture).ok(),
+        }
+    }
 }
 
 impl From<wgpu::TextureView> for TextureView {
@@ -88,11 +102,14 @@ impl From<wgpu::TextureView> for TextureView {
     }
 }
 
-impl From<wgpu::SwapChainFrame> for TextureView {
-    fn from(value: wgpu::SwapChainFrame) -> Self {
+impl From<wgpu::SurfaceTexture> for TextureView {
+    fn from(value: wgpu::SurfaceTexture) -> Self {
+        let texture = Arc::new(value);
+        let view = Arc::new(texture.texture.create_view(&Default::default()));
+
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::SwapChainFrame(Arc::new(value)),
+            value: TextureViewValue::SurfaceTexture { texture, view },
         }
     }
 }
@@ -104,7 +121,7 @@ impl Deref for TextureView {
     fn deref(&self) -> &Self::Target {
         match &self.value {
             TextureViewValue::TextureView(value) => value,
-            TextureViewValue::SwapChainFrame(value) => &value.output.view,
+            TextureViewValue::SurfaceTexture { view, .. } => view,
         }
     }
 }
@@ -143,37 +160,6 @@ impl From<wgpu::Sampler> for Sampler {
 
 impl Deref for Sampler {
     type Target = wgpu::Sampler;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct SwapChainFrame {
-    id: TextureViewId,
-    value: Arc<wgpu::SwapChainFrame>,
-}
-
-impl SwapChainFrame {
-    #[inline]
-    pub fn id(&self) -> TextureViewId {
-        self.id
-    }
-}
-
-impl From<wgpu::SwapChainFrame> for SwapChainFrame {
-    fn from(value: wgpu::SwapChainFrame) -> Self {
-        Self {
-            id: TextureViewId(Uuid::new_v4()),
-            value: Arc::new(value),
-        }
-    }
-}
-
-impl Deref for SwapChainFrame {
-    type Target = wgpu::SwapChainFrame;
 
     #[inline]
     fn deref(&self) -> &Self::Target {

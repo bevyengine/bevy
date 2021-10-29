@@ -1,5 +1,5 @@
 use bevy_reflect::Uuid;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -23,12 +23,6 @@ impl BindGroup {
     pub fn id(&self) -> BindGroupId {
         self.id
     }
-
-    /// Returns the wgpu [`BindGroup`](wgpu::BindGroup)
-    #[inline]
-    pub fn value(&self) -> &wgpu::BindGroup {
-        &self.value
-    }
 }
 
 impl From<wgpu::BindGroup> for BindGroup {
@@ -37,5 +31,14 @@ impl From<wgpu::BindGroup> for BindGroup {
             id: BindGroupId(Uuid::new_v4()),
             value: Arc::new(value),
         }
+    }
+}
+
+impl Deref for BindGroup {
+    type Target = wgpu::BindGroup;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
     }
 }

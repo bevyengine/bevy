@@ -4,7 +4,7 @@ use crate::{
 };
 use crevice::std140::{self, AsStd140, DynamicUniform, Std140};
 use std::num::NonZeroU64;
-use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsage};
+use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
 
 pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
@@ -78,7 +78,7 @@ impl<T: AsStd140> UniformVec<T> {
             self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
                 size: size as wgpu::BufferAddress,
-                usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 mapped_at_creation: false,
             }));
         }

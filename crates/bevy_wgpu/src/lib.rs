@@ -29,15 +29,12 @@ pub enum WgpuFeature {
     TimestampQuery,
     PipelineStatisticsQuery,
     MappablePrimaryBuffers,
-    SampledTextureBindingArray,
-    SampledTextureArrayDynamicIndexing,
-    SampledTextureArrayNonUniformIndexing,
     UnsizedBindingArray,
     MultiDrawIndirect,
     MultiDrawIndirectCount,
     PushConstants,
     AddressModeClampToBorder,
-    NonFillPolygonMode,
+    PolygonModeLine,
     TextureCompressionEtc2,
     TextureCompressionAstcLdr,
     TextureAdapterSpecificFormatFeatures,
@@ -70,6 +67,8 @@ pub struct WgpuLimits {
     pub max_vertex_buffers: u32,
     pub max_vertex_attributes: u32,
     pub max_vertex_buffer_array_stride: u32,
+    pub min_storage_buffer_offset_alignment: u32,
+    pub min_uniform_buffer_offset_alignment: u32,
 }
 
 impl Default for WgpuLimits {
@@ -96,6 +95,8 @@ impl Default for WgpuLimits {
             max_vertex_buffers: default.max_vertex_buffers,
             max_vertex_attributes: default.max_vertex_attributes,
             max_vertex_buffer_array_stride: default.max_vertex_buffer_array_stride,
+            min_storage_buffer_offset_alignment: default.min_storage_buffer_offset_alignment,
+            min_uniform_buffer_offset_alignment: default.min_uniform_buffer_offset_alignment,
         }
     }
 }
@@ -118,7 +119,7 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
     let options = world
         .get_resource::<WgpuOptions>()
         .cloned()
-        .unwrap_or_else(WgpuOptions::default);
+        .unwrap_or_default();
     let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
 
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());

@@ -9,16 +9,22 @@ pub use main_pass_driver::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    prelude::*,
+    system::{lifetimeless::SRes, SystemParamItem},
+};
 use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
+    render_phase::{
+        sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase,
+        TrackedRenderPass,
+    },
     render_resource::*,
     renderer::RenderDevice,
     texture::{Image, TextureCache},
-    view::ExtractedView,
+    view::{ExtractedView, Msaa, ViewDepthTexture},
     RenderApp, RenderStage, RenderWorld,
 };
 
@@ -47,7 +53,6 @@ pub mod draw_2d_graph {
     pub const NAME: &str = "draw_2d";
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
-        pub const RENDER_TARGET: &str = "render_target";
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
@@ -58,8 +63,6 @@ pub mod draw_3d_graph {
     pub const NAME: &str = "draw_3d";
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
-        pub const RENDER_TARGET: &str = "render_target";
-        pub const DEPTH: &str = "depth";
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
@@ -89,10 +92,10 @@ impl Plugin for CorePipelinePlugin {
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![
-            SlotInfo::new(draw_2d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_2d_graph::input::RENDER_TARGET, SlotType::TextureView),
-        ]);
+        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
+            draw_2d_graph::input::VIEW_ENTITY,
+            SlotType::Entity,
+        )]);
         draw_2d_graph
             .add_slot_edge(
                 input_node_id,
@@ -101,45 +104,20 @@ impl Plugin for CorePipelinePlugin {
                 MainPass2dNode::IN_VIEW,
             )
             .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::RENDER_TARGET,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
         graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![
-            SlotInfo::new(draw_3d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_3d_graph::input::RENDER_TARGET, SlotType::TextureView),
-            SlotInfo::new(draw_3d_graph::input::DEPTH, SlotType::TextureView),
-        ]);
+        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
+            draw_3d_graph::input::VIEW_ENTITY,
+            SlotType::Entity,
+        )]);
         draw_3d_graph
             .add_slot_edge(
                 input_node_id,
                 draw_3d_graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::MAIN_PASS,
                 MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::RENDER_TARGET,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::DEPTH,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_DEPTH,
             )
             .unwrap();
         graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
@@ -155,6 +133,7 @@ impl Plugin for CorePipelinePlugin {
 pub struct Transparent2d {
     pub sort_key: Handle<Image>,
     pub entity: Entity,
+    pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -174,6 +153,7 @@ impl PhaseItem for Transparent2d {
 
 pub struct Transparent3d {
     pub distance: f32,
+    pub pipeline: CachedPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -192,9 +172,39 @@ impl PhaseItem for Transparent3d {
     }
 }
 
-pub struct ViewDepthTexture {
-    pub texture: Texture,
-    pub view: TextureView,
+pub struct SetItemPipeline;
+impl RenderCommand<Transparent3d> for SetItemPipeline {
+    type Param = SRes<RenderPipelineCache>;
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: &Transparent3d,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        let pipeline = pipeline_cache
+            .into_inner()
+            .get_state(item.pipeline)
+            .unwrap();
+        pass.set_render_pipeline(pipeline);
+    }
+}
+
+impl RenderCommand<Transparent2d> for SetItemPipeline {
+    type Param = SRes<RenderPipelineCache>;
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: &Transparent2d,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        let pipeline = pipeline_cache
+            .into_inner()
+            .get_state(item.pipeline)
+            .unwrap();
+        pass.set_render_pipeline(pipeline);
+    }
 }
 
 pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
@@ -228,25 +238,26 @@ pub fn extract_core_pipeline_camera_phases(
 pub fn prepare_core_views_system(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
+    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3d>>>,
+    views_3d: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3d>>>,
 ) {
-    for (entity, view) in views.iter() {
+    for (entity, view) in views_3d.iter() {
         let cached_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: None,
+                label: Some("view_depth_texture"),
                 size: Extent3d {
                     depth_or_array_layers: 1,
                     width: view.width as u32,
                     height: view.height as u32,
                 },
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: msaa.samples,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                       * bit depth for better performance */
-                usage: TextureUsage::RENDER_ATTACHMENT,
+                usage: TextureUsages::RENDER_ATTACHMENT,
             },
         );
         commands.entity(entity).insert(ViewDepthTexture {

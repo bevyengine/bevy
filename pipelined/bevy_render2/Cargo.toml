@@ -1,7 +1,7 @@
 [package]
 name = "bevy_render2"
 version = "0.5.0"
-edition = "2018"
+edition = "2021"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
     "Carter Anderson <mcanders1@gmail.com>",
@@ -29,8 +29,8 @@ bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
 image = { version = "0.23.12", default-features = false }
 
 # misc
-wgpu = "0.9"
-naga = { version = "0.5", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
+wgpu = { version = "0.11.0", features = ["spirv"] }
+naga = { version = "0.7.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
@@ -42,7 +42,11 @@ anyhow = "1.0"
 hex = "0.4.2"
 hexasphere = "4.0"
 parking_lot = "0.11.0"
+regex = "1.5"
 crevice = { path = "../../crates/crevice", version = "0.6.0" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "0.11.0", features = ["spirv", "webgl"] }
 
 [features]
 png = ["image/png"]
@@ -51,3 +55,4 @@ dds = ["image/dds"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
+trace = []

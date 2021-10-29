@@ -1,6 +1,6 @@
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Rect, Sprite,
+    Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_core_pipeline::Transparent2d;
@@ -12,11 +12,9 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
-    shader::Shader,
+    renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
 };
@@ -24,23 +22,22 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 
-pub struct SpriteShaders {
-    pipeline: RenderPipeline,
+pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
+    pipeline: CachedPipelineId,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for SpriteShaders {
+impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
+        let world = world.cell();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("sprite.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
+        let mut pipeline_cache = world.get_resource_mut::<RenderPipelineCache>().unwrap();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
@@ -50,14 +47,14 @@ impl FromWorld for SpriteShaders {
                 },
                 count: None,
             }],
-            label: None,
+            label: Some("sprite_view_layout"),
         });
 
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Float { filterable: false },
@@ -67,7 +64,7 @@ impl FromWorld for SpriteShaders {
                 },
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -75,23 +72,18 @@ impl FromWorld for SpriteShaders {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("sprite_material_layout"),
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
-            push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &material_layout],
-        });
-
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: None,
-            depth_stencil: None,
+        let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                buffers: &[VertexBufferLayout {
+                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![VertexBufferLayout {
                     array_stride: 20,
-                    step_mode: InputStepMode::Vertex,
-                    attributes: &[
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vec![
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
                             offset: 0,
@@ -104,13 +96,12 @@ impl FromWorld for SpriteShaders {
                         },
                     ],
                 }],
-                module: &shader_module,
-                entry_point: "vertex",
             },
             fragment: Some(FragmentState {
-                module: &shader_module,
-                entry_point: "fragment",
-                targets: &[ColorTargetState {
+                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState {
                         color: BlendComponent {
@@ -124,24 +115,30 @@ impl FromWorld for SpriteShaders {
                             operation: BlendOperation::Add,
                         },
                     }),
-                    write_mask: ColorWrite::ALL,
+                    write_mask: ColorWrites::ALL,
                 }],
             }),
-            layout: Some(&pipeline_layout),
-            multisample: MultisampleState::default(),
+            layout: Some(vec![view_layout.clone(), material_layout.clone()]),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
                 polygon_mode: PolygonMode::Fill,
                 clamp_depth: false,
                 conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
             },
-        });
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            label: Some("sprite_pipeline".into()),
+        };
 
-        SpriteShaders {
-            pipeline,
+        SpritePipeline {
+            pipeline: pipeline_cache.queue(descriptor),
             view_layout,
             material_layout,
         }
@@ -232,8 +229,8 @@ pub struct SpriteMeta {
 impl Default for SpriteMeta {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsage::VERTEX),
-            indices: BufferVec::new(BufferUsage::INDEX),
+            vertices: BufferVec::new(BufferUsages::VERTEX),
+            indices: BufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
             quad: Quad {
                 size: Vec2::new(1.0, 1.0),
@@ -246,6 +243,7 @@ impl Default for SpriteMeta {
 
 pub fn prepare_sprites(
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     mut extracted_sprites: Query<&mut ExtractedSprite>,
 ) {
@@ -312,8 +310,8 @@ pub fn prepare_sprites(
         }
     }
 
-    sprite_meta.vertices.write_to_staging_buffer(&render_device);
-    sprite_meta.indices.write_to_staging_buffer(&render_device);
+    sprite_meta.vertices.write_buffer(&render_queue);
+    sprite_meta.indices.write_buffer(&render_queue);
 }
 
 #[derive(Default)]
@@ -327,7 +325,7 @@ pub fn queue_sprites(
     render_device: Res<RenderDevice>,
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
-    sprite_shaders: Res<SpriteShaders>,
+    sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     mut extracted_sprites: Query<(Entity, &ExtractedSprite)>,
@@ -339,8 +337,8 @@ pub fn queue_sprites(
                 binding: 0,
                 resource: view_binding,
             }],
-            label: None,
-            layout: &sprite_shaders.view_layout,
+            label: Some("sprite_view_bind_group"),
+            layout: &sprite_pipeline.view_layout,
         }));
         let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
         for mut transparent_phase in views.iter_mut() {
@@ -361,12 +359,13 @@ pub fn queue_sprites(
                                     resource: BindingResource::Sampler(&gpu_image.sampler),
                                 },
                             ],
-                            label: None,
-                            layout: &sprite_shaders.material_layout,
+                            label: Some("sprite_material_bind_group"),
+                            layout: &sprite_pipeline.material_layout,
                         })
                     });
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
+                    pipeline: sprite_pipeline.pipeline,
                     entity,
                     sort_key: sprite.handle.clone_weak(),
                 });
@@ -375,32 +374,11 @@ pub fn queue_sprites(
     }
 }
 
-// TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
-pub struct SpriteNode;
-
-impl Node for SpriteNode {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let sprite_buffers = world.get_resource::<SpriteMeta>().unwrap();
-        sprite_buffers
-            .vertices
-            .write_to_buffer(&mut render_context.command_encoder);
-        sprite_buffers
-            .indices
-            .write_to_buffer(&mut render_context.command_encoder);
-        Ok(())
-    }
-}
-
 pub struct DrawSprite {
     params: SystemState<(
-        SRes<SpriteShaders>,
         SRes<SpriteMeta>,
         SRes<ImageBindGroups>,
+        SRes<RenderPipelineCache>,
         SQuery<Read<ViewUniformOffset>>,
         SQuery<Read<ExtractedSprite>>,
     )>,
@@ -423,38 +401,39 @@ impl Draw<Transparent2d> for DrawSprite {
         item: &Transparent2d,
     ) {
         const INDICES: usize = 6;
-        let (sprite_shaders, sprite_meta, image_bind_groups, views, sprites) =
-            self.params.get(world);
+        let (sprite_meta, image_bind_groups, pipelines, views, sprites) = self.params.get(world);
         let view_uniform = views.get(view).unwrap();
         let sprite_meta = sprite_meta.into_inner();
         let image_bind_groups = image_bind_groups.into_inner();
         let extracted_sprite = sprites.get(item.entity).unwrap();
-        pass.set_render_pipeline(&sprite_shaders.into_inner().pipeline);
-        pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
-        pass.set_index_buffer(
-            sprite_meta.indices.buffer().unwrap().slice(..),
-            0,
-            IndexFormat::Uint32,
-        );
-        pass.set_bind_group(
-            0,
-            sprite_meta.view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
-        pass.set_bind_group(
-            1,
-            image_bind_groups
-                .values
-                .get(&extracted_sprite.handle)
-                .unwrap(),
-            &[],
-        );
+        if let Some(pipeline) = pipelines.into_inner().get(item.pipeline) {
+            pass.set_render_pipeline(pipeline);
+            pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
+            pass.set_index_buffer(
+                sprite_meta.indices.buffer().unwrap().slice(..),
+                0,
+                IndexFormat::Uint32,
+            );
+            pass.set_bind_group(
+                0,
+                sprite_meta.view_bind_group.as_ref().unwrap(),
+                &[view_uniform.offset],
+            );
+            pass.set_bind_group(
+                1,
+                image_bind_groups
+                    .values
+                    .get(&extracted_sprite.handle)
+                    .unwrap(),
+                &[],
+            );
 
-        pass.draw_indexed(
-            (extracted_sprite.vertex_index * INDICES) as u32
-                ..(extracted_sprite.vertex_index * INDICES + INDICES) as u32,
-            0,
-            0..1,
-        );
+            pass.draw_indexed(
+                (extracted_sprite.vertex_index * INDICES) as u32
+                    ..(extracted_sprite.vertex_index * INDICES + INDICES) as u32,
+                0,
+                0..1,
+            );
+        }
     }
 }

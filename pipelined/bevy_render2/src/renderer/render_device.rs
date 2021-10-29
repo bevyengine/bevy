@@ -1,5 +1,6 @@
 use crate::render_resource::{
-    BindGroup, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture,
+    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
+    RenderPipeline, Sampler, Texture,
 };
 use futures_lite::future;
 use std::sync::Arc;
@@ -36,11 +37,8 @@ impl RenderDevice {
 
     /// Creates a [ShaderModule](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
-    pub fn create_shader_module<'a>(
-        &self,
-        desc: impl Into<wgpu::ShaderModuleDescriptor<'a>>,
-    ) -> wgpu::ShaderModule {
-        self.device.create_shader_module(&desc.into())
+    pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+        self.device.create_shader_module(desc)
     }
 
     /// Check for resource cleanups and mapping callbacks.
@@ -81,8 +79,8 @@ impl RenderDevice {
     pub fn create_bind_group_layout(
         &self,
         desc: &wgpu::BindGroupLayoutDescriptor,
-    ) -> wgpu::BindGroupLayout {
-        self.device.create_bind_group_layout(desc)
+    ) -> BindGroupLayout {
+        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
     }
 
     /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
@@ -96,7 +94,7 @@ impl RenderDevice {
 
     /// Creates a [`RenderPipeline`].
     #[inline]
-    pub fn create_render_pipeline(&self, desc: &wgpu::RenderPipelineDescriptor) -> RenderPipeline {
+    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor) -> RenderPipeline {
         let wgpu_render_pipeline = self.device.create_render_pipeline(desc);
         RenderPipeline::from(wgpu_render_pipeline)
     }
@@ -145,12 +143,8 @@ impl RenderDevice {
     ///
     /// - A old [`SwapChainFrame`](wgpu::SwapChain) is still alive referencing an old swap chain.
     /// - Texture format requested is unsupported on the swap chain.
-    pub fn create_swap_chain(
-        &self,
-        surface: &wgpu::Surface,
-        desc: &wgpu::SwapChainDescriptor,
-    ) -> wgpu::SwapChain {
-        self.device.create_swap_chain(surface, desc)
+    pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
+        surface.configure(&self.device, config)
     }
 
     /// Returns the wgpu [`Device`](wgpu::Device).

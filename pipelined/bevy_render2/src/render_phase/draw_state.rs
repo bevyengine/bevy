@@ -137,7 +137,7 @@ impl<'a> TrackedRenderPass<'a> {
             );
         }
         self.pass
-            .set_bind_group(index as u32, bind_group.value(), dynamic_uniform_indices);
+            .set_bind_group(index as u32, bind_group, dynamic_uniform_indices);
         self.state
             .set_bind_group(index as usize, bind_group.id(), dynamic_uniform_indices);
     }
@@ -221,5 +221,11 @@ impl<'a> TrackedRenderPass<'a> {
             indices, base_vertex, instances
         );
         self.pass.draw_indexed(indices, base_vertex, instances);
+    }
+
+    pub fn set_stencil_reference(&mut self, reference: u32) {
+        debug!("set stencil reference: {}", reference);
+
+        self.pass.set_stencil_reference(reference);
     }
 }

@@ -228,6 +228,7 @@ Example | File | Description
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+`shader_defs_pipelined` | [`shader/shader_defs_pipelined.rs`](./shader/shader_defs_pipelined.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
 ## Tests
 

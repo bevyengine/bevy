@@ -1,3 +1,4 @@
+use crate::PbrPipeline;
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -6,14 +7,14 @@ use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsage, Sampler, TextureView},
+    render_resource::{
+        BindGroup, Buffer, BufferInitDescriptor, BufferUsages, Sampler, TextureView,
+    },
     renderer::RenderDevice,
     texture::Image,
 };
 use crevice::std140::{AsStd140, Std140};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};
-
-use crate::PbrShaders;
 
 // NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
 bitflags::bitflags! {
@@ -156,7 +157,7 @@ impl RenderAsset for StandardMaterial {
     type PreparedAsset = GpuStandardMaterial;
     type Param = (
         SRes<RenderDevice>,
-        SRes<PbrShaders>,
+        SRes<PbrPipeline>,
         SRes<RenderAssets<Image>>,
     );
 
@@ -166,10 +167,10 @@ impl RenderAsset for StandardMaterial {
 
     fn prepare_asset(
         material: Self::ExtractedAsset,
-        (render_device, pbr_shaders, gpu_images): &mut SystemParamItem<Self::Param>,
+        (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let (base_color_texture_view, base_color_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.base_color_texture)
+            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.base_color_texture)
         {
             result
         } else {
@@ -177,7 +178,7 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (emissive_texture_view, emissive_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.emissive_texture)
+            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.emissive_texture)
         {
             result
         } else {
@@ -186,7 +187,7 @@ impl RenderAsset for StandardMaterial {
 
         let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
             image_handle_to_view_sampler(
-                pbr_shaders,
+                pbr_pipeline,
                 gpu_images,
                 &material.metallic_roughness_texture,
             ) {
@@ -195,7 +196,7 @@ impl RenderAsset for StandardMaterial {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
         let (occlusion_texture_view, occlusion_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_shaders, gpu_images, &material.occlusion_texture)
+            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.occlusion_texture)
         {
             result
         } else {
@@ -231,8 +232,8 @@ impl RenderAsset for StandardMaterial {
         let value_std140 = value.as_std140();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            label: Some("pbr_standard_material_uniform_buffer"),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             contents: value_std140.as_bytes(),
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -274,8 +275,8 @@ impl RenderAsset for StandardMaterial {
                     resource: BindingResource::Sampler(occlusion_sampler),
                 },
             ],
-            label: None,
-            layout: &pbr_shaders.material_layout,
+            label: Some("pbr_standard_material_bind_group"),
+            layout: &pbr_pipeline.material_layout,
         });
 
         Ok(GpuStandardMaterial { buffer, bind_group })
@@ -285,7 +286,7 @@ impl RenderAsset for StandardMaterial {
 /// Returns the [`TextureView`] and the associated [`Sampler`] of the image.
 /// Defaults to a white dummy image if the handle is `None`.
 fn image_handle_to_view_sampler<'a>(
-    pbr_pipeline: &'a PbrShaders,
+    pbr_pipeline: &'a PbrPipeline,
     gpu_images: &'a RenderAssets<Image>,
     handle_option: &Option<Handle<Image>>,
 ) -> Option<(&'a TextureView, &'a Sampler)> {

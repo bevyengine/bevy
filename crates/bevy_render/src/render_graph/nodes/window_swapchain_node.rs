@@ -52,7 +52,7 @@ impl Node for WindowSwapChainNode {
 
         let render_resource_context = render_context.resources_mut();
 
-        // create window swapchain when window is resized or created
+        // reconfigure surface window is resized or created
         if self
             .window_created_event_reader
             .iter(window_created_events)
@@ -62,10 +62,10 @@ impl Node for WindowSwapChainNode {
                 .iter(window_resized_events)
                 .any(|e| e.id == window.id())
         {
-            render_resource_context.create_swap_chain(window);
+            render_resource_context.configure_surface(window);
         }
 
-        let swap_chain_texture = render_resource_context.next_swap_chain_texture(window);
+        let swap_chain_texture = render_resource_context.next_surface_frame(window);
         output.set(
             WINDOW_TEXTURE,
             RenderResourceId::Texture(swap_chain_texture),
