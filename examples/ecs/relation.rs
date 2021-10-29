@@ -10,33 +10,45 @@ fn main() {
 
 #[derive(Component)]
 struct ParentMarker {
-    pub dir: bool
+    pub dir: bool,
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     // parent
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }.into()),
-        material: materials.add(Color::rgb(1.0, 0.2, 0.2).into()),
-        ..Default::default()
-    })
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(shape::Cube { size: 1.0 }.into()),
+            material: materials.add(Color::rgb(1.0, 0.2, 0.2).into()),
+            ..Default::default()
+        })
         .insert(ParentMarker { dir: false })
         .with_children(|c| {
             // child
             c.spawn_bundle(PbrBundle {
-                mesh: meshes.add(shape::Icosphere { radius: 1.0, subdivisions: 2 }.into()),
+                mesh: meshes.add(
+                    shape::Icosphere {
+                        radius: 1.0,
+                        subdivisions: 2,
+                    }
+                    .into(),
+                ),
                 material: materials.add(Color::rgb(0.2, 1.0, 1.0).into()),
                 ..Default::default()
             })
-                .insert(Relation {
-                    translation: Some(|v| { // for this example, we are just switching the x and y axis
-                        let x = v.x;
-                        v.x = v.y;
-                        v.y = x;
-                    }),
-                    ..Default::default()
-                });
-    });
+            .insert(Relation {
+                translation: Some(|v| {
+                    // for this example, we are just switching the x and y axis
+                    let x = v.x;
+                    v.x = v.y;
+                    v.y = x;
+                }),
+                ..Default::default()
+            });
+        });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
