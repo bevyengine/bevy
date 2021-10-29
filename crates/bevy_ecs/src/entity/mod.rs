@@ -36,6 +36,8 @@ use std::{
     sync::atomic::{AtomicI64, Ordering},
 };
 
+use bevy_utils::tracing::warn;
+
 /// Lightweight unique ID of an entity.
 ///
 /// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
@@ -394,6 +396,11 @@ impl Entities {
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len -= 1;
+        } else {
+            warn!(
+                "Entity generation exhausted. Retiring slot for entity #{}",
+                entity.id
+            );
         }
 
         Some(mem::replace(&mut meta.location, EntityMeta::EMPTY.location))
