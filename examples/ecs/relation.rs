@@ -13,6 +13,7 @@ struct ParentMarker {
     pub dir: bool,
 }
 
+#[allow(clippy::manual_swap)]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -42,9 +43,9 @@ fn setup(
             .insert(Relation {
                 translation: Some(|v| {
                     // for this example, we are just switching the x and y axis
-                    let x = v.x;
+                    let temp = v.x;
                     v.x = v.y;
-                    v.y = x;
+                    v.y = temp;
                 }),
                 ..Default::default()
             });
