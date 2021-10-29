@@ -1,12 +1,7 @@
 /// # Platform-specific
 /// - iOS / Android / Web: Unsupported.
 /// - OSX: Not working as expected.
-
-use bevy::{
-    prelude::*,
-    render::pass::ClearColor,
-    window::WindowDescriptor,
-};
+use bevy::{prelude::*, render::pass::ClearColor, window::WindowDescriptor};
 
 fn main() {
     App::new()
