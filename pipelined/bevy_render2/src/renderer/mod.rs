@@ -10,7 +10,6 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
-use bevy_utils::tracing::info;
 use std::sync::Arc;
 use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 

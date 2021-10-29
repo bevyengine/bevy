@@ -51,13 +51,13 @@ impl Deref for Texture {
 pub struct TextureViewId(Uuid);
 
 /// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
-/// [`SwapChainFrame`](wgpu::SwapChainFrame) into the same interface.
+/// [SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
     TextureView(Arc<wgpu::TextureView>),
 
-    /// The value is a wgpu [`SwapChainFrame`](wgpu::SwapChainFrame), but dereferences to
+    /// The value is a wgpu [`SurfaceTexture`](wgpu::SurfaceTexture), but dereferences to
     /// a [`TextureView`](wgpu::TextureView).
     SurfaceTexture {
         // NOTE: The order of these fields is important because the view must be dropped before the
@@ -69,7 +69,7 @@ pub enum TextureViewValue {
 
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 ///
-/// May be converted from a [`TextureView`](wgpu::TextureView) or [`SwapChainFrame`](wgpu::SwapChainFrame)
+/// May be converted from a [`TextureView`](wgpu::TextureView) or [`SurfaceTexture`](wgpu::SurfaceTexture)
 /// or dereferences to a wgpu [`TextureView`](wgpu::TextureView).
 #[derive(Clone, Debug)]
 pub struct TextureView {
@@ -84,6 +84,7 @@ impl TextureView {
         self.id
     }
 
+    /// Returns the [`SurfaceTexture`](wgpu::SurfaceTexture) of the texture view if it is of that type.
     #[inline]
     pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
         match self.value {

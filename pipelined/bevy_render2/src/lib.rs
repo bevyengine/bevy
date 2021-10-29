@@ -32,7 +32,7 @@ use wgpu::Backends;
 #[derive(Default)]
 pub struct RenderPlugin;
 
-/// The labels of the default App stages.
+/// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
     /// Extract data from the "app world" and insert it into the "render world".
