@@ -1,4 +1,4 @@
-use crate::components::{Children, GlobalTransform, Parent, Relation, Transform};
+use crate::components::{Children, GlobalTransform, LocalSpace, Parent, Transform};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With, Without},
@@ -12,7 +12,10 @@ pub fn transform_propagate_system(
         (Entity, Option<&Children>, &Transform, &mut GlobalTransform),
         Without<Parent>,
     >,
-    mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Relation>), With<Parent>>,
+    mut transform_query: Query<
+        (&Transform, &mut GlobalTransform, Option<&LocalSpace>),
+        With<Parent>,
+    >,
     changed_transform_query: Query<Entity, Changed<Transform>>,
     children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
@@ -42,7 +45,7 @@ fn propagate_recursive(
     parent: &GlobalTransform,
     changed_transform_query: &Query<Entity, Changed<Transform>>,
     transform_query: &mut Query<
-        (&Transform, &mut GlobalTransform, Option<&Relation>),
+        (&Transform, &mut GlobalTransform, Option<&LocalSpace>),
         With<Parent>,
     >,
     children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
@@ -52,10 +55,11 @@ fn propagate_recursive(
     changed |= changed_transform_query.get(entity).is_ok();
 
     let global_matrix = {
-        if let Ok((transform, mut global_transform, relation)) = transform_query.get_mut(entity) {
+        if let Ok((transform, mut global_transform, local_space)) = transform_query.get_mut(entity)
+        {
             if changed {
-                if let Some(relation) = relation {
-                    *global_transform = parent.mul_transform_relative(*transform, *relation);
+                if let Some(local_space) = local_space {
+                    *global_transform = parent.mul_transform_relative(*transform, *local_space);
                 } else {
                     *global_transform = parent.mul_transform(*transform);
                 }

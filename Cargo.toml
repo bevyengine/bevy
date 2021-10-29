@@ -142,6 +142,10 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
+name = "local_space"
+path = "examples/3d/local_space.rs"
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
@@ -286,10 +290,6 @@ path = "examples/ecs/iter_combinations.rs"
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
-
-[[example]]
-name = "relation"
-path = "examples/ecs/relation.rs"
 
 [[example]]
 name = "removal_detection"

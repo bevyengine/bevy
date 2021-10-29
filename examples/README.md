@@ -97,6 +97,7 @@ Example | File | Description
 --- | --- | ---
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
+`local_space` | [3d/local_space.rs](./3d/local_space.rs) | Illustrates mapping a parent's `Transform` to a child's with `LocalSpace`
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
@@ -169,7 +170,6 @@ Example | File | Description
 `system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 `system_sets` | [`ecs/system_sets.rs`](./ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
-`relation` | [ecs/relation.rs](./ecs/relation.rs) | Illustrates creating a relationship between parent and child `Transform`s
 
 ## Games
 

@@ -1,6 +1,6 @@
-use super::{Relation, Transform};
+use super::{LocalSpace, Transform};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Mat3, Mat4, Quat, Vec3, Vec4};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -207,25 +207,18 @@ impl GlobalTransform {
         }
     }
 
-    /// Multiplies `self` with ['Relation']-mapped `transform` component by component, returning the
+    /// Multiplies `self` with ['LocalSpace']-mapped `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]
     pub fn mul_transform_relative(
         &self,
         transform: Transform,
-        relation: Relation,
+        local_space: LocalSpace,
     ) -> GlobalTransform {
-        let translation = self.mul_vec3_relative(transform.translation, relation);
-        let rotation = relation.rotation.map_or(transform.rotation, |f| {
-            let mut rot = self.rotation;
-            (f)(&mut rot);
-            rot * transform.rotation
-        });
-        let scale = relation.scale.map_or(transform.scale, |f| {
-            let mut scl = self.scale;
-            (f)(&mut scl);
-            scl * transform.scale
-        });
+        let translation = self.mul_vec3_relative(transform.translation, local_space);
+        let rotation =
+            Quat::from_vec4(local_space.rotation * Vec4::from(self.rotation)) * transform.rotation;
+        let scale = (local_space.scale * self.scale) * transform.scale;
         GlobalTransform {
             translation,
             rotation,
@@ -242,24 +235,12 @@ impl GlobalTransform {
         value
     }
 
-    /// Returns a [`Vec3`] of this ['Relation']-mapped [`Transform`] and applied to `value`.
+    /// Returns a [`Vec3`] of this ['LocalSpace']-mapped [`Transform`] and applied to `value`.
     #[inline]
-    pub fn mul_vec3_relative(&self, mut value: Vec3, relation: Relation) -> Vec3 {
-        value = relation.rotation.map_or(value, |f| {
-            let mut rot = self.rotation;
-            (f)(&mut rot);
-            rot * value
-        });
-        value = relation.scale.map_or(value, |f| {
-            let mut scl = self.scale;
-            (f)(&mut scl);
-            scl * value
-        });
-        value += relation.translation.map_or(Vec3::ZERO, |f| {
-            let mut trn = self.translation;
-            (f)(&mut trn);
-            trn
-        });
+    pub fn mul_vec3_relative(&self, mut value: Vec3, local_space: LocalSpace) -> Vec3 {
+        value = Quat::from_vec4(local_space.rotation * Vec4::from(self.rotation)) * value;
+        value = (local_space.scale * self.scale) * value;
+        value += local_space.translation * self.translation;
         value
     }
 
