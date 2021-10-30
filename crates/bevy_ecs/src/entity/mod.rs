@@ -266,7 +266,9 @@ impl Entities {
             // Allocate from the freelist.
             let id = self.pending[(n - 1) as usize];
             Entity {
-                generation: self.meta[id as usize].generation.expect("Attempt to re-use a retired entity slot, which has no generations remaining"),
+                generation: self.meta[id as usize].generation.expect(
+                    "Attempt to re-use a retired entity slot, which has no generations remaining",
+                ),
                 id,
             }
         } else {
@@ -298,7 +300,9 @@ impl Entities {
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
-                generation: self.meta[id as usize].generation.expect("Attempt to re-use a retired entity slot, which has no generations remaining"),
+                generation: self.meta[id as usize].generation.expect(
+                    "Attempt to re-use a retired entity slot, which has no generations remaining",
+                ),
                 id,
             }
         } else {
