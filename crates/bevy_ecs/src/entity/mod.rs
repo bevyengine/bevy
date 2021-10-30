@@ -266,7 +266,7 @@ impl Entities {
             // Allocate from the freelist.
             let id = self.pending[(n - 1) as usize];
             Entity {
-                generation: self.meta[id as usize].generation.unwrap(), // Safe, meta from pending list, so generation is valid
+                generation: self.meta[id as usize].generation.expect("Attempt to re-use a retired entity slot, which has no generations remaining"),
                 id,
             }
         } else {
@@ -298,7 +298,7 @@ impl Entities {
             let new_free_cursor = self.pending.len() as i64;
             *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
-                generation: self.meta[id as usize].generation.unwrap(), // Safe, meta from pending list, so generation is valid
+                generation: self.meta[id as usize].generation.expect("Attempt to re-use a retired entity slot, which has no generations remaining"),
                 id,
             }
         } else {
@@ -388,6 +388,9 @@ impl Entities {
             return None;
         }
 
+        // wrapping_add will cause the u32 to wrap around to 0 which NonZeroU32::new
+        // will be converted to None, marking the entity slot as retired and taking
+        // it out of circulation for re-allocation.
         meta.generation = NonZeroU32::new(meta.generation.unwrap().get().wrapping_add(1));
 
         if meta.generation.is_some() {
@@ -418,8 +421,8 @@ impl Entities {
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
-    /// This will return false for entities which have been freed, even if
-    /// not reallocated since the generation is incremented in `free`
+    // This will return false for entities which have been freed, even if
+    // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_id(entity.id())
             .map_or(false, |e| e.generation == entity.generation)
@@ -436,8 +439,7 @@ impl Entities {
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation.is_none()
-                || meta.generation.unwrap() != entity.generation
+            if meta.generation != Some(entity.generation)
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {
                 return None;
@@ -515,7 +517,7 @@ impl Entities {
             init(
                 Entity {
                     id,
-                    generation: meta.generation.unwrap(), // Safe, meta from pending list, so generation is valid
+                    generation: meta.generation.expect("Attempt to re-use a retired entity slot, which has no generations remaining"),
                 },
                 &mut meta.location,
             );
@@ -545,6 +547,9 @@ impl Entities {
 
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
+    /// A generation of `None` marks the slot as retired. This means that the slot
+    /// is invalid for re-allocation. Without this generations would be repeated,
+    /// and `Entity` wouldn't be able to act as a unique identifier.
     pub generation: Option<NonZeroU32>,
     pub location: EntityLocation,
 }
