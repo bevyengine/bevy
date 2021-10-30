@@ -11,13 +11,72 @@ pub mod transform_propagate_system;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, hierarchy::*, TransformPlugin};
+    pub use crate::{components::*, hierarchy::*, TransformBundle, TransformPlugin};
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    bundle::Bundle,
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
+/// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
+/// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
+///
+/// * To place or move an entity, you should set its [`Transform`].
+/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * You may use the [`TransformBundle`] to guarantee this.
+///
+/// ## [`Transform`] and [`GlobalTransform`]
+///
+/// [`Transform`] is the position of an entity relative to its parent position, or the reference
+/// frame if it doesn't have a [`Parent`](Parent).
+///
+/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
+///
+/// [`GlobalTransform`] is updated from [`Transform`] in the system
+/// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
+///
+/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// before the [`GlobalTransform`] is updated.
+#[derive(Default, Bundle, Clone, Debug)]
+pub struct TransformBundle {
+    pub local: Transform,
+    pub global: GlobalTransform,
+}
+
+impl TransformBundle {
+    /// Creates a new [`TransformBundle`] from a [`Transform`] and leaving [`GlobalTransform`] with
+    /// no translation, rotation, and a scale of 1 on all axes.
+    #[inline]
+    pub const fn from_transform(transform: Transform) -> Self {
+        TransformBundle {
+            local: transform,
+            // Note: `..Default::default()` cannot be used here, because it isn't const
+            ..Self::identity()
+        }
+    }
+
+    /// Creates a new identity [`TransformBundle`], with no translation, rotation, and a scale of 1
+    /// on all axes.
+    #[inline]
+    pub const fn identity() -> Self {
+        TransformBundle {
+            local: Transform::identity(),
+            global: GlobalTransform::identity(),
+        }
+    }
+}
+
+impl From<Transform> for TransformBundle {
+    #[inline]
+    fn from(transform: Transform) -> Self {
+        Self::from_transform(transform)
+    }
+}
 /// The base plugin for handling [`Transform`] components
 #[derive(Default)]
 pub struct TransformPlugin;
