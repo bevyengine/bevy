@@ -182,7 +182,7 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 #[proc_macro]
 pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
-    let max_params = 4;
+    let max_params = 8;
     let params = get_idents(|i| format!("P{}", i), max_params);
     let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
     let values = get_idents(|i| format!("p{}", i), max_params);
