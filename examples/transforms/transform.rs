@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 // A struct for additional data of for a moving cube.
+#[derive(Component)]
 struct CubeState {
     start_pos: Vec3,
     move_speed: f32,
@@ -11,6 +12,7 @@ struct CubeState {
 
 // A struct adding information to a scalable entity,
 // that will be stationary at the center of the scene.
+#[derive(Component)]
 struct Center {
     max_size: f32,
     min_size: f32,

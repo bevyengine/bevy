@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 // Define a component to keep information for the scaled object.
+#[derive(Component)]
 struct Scaling {
     scale_direction: Vec3,
     scale_speed: f32,

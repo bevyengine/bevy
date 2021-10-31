@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 // Define a struct to keep some information about our entity.
 // Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
+#[derive(Component)]
 struct Movable {
     spawn: Vec3,
     max_distance: f32,

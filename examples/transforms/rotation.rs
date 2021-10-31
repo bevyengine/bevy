@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 const FULL_TURN: f32 = 2.0 * PI;
 
 // Define a component to designate a rotation speed to an entity.
+#[derive(Component)]
 struct Rotatable {
     speed: f32,
 }

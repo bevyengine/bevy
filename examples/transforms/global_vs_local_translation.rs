@@ -1,15 +1,23 @@
 use bevy::prelude::*;
 
 // Define a marker for entities that should be changed via their global transform.
+#[derive(Component)]
 struct ChangeGlobal;
+
 // Define a marker for entities that should be changed via their local transform.
+#[derive(Component)]
 struct ChangeLocal;
+
 // Define a marker for entities that should move.
+#[derive(Component)]
 struct Move;
+
 // Define a resource for the current movement direction;
 #[derive(Default)]
 struct Direction(Vec3);
+
 // Define component to decide when an entity should be ignored by the movement systems.
+#[derive(Component)]
 struct ToggledBy(KeyCode);
 
 fn main() {
