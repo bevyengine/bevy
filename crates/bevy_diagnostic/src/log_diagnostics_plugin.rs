@@ -56,22 +56,24 @@ impl LogDiagnosticsPlugin {
             if let Some(average) = diagnostic.average() {
                 info!(
                     target: "bevy diagnostic",
-                    "{:<name_width$}: {:>12} (avg {:>})",
-                    diagnostic.name,
                     // Suffix is only used for 's' as in seconds currently,
-                    // so we reserve one column for it
-                    format!("{:.6}{:1}", value, diagnostic.suffix),
+                    // so we reserve one column for it; however,
                     // Do not reserve one column for the suffix in the average
                     // The ) hugging the value is more aesthetically pleasing
-                    format!("{:.6}{:}", average, diagnostic.suffix),
+                    "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
+                    name = diagnostic.name,
+                    value = value,
+                    suffix = diagnostic.suffix,
+                    average = average,
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             } else {
                 info!(
                     target: "bevy diagnostic",
-                    "{:<name_width$}: {:>}",
-                    diagnostic.name,
-                    format!("{:.6}{:}", value, diagnostic.suffix),
+                    "{name:<name_width$}: {value:>.6}{suffix:}",
+                    name = diagnostic.name,
+                    value = value,
+                    suffix = diagnostic.suffix,
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             }

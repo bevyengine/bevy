@@ -12,6 +12,7 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     prelude::QueryState,
     query::{Changed, Or, With},
@@ -398,7 +399,7 @@ where
 
 impl<T> SystemNode for RenderResourcesNode<T>
 where
-    T: renderer::RenderResources,
+    T: renderer::RenderResources + Component,
 {
     fn get_system(&self) -> BoxedSystem {
         let system = render_resources_node_system::<T>.config(|config| {
@@ -430,7 +431,7 @@ impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
 }
 
 #[allow(clippy::type_complexity)]
-fn render_resources_node_system<T: RenderResources>(
+fn render_resources_node_system<T: RenderResources + Component>(
     mut state: Local<RenderResourcesNodeState<Entity, T>>,
     mut entities_waiting_for_textures: Local<Vec<Entity>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,

@@ -16,6 +16,7 @@ fn main() {
 struct SceneInstance(Option<InstanceId>);
 
 // Component that will be used to tag entities in the scene
+#[derive(Component)]
 struct EntityInMyScene;
 
 fn setup(

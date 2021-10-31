@@ -12,7 +12,7 @@ pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
-use bevy_math::{ivec2, Vec2};
+use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
@@ -303,20 +303,18 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let mut cursor_moved_events =
                             world.get_resource_mut::<Events<CursorMoved>>().unwrap();
                         let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let position = position.to_logical(winit_window.scale_factor());
-                        let inner_size = winit_window
-                            .inner_size()
-                            .to_logical::<f32>(winit_window.scale_factor());
+                        let inner_size = winit_window.inner_size();
 
                         // move origin to bottom left
-                        let y_position = inner_size.height - position.y;
+                        let y_position = inner_size.height as f64 - position.y;
 
-                        let position = Vec2::new(position.x, y_position);
-                        window.update_cursor_position_from_backend(Some(position));
+                        let physical_position = DVec2::new(position.x, y_position);
+                        window
+                            .update_cursor_physical_position_from_backend(Some(physical_position));
 
                         cursor_moved_events.send(CursorMoved {
                             id: window_id,
-                            position,
+                            position: (physical_position / window.scale_factor()).as_vec2(),
                         });
                     }
                     WindowEvent::CursorEntered { .. } => {
@@ -327,7 +325,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     WindowEvent::CursorLeft { .. } => {
                         let mut cursor_left_events =
                             world.get_resource_mut::<Events<CursorLeft>>().unwrap();
-                        window.update_cursor_position_from_backend(None);
+                        window.update_cursor_physical_position_from_backend(None);
                         cursor_left_events.send(CursorLeft { id: window_id });
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
@@ -363,8 +361,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let mut touch_input_events =
                             world.get_resource_mut::<Events<TouchInput>>().unwrap();
 
-                        let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let mut location = touch.location.to_logical(winit_window.scale_factor());
+                        let mut location = touch.location.to_logical(window.scale_factor());
 
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom

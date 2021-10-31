@@ -1,18 +1,28 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::storage::SparseSetIndex;
+use crate::{
+    storage::{SparseSetIndex, Storages},
+    system::Resource,
+};
+pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
-    collections::hash_map::Entry,
 };
 use thiserror::Error;
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
 /// multiple different types of components, but only one of them per type.
 ///
-/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
+/// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
 ///
+/// In order to use foreign types as components, wrap them using a newtype pattern.
+/// ```
+/// # use bevy_ecs::component::Component;
+/// use std::time::Duration;
+/// #[derive(Component)]
+/// struct Cooldown(Duration);
+/// ```
 /// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
 /// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
 /// or their [`World`](crate::world::World) equivalents.
@@ -21,21 +31,49 @@ use thiserror::Error;
 /// as one of the arguments.
 ///
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
-pub trait Component: Send + Sync + 'static {}
-impl<T: Send + Sync + 'static> Component for T {}
+pub trait Component: Send + Sync + 'static {
+    type Storage: ComponentStorage;
+}
+
+pub struct TableStorage;
+pub struct SparseStorage;
+
+pub trait ComponentStorage: sealed::Sealed {
+    // because the trait is sealed, those items are private API.
+    const STORAGE_TYPE: StorageType;
+}
+
+impl ComponentStorage for TableStorage {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+}
+impl ComponentStorage for SparseStorage {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+}
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::TableStorage {}
+    impl Sealed for super::SparseStorage {}
+}
+
+// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
+impl<T> Component for bevy_tasks::Task<T>
+where
+    Self: Send + Sync + 'static,
+{
+    type Storage = TableStorage;
+}
 
 /// The storage used for a specific component type.
 ///
 /// # Examples
-/// The [`StorageType`] for a component is normally configured via `World::register_component`.
+/// The [`StorageType`] for a component is configured via the derive attribute
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, component::*};
-///
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
 /// struct A;
-///
-/// let mut world = World::default();
-/// world.register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet));
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StorageType {
@@ -128,6 +166,8 @@ impl SparseSetIndex for ComponentId {
 #[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
+    // SAFETY: This must remain private. It must match the statically known StorageType of the
+    // associated rust component type if one exists.
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
@@ -143,7 +183,18 @@ impl ComponentDescriptor {
         x.cast::<T>().drop_in_place()
     }
 
-    pub fn new<T: Component>(storage_type: StorageType) -> Self {
+    pub fn new<T: Component>() -> Self {
+        Self {
+            name: std::any::type_name::<T>().to_string(),
+            storage_type: T::Storage::STORAGE_TYPE,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<T>()),
+            layout: Layout::new::<T>(),
+            drop: Self::drop_ptr::<T>,
+        }
+    }
+
+    pub fn new_resource<T: Resource>(storage_type: StorageType) -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
             storage_type,
@@ -191,46 +242,29 @@ pub struct Components {
 #[derive(Debug, Error)]
 pub enum ComponentsError {
     #[error("A component of type {name:?} ({type_id:?}) already exists")]
-    ComponentAlreadyExists { type_id: TypeId, name: String },
+    ComponentAlreadyExists {
+        type_id: TypeId,
+        name: String,
+        existing_id: ComponentId,
+    },
 }
 
 impl Components {
-    pub(crate) fn add(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> Result<ComponentId, ComponentsError> {
-        let index = self.components.len();
-        if let Some(type_id) = descriptor.type_id {
-            let index_entry = self.indices.entry(type_id);
-            if let Entry::Occupied(_) = index_entry {
-                return Err(ComponentsError::ComponentAlreadyExists {
-                    type_id,
-                    name: descriptor.name,
-                });
+    #[inline]
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+        let type_id = TypeId::of::<T>();
+        let components = &mut self.components;
+        let index = self.indices.entry(type_id).or_insert_with(|| {
+            let index = components.len();
+            let descriptor = ComponentDescriptor::new::<T>();
+            let info = ComponentInfo::new(ComponentId(index), descriptor);
+            if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
+                storages.sparse_sets.get_or_insert(&info);
             }
-            self.indices.insert(type_id, index);
-        }
-        self.components
-            .push(ComponentInfo::new(ComponentId(index), descriptor));
-
-        Ok(ComponentId(index))
-    }
-
-    #[inline]
-    pub fn get_or_insert_id<T: Component>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_insert_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new::<T>(StorageType::default())
-            })
-        }
-    }
-
-    #[inline]
-    pub fn get_or_insert_info<T: Component>(&mut self) -> &ComponentInfo {
-        let id = self.get_or_insert_id::<T>();
-        // SAFE: component_info with the given `id` initialized above
-        unsafe { self.get_info_unchecked(id) }
+            components.push(info);
+            index
+        });
+        ComponentId(*index)
     }
 
     #[inline]
@@ -270,17 +304,17 @@ impl Components {
     }
 
     #[inline]
-    pub fn get_or_insert_resource_id<T: Component>(&mut self) -> ComponentId {
+    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new::<T>(StorageType::default())
+                ComponentDescriptor::new_resource::<T>(StorageType::default())
             })
         }
     }
 
     #[inline]
-    pub fn get_or_insert_non_send_resource_id<T: Any>(&mut self) -> ComponentId {
+    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -300,26 +334,6 @@ impl Components {
     ) -> ComponentId {
         let components = &mut self.components;
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
-            let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
-        });
-
-        ComponentId(*index)
-    }
-
-    /// # Safety
-    ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
-    #[inline]
-    pub(crate) unsafe fn get_or_insert_with(
-        &mut self,
-        type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
-        let index = self.indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
             components.push(ComponentInfo::new(ComponentId(index), descriptor));

@@ -206,7 +206,7 @@ fn impl_struct(
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
             fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match name {
                     #(#field_names => Some(&self.#field_idents),)*
@@ -259,7 +259,7 @@ fn impl_struct(
         }
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics #where_clause {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -349,7 +349,7 @@ fn impl_tuple_struct(
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name#ty_generics {
+        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics {
             fn field(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => Some(&self.#field_idents),)*
@@ -381,7 +381,7 @@ fn impl_tuple_struct(
         }
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -457,7 +457,7 @@ fn impl_value(
         #get_type_registration_impl
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name#ty_generics #where_clause  {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -715,10 +715,10 @@ fn impl_get_type_registration(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         #[allow(unused_mut)]
-        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name#ty_generics>();
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name#ty_generics>::from_type());)*
+                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
+                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());)*
                 registration
             }
         }

@@ -43,9 +43,12 @@ use thiserror::Error;
 /// immutably helps system parallelization.
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
 /// query: Query<(&ComponentA, &ComponentB)>
@@ -60,9 +63,12 @@ use thiserror::Error;
 /// in the same query.
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
 /// // `ComponentA` is accessed mutably, while `ComponentB` is accessed immutably.
@@ -85,10 +91,10 @@ use thiserror::Error;
 /// will give access to the entity ID.
 ///
 /// ```
-/// # use bevy_ecs::entity::Entity;
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
 /// query: Query<(Entity, &ComponentA, &ComponentB)>
@@ -102,11 +108,12 @@ use thiserror::Error;
 /// out the query results that don't satisfy the given condition.
 ///
 /// ```
-/// # use bevy_ecs::query::With;
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
+/// # #[derive(Component)]
 /// # struct ComponentC;
 /// # fn system(
 /// // `ComponentC` data won't be accessed, but only entities that contain it will be queried.
@@ -118,11 +125,12 @@ use thiserror::Error;
 /// If you need to apply more filters in a single query, group them into a tuple:
 ///
 /// ```
-/// # use bevy_ecs::query::{Changed, With};
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
+/// # #[derive(Component)]
 /// # struct ComponentC;
 /// # fn system(
 /// // Similar to the previous query, but with the addition of a `Changed` filter.
@@ -146,9 +154,10 @@ use thiserror::Error;
 /// `ComponentA` and `ComponentB`, and entities that contain `ComponentA` but not `ComponentB`.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
 /// query: Query<(&ComponentA, Option<&ComponentB>)>
@@ -168,8 +177,8 @@ use thiserror::Error;
 /// of `Query` can be omitted.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct MyComponent;
 /// # fn tuple_system(
 /// // This is correct, but can be avoided.
@@ -197,9 +206,10 @@ use thiserror::Error;
 /// for advanced iterator usage.
 ///
 /// ```
-/// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
 /// # struct ComponentB;
 /// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
 ///     for (a, b) in query.iter() {
@@ -278,6 +288,7 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Player { name: String }
     /// #
     /// fn report_names_system(query: Query<&Player>) {
@@ -310,6 +321,7 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Velocity { x: f32, y: f32, z: f32 }
     /// fn gravity_system(mut query: Query<&mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
@@ -358,8 +370,9 @@ where
     /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
     ///
     /// ```
-    /// # struct A;
     /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// # struct A;
     /// # fn some_system(mut query: Query<&mut A>) {
     /// // iterate using `fetch_next` in while loop
     /// let mut combinations = query.iter_combinations_mut();
@@ -434,6 +447,7 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Player { name: String }
     /// #
     /// fn report_names_system(query: Query<&Player>) {
@@ -471,6 +485,7 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Velocity { x: f32, y: f32, z: f32 }
     /// fn gravity_system(mut query: Query<&mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
@@ -560,6 +575,7 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct SelectedCharacter { entity: Entity }
+    /// # #[derive(Component)]
     /// # struct Character { name: String }
     /// #
     /// fn print_selected_character_name_system(
@@ -607,6 +623,7 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct PoisonedCharacter { character_id: Entity }
+    /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
     /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
@@ -667,6 +684,7 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct SelectedCharacter { entity: Entity }
+    /// # #[derive(Component)]
     /// # struct Character { name: String }
     /// #
     /// fn print_selected_character_name_system(
@@ -681,10 +699,7 @@ where
     /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
-    pub fn get_component<T: Component>(
-        &self,
-        entity: Entity,
-    ) -> Result<&'w T, QueryComponentError> {
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
@@ -724,6 +739,7 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # struct PoisonedCharacter { character_id: Entity }
+    /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
     /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
@@ -791,8 +807,10 @@ where
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::prelude::{IntoSystem, Query, With};
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
     /// # struct Player;
+    /// # #[derive(Component)]
     /// # struct Position(f32, f32);
     /// fn player_system(query: Query<&Position, With<Player>>) {
     ///     let player_position = query.single();
@@ -826,9 +844,10 @@ where
     /// # Example
     ///
     /// ```
-    ///  # use bevy_ecs::system::{Query, QuerySingleError};
-    ///  # use bevy_ecs::prelude::IntoSystem;
-    ///  # struct PlayerScore(i32);
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QuerySingleError;
+    /// # #[derive(Component)]
+    /// # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
     ///     match query.get_single() {
     ///         Ok(PlayerScore(score)) => {
@@ -869,7 +888,9 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Player;
+    /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
@@ -899,7 +920,9 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Player;
+    /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
@@ -934,7 +957,9 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Component)]
     /// # struct Player;
+    /// # #[derive(Component)]
     /// # struct Score(u32);
     /// fn update_score_system(query: Query<(), With<Player>>, mut score: ResMut<Score>) {
     ///     if !query.is_empty() {
