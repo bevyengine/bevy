@@ -22,7 +22,7 @@ impl DynamicTextureAtlasBuilder {
         texture_atlas: &mut TextureAtlas,
         textures: &mut Assets<Image>,
         texture: &Image,
-    ) -> Option<u32> {
+    ) -> Option<usize> {
         let allocation = self.atlas_allocator.allocate(size2(
             texture.texture_descriptor.size.width as i32 + self.padding,
             texture.texture_descriptor.size.height as i32 + self.padding,
@@ -33,8 +33,7 @@ impl DynamicTextureAtlasBuilder {
             let mut rect: Rect = allocation.rectangle.into();
             rect.max.x -= self.padding as f32;
             rect.max.y -= self.padding as f32;
-            texture_atlas.add_texture(rect);
-            Some((texture_atlas.len() - 1) as u32)
+            Some(texture_atlas.add_texture(rect))
         } else {
             None
         }
