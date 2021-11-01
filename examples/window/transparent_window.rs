@@ -5,12 +5,12 @@ use bevy::{prelude::*, render::pass::ClearColor, window::WindowDescriptor};
 
 fn main() {
     App::new()
-        // rgba value needs to be [0, 0, 0, 0], otherwise some color will bleed through
+        // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))
         .insert_resource(WindowDescriptor {
-            // setting transparent allows the window to become transparent when clear color has the correct value
+            // Setting `transparent` allows the `ClearColor`'s alpha value to take effect
             transparent: true,
-            // Disabling window desoration to make it feel more like a widget than a window
+            // Disabling window decorations to make it feel more like a widget than a window
             decorations: false,
             ..Default::default()
         })
