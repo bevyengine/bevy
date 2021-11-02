@@ -90,11 +90,9 @@ fn prepare_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView)>,
 ) {
-    view_uniforms
-        .uniforms
-        .reserve_and_clear(views.iter_mut().len(), &render_device);
+    view_uniforms.uniforms.clear();
     for (entity, camera) in views.iter() {
         let projection = camera.projection;
         let view_uniforms = ViewUniformOffset {
@@ -108,7 +106,9 @@ fn prepare_view_uniforms(
         commands.entity(entity).insert(view_uniforms);
     }
 
-    view_uniforms.uniforms.write_buffer(&render_queue);
+    view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
 }
 
 fn prepare_view_targets(
