@@ -33,9 +33,9 @@ Your math library may require you to turn on a feature flag to get mint support.
 For example, cgmath requires the "mint" feature to be enabled to allow
 conversions to and from mint types.
 
-### Examples
+## Examples
 
-#### Single Value
+### Single Value
 
 Uploading many types can be done by deriving [`AsStd140`][std140::AsStd140] and
 using [`as_std140`][std140::AsStd140::as_std140] and
@@ -74,7 +74,7 @@ let value_std140 = value.as_std140();
 upload_data_to_gpu(value_std140.as_bytes());
 ```
 
-#### Sequential Types
+### Sequential Types
 
 More complicated data can be uploaded using the std140
 [`Writer`][std140::Writer] type.
@@ -131,14 +131,14 @@ unmap_gpu_buffer();
 
 ```
 
-### Features
+## Features
 
 * `std` (default): Enables [`std::io::Write`]-based structs.
 * `cgmath`: Enables support for types from cgmath.
 * `nalgebra`: Enables support for types from nalgebra.
 * `glam`: Enables support for types from glam.
 
-### Minimum Supported Rust Version (MSRV)
+## Minimum Supported Rust Version (MSRV)
 
 Crevice supports Rust 1.52.1 and newer due to use of new `const fn` features.
 
@@ -158,10 +158,13 @@ Crevice supports Rust 1.52.1 and newer due to use of new `const fn` features.
 
 Licensed under either of
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, ([LICENSE-APACHE](http://www.apache.org/licenses/LICENSE-2.0))
+* MIT license ([LICENSE-MIT](http://opensource.org/licenses/MIT))
 
 at your option.
 
 ### Contribution
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall
+be dual licensed as above, without any additional terms or conditions.
