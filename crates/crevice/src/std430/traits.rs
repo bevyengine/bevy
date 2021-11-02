@@ -17,9 +17,10 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     /// control and zero their padding bytes, making converting them to and from
     /// slices safe.
     const ALIGNMENT: usize;
+
     /// Whether this type requires a padding at the end (ie, is a struct or an array
     /// of primitives).
-    /// See https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159
+    /// See <https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159>
     /// (rule 4 and 9)
     const PAD_AT_END: bool = false;
     /// Padded type (Std430Padded specialization)
@@ -87,9 +88,7 @@ uniform CAMERA {
 } camera;
 ```
 
-```skip
-use cgmath::prelude::*;
-use cgmath::{Matrix4, Deg, perspective};
+```no_run
 use crevice::std430::{AsStd430, Std430};
 
 #[derive(AsStd430)]
@@ -98,9 +97,12 @@ struct CameraUniform {
     projection: mint::ColumnMatrix4<f32>,
 }
 
+let view: mint::ColumnMatrix4<f32> = todo!("your math code here");
+let projection: mint::ColumnMatrix4<f32> = todo!("your math code here");
+
 let camera = CameraUniform {
-    view: Matrix4::identity().into(),
-    projection: perspective(Deg(60.0), 16.0/9.0, 0.01, 100.0).into(),
+    view,
+    projection,
 };
 
 # fn write_to_gpu_buffer(bytes: &[u8]) {}
@@ -110,26 +112,26 @@ write_to_gpu_buffer(camera_std430.as_bytes());
 */
 pub trait AsStd430 {
     /// The `std430` version of this value.
-    type Std430Type: Std430;
+    type Output: Std430;
 
     /// Convert this value into the `std430` version of itself.
-    fn as_std430(&self) -> Self::Std430Type;
+    fn as_std430(&self) -> Self::Output;
 
     /// Returns the size of the `std430` version of this type. Useful for
     /// pre-sizing buffers.
     fn std430_size_static() -> usize {
-        size_of::<Self::Std430Type>()
+        size_of::<Self::Output>()
     }
 
     /// Converts from `std430` version of self to self.
-    fn from_std430(value: Self::Std430Type) -> Self;
+    fn from_std430(value: Self::Output) -> Self;
 }
 
 impl<T> AsStd430 for T
 where
     T: Std430,
 {
-    type Std430Type = Self;
+    type Output = Self;
 
     fn as_std430(&self) -> Self {
         *self
@@ -178,29 +180,36 @@ where
     type Padded = Self;
 }
 
+impl<T: Std430, const N: usize> Std430Array<T, N> {
+    fn uninit_array() -> [MaybeUninit<T::Padded>; N] {
+        unsafe { MaybeUninit::uninit().assume_init() }
+    }
+
+    fn from_uninit_array(a: [MaybeUninit<T::Padded>; N]) -> Self {
+        unsafe { core::mem::transmute_copy(&a) }
+    }
+}
+
 impl<T: AsStd430, const N: usize> AsStd430 for [T; N]
 where
-    <T::Std430Type as Std430>::Padded: Pod,
+    <T::Output as Std430>::Padded: Pod,
 {
-    type Std430Type = Std430Array<T::Std430Type, N>;
-    fn as_std430(&self) -> Self::Std430Type {
-        let mut res: [MaybeUninit<<T::Std430Type as Std430>::Padded>; N] =
-            unsafe { MaybeUninit::uninit().assume_init() };
+    type Output = Std430Array<T::Output, N>;
+    fn as_std430(&self) -> Self::Output {
+        let mut res = Self::Output::uninit_array();
 
         for i in 0..N {
             res[i] = MaybeUninit::new(Std430Convertible::from_std430(self[i].as_std430()));
         }
 
-        unsafe { core::mem::transmute_copy(&res) }
+        Self::Output::from_uninit_array(res)
     }
 
-    fn from_std430(val: Self::Std430Type) -> Self {
+    fn from_std430(val: Self::Output) -> Self {
         let mut res: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
-
         for i in 0..N {
-            res[i] = MaybeUninit::new(AsStd430::from_std430(val.0[i].into_std430()));
+            res[i] = MaybeUninit::new(T::from_std430(val.0[i].into_std430()));
         }
-
         unsafe { core::mem::transmute_copy(&res) }
     }
 }
@@ -241,7 +250,7 @@ where
     }
 
     fn std430_size(&self) -> usize {
-        size_of::<<Self as AsStd430>::Std430Type>()
+        size_of::<<Self as AsStd430>::Output>()
     }
 }
 

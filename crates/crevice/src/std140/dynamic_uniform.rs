@@ -11,13 +11,13 @@ use crate::std140::{AsStd140, Std140};
 pub struct DynamicUniform<T>(pub T);
 
 impl<T: AsStd140> AsStd140 for DynamicUniform<T> {
-    type Std140Type = DynamicUniformStd140<<T as AsStd140>::Std140Type>;
+    type Output = DynamicUniformStd140<<T as AsStd140>::Output>;
 
-    fn as_std140(&self) -> Self::Std140Type {
+    fn as_std140(&self) -> Self::Output {
         DynamicUniformStd140(self.0.as_std140())
     }
 
-    fn from_std140(value: Self::Std140Type) -> Self {
+    fn from_std140(value: Self::Output) -> Self {
         DynamicUniform(<T as AsStd140>::from_std140(value.0))
     }
 }

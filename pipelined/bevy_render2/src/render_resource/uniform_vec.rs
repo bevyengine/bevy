@@ -21,8 +21,8 @@ impl<T: AsStd140> Default for UniformVec<T> {
             scratch: Vec::new(),
             uniform_buffer: None,
             capacity: 0,
-            item_size: (T::std140_size_static() + <T as AsStd140>::Std140Type::ALIGNMENT - 1)
-                & !(<T as AsStd140>::Std140Type::ALIGNMENT - 1),
+            item_size: (T::std140_size_static() + <T as AsStd140>::Output::ALIGNMENT - 1)
+                & !(<T as AsStd140>::Output::ALIGNMENT - 1),
         }
     }
 }
