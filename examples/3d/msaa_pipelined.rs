@@ -16,7 +16,10 @@ use bevy::{
 /// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher
 /// will result in smoother edges, but it will also increase the cost to render those edges. The
 /// range should generally be somewhere between 1 (no multi sampling, but cheap) to 8 (crisp but
-/// expensive)
+/// expensive).
+/// Note that WGPU currently only supports 1 or 4 samples.
+/// Ultimately we plan on supporting whatever is natively supported on a given device.
+/// Check out this issue for more info: https://github.com/gfx-rs/wgpu/issues/1832
 fn main() {
     println!("Press 'm' to toggle MSAA");
     println!("Using 4x MSAA");
