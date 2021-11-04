@@ -695,7 +695,7 @@ pub fn queue_meshes(
                     continue;
                 }
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    if mesh.vertex_attributes.contains(Mesh::ATTRIBUTE_TANGENT) {
+                    if mesh.has_tangents {
                         key |= PbrPipelineKey::VERTEX_TANGENTS;
                     }
                 }

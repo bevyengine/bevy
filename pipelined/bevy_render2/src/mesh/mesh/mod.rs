@@ -9,7 +9,7 @@ use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::{EnumVariantMeta, HashSet};
+use bevy_utils::EnumVariantMeta;
 use std::{borrow::Cow, collections::BTreeMap};
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexFormat,
@@ -532,7 +532,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     pub vertex_buffer: Buffer,
     pub index_info: Option<GpuIndexInfo>,
-    pub vertex_attributes: HashSet<Cow<'static, str>>,
+    pub has_tangents: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -575,7 +575,7 @@ impl RenderAsset for Mesh {
         Ok(GpuMesh {
             vertex_buffer,
             index_info,
-            vertex_attributes: mesh.attributes.keys().cloned().collect(),
+            has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
         })
     }
 }

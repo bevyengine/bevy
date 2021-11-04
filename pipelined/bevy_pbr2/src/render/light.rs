@@ -700,7 +700,7 @@ pub fn queue_shadows(
             for (entity, mesh_handle) in casting_meshes.iter() {
                 let mut key = ShadowPipelineKey::empty();
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    if mesh.vertex_attributes.contains(Mesh::ATTRIBUTE_TANGENT) {
+                    if mesh.has_tangents {
                         key |= ShadowPipelineKey::VERTEX_TANGENTS;
                     }
                 }
