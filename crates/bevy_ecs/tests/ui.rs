@@ -1,3 +1,4 @@
+#[rustversion::attr(nightly, ignore)]
 #[test]
 fn test() {
     let t = trybuild::TestCases::new();
