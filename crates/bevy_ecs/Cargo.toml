@@ -29,6 +29,7 @@ serde = "1"
 [dev-dependencies]
 parking_lot = "0.11"
 rand = "0.8"
+trybuild = "1.0"
 
 [[example]]
 name = "events"
