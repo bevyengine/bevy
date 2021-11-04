@@ -15,10 +15,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: u32);
 }
 
-pub struct ExclusiveSystemFn<F>
-where
-    F: FnMut(&mut World) + Send + Sync + 'static,
-{
+pub struct ExclusiveSystemFn<F> {
     func: F,
     name: Cow<'static, str>,
     last_change_tick: u32,
