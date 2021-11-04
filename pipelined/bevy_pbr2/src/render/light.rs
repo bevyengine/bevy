@@ -678,6 +678,7 @@ pub fn queue_shadow_view_bind_group(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_shadows(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     shadow_pipeline: Res<ShadowPipeline>,
