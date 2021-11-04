@@ -795,6 +795,7 @@ where
             .get_id::<T>()
             .ok_or(QueryComponentError::MissingWriteAccess)?;
 
+        // it's ok that get_id fetches the first matching component, as queries like `Query<(&T, &mut T)>` aren't valid.
         if write_flag != RWAccess::Write {
             return Err(QueryComponentError::MissingWriteAccess);
         }
