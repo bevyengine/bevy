@@ -101,8 +101,8 @@ pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowPipeline {
-    pub pipeline: CachedPipelineId,
     pub view_layout: BindGroupLayout,
+    pub mesh_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
     pub directional_light_sampler: Sampler,
 }
@@ -133,15 +133,81 @@ impl FromWorld for ShadowPipeline {
         });
 
         let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
-        let descriptor = RenderPipelineDescriptor {
-            vertex: VertexState {
-                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
-                entry_point: "vertex".into(),
-                shader_defs: vec![],
-                buffers: vec![VertexBufferLayout {
-                    array_stride: 32,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vec![
+
+        ShadowPipeline {
+            view_layout,
+            mesh_layout: pbr_pipeline.mesh_layout.clone(),
+            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                compare: Some(CompareFunction::GreaterEqual),
+                ..Default::default()
+            }),
+            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                compare: Some(CompareFunction::GreaterEqual),
+                ..Default::default()
+            }),
+        }
+    }
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct ShadowPipelineKey: u32 {
+        const NONE               = 0;
+        const VERTEX_TANGENTS    = (1 << 0);
+    }
+}
+
+impl SpecializedPipeline for ShadowPipeline {
+    type Key = ShadowPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let (vertex_array_stride, vertex_attributes) =
+            if key.contains(ShadowPipelineKey::VERTEX_TANGENTS) {
+                (
+                    48,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 40,
+                            shader_location: 2,
+                        },
+                        // Tangent
+                        VertexAttribute {
+                            format: VertexFormat::Float32x4,
+                            offset: 24,
+                            shader_location: 3,
+                        },
+                    ],
+                )
+            } else {
+                (
+                    32,
+                    vec![
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
@@ -161,10 +227,21 @@ impl FromWorld for ShadowPipeline {
                             shader_location: 2,
                         },
                     ],
+                )
+            };
+        RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![VertexBufferLayout {
+                    array_stride: vertex_array_stride,
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vertex_attributes,
                 }],
             },
             fragment: None,
-            layout: Some(vec![view_layout.clone(), pbr_pipeline.mesh_layout.clone()]),
+            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -192,32 +269,6 @@ impl FromWorld for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
-        };
-
-        let mut render_pipeline_cache = world.get_resource_mut::<RenderPipelineCache>().unwrap();
-        ShadowPipeline {
-            pipeline: render_pipeline_cache.queue(descriptor),
-            view_layout,
-            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::GreaterEqual),
-                ..Default::default()
-            }),
-            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::GreaterEqual),
-                ..Default::default()
-            }),
         }
     }
 }
@@ -626,10 +677,14 @@ pub fn queue_shadow_view_bind_group(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_shadows(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     shadow_pipeline: Res<ShadowPipeline>,
-    casting_meshes: Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
+    casting_meshes: Query<(Entity, &Handle<Mesh>), Without<NotShadowCaster>>,
+    render_meshes: Res<RenderAssets<Mesh>>,
+    mut pipelines: ResMut<SpecializedPipelines<ShadowPipeline>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut view_lights: Query<&ViewLights>,
     mut view_light_shadow_phases: Query<&mut RenderPhase<Shadow>>,
 ) {
@@ -642,10 +697,18 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let mut shadow_phase = view_light_shadow_phases.get_mut(view_light_entity).unwrap();
             // TODO: this should only queue up meshes that are actually visible by each "light view"
-            for entity in casting_meshes.iter() {
+            for (entity, mesh_handle) in casting_meshes.iter() {
+                let mut key = ShadowPipelineKey::empty();
+                if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    if mesh.has_tangents {
+                        key |= ShadowPipelineKey::VERTEX_TANGENTS;
+                    }
+                }
+                let pipeline_id = pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
+
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
-                    pipeline: shadow_pipeline.pipeline,
+                    pipeline: pipeline_id,
                     entity,
                     distance: 0.0, // TODO: sort back-to-front
                 })

@@ -47,6 +47,22 @@ bitflags::bitflags! {
     }
 }
 
+// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.wgsl!
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct StandardMaterialFlags: u32 {
+        const BASE_COLOR_TEXTURE         = (1 << 0);
+        const EMISSIVE_TEXTURE           = (1 << 1);
+        const METALLIC_ROUGHNESS_TEXTURE = (1 << 2);
+        const OCCLUSION_TEXTURE          = (1 << 3);
+        const DOUBLE_SIDED               = (1 << 4);
+        const UNLIT                      = (1 << 5);
+        const NORMAL_MAP_TEXTURE         = (1 << 6);
+        const NONE                       = 0;
+        const UNINITIALIZED              = 0xFFFF;
+    }
+}
+
 pub fn extract_meshes(
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
@@ -300,6 +316,27 @@ impl FromWorld for PbrPipeline {
                     },
                     count: None,
                 },
+                // Normal Map Texture
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Normal Map Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
             ],
             label: Some("pbr_material_layout"),
         });
@@ -374,8 +411,10 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
     pub struct PbrPipelineKey: u32 {
-        const NONE               = 0;
-        const MSAA_RESERVED_BITS = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
+        const NONE                        = 0;
+        const VERTEX_TANGENTS             = (1 << 0);
+        const STANDARDMATERIAL_NORMAL_MAP = (1 << 1);
+        const MSAA_RESERVED_BITS          = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
     }
 }
 
@@ -397,15 +436,41 @@ impl SpecializedPipeline for PbrPipeline {
     type Key = PbrPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        RenderPipelineDescriptor {
-            vertex: VertexState {
-                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
-                entry_point: "vertex".into(),
-                shader_defs: vec![],
-                buffers: vec![VertexBufferLayout {
-                    array_stride: 32,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vec![
+        let (vertex_array_stride, vertex_attributes) =
+            if key.contains(PbrPipelineKey::VERTEX_TANGENTS) {
+                (
+                    48,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 40,
+                            shader_location: 2,
+                        },
+                        // Tangent
+                        VertexAttribute {
+                            format: VertexFormat::Float32x4,
+                            offset: 24,
+                            shader_location: 3,
+                        },
+                    ],
+                )
+            } else {
+                (
+                    32,
+                    vec![
                         // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
                         VertexAttribute {
                             format: VertexFormat::Float32x3,
@@ -425,11 +490,29 @@ impl SpecializedPipeline for PbrPipeline {
                             shader_location: 2,
                         },
                     ],
+                )
+            };
+        let mut shader_defs = Vec::new();
+        if key.contains(PbrPipelineKey::VERTEX_TANGENTS) {
+            shader_defs.push(String::from("VERTEX_TANGENTS"));
+        }
+        if key.contains(PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP) {
+            shader_defs.push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
+        }
+        RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: shader_defs.clone(),
+                buffers: vec![VertexBufferLayout {
+                    array_stride: vertex_array_stride,
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vertex_attributes,
                 }],
             },
             fragment: Some(FragmentState {
                 shader: PBR_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
@@ -528,11 +611,14 @@ pub fn queue_meshes(
     light_meta: Res<LightMeta>,
     msaa: Res<Msaa>,
     view_uniforms: Res<ViewUniforms>,
+    render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
-    standard_material_meshes: Query<
-        (Entity, &Handle<StandardMaterial>, &MeshUniform),
-        With<Handle<Mesh>>,
-    >,
+    standard_material_meshes: Query<(
+        Entity,
+        &Handle<StandardMaterial>,
+        &Handle<Mesh>,
+        &MeshUniform,
+    )>,
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -544,7 +630,6 @@ pub fn queue_meshes(
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
-        let msaa_key = PbrPipelineKey::from_msaa_samples(msaa.samples);
         for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
@@ -595,13 +680,27 @@ pub fn queue_meshes(
             let view_matrix = view.transform.compute_matrix();
             let view_row_2 = view_matrix.row(2);
 
-            for (entity, material_handle, mesh_uniform) in standard_material_meshes.iter() {
-                if !render_materials.contains_key(material_handle) {
+            for (entity, material_handle, mesh_handle, mesh_uniform) in
+                standard_material_meshes.iter()
+            {
+                let mut key = PbrPipelineKey::from_msaa_samples(msaa.samples);
+                if let Some(material) = render_materials.get(material_handle) {
+                    if material
+                        .flags
+                        .contains(StandardMaterialFlags::NORMAL_MAP_TEXTURE)
+                    {
+                        key |= PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP;
+                    }
+                } else {
                     continue;
                 }
+                if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    if mesh.has_tangents {
+                        key |= PbrPipelineKey::VERTEX_TANGENTS;
+                    }
+                }
+                let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
 
-                let pipeline_id =
-                    pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, msaa_key);
                 // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
                 //       gives the z component of translation of the mesh in view space
                 let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));

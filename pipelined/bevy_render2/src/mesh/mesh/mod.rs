@@ -532,6 +532,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     pub vertex_buffer: Buffer,
     pub index_info: Option<GpuIndexInfo>,
+    pub has_tangents: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -574,6 +575,7 @@ impl RenderAsset for Mesh {
         Ok(GpuMesh {
             vertex_buffer,
             index_info,
+            has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
         })
     }
 }
