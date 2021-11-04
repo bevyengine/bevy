@@ -113,11 +113,11 @@ impl SpecializedPipeline for SpritePipeline {
         if key.colored {
             shader_defs.push("COLORED".to_string());
             vertex_buffer_layout.attributes.push(VertexAttribute {
-                format: VertexFormat::Float32x4,
+                format: VertexFormat::Uint32,
                 offset: 20,
                 shader_location: 2,
             });
-            vertex_buffer_layout.array_stride += 16;
+            vertex_buffer_layout.array_stride += 4;
         }
 
         RenderPipelineDescriptor {
@@ -241,7 +241,7 @@ struct SpriteVertex {
 struct ColoredSpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: [f32; 4],
+    pub color: u32,
 }
 
 pub struct SpriteMeta {
@@ -368,6 +368,11 @@ pub fn prepare_sprites(
         let rect_size = extracted_sprite.rect.size().extend(1.0);
         if current_batch_colored {
             let color = extracted_sprite.color.as_linear_rgba_f32();
+            // encode color as a single u32 to save space
+            let color = (color[0] * 255.0) as u32
+                | ((color[1] * 255.0) as u32) << 8
+                | ((color[2] * 255.0) as u32) << 16
+                | ((color[3] * 255.0) as u32) << 24;
             for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
                 let mut final_position = *vertex_position * rect_size;
                 final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
