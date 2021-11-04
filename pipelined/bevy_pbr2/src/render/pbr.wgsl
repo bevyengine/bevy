@@ -535,7 +535,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        var T: vec3<f32> = normalize(in.world_tangent.xyz);
+        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
         var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
 #endif
 #endif
