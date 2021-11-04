@@ -4,13 +4,13 @@ use bevy::{
     ecs::prelude::*,
     input::Input,
     math::Vec3,
-    prelude::{App, AssetServer, Handle, MouseButton, Transform},
+    prelude::{info, App, AssetServer, Handle, MouseButton, Transform},
     render2::{camera::OrthographicCameraBundle, color::Color, texture::Image},
-    sprite2::PipelinedSpriteBundle,
+    sprite2::{PipelinedSpriteBundle, Sprite},
     window::WindowDescriptor,
     PipelinedDefaultPlugins,
 };
-use rand::Rng;
+use rand::{random, Rng};
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -21,6 +21,7 @@ const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
 struct BevyCounter {
     pub count: u128,
+    pub color: Color,
 }
 
 struct Bird {
@@ -52,7 +53,10 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(WgpuResourceDiagnosticsPlugin::default())
-        .insert_resource(BevyCounter { count: 0 })
+        .insert_resource(BevyCounter {
+            count: 0,
+            color: Color::WHITE,
+        })
         // .init_resource::<BirdMaterial>()
         .add_startup_system(setup)
         .add_system(mouse_handler)
@@ -161,6 +165,9 @@ fn mouse_handler(
     //         texture: Some(texture_handle),
     //     });
     // }
+    if mouse_button_input.just_released(MouseButton::Left) {
+        counter.color = Color::rgb(random(), random(), random());
+    }
 
     if mouse_button_input.pressed(MouseButton::Left) {
         let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as u128;
@@ -192,6 +199,10 @@ fn spawn_birds(
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
                     scale: Vec3::splat(BIRD_SCALE),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color: counter.color,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -255,7 +266,7 @@ fn counter_system(
     counter: Res<BevyCounter>,
 ) {
     if timer.timer.tick(time.delta()).finished() {
-        println!("counter: {}", counter.count);
+        info!("counter: {}", counter.count);
     }
 }
 

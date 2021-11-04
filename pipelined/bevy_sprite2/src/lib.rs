@@ -18,7 +18,11 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::Transparent2d;
 use bevy_reflect::TypeUuid;
-use bevy_render2::{render_phase::DrawFunctions, render_resource::Shader, RenderApp, RenderStage};
+use bevy_render2::{
+    render_phase::DrawFunctions,
+    render_resource::{Shader, SpecializedPipelines},
+    RenderApp, RenderStage,
+};
 
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -36,8 +40,9 @@ impl Plugin for SpritePlugin {
         render_app
             .init_resource::<ImageBindGroups>()
             .init_resource::<SpritePipeline>()
+            .init_resource::<SpecializedPipelines<SpritePipeline>>()
             .init_resource::<SpriteMeta>()
-            .add_system_to_stage(RenderStage::Extract, render::extract_atlases)
+            .init_resource::<ExtractedSprites>()
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
             .add_system_to_stage(RenderStage::Queue, queue_sprites);

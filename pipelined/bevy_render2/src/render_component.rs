@@ -92,10 +92,7 @@ fn prepare_uniform_components<C: Component>(
 ) where
     C: AsStd140 + Clone,
 {
-    let len = components.iter().len();
-    component_uniforms
-        .uniforms
-        .reserve_and_clear(len, &render_device);
+    component_uniforms.uniforms.clear();
     for (entity, component) in components.iter() {
         commands
             .get_or_spawn(entity)
@@ -105,7 +102,9 @@ fn prepare_uniform_components<C: Component>(
             });
     }
 
-    component_uniforms.uniforms.write_buffer(&render_queue);
+    component_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
 }
 
 pub struct ExtractComponentPlugin<C, F = ()>(PhantomData<fn() -> (C, F)>);

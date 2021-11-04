@@ -416,6 +416,7 @@ impl Color {
     }
 
     /// Converts a `Color` to a `[f32; 4]` from linear RBG colorspace
+    #[inline]
     pub fn as_linear_rgba_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {

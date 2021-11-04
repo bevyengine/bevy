@@ -58,19 +58,12 @@ impl<T: AsStd140> UniformVec<T> {
     }
 
     pub fn push(&mut self, value: T) -> usize {
-        let len = self.values.len();
-        if len < self.capacity {
-            self.values.push(value);
-            len
-        } else {
-            panic!(
-                "Cannot push value because capacity of {} has been reached",
-                self.capacity
-            );
-        }
+        let index = self.values.len();
+        self.values.push(value);
+        index
     }
 
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) -> bool {
         if capacity > self.capacity {
             self.capacity = capacity;
             let size = self.item_size * capacity;
@@ -81,15 +74,17 @@ impl<T: AsStd140> UniformVec<T> {
                 usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 mapped_at_creation: false,
             }));
+            true
+        } else {
+            false
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
-        self.clear();
-        self.reserve(capacity, device);
-    }
-
-    pub fn write_buffer(&mut self, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve(self.values.len(), device);
         if let Some(uniform_buffer) = &self.uniform_buffer {
             let range = 0..self.item_size * self.values.len();
             let mut writer = std140::Writer::new(&mut self.scratch[range.clone()]);
@@ -152,13 +147,8 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     }
 
     #[inline]
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
-        self.uniform_vec.reserve_and_clear(capacity, device);
-    }
-
-    #[inline]
-    pub fn write_buffer(&mut self, queue: &RenderQueue) {
-        self.uniform_vec.write_buffer(queue);
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        self.uniform_vec.write_buffer(device, queue);
     }
 
     #[inline]

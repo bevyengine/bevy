@@ -383,10 +383,7 @@ pub fn prepare_lights(
     point_lights: Query<&ExtractedPointLight>,
     directional_lights: Query<&ExtractedDirectionalLight>,
 ) {
-    // PERF: view.iter().count() could be views.iter().len() if we implemented ExactSizeIterator for archetype-only filters
-    light_meta
-        .view_gpu_lights
-        .reserve_and_clear(views.iter().count(), &render_device);
+    light_meta.view_gpu_lights.clear();
 
     let ambient_color = ambient_light.color.as_rgba_linear() * ambient_light.brightness;
     // set up light data for each view
@@ -605,7 +602,9 @@ pub fn prepare_lights(
         });
     }
 
-    light_meta.view_gpu_lights.write_buffer(&render_queue);
+    light_meta
+        .view_gpu_lights
+        .write_buffer(&render_device, &render_queue);
 }
 
 pub fn queue_shadow_view_bind_group(
