@@ -403,7 +403,7 @@ impl SystemStage {
     fn rebuild_orders_and_dependencies(&mut self) {
         // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be
         // added to a stage to guarantee that change detection has no false positive, but it
-        // can be circumvented using exclusive or chained systems
+        // can be circumvented using exclusive or welded systems
         assert!(
             self.exclusive_at_start.len()
                 + self.exclusive_before_commands.len()

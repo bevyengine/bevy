@@ -3,7 +3,7 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut},
+    system::{ConfigurableSystem, In, IntoWeldSystem, Local, Res, ResMut},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;
@@ -100,7 +100,7 @@ where
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::Update.into_label(s))
     }
@@ -120,7 +120,7 @@ where
             None => *is_inactive,
         })
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(s))
     }
@@ -152,7 +152,7 @@ where
             None => *is_in_stack,
         })
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(s))
     }
@@ -171,7 +171,7 @@ where
                 })
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::Enter.into_label(s))
     }
@@ -188,7 +188,7 @@ where
                 })
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::Exit.into_label(s))
     }
@@ -204,7 +204,7 @@ where
                 })
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::Pause.into_label(s))
     }
@@ -220,7 +220,7 @@ where
                 })
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
-        .chain(should_run_adapter::<T>)
+        .weld(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
         .label_discard_if_duplicate(StateCallback::Resume.into_label(s))
     }

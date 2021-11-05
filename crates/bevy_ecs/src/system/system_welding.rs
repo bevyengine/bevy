@@ -7,11 +7,11 @@ use crate::{
 };
 use std::borrow::Cow;
 
-/// A [`System`] that chains two systems together, creating a new system that routes the output of
+/// A [`System`] that welds two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
 ///
-/// Given two systems A and B, A may be chained with B as `A.chain(B)` if the output type of A is
-/// equal to the input type of B.
+/// Given two systems A and B, B may be welded onto A as `A.weld(B)` if the output type of A is
+/// the same as the input type of B.
 ///
 /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
 /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
@@ -28,10 +28,10 @@ use std::borrow::Cow;
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = parse_message_system.chain(filter_system);
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // Weld the `parse_message_system`'s output into the `filter_system`s input
+///     let mut welded_system = parse_message_system.weld(filter_system);
+///     welded_system.initialize(&mut world);
+///     assert_eq!(welded_system.run((), &mut world), Some(42));
 /// }
 ///
 /// struct Message(String);
@@ -44,7 +44,7 @@ use std::borrow::Cow;
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub struct ChainSystem<SystemA, SystemB> {
+pub struct WeldSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,
     name: Cow<'static, str>,
@@ -52,7 +52,7 @@ pub struct ChainSystem<SystemA, SystemB> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
-impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem<SystemA, SystemB> {
+impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for WeldSystem<SystemA, SystemB> {
     type In = SystemA::In;
     type Out = SystemB::Out;
 
@@ -107,33 +107,33 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     }
 }
 
-/// An extension trait providing the [`IntoChainSystem::chain`] method for convenient [`System`]
-/// chaining.
+/// An extension trait providing the [`IntoWeldSystem::weld`] method for convenient [`System`]
+/// welding.
 ///
-/// This trait is blanket implemented for all system pairs that fulfill the chaining requirement.
+/// This trait is blanket implemented for all system pairs that fulfill the welding requirement.
 ///
-/// See [`ChainSystem`].
-pub trait IntoChainSystem<ParamA, Payload, SystemB, ParamB, Out>:
+/// See [`WeldSystem`].
+pub trait IntoWeldSystem<ParamA, Payload, SystemB, ParamB, Out>:
     IntoSystem<(), Payload, ParamA> + Sized
 where
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
-    /// Chain this system `A` with another system `B` creating a new system that feeds system A's
+    /// Weld this system `A` with another system `B` creating a new system that feeds system A's
     /// output into system `B`, returning the output of system `B`.
-    fn chain(self, system: SystemB) -> ChainSystem<Self::System, SystemB::System>;
+    fn weld(self, system: SystemB) -> WeldSystem<Self::System, SystemB::System>;
 }
 
 impl<SystemA, ParamA, Payload, SystemB, ParamB, Out>
-    IntoChainSystem<ParamA, Payload, SystemB, ParamB, Out> for SystemA
+    IntoWeldSystem<ParamA, Payload, SystemB, ParamB, Out> for SystemA
 where
     SystemA: IntoSystem<(), Payload, ParamA>,
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
-    fn chain(self, system: SystemB) -> ChainSystem<SystemA::System, SystemB::System> {
+    fn weld(self, system: SystemB) -> WeldSystem<SystemA::System, SystemB::System> {
         let system_a = self.system();
         let system_b = system.system();
-        ChainSystem {
-            name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
+        WeldSystem {
+            name: Cow::Owned(format!("Weld({}, {})", system_a.name(), system_b.name())),
             system_a,
             system_b,
             archetype_component_access: Default::default(),

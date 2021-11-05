@@ -300,8 +300,8 @@ name = "state"
 path = "examples/ecs/state.rs"
 
 [[example]]
-name = "system_chaining"
-path = "examples/ecs/system_chaining.rs"
+name = "system_welding"
+path = "examples/ecs/system_welding.rs"
 
 [[example]]
 name = "system_param"
