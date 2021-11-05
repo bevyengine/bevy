@@ -1,10 +1,9 @@
 use bevy_ecs::world::World;
-use bevy_utils::{
-    tracing::{debug, info_span},
-    HashMap,
-};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
+use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::VecDeque};
+use std::{borrow::Cow, collections::VecDeque, ops::Deref};
 use thiserror::Error;
 
 use crate::{
@@ -56,13 +55,11 @@ impl RenderGraphRunner {
             command_encoder,
         };
 
+        Self::run_graph(graph, None, &mut render_context, world, &[])?;
         {
-            let span = info_span!("run_graph");
-            let _guard = span.enter();
-            Self::run_graph(graph, None, &mut render_context, world, &[])?;
-        }
-        {
+            #[cfg(feature = "trace")]
             let span = info_span!("submit_graph_commands");
+            #[cfg(feature = "trace")]
             let _guard = span.enter();
             queue.submit(vec![render_context.command_encoder.finish()]);
         }
@@ -77,9 +74,14 @@ impl RenderGraphRunner {
         inputs: &[SlotValue],
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
-        debug!("-----------------");
-        debug!("Begin Graph Run: {:?}", graph_name);
-        debug!("-----------------");
+        #[cfg(feature = "trace")]
+        let span = if let Some(name) = &graph_name {
+            info_span!("run_graph", name = name.deref())
+        } else {
+            info_span!("run_graph", name = "main_graph")
+        };
+        #[cfg(feature = "trace")]
+        let _guard = span.enter();
 
         // Queue up nodes without inputs, which can be run immediately
         let mut node_queue: VecDeque<&NodeState> = graph
@@ -166,14 +168,20 @@ impl RenderGraphRunner {
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
-                debug!("  Run Node {}", node_state.type_name);
+                #[cfg(feature = "trace")]
+                let span = info_span!("node", name = node_state.type_name);
+                #[cfg(feature = "trace")]
+                let guard = span.enter();
+
                 node_state.node.run(&mut context, render_context, world)?;
+
+                #[cfg(feature = "trace")]
+                drop(guard);
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph
                         .get_sub_graph(&run_sub_graph.name)
                         .expect("sub graph exists because it was validated when queued.");
-                    debug!("    Run Sub Graph {}", node_state.type_name);
                     Self::run_graph(
                         sub_graph,
                         Some(run_sub_graph.name),
@@ -204,7 +212,6 @@ impl RenderGraphRunner {
             }
         }
 
-        debug!("finish graph: {:?}", graph_name);
         Ok(())
     }
 }
