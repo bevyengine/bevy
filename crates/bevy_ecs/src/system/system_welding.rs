@@ -10,12 +10,18 @@ use std::borrow::Cow;
 /// A [`System`] that welds two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
 ///
-/// Given two systems A and B, B may be welded onto A as `A.weld(B)` if the output type of A is
-/// the same as the input type of B.
+/// Given two systems A and B, B may be welded onto A as `A.weld(B)`
+/// if the output type of A is the same as the input type of B.
 ///
-/// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
-/// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
-/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
+/// The output type is the return value of the function.
+/// The input type is the first [`SystemParam`](crate::system::SystemParam)
+/// if it is wrapped by [`In`](crate::system::In).
+/// If no input parameter is designated, the input type is `()`.
+///
+/// Systems can only be welded in a one-to-one fashion, and
+/// welding systems causes them to be treated as a single cohesive unit by the scheduler.
+/// System welding is a specialized tool designed to be used when handling the output of systems;
+/// for general purpose inter-system communication you should use [`Events`](crate::event::Events).
 ///
 /// # Examples
 ///
@@ -107,8 +113,8 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for WeldSystem<
     }
 }
 
-/// An extension trait providing the [`IntoWeldSystem::weld`] method for convenient [`System`]
-/// welding.
+/// An extension trait providing the [`IntoWeldSystem::weld`] method
+/// for convenient [`System`] welding.
 ///
 /// This trait is blanket implemented for all system pairs that fulfill the welding requirement.
 ///
