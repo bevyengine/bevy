@@ -1,12 +1,12 @@
+use anyhow::Result;
+use bevy::prelude::*;
+
 /// System welding is a valuable but niche tool that allows you to pass the output from one system
 /// as input into a second system on a one-to-one basis.
 ///
 /// It is most useful for error handling, or applying similar system adaptors to existing code.
 /// For more general-purpose system communication, you should probably use Events instead.
 /// For system ordering, use `.before` and `.after`.
-use anyhow::Result;
-use bevy::prelude::*;
-
 fn main() {
     App::new()
         .insert_resource(Message("42".to_string()))
