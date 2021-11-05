@@ -525,6 +525,7 @@ impl Window {
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub position: Option<Vec2>,
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
@@ -544,6 +545,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            position: None,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             vsync: true,
