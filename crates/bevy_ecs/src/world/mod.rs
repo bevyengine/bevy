@@ -603,7 +603,10 @@ impl World {
     }
 
     /// Inserts a new resource with the given `value`.
+    ///
     /// Resources are "unique" data of a given type.
+    /// Insert a resource of a type that already exists
+    /// will overwrite any existing data.
     #[inline]
     pub fn insert_resource<T: Resource>(&mut self, value: T) {
         let component_id = self.components.init_resource::<T>();
@@ -612,7 +615,10 @@ impl World {
     }
 
     /// Inserts a new non-send resource with the given `value`.
-    /// Resources are "unique" data of a given type.
+    ///
+    /// NonSend resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
     #[inline]
     pub fn insert_non_send<T: 'static>(&mut self, value: T) {
         self.validate_non_send_access::<T>();
@@ -622,7 +628,6 @@ impl World {
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
-    /// Resources are "unique" data of a given type.
     #[inline]
     pub fn remove_resource<T: Resource>(&mut self) -> Option<T> {
         // SAFE: T is Send + Sync
@@ -638,7 +643,8 @@ impl World {
 
     #[inline]
     /// # Safety
-    /// make sure you're on main thread if T isn't Send + Sync
+    /// Only remove NonSend resources from the main thread
+    /// as they cannot be sent across theads
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<T: 'static>(&mut self) -> Option<T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
@@ -668,7 +674,6 @@ impl World {
     }
 
     /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
     #[inline]
     pub fn get_resource<T: Resource>(&self) -> Option<&T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
@@ -710,7 +715,6 @@ impl World {
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
     #[inline]
     pub fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: unique world access
@@ -718,8 +722,8 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists, otherwise inserts the resource using the result of
-    /// calling `func`.
+    /// Gets a resource of type `T` if it exists,
+    /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<T: Resource>(
         &mut self,
@@ -731,8 +735,8 @@ impl World {
         self.get_resource_mut().unwrap()
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the resource of the given type, if it exists
+    /// Otherwise returns [None]
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given resource type. The caller must ensure
@@ -743,8 +747,8 @@ impl World {
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
-    /// Gets a reference to the non-send resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
+    /// Gets a reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
     #[inline]
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<&T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
@@ -752,16 +756,16 @@ impl World {
         unsafe { self.get_non_send_with_id(component_id) }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
-    /// returns [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
     #[inline]
     pub fn get_non_send_resource_mut<T: 'static>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
-    /// returns [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
@@ -1181,7 +1185,10 @@ impl fmt::Debug for World {
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
 
-/// Creates `Self` using data from the given [World]
+/// Creates an instance of the type this trait is implemented for
+/// using data from the supplied [World].
+///
+/// This can be helpful for complex initialization or context-aware defaults.
 pub trait FromWorld {
     /// Creates `Self` using data from the given [World]
     fn from_world(world: &mut World) -> Self;

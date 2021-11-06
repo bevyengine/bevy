@@ -268,6 +268,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// and those default values will be here instead.
     ///
     /// See [`World::init_resource`] for more details.
+    /// Note that commands do not take effect immediately.
+    /// When possible, prefer the equivalent methods on `App` or `World`.
     ///
     /// # Example
     ///
@@ -294,6 +296,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
     ///
     /// See [`World::insert_resource`] for more details.
+    /// Note that commands do not take effect immediately.
+    /// When possible, prefer the equivalent methods on `App` or `World`.
     ///
     /// # Example
     ///
