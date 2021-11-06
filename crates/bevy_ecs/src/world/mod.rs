@@ -594,12 +594,19 @@ impl World {
 
     /// Inserts a new resource with default values.
     ///
+    /// If the resource already exists, nothing happens.
+    ///
     /// Uses the [`FromWorld`] trait to determine values,
     /// which has a blanket impl for all `T: Default`.
     #[inline]
-    pub fn init_resource<T: Resource + FromWorld>(&mut self) {
-        let resource: T = FromWorld::from_world(self);
-        self.insert_resource(resource);
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
+        // not to modify the map. However, we would need to be borrowing resources both
+        // mutably and immutably, so we would need to be extremely certain this is correct
+        if !self.contains_resource::<R>() {
+            let resource = R::from_world(self);
+            self.insert_resource(resource);
+        }
     }
 
     /// Inserts a new resource with the given `value`.
