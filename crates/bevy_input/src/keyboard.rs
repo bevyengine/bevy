@@ -34,9 +34,9 @@ pub fn keyboard_input_system(
 /// The key code of a keyboard input.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 #[repr(u32)]
 pub enum KeyCode {

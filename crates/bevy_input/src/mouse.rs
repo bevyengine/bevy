@@ -12,9 +12,9 @@ pub struct MouseButtonInput {
 /// A button on a mouse device
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 pub enum MouseButton {
     Left,

@@ -9,9 +9,9 @@ pub struct Gamepad(pub usize);
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 pub enum GamepadEventType {
     Connected,
@@ -30,9 +30,9 @@ pub struct GamepadEventRaw(pub Gamepad, pub GamepadEventType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 pub enum GamepadButtonType {
     South,
@@ -62,9 +62,9 @@ pub struct GamepadButton(pub Gamepad, pub GamepadButtonType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 pub enum GamepadAxisType {
     LeftStickX,

@@ -84,9 +84,9 @@ impl Plugin for InputPlugin {
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(
-	feature = "serialize",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(rename_all = "snake_case")
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
 )]
 pub enum ElementState {
     Pressed,
