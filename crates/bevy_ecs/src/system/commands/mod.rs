@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
-    world::World,
+    world::{FromWorld, World},
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
@@ -259,6 +259,34 @@ impl<'w, 's> Commands<'w, 's> {
         B: Bundle,
     {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
+    }
+
+    /// Inserts a resource with default values to the [`World`], overwriting any previous value of the same type.
+    ///
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Default)]
+    /// # struct Scoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # fn system(mut commands: Commands) {
+    /// commands.init_resource::<Scoreboard>();
+    /// # }
+    /// # system.system();
+    /// ```
+    pub fn init_resource<T: Resource + FromWorld>(&mut self) {
+        self.queue.push(InitResource::<T> {
+            _phantom: PhantomData::<T>::default(),
+        })
     }
 
     /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
@@ -710,6 +738,17 @@ where
             // this command
             entity_mut.remove_bundle_intersection::<T>();
         }
+    }
+}
+
+pub struct InitResource<T: Resource + FromWorld> {
+    _phantom: PhantomData<T>,
+}
+
+impl<T: Resource + FromWorld> Command for InitResource<T> {
+    fn write(self, world: &mut World) {
+        let resource: T = FromWorld::from_world(world);
+        world.insert_resource(resource);
     }
 }
 
