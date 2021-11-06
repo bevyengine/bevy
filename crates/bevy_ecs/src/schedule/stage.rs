@@ -208,7 +208,12 @@ impl SystemStage {
 
     pub fn apply_buffers(&mut self, world: &mut World) {
         for container in self.parallel.iter_mut() {
-            container.system_mut().apply_buffers(world);
+            let system = container.system_mut();
+            #[cfg(feature = "trace")]
+            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
+            #[cfg(feature = "trace")]
+            let _guard = span.enter();
+            system.apply_buffers(world);
         }
     }
 
