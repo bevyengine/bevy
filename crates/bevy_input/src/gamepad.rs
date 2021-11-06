@@ -8,7 +8,11 @@ use bevy_utils::HashMap;
 pub struct Gamepad(pub usize);
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "snake_case"))]
+#[cfg_attr(
+	feature = "serialize",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(rename_all = "snake_case")
+)]
 pub enum GamepadEventType {
     Connected,
     Disconnected,
@@ -25,7 +29,11 @@ pub struct GamepadEvent(pub Gamepad, pub GamepadEventType);
 pub struct GamepadEventRaw(pub Gamepad, pub GamepadEventType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "snake_case"))]
+#[cfg_attr(
+	feature = "serialize",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(rename_all = "snake_case")
+)]
 pub enum GamepadButtonType {
     South,
     East,
@@ -53,7 +61,11 @@ pub enum GamepadButtonType {
 pub struct GamepadButton(pub Gamepad, pub GamepadButtonType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "snake_case"))]
+#[cfg_attr(
+	feature = "serialize",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(rename_all = "snake_case")
+)]
 pub enum GamepadAxisType {
     LeftStickX,
     LeftStickY,

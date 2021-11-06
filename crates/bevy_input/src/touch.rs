@@ -69,7 +69,11 @@ pub enum ForceTouch {
 
 /// Describes touch-screen input state.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "snake_case"))]
+#[cfg_attr(
+	feature = "serialize",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(rename_all = "snake_case")
+)]
 pub enum TouchPhase {
     Started,
     Moved,
