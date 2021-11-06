@@ -422,7 +422,7 @@ mod tests {
         world.insert_resource(false);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send(NotSend1(std::rc::Rc::new(0)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -446,8 +446,8 @@ mod tests {
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
-        world.insert_non_send(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
         fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
             *run = true;

@@ -261,7 +261,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
-    /// Inserts a resource with default values to the [`World`], overwriting any previous value of the same type.
+    /// Inserts a resource with default values to the [`World`].
+    ///
+    /// If the resource already exists, nothing happens.
     ///
     /// The value given by the [`FromWorld::from_world`] method will be used.
     /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
@@ -287,9 +289,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # system.system();
     /// ```
-    pub fn init_resource<T: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<T> {
-            _phantom: PhantomData::<T>::default(),
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+        self.queue.push(InitResource::<R> {
+            _phantom: PhantomData::<R>::default(),
         })
     }
 
@@ -317,7 +319,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn insert_resource<T: Resource>(&mut self, resource: T) {
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) {
         self.queue.push(InsertResource { resource })
     }
 
@@ -340,8 +342,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn remove_resource<T: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<T> {
+    pub fn remove_resource<R: Resource>(&mut self) {
+        self.queue.push(RemoveResource::<R> {
             phantom: PhantomData,
         });
     }
@@ -747,33 +749,33 @@ where
     }
 }
 
-pub struct InitResource<T: Resource + FromWorld> {
-    _phantom: PhantomData<T>,
+pub struct InitResource<R: Resource + FromWorld> {
+    _phantom: PhantomData<R>,
 }
 
-impl<T: Resource + FromWorld> Command for InitResource<T> {
+impl<R: Resource + FromWorld> Command for InitResource<R> {
     fn write(self, world: &mut World) {
-        world.init_resource::<T>();
+        world.init_resource::<R>();
     }
 }
 
-pub struct InsertResource<T: Resource> {
-    pub resource: T,
+pub struct InsertResource<R: Resource> {
+    pub resource: R,
 }
 
-impl<T: Resource> Command for InsertResource<T> {
+impl<R: Resource> Command for InsertResource<R> {
     fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
 
-pub struct RemoveResource<T: Resource> {
-    pub phantom: PhantomData<T>,
+pub struct RemoveResource<R: Resource> {
+    pub phantom: PhantomData<R>,
 }
 
-impl<T: Resource> Command for RemoveResource<T> {
+impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
-        world.remove_resource::<T>();
+        world.remove_resource::<R>();
     }
 }
 
