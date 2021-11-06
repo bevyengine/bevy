@@ -592,6 +592,16 @@ impl World {
         }
     }
 
+    /// Inserts a new resource with default values.
+    ///
+    /// Uses the [`FromWorld`] trait to determine values,
+    /// which has a blanket impl for all `T: Default`.
+    #[inline]
+    pub fn init_resource<T: Resource + FromWorld>(&mut self) {
+        let resource: T = FromWorld::from_world(self);
+        self.insert_resource(resource);
+    }
+
     /// Inserts a new resource with the given `value`.
     /// Resources are "unique" data of a given type.
     #[inline]

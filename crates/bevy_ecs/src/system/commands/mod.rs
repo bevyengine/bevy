@@ -267,6 +267,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
     /// and those default values will be here instead.
     ///
+    /// See [`World::init_resource`] for more details.
+    ///
     /// # Example
     ///
     /// ```
@@ -747,8 +749,7 @@ pub struct InitResource<T: Resource + FromWorld> {
 
 impl<T: Resource + FromWorld> Command for InitResource<T> {
     fn write(self, world: &mut World) {
-        let resource: T = FromWorld::from_world(world);
-        world.insert_resource(resource);
+        world.init_resource::<T>();
     }
 }
 
