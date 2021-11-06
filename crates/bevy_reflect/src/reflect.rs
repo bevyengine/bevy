@@ -21,11 +21,17 @@ pub enum ReflectMut<'a> {
     Value(&'a mut dyn Reflect),
 }
 
-/// A reflected rust type.
+/// A reflected Rust type.
+///
+/// Methods for working with particular kinds of Rust type are available using the [`List`], [`Map`],
+/// [`Struct`], [`TupleStruct`], and [`Tuple`] subtraits.
+///
+/// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
+/// type (`Struct` or `TupleStruct`) is derived automatically.
 ///
 /// # Safety
 /// Implementors _must_ ensure that [`Reflect::any`] and [`Reflect::any_mut`] both return the `self`
-/// value passed in If this is not done, [`Reflect::downcast`](trait.Reflect.html#method.downcast)
+/// value passed in. If this is not done, [`Reflect::downcast`](trait.Reflect.html#method.downcast)
 /// will be UB (and also just logically broken).
 pub unsafe trait Reflect: Any + Send + Sync {
     fn type_name(&self) -> &str;
