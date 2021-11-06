@@ -44,9 +44,28 @@ impl WinitWindows {
                 let WindowDescriptor {
                     width,
                     height,
+                    position,
                     scale_factor_override,
                     ..
                 } = window_descriptor;
+
+                if let Some(position) = position {
+                    if let Some(sf) = scale_factor_override {
+                        winit_window_builder = winit_window_builder.with_position(
+                            winit::dpi::LogicalPosition::new(
+                                position[0] as f64,
+                                position[1] as f64,
+                            )
+                            .to_physical::<f64>(*sf),
+                        );
+                    } else {
+                        winit_window_builder =
+                            winit_window_builder.with_position(winit::dpi::LogicalPosition::new(
+                                position[0] as f64,
+                                position[1] as f64,
+                            ));
+                    }
+                }
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(
                         winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
