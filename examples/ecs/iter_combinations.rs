@@ -29,7 +29,6 @@ fn main() {
 }
 
 const GRAVITY_CONSTANT: f32 = 0.001;
-const SOFTENING: f32 = 0.01;
 const NUM_BODIES: usize = 100;
 
 #[derive(Component, Default)]
@@ -60,14 +59,13 @@ fn generate_bodies(
         subdivisions: 3,
     }));
 
-    let pos_range = 1.0..15.0;
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
     let mut rng = thread_rng();
     for _ in 0..NUM_BODIES {
-        let mass_value_cube_root: f32 = rng.gen_range(0.5..4.0);
-        let mass_value: f32 = mass_value_cube_root * mass_value_cube_root * mass_value_cube_root;
+        let radius: f32 = rng.gen_range(0.1..0.7);
+        let mass_value = radius.powi(3) * 10.;
 
         let position = Vec3::new(
             rng.gen_range(-1.0..1.0),
@@ -75,13 +73,14 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(pos_range.clone());
+            * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
+            * 15.;
 
         commands.spawn_bundle(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
                     translation: position,
-                    scale: Vec3::splat(mass_value_cube_root * 0.1),
+                    scale: Vec3::splat(radius),
                     ..Default::default()
                 },
                 mesh: mesh.clone(),
@@ -125,7 +124,7 @@ fn generate_bodies(
                 }),
                 ..Default::default()
             },
-            mass: Mass(1000.0),
+            mass: Mass(500.0),
             ..Default::default()
         })
         .insert(PointLight {
@@ -149,7 +148,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
         let delta = transform2.translation - transform1.translation;
         let distance_sq: f32 = delta.length_squared();
 
-        let f = GRAVITY_CONSTANT / (distance_sq * (distance_sq + SOFTENING).sqrt());
+        let f = GRAVITY_CONSTANT / distance_sq;
         let force_unit_mass = delta * f;
         acc1.0 += force_unit_mass * *m2;
         acc2.0 -= force_unit_mass * *m1;
@@ -176,10 +175,9 @@ fn look_at_star(
 ) {
     let mut camera = camera.single_mut();
     let star = star.single();
-    let new_transform = camera
-        .clone()
+    let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)
         .rotation
         .lerp(camera.rotation, 0.1);
-    camera.rotation = new_transform;
+    camera.rotation = new_rotation;
 }
