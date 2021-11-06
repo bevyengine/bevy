@@ -96,7 +96,7 @@ The built in "parallel stage" considers dependencies between systems and (by def
 Bevy ECS should feel very natural for those familiar with Rust syntax:
 
 ```rust
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 
 struct Velocity {
     x: f32,
