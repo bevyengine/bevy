@@ -149,8 +149,6 @@ impl DynamicTuple {
     }
 
     /// Appends a typed element with value `value` to the tuple.
-    ///
-    /// The type information of the inserted value is erased.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
         self.generate_name();
