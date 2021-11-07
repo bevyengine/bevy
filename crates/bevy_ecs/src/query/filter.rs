@@ -621,7 +621,7 @@ impl_tick_filter!(
     /// All components internally remember the last tick they were added at, and the last tick they
     /// were mutated at. The mutation detection is powered by `DerefMut`, such that any dereferencing
     /// will mark the component as changed. Note that there is no deep value inspection on the actual
-    /// data of the component, which would be prohibilively expensive. This means false positives can
+    /// data of the component, which would be prohibitively expensive. This means false positives can
     /// occur if dereferencing via `DerefMut` but not changing any component data.
     ///
     /// This filter is useful for synchronizing components. It can also be used as a performance
