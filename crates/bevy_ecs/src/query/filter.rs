@@ -630,7 +630,7 @@ impl_tick_filter!(
     /// filterings, applying this filtering has a small cost, which must be balanced against the
     /// cost of the operation on the changed components.
     ///
-    /// Because by default the ordering of systems can change, and this filter is only effective
+    /// Because by default the ordering of systems within the same stage is nondeterministic, and this filter is only effective
     /// on changes detected before the query executes, to avoid frame delays you need to use
     /// explicit dependency ordering or ordered stages to ensure the detecting system where the
     /// query is used runs after the system(s) which mutate the component.
