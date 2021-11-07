@@ -29,7 +29,7 @@ use bevy_render2::{
         VertexBufferLayout, VertexState,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::{BevyDefault, Image},
+    texture::Image,
     view::{
         ExtractedView, Msaa, ViewDepthTexture, ViewUniformOffset, ViewUniforms, VisibleEntities,
     },
@@ -38,12 +38,11 @@ use bevy_render2::{
 use bevy_utils::HashMap;
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingResource, BindingType, BlendState, BufferBindingType, BufferSize, ColorTargetState,
-    ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face, FrontFace, IndexFormat,
-    LoadOp, MultisampleState, Operations, PolygonMode, PrimitiveState, PrimitiveTopology,
-    RenderPassDepthStencilAttachment, RenderPassDescriptor, ShaderStages, StencilFaceState,
-    StencilState, TextureFormat, TextureSampleType, TextureViewDimension, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    BindingResource, BindingType, BufferBindingType, BufferSize, CompareFunction, DepthBiasState,
+    DepthStencilState, Face, FrontFace, IndexFormat, LoadOp, MultisampleState, Operations,
+    PolygonMode, PrimitiveState, PrimitiveTopology, RenderPassDepthStencilAttachment,
+    RenderPassDescriptor, ShaderStages, StencilFaceState, StencilState, TextureFormat,
+    TextureSampleType, TextureViewDimension, VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 pub struct DepthPrepassPipeline {
