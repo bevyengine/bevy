@@ -70,9 +70,9 @@ pub struct Frustum {
 
 impl Frustum {
     // NOTE: This approach of extracting the frustum planes from the view
-    //       projection matrix is from Foundations of Game Engine Development 2
-    //       Rendering by Lengyel. Slight modification as been made for when
-    //       the far plane is infinite but we still want to cull to a far plane.
+    // projection matrix is from Foundations of Game Engine Development 2
+    // Rendering by Lengyel. Slight modification has been made for when
+    // the far plane is infinite but we still want to cull to a far plane.
     pub fn from_view_projection(
         view_projection: &Mat4,
         view_translation: &Vec3,

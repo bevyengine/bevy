@@ -710,7 +710,7 @@ pub fn queue_meshes(
                     let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
 
                     // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
-                    //       gives the z component of translation of the mesh in view space
+                    // gives the z component of translation of the mesh in view space
                     let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
                     // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
                     transparent_phase.add(Transparent3d {

@@ -1,4 +1,14 @@
-use bevy_render2::{camera::OrthographicProjection, color::Color};
+use bevy_ecs::prelude::*;
+use bevy_math::Mat4;
+use bevy_render2::{
+    camera::{CameraProjection, OrthographicProjection},
+    color::Color,
+    primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
+    view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities, VisibleEntity},
+};
+use bevy_transform::components::GlobalTransform;
+
+use crate::{CubeMapFace, CubemapVisibleEntities, CUBE_MAP_FACES};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -156,3 +166,177 @@ impl Default for AmbientLight {
 pub struct NotShadowCaster;
 /// Add this component to make a `Mesh` not receive shadows
 pub struct NotShadowReceiver;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum SimulationLightSystems {
+    UpdateDirectionalLightFrusta,
+    UpdatePointLightFrusta,
+    CheckLightVisibility,
+}
+
+pub fn update_directional_light_frusta(
+    mut views: Query<(&GlobalTransform, &DirectionalLight, &mut Frustum)>,
+) {
+    for (transform, directional_light, mut frustum) in views.iter_mut() {
+        let view_projection = directional_light.shadow_projection.get_projection_matrix()
+            * transform.compute_matrix().inverse();
+        *frustum = Frustum::from_view_projection(
+            &view_projection,
+            &transform.translation,
+            &transform.back(),
+            directional_light.shadow_projection.far(),
+        );
+    }
+}
+
+pub fn update_point_light_frusta(
+    mut views: Query<(&GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+) {
+    let projection = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+    let view_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
+    for (transform, point_light, mut cubemap_frusta) in views.iter_mut() {
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        // and ignore rotation because we want the shadow map projections to align with the axes
+        let view_translation = GlobalTransform::from_translation(transform.translation);
+        let view_backward = transform.back();
+
+        for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
+            let view = view_translation * *view_rotation;
+            let view_projection = projection * view.compute_matrix().inverse();
+
+            *frustum = Frustum::from_view_projection(
+                &view_projection,
+                &transform.translation,
+                &view_backward,
+                point_light.range,
+            );
+        }
+    }
+}
+
+pub fn check_light_visibility(
+    mut point_lights: Query<(
+        &PointLight,
+        &GlobalTransform,
+        &CubemapFrusta,
+        &mut CubemapVisibleEntities,
+        Option<&RenderLayers>,
+    )>,
+    mut directional_lights: Query<
+        (&Frustum, &mut VisibleEntities, Option<&RenderLayers>),
+        With<DirectionalLight>,
+    >,
+    mut visible_entity_query: Query<
+        (
+            Entity,
+            &Visibility,
+            &mut ComputedVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
+        ),
+        Without<NotShadowCaster>,
+    >,
+) {
+    // Directonal lights
+    for (frustum, mut visible_entities, maybe_view_mask) in directional_lights.iter_mut() {
+        visible_entities.entities.clear();
+        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
+        for (
+            entity,
+            visibility,
+            mut computed_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in visible_entity_query.iter_mut()
+        {
+            if !visibility.is_visible {
+                continue;
+            }
+
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                continue;
+            }
+
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                    continue;
+                }
+            }
+
+            computed_visibility.is_visible = true;
+            visible_entities.entities.push(VisibleEntity { entity });
+        }
+
+        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+        // to prevent holding unneeded memory
+    }
+
+    // Point lights
+    for (point_light, transform, cubemap_frusta, mut cubemap_visible_entities, maybe_view_mask) in
+        point_lights.iter_mut()
+    {
+        for visible_entities in cubemap_visible_entities.iter_mut() {
+            visible_entities.entities.clear();
+        }
+        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let light_sphere = Sphere {
+            center: transform.translation,
+            radius: point_light.range,
+        };
+
+        for (
+            entity,
+            visibility,
+            mut computed_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in visible_entity_query.iter_mut()
+        {
+            if !visibility.is_visible {
+                continue;
+            }
+
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                continue;
+            }
+
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                let model_to_world = transform.compute_matrix();
+                // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+                if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                    continue;
+                }
+                for (frustum, visible_entities) in cubemap_frusta
+                    .iter()
+                    .zip(cubemap_visible_entities.iter_mut())
+                {
+                    if frustum.intersects_obb(aabb, &model_to_world) {
+                        computed_visibility.is_visible = true;
+                        visible_entities.entities.push(VisibleEntity { entity });
+                    }
+                }
+            } else {
+                computed_visibility.is_visible = true;
+                for visible_entities in cubemap_visible_entities.iter_mut() {
+                    visible_entities.entities.push(VisibleEntity { entity })
+                }
+            }
+        }
+
+        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+        // to prevent holding unneeded memory
+    }
+}

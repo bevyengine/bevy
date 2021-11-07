@@ -131,16 +131,23 @@ pub fn update_frusta<T: CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: Query<(
-        Entity,
-        &Visibility,
-        &mut ComputedVisibility,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        Option<&GlobalTransform>,
+    mut visible_entity_query: QuerySet<(
+        QueryState<&mut ComputedVisibility>,
+        QueryState<(
+            Entity,
+            &Visibility,
+            &mut ComputedVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
+        )>,
     )>,
 ) {
-    let mut first_view = true;
+    // Reset the computed visibility to false
+    for mut computed_visibility in visible_entity_query.q0().iter_mut() {
+        computed_visibility.is_visible = false;
+    }
+
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
@@ -152,13 +159,8 @@ pub fn check_visibility(
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        ) in visible_entity_query.q1().iter_mut()
         {
-            // Initialize the computed visibility to false for the first view, then it is inherited for subsequent views
-            if first_view {
-                computed_visibility.is_visible = false;
-            }
-
             if !visibility.is_visible {
                 continue;
             }
@@ -181,7 +183,5 @@ pub fn check_visibility(
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
         // to prevent holding unneeded memory
-
-        first_view = false;
     }
 }
