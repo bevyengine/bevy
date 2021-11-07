@@ -395,6 +395,7 @@ pub struct DepthPrepassViewBindGroup {
 
 pub type DepthPrepassMaterialMeta = HashMap<Handle<StandardMaterial>, BindGroup>;
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_depth_prepass_meshes(
     mut commands: Commands,
     msaa: Res<Msaa>,
