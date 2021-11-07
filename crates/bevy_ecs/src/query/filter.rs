@@ -616,18 +616,27 @@ impl_tick_filter!(
 );
 
 impl_tick_filter!(
-    /// Filter that retrieves components of type `T` that have been changed since the last
-    /// execution of this system.
+    /// Filter that retrieves components of type `T` that have been changed since the last tick.
     ///
-    /// This filter is useful for synchronizing components, and as a performance optimization as it
-    /// means that the query contains fewer items for a system to iterate over.
+    /// All components internally remember the last tick they were added at, and the last tick they
+    /// were mutated at. The mutation detection is powered by `DerefMut`, such that any dereferencing
+    /// will mark the component as changed. Note that there is no deep value inspection on the actual
+    /// data of the component, which would be prohibilively expensive. This means false positives can
+    /// occur if dereferencing via `DerefMut` but not changing any component data.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered
-    /// stages to avoid frame delays.
+    /// This filter is useful for synchronizing components. It can also be used as a performance
+    /// optimization in case of expensive operations, by filtering unchanged components out and
+    /// returning via the query only the components which changed. However, note that like all
+    /// filterings, applying this filtering has a small cost, which must be balanced against the
+    /// cost of the operation on the changed components.
     ///
-    /// If instead behavior is meant to change on whether the component changed or not
-    /// [`ChangeTrackers`](crate::query::ChangeTrackers) may be used.
+    /// Because by default the ordering of systems can change, and this filter is only effective
+    /// on changes detected before the query executes, to avoid frame delays you need to use
+    /// explicit dependency ordering or ordered stages to ensure the detecting system where the
+    /// query is used runs after the system(s) which mutate the component.
+    ///
+    /// To instead retrieve all components without filtering but allow querying if they changed
+    /// or not since last tick, you can use [`ChangeTrackers`](crate::query::ChangeTrackers).
     ///
     /// # Examples
     ///
