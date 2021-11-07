@@ -21,7 +21,9 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
+    view::{
+        ComputedVisibility, ExtractedView, Msaa, ViewUniformOffset, ViewUniforms, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -70,6 +72,7 @@ pub fn extract_meshes(
     caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
@@ -79,6 +82,7 @@ pub fn extract_meshes(
     not_caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
@@ -87,7 +91,10 @@ pub fn extract_meshes(
     >,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, transform, handle, not_receiver) in caster_query.iter() {
+    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         let transform = transform.compute_matrix();
         caster_values.push((
             entity,
@@ -109,7 +116,10 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(caster_values);
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, transform, handle, not_receiver) in not_caster_query.iter() {
+    for (entity, computed_visibility, transform, handle, not_receiver) in not_caster_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         let transform = transform.compute_matrix();
         not_caster_values.push((
             entity,
@@ -613,16 +623,12 @@ pub fn queue_meshes(
     view_uniforms: Res<ViewUniforms>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
-    standard_material_meshes: Query<(
-        Entity,
-        &Handle<StandardMaterial>,
-        &Handle<Mesh>,
-        &MeshUniform,
-    )>,
+    standard_material_meshes: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         Entity,
         &ExtractedView,
         &ViewLights,
+        &VisibleEntities,
         &mut RenderPhase<Transparent3d>,
     )>,
 ) {
@@ -630,7 +636,8 @@ pub fn queue_meshes(
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
-        for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
+        for (entity, view, view_lights, visible_entities, mut transparent_phase) in views.iter_mut()
+        {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -680,37 +687,39 @@ pub fn queue_meshes(
             let view_matrix = view.transform.compute_matrix();
             let view_row_2 = view_matrix.row(2);
 
-            for (entity, material_handle, mesh_handle, mesh_uniform) in
-                standard_material_meshes.iter()
-            {
-                let mut key = PbrPipelineKey::from_msaa_samples(msaa.samples);
-                if let Some(material) = render_materials.get(material_handle) {
-                    if material
-                        .flags
-                        .contains(StandardMaterialFlags::NORMAL_MAP_TEXTURE)
-                    {
-                        key |= PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP;
+            for visible_entity in &visible_entities.entities {
+                if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+                    standard_material_meshes.get(visible_entity.entity)
+                {
+                    let mut key = PbrPipelineKey::from_msaa_samples(msaa.samples);
+                    if let Some(material) = render_materials.get(material_handle) {
+                        if material
+                            .flags
+                            .contains(StandardMaterialFlags::NORMAL_MAP_TEXTURE)
+                        {
+                            key |= PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP;
+                        }
+                    } else {
+                        continue;
                     }
-                } else {
-                    continue;
-                }
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    if mesh.has_tangents {
-                        key |= PbrPipelineKey::VERTEX_TANGENTS;
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        if mesh.has_tangents {
+                            key |= PbrPipelineKey::VERTEX_TANGENTS;
+                        }
                     }
-                }
-                let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
+                    let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
 
-                // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
-                //       gives the z component of translation of the mesh in view space
-                let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
-                // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
-                transparent_phase.add(Transparent3d {
-                    entity,
-                    draw_function: draw_pbr,
-                    pipeline: pipeline_id,
-                    distance: mesh_z,
-                });
+                    // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space
+                    let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
+                    // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
+                    transparent_phase.add(Transparent3d {
+                        entity: visible_entity.entity,
+                        draw_function: draw_pbr,
+                        pipeline: pipeline_id,
+                        distance: mesh_z,
+                    });
+                }
             }
         }
     }

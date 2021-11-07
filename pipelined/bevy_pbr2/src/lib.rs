@@ -18,8 +18,10 @@ use bevy_render2::{
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
+    view::VisibilitySystems,
     RenderApp, RenderStage,
 };
+use bevy_transform::TransformSystem;
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -49,20 +51,53 @@ impl Plugin for PbrPlugin {
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .init_resource::<AmbientLight>();
+            .init_resource::<AmbientLight>()
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_directional_light_frusta
+                    .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_point_light_frusta
+                    .label(SimulationLightSystems::UpdatePointLightFrusta)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                check_light_visibility
+                    .label(SimulationLightSystems::CheckLightVisibility)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CalculateBounds)
+                    .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
+                    .after(SimulationLightSystems::UpdatePointLightFrusta)
+                    // NOTE: This MUST be scheduled AFTER the core renderer visibility check
+                    // because that resets entity ComputedVisibility for the first view
+                    // which would override any results from this otherwise
+                    .after(VisibilitySystems::CheckVisibility),
+            );
 
         let render_app = app.sub_app(RenderApp);
         render_app
             .add_system_to_stage(RenderStage::Extract, render::extract_meshes)
-            .add_system_to_stage(RenderStage::Extract, render::extract_lights)
+            .add_system_to_stage(
+                RenderStage::Extract,
+                render::extract_lights.label(RenderLightSystems::ExtractLights),
+            )
             .add_system_to_stage(
                 RenderStage::Prepare,
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
-                render::prepare_lights.exclusive_system(),
+                render::prepare_lights
+                    .exclusive_system()
+                    .label(RenderLightSystems::PrepareLights),
             )
             .add_system_to_stage(RenderStage::Queue, render::queue_meshes)
-            .add_system_to_stage(RenderStage::Queue, render::queue_shadows)
+            .add_system_to_stage(
+                RenderStage::Queue,
+                render::queue_shadows.label(RenderLightSystems::QueueShadows),
+            )
             .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
             .add_system_to_stage(RenderStage::Queue, render::queue_transform_bind_group)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
