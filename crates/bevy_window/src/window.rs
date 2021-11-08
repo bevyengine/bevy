@@ -534,6 +534,10 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     pub cursor_locked: bool,
     pub mode: WindowMode,
+    /// Sets whether the background of the window should be transparent.
+    /// # Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - OSX: Not working as expected.
     pub transparent: bool,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,

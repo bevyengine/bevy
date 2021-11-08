@@ -1,6 +1,5 @@
-/// # Platform-specific
-/// - iOS / Android / Web: Unsupported.
-/// - OSX: Not working as expected.
+/// An example of how to display a window in transparent mode
+/// [Documentation & Platform support.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_window/src/window.rs)
 use bevy::{prelude::*, render::pass::ClearColor, window::WindowDescriptor};
 
 fn main() {
