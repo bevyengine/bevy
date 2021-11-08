@@ -9,8 +9,10 @@ use bevy_utils::HashMap;
 
 use crate::{
     component::{Component, Components},
-    prelude::{Entity, Mut},
-    query::{EntityFetch, Fetch, ReadFetch, WithFetch, WithoutFetch, WorldQuery, WriteFetch},
+    prelude::{Entity, Mut, With, Without},
+    query::{
+        EntityFetch, Fetch, OptionFetch, ReadFetch, WithFetch, WithoutFetch, WorldQuery, WriteFetch,
+    },
     world::{world_cell::command::CellInsert, CellCommandQueue, WorldOverlay},
 };
 
@@ -185,6 +187,34 @@ pub trait WorldCellQuery: WorldQuery {
     >;
 }
 
+pub trait OptQuery {
+    type OptQuery: WorldQuery;
+}
+
+impl<T: Component> OptQuery for &T {
+    type OptQuery = Option<Self>;
+}
+
+impl<T: Component> OptQuery for &mut T {
+    type OptQuery = Option<Self>;
+}
+
+impl OptQuery for Entity {
+    type OptQuery = Self;
+}
+
+impl<T: Component> OptQuery for With<T> {
+    type OptQuery = Option<Self>;
+}
+
+impl<T: Component> OptQuery for Without<T> {
+    type OptQuery = Option<Self>;
+}
+
+impl<T: WorldQuery> OptQuery for Option<T> {
+    type OptQuery = Self;
+}
+
 impl<T> WorldCellQuery for T
 where
     T: WorldQuery,
@@ -198,6 +228,7 @@ where
 
 pub trait CellFetch<'world, 'state>: Fetch<'world, 'state> {
     type CellItem;
+    type OptItem;
     // just wrap original data without further filtering
     fn wrap(inner: Self::Item, entity: Entity, refs: &FetchRefs) -> Self::CellItem;
 
@@ -213,16 +244,18 @@ pub trait CellFetch<'world, 'state>: Fetch<'world, 'state> {
 
     // fetch using combined world and overlay data
     fn fetch_overlay(
-        &mut self,
+        opt_inner: Self::OptItem,
         entity: Entity,
         refs: &FetchRefs,
         overlay: &WorldOverlay,
         components: &Components,
+        command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem>;
 }
 
 impl<'world, 'state> CellFetch<'world, 'state> for EntityFetch {
     type CellItem = <Self as Fetch<'world, 'state>>::Item;
+    type OptItem = Self::Item;
     fn wrap(inner: Self::Item, _entity: Entity, _refs: &FetchRefs) -> Self::CellItem {
         inner
     }
@@ -240,11 +273,12 @@ impl<'world, 'state> CellFetch<'world, 'state> for EntityFetch {
 
     #[inline]
     fn fetch_overlay(
-        &mut self,
+        _opt_inner: Self::OptItem,
         entity: Entity,
         _refs: &FetchRefs,
         _overlay: &WorldOverlay,
         _components: &Components,
+        _command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem> {
         Some(entity)
     }
@@ -252,6 +286,7 @@ impl<'world, 'state> CellFetch<'world, 'state> for EntityFetch {
 
 impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WithFetch<T> {
     type CellItem = <Self as Fetch<'world, 'state>>::Item;
+    type OptItem = <OptionFetch<Self> as Fetch<'world, 'state>>::Item;
     fn wrap(inner: Self::Item, _entity: Entity, _refs: &FetchRefs) -> Self::CellItem {
         inner
     }
@@ -274,18 +309,40 @@ impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WithFetch<T> {
     }
 
     fn fetch_overlay(
-        &mut self,
-        _entity: Entity,
+        opt_inner: Self::OptItem,
+        entity: Entity,
         _refs: &FetchRefs,
-        _overlay: &WorldOverlay,
-        _components: &Components,
+        overlay: &WorldOverlay,
+        components: &Components,
+        _command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem> {
-        todo!()
+        // two options to pass "With":
+        // - world has the data and it wasn't deleted
+        // - overlay has the data
+        let id = components.get_id(TypeId::of::<T>())?;
+
+        if opt_inner == Some(true) {
+            if let Some(removed) = overlay.removed.get(&entity) {
+                if removed.contains(&id) {
+                    return None;
+                }
+            }
+            return Some(true);
+        }
+
+        if let Some(inserted) = overlay.inserted.get(&entity) {
+            if inserted.iter().any(|i| i.0 == id) {
+                return Some(true);
+            }
+        }
+
+        None
     }
 }
 
 impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WithoutFetch<T> {
     type CellItem = <Self as Fetch<'world, 'state>>::Item;
+    type OptItem = <OptionFetch<Self> as Fetch<'world, 'state>>::Item;
     fn wrap(inner: Self::Item, _entity: Entity, _refs: &FetchRefs) -> Self::CellItem {
         inner
     }
@@ -300,7 +357,7 @@ impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WithoutFetch<T>
     ) -> Option<Self::CellItem> {
         if let Some(inserted) = overlay.inserted.get(&entity) {
             let id = components.get_id(TypeId::of::<T>())?;
-            if inserted.iter().find(|i| i.0 == id).is_some() {
+            if inserted.iter().any(|i| i.0 == id) {
                 return None;
             }
         }
@@ -308,18 +365,79 @@ impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WithoutFetch<T>
     }
 
     fn fetch_overlay(
-        &mut self,
-        _entity: Entity,
+        opt_inner: Self::OptItem,
+        entity: Entity,
         _refs: &FetchRefs,
-        _overlay: &WorldOverlay,
-        _components: &Components,
+        overlay: &WorldOverlay,
+        components: &Components,
+        _command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem> {
-        todo!()
+        // two options to pass "Without":
+        // - overlay not added or deleted the data
+        // - world has no data
+        let id = components.get_id(TypeId::of::<T>())?;
+
+        if opt_inner == Some(true) {
+            if let Some(inserted) = overlay.inserted.get(&entity) {
+                if inserted.iter().any(|i| i.0 == id) {
+                    return None;
+                }
+            }
+            return Some(true);
+        }
+
+        if let Some(removed) = overlay.removed.get(&entity) {
+            if removed.contains(&id) {
+                return Some(true);
+            }
+        }
+
+        None
+    }
+}
+
+impl<'world, 'state, T: CellFetch<'world, 'state>> CellFetch<'world, 'state> for OptionFetch<T> {
+    type CellItem = Option<T::CellItem>;
+    type OptItem = T::OptItem;
+
+    fn wrap(inner: Self::Item, entity: Entity, refs: &FetchRefs) -> Self::CellItem {
+        inner.map(|inner| T::wrap(inner, entity, refs))
+    }
+
+    fn overlay(
+        inner: Self::Item,
+        entity: Entity,
+        refs: &FetchRefs,
+        overlay: &WorldOverlay,
+        components: &Components,
+        command_queue: &'world CellCommandQueue,
+    ) -> Option<Self::CellItem> {
+        inner.map(|inner| T::overlay(inner, entity, refs, overlay, components, command_queue))
+    }
+
+    fn fetch_overlay(
+        opt_inner: Self::OptItem,
+        entity: Entity,
+        refs: &FetchRefs,
+        overlay: &WorldOverlay,
+        components: &Components,
+        command_queue: &'world CellCommandQueue,
+    ) -> Option<Self::CellItem> {
+        Some(T::fetch_overlay(
+            opt_inner,
+            entity,
+            refs,
+            overlay,
+            components,
+            command_queue,
+        ))
     }
 }
 
 impl<'world, 'state, T: Component> CellFetch<'world, 'state> for ReadFetch<T> {
     type CellItem = CellRef<'world, T>;
+    type OptItem = <OptionFetch<Self> as Fetch<'world, 'state>>::Item;
+
     fn wrap(inner: Self::Item, entity: Entity, refs: &FetchRefs) -> Self::CellItem {
         CellRef::new(inner, entity, refs)
     }
@@ -352,18 +470,42 @@ impl<'world, 'state, T: Component> CellFetch<'world, 'state> for ReadFetch<T> {
     }
 
     fn fetch_overlay(
-        &mut self,
-        _entity: Entity,
-        _refs: &FetchRefs,
-        _overlay: &WorldOverlay,
-        _components: &Components,
+        opt_inner: Self::OptItem,
+        entity: Entity,
+        refs: &FetchRefs,
+        overlay: &WorldOverlay,
+        components: &Components,
+        command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem> {
-        todo!()
+        // three potential cases:
+        // - overlay has the data (inserted)
+        // - world has the data, overlay doesn't remove it
+        // - no data
+        let id = components.get_id(TypeId::of::<T>())?;
+
+        if let Some(inserted) = overlay.inserted.get(&entity) {
+            if let Some((_, cmd_id)) = inserted.iter().find(|i| i.0 == id) {
+                let cmd = unsafe { command_queue.get_nth::<CellInsert<T>>(*cmd_id) };
+                let guard = cmd.component.try_read().expect("already borrowed");
+                return Some(CellRef::new_overlay(guard));
+            }
+        }
+
+        if let Some(inner) = opt_inner {
+            if let Some(removed) = overlay.removed.get(&entity) {
+                if removed.contains(&id) {
+                    return None;
+                }
+            }
+            return Some(Self::wrap(inner, entity, refs));
+        }
+        None
     }
 }
 
 impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WriteFetch<T> {
     type CellItem = CellMut<'world, T>;
+    type OptItem = <OptionFetch<Self> as Fetch<'world, 'state>>::Item;
     fn wrap(inner: Self::Item, entity: Entity, refs: &FetchRefs) -> Self::CellItem {
         CellMut::new(inner, entity, refs)
     }
@@ -396,21 +538,50 @@ impl<'world, 'state, T: Component> CellFetch<'world, 'state> for WriteFetch<T> {
     }
 
     fn fetch_overlay(
-        &mut self,
-        _entity: Entity,
-        _refs: &FetchRefs,
-        _overlay: &WorldOverlay,
-        _components: &Components,
+        opt_inner: Self::OptItem,
+        entity: Entity,
+        refs: &FetchRefs,
+        overlay: &WorldOverlay,
+        components: &Components,
+        command_queue: &'world CellCommandQueue,
     ) -> Option<Self::CellItem> {
-        todo!()
+        // three potential cases:
+        // - overlay has the data (inserted)
+        // - world has the data, overlay doesn't remove it
+        // - no data
+        let id = components.get_id(TypeId::of::<T>())?;
+
+        if let Some(inserted) = overlay.inserted.get(&entity) {
+            if let Some((_, cmd_id)) = inserted.iter().find(|i| i.0 == id) {
+                let cmd = unsafe { command_queue.get_nth::<CellInsert<T>>(*cmd_id) };
+                let guard = cmd.component.try_write().expect("already borrowed");
+                return Some(CellMut::new_overlay(guard));
+            }
+        }
+
+        if let Some(inner) = opt_inner {
+            if let Some(removed) = overlay.removed.get(&entity) {
+                if removed.contains(&id) {
+                    return None;
+                }
+            }
+            return Some(Self::wrap(inner, entity, refs));
+        }
+        None
     }
 }
 
 macro_rules! impl_tuple_cell_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(non_snake_case)]
+        impl<$($name: OptQuery),*> OptQuery for ($($name,)*) {
+            type OptQuery = ($($name::OptQuery,)*);
+        }
+
+        #[allow(non_snake_case)]
         impl<'world, 'state, $($name: CellFetch<'world, 'state>),*> CellFetch<'world, 'state> for ($($name,)*) {
             type CellItem = ($($name::CellItem,)*);
+            type OptItem = ($($name::OptItem,)*);
 
             #[allow(clippy::unused_unit)]
             #[inline]
@@ -434,14 +605,15 @@ macro_rules! impl_tuple_cell_fetch {
 
             #[inline]
             fn fetch_overlay(
-                &mut self,
+                opt_inner: Self::OptItem,
                 _entity: Entity,
                 _refs: &FetchRefs,
                 _overlay: &WorldOverlay,
                 _components: &Components,
+                _command_queue: &'world CellCommandQueue,
             ) -> Option<Self::CellItem> {
-                let ($(ref mut $name,)*) = self;
-                Some(($(<$name as CellFetch<'world, 'state>>::fetch_overlay($name, _entity, _refs, _overlay, _components)?,)*))
+                let ($($name,)*) = opt_inner;
+                Some(($(<$name as CellFetch<'world, 'state>>::fetch_overlay($name, _entity, _refs, _overlay, _components, _command_queue)?,)*))
             }
         }
     };

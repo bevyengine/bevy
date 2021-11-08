@@ -1,18 +1,23 @@
 mod fetch;
 
 use crate::{
-    component::{ComponentId, Components},
+    component::ComponentId,
     prelude::Entity,
-    query::{FilterFetch, FilteredAccess, QueryIter, QueryState, WorldQuery},
-    world::{CellCommandQueue, World, WorldCell, WorldCellState, WorldOverlay},
+    query::{Fetch, FilterFetch, FilteredAccess, QueryIter, QueryState, WorldQuery},
+    world::{
+        world_cell::query::fetch::OptQuery, CellCommandQueue, World, WorldCell, WorldCellState,
+        WorldOverlay,
+    },
 };
 use std::{
     any::{Any, TypeId},
     cell::Cell,
+    collections::hash_set::IntoIter,
     marker::PhantomData,
     rc::Rc,
 };
 
+use bevy_utils::HashSet;
 use fetch::CellFetch;
 pub(crate) use fetch::FetchRefs;
 pub use fetch::WorldCellQuery;
@@ -20,13 +25,14 @@ pub use fetch::WorldCellQuery;
 pub(super) struct QueryCacheEntry<Q: ?Sized + DynQueryState = dyn DynQueryState> {
     pub(super) alive_count: Cell<u32>,
     pub(super) in_working_set: Cell<bool>,
+    pub(super) opt_query: Box<dyn DynQueryState>,
     pub(super) query: Q,
 }
 
 impl QueryCacheEntry {
     pub(super) fn alive_filtered_access(&self) -> Option<&FilteredAccess<ComponentId>> {
         if self.alive_count.get() > 0 {
-            Some(&self.query.component_access())
+            Some(self.query.component_access())
         } else {
             None
         }
@@ -66,7 +72,7 @@ pub struct CellQuery<'w, Q, F> {
 
 impl<'w, Q, F> CellQuery<'w, Q, F>
 where
-    Q: WorldCellQuery + 'static,
+    Q: WorldCellQuery + OptQuery + 'static,
     F: WorldCellQuery + 'static,
     F::Fetch: FilterFetch,
 {
@@ -96,13 +102,29 @@ fn assert_component_access_compatibility(
                 query_type, filter_type, accesses);
 }
 
-pub struct CellQueryIter<'w, 's, Q, F>
+enum CellQueryIterState<'w, 's, Q, F>
 where
-    Q: WorldCellQuery,
+    Q: WorldCellQuery + OptQuery,
     F: WorldCellQuery,
     F::Fetch: FilterFetch,
 {
-    inner: QueryIter<'w, 's, (Entity, Q), F>,
+    Query {
+        iter: QueryIter<'w, 's, (Entity, Q), F>,
+        potential_new_entities: HashSet<Entity>,
+    },
+    Potential {
+        iter: IntoIter<Entity>,
+    },
+}
+
+pub struct CellQueryIter<'w, 's, Q, F>
+where
+    Q: WorldCellQuery + OptQuery,
+    F: WorldCellQuery,
+    F::Fetch: FilterFetch,
+{
+    iter: CellQueryIterState<'w, 's, Q, F>,
+    opt_query: &'s QueryState<Q::OptQuery>,
     // Rc holds data referenced in `inner`. Must be dropped last.
     // That Rc is normally held inside `WorldCellState` anyway, but holding it directly allows to guarantee
     // safety easier, as `WorldCellState` is now free to evict cache at any time without consequences
@@ -110,13 +132,13 @@ where
     query_entry: Rc<QueryCacheEntry>,
     refs: FetchRefs,
     command_queue: &'w CellCommandQueue,
-    components: &'w Components,
+    world: &'w World,
     overlay: WorldOverlay,
 }
 
 impl<'w, 's, Q, F> Drop for CellQueryIter<'w, 's, Q, F>
 where
-    Q: WorldCellQuery,
+    Q: WorldCellQuery + OptQuery,
     F: WorldCellQuery,
     F::Fetch: FilterFetch,
 {
@@ -129,7 +151,7 @@ where
 
 impl<'w, 's, Q, F> CellQueryIter<'w, 's, Q, F>
 where
-    Q: WorldCellQuery + 'static,
+    Q: WorldCellQuery + OptQuery + 'static,
     F: WorldCellQuery + 'static,
     F::Fetch: FilterFetch,
 {
@@ -140,6 +162,13 @@ where
             .as_any()
             .downcast_ref::<QueryState<(Entity, Q), F>>()
             .unwrap();
+        let opt_query = cell_query
+            .query_entry
+            .opt_query
+            .as_any()
+            .downcast_ref::<QueryState<Q::OptQuery>>()
+            .unwrap();
+
         // cast away the query_entry lifetime, so we can return an iterator that's self-referential
         // SAFETY:
         // - we hold onto the entry Rc for the entire lifetime of this reference, as it's cloned into returned WorldCellIter
@@ -153,8 +182,8 @@ where
             std::any::type_name::<Q>(),
             std::any::type_name::<F>(),
             &query.component_access,
-            &cell_query.world,
-            &cell_query.state,
+            cell_query.world,
+            cell_query.state,
         );
 
         let inner = unsafe {
@@ -175,16 +204,20 @@ where
         // prepare filters and modifiers based on current commands
         cell_query.state.command_queue.apply_overlay(
             &mut overlay,
-            &cell_query.world,
+            cell_query.world,
             &query.component_access,
         );
 
         Self {
             query_entry,
-            inner,
+            iter: CellQueryIterState::Query {
+                iter: inner,
+                potential_new_entities: overlay.potential_new_entities(&query.component_access),
+            },
+            opt_query,
             refs: cell_query.state.current_query_refs.clone(),
             command_queue: &cell_query.state.command_queue,
-            components: &cell_query.world.components,
+            world: cell_query.world,
             overlay,
         }
     }
@@ -192,71 +225,111 @@ where
 
 impl<'w, 's, Q, F> Iterator for CellQueryIter<'w, 's, Q, F>
 where
-    Q: WorldCellQuery,
+    Q: WorldCellQuery + OptQuery,
     F: WorldCellQuery,
     F::Fetch: FilterFetch,
+    <Q as WorldCellQuery>::CellFetch: CellFetch<
+        'w,
+        's,
+        OptItem = <<<Q as OptQuery>::OptQuery as WorldQuery>::Fetch as Fetch<'w, 's>>::Item,
+    >,
 {
     type Item = <Q::CellFetch as CellFetch<'w, 's>>::CellItem;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let (entity, data) = self.inner.next()?;
-            // no processing necessary
-            if !self.overlay.touched_entities.contains(&entity) {
-                return Some(Q::CellFetch::wrap(data, entity, &self.refs));
-            }
+            match &mut self.iter {
+                CellQueryIterState::Query {
+                    iter,
+                    potential_new_entities,
+                } => {
+                    for (entity, data) in iter {
+                        // no processing necessary
+                        if !self.overlay.touched_entities.contains(&entity) {
+                            return Some(Q::CellFetch::wrap(data, entity, &self.refs));
+                        }
 
-            if self.overlay.despawned_entities.contains(&entity) {
-                continue;
-            }
+                        if self.overlay.despawned_entities.contains(&entity) {
+                            continue;
+                        }
 
-            // TODO: filter out with/without
-            match Q::CellFetch::overlay(
-                data,
-                entity,
-                &self.refs,
-                &self.overlay,
-                self.components,
-                &self.command_queue,
-            ) {
-                Some(data) => return Some(data),
-                None => continue,
+                        if let Some(data) = Q::CellFetch::overlay(
+                            data,
+                            entity,
+                            &self.refs,
+                            &self.overlay,
+                            self.world.components(),
+                            self.command_queue,
+                        ) {
+                            potential_new_entities.remove(&entity);
+                            return Some(data);
+                        }
+                    }
+                    if let CellQueryIterState::Query {
+                        potential_new_entities,
+                        ..
+                    } = std::mem::replace(
+                        &mut self.iter,
+                        CellQueryIterState::Potential {
+                            iter: HashSet::default().into_iter(),
+                        },
+                    ) {
+                        self.iter = CellQueryIterState::Potential {
+                            iter: potential_new_entities.into_iter(),
+                        };
+                    }
+                }
+                // handle extra matches
+                CellQueryIterState::Potential { iter } => {
+                    for potential_match in iter {
+                        if let Ok(raw) = unsafe {
+                            self.opt_query.get_unchecked_manual(
+                                self.world,
+                                potential_match,
+                                self.world.last_change_tick(),
+                                self.world.read_change_tick(),
+                            )
+                        } {
+                            if let Some(data) = Q::CellFetch::fetch_overlay(
+                                raw,
+                                potential_match,
+                                &self.refs,
+                                &self.overlay,
+                                self.world.components(),
+                                self.command_queue,
+                            ) {
+                                return Some(data);
+                            }
+                        }
+                    }
+                    return None;
+                }
             }
         }
-
-        // TODO: handle extra matches
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
-// not colliding queries:
-// q1: <&mut A, Without<B>>
-// q2: <&mut A, With<B>>
-// q1, insert B, q2
-
-impl<'w, 's, Q, F> ExactSizeIterator for CellQueryIter<'w, 's, Q, F>
-where
-    Q: WorldCellQuery,
-    F: WorldCellQuery,
-    F::Fetch: FilterFetch,
-    QueryIter<'w, 's, (Entity, Q), F>: ExactSizeIterator,
-{
-    fn len(&self) -> usize {
-        self.inner.len()
+        match &self.iter {
+            CellQueryIterState::Query {
+                iter,
+                potential_new_entities,
+            } => {
+                let (min, max) = iter.size_hint();
+                (min, max.map(|x| x + potential_new_entities.len()))
+            }
+            CellQueryIterState::Potential { iter } => iter.size_hint(),
+        }
     }
 }
 
 impl<'w> WorldCell<'w> {
-    pub fn init_query<Q: WorldCellQuery + 'static>(&mut self) -> QueryToken<Q, ()> {
+    pub fn init_query<Q: WorldCellQuery + OptQuery + 'static>(&mut self) -> QueryToken<Q, ()> {
         self.init_filtered_query()
     }
 
     pub fn init_filtered_query<Q, F>(&mut self) -> QueryToken<Q, F>
     where
-        Q: WorldCellQuery + 'static,
+        Q: WorldCellQuery + OptQuery + 'static,
         F: WorldCellQuery + 'static,
         F::Fetch: FilterFetch,
     {
@@ -266,6 +339,7 @@ impl<'w> WorldCell<'w> {
             Rc::new(QueryCacheEntry {
                 alive_count: Cell::new(0),
                 in_working_set: Cell::new(false),
+                opt_query: Box::new(world.query::<Q::OptQuery>()),
                 query: world.query_filtered::<(Entity, Q), F>(),
             })
         });
@@ -303,7 +377,7 @@ impl<'w> WorldCell<'w> {
         CellQuery {
             query_entry: query_entry.clone(),
             state: &self.state,
-            world: &self.world,
+            world: self.world,
             marker: PhantomData,
         }
     }
@@ -313,7 +387,7 @@ impl<'w> WorldCell<'w> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        prelude::{Component, Entity, Without},
+        prelude::{Component, Entity, With, Without},
         world::{QueryToken, World, WorldCell},
     };
 
@@ -483,38 +557,53 @@ mod tests {
     fn world_cell_query_overlay() {
         let mut world = World::default();
 
-        world.spawn().insert(A).insert(C(0));
         world.spawn().insert(A).insert(C(1));
+        world.spawn().insert(A);
         world.spawn().insert(A).insert(C(2));
         // world.spawn()
         let mut cell = world.cell();
 
-        let t1 = cell.init_query::<(Entity, &A)>();
+        let t1 = cell.init_query::<(Entity, &A, Option<&C>)>();
         let t2 = cell.init_query::<(&A, &C)>();
 
         let q1 = cell.query(t1);
         let q2 = cell.query(t2);
 
         let mut vals = Vec::new();
-        for (i, (entity, _)) in q1.iter().enumerate() {
-            cell.entity(entity).insert(C(10 + i));
-            for (a, c) in q2.iter() {
-                vals.push((a.clone(), c.clone()));
+        for (entity, _, c) in q1.iter() {
+            cell.entity(entity).insert(C(c.map_or(0, |c| c.0) + 10));
+            for (_, c) in q2.iter() {
+                vals.push(c.clone());
             }
         }
         assert_eq!(
             vals,
-            vec![
-                (A, C(10)),
-                (A, C(1)),
-                (A, C(2)),
-                (A, C(10)),
-                (A, C(11)),
-                (A, C(2)),
-                (A, C(10)),
-                (A, C(11)),
-                (A, C(12))
-            ]
+            vec![C(1), C(2), C(10), C(11), C(2), C(10), C(11), C(12), C(10)]
         );
+    }
+
+    #[test]
+    fn world_cell_query_without_insert() {
+        let mut world = World::default();
+
+        let _e0 = world.spawn().insert(C(1)).id();
+        let e1 = world.spawn().insert(A).insert(C(2)).id();
+        let e2 = world.spawn().insert(A).id();
+        let mut cell = world.cell();
+
+        let token1 = cell.init_filtered_query();
+        // let token2 = cell.init_filtered_query();
+
+        let query1 = cell.query::<(Entity, With<A>, Without<C>), ()>(token1);
+        // let query2 = cell.query::<Entity, (With<A>, Without<C>)>(token2);
+
+        assert_eq!(query1.iter().collect::<Vec<_>>(), vec![(e2, true, true)]);
+        // assert_eq!(query2.iter().collect::<Vec<_>>(), vec![e2]);
+
+        cell.entity(e1).remove::<C>();
+        cell.entity(e2).insert(C(3));
+
+        assert_eq!(query1.iter().collect::<Vec<_>>(), vec![(e1, true, true)]);
+        // assert_eq!(query2.iter().collect::<Vec<_>>(), vec![e1]);
     }
 }

@@ -87,6 +87,32 @@ pub struct WorldOverlay {
     despawned_entities: HashSet<Entity>,
 }
 
+impl WorldOverlay {
+    fn potential_new_entities(&mut self, access: &FilteredAccess<ComponentId>) -> HashSet<Entity> {
+        let mut potential_new_entities = HashSet::default();
+        for (entity, components) in &self.inserted {
+            for (id, _) in components {
+                if access.with().contains(id.index())
+                    || access.access().has_read(*id)
+                    || access.access().has_write(*id)
+                {
+                    potential_new_entities.insert(*entity);
+                    break;
+                }
+            }
+        }
+        for (entity, components) in &self.removed {
+            for id in components {
+                if access.without().contains(id.index()) {
+                    potential_new_entities.insert(*entity);
+                    break;
+                }
+            }
+        }
+        potential_new_entities
+    }
+}
+
 pub trait CellCommand: Command {
     fn apply_overlay(
         &self,
@@ -112,15 +138,12 @@ impl<T: Component> CellCommand for CellInsert<T> {
                 || access.access().has_write(id)
             {
                 overlay.touched_entities.insert(self.entity);
-                match overlay.removed.entry(self.entity) {
-                    Occupied(mut entry) => {
-                        let v = entry.get_mut();
-                        v.retain(|c_id| *c_id != id);
-                        if v.is_empty() {
-                            entry.remove();
-                        }
+                if let Occupied(mut entry) = overlay.removed.entry(self.entity) {
+                    let v = entry.get_mut();
+                    v.retain(|c_id| *c_id != id);
+                    if v.is_empty() {
+                        entry.remove();
                     }
-                    _ => {}
                 }
                 overlay
                     .inserted
@@ -150,21 +173,22 @@ impl<T: Component> CellCommand for Remove<T> {
                 || access.access().has_write(id)
             {
                 overlay.touched_entities.insert(self.entity);
-                match overlay.inserted.entry(self.entity) {
-                    Occupied(mut entry) => {
-                        let v = entry.get_mut();
-                        v.retain(|(c_id, _)| *c_id != id);
-                        if v.is_empty() {
-                            entry.remove();
-                        }
+                if let Occupied(mut entry) = overlay.inserted.entry(self.entity) {
+                    let v = entry.get_mut();
+                    v.retain(|(c_id, _)| *c_id != id);
+                    if v.is_empty() {
+                        entry.remove();
                     }
-                    _ => {}
                 }
-                overlay.removed.entry(self.entity).and_modify(|v| {
-                    if !v.contains(&id) {
-                        v.push(id);
-                    }
-                });
+                overlay
+                    .removed
+                    .entry(self.entity)
+                    .and_modify(|v| {
+                        if !v.contains(&id) {
+                            v.push(id);
+                        }
+                    })
+                    .or_insert_with(|| vec![id]);
             }
         }
     }
@@ -180,6 +204,8 @@ impl CellCommand for Despawn {
     ) {
         overlay.touched_entities.insert(self.entity);
         overlay.despawned_entities.insert(self.entity);
+        overlay.inserted.remove(&self.entity);
+        overlay.removed.remove(&self.entity);
     }
 }
 

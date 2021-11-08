@@ -249,7 +249,7 @@ impl<T> AppendList<T> {
         self.check_invariants();
 
         Iter {
-            list: &self,
+            list: self,
             index: 0,
         }
     }
