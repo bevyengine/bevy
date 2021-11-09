@@ -1,9 +1,8 @@
 mod fetch;
 
 use crate::{
-    component::ComponentId,
     prelude::Entity,
-    query::{Fetch, FilterFetch, FilteredAccess, QueryIter, QueryState, WorldQuery},
+    query::{Fetch, FilterFetch, QueryIter, QueryState, WorldQuery},
     world::{
         world_cell::query::fetch::OptQuery, CellCommandQueue, World, WorldCell, WorldCellState,
         WorldOverlay,
@@ -24,23 +23,11 @@ pub use fetch::WorldCellQuery;
 
 pub(super) struct QueryCacheEntry<Q: ?Sized + DynQueryState = dyn DynQueryState> {
     pub(super) alive_count: Cell<u32>,
-    pub(super) in_working_set: Cell<bool>,
     pub(super) opt_query: Box<dyn DynQueryState>,
     pub(super) query: Q,
 }
 
-impl QueryCacheEntry {
-    pub(super) fn alive_filtered_access(&self) -> Option<&FilteredAccess<ComponentId>> {
-        if self.alive_count.get() > 0 {
-            Some(self.query.component_access())
-        } else {
-            None
-        }
-    }
-}
-
 pub(super) trait DynQueryState: Any {
-    fn component_access(&self) -> &FilteredAccess<ComponentId>;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -48,9 +35,6 @@ impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> DynQueryState for QuerySt
 where
     F::Fetch: FilterFetch,
 {
-    fn component_access(&self) -> &FilteredAccess<ComponentId> {
-        &self.component_access
-    }
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -80,26 +64,6 @@ where
     pub fn iter(&self) -> CellQueryIter<'w, '_, Q, F> {
         CellQueryIter::new(self)
     }
-}
-
-fn assert_component_access_compatibility(
-    query_type: &'static str,
-    filter_type: &'static str,
-    current: &FilteredAccess<ComponentId>,
-    world: &World,
-    state: &WorldCellState,
-) {
-    let mut conflicts = state.get_live_query_conflicts_filtered(current);
-    if conflicts.is_empty() {
-        return;
-    }
-    let conflicting_components = conflicts
-        .drain(..)
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
-        .collect::<Vec<&str>>();
-    let accesses = conflicting_components.join(", ");
-    panic!("CellQuery<{}, {}> in WorldCell accesses component(s) {} in a way that conflicts with other active access. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries.",
-                query_type, filter_type, accesses);
 }
 
 enum CellQueryIterState<'w, 's, Q, F>
@@ -177,14 +141,6 @@ where
                 .as_ref()
                 .unwrap()
         };
-
-        assert_component_access_compatibility(
-            std::any::type_name::<Q>(),
-            std::any::type_name::<F>(),
-            &query.component_access,
-            cell_query.world,
-            cell_query.state,
-        );
 
         let inner = unsafe {
             query.iter_unchecked_manual(
@@ -338,7 +294,6 @@ impl<'w> WorldCell<'w> {
         self.state.query_cache.entry(key).or_insert_with(|| {
             Rc::new(QueryCacheEntry {
                 alive_count: Cell::new(0),
-                in_working_set: Cell::new(false),
                 opt_query: Box::new(world.query::<Q::OptQuery>()),
                 query: world.query_filtered::<(Entity, Q), F>(),
             })
@@ -363,16 +318,6 @@ impl<'w> WorldCell<'w> {
             .query_cache
             .get(&key)
             .expect("token cannot exist without initialization");
-
-        // the token existence guarantees that the query was initialized, but not necessarily in the same WorldCell session.
-        // So instead of during initialization, we add queries to working set at the first use in each session.
-        if !query_entry.in_working_set.get() {
-            query_entry.in_working_set.set(true);
-            self.state
-                .query_cache_working_set
-                .borrow_mut()
-                .push(query_entry.clone());
-        }
 
         CellQuery {
             query_entry: query_entry.clone(),
@@ -605,5 +550,62 @@ mod tests {
 
         assert_eq!(query1.iter().collect::<Vec<_>>(), vec![(e1, true, true)]);
         // assert_eq!(query2.iter().collect::<Vec<_>>(), vec![e1]);
+    }
+
+    #[test]
+    fn world_cell_query_insert_before_after_iter() {
+        let mut world = World::default();
+
+        let e0 = world.spawn().insert(A).id();
+
+        let e1 = world.spawn().id();
+        let e2 = world.spawn().id();
+
+        let mut cell = world.cell();
+        let token = cell.init_query();
+
+        let query = cell.query::<(Entity, With<A>), _>(token);
+
+        let iter1 = query.iter();
+
+        cell.entity(e1).insert(A);
+
+        let iter2 = query.iter();
+
+        cell.entity(e2).insert(A);
+
+        let iter3 = query.iter();
+
+        assert_eq!(iter1.collect::<Vec<_>>(), vec![(e0, true)]);
+        assert_eq!(iter2.collect::<Vec<_>>(), vec![(e0, true), (e1, true)]);
+        assert_eq!(
+            iter3.collect::<Vec<_>>(),
+            vec![(e0, true), (e1, true), (e2, true)]
+        );
+    }
+
+    #[test]
+    fn world_cell_query_ref_mut_at_once() {
+        let mut world = World::default();
+
+        world.spawn().insert(C(1));
+        world.spawn().insert(A).insert(C(2));
+        world.spawn().insert(A).insert(C(3));
+
+        let mut cell = world.cell();
+
+        let token1 = cell.init_query();
+        let token2 = cell.init_query();
+
+        let query_ref = cell.query::<(Entity, &C), _>(token1);
+        let query_mut = cell.query::<(Entity, &mut C), _>(token2);
+        let iter_ref = query_ref.iter();
+        let mut iter_mut = query_mut.iter();
+
+        iter_mut.next(); // offset ope query to avoid conflicts
+
+        for (previous, mut next) in iter_ref.zip(iter_mut) {
+            *next.1 = previous.1.clone();
+        }
     }
 }

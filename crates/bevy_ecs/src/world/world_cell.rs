@@ -33,8 +33,6 @@ pub struct WorldCell<'w> {
 pub(crate) struct WorldCellState {
     resource_access: RefCell<ArchetypeComponentAccess>,
     query_cache: HashMap<TypeId, Rc<QueryCacheEntry>, fxhash::FxBuildHasher>,
-    /// Queries that were activated at least once in the current WorldCell session.
-    query_cache_working_set: RefCell<Vec<Rc<QueryCacheEntry>>>,
     command_queue: CellCommandQueue,
     current_query_refs: FetchRefs,
 }
@@ -47,37 +45,11 @@ impl WorldCellState {
             resource_access: RefCell::new(ArchetypeComponentAccess::new()),
             // component_access: RefCell::new(ComponentAccess::new()),
             query_cache: HashMap::default(),
-            query_cache_working_set: Default::default(),
             command_queue: Default::default(),
             current_query_refs: Default::default(),
         }
     }
-
-    fn get_live_query_conflicts_filtered(
-        &self,
-        filtered_access: &FilteredAccess<ComponentId>,
-    ) -> Vec<ComponentId> {
-        for query in self.query_cache_working_set.borrow().iter() {
-            if let Some(current_filtered_access) = query.alive_filtered_access() {
-                if !current_filtered_access.is_compatible(filtered_access) {
-                    return current_filtered_access
-                        .access()
-                        .get_conflicts(filtered_access.access());
-                }
-            }
-        }
-        Vec::new()
-    }
 }
-
-// how to merge real result with overlay?
-// how to handle inserts that results in query visiting new element?
-// first: prepare set of types that influence query
-//  - how to handle Without<T>? Only deletions (how?) and inserts (filter out) matter
-//  - how to handle With<T>? only deletions (filter out) and inserts (how?) matter
-//
-// create a temp world that only contains the affected entities as clones?
-// create a structure that describes the "diff" internal structure as a pass-through API
 
 #[derive(Default)]
 pub struct WorldOverlay {

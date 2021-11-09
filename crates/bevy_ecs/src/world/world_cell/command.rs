@@ -105,10 +105,6 @@ impl<'w> WorldCell<'w> {
 
     /// A WorldCell session "barrier". Applies world commands issued thus far, optimizing future query accesses.
     pub fn maintain(&mut self) {
-        // Clear working set when the WorldCell session ends.
-        for entry in self.state.query_cache_working_set.get_mut().drain(..) {
-            entry.in_working_set.set(false);
-        }
         self.state.command_queue.apply(self.world);
     }
 }
