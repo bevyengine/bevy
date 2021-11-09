@@ -13,17 +13,25 @@ struct PointLight {
     radius: f32;
     near: f32;
     far: f32;
+    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    flags: u32;
     shadow_depth_bias: f32;
     shadow_normal_bias: f32;
 };
+
+let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct DirectionalLight {
     view_projection: mat4x4<f32>;
     color: vec4<f32>;
     direction_to_light: vec3<f32>;
+    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    flags: u32;
     shadow_depth_bias: f32;
     shadow_normal_bias: f32;
 };
+
+let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 [[block]]
 struct Lights {
