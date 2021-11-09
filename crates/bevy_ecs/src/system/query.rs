@@ -976,7 +976,31 @@ where
             .is_empty(self.world, self.last_change_tick, self.change_tick)
     }
 
-    /// Returns wether the given [`Entity`] matches the query.
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player;
+    /// # #[derive(Component)]
+    /// # struct Alive;
+    /// fn check_if_alive(
+    ///     player_query: Query<Entity, With<Player>>,
+    ///     alive_query: Query<(), With<Alive>>,
+    /// ) {
+    ///     if let Ok(player) = player_query.get_single() {
+    ///         if alive_query.contains(player) {
+    ///             println!("The player is alive.");
+    ///         } else {
+    ///             println!("The player is dead!");
+    ///         }
+    ///     }
+    /// }
+    /// # check_if_alive.system();
+    /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
         unsafe {
