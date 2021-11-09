@@ -38,7 +38,7 @@ impl AssetLoader for ImageTextureLoader {
     }
 }
 
-/// An error that occurs when loading a texture from a file
+/// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
 pub struct FileTextureError {
     error: TextureError,

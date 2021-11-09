@@ -17,7 +17,10 @@ use crevice::std140::{AsStd140, Std140};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};
 
 /// A material with "standard" properties used in PBR lighting
-/// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
+/// Standard property values with pictures here
+/// <https://google.github.io/filament/Material%20Properties.pdf>.
+///
+/// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 pub struct StandardMaterial {
@@ -57,7 +60,7 @@ impl Default for StandardMaterial {
             emissive: Color::BLACK,
             emissive_texture: None,
             // This is the minimum the roughness is clamped to in shader code
-            // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
+            // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
             // It's the minimum floating point value that won't be rounded down to 0 in the
             // calculations used. Although technically for 32-bit floats, 0.045 could be
             // used.
@@ -67,7 +70,8 @@ impl Default for StandardMaterial {
             metallic: 0.01,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
-            // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
+            // Expressed in a linear scale and equivalent to 4% reflectance see
+            // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -95,6 +99,7 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
+/// The GPU representation of the uniform data of a [`StandardMaterial`].
 #[derive(Clone, AsStd140)]
 pub struct StandardMaterialUniformData {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
@@ -114,6 +119,7 @@ pub struct StandardMaterialUniformData {
     pub flags: u32,
 }
 
+/// This plugin adds the [`StandardMaterial`] asset to the app.
 pub struct StandardMaterialPlugin;
 
 impl Plugin for StandardMaterialPlugin {
@@ -123,9 +129,13 @@ impl Plugin for StandardMaterialPlugin {
     }
 }
 
+/// The GPU representation of a [`StandardMaterial`].
 #[derive(Debug, Clone)]
 pub struct GpuStandardMaterial {
+    /// A buffer containing the [`StandardMaterialUniformData`] of the material.
     pub buffer: Buffer,
+    /// The bind group specifying how the [`StandardMaterialUniformData`] and
+    /// all the textures of the material are bound.
     pub bind_group: BindGroup,
     pub flags: StandardMaterialFlags,
 }
@@ -283,6 +293,8 @@ impl RenderAsset for StandardMaterial {
     }
 }
 
+/// Returns the [`TextureView`] and the associated [`Sampler`] of the image.
+/// Defaults to a white dummy image if the handle is `None`.
 fn image_handle_to_view_sampler<'a>(
     pbr_pipeline: &'a PbrPipeline,
     gpu_images: &'a RenderAssets<Image>,

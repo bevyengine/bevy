@@ -145,11 +145,11 @@ impl Default for DirectionalLightShadowMap {
     }
 }
 
-/// Ambient light.
+/// An ambient light, which lights the entire scene equally.
 #[derive(Debug)]
 pub struct AmbientLight {
     pub color: Color,
-    /// A direct scale factor multiplied with `color` before being passed to the shader
+    /// A direct scale factor multiplied with `color` before being passed to the shader.
     pub brightness: f32,
 }
 
@@ -162,9 +162,9 @@ impl Default for AmbientLight {
     }
 }
 
-/// Add this component to make a `Mesh` not cast shadows
+/// Add this component to make a [`Mesh`](bevy_render2::mesh::Mesh) not cast shadows.
 pub struct NotShadowCaster;
-/// Add this component to make a `Mesh` not receive shadows
+/// Add this component to make a [`Mesh`](bevy_render2::mesh::Mesh) not receive shadows.
 pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]

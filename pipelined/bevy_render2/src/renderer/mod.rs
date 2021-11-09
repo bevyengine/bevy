@@ -13,6 +13,7 @@ use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
+/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
@@ -52,9 +53,15 @@ pub fn render_system(world: &mut World) {
     }
 }
 
+/// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 pub type RenderQueue = Arc<Queue>;
+
+/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
+/// aswell as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 pub type RenderInstance = Instance;
 
+/// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
+/// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
     request_adapter_options: &RequestAdapterOptions<'_>,
@@ -87,6 +94,10 @@ pub async fn initialize_renderer(
     (RenderDevice::from(device), queue)
 }
 
+/// The context with all information required to interact with the GPU.
+///
+/// The [`RenderDevice`] is used to create render resources and the
+/// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
     pub render_device: RenderDevice,
     pub command_encoder: CommandEncoder,
