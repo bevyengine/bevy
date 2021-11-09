@@ -553,6 +553,93 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
     }
 }
 
+pub struct Has<T: Component>(PhantomData<T>);
+
+impl<T: Component> WorldQuery for Has<T> {
+    type Fetch = HasFetch<T>;
+    type State = HasState<T>;
+}
+
+pub struct HasFetch<T: Component> {
+    matches: bool,
+    _marker: PhantomData<T>,
+}
+
+/// SAFETY: HasFetch is read only because it fetches no data
+unsafe impl<T: Component> ReadOnlyFetch for HasFetch<T> {}
+
+#[derive(Clone)]
+pub struct HasState<T: Component> {
+    component_id: ComponentId,
+    _marker: PhantomData<T>,
+}
+
+unsafe impl<T: Component> FetchState for HasState<T> {
+    fn init(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            _marker: PhantomData,
+        }
+    }
+
+    fn update_component_access(&self, _: &mut FilteredAccess<ComponentId>) {}
+
+    fn update_archetype_component_access(
+        &self,
+        _: &Archetype,
+        _: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn matches_archetype(&self, archetype: &Archetype) -> bool {
+        archetype.contains(self.component_id)
+    }
+
+    fn matches_table(&self, table: &Table) -> bool {
+        table.has_column(self.component_id)
+    }
+}
+
+impl<T: Component> Fetch<'_, '_> for HasFetch<T> {
+    type Item = bool;
+    type State = HasState<T>;
+
+    unsafe fn init(
+        _world: &World,
+        _state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        Self {
+            matches: false,
+            _marker: PhantomData,
+        }
+    }
+
+    const IS_DENSE: bool = true;
+
+    unsafe fn set_archetype(
+        &mut self,
+        state: &Self::State,
+        archetype: &Archetype,
+        _tables: &Tables,
+    ) {
+        self.matches = archetype.contains(state.component_id);
+    }
+
+    unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+        self.matches = table.has_column(state.component_id);
+    }
+
+    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
+        self.matches
+    }
+
+    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+        self.matches
+    }
+}
+
 impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch = OptionFetch<T::Fetch>;
     type State = OptionState<T::State>;
