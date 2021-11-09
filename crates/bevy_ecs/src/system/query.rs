@@ -187,7 +187,7 @@ use thiserror::Error;
 /// # tuple_system.system();
 ///
 /// # fn non_tuple_system(
-/// // This is the preferred method.    
+/// // This is the preferred method.
 /// query: Query<&MyComponent>
 /// # ) {}
 /// # non_tuple_system.system();
@@ -974,6 +974,20 @@ where
         // we sort out how to convert "write" queries to "read" queries.
         self.state
             .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns wether the given [`Entity`] matches the query.
+    #[inline]
+    pub fn contains(&self, entity: Entity) -> bool {
+        unsafe {
+            self.state.get_unchecked_manual(
+                self.world,
+                entity,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+        .is_ok()
     }
 }
 
