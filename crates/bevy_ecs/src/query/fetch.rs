@@ -591,12 +591,12 @@ unsafe impl<T: Component> FetchState for HasState<T> {
     ) {
     }
 
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        archetype.contains(self.component_id)
+    fn matches_archetype(&self, _: &Archetype) -> bool {
+        true
     }
 
-    fn matches_table(&self, table: &Table) -> bool {
-        table.has_column(self.component_id)
+    fn matches_table(&self, _: &Table) -> bool {
+        true
     }
 }
 
