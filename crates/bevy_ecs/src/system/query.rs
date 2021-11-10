@@ -187,7 +187,7 @@ use thiserror::Error;
 /// # tuple_system.system();
 ///
 /// # fn non_tuple_system(
-/// // This is the preferred method.    
+/// // This is the preferred method.
 /// query: Query<&MyComponent>
 /// # ) {}
 /// # non_tuple_system.system();
@@ -984,22 +984,18 @@ where
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Alive;
-    /// fn check_if_alive(
-    ///     player_query: Query<Entity, With<Player>>,
-    ///     alive_query: Query<(), With<Alive>>,
-    /// ) {
-    ///     if let Ok(player) = player_query.get_single() {
-    ///         if alive_query.contains(player) {
-    ///             println!("The player is alive.");
-    ///         } else {
-    ///             println!("The player is dead!");
-    ///         }
+    /// # struct InRange;
+    /// #
+    /// # struct Target {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>, target: Res<Target>) {
+    ///     if in_range_query.contains(target.entity) {
+    ///         println!("Bam!")
     ///     }
     /// }
-    /// # check_if_alive.system();
+    /// # targeting_system.system()
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool
