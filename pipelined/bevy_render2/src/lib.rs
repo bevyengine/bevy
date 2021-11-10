@@ -11,6 +11,7 @@ pub mod renderer;
 pub mod texture;
 pub mod view;
 
+pub use crevice;
 pub use once_cell;
 
 use crate::{
