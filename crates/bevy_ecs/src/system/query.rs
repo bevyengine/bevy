@@ -1002,16 +1002,11 @@ where
     /// # check_if_alive.system();
     /// ```
     #[inline]
-    pub fn contains(&self, entity: Entity) -> bool {
-        unsafe {
-            self.state.get_unchecked_manual(
-                self.world,
-                entity,
-                self.last_change_tick,
-                self.change_tick,
-            )
-        }
-        .is_ok()
+    pub fn contains(&self, entity: Entity) -> bool
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.get(entity).is_ok()
     }
 }
 
