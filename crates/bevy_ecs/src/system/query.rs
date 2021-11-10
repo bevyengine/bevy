@@ -995,7 +995,7 @@ where
     ///         println!("Bam!")
     ///     }
     /// }
-    /// # targeting_system.system()
+    /// # targeting_system.system();
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool
