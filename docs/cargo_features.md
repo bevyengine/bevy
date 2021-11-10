@@ -14,6 +14,7 @@
 |hdr|[HDR](https://en.wikipedia.org/wiki/High_dynamic_range) support.|
 |mp3|MP3 audio format support.|
 |x11|Make GUI applications use X11 protocol. You could enable wayland feature to override this.|
+|filesystem_watcher|Enable watching the file system for asset hot reload|
 
 ## Optional Features
 

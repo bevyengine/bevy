@@ -27,6 +27,7 @@ default = [
   "hdr",
   "mp3",
   "x11",
+  "filesystem_watcher"
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -67,6 +68,9 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+
+# Enable watching file system for asset hot reload
+filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 serialize = ["bevy_internal/serialize"]
 
