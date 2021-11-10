@@ -1,7 +1,7 @@
 # Bevy ECS
 
 [![Crates.io](https://img.shields.io/crates/v/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/HEAD/LICENSE)
+[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy/blob/HEAD/LICENSE)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy ECS?
@@ -22,9 +22,10 @@ Bevy ECS is Bevy's implementation of the ECS pattern. Unlike other Rust ECS impl
 
 ### Components
 
-Components are normal Rust structs. They are data stored in a `World` and specific instances of Components correlate to Entities.
+Components are Rust structs that derive from the `Component` trait. They are data stored in a `World` and specific instances of Components correlate to Entities.
 
 ```rust
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
 ```
 
@@ -98,18 +99,20 @@ Bevy ECS should feel very natural for those familiar with Rust syntax:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Component)]
 struct Velocity {
     x: f32,
     y: f32,
 }
 
+#[derive(Component)]
 struct Position {
     x: f32,
     y: f32,
 }
 
 // This system moves each entity with a Position and Velocity component
-fn movement(query: Query<(&mut Position, &Velocity)>) {
+fn movement(mut query: Query<(&mut Position, &Velocity)>) {
     for (mut position, velocity) in query.iter_mut() {
         position.x += velocity.x;
         position.y += velocity.y;
