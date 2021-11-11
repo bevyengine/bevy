@@ -252,7 +252,6 @@ impl Transform {
         let up = forward.cross(right);
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
     }
-
 }
 
 impl Default for Transform {
