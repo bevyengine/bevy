@@ -654,7 +654,7 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
-    const OCTET_STREAM_URI: &str = "application/octet-stream";
+    const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
@@ -665,7 +665,9 @@ async fn load_buffers(
                     .unwrap();
                 let uri = uri.as_ref();
                 let buffer_bytes = match DataUri::parse(uri) {
-                    Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
+                    Ok(data_uri) if VALID_MIME_TYPES.contains(&data_uri.mime_type) => {
+                        data_uri.decode()?
+                    }
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep
