@@ -205,7 +205,7 @@ impl Transform {
         self.rotation *= rotation;
     }
 
-    /// Rotates this [`Transform`] around a point in local space.
+    /// Rotates this [`Transform`] around a point in space.
     /// If the point is a zero vector, this will rotate around the parent (if any) or the origin.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
