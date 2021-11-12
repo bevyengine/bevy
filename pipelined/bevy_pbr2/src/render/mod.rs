@@ -154,6 +154,24 @@ pub struct PbrPipeline {
     pub dummy_white_gpu_image: GpuImage,
 }
 
+impl PbrPipeline {
+    pub fn image_handle_to_texture<'a>(
+        &'a self,
+        gpu_images: &'a RenderAssets<Image>,
+        handle_option: &Option<Handle<Image>>,
+    ) -> Option<(&'a TextureView, &'a Sampler)> {
+        if let Some(handle) = handle_option {
+            let gpu_image = gpu_images.get(handle)?;
+            Some((&gpu_image.texture_view, &gpu_image.sampler))
+        } else {
+            Some((
+                &self.dummy_white_gpu_image.texture_view,
+                &self.dummy_white_gpu_image.sampler,
+            ))
+        }
+    }
+}
+
 impl FromWorld for PbrPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();

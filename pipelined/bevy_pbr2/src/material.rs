@@ -7,9 +7,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{
-        BindGroup, Buffer, BufferInitDescriptor, BufferUsages, Sampler, TextureView,
-    },
+    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsages},
     renderer::RenderDevice,
     texture::Image,
 };
@@ -160,7 +158,7 @@ impl RenderAsset for StandardMaterial {
         (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let (base_color_texture_view, base_color_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.base_color_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.base_color_texture)
         {
             result
         } else {
@@ -168,7 +166,7 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (emissive_texture_view, emissive_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.emissive_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.emissive_texture)
         {
             result
         } else {
@@ -176,24 +174,21 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(
-                pbr_pipeline,
-                gpu_images,
-                &material.metallic_roughness_texture,
-            ) {
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.metallic_roughness_texture)
+        {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
         let (normal_map_texture_view, normal_map_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.normal_map_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.normal_map_texture)
         {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
         let (occlusion_texture_view, occlusion_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.occlusion_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.occlusion_texture)
         {
             result
         } else {
@@ -306,21 +301,5 @@ impl RenderAsset for StandardMaterial {
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
         })
-    }
-}
-
-pub fn image_handle_to_view_sampler<'a>(
-    pbr_pipeline: &'a PbrPipeline,
-    gpu_images: &'a RenderAssets<Image>,
-    handle_option: &Option<Handle<Image>>,
-) -> Option<(&'a TextureView, &'a Sampler)> {
-    if let Some(handle) = handle_option {
-        let gpu_image = gpu_images.get(handle)?;
-        Some((&gpu_image.texture_view, &gpu_image.sampler))
-    } else {
-        Some((
-            &pbr_pipeline.dummy_white_gpu_image.texture_view,
-            &pbr_pipeline.dummy_white_gpu_image.sampler,
-        ))
     }
 }

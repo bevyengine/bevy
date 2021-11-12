@@ -1,6 +1,6 @@
 use crate::{
-    draw_3d_graph, image_handle_to_view_sampler, AlphaMode, MeshUniform, PbrPipeline,
-    StandardMaterial, TransformBindGroup, DEPTH_PREPASS_SHADER_HANDLE,
+    draw_3d_graph, AlphaMode, MeshUniform, PbrPipeline, StandardMaterial, TransformBindGroup,
+    DEPTH_PREPASS_SHADER_HANDLE,
 };
 
 use bevy_app::Plugin;
@@ -459,8 +459,7 @@ pub fn queue_depth_prepass_meshes(
                         }
                         if !depth_prepass_material_meta.contains_key(material_handle) {
                             if let Some((base_color_texture_view, base_color_sampler)) =
-                                image_handle_to_view_sampler(
-                                    &*pbr_pipeline,
+                                pbr_pipeline.image_handle_to_texture(
                                     &*gpu_images,
                                     &material.base_color_texture,
                                 )
