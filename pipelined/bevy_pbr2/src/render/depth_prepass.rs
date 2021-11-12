@@ -345,7 +345,7 @@ impl Plugin for DepthPrepassPlugin {
                 RenderStage::PhaseSort,
                 sort_phase_system::<AlphaMaskDepth3d>,
             )
-            .init_resource::<DepthPrepassMaterialMeta>()
+            .init_resource::<DepthPrepassMaterialBindGroups>()
             .init_resource::<DepthPrepassPipeline>()
             .init_resource::<SpecializedPipelines<DepthPrepassPipeline>>()
             .init_resource::<DrawFunctions<OpaqueDepth3d>>()
@@ -393,7 +393,7 @@ pub struct DepthPrepassViewBindGroup {
     pub value: BindGroup,
 }
 
-pub type DepthPrepassMaterialMeta = HashMap<Handle<StandardMaterial>, BindGroup>;
+pub type DepthPrepassMaterialBindGroups = HashMap<Handle<StandardMaterial>, BindGroup>;
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_depth_prepass_meshes(
@@ -403,7 +403,7 @@ pub fn queue_depth_prepass_meshes(
     alpha_mask_depth_draw_functions: Res<DrawFunctions<AlphaMaskDepth3d>>,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
-    mut depth_prepass_material_meta: ResMut<DepthPrepassMaterialMeta>,
+    mut depth_prepass_material_bind_groups: ResMut<DepthPrepassMaterialBindGroups>,
     mut pipelines: ResMut<SpecializedPipelines<DepthPrepassPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     gpu_images: Res<RenderAssets<Image>>,
@@ -457,7 +457,7 @@ pub fn queue_depth_prepass_meshes(
                         if material.alpha_mode == AlphaMode::Blend {
                             continue;
                         }
-                        if !depth_prepass_material_meta.contains_key(material_handle) {
+                        if !depth_prepass_material_bind_groups.contains_key(material_handle) {
                             if let Some((base_color_texture_view, base_color_sampler)) =
                                 pbr_pipeline.image_handle_to_texture(
                                     &*gpu_images,
@@ -487,7 +487,7 @@ pub fn queue_depth_prepass_meshes(
                                         label: None,
                                         layout: &depth_prepass_pipeline.material_layout,
                                     });
-                                depth_prepass_material_meta
+                                depth_prepass_material_bind_groups
                                     .insert(material_handle.clone(), bind_group);
                             }
                         }
@@ -740,7 +740,7 @@ impl<T: EntityPhaseItem + PhaseItem, const I: usize> RenderCommand<T>
     for SetDepthPrepassMaterialBindGroup<I>
 {
     type Param = (
-        SRes<DepthPrepassMaterialMeta>,
+        SRes<DepthPrepassMaterialBindGroups>,
         SQuery<Read<Handle<StandardMaterial>>>,
     );
     #[inline]
