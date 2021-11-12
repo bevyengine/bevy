@@ -17,9 +17,10 @@ pub unsafe trait Std140: Copy + Zeroable + Pod {
     /// control and zero their padding bytes, making converting them to and from
     /// slices safe.
     const ALIGNMENT: usize;
+
     /// Whether this type requires a padding at the end (ie, is a struct or an array
     /// of primitives).
-    /// See https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159
+    /// See <https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159>
     /// (rule 4 and 9)
     const PAD_AT_END: bool = false;
     /// Padded type (Std140Padded specialization)
@@ -75,7 +76,7 @@ struct which contains only fields that also implement `AsStd140` can derive
 `AsStd140`.
 
 Types from the mint crate implement `AsStd140`, making them convenient for use
-in uniform types. Most Rust geometry crates, like cgmath, nalgebra, and
+in uniform types. Most Rust math crates, like cgmath, nalgebra, and
 ultraviolet support mint.
 
 ## Example
@@ -87,9 +88,7 @@ uniform CAMERA {
 } camera;
 ```
 
-```skip
-use cgmath::prelude::*;
-use cgmath::{Matrix4, Deg, perspective};
+```no_run
 use crevice::std140::{AsStd140, Std140};
 
 #[derive(AsStd140)]
@@ -98,9 +97,12 @@ struct CameraUniform {
     projection: mint::ColumnMatrix4<f32>,
 }
 
+let view: mint::ColumnMatrix4<f32> = todo!("your math code here");
+let projection: mint::ColumnMatrix4<f32> = todo!("your math code here");
+
 let camera = CameraUniform {
-    view: Matrix4::identity().into(),
-    projection: perspective(Deg(60.0), 16.0/9.0, 0.01, 100.0).into(),
+    view,
+    projection,
 };
 
 # fn write_to_gpu_buffer(bytes: &[u8]) {}
@@ -110,26 +112,26 @@ write_to_gpu_buffer(camera_std140.as_bytes());
 */
 pub trait AsStd140 {
     /// The `std140` version of this value.
-    type Std140Type: Std140;
+    type Output: Std140;
 
     /// Convert this value into the `std140` version of itself.
-    fn as_std140(&self) -> Self::Std140Type;
+    fn as_std140(&self) -> Self::Output;
 
     /// Returns the size of the `std140` version of this type. Useful for
     /// pre-sizing buffers.
     fn std140_size_static() -> usize {
-        size_of::<Self::Std140Type>()
+        size_of::<Self::Output>()
     }
 
     /// Converts from `std140` version of self to self.
-    fn from_std140(val: Self::Std140Type) -> Self;
+    fn from_std140(val: Self::Output) -> Self;
 }
 
 impl<T> AsStd140 for T
 where
     T: Std140,
 {
-    type Std140Type = Self;
+    type Output = Self;
 
     fn as_std140(&self) -> Self {
         *self
@@ -178,29 +180,36 @@ where
     type Padded = Self;
 }
 
+impl<T: Std140, const N: usize> Std140Array<T, N> {
+    fn uninit_array() -> [MaybeUninit<T::Padded>; N] {
+        unsafe { MaybeUninit::uninit().assume_init() }
+    }
+
+    fn from_uninit_array(a: [MaybeUninit<T::Padded>; N]) -> Self {
+        unsafe { core::mem::transmute_copy(&a) }
+    }
+}
+
 impl<T: AsStd140, const N: usize> AsStd140 for [T; N]
 where
-    <T::Std140Type as Std140>::Padded: Pod,
+    <T::Output as Std140>::Padded: Pod,
 {
-    type Std140Type = Std140Array<T::Std140Type, N>;
-    fn as_std140(&self) -> Self::Std140Type {
-        let mut res: [MaybeUninit<<T::Std140Type as Std140>::Padded>; N] =
-            unsafe { MaybeUninit::uninit().assume_init() };
+    type Output = Std140Array<T::Output, N>;
+    fn as_std140(&self) -> Self::Output {
+        let mut res = Self::Output::uninit_array();
 
         for i in 0..N {
             res[i] = MaybeUninit::new(Std140Convertible::from_std140(self[i].as_std140()));
         }
 
-        unsafe { core::mem::transmute_copy(&res) }
+        Self::Output::from_uninit_array(res)
     }
 
-    fn from_std140(val: Self::Std140Type) -> Self {
+    fn from_std140(val: Self::Output) -> Self {
         let mut res: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
-
         for i in 0..N {
-            res[i] = MaybeUninit::new(AsStd140::from_std140(val.0[i].into_std140()));
+            res[i] = MaybeUninit::new(T::from_std140(Std140Convertible::into_std140(val.0[i])));
         }
-
         unsafe { core::mem::transmute_copy(&res) }
     }
 }
@@ -241,7 +250,7 @@ where
     }
 
     fn std140_size(&self) -> usize {
-        size_of::<<Self as AsStd140>::Std140Type>()
+        size_of::<<Self as AsStd140>::Output>()
     }
 }
 

@@ -61,8 +61,8 @@ impl Sizer {
     where
         T: AsStd140,
     {
-        let size = size_of::<<T as AsStd140>::Std140Type>();
-        let alignment = <T as AsStd140>::Std140Type::ALIGNMENT;
+        let size = size_of::<<T as AsStd140>::Output>();
+        let alignment = <T as AsStd140>::Output::ALIGNMENT;
         let padding = align_offset(self.offset, alignment);
 
         self.offset += padding;

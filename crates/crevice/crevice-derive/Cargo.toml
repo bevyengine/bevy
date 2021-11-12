@@ -1,13 +1,19 @@
 [package]
 name = "crevice-derive"
 description = "Derive crate for the 'crevice' crate"
-version = "0.6.0"
+version = "0.8.0"
 edition = "2018"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]
 documentation = "https://docs.rs/crevice-derive"
 homepage = "https://github.com/LPGhatguy/crevice"
 repository = "https://github.com/LPGhatguy/crevice"
 license = "MIT OR Apache-2.0"
+
+[features]
+default = []
+
+# Enable methods that let you introspect into the generated structs.
+debug-methods = []
 
 [lib]
 proc-macro = true
