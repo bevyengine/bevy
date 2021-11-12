@@ -170,9 +170,18 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 }
 
+/// A trait for defining systems with a [`SystemParam`] associated type.
+///
+/// This facilitates the creation of systems that are generic over some trait
+/// and that use that trait's associated types as `SystemParam`s.
 pub trait RunSystem: Send + Sync + 'static {
+    /// The `SystemParam` type passed to the system when it runs.
     type Param: SystemParam;
+
+    /// Runs the system.
     fn run(param: SystemParamItem<Self::Param>);
+
+    /// Creates a concrete instance of the system for the specified `World`.
     fn system(world: &mut World) -> ParamSystem<Self::Param> {
         ParamSystem {
             run: Self::run,
