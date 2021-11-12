@@ -14,7 +14,7 @@ fi
 set -euvx
 
 # add path to the system SDK, needed since macOS 11
-if [ -z ${var+x} ]; then
+if [ -z ${LIBRARY_PATH+x} ]; then
     export LIBRARY_PATH="$(xcrun --show-sdk-path)/usr/lib"
 else
     export LIBRARY_PATH="$LIBRARY_PATH:$(xcrun --show-sdk-path)/usr/lib"
