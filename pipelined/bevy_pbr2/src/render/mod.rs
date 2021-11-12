@@ -7,7 +7,7 @@ use crate::{
     PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_core_pipeline::{SetItemPipeline, Transparent3d};
+use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -17,7 +17,9 @@ use bevy_render2::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex},
-    render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass},
+    render_phase::{
+        DrawFunctions, EntityRenderCommand, RenderPhase, SetItemPipeline, TrackedRenderPass,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
@@ -734,7 +736,7 @@ pub type DrawPbr = (
 );
 
 pub struct SetMeshViewBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
     type Param = SQuery<(
         Read<ViewUniformOffset>,
         Read<ViewLights>,
@@ -743,7 +745,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
     #[inline]
     fn render<'w>(
         view: Entity,
-        _item: &Transparent3d,
+        _item: Entity,
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
@@ -757,7 +759,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
 }
 
 pub struct SetTransformBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetTransformBindGroup<I> {
     type Param = (
         SRes<TransformBindGroup>,
         SQuery<Read<DynamicUniformIndex<MeshUniform>>>,
@@ -765,11 +767,11 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (transform_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let transform_index = mesh_query.get(item.entity).unwrap();
+        let transform_index = mesh_query.get(item).unwrap();
         pass.set_bind_group(
             I,
             &transform_bind_group.into_inner().value,
@@ -779,7 +781,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
 }
 
 pub struct SetStandardMaterialBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetStandardMaterialBindGroup<I> {
     type Param = (
         SRes<RenderAssets<StandardMaterial>>,
         SQuery<Read<Handle<StandardMaterial>>>,
@@ -787,11 +789,11 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGro
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (materials, handle_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let handle = handle_query.get(item.entity).unwrap();
+        let handle = handle_query.get(item).unwrap();
         let materials = materials.into_inner();
         let material = materials.get(handle).unwrap();
 
@@ -800,16 +802,16 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGro
 }
 
 pub struct DrawMesh;
-impl RenderCommand<Transparent3d> for DrawMesh {
+impl EntityRenderCommand for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Handle<Mesh>>>);
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let mesh_handle = mesh_query.get(item.entity).unwrap();
+        let mesh_handle = mesh_query.get(item).unwrap();
         let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         if let Some(index_info) = &gpu_mesh.index_info {

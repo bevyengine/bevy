@@ -1,5 +1,5 @@
 use bevy::{
-    core_pipeline::{SetItemPipeline, Transparent3d},
+    core_pipeline::Transparent3d,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::prelude::*,
     math::Vec3,
@@ -12,9 +12,9 @@ use bevy::{
         camera::PerspectiveCameraBundle,
         mesh::{shape, Mesh},
         render_component::{ExtractComponent, ExtractComponentPlugin},
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase},
+        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::*,
-        view::ExtractedView,
+        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
     },
     PipelinedDefaultPlugins,
@@ -64,6 +64,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         IsRed(true),
         Transform::from_xyz(-1.0, 0.5, 0.0),
         GlobalTransform::default(),
+        Visibility::default(),
+        ComputedVisibility::default(),
     ));
 
     // blue cube
@@ -72,6 +74,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         IsRed(false),
         Transform::from_xyz(1.0, 0.5, 0.0),
         GlobalTransform::default(),
+        Visibility::default(),
+        ComputedVisibility::default(),
     ));
 
     // camera
@@ -99,14 +103,14 @@ impl FromWorld for IsRedPipeline {
 }
 
 impl SpecializedPipeline for IsRedPipeline {
-    type Key = IsRed;
+    type Key = (IsRed, PbrPipelineKey);
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, (is_red, pbr_pipeline_key): Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
-        if key.0 {
+        if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.pbr_pipeline.specialize(PbrPipelineKey::empty());
+        let mut descriptor = self.pbr_pipeline.specialize(pbr_pipeline_key);
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
@@ -130,6 +134,7 @@ type DrawIsRed = (
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<IsRedPipeline>,
+    msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedPipelines<IsRedPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     material_meshes: Query<(Entity, &MeshUniform, &IsRed), With<Handle<Mesh>>>,
@@ -139,11 +144,13 @@ fn queue_custom(
         .read()
         .get_id::<DrawIsRed>()
         .unwrap();
+    let key = PbrPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_uniform, is_red) in material_meshes.iter() {
-            let pipeline = pipelines.specialize(&mut pipeline_cache, &custom_pipeline, *is_red);
+            let pipeline =
+                pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
             transparent_phase.add(Transparent3d {
                 entity,
                 pipeline,

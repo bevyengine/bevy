@@ -1,6 +1,6 @@
 use crate::{
-    AmbientLight, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap, MeshUniform,
-    NotShadowCaster, PbrPipeline, PointLight, PointLightShadowMap, TransformBindGroup,
+    AmbientLight, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap, DrawMesh,
+    NotShadowCaster, PbrPipeline, PointLight, PointLightShadowMap, SetTransformBindGroup,
     SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
@@ -8,7 +8,7 @@ use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
 use bevy_render2::{
@@ -16,10 +16,10 @@ use bevy_render2::{
     color::Color,
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_component::DynamicUniformIndex,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
+        CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
+        EntityRenderCommand, PhaseItem, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -796,6 +796,19 @@ impl PhaseItem for Shadow {
     }
 }
 
+impl EntityPhaseItem for Shadow {
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedPipelinePhaseItem for Shadow {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedPipelineId {
+        self.pipeline
+    }
+}
+
 pub struct ShadowPassNode {
     main_view_query: QueryState<&'static ViewLights>,
     view_light_query: QueryState<(&'static ViewLight, &'static RenderPhase<Shadow>)>,
@@ -865,63 +878,32 @@ impl Node for ShadowPassNode {
     }
 }
 
-pub struct DrawShadowMesh {
-    params: SystemState<(
-        SRes<RenderPipelineCache>,
-        SRes<LightMeta>,
-        SRes<TransformBindGroup>,
-        SRes<RenderAssets<Mesh>>,
-        SQuery<(Read<DynamicUniformIndex<MeshUniform>>, Read<Handle<Mesh>>)>,
-        SQuery<Read<ViewUniformOffset>>,
-    )>,
-}
+pub type DrawShadowMesh = (
+    SetItemPipeline,
+    SetShadowViewBindGroup<0>,
+    SetTransformBindGroup<1>,
+    DrawMesh,
+);
 
-impl DrawShadowMesh {
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            params: SystemState::new(world),
-        }
-    }
-}
-
-impl Draw<Shadow> for DrawShadowMesh {
-    fn draw<'w>(
-        &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
+pub struct SetShadowViewBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
+    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
+    #[inline]
+    fn render<'w>(
         view: Entity,
-        item: &Shadow,
+        _item: Entity,
+        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
     ) {
-        let (pipeline_cache, light_meta, transform_bind_group, meshes, items, views) =
-            self.params.get(world);
-        let (transform_index, mesh_handle) = items.get(item.entity).unwrap();
-        let view_uniform_offset = views.get(view).unwrap();
-        if let Some(pipeline) = pipeline_cache.into_inner().get(item.pipeline) {
-            pass.set_render_pipeline(pipeline);
-            pass.set_bind_group(
-                0,
-                light_meta
-                    .into_inner()
-                    .shadow_view_bind_group
-                    .as_ref()
-                    .unwrap(),
-                &[view_uniform_offset.offset],
-            );
-
-            pass.set_bind_group(
-                1,
-                &transform_bind_group.into_inner().value,
-                &[transform_index.index()],
-            );
-
-            let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            if let Some(index_info) = &gpu_mesh.index_info {
-                pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
-                pass.draw_indexed(0..index_info.count, 0, 0..1);
-            } else {
-                panic!("non-indexed drawing not supported yet")
-            }
-        }
+        let view_uniform_offset = view_query.get(view).unwrap();
+        pass.set_bind_group(
+            I,
+            light_meta
+                .into_inner()
+                .shadow_view_bind_group
+                .as_ref()
+                .unwrap(),
+            &[view_uniform_offset.offset],
+        );
     }
 }
