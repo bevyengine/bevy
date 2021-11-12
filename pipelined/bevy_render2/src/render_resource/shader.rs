@@ -326,7 +326,7 @@ fn vertex(
     return out;
 }
 ";
-const WGSL_NESTED_IFDEF: &str = r"
+    const WGSL_NESTED_IFDEF: &str = r"
 [[block]]
 struct View {
     view_proj: mat4x4<f32>;
@@ -531,9 +531,7 @@ fn vertex(
 }
 ";
         let processor = ShaderProcessor::default();
-        let result = processor
-            .process_str(WGSL_NESTED_IFDEF, &[])
-            .unwrap();
+        let result = processor.process_str(WGSL_NESTED_IFDEF, &[]).unwrap();
         assert_eq!(result, EXPECTED);
     }
 
@@ -573,7 +571,6 @@ fn vertex(
         assert_eq!(result, EXPECTED);
     }
 
-
     #[test]
     fn process_nested_shader_def_both_defined() {
         #[rustfmt::skip]
@@ -607,7 +604,10 @@ fn vertex(
 ";
         let processor = ShaderProcessor::default();
         let result = processor
-            .process_str(WGSL_NESTED_IFDEF, &["TEXTURE".to_string(), "ATTRIBUTE".to_string()])
+            .process_str(
+                WGSL_NESTED_IFDEF,
+                &["TEXTURE".to_string(), "ATTRIBUTE".to_string()],
+            )
             .unwrap();
         assert_eq!(result, EXPECTED);
     }
