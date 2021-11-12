@@ -13,6 +13,21 @@ fi
 
 set -euvx
 
+# add path to the system SDK, needed since macOS 11
+if [ -z ${var+x} ]; then
+    export LIBRARY_PATH="$(xcrun --show-sdk-path)/usr/lib"
+else
+    export LIBRARY_PATH="$LIBRARY_PATH:$(xcrun --show-sdk-path)/usr/lib"
+fi
+
+# add path to cmake, needed on apple arm processors as it's not available by default
+if ! cmake --version; then
+    # use the one installed from homebrew
+    if /opt/homebrew/bin/cmake --version; then
+        export PATH="$PATH:/opt/homebrew/bin"
+    fi
+fi
+
 IS_SIMULATOR=0
 if [ "${LLVM_TARGET_TRIPLE_SUFFIX-}" = "-simulator" ]; then
   IS_SIMULATOR=1
