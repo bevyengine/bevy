@@ -437,16 +437,14 @@ pub fn queue_depth_prepass_meshes(
                 value: view_bind_group,
             });
 
-            let (draw_opaque_depth, draw_alpha_mask_depth) = (
-                opaque_depth_draw_functions
-                    .read()
-                    .get_id::<DrawDepth>()
-                    .unwrap(),
-                alpha_mask_depth_draw_functions
-                    .read()
-                    .get_id::<DrawDepth>()
-                    .unwrap(),
-            );
+            let draw_opaque_depth = opaque_depth_draw_functions
+                .read()
+                .get_id::<DrawDepth>()
+                .unwrap();
+            let draw_alpha_mask_depth = alpha_mask_depth_draw_functions
+                .read()
+                .get_id::<DrawDepth>()
+                .unwrap();
 
             let inverse_view_matrix = view.transform.compute_matrix().inverse();
             let inverse_view_row_2 = inverse_view_matrix.row(2);

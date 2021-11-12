@@ -515,21 +515,18 @@ impl SpecializedPipeline for PbrPipeline {
         if key.contains(PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP) {
             shader_defs.push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
-        let (label, blend, depth_compare) = if key.contains(PbrPipelineKey::TRANSPARENT_MAIN_PASS) {
-            (
-                Some("transparent_pbr_pipeline".into()),
-                Some(BlendState::ALPHA_BLENDING),
-                // For the transparent pass, fragments that are closer will be alpha blended
-                CompareFunction::Greater,
-            )
+        let (label, blend, depth_compare);
+        if key.contains(PbrPipelineKey::TRANSPARENT_MAIN_PASS) {
+            label = Some("transparent_pbr_pipeline".into());
+            blend = Some(BlendState::ALPHA_BLENDING);
+            // For the transparent pass, fragments that are closer will be alpha blended
+            depth_compare = CompareFunction::Greater;
         } else {
-            (
-                Some("opaque_pbr_pipeline".into()),
-                Some(BlendState::REPLACE),
-                // For the opaque and alpha mask passes, only the fragments at
-                // the depth buffer depth will be shaded
-                CompareFunction::Equal,
-            )
+            label = Some("opaque_pbr_pipeline".into());
+            blend = Some(BlendState::REPLACE);
+            // For the opaque and alpha mask passes, only the fragments at
+            // the depth buffer depth will be shaded
+            depth_compare = CompareFunction::Equal
         };
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -702,17 +699,15 @@ pub fn queue_meshes(
                 value: view_bind_group,
             });
 
-            let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = (
-                opaque_draw_functions.read().get_id::<DrawPbr>().unwrap(),
-                alpha_mask_draw_functions
-                    .read()
-                    .get_id::<DrawPbr>()
-                    .unwrap(),
-                transparent_draw_functions
-                    .read()
-                    .get_id::<DrawPbr>()
-                    .unwrap(),
-            );
+            let draw_opaque_pbr = opaque_draw_functions.read().get_id::<DrawPbr>().unwrap();
+            let draw_alpha_mask_pbr = alpha_mask_draw_functions
+                .read()
+                .get_id::<DrawPbr>()
+                .unwrap();
+            let draw_transparent_pbr = transparent_draw_functions
+                .read()
+                .get_id::<DrawPbr>()
+                .unwrap();
 
             let inverse_view_matrix = view.transform.compute_matrix().inverse();
             let inverse_view_row_2 = inverse_view_matrix.row(2);
