@@ -27,13 +27,10 @@ use bevy_transform::TransformSystem;
 
 pub mod draw_3d_graph {
     pub mod node {
-        pub const DEPTH_PREPASS: &str = "depth_prepass";
         pub const SHADOW_PASS: &str = "shadow_pass";
     }
 }
 
-pub const DEPTH_PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 18081189618302456913);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
@@ -45,8 +42,6 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        let depth_prepass_shader = Shader::from_wgsl(include_str!("render/depth_prepass.wgsl"));
-        shaders.set_untracked(DEPTH_PREPASS_SHADER_HANDLE, depth_prepass_shader);
         let pbr_shader = Shader::from_wgsl(include_str!("render/pbr.wgsl"));
         shaders.set_untracked(PBR_SHADER_HANDLE, pbr_shader);
         let shadow_shader = Shader::from_wgsl(include_str!("render/depth.wgsl"));
@@ -141,6 +136,5 @@ impl Plugin for PbrPlugin {
                 )
                 .unwrap();
         }
-        app.add_plugin(DepthPrepassPlugin);
     }
 }

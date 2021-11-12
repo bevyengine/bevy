@@ -81,10 +81,10 @@ impl Node for MainPass3dNode {
                 }],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: The opaque pass loads the depth prepass and does not store
+                    // NOTE: The opaque main pass clears and writes to the depth buffer.
                     depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: false,
+                        load: LoadOp::Clear(0.0),
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
@@ -127,10 +127,10 @@ impl Node for MainPass3dNode {
                 }],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: The alpha mask pass loads the depth prepass and does not store
+                    // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
