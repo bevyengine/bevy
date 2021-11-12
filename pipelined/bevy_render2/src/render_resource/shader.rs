@@ -268,10 +268,10 @@ impl ShaderProcessor {
         for line in shader.split('\n') {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
             } else if let Some(cap) = self.ifndef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(!shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
             } else if self.endif_regex.is_match(line) {
                 scopes.pop();
                 if scopes.is_empty() {
