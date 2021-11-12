@@ -1,5 +1,5 @@
 use bevy::{
-    core_pipeline::{SetItemPipeline, Transparent3d},
+    core_pipeline::Transparent3d,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::{
         prelude::*,
@@ -19,11 +19,12 @@ use bevy::{
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::ExtractComponentPlugin,
         render_phase::{
-            AddRenderCommand, DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderPhase, SetItemPipeline,
+            TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::ExtractedView,
+        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
     },
     PipelinedDefaultPlugins,
@@ -51,6 +52,8 @@ fn setup(
         meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         Transform::from_xyz(0.0, 0.5, 0.0),
         GlobalTransform::default(),
+        Visibility::default(),
+        ComputedVisibility::default(),
         materials.add(CustomMaterial {
             color: Color::GREEN,
         }),
@@ -118,21 +121,36 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
+            .init_resource::<SpecializedPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom);
     }
 }
 
 pub struct CustomPipeline {
     material_layout: BindGroupLayout,
-    pipeline: CachedPipelineId,
+    shader: Handle<Shader>,
+    pbr_pipeline: PbrPipeline,
+}
+
+impl SpecializedPipeline for CustomPipeline {
+    type Key = PbrPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut descriptor = self.pbr_pipeline.specialize(key);
+        descriptor.vertex.shader = self.shader.clone();
+        descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
+        descriptor.layout = Some(vec![
+            self.pbr_pipeline.view_layout.clone(),
+            self.pbr_pipeline.mesh_layout.clone(),
+            self.material_layout.clone(),
+        ]);
+        descriptor
+    }
 }
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let shader = asset_server.load("shaders/custom.wgsl");
-
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -148,28 +166,22 @@ impl FromWorld for CustomPipeline {
             label: None,
         });
 
-        let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
-        let mut descriptor = pbr_pipeline.specialize(PbrPipelineKey::empty());
-        descriptor.vertex.shader = shader.clone();
-        descriptor.fragment.as_mut().unwrap().shader = shader;
-        descriptor.layout = Some(vec![
-            pbr_pipeline.view_layout.clone(),
-            material_layout.clone(),
-            pbr_pipeline.mesh_layout.clone(),
-        ]);
-
-        let mut pipeline_cache = world.get_resource_mut::<RenderPipelineCache>().unwrap();
         CustomPipeline {
-            pipeline: pipeline_cache.queue(descriptor),
+            pbr_pipeline: world.get_resource::<PbrPipeline>().unwrap().clone(),
+            shader: asset_server.load("shaders/custom.wgsl"),
             material_layout,
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     materials: Res<RenderAssets<CustomMaterial>>,
     custom_pipeline: Res<CustomPipeline>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut specialized_pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
+    msaa: Res<Msaa>,
     material_meshes: Query<(Entity, &Handle<CustomMaterial>, &MeshUniform), With<Handle<Mesh>>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
@@ -177,6 +189,7 @@ pub fn queue_custom(
         .read()
         .get_id::<DrawCustom>()
         .unwrap();
+    let key = PbrPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
@@ -184,7 +197,11 @@ pub fn queue_custom(
             if materials.contains_key(material_handle) {
                 transparent_phase.add(Transparent3d {
                     entity,
-                    pipeline: custom_pipeline.pipeline,
+                    pipeline: specialized_pipelines.specialize(
+                        &mut pipeline_cache,
+                        &custom_pipeline,
+                        key,
+                    ),
                     draw_function: draw_custom,
                     distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
@@ -196,25 +213,25 @@ pub fn queue_custom(
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
+    SetTransformBindGroup<1>,
     SetCustomMaterialBindGroup,
-    SetTransformBindGroup<2>,
     DrawMesh,
 );
 
 struct SetCustomMaterialBindGroup;
-impl RenderCommand<Transparent3d> for SetCustomMaterialBindGroup {
+impl EntityRenderCommand for SetCustomMaterialBindGroup {
     type Param = (
         SRes<RenderAssets<CustomMaterial>>,
         SQuery<Read<Handle<CustomMaterial>>>,
     );
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let material_handle = query.get(item.entity).unwrap();
+        let material_handle = query.get(item).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
-        pass.set_bind_group(1, &material.bind_group, &[]);
+        pass.set_bind_group(2, &material.bind_group, &[]);
     }
 }

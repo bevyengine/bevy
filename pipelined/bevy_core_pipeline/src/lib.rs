@@ -8,17 +8,14 @@ pub use main_pass_driver::*;
 
 use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
-use bevy_ecs::{
-    prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
-};
+use bevy_ecs::prelude::*;
 use bevy_render2::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase,
-        TrackedRenderPass,
+        sort_phase_system, CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
+        PhaseItem, RenderPhase,
     },
     render_resource::*,
     renderer::RenderDevice,
@@ -171,38 +168,17 @@ impl PhaseItem for Transparent3d {
     }
 }
 
-pub struct SetItemPipeline;
-impl RenderCommand<Transparent3d> for SetItemPipeline {
-    type Param = SRes<RenderPipelineCache>;
+impl EntityPhaseItem for Transparent3d {
     #[inline]
-    fn render<'w>(
-        _view: Entity,
-        item: &Transparent3d,
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) {
-        let pipeline = pipeline_cache
-            .into_inner()
-            .get_state(item.pipeline)
-            .unwrap();
-        pass.set_render_pipeline(pipeline);
+    fn entity(&self) -> Entity {
+        self.entity
     }
 }
 
-impl RenderCommand<Transparent2d> for SetItemPipeline {
-    type Param = SRes<RenderPipelineCache>;
+impl CachedPipelinePhaseItem for Transparent3d {
     #[inline]
-    fn render<'w>(
-        _view: Entity,
-        item: &Transparent2d,
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) {
-        let pipeline = pipeline_cache
-            .into_inner()
-            .get_state(item.pipeline)
-            .unwrap();
-        pass.set_render_pipeline(pipeline);
+    fn cached_pipeline(&self) -> CachedPipelineId {
+        self.pipeline
     }
 }
 

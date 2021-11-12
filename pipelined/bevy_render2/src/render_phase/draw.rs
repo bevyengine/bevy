@@ -1,9 +1,14 @@
-use crate::render_phase::TrackedRenderPass;
+use crate::{
+    render_phase::TrackedRenderPass,
+    render_resource::{CachedPipelineId, RenderPipelineCache},
+};
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
     entity::Entity,
-    system::{ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState},
+    system::{
+        lifetimeless::SRes, ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState,
+    },
     world::World,
 };
 use bevy_utils::HashMap;
@@ -88,6 +93,56 @@ pub trait RenderCommand<P: PhaseItem> {
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     );
+}
+
+pub trait EntityRenderCommand {
+    type Param: SystemParam;
+    fn render<'w>(
+        view: Entity,
+        item: Entity,
+        param: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    );
+}
+
+pub trait EntityPhaseItem: PhaseItem {
+    fn entity(&self) -> Entity;
+}
+
+pub trait CachedPipelinePhaseItem: PhaseItem {
+    fn cached_pipeline(&self) -> CachedPipelineId;
+}
+
+impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
+    type Param = E::Param;
+
+    #[inline]
+    fn render<'w>(
+        view: Entity,
+        item: &P,
+        param: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        <E as EntityRenderCommand>::render(view, item.entity(), param, pass);
+    }
+}
+
+pub struct SetItemPipeline;
+impl<P: CachedPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
+    type Param = SRes<RenderPipelineCache>;
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: &P,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) {
+        let pipeline = pipeline_cache
+            .into_inner()
+            .get_state(item.cached_pipeline())
+            .unwrap();
+        pass.set_render_pipeline(pipeline);
+    }
 }
 
 macro_rules! render_command_tuple_impl {

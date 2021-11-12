@@ -108,15 +108,10 @@ impl Plugin for PbrPlugin {
             .init_resource::<SpecializedPipelines<PbrPipeline>>()
             .init_resource::<SpecializedPipelines<ShadowPipeline>>();
 
-        let draw_shadow_mesh = DrawShadowMesh::new(&mut render_app.world);
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Transparent3d, DrawPbr>();
-        let render_world = render_app.world.cell();
-        let draw_functions = render_world
-            .get_resource::<DrawFunctions<Shadow>>()
-            .unwrap();
-        draw_functions.write().add(draw_shadow_mesh);
-        let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
+        render_app.add_render_command::<Shadow, DrawShadowMesh>();
+        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
