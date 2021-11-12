@@ -354,7 +354,6 @@
 		8265913A25816D964A847F1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				IOS_TARGETS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -410,7 +409,6 @@
 		FEA9B18D9236F9F6DC6DF799 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				IOS_TARGETS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
