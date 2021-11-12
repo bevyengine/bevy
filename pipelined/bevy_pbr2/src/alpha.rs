@@ -3,7 +3,7 @@ use bevy_reflect::Reflect;
 
 // FIXME: This should probably be part of bevy_render2!
 /// Alpha mode
-#[derive(Debug, Reflect, Clone, PartialEq)]
+#[derive(Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Component)]
 pub enum AlphaMode {
     Opaque,

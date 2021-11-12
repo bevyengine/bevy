@@ -140,7 +140,12 @@ pub trait RenderCommand<P: PhaseItem> {
         item: &P,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    );
+    ) -> RenderCommandResult;
+}
+
+pub enum RenderCommandResult {
+    Success,
+    Failure,
 }
 
 pub trait EntityRenderCommand {
@@ -150,7 +155,7 @@ pub trait EntityRenderCommand {
         item: Entity,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    );
+    ) -> RenderCommandResult;
 }
 
 pub trait EntityPhaseItem: PhaseItem {
@@ -170,8 +175,8 @@ impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
         item: &P,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
-        <E as EntityRenderCommand>::render(view, item.entity(), param, pass);
+    ) -> RenderCommandResult {
+        <E as EntityRenderCommand>::render(view, item.entity(), param, pass)
     }
 }
 
@@ -184,12 +189,13 @@ impl<P: CachedPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
         item: &P,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
-        let pipeline = pipeline_cache
-            .into_inner()
-            .get_state(item.cached_pipeline())
-            .unwrap();
-        pass.set_render_pipeline(pipeline);
+    ) -> RenderCommandResult {
+        if let Some(pipeline) = pipeline_cache.into_inner().get(item.cached_pipeline()) {
+            pass.set_render_pipeline(pipeline);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
     }
 }
 
@@ -204,8 +210,11 @@ macro_rules! render_command_tuple_impl {
                 _item: &P,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
-            ) {
-                $($name::render(_view, _item, $name, _pass);)*
+            ) -> RenderCommandResult{
+                $(if let RenderCommandResult::Failure = $name::render(_view, _item, $name, _pass) {
+                    return RenderCommandResult::Failure;
+                })*
+                RenderCommandResult::Success
             }
         }
     };

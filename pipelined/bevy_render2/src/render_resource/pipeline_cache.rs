@@ -1,15 +1,14 @@
 use crate::{
-    render_asset::RenderAssets,
     render_resource::{
         AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ProcessShaderError,
         RawFragmentState, RawRenderPipelineDescriptor, RawVertexState, RenderPipeline,
-        RenderPipelineDescriptor, Shader, ShaderProcessor,
+        RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor,
     },
     renderer::RenderDevice,
     RenderWorld,
 };
 use bevy_app::EventReader;
-use bevy_asset::{AssetEvent, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{HashMap, HashSet};
 use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
@@ -32,6 +31,8 @@ impl CachedPipelineId {
 #[derive(Default)]
 struct ShaderCache {
     data: HashMap<Handle<Shader>, ShaderData>,
+    shaders: HashMap<Handle<Shader>, Shader>,
+    import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
     processor: ShaderProcessor,
 }
 
@@ -39,21 +40,35 @@ impl ShaderCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
-        shaders: &RenderAssets<Shader>,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
     ) -> Result<Arc<ShaderModule>, RenderPipelineError> {
-        let shader = shaders
+        let shader = self
+            .shaders
             .get(handle)
             .ok_or_else(|| RenderPipelineError::ShaderNotLoaded(handle.clone_weak()))?;
-        let data = self.data.entry(handle.clone_weak()).or_default();
+        let data = match self.data.entry(handle.clone_weak()) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(ShaderData::default()),
+        };
         data.pipelines.insert(pipeline);
+
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                let processed = self.processor.process_shader(shader, shader_defs)?;
+                for import in shader.imports() {
+                    if !self.import_path_shaders.contains_key(import) {
+                        return Err(RenderPipelineError::ShaderImportNotYetAvailable);
+                    }
+                }
+                let processed = self.processor.process(
+                    shader,
+                    shader_defs,
+                    &self.shaders,
+                    &self.import_path_shaders,
+                )?;
                 let module_descriptor = processed.get_module_descriptor()?;
                 entry.insert(Arc::new(
                     render_device.create_shader_module(&module_descriptor),
@@ -72,8 +87,22 @@ impl ShaderCache {
         Some(data.pipelines.drain())
     }
 
+    fn set_shader(&mut self, handle: &Handle<Shader>, shader: Shader) {
+        if let Some(path) = shader.import_path() {
+            self.import_path_shaders
+                .insert(path.clone(), handle.clone_weak());
+        }
+
+        self.shaders.insert(handle.clone_weak(), shader);
+    }
+
     fn remove(&mut self, handle: &Handle<Shader>) {
-        self.data.remove(handle);
+        if let Some(shader) = self.shaders.remove(handle) {
+            if let Some(import_path) = shader.import_path() {
+                self.import_path_shaders.remove(import_path);
+            }
+            self.data.remove(handle);
+        }
     }
 }
 
@@ -144,6 +173,8 @@ pub enum RenderPipelineError {
     ProcessShaderError(#[from] ProcessShaderError),
     #[error(transparent)]
     AsModuleDescriptorError(#[from] AsModuleDescriptorError),
+    #[error("Shader import not yet available.")]
+    ShaderImportNotYetAvailable,
 }
 
 impl RenderPipelineCache {
@@ -181,25 +212,29 @@ impl RenderPipelineCache {
         id
     }
 
-    pub fn mark_shader_dirty(&mut self, shader: &Handle<Shader>) {
+    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
+        if let Some(cached_pipelines) = self.shader_cache.clear(handle) {
+            for cached_pipeline in cached_pipelines {
+                self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
+                self.waiting_pipelines.push(cached_pipeline);
+            }
+        }
+
+        self.shader_cache.set_shader(handle, shader.clone());
+    }
+
+    fn remove_shader(&mut self, shader: &Handle<Shader>) {
         if let Some(cached_pipelines) = self.shader_cache.clear(shader) {
             for cached_pipeline in cached_pipelines {
                 self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
                 self.waiting_pipelines.push(cached_pipeline);
             }
         }
+
+        self.shader_cache.remove(shader);
     }
 
-    pub fn remove_shader(&mut self, shader: &Handle<Shader>) {
-        if let Some(cached_pipelines) = self.shader_cache.clear(shader) {
-            for cached_pipeline in cached_pipelines {
-                self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
-                self.waiting_pipelines.push(cached_pipeline);
-            }
-        }
-    }
-
-    pub fn process_queue(&mut self, shaders: &RenderAssets<Shader>) {
+    pub fn process_queue(&mut self) {
         let pipelines = std::mem::take(&mut self.waiting_pipelines);
         for id in pipelines {
             let state = &mut self.pipelines[id.0];
@@ -208,7 +243,8 @@ impl RenderPipelineCache {
                 CachedPipelineState::Queued => {}
                 CachedPipelineState::Err(err) => {
                     match err {
-                        RenderPipelineError::ShaderNotLoaded(_) => { /* retry */ }
+                        RenderPipelineError::ShaderNotLoaded(_)
+                        | RenderPipelineError::ShaderImportNotYetAvailable => { /* retry */ }
                         RenderPipelineError::ProcessShaderError(_)
                         | RenderPipelineError::AsModuleDescriptorError(_) => {
                             // shader could not be processed ... retrying won't help
@@ -221,7 +257,6 @@ impl RenderPipelineCache {
             let descriptor = &state.descriptor;
             let vertex_module = match self.shader_cache.get(
                 &self.device,
-                shaders,
                 id,
                 &descriptor.vertex.shader,
                 &descriptor.vertex.shader_defs,
@@ -237,7 +272,6 @@ impl RenderPipelineCache {
             let fragment_data = if let Some(fragment) = &descriptor.fragment {
                 let fragment_module = match self.shader_cache.get(
                     &self.device,
-                    shaders,
                     id,
                     &fragment.shader,
                     &fragment.shader_defs,
@@ -300,24 +334,24 @@ impl RenderPipelineCache {
         }
     }
 
-    pub(crate) fn process_pipeline_queue_system(
-        mut cache: ResMut<Self>,
-        shaders: Res<RenderAssets<Shader>>,
-    ) {
-        cache.process_queue(&shaders);
+    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+        cache.process_queue();
     }
 
-    pub(crate) fn extract_dirty_shaders(
+    pub(crate) fn extract_shaders(
         mut world: ResMut<RenderWorld>,
+        shaders: Res<Assets<Shader>>,
         mut events: EventReader<AssetEvent<Shader>>,
     ) {
         let mut cache = world.get_resource_mut::<Self>().unwrap();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    cache.mark_shader_dirty(handle)
+                    if let Some(shader) = shaders.get(handle) {
+                        cache.set_shader(handle, shader);
+                    }
                 }
-                AssetEvent::Removed { handle } => cache.shader_cache.remove(handle),
+                AssetEvent::Removed { handle } => cache.remove_shader(handle),
             }
         }
     }

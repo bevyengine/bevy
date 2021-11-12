@@ -16,7 +16,6 @@ pub use once_cell;
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_asset::RenderAssetPlugin,
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
@@ -135,7 +134,7 @@ impl Plugin for RenderPlugin {
 
         let mut render_app = App::empty();
         let mut extract_stage =
-            SystemStage::parallel().with_system(RenderPipelineCache::extract_dirty_shaders);
+            SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
         // don't apply buffers when the stage finishes running
         // extract stage runs on the app world, but the buffers are applied to the render world
         extract_stage.set_apply_buffers(false);
@@ -271,8 +270,7 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(ImagePlugin)
-            .add_plugin(RenderAssetPlugin::<Shader>::default());
+            .add_plugin(ImagePlugin);
     }
 }
 

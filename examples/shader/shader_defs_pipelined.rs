@@ -4,8 +4,8 @@ use bevy::{
     ecs::prelude::*,
     math::Vec3,
     pbr2::{
-        DrawMesh, MeshUniform, PbrPipeline, PbrPipelineKey, SetMeshViewBindGroup,
-        SetTransformBindGroup,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
     prelude::{App, AssetServer, Assets, GlobalTransform, Handle, Plugin, Transform},
     render2::{
@@ -86,39 +86,39 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 }
 
 struct IsRedPipeline {
+    mesh_pipline: MeshPipeline,
     shader: Handle<Shader>,
-    pbr_pipeline: PbrPipeline,
 }
 
 impl FromWorld for IsRedPipeline {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
+        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
         IsRedPipeline {
+            mesh_pipline: mesh_pipeline.clone(),
             shader,
-            pbr_pipeline: pbr_pipeline.clone(),
         }
     }
 }
 
 impl SpecializedPipeline for IsRedPipeline {
-    type Key = (IsRed, PbrPipelineKey);
+    type Key = (IsRed, MeshPipelineKey);
 
     fn specialize(&self, (is_red, pbr_pipeline_key): Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
         if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.pbr_pipeline.specialize(pbr_pipeline_key);
+        let mut descriptor = self.mesh_pipline.specialize(pbr_pipeline_key);
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         fragment.shader_defs = shader_defs;
         descriptor.layout = Some(vec![
-            self.pbr_pipeline.view_layout.clone(),
-            self.pbr_pipeline.mesh_layout.clone(),
+            self.mesh_pipline.view_layout.clone(),
+            self.mesh_pipline.mesh_layout.clone(),
         ]);
         descriptor
     }
@@ -127,7 +127,7 @@ impl SpecializedPipeline for IsRedPipeline {
 type DrawIsRed = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetTransformBindGroup<1>,
+    SetMeshBindGroup<1>,
     DrawMesh,
 );
 
@@ -144,7 +144,7 @@ fn queue_custom(
         .read()
         .get_id::<DrawIsRed>()
         .unwrap();
-    let key = PbrPipelineKey::from_msaa_samples(msaa.samples);
+    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);

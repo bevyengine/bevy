@@ -1,3 +1,5 @@
+#import bevy_pbr::mesh_struct
+
 // NOTE: Keep in sync with pbr.wgsl
 [[block]]
 struct View {
@@ -7,15 +9,6 @@ struct View {
 };
 [[group(0), binding(0)]]
 var<uniform> view: View;
-
-
-[[block]]
-struct Mesh {
-    model: mat4x4<f32>;
-    inverse_transpose_model: mat4x4<f32>;
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
-    flags: u32;
-};
 
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh;

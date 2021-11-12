@@ -163,16 +163,18 @@ impl RenderAsset for StandardMaterial {
         material: Self::ExtractedAsset,
         (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let (base_color_texture_view, base_color_sampler) = if let Some(result) =
-            pbr_pipeline.image_handle_to_texture(gpu_images, &material.base_color_texture)
+        let (base_color_texture_view, base_color_sampler) = if let Some(result) = pbr_pipeline
+            .mesh_pipeline
+            .get_image_texture(gpu_images, &material.base_color_texture)
         {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
 
-        let (emissive_texture_view, emissive_sampler) = if let Some(result) =
-            pbr_pipeline.image_handle_to_texture(gpu_images, &material.emissive_texture)
+        let (emissive_texture_view, emissive_sampler) = if let Some(result) = pbr_pipeline
+            .mesh_pipeline
+            .get_image_texture(gpu_images, &material.emissive_texture)
         {
             result
         } else {
@@ -180,21 +182,25 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
-            pbr_pipeline.image_handle_to_texture(gpu_images, &material.metallic_roughness_texture)
+            pbr_pipeline
+                .mesh_pipeline
+                .get_image_texture(gpu_images, &material.metallic_roughness_texture)
         {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
-        let (normal_map_texture_view, normal_map_sampler) = if let Some(result) =
-            pbr_pipeline.image_handle_to_texture(gpu_images, &material.normal_map_texture)
+        let (normal_map_texture_view, normal_map_sampler) = if let Some(result) = pbr_pipeline
+            .mesh_pipeline
+            .get_image_texture(gpu_images, &material.normal_map_texture)
         {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
-        let (occlusion_texture_view, occlusion_sampler) = if let Some(result) =
-            pbr_pipeline.image_handle_to_texture(gpu_images, &material.occlusion_texture)
+        let (occlusion_texture_view, occlusion_sampler) = if let Some(result) = pbr_pipeline
+            .mesh_pipeline
+            .get_image_texture(gpu_images, &material.occlusion_texture)
         {
             result
         } else {
