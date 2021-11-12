@@ -149,10 +149,8 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 pub struct PrepareAssetSystem<R: RenderAsset>(PhantomData<R>);
 
 impl<R: RenderAsset> RunSystem for PrepareAssetSystem<R> {
-    /// Specifies all required ECS data.
     type Param = RenderAssetParams<R>;
 
-    /// Runs the system.
     fn run(
         (mut extracted_assets, mut render_assets, mut prepare_next_frame, mut param): SystemParamItem<Self::Param>,
     ) {

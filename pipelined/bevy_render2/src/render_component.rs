@@ -150,7 +150,6 @@ where
     }
 }
 
-/// Implements [`ExtractComponent`] for all asset handles.
 impl<T: Asset> ExtractComponent for Handle<T> {
     type Query = Read<Handle<T>>;
     type Filter = ();
@@ -169,7 +168,6 @@ where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
     <C::Query as WorldQuery>::Fetch: ReadOnlyFetch,
 {
-    /// Specifies all required ECS data.
     type Param = (
         SCommands,
         // the previous amount of extracted components
@@ -177,7 +175,6 @@ where
         SQuery<(Entity, C::Query), C::Filter>,
     );
 
-    /// Runs the system.
     fn run((mut commands, mut previous_len, query): SystemParamItem<Self::Param>) {
         let mut values = Vec::with_capacity(*previous_len);
         for (entity, query_item) in query.iter() {
