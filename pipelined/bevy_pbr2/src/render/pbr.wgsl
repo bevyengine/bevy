@@ -50,16 +50,16 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_position = world_position;
     out.clip_position = view.view_proj * world_position;
     out.world_normal = mat3x3<f32>(
-        mesh.inverse_transpose_model.x.xyz,
-        mesh.inverse_transpose_model.y.xyz,
-        mesh.inverse_transpose_model.z.xyz
+        mesh.inverse_transpose_model[0].xyz,
+        mesh.inverse_transpose_model[1].xyz,
+        mesh.inverse_transpose_model[2].xyz
     ) * vertex.normal;
 #ifdef VERTEX_TANGENTS
     out.world_tangent = vec4<f32>(
         mat3x3<f32>(
-            mesh.model.x.xyz,
-            mesh.model.y.xyz,
-            mesh.model.z.xyz
+            mesh.model[0].xyz,
+            mesh.model[1].xyz,
+            mesh.model[2].xyz
         ) * vertex.tangent.xyz,
         vertex.tangent.w
     );
@@ -560,12 +560,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #endif
 
         var V: vec3<f32>;
-        if (view.projection.w.w != 1.0) { // If the projection is not orthographic
+        if (view.projection[3].w != 1.0) { // If the projection is not orthographic
             // Only valid for a perpective projection
             V = normalize(view.world_position.xyz - in.world_position.xyz);
         } else {
             // Ortho view vec
-            V = normalize(vec3<f32>(view.view_proj.x.z, view.view_proj.y.z, view.view_proj.z.z));
+            V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
         }
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
