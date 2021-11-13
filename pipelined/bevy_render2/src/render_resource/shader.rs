@@ -217,21 +217,14 @@ pub enum ProcessShaderError {
     ShaderFormatDoesNotSupportShaderDefs,
 }
 
-pub struct ShaderProcessor {
-    ifdef_regex: Regex,
-    ifndef_regex: Regex,
-    endif_regex: Regex,
+lazy_static::lazy_static! {
+    static ref IFDEF_REGEX: Regex = Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap();
+    static ref IFNDEF_REGEX: Regex = Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap();
+    static ref ENDIF_REGEX: Regex = Regex::new(r"^\s*#\s*endif").unwrap();
 }
 
-impl Default for ShaderProcessor {
-    fn default() -> Self {
-        Self {
-            ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
-            ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
-            endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
-        }
-    }
-}
+#[derive(Default)]
+pub struct ShaderProcessor;
 
 impl ShaderProcessor {
     pub fn process_shader(
@@ -266,13 +259,13 @@ impl ShaderProcessor {
         let mut scopes = vec![true];
         let mut final_string = String::new();
         for line in shader.split('\n') {
-            if let Some(cap) = self.ifdef_regex.captures(line) {
+            if let Some(cap) = IFDEF_REGEX.captures(line) {
                 let def = cap.get(1).unwrap();
                 scopes.push(shader_defs.contains(def.as_str()));
-            } else if let Some(cap) = self.ifndef_regex.captures(line) {
+            } else if let Some(cap) = IFNDEF_REGEX.captures(line) {
                 let def = cap.get(1).unwrap();
                 scopes.push(!shader_defs.contains(def.as_str()));
-            } else if self.endif_regex.is_match(line) {
+            } else if ENDIF_REGEX.is_match(line) {
                 scopes.pop();
                 if scopes.is_empty() {
                     return Err(ProcessShaderError::TooManyEndIfs);
