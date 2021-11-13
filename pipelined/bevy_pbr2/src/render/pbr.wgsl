@@ -535,20 +535,6 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
-            // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
-            output_color.a = 1.0;
-        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-            if (output_color.a >= material.alpha_cutoff) {
-                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
-                output_color.a = 1.0;
-            } else {
-                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
-                // NOTE: This and any other discards mean that early-z testing cannot be done!
-                discard;
-            }
-        }
-
         var N: vec3<f32> = normalize(in.world_normal);
 
 #ifdef VERTEX_TANGENTS
@@ -576,6 +562,20 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
 #endif
 #endif
+
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+            // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
+            output_color.a = 1.0;
+        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+            if (output_color.a >= material.alpha_cutoff) {
+                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
+                output_color.a = 1.0;
+            } else {
+                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
+                // NOTE: This and any other discards mean that early-z testing cannot be done!
+                discard;
+            }
+        }
 
         var V: vec3<f32>;
         if (view.projection.w.w != 1.0) { // If the projection is not orthographic
