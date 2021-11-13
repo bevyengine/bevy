@@ -5,6 +5,7 @@ use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
+    mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
@@ -338,7 +339,11 @@ impl SpecializedMaterial for StandardMaterial {
         }
     }
 
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) {
         if key.normal_map {
             descriptor
                 .fragment

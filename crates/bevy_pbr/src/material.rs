@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
     render_component::ExtractComponentPlugin,
     render_phase::{
@@ -24,7 +24,7 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedPipeline, SpecializedPipelines,
+        SpecializedMeshPipeline, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
@@ -81,7 +81,12 @@ impl<M: Material> SpecializedMaterial for M {
     fn key(_material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
 
     #[inline]
-    fn specialize(_key: Self::Key, _descriptor: &mut RenderPipelineDescriptor) {}
+    fn specialize(
+        _descriptor: &mut RenderPipelineDescriptor,
+        _key: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) {
+    }
 
     #[inline]
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
@@ -130,7 +135,11 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
     fn key(material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
 
     /// Specializes the given `descriptor` according to the given `key`.
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor);
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    );
 
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial::bind_group_layout`].
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
@@ -188,7 +197,7 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
-                .init_resource::<SpecializedPipelines<MaterialPipeline<M>>>()
+                .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }
@@ -202,11 +211,15 @@ pub struct MaterialPipeline<M: SpecializedMaterial> {
     marker: PhantomData<M>,
 }
 
-impl<M: SpecializedMaterial> SpecializedPipeline for MaterialPipeline<M> {
+impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
     type Key = (MeshPipelineKey, M::Key);
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key.0);
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> RenderPipelineDescriptor {
+        let mut descriptor = self.mesh_pipeline.specialize(key.0, layout);
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -220,7 +233,7 @@ impl<M: SpecializedMaterial> SpecializedPipeline for MaterialPipeline<M> {
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(key.1, &mut descriptor);
+        M::specialize(&mut descriptor, key.1, layout);
         descriptor
     }
 }
@@ -275,7 +288,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedPipelines<MaterialPipeline<M>>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -307,72 +320,71 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)
             {
                 if let Some(material) = render_materials.get(material_handle) {
-                    let mut mesh_key = mesh_key;
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        if mesh.has_tangents {
-                            mesh_key |= MeshPipelineKey::VERTEX_TANGENTS;
+                        let mut mesh_key =
+                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
+                                | msaa_key;
+                        let alpha_mode = M::alpha_mode(material);
+                        if let AlphaMode::Blend = alpha_mode {
+                            mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
                         }
-                        mesh_key |=
-                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    }
-                    let alpha_mode = M::alpha_mode(material);
-                    if let AlphaMode::Blend = alpha_mode {
-                        mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
-                    }
 
-                    let specialized_key = M::key(material);
-                    let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
-                        &material_pipeline,
-                        (mesh_key, specialized_key),
-                    );
+                        let specialized_key = M::key(material);
 
-                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                    // gives the z component of translation of the mesh in view space
-                    let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
-                    match alpha_mode {
-                        AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
-                                // lowest sort key and getting further away should increase. As we have
-                                // -z in front of the camera, values in view space decrease away from the
-                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                distance: -mesh_z,
-                            });
-                        }
-                        AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3d {
-                                entity: *visible_entity,
-                                draw_function: draw_alpha_mask_pbr,
-                                pipeline: pipeline_id,
-                                // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
-                                // lowest sort key and getting further away should increase. As we have
-                                // -z in front of the camera, values in view space decrease away from the
-                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                distance: -mesh_z,
-                            });
-                        }
-                        AlphaMode::Blend => {
-                            transparent_phase.add(Transparent3d {
-                                entity: *visible_entity,
-                                draw_function: draw_transparent_pbr,
-                                pipeline: pipeline_id,
-                                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                                // lowest sort key and getting closer should increase. As we have
-                                // -z in front of the camera, the largest distance is -far with values increasing toward the
-                                // camera. As such we can just use mesh_z as the distance
-                                distance: mesh_z,
-                            });
+                        let pipeline_id = pipelines.specialize(
+                            &mut pipeline_cache,
+                            &material_pipeline,
+                            (mesh_key, specialized_key),
+                            &mesh.layout,
+                        );
+
+                        // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                        // gives the z component of translation of the mesh in view space
+                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
+                        match alpha_mode {
+                            AlphaMode::Opaque => {
+                                opaque_phase.add(Opaque3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_opaque_pbr,
+                                    pipeline: pipeline_id,
+                                    // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
+                                    // lowest sort key and getting further away should increase. As we have
+                                    // -z in front of the camera, values in view space decrease away from the
+                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                    distance: -mesh_z,
+                                });
+                            }
+                            AlphaMode::Mask(_) => {
+                                alpha_mask_phase.add(AlphaMask3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_alpha_mask_pbr,
+                                    pipeline: pipeline_id,
+                                    // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
+                                    // lowest sort key and getting further away should increase. As we have
+                                    // -z in front of the camera, values in view space decrease away from the
+                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                    distance: -mesh_z,
+                                });
+                            }
+                            AlphaMode::Blend => {
+                                transparent_phase.add(Transparent3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_transparent_pbr,
+                                    pipeline: pipeline_id,
+                                    // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                                    // lowest sort key and getting closer should increase. As we have
+                                    // -z in front of the camera, the largest distance is -far with values increasing toward the
+                                    // camera. As such we can just use mesh_z as the distance
+                                    distance: mesh_z,
+                                });
+                            }
                         }
                     }
                 }

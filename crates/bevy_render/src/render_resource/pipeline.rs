@@ -4,7 +4,7 @@ use bevy_reflect::Uuid;
 use std::{borrow::Cow, ops::Deref, sync::Arc};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    VertexAttribute, VertexStepMode,
+    VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 /// A [`RenderPipeline`] identifier.
@@ -118,7 +118,7 @@ pub struct VertexState {
 }
 
 /// Describes how the vertex buffer is interpreted.
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct VertexBufferLayout {
     /// The stride, in bytes, between elements of this buffer.
     pub array_stride: BufferAddress,
@@ -126,6 +126,34 @@ pub struct VertexBufferLayout {
     pub step_mode: VertexStepMode,
     /// The list of attributes which comprise a single vertex.
     pub attributes: Vec<VertexAttribute>,
+}
+
+impl VertexBufferLayout {
+    /// Creates a new densely packed [`VertexBufferLayout`] from an iterator of vertex formats.
+    /// Iteration order determines the `shader_location` and `offset` of the VertexAttributes.
+    /// The first iterated item will have a `shader_location` and `offset` of zero.
+    /// The `array_stride` is the sum of the size of the iterated VertexFormats (in bytes).
+    pub fn from_vertex_formats<T: IntoIterator<Item = VertexFormat>>(
+        step_mode: VertexStepMode,
+        vertex_formats: T,
+    ) -> Self {
+        let mut array_stride = 0;
+        let mut attributes = Vec::new();
+        for (shader_location, format) in vertex_formats.into_iter().enumerate() {
+            attributes.push(VertexAttribute {
+                format,
+                offset: array_stride,
+                shader_location: shader_location as u32,
+            });
+            array_stride += format.size();
+        }
+
+        VertexBufferLayout {
+            array_stride,
+            step_mode,
+            attributes,
+        }
+    }
 }
 
 /// Describes the fragment process in a render pipeline.

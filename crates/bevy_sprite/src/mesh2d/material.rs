@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
     render_component::ExtractComponentPlugin,
     render_phase::{
@@ -21,7 +21,7 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedPipeline, SpecializedPipelines,
+        SpecializedMeshPipeline, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
@@ -78,7 +78,12 @@ impl<M: Material2d> SpecializedMaterial2d for M {
     fn key(_material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
 
     #[inline]
-    fn specialize(_key: Self::Key, _descriptor: &mut RenderPipelineDescriptor) {}
+    fn specialize(
+        _key: Self::Key,
+        _descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayout,
+    ) {
+    }
 
     #[inline]
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
@@ -122,7 +127,11 @@ pub trait SpecializedMaterial2d: Asset + RenderAsset {
     fn key(material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
 
     /// Specializes the given `descriptor` according to the given `key`.
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor);
+    fn specialize(
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+    );
 
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial2d::bind_group_layout`].
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
@@ -172,7 +181,7 @@ impl<M: SpecializedMaterial2d> Plugin for Material2dPlugin<M> {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<Material2dPipeline<M>>()
-                .init_resource::<SpecializedPipelines<Material2dPipeline<M>>>()
+                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
         }
     }
@@ -186,11 +195,15 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
     marker: PhantomData<M>,
 }
 
-impl<M: SpecializedMaterial2d> SpecializedPipeline for Material2dPipeline<M> {
+impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M> {
     type Key = (Mesh2dPipelineKey, M::Key);
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.0);
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> RenderPipelineDescriptor {
+        let mut descriptor = self.mesh2d_pipeline.specialize(key.0, layout);
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -204,7 +217,7 @@ impl<M: SpecializedMaterial2d> SpecializedPipeline for Material2dPipeline<M> {
             self.mesh2d_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(key.1, &mut descriptor);
+        M::specialize(key.1, &mut descriptor, layout);
         descriptor
     }
 }
@@ -259,7 +272,7 @@ impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
 pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
-    mut pipelines: ResMut<SpecializedPipelines<Material2dPipeline<M>>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -276,42 +289,39 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
             .get_id::<DrawMaterial2d<M>>()
             .unwrap();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
                 material2d_meshes.get(*visible_entity)
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
-                    let mut mesh2d_key = mesh_key;
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        if mesh.has_tangents {
-                            mesh2d_key |= Mesh2dPipelineKey::VERTEX_TANGENTS;
-                        }
-                        mesh2d_key |=
-                            Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        let mesh2d_key = msaa_key
+                            | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+
+                        let specialized_key = M::key(material2d);
+                        let pipeline_id = pipelines.specialize(
+                            &mut pipeline_cache,
+                            &material2d_pipeline,
+                            (mesh2d_key, specialized_key),
+                            &mesh.layout,
+                        );
+
+                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
+                        transparent_phase.add(Transparent2d {
+                            entity: *visible_entity,
+                            draw_function: draw_transparent_pbr,
+                            pipeline: pipeline_id,
+                            // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                            // lowest sort key and getting closer should increase. As we have
+                            // -z in front of the camera, the largest distance is -far with values increasing toward the
+                            // camera. As such we can just use mesh_z as the distance
+                            sort_key: FloatOrd(mesh_z),
+                            // This material is not batched
+                            batch_range: None,
+                        });
                     }
-
-                    let specialized_key = M::key(material2d);
-                    let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
-                        &material2d_pipeline,
-                        (mesh2d_key, specialized_key),
-                    );
-
-                    let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                    transparent_phase.add(Transparent2d {
-                        entity: *visible_entity,
-                        draw_function: draw_transparent_pbr,
-                        pipeline: pipeline_id,
-                        // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                        // lowest sort key and getting closer should increase. As we have
-                        // -z in front of the camera, the largest distance is -far with values increasing toward the
-                        // camera. As such we can just use mesh_z as the distance
-                        sort_key: FloatOrd(mesh_z),
-                        // This material is not batched
-                        batch_range: None,
-                    });
                 }
             }
         }
