@@ -1,0 +1,14 @@
+[package]
+name = "bevy_ecs_ui_tests"
+version = "0.5.0"
+edition = "2021"
+description = "UI tests for Bevy Engine's entity component system"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dev-dependencies]
+bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
+trybuild = "1.0"
+rustversion = "1.0"
