@@ -18,12 +18,12 @@ fn main() {
         .expect("Please fix clippy errors in output above.");
 
     // Run UI tests (they do not get executed with the workspace tests)
-    // - See crates/bevy_ecs_ui_tests/README.md
+    // - See crates/bevy_ecs_compile_fail_tests/README.md
     {
-        let _bevy_ecs_ui_tests = pushd("crates/bevy_ecs_ui_tests")
-            .expect("Failed to navigate to the 'bevy_ecs_ui_tests' crate");
+        let _bevy_ecs_compile_fail_tests = pushd("crates/bevy_ecs_compile_fail_tests")
+            .expect("Failed to navigate to the 'bevy_ecs_compile_fail_tests' crate");
         cmd!("cargo test")
             .run()
-            .expect("Compiler errors of the ECS UI tests seem to be different than expected! Check locally and compare rust versions.");
+            .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
     }
 }
