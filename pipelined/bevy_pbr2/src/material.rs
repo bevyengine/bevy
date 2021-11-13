@@ -115,10 +115,6 @@ pub struct StandardMaterialUniformData {
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
     pub alpha_cutoff: f32,
-    // NOTE: Pad up to 16-byte alignment for WGSL
-    pub _padding0: f32,
-    pub _padding1: f32,
-    pub _padding2: f32,
 }
 
 pub struct StandardMaterialPlugin;
