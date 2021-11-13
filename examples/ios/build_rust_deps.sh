@@ -20,13 +20,9 @@ else
     export LIBRARY_PATH="$LIBRARY_PATH:$(xcrun --show-sdk-path)/usr/lib"
 fi
 
-# add path to cmake, needed on apple arm processors as it's not available by default
-if ! cmake --version; then
-    # use the one installed from homebrew
-    if /opt/homebrew/bin/cmake --version; then
-        export PATH="$PATH:/opt/homebrew/bin"
-    fi
-fi
+# add homebrew bin path, as it's the most commonly used package manager on macOS
+# this is needed for cmake on apple arm processors as it's not available by default
+export PATH="$PATH:/opt/homebrew/bin"
 
 IS_SIMULATOR=0
 if [ "${LLVM_TARGET_TRIPLE_SUFFIX-}" = "-simulator" ]; then
