@@ -23,14 +23,10 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-<<<<<<< HEAD
+
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetServer;
-use bevy_derive::AppLabel;
-=======
-use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
->>>>>>> upstream/pipelined-rendering
+use bevy_derive::AppLabel;
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
 use wgpu::Backends;

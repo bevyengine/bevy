@@ -1,6 +1,6 @@
 use crate::{DirectionalLight, PointLight, StandardMaterial};
 use bevy_asset::Handle;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_render2::{
     mesh::Mesh,
     primitives::{CubemapFrusta, Frustum},
@@ -33,7 +33,7 @@ impl Default for PbrBundle {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Component)]
 pub struct CubemapVisibleEntities {
     data: [VisibleEntities; 6],
 }

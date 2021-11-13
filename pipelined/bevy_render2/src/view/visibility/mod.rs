@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible
-#[derive(Clone, Reflect)]
+#[derive(Clone, Reflect, Component)]
 #[reflect(Component)]
 pub struct Visibility {
     pub is_visible: bool,
@@ -28,7 +28,7 @@ impl Default for Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Clone, Reflect)]
+#[derive(Clone, Reflect, Component)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
     pub is_visible: bool,
@@ -45,7 +45,7 @@ pub struct VisibleEntity {
     pub entity: Entity,
 }
 
-#[derive(Clone, Default, Debug, Reflect)]
+#[derive(Clone, Default, Debug, Reflect, Component)]
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
@@ -114,7 +114,7 @@ pub fn calculate_bounds(
     }
 }
 
-pub fn update_frusta<T: CameraProjection + Send + Sync + 'static>(
+pub fn update_frusta<T: CameraProjection + Component>(
     mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
 ) {
     for (transform, projection, mut frustum) in views.iter_mut() {

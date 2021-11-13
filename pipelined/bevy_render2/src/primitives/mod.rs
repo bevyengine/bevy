@@ -1,9 +1,9 @@
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4};
 use bevy_reflect::Reflect;
 
 /// An Axis-Aligned Bounding Box
-#[derive(Clone, Debug, Default, Reflect)]
+#[derive(Clone, Debug, Default, Reflect, Component)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3,
@@ -63,7 +63,7 @@ pub struct Plane {
     pub normal_d: Vec4,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Component)]
 pub struct Frustum {
     pub planes: [Plane; 6],
 }
@@ -125,7 +125,7 @@ impl Frustum {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct CubemapFrusta {
     pub frusta: [Frustum; 6],
 }

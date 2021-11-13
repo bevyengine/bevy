@@ -445,6 +445,7 @@ pub struct LightMeta {
     pub shadow_view_bind_group: Option<BindGroup>,
 }
 
+#[derive(Component)]
 pub enum LightEntity {
     Directional {
         light_entity: Entity,

@@ -55,6 +55,7 @@ pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
     commands.insert_resource(msaa.clone());
 }
 
+#[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
@@ -79,11 +80,13 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
+#[derive(Component)]
 pub struct ViewTarget {
     pub view: TextureView,
     pub sampled_target: Option<TextureView>,
 }
 
+#[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
     pub view: TextureView,
