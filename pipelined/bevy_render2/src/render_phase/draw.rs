@@ -114,15 +114,15 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// [`TrackedRenderPass`] calls. Types implementing this trait can be composed (as tuples).
 ///
 /// They can be registered as a [`Draw`] function via the
-/// [`AddRenderCommand::add_render_command`] methode.
+/// [`AddRenderCommand::add_render_command`] method.
 ///
 /// # Example
-/// For example the DrawPbr draw function is created from the following render command tuple.
-/// Const generics are used to set specific bind group locations:
+/// The `DrawPbr` draw function is created from the following render command
+/// tuple.  Const generics are used to set specific bind group locations:
 ///
-/// ```
-///  pub type DrawPbr = (
-///     SetPbrPipeline,
+/// ```ignore
+/// pub type DrawPbr = (
+///     SetItemPipeline,
 ///     SetMeshViewBindGroup<0>,
 ///     SetStandardMaterialBindGroup<1>,
 ///     SetTransformBindGroup<2>,
