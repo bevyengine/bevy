@@ -28,7 +28,7 @@ crossbeam-channel = "0.5.0"
 anyhow = "1.0.4"
 thiserror = "1.0"
 downcast-rs = "1.2.0"
-notify = { version = "=5.0.0-pre.11", optional = true }
+notify = { version = "=5.0.0-pre.13", optional = true }
 parking_lot = "0.11.0"
 rand = "0.8.0"
 
