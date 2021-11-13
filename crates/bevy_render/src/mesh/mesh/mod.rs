@@ -3,15 +3,22 @@ mod conversions;
 use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::Buffer,
+    render_resource::{Buffer, RenderPipelineCache, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{
+    lifetimeless::{SRes, SResMut},
+    SystemParamItem,
+};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::EnumVariantMeta;
-use std::{borrow::Cow, collections::BTreeMap};
+use bevy_utils::{AHasher, EnumVariantMeta};
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+};
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexFormat,
 };
@@ -29,6 +36,7 @@ pub struct Mesh {
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
+    vertex_layout: VertexBufferLayout,
     indices: Option<Indices>,
 }
 
@@ -75,6 +83,7 @@ impl Mesh {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
+            vertex_layout: Self::default_vertex_layout(),
             indices: None,
         }
     }
@@ -86,13 +95,34 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// # Panics
+    ///
+    /// This method panics when the attribute descriptor does not have the given name
+    /// or has the wrong format.
     pub fn set_attribute(
         &mut self,
         name: impl Into<Cow<'static, str>>,
         values: impl Into<VertexAttributeValues>,
     ) {
+        let name = name.into();
         let values: VertexAttributeValues = values.into();
-        self.attributes.insert(name.into(), values);
+
+        let vertex_layout = self
+            .vertex_layout
+            .attribute_layout(&name)
+            .unwrap_or_else(|| {
+                panic!("VertexBufferLayout is missing an attribute named {}", name);
+            });
+
+        let vertex_format = VertexFormat::from(&values);
+        assert_eq!(
+            vertex_format, vertex_layout.format,
+            "Attribute {} has a different format than the VertexBufferLayout: {:?} != {:?}",
+            name, vertex_format, vertex_layout.format
+        );
+
+        self.attributes.insert(name, values);
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name`.
@@ -106,6 +136,33 @@ impl Mesh {
         name: impl Into<Cow<'static, str>>,
     ) -> Option<&mut VertexAttributeValues> {
         self.attributes.get_mut(&name.into())
+    }
+
+    /// Get a shared reference to the vertex buffer layout.
+    pub fn vertex_layout(&self) -> &VertexBufferLayout {
+        &self.vertex_layout
+    }
+
+    /// Get a unique reference to the vertex buffer layout for updating.
+    pub fn vertex_layout_mut(&mut self) -> &mut VertexBufferLayout {
+        &mut self.vertex_layout
+    }
+
+    /// Replace the existing vertex buffer layout.
+    pub fn replace_vertex_layout(&mut self, vertex_layout: VertexBufferLayout) {
+        self.vertex_layout = vertex_layout;
+    }
+
+    /// Create a default vertex buffer layout matching the simplest PBR shader
+    /// (without specialization).
+    pub fn default_vertex_layout() -> VertexBufferLayout {
+        let mut vertex_layout = VertexBufferLayout::default();
+
+        vertex_layout.push(Self::ATTRIBUTE_POSITION, VertexFormat::Float32x3);
+        vertex_layout.push(Self::ATTRIBUTE_NORMAL, VertexFormat::Float32x3);
+        vertex_layout.push(Self::ATTRIBUTE_UV_0, VertexFormat::Float32x2);
+
+        vertex_layout
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -134,28 +191,6 @@ impl Mesh {
         })
     }
 
-    // pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
-    //     let mut attributes = Vec::new();
-    //     let mut accumulated_offset = 0;
-    //     for (attribute_name, attribute_values) in self.attributes.iter() {
-    //         let vertex_format = VertexFormat::from(attribute_values);
-    //         attributes.push(VertexAttribute {
-    //             name: attribute_name.clone(),
-    //             offset: accumulated_offset,
-    //             format: vertex_format,
-    //             shader_location: 0,
-    //         });
-    //         accumulated_offset += vertex_format.get_size();
-    //     }
-
-    //     VertexBufferLayout {
-    //         name: Default::default(),
-    //         stride: accumulated_offset,
-    //         step_mode: InputStepMode::Vertex,
-    //         attributes,
-    //     }
-    // }
-
     /// Counts all vertices of the mesh.
     ///
     /// # Panics
@@ -181,17 +216,14 @@ impl Mesh {
     /// # Panics
     /// Panics if the attributes have different vertex counts.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
-        let mut vertex_size = 0;
-        for attribute_values in self.attributes.values() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            vertex_size += vertex_format.get_size() as usize;
-        }
-
         let vertex_count = self.count_vertices();
+        let vertex_size = self.vertex_layout.array_stride as usize;
+
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
-        let mut attribute_offset = 0;
-        for attribute_values in self.attributes.values() {
+        for (attribute_name, attribute_values) in self.attributes.iter() {
+            let vbd = self.vertex_layout.attribute_layout(attribute_name).unwrap();
+            let attribute_offset = vbd.offset as usize;
             let vertex_format = VertexFormat::from(attribute_values);
             let attribute_size = vertex_format.get_size() as usize;
             let attributes_bytes = attribute_values.get_bytes();
@@ -202,8 +234,6 @@ impl Mesh {
                 attributes_interleaved_buffer[offset..offset + attribute_size]
                     .copy_from_slice(attribute_bytes);
             }
-
-            attribute_offset += attribute_size;
         }
 
         attributes_interleaved_buffer
@@ -585,6 +615,31 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct VertexLayoutSpriteKey: u32 {
+        const NONE              = 0;
+        const COLORED           = (1 << 0);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum VertexLayoutKey {
+    Mesh(u64),
+    Sprite(VertexLayoutSpriteKey),
+    Ui,
+}
+
+impl VertexLayoutKey {
+    pub fn sprite() -> Self {
+        Self::Sprite(VertexLayoutSpriteKey::NONE)
+    }
+
+    pub fn colored_sprite() -> Self {
+        Self::Sprite(VertexLayoutSpriteKey::COLORED)
+    }
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
@@ -594,6 +649,7 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub has_tangents: bool,
     pub primitive_topology: PrimitiveTopology,
+    pub vertex_layout_key: VertexLayoutKey,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -613,7 +669,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = (SRes<RenderDevice>, SResMut<RenderPipelineCache>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -623,7 +679,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline_cache): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -647,11 +703,23 @@ impl RenderAsset for Mesh {
             },
         );
 
+        let vertex_layout = mesh.vertex_layout();
+
+        let mut hasher = AHasher::default();
+        vertex_layout.hash(&mut hasher);
+        let vertex_layout_key = VertexLayoutKey::Mesh(hasher.finish());
+
+        // Cache the vertex layout for MeshPipeline
+        pipeline_cache
+            .vertex_layout_cache
+            .insert(vertex_layout_key, vertex_layout);
+
         Ok(GpuMesh {
             vertex_buffer,
             buffer_info,
             has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),
+            vertex_layout_key,
         })
     }
 }

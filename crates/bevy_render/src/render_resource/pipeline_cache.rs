@@ -1,8 +1,10 @@
 use crate::{
+    mesh::VertexLayoutKey,
     render_resource::{
         AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ProcessShaderError,
         RawFragmentState, RawRenderPipelineDescriptor, RawVertexState, RenderPipeline,
         RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor, ShaderReflectError,
+        VertexBufferLayout,
     },
     renderer::RenderDevice,
     RenderWorld,
@@ -13,7 +15,7 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
+use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
 
 use super::ProcessedShader;
 
@@ -182,8 +184,31 @@ impl LayoutCache {
     }
 }
 
+#[derive(Default)]
+pub struct VertexLayoutCache {
+    layouts: HashMap<VertexLayoutKey, VertexBufferLayout>,
+}
+
+impl VertexLayoutCache {
+    pub fn insert(&mut self, key: VertexLayoutKey, vertex_layout: &VertexBufferLayout) {
+        let cached = self
+            .layouts
+            .entry(key)
+            .or_insert_with(|| vertex_layout.clone());
+        debug_assert_eq!(
+            cached, vertex_layout,
+            "Mesh pipeline vertex layout cache is incorrectly keyed",
+        );
+    }
+
+    pub fn get(&self, key: &VertexLayoutKey) -> Option<&VertexBufferLayout> {
+        self.layouts.get(key)
+    }
+}
+
 pub struct RenderPipelineCache {
     layout_cache: LayoutCache,
+    pub vertex_layout_cache: VertexLayoutCache,
     shader_cache: ShaderCache,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
@@ -233,6 +258,7 @@ impl RenderPipelineCache {
         Self {
             device,
             layout_cache: Default::default(),
+            vertex_layout_cache: Default::default(),
             shader_cache: Default::default(),
             waiting_pipelines: Default::default(),
             pipelines: Default::default(),
@@ -345,9 +371,9 @@ impl RenderPipelineCache {
                 .vertex
                 .buffers
                 .iter()
-                .map(|layout| VertexBufferLayout {
+                .map(|layout| RawVertexBufferLayout {
                     array_stride: layout.array_stride,
-                    attributes: &layout.attributes,
+                    attributes: layout.attributes(),
                     step_mode: layout.step_mode,
                 })
                 .collect::<Vec<_>>();

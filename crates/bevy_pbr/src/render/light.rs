@@ -14,7 +14,7 @@ use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
-    mesh::Mesh,
+    mesh::{Mesh, VertexLayoutKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -209,84 +209,21 @@ impl FromWorld for ShadowPipeline {
     }
 }
 
-bitflags::bitflags! {
-    #[repr(transparent)]
-    pub struct ShadowPipelineKey: u32 {
-        const NONE               = 0;
-        const VERTEX_TANGENTS    = (1 << 0);
-    }
-}
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct ShadowPipelineKey(pub VertexLayoutKey);
 
 impl SpecializedPipeline for ShadowPipeline {
     type Key = ShadowPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(ShadowPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
+    fn specialize(&self, cache: &RenderPipelineCache, key: Self::Key) -> RenderPipelineDescriptor {
+        let vertex_layout = cache.vertex_layout_cache.get(&key.0).unwrap();
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: vec![],
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_layout.clone()],
             },
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
@@ -1087,13 +1024,9 @@ pub fn queue_shadows(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let mut key = ShadowPipelineKey::empty();
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        if mesh.has_tangents {
-                            key |= ShadowPipelineKey::VERTEX_TANGENTS;
-                        }
-                    }
+                    let mesh = render_meshes.get(mesh_handle).unwrap();
+                    let key = ShadowPipelineKey(mesh.vertex_layout_key);
                     let pipeline_id =
                         pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
 

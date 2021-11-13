@@ -1,5 +1,8 @@
 use crate::MeshPipeline;
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{
+    DrawMesh, MeshPipelineFlags, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+    SetMeshViewBindGroup,
+};
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
@@ -80,8 +83,12 @@ impl FromWorld for WireframePipeline {
 impl SpecializedPipeline for WireframePipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> bevy_render::render_resource::RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key);
+    fn specialize(
+        &self,
+        cache: &RenderPipelineCache,
+        key: Self::Key,
+    ) -> bevy_render::render_resource::RenderPipelineDescriptor {
+        let mut descriptor = self.mesh_pipeline.specialize(cache, key);
         descriptor.vertex.shader = self.shader.clone_weak();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
@@ -91,6 +98,7 @@ impl SpecializedPipeline for WireframePipeline {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -109,7 +117,7 @@ fn queue_wireframes(
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let flags = MeshPipelineFlags::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
@@ -117,8 +125,12 @@ fn queue_wireframes(
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key =
-                        key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let flags =
+                        flags | MeshPipelineFlags::from_primitive_topology(mesh.primitive_topology);
+                    let key = MeshPipelineKey {
+                        vertex_layout_key: mesh.vertex_layout_key,
+                        flags,
+                    };
                     transparent_phase.add(Opaque3d {
                         entity,
                         pipeline: specialized_pipelines.specialize(

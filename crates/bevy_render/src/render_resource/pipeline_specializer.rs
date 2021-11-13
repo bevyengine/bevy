@@ -22,7 +22,7 @@ impl<S: SpecializedPipeline> SpecializedPipelines<S> {
         key: S::Key,
     ) -> CachedPipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = specialize_pipeline.specialize(cache, key);
             cache.queue(descriptor)
         })
     }
@@ -30,5 +30,5 @@ impl<S: SpecializedPipeline> SpecializedPipelines<S> {
 
 pub trait SpecializedPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
+    fn specialize(&self, cache: &RenderPipelineCache, key: Self::Key) -> RenderPipelineDescriptor;
 }

@@ -1,10 +1,16 @@
 use crate::render_resource::{BindGroupLayout, Shader};
 use bevy_asset::Handle;
 use bevy_reflect::Uuid;
-use std::{borrow::Cow, ops::Deref, sync::Arc};
+use bevy_utils::HashMap;
+use std::{
+    borrow::Cow,
+    hash::{Hash, Hasher},
+    ops::Deref,
+    sync::Arc,
+};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    VertexAttribute, VertexStepMode,
+    VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 /// A [`RenderPipeline`] identifier.
@@ -118,14 +124,107 @@ pub struct VertexState {
 }
 
 /// Describes how the vertex buffer is interpreted.
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct VertexBufferLayout {
     /// The stride, in bytes, between elements of this buffer.
     pub array_stride: BufferAddress,
     /// How often this vertex buffer is "stepped" forward.
     pub step_mode: VertexStepMode,
     /// The list of attributes which comprise a single vertex.
-    pub attributes: Vec<VertexAttribute>,
+    attributes: Vec<VertexAttributeLayout>,
+    /// The list of attributes suitable for `wgpu`.
+    wgpu_attributes: Vec<VertexAttribute>,
+    /// Attribute names for debugging and mapping types.
+    attribute_names: HashMap<String, usize>,
+}
+
+impl Hash for VertexBufferLayout {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.array_stride.hash(state);
+        self.step_mode.hash(state);
+        self.attributes.hash(state);
+    }
+}
+
+impl PartialEq for VertexBufferLayout {
+    fn eq(&self, other: &Self) -> bool {
+        self.array_stride == other.array_stride
+            && self.step_mode == other.step_mode
+            && self.attributes == other.attributes
+    }
+}
+
+impl VertexBufferLayout {
+    /// Push a vertex attribute descriptor to the end of the list.
+    ///
+    /// The shader location is determined based on insertion order.
+    pub fn push(&mut self, name: &str, format: VertexFormat) {
+        let shader_location = if let Some(attribute) = self.attributes.last() {
+            attribute.shader_location + 1
+        } else {
+            0
+        };
+
+        self.push_location(name, format, shader_location)
+    }
+
+    /// Push a vertex attribute descriptor to the end of the list with an exact shader location.
+    pub fn push_location(&mut self, name: &str, format: VertexFormat, shader_location: u32) {
+        let offset = if let Some(attribute) = self.attributes.last() {
+            attribute.offset + attribute.format.size()
+        } else {
+            0
+        };
+
+        self.array_stride += format.size();
+        self.attribute_names
+            .entry(name.to_string())
+            .or_insert_with(|| self.attributes.len());
+        self.attributes.push(VertexAttributeLayout {
+            name: name.to_string(),
+            format,
+            offset,
+            shader_location,
+        });
+        self.wgpu_attributes.push(VertexAttribute {
+            format,
+            offset,
+            shader_location,
+        })
+    }
+
+    /// Get an attribute layout by name.
+    pub fn attribute_layout(&self, name: &str) -> Option<&VertexAttributeLayout> {
+        self.attribute_names.get(name).map(|i| &self.attributes[*i])
+    }
+
+    /// Get attributes suitable for `wgpu`.
+    pub fn attributes(&self) -> &[VertexAttribute] {
+        &self.wgpu_attributes
+    }
+}
+
+/// Describes a vertex attribute's layout.
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub struct VertexAttributeLayout {
+    /// The attribute's name.
+    pub name: String,
+    /// Format of the attribute.
+    pub format: VertexFormat,
+    /// Byte offset of this attribute within the array element.
+    pub offset: u64,
+    /// Attribute location as referenced by the shader.
+    pub shader_location: u32,
+}
+
+impl From<&VertexAttributeLayout> for VertexAttribute {
+    fn from(value: &VertexAttributeLayout) -> Self {
+        Self {
+            format: value.format,
+            offset: value.offset,
+            shader_location: value.shader_location,
+        }
+    }
 }
 
 /// Describes the fragment process in a render pipeline.

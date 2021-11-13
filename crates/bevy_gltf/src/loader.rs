@@ -18,7 +18,7 @@ use bevy_render::{
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
     render_resource::{
-        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
+        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat, VertexFormat,
     },
     texture::{Image, ImageType, TextureError},
     view::VisibleEntities,
@@ -138,6 +138,8 @@ async fn load_gltf<'a, 'b>(
                 .read_tangents()
                 .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
+                mesh.vertex_layout_mut()
+                    .push(Mesh::ATTRIBUTE_TANGENT, VertexFormat::Float32x4);
                 mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 

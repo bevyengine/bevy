@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineFlags, MeshPipelineKey, MeshUniform,
+    SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
@@ -205,8 +205,8 @@ pub struct MaterialPipeline<M: SpecializedMaterial> {
 impl<M: SpecializedMaterial> SpecializedPipeline for MaterialPipeline<M> {
     type Key = (MeshPipelineKey, M::Key);
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key.0);
+    fn specialize(&self, cache: &RenderPipelineCache, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut descriptor = self.mesh_pipeline.specialize(cache, key.0);
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -307,27 +307,33 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let mesh_flags = MeshPipelineFlags::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)
             {
-                if let Some(material) = render_materials.get(material_handle) {
-                    let mut mesh_key = mesh_key;
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        if mesh.has_tangents {
-                            mesh_key |= MeshPipelineKey::VERTEX_TANGENTS;
-                        }
-                        mesh_key |=
-                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                if let (Some(material), Some(mesh)) = (
+                    render_materials.get(material_handle),
+                    render_meshes.get(mesh_handle),
+                ) {
+                    let mut mesh_flags = mesh_flags;
+                    if mesh.has_tangents {
+                        mesh_flags |= MeshPipelineFlags::VERTEX_TANGENTS;
                     }
+                    mesh_flags |=
+                        MeshPipelineFlags::from_primitive_topology(mesh.primitive_topology);
                     let alpha_mode = M::alpha_mode(material);
                     if let AlphaMode::Blend = alpha_mode {
-                        mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
+                        mesh_flags |= MeshPipelineFlags::TRANSPARENT_MAIN_PASS;
                     }
 
+                    let mesh_key = MeshPipelineKey {
+                        vertex_layout_key: mesh.vertex_layout_key,
+                        flags: mesh_flags,
+                    };
                     let specialized_key = M::key(material);
+
                     let pipeline_id = pipelines.specialize(
                         &mut pipeline_cache,
                         &material_pipeline,

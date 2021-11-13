@@ -1,7 +1,7 @@
 use bevy::{
     core_pipeline::Transparent3d,
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+        DrawMesh, MeshPipeline, MeshPipelineFlags, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 }
 
 struct IsRedPipeline {
-    mesh_pipline: MeshPipeline,
+    mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
@@ -92,7 +92,7 @@ impl FromWorld for IsRedPipeline {
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
         IsRedPipeline {
-            mesh_pipline: mesh_pipeline.clone(),
+            mesh_pipeline: mesh_pipeline.clone(),
             shader,
         }
     }
@@ -101,20 +101,24 @@ impl FromWorld for IsRedPipeline {
 impl SpecializedPipeline for IsRedPipeline {
     type Key = (IsRed, MeshPipelineKey);
 
-    fn specialize(&self, (is_red, pbr_pipeline_key): Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        cache: &RenderPipelineCache,
+        (is_red, pbr_pipeline_key): Self::Key,
+    ) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
         if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.mesh_pipline.specialize(pbr_pipeline_key);
+        let mut descriptor = self.mesh_pipeline.specialize(cache, pbr_pipeline_key);
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         fragment.shader_defs = shader_defs;
         descriptor.layout = Some(vec![
-            self.mesh_pipline.view_layout.clone(),
-            self.mesh_pipline.mesh_layout.clone(),
+            self.mesh_pipeline.view_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
         ]);
         descriptor
     }
@@ -142,13 +146,18 @@ fn queue_custom(
         .read()
         .get_id::<DrawIsRed>()
         .unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let flags = MeshPipelineFlags::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let flags =
+                    flags | MeshPipelineFlags::from_primitive_topology(mesh.primitive_topology);
+                let key = MeshPipelineKey {
+                    vertex_layout_key: mesh.vertex_layout_key,
+                    flags,
+                };
                 let pipeline =
                     pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
                 transparent_phase.add(Transparent3d {

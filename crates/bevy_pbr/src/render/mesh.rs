@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{GpuBufferInfo, Mesh, VertexLayoutKey},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -356,20 +356,26 @@ impl MeshPipeline {
     }
 }
 
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct MeshPipelineKey {
+    pub vertex_layout_key: VertexLayoutKey,
+    pub flags: MeshPipelineFlags,
+}
+
 bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
-    pub struct MeshPipelineKey: u32 {
+    pub struct MeshPipelineFlags: u32 {
         const NONE                        = 0;
         const VERTEX_TANGENTS             = (1 << 0);
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = MeshPipelineFlags::MSAA_MASK_BITS << MeshPipelineFlags::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineFlags::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineFlags::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
-impl MeshPipelineKey {
+impl MeshPipelineFlags {
     const MSAA_MASK_BITS: u32 = 0b111111;
     const MSAA_SHIFT_BITS: u32 = 32 - 6;
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
@@ -377,7 +383,7 @@ impl MeshPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        MeshPipelineFlags::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -388,7 +394,7 @@ impl MeshPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        MeshPipelineFlags::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -408,70 +414,19 @@ impl MeshPipelineKey {
 impl SpecializedPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
+    fn specialize(&self, cache: &RenderPipelineCache, key: Self::Key) -> RenderPipelineDescriptor {
+        let vertex_layout = cache
+            .vertex_layout_cache
+            .get(&key.vertex_layout_key)
+            .unwrap();
+
         let mut shader_defs = Vec::new();
-        if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
+        if key.flags.contains(MeshPipelineFlags::VERTEX_TANGENTS) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
         }
 
         let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
+        if key.flags.contains(MeshPipelineFlags::TRANSPARENT_MAIN_PASS) {
             label = "transparent_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
@@ -494,11 +449,7 @@ impl SpecializedPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_layout.clone()],
             },
             fragment: Some(FragmentState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -517,7 +468,7 @@ impl SpecializedPipeline for MeshPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: key.flags.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -537,7 +488,7 @@ impl SpecializedPipeline for MeshPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.flags.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -737,11 +688,11 @@ impl EntityRenderCommand for DrawMesh {
 
 #[cfg(test)]
 mod tests {
-    use super::MeshPipelineKey;
+    use super::MeshPipelineFlags;
     #[test]
     fn mesh_key_msaa_samples() {
         for i in 1..=64 {
-            assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
+            assert_eq!(MeshPipelineFlags::from_msaa_samples(i).msaa_samples(), i);
         }
     }
 }

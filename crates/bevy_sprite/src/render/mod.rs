@@ -14,6 +14,7 @@ use bevy_ecs::{
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     color::Color,
+    mesh::{VertexLayoutKey, VertexLayoutSpriteKey},
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},
@@ -29,6 +30,20 @@ use bytemuck::{Pod, Zeroable};
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
+}
+
+impl SpritePipeline {
+    fn create_vertex_layout(colored: bool) -> VertexBufferLayout {
+        let mut vertex_layout = VertexBufferLayout::default();
+
+        vertex_layout.push("position", VertexFormat::Float32x3);
+        vertex_layout.push("uv", VertexFormat::Float32x2);
+        if colored {
+            vertex_layout.push("color", VertexFormat::Uint32);
+        }
+
+        vertex_layout
+    }
 }
 
 impl FromWorld for SpritePipeline {
@@ -72,6 +87,17 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_material_layout"),
         });
 
+        // Cache the vertex layouts
+        let mut pipeline_cache = world.get_resource_mut::<RenderPipelineCache>().unwrap();
+        pipeline_cache.vertex_layout_cache.insert(
+            VertexLayoutKey::sprite(),
+            &Self::create_vertex_layout(false),
+        );
+        pipeline_cache.vertex_layout_cache.insert(
+            VertexLayoutKey::colored_sprite(),
+            &Self::create_vertex_layout(true),
+        );
+
         SpritePipeline {
             view_layout,
             material_layout,
@@ -84,35 +110,28 @@ pub struct SpritePipelineKey {
     colored: bool,
 }
 
+impl From<SpritePipelineKey> for VertexLayoutKey {
+    fn from(value: SpritePipelineKey) -> Self {
+        if value.colored {
+            Self::Sprite(VertexLayoutSpriteKey::COLORED)
+        } else {
+            Self::Sprite(VertexLayoutSpriteKey::NONE)
+        }
+    }
+}
+
 impl SpecializedPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 20,
-            step_mode: VertexStepMode::Vertex,
-            attributes: vec![
-                VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 12,
-                    shader_location: 1,
-                },
-            ],
-        };
+    fn specialize(&self, cache: &RenderPipelineCache, key: Self::Key) -> RenderPipelineDescriptor {
+        let vertex_layout = cache
+            .vertex_layout_cache
+            .get(&VertexLayoutKey::from(key))
+            .unwrap();
+
         let mut shader_defs = Vec::new();
         if key.colored {
             shader_defs.push("COLORED".to_string());
-            vertex_buffer_layout.attributes.push(VertexAttribute {
-                format: VertexFormat::Uint32,
-                offset: 20,
-                shader_location: 2,
-            });
-            vertex_buffer_layout.array_stride += 4;
         }
 
         RenderPipelineDescriptor {
@@ -120,7 +139,7 @@ impl SpecializedPipeline for SpritePipeline {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
+                buffers: vec![vertex_layout.clone()],
             },
             fragment: Some(FragmentState {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
