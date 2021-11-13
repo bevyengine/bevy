@@ -544,6 +544,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 output_color.a = 1.0;
             } else {
                 // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
+                // NOTE: This and any other discards mean that early-z testing cannot be done!
                 discard;
             }
         }
