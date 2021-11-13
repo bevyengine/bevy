@@ -1,13 +1,13 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
+pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
-pub mod shader;
 pub mod texture;
 pub mod view;
 
@@ -16,14 +16,21 @@ pub use once_cell;
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
+    render_asset::RenderAssetPlugin,
     render_graph::RenderGraph,
+    render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
+<<<<<<< HEAD
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
 use bevy_derive::AppLabel;
+=======
+use bevy_app::{App, AppLabel, Plugin};
+use bevy_asset::{AddAsset, AssetServer};
+>>>>>>> upstream/pipelined-rendering
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
 use wgpu::Backends;
@@ -85,22 +92,51 @@ struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        let (instance, device, queue) =
-            futures_lite::future::block_on(renderer::initialize_renderer(
-                wgpu::util::backend_bits_from_env().unwrap_or(Backends::PRIMARY),
-                &wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
-                    ..Default::default()
+        let default_backend = if cfg!(not(target_arch = "wasm32")) {
+            Backends::PRIMARY
+        } else {
+            Backends::GL
+        };
+        let backends = wgpu::util::backend_bits_from_env().unwrap_or(default_backend);
+        let instance = wgpu::Instance::new(backends);
+        let surface = {
+            let world = app.world.cell();
+            let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+            let raw_handle = windows.get_primary().map(|window| unsafe {
+                let handle = window.raw_window_handle().get_handle();
+                instance.create_surface(&handle)
+            });
+            raw_handle
+        };
+        let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
+            &instance,
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: surface.as_ref(),
+                ..Default::default()
+            },
+            &wgpu::DeviceDescriptor {
+                features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                #[cfg(not(target_arch = "wasm32"))]
+                limits: wgpu::Limits::default(),
+                #[cfg(target_arch = "wasm32")]
+                limits: wgpu::Limits {
+                    ..wgpu::Limits::downlevel_webgl2_defaults()
                 },
-                &wgpu::DeviceDescriptor::default(),
-            ));
+                ..Default::default()
+            },
+        ));
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
+            .add_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>()
             .init_resource::<ScratchRenderWorld>();
+        let render_pipeline_cache = RenderPipelineCache::new(device.clone());
         let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
         let mut render_app = App::empty();
-        let mut extract_stage = SystemStage::parallel();
+        let mut extract_stage =
+            SystemStage::parallel().with_system(RenderPipelineCache::extract_dirty_shaders);
         // don't apply buffers when the stage finishes running
         // extract stage runs on the app world, but the buffers are applied to the render world
         extract_stage.set_apply_buffers(false);
@@ -111,12 +147,15 @@ impl Plugin for RenderPlugin {
             .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
             .add_stage(
                 RenderStage::Render,
-                SystemStage::parallel().with_system(render_system.exclusive_system()),
+                SystemStage::parallel()
+                    .with_system(RenderPipelineCache::process_pipeline_queue_system)
+                    .with_system(render_system.exclusive_system().at_end()),
             )
             .add_stage(RenderStage::Cleanup, SystemStage::parallel())
             .insert_resource(instance)
             .insert_resource(device)
             .insert_resource(queue)
+            .insert_resource(render_pipeline_cache)
             .insert_resource(asset_server)
             .init_resource::<RenderGraph>();
 
@@ -233,7 +272,8 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .add_plugin(RenderAssetPlugin::<Shader>::default());
     }
 }
 

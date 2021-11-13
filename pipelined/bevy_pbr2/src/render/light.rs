@@ -1,13 +1,14 @@
 use crate::{
-    AmbientLight, DirectionalLight, DirectionalLightShadowMap, MeshUniform, NotShadowCaster,
-    PbrShaders, PointLight, PointLightShadowMap, TransformBindGroup,
+    AmbientLight, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap, DrawMesh,
+    NotShadowCaster, PbrPipeline, PointLight, PointLightShadowMap, SetTransformBindGroup,
+    SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
 use bevy_render2::{
@@ -15,20 +16,26 @@ use bevy_render2::{
     color::Color,
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_component::DynamicUniformIndex,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
+        CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
+        EntityRenderCommand, PhaseItem, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    shader::Shader,
     texture::*,
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewUniformOffset, ViewUniforms, VisibleEntities, VisibleEntity},
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderLightSystems {
+    ExtractLights,
+    PrepareLights,
+    QueueShadows,
+}
 
 pub struct ExtractedAmbientLight {
     color: Color,
@@ -101,21 +108,18 @@ pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHTS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-pub struct ShadowShaders {
-    pub shader_module: ShaderModule,
-    pub pipeline: RenderPipeline,
+pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
+    pub mesh_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
     pub directional_light_sampler: Sampler,
 }
 
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for ShadowShaders {
+impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
+        let world = world.cell();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let pbr_shaders = world.get_resource::<PbrShaders>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("depth.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -136,76 +140,11 @@ impl FromWorld for ShadowShaders {
             label: Some("shadow_view_layout"),
         });
 
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("shadow_pipeline_layout"),
-            push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &pbr_shaders.mesh_layout],
-        });
+        let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
 
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("shadow_pipeline"),
-            vertex: VertexState {
-                buffers: &[VertexBufferLayout {
-                    array_stride: 32,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: &[
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                }],
-                module: &shader_module,
-                entry_point: "vertex",
-            },
-            fragment: None,
-            depth_stencil: Some(DepthStencilState {
-                format: SHADOW_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
-                stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-            layout: Some(&pipeline_layout),
-            multisample: MultisampleState::default(),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
-                conservative: false,
-            },
-        });
-
-        ShadowShaders {
-            shader_module,
-            pipeline,
+        ShadowPipeline {
             view_layout,
+            mesh_layout: pbr_pipeline.mesh_layout.clone(),
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
@@ -230,14 +169,135 @@ impl FromWorld for ShadowShaders {
     }
 }
 
-// TODO: ultimately these could be filtered down to lights relevant to actual views
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct ShadowPipelineKey: u32 {
+        const NONE               = 0;
+        const VERTEX_TANGENTS    = (1 << 0);
+    }
+}
+
+impl SpecializedPipeline for ShadowPipeline {
+    type Key = ShadowPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let (vertex_array_stride, vertex_attributes) =
+            if key.contains(ShadowPipelineKey::VERTEX_TANGENTS) {
+                (
+                    48,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 40,
+                            shader_location: 2,
+                        },
+                        // Tangent
+                        VertexAttribute {
+                            format: VertexFormat::Float32x4,
+                            offset: 24,
+                            shader_location: 3,
+                        },
+                    ],
+                )
+            } else {
+                (
+                    32,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 24,
+                            shader_location: 2,
+                        },
+                    ],
+                )
+            };
+        RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: vec![],
+                buffers: vec![VertexBufferLayout {
+                    array_stride: vertex_array_stride,
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vertex_attributes,
+                }],
+            },
+            fragment: None,
+            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: SHADOW_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: MultisampleState::default(),
+            label: Some("shadow_pipeline".into()),
+        }
+    }
+}
+
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    point_lights: Query<(Entity, &PointLight, &GlobalTransform)>,
-    directional_lights: Query<(Entity, &DirectionalLight, &GlobalTransform)>,
+    mut point_lights: Query<(
+        Entity,
+        &PointLight,
+        &mut CubemapVisibleEntities,
+        &GlobalTransform,
+    )>,
+    mut directional_lights: Query<(
+        Entity,
+        &DirectionalLight,
+        &mut VisibleEntities,
+        &GlobalTransform,
+    )>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
         color: ambient_light.color,
@@ -255,24 +315,28 @@ pub fn extract_lights(
     // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
-    for (entity, point_light, transform) in point_lights.iter() {
-        commands.get_or_spawn(entity).insert(ExtractedPointLight {
-            color: point_light.color,
-            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-            // for details.
-            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-            range: point_light.range,
-            radius: point_light.radius,
-            transform: *transform,
-            shadow_depth_bias: point_light.shadow_depth_bias,
-            // The factor of SQRT_2 is for the worst-case diagonal offset
-            shadow_normal_bias: point_light.shadow_normal_bias
-                * point_light_texel_size
-                * std::f32::consts::SQRT_2,
-        });
+    for (entity, point_light, cubemap_visible_entities, transform) in point_lights.iter_mut() {
+        let render_cubemap_visible_entities = std::mem::take(cubemap_visible_entities.into_inner());
+        commands.get_or_spawn(entity).insert_bundle((
+            ExtractedPointLight {
+                color: point_light.color,
+                // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                // for details.
+                intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                range: point_light.range,
+                radius: point_light.radius,
+                transform: *transform,
+                shadow_depth_bias: point_light.shadow_depth_bias,
+                // The factor of SQRT_2 is for the worst-case diagonal offset
+                shadow_normal_bias: point_light.shadow_normal_bias
+                    * point_light_texel_size
+                    * std::f32::consts::SQRT_2,
+            },
+            render_cubemap_visible_entities,
+        ));
     }
-    for (entity, directional_light, transform) in directional_lights.iter() {
+    for (entity, directional_light, visible_entities, transform) in directional_lights.iter_mut() {
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
@@ -285,9 +349,9 @@ pub fn extract_lights(
             );
         let directional_light_texel_size =
             largest_dimension / directional_light_shadow_map.size as f32;
-        commands
-            .get_or_spawn(entity)
-            .insert(ExtractedDirectionalLight {
+        let render_visible_entities = std::mem::take(visible_entities.into_inner());
+        commands.get_or_spawn(entity).insert_bundle((
+            ExtractedDirectionalLight {
                 color: directional_light.color,
                 illuminance: directional_light.illuminance,
                 direction: transform.forward(),
@@ -297,7 +361,9 @@ pub fn extract_lights(
                 shadow_normal_bias: directional_light.shadow_normal_bias
                     * directional_light_texel_size
                     * std::f32::consts::SQRT_2,
-            });
+            },
+            render_visible_entities,
+        ));
     }
 }
 
@@ -306,13 +372,13 @@ const NEGATIVE_X: Vec3 = const_vec3!([-1.0, 0.0, 0.0]);
 const NEGATIVE_Y: Vec3 = const_vec3!([0.0, -1.0, 0.0]);
 const NEGATIVE_Z: Vec3 = const_vec3!([0.0, 0.0, -1.0]);
 
-struct CubeMapFace {
-    target: Vec3,
-    up: Vec3,
+pub(crate) struct CubeMapFace {
+    pub(crate) target: Vec3,
+    pub(crate) up: Vec3,
 }
 
 // see https://www.khronos.org/opengl/wiki/Cubemap_Texture
-const CUBE_MAP_FACES: [CubeMapFace; 6] = [
+pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
     CubeMapFace {
         target: NEGATIVE_X,
@@ -379,6 +445,16 @@ pub struct LightMeta {
     pub shadow_view_bind_group: Option<BindGroup>,
 }
 
+pub enum LightEntity {
+    Directional {
+        light_entity: Entity,
+    },
+    Point {
+        light_entity: Entity,
+        face_index: usize,
+    },
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
@@ -390,15 +466,20 @@ pub fn prepare_lights(
     ambient_light: Res<ExtractedAmbientLight>,
     point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
-    point_lights: Query<&ExtractedPointLight>,
-    directional_lights: Query<&ExtractedDirectionalLight>,
+    point_lights: Query<(Entity, &ExtractedPointLight)>,
+    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
-    // PERF: view.iter().count() could be views.iter().len() if we implemented ExactSizeIterator for archetype-only filters
-    light_meta
-        .view_gpu_lights
-        .reserve_and_clear(views.iter().count(), &render_device);
+    light_meta.view_gpu_lights.clear();
 
     let ambient_color = ambient_light.color.as_rgba_linear() * ambient_light.brightness;
+    // Pre-calculate for PointLights
+    let cube_face_projection =
+        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+    let cube_face_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
     // set up light data for each view
     for entity in views.iter() {
         let point_light_depth_texture = texture_cache.get(
@@ -444,19 +525,15 @@ pub fn prepare_lights(
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for (light_index, light) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
-            let projection =
-                Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
-
+        for (light_index, (light_entity, light)) in
+            point_lights.iter().enumerate().take(MAX_POINT_LIGHTS)
+        {
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
             let view_translation = GlobalTransform::from_translation(light.transform.translation);
 
-            for (face_index, CubeMapFace { target, up }) in CUBE_MAP_FACES.iter().enumerate() {
-                // use the cubemap projection direction
-                let view_rotation = GlobalTransform::identity().looking_at(*target, *up);
-
+            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
                     point_light_depth_texture
                         .texture
@@ -485,17 +562,21 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: point_light_shadow_map.size as u32,
                             height: point_light_shadow_map.size as u32,
-                            transform: view_translation * view_rotation,
-                            projection,
+                            transform: view_translation * *view_rotation,
+                            projection: cube_face_projection,
                         },
                         RenderPhase::<Shadow>::default(),
+                        LightEntity::Point {
+                            light_entity,
+                            face_index,
+                        },
                     ))
                     .id();
                 view_lights.push(view_light_entity);
             }
 
             gpu_lights.point_lights[light_index] = GpuPointLight {
-                projection,
+                projection: cube_face_projection,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: (light.color.as_rgba_linear() * light.intensity).into(),
@@ -509,7 +590,7 @@ pub fn prepare_lights(
             };
         }
 
-        for (i, light) in directional_lights
+        for (i, (light_entity, light)) in directional_lights
             .iter()
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
@@ -575,6 +656,7 @@ pub fn prepare_lights(
                         projection,
                     },
                     RenderPhase::<Shadow>::default(),
+                    LightEntity::Directional { light_entity },
                 ))
                 .id();
             view_lights.push(view_light_entity);
@@ -615,12 +697,14 @@ pub fn prepare_lights(
         });
     }
 
-    light_meta.view_gpu_lights.write_buffer(&render_queue);
+    light_meta
+        .view_gpu_lights
+        .write_buffer(&render_device, &render_queue);
 }
 
 pub fn queue_shadow_view_bind_group(
     render_device: Res<RenderDevice>,
-    shadow_shaders: Res<ShadowShaders>,
+    shadow_pipeline: Res<ShadowPipeline>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
@@ -632,32 +716,62 @@ pub fn queue_shadow_view_bind_group(
                     resource: view_binding,
                 }],
                 label: Some("shadow_view_bind_group"),
-                layout: &shadow_shaders.view_layout,
+                layout: &shadow_pipeline.view_layout,
             }));
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_shadows(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
-    casting_meshes: Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
+    shadow_pipeline: Res<ShadowPipeline>,
+    casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
+    render_meshes: Res<RenderAssets<Mesh>>,
+    mut pipelines: ResMut<SpecializedPipelines<ShadowPipeline>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut view_lights: Query<&ViewLights>,
-    mut view_light_shadow_phases: Query<&mut RenderPhase<Shadow>>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
+    directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
 ) {
     for view_lights in view_lights.iter_mut() {
-        // ultimately lights should check meshes for relevancy (ex: light views can "see" different meshes than the main view can)
         let draw_shadow_mesh = shadow_draw_functions
             .read()
             .get_id::<DrawShadowMesh>()
             .unwrap();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let mut shadow_phase = view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            // TODO: this should only queue up meshes that are actually visible by each "light view"
-            for entity in casting_meshes.iter() {
-                shadow_phase.add(Shadow {
-                    draw_function: draw_shadow_mesh,
-                    entity,
-                    distance: 0.0, // TODO: sort back-to-front
-                })
+            let (light_entity, mut shadow_phase) =
+                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let visible_entities = match light_entity {
+                LightEntity::Directional { light_entity } => directional_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get directional light visible entities"),
+                LightEntity::Point {
+                    light_entity,
+                    face_index,
+                } => point_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get point light visible entities")
+                    .get(*face_index),
+            };
+            for VisibleEntity { entity, .. } in visible_entities.iter() {
+                let mut key = ShadowPipelineKey::empty();
+                if let Ok(mesh_handle) = casting_meshes.get(*entity) {
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        if mesh.has_tangents {
+                            key |= ShadowPipelineKey::VERTEX_TANGENTS;
+                        }
+                    }
+                    let pipeline_id =
+                        pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
+
+                    shadow_phase.add(Shadow {
+                        draw_function: draw_shadow_mesh,
+                        pipeline: pipeline_id,
+                        entity: *entity,
+                        distance: 0.0, // TODO: sort back-to-front
+                    });
+                }
             }
         }
     }
@@ -666,6 +780,7 @@ pub fn queue_shadows(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
+    pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -680,6 +795,19 @@ impl PhaseItem for Shadow {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+}
+
+impl EntityPhaseItem for Shadow {
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedPipelinePhaseItem for Shadow {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedPipelineId {
+        self.pipeline
     }
 }
 
@@ -736,7 +864,6 @@ impl Node for ShadowPassNode {
                 };
 
                 let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
-
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
@@ -753,40 +880,26 @@ impl Node for ShadowPassNode {
     }
 }
 
-pub struct DrawShadowMesh {
-    params: SystemState<(
-        SRes<ShadowShaders>,
-        SRes<LightMeta>,
-        SRes<TransformBindGroup>,
-        SRes<RenderAssets<Mesh>>,
-        SQuery<(Read<DynamicUniformIndex<MeshUniform>>, Read<Handle<Mesh>>)>,
-        SQuery<Read<ViewUniformOffset>>,
-    )>,
-}
+pub type DrawShadowMesh = (
+    SetItemPipeline,
+    SetShadowViewBindGroup<0>,
+    SetTransformBindGroup<1>,
+    DrawMesh,
+);
 
-impl DrawShadowMesh {
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            params: SystemState::new(world),
-        }
-    }
-}
-
-impl Draw<Shadow> for DrawShadowMesh {
-    fn draw<'w>(
-        &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
+pub struct SetShadowViewBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
+    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
+    #[inline]
+    fn render<'w>(
         view: Entity,
-        item: &Shadow,
+        _item: Entity,
+        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
     ) {
-        let (shadow_shaders, light_meta, transform_bind_group, meshes, items, views) =
-            self.params.get(world);
-        let (transform_index, mesh_handle) = items.get(item.entity).unwrap();
-        let view_uniform_offset = views.get(view).unwrap();
-        pass.set_render_pipeline(&shadow_shaders.into_inner().pipeline);
+        let view_uniform_offset = view_query.get(view).unwrap();
         pass.set_bind_group(
-            0,
+            I,
             light_meta
                 .into_inner()
                 .shadow_view_bind_group
@@ -794,20 +907,5 @@ impl Draw<Shadow> for DrawShadowMesh {
                 .unwrap(),
             &[view_uniform_offset.offset],
         );
-
-        pass.set_bind_group(
-            1,
-            &transform_bind_group.into_inner().value,
-            &[transform_index.index()],
-        );
-
-        let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-        if let Some(index_info) = &gpu_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
-            pass.draw_indexed(0..index_info.count, 0, 0..1);
-        } else {
-            panic!("non-indexed drawing not supported yet")
-        }
     }
 }

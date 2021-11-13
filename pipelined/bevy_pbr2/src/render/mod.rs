@@ -2,7 +2,10 @@ mod light;
 
 pub use light::*;
 
-use crate::{NotShadowCaster, NotShadowReceiver, StandardMaterial, StandardMaterialUniformData};
+use crate::{
+    NotShadowCaster, NotShadowReceiver, StandardMaterial, StandardMaterialUniformData,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::{
@@ -14,12 +17,15 @@ use bevy_render2::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex},
-    render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass},
+    render_phase::{
+        DrawFunctions, EntityRenderCommand, RenderPhase, SetItemPipeline, TrackedRenderPass,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    shader::Shader,
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+    view::{
+        ComputedVisibility, ExtractedView, Msaa, ViewUniformOffset, ViewUniforms, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -45,6 +51,22 @@ bitflags::bitflags! {
     }
 }
 
+// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.wgsl!
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct StandardMaterialFlags: u32 {
+        const BASE_COLOR_TEXTURE         = (1 << 0);
+        const EMISSIVE_TEXTURE           = (1 << 1);
+        const METALLIC_ROUGHNESS_TEXTURE = (1 << 2);
+        const OCCLUSION_TEXTURE          = (1 << 3);
+        const DOUBLE_SIDED               = (1 << 4);
+        const UNLIT                      = (1 << 5);
+        const NORMAL_MAP_TEXTURE         = (1 << 6);
+        const NONE                       = 0;
+        const UNINITIALIZED              = 0xFFFF;
+    }
+}
+
 pub fn extract_meshes(
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
@@ -52,6 +74,7 @@ pub fn extract_meshes(
     caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
@@ -61,6 +84,7 @@ pub fn extract_meshes(
     not_caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
@@ -69,7 +93,10 @@ pub fn extract_meshes(
     >,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, transform, handle, not_receiver) in caster_query.iter() {
+    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         let transform = transform.compute_matrix();
         caster_values.push((
             entity,
@@ -91,7 +118,10 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(caster_values);
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, transform, handle, not_receiver) in not_caster_query.iter() {
+    for (entity, computed_visibility, transform, handle, not_receiver) in not_caster_query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
         let transform = transform.compute_matrix();
         not_caster_values.push((
             entity,
@@ -114,9 +144,8 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_values);
 }
 
-pub struct PbrShaders {
-    pub pipeline: RenderPipeline,
-    pub shader_module: ShaderModule,
+#[derive(Clone)]
+pub struct PbrPipeline {
     pub view_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -124,13 +153,9 @@ pub struct PbrShaders {
     pub dummy_white_gpu_image: GpuImage,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for PbrShaders {
+impl FromWorld for PbrPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let shader = Shader::from_wgsl(include_str!("pbr.wgsl"));
-        let shader_module = render_device.create_shader_module(&shader);
-
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -303,6 +328,27 @@ impl FromWorld for PbrShaders {
                     },
                     count: None,
                 },
+                // Normal Map Texture
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // Normal Map Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        comparison: false,
+                        filtering: true,
+                    },
+                    count: None,
+                },
             ],
             label: Some("pbr_material_layout"),
         });
@@ -322,92 +368,6 @@ impl FromWorld for PbrShaders {
             }],
             label: Some("pbr_mesh_layout"),
         });
-
-        let pipeline_layout = render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("pbr_pipeline_layout"),
-            push_constant_ranges: &[],
-            bind_group_layouts: &[&view_layout, &material_layout, &mesh_layout],
-        });
-
-        let pipeline = render_device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("pbr_pipeline"),
-            vertex: VertexState {
-                buffers: &[VertexBufferLayout {
-                    array_stride: 32,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: &[
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                }],
-                module: &shader_module,
-                entry_point: "vertex",
-            },
-            fragment: Some(FragmentState {
-                module: &shader_module,
-                entry_point: "fragment",
-                targets: &[ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::SrcAlpha,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: ColorWrites::ALL,
-                }],
-            }),
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Greater,
-                stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-            layout: Some(&pipeline_layout),
-            multisample: MultisampleState::default(),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
-                conservative: false,
-            },
-        });
-
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::new_fill(
@@ -449,13 +409,176 @@ impl FromWorld for PbrShaders {
                 sampler,
             }
         };
-        PbrShaders {
-            pipeline,
-            shader_module,
+        PbrPipeline {
             view_layout,
             material_layout,
             mesh_layout,
             dummy_white_gpu_image,
+        }
+    }
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    // NOTE: Apparently quadro drivers support up to 64x MSAA.
+    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    pub struct PbrPipelineKey: u32 {
+        const NONE                        = 0;
+        const VERTEX_TANGENTS             = (1 << 0);
+        const STANDARDMATERIAL_NORMAL_MAP = (1 << 1);
+        const MSAA_RESERVED_BITS          = PbrPipelineKey::MSAA_MASK_BITS << PbrPipelineKey::MSAA_SHIFT_BITS;
+    }
+}
+
+impl PbrPipelineKey {
+    const MSAA_MASK_BITS: u32 = 0b111111;
+    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+
+    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        PbrPipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn msaa_samples(&self) -> u32 {
+        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+}
+
+impl SpecializedPipeline for PbrPipeline {
+    type Key = PbrPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let (vertex_array_stride, vertex_attributes) =
+            if key.contains(PbrPipelineKey::VERTEX_TANGENTS) {
+                (
+                    48,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 40,
+                            shader_location: 2,
+                        },
+                        // Tangent
+                        VertexAttribute {
+                            format: VertexFormat::Float32x4,
+                            offset: 24,
+                            shader_location: 3,
+                        },
+                    ],
+                )
+            } else {
+                (
+                    32,
+                    vec![
+                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 12,
+                            shader_location: 0,
+                        },
+                        // Normal
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        // Uv
+                        VertexAttribute {
+                            format: VertexFormat::Float32x2,
+                            offset: 24,
+                            shader_location: 2,
+                        },
+                    ],
+                )
+            };
+        let mut shader_defs = Vec::new();
+        if key.contains(PbrPipelineKey::VERTEX_TANGENTS) {
+            shader_defs.push(String::from("VERTEX_TANGENTS"));
+        }
+        if key.contains(PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP) {
+            shader_defs.push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
+        }
+        RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: shader_defs.clone(),
+                buffers: vec![VertexBufferLayout {
+                    array_stride: vertex_array_stride,
+                    step_mode: VertexStepMode::Vertex,
+                    attributes: vertex_attributes,
+                }],
+            },
+            fragment: Some(FragmentState {
+                shader: PBR_SHADER_HANDLE.typed::<Shader>(),
+                shader_defs,
+                entry_point: "fragment".into(),
+                targets: vec![ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                }],
+            }),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.material_layout.clone(),
+                self.mesh_layout.clone(),
+            ]),
+            primitive: PrimitiveState {
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Greater,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: MultisampleState {
+                count: key.msaa_samples(),
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            label: Some("pbr_pipeline".into()),
         }
     }
 }
@@ -466,7 +589,7 @@ pub struct TransformBindGroup {
 
 pub fn queue_transform_bind_group(
     mut commands: Commands,
-    pbr_shaders: Res<PbrShaders>,
+    pbr_pipeline: Res<PbrPipeline>,
     render_device: Res<RenderDevice>,
     transform_uniforms: Res<ComponentUniforms<MeshUniform>>,
 ) {
@@ -478,7 +601,7 @@ pub fn queue_transform_bind_group(
                     resource: binding,
                 }],
                 label: Some("transform_bind_group"),
-                layout: &pbr_shaders.mesh_layout,
+                layout: &pbr_pipeline.mesh_layout,
             }),
         });
     }
@@ -494,19 +617,21 @@ pub fn queue_meshes(
     mut commands: Commands,
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     render_device: Res<RenderDevice>,
-    pbr_shaders: Res<PbrShaders>,
-    shadow_shaders: Res<ShadowShaders>,
+    pbr_pipeline: Res<PbrPipeline>,
+    shadow_pipeline: Res<ShadowPipeline>,
+    mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
     light_meta: Res<LightMeta>,
+    msaa: Res<Msaa>,
     view_uniforms: Res<ViewUniforms>,
+    render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
-    standard_material_meshes: Query<
-        (Entity, &Handle<StandardMaterial>, &MeshUniform),
-        With<Handle<Mesh>>,
-    >,
+    standard_material_meshes: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         Entity,
         &ExtractedView,
         &ViewLights,
+        &VisibleEntities,
         &mut RenderPhase<Transparent3d>,
     )>,
 ) {
@@ -514,7 +639,8 @@ pub fn queue_meshes(
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
-        for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
+        for (entity, view, view_lights, visible_entities, mut transparent_phase) in views.iter_mut()
+        {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -533,7 +659,7 @@ pub fn queue_meshes(
                     },
                     BindGroupEntry {
                         binding: 3,
-                        resource: BindingResource::Sampler(&shadow_shaders.point_light_sampler),
+                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
                     },
                     BindGroupEntry {
                         binding: 4,
@@ -544,12 +670,12 @@ pub fn queue_meshes(
                     BindGroupEntry {
                         binding: 5,
                         resource: BindingResource::Sampler(
-                            &shadow_shaders.directional_light_sampler,
+                            &shadow_pipeline.directional_light_sampler,
                         ),
                     },
                 ],
                 label: Some("pbr_view_bind_group"),
-                layout: &pbr_shaders.view_layout,
+                layout: &pbr_pipeline.view_layout,
             });
 
             commands.entity(entity).insert(PbrViewBindGroup {
@@ -564,48 +690,54 @@ pub fn queue_meshes(
             let view_matrix = view.transform.compute_matrix();
             let view_row_2 = view_matrix.row(2);
 
-            for (entity, material_handle, mesh_uniform) in standard_material_meshes.iter() {
-                if !render_materials.contains_key(material_handle) {
-                    continue;
+            for visible_entity in &visible_entities.entities {
+                if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+                    standard_material_meshes.get(visible_entity.entity)
+                {
+                    let mut key = PbrPipelineKey::from_msaa_samples(msaa.samples);
+                    if let Some(material) = render_materials.get(material_handle) {
+                        if material
+                            .flags
+                            .contains(StandardMaterialFlags::NORMAL_MAP_TEXTURE)
+                        {
+                            key |= PbrPipelineKey::STANDARDMATERIAL_NORMAL_MAP;
+                        }
+                    } else {
+                        continue;
+                    }
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        if mesh.has_tangents {
+                            key |= PbrPipelineKey::VERTEX_TANGENTS;
+                        }
+                    }
+                    let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pbr_pipeline, key);
+
+                    // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space
+                    let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
+                    // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
+                    transparent_phase.add(Transparent3d {
+                        entity: visible_entity.entity,
+                        draw_function: draw_pbr,
+                        pipeline: pipeline_id,
+                        distance: mesh_z,
+                    });
                 }
-                // NOTE: row 2 of the view matrix dotted with column 3 of the model matrix
-                //       gives the z component of translation of the mesh in view space
-                let mesh_z = view_row_2.dot(mesh_uniform.transform.col(3));
-                // TODO: currently there is only "transparent phase". this should pick transparent vs opaque according to the mesh material
-                transparent_phase.add(Transparent3d {
-                    entity,
-                    draw_function: draw_pbr,
-                    distance: mesh_z,
-                });
             }
         }
     }
 }
 
 pub type DrawPbr = (
-    SetPbrPipeline,
+    SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetStandardMaterialBindGroup<1>,
     SetTransformBindGroup<2>,
     DrawMesh,
 );
 
-pub struct SetPbrPipeline;
-impl RenderCommand<Transparent3d> for SetPbrPipeline {
-    type Param = SRes<PbrShaders>;
-    #[inline]
-    fn render<'w>(
-        _view: Entity,
-        _item: &Transparent3d,
-        pbr_shaders: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) {
-        pass.set_render_pipeline(&pbr_shaders.into_inner().pipeline);
-    }
-}
-
 pub struct SetMeshViewBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
     type Param = SQuery<(
         Read<ViewUniformOffset>,
         Read<ViewLights>,
@@ -614,7 +746,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
     #[inline]
     fn render<'w>(
         view: Entity,
-        _item: &Transparent3d,
+        _item: Entity,
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
@@ -628,7 +760,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
 }
 
 pub struct SetTransformBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetTransformBindGroup<I> {
     type Param = (
         SRes<TransformBindGroup>,
         SQuery<Read<DynamicUniformIndex<MeshUniform>>>,
@@ -636,11 +768,11 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (transform_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let transform_index = mesh_query.get(item.entity).unwrap();
+        let transform_index = mesh_query.get(item).unwrap();
         pass.set_bind_group(
             I,
             &transform_bind_group.into_inner().value,
@@ -650,7 +782,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetTransformBindGroup<I> {
 }
 
 pub struct SetStandardMaterialBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGroup<I> {
+impl<const I: usize> EntityRenderCommand for SetStandardMaterialBindGroup<I> {
     type Param = (
         SRes<RenderAssets<StandardMaterial>>,
         SQuery<Read<Handle<StandardMaterial>>>,
@@ -658,11 +790,11 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGro
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (materials, handle_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let handle = handle_query.get(item.entity).unwrap();
+        let handle = handle_query.get(item).unwrap();
         let materials = materials.into_inner();
         let material = materials.get(handle).unwrap();
 
@@ -671,23 +803,34 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetStandardMaterialBindGro
 }
 
 pub struct DrawMesh;
-impl RenderCommand<Transparent3d> for DrawMesh {
+impl EntityRenderCommand for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Handle<Mesh>>>);
     #[inline]
     fn render<'w>(
         _view: Entity,
-        item: &Transparent3d,
+        item: Entity,
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) {
-        let mesh_handle = mesh_query.get(item.entity).unwrap();
+        let mesh_handle = mesh_query.get(item).unwrap();
         let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         if let Some(index_info) = &gpu_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
+            pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
             pass.draw_indexed(0..index_info.count, 0, 0..1);
         } else {
             panic!("non-indexed drawing not supported yet")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PbrPipelineKey;
+    #[test]
+    fn pbr_key_msaa_samples() {
+        for i in 1..=64 {
+            assert_eq!(PbrPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }
 }

@@ -5,6 +5,7 @@ pub trait SrgbColorSpace {
 
 // source: https://entropymine.com/imageworsener/srgbformula/
 impl SrgbColorSpace for f32 {
+    #[inline]
     fn linear_to_nonlinear_srgb(self) -> f32 {
         if self <= 0.0 {
             return self;
@@ -17,6 +18,7 @@ impl SrgbColorSpace for f32 {
         }
     }
 
+    #[inline]
     fn nonlinear_to_linear_srgb(self) -> f32 {
         if self <= 0.0 {
             return self;
@@ -32,6 +34,7 @@ impl SrgbColorSpace for f32 {
 pub struct HslRepresentation;
 impl HslRepresentation {
     /// converts a color in HLS space to sRGB space
+    #[inline]
     pub fn hsl_to_nonlinear_srgb(hue: f32, saturation: f32, lightness: f32) -> [f32; 3] {
         // https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB
         let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
@@ -60,6 +63,7 @@ impl HslRepresentation {
     }
 
     /// converts a color in sRGB space to HLS space
+    #[inline]
     pub fn nonlinear_srgb_to_hsl([red, green, blue]: [f32; 3]) -> (f32, f32, f32) {
         // https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
         let x_max = red.max(green.max(blue));

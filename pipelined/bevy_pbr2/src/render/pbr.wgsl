@@ -26,6 +26,9 @@ struct Vertex {
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] normal: vec3<f32>;
     [[location(2)]] uv: vec2<f32>;
+#ifdef VERTEX_TANGENTS
+    [[location(3)]] tangent: vec4<f32>;
+#endif
 };
 
 struct VertexOutput {
@@ -33,6 +36,9 @@ struct VertexOutput {
     [[location(0)]] world_position: vec4<f32>;
     [[location(1)]] world_normal: vec3<f32>;
     [[location(2)]] uv: vec2<f32>;
+#ifdef VERTEX_TANGENTS
+    [[location(3)]] world_tangent: vec4<f32>;
+#endif
 };
 
 [[stage(vertex)]]
@@ -48,6 +54,16 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         mesh.inverse_transpose_model.y.xyz,
         mesh.inverse_transpose_model.z.xyz
     ) * vertex.normal;
+#ifdef VERTEX_TANGENTS
+    out.world_tangent = vec4<f32>(
+        mat3x3<f32>(
+            mesh.model.x.xyz,
+            mesh.model.y.xyz,
+            mesh.model.z.xyz
+        ) * vertex.tangent.xyz,
+        vertex.tangent.w
+    );
+#endif
     return out;
 }
 
@@ -164,6 +180,10 @@ var metallic_roughness_sampler: sampler;
 var occlusion_texture: texture_2d<f32>;
 [[group(1), binding(8)]]
 var occlusion_sampler: sampler;
+[[group(1), binding(9)]]
+var normal_map_texture: texture_2d<f32>;
+[[group(1), binding(10)]]
+var normal_map_sampler: sampler;
 
 let PI: f32 = 3.141592653589793;
 
@@ -475,6 +495,9 @@ struct FragmentInput {
     [[location(0)]] world_position: vec4<f32>;
     [[location(1)]] world_normal: vec3<f32>;
     [[location(2)]] uv: vec2<f32>;
+#ifdef VERTEX_TANGENTS
+    [[location(3)]] world_tangent: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
@@ -510,27 +533,31 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
         var N: vec3<f32> = normalize(in.world_normal);
 
-        // FIXME: Normal maps need an additional vertex attribute and vertex stage output/fragment stage input
-        //        Just use a separate shader for lit with normal maps?
-        // #    ifdef STANDARDMATERIAL_NORMAL_MAP
-        //     vec3 T = normalize(v_WorldTangent.xyz);
-        //     vec3 B = cross(N, T) * v_WorldTangent.w;
-        // #    endif
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
+        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+#endif
+#endif
 
         if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
             if (!in.is_front) {
                 N = -N;
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+                T = -T;
+                B = -B;
+#endif
+#endif
             }
-        // #        ifdef STANDARDMATERIAL_NORMAL_MAP
-        //     T = gl_FrontFacing ? T : -T;
-        //     B = gl_FrontFacing ? B : -B;
-        // #        endif
         }
 
-        // #    ifdef STANDARDMATERIAL_NORMAL_MAP
-        //     mat3 TBN = mat3(T, B, N);
-        //     N = TBN * normalize(texture(sampler2D(normal_map, normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
-        // #    endif
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        let TBN = mat3x3<f32>(T, B, N);
+        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+#endif
+#endif
 
         var V: vec3<f32>;
         if (view.projection.w.w != 1.0) { // If the projection is not orthographic

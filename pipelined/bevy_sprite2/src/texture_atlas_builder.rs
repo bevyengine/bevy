@@ -176,14 +176,17 @@ impl TextureAtlasBuilder {
                 &contains_smallest_box,
             ) {
                 Ok(rect_placements) => {
-                    atlas_texture = Image::new_fill(
+                    atlas_texture = Image::new(
                         Extent3d {
                             width: current_width,
                             height: current_height,
                             depth_or_array_layers: 1,
                         },
                         TextureDimension::D2,
-                        &[0, 0, 0, 0],
+                        vec![
+                            0;
+                            self.format.pixel_size() * (current_width * current_height) as usize
+                        ],
                         self.format,
                     );
                     Some(rect_placements)

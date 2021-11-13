@@ -5,7 +5,7 @@ use bevy_asset::{
 use bevy_core::Name;
 use bevy_ecs::world::World;
 use bevy_log::warn;
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec3};
 use bevy_pbr2::{PbrBundle, StandardMaterial};
 use bevy_render2::{
     camera::{
@@ -13,6 +13,7 @@ use bevy_render2::{
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
+    primitives::Aabb,
     texture::{Image, ImageType, TextureError},
 };
 use bevy_scene::Scene;
@@ -128,12 +129,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_tangents()
-            //     .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-            // {
-            //     mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
@@ -382,15 +383,16 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
-    // let normal_map: Option<Handle<Texture>> = if let Some(normal_texture) = material.normal_texture() {
-    //     // TODO: handle normal_texture.scale
-    //     // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-    //     let label = texture_label(&normal_texture.texture());
-    //     let path = AssetPath::new_ref(load_context.path(), Some(&label));
-    //     Some(load_context.get_handle(path))
-    // } else {
-    //     None
-    // };
+    let normal_map_texture: Option<Handle<Image>> =
+        if let Some(normal_texture) = material.normal_texture() {
+            // TODO: handle normal_texture.scale
+            // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+            let label = texture_label(&normal_texture.texture());
+            let path = AssetPath::new_ref(load_context.path(), Some(&label));
+            Some(load_context.get_handle(path))
+        } else {
+            None
+        };
 
     let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
@@ -430,7 +432,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             metallic_roughness_texture,
-            // normal_map,
+            normal_map_texture,
             double_sided: material.double_sided(),
             occlusion_texture,
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
@@ -527,11 +529,17 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                parent.spawn_bundle(PbrBundle {
-                    mesh: load_context.get_handle(mesh_asset_path),
-                    material: load_context.get_handle(material_asset_path),
-                    ..Default::default()
-                });
+                let bounds = primitive.bounding_box();
+                parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: load_context.get_handle(mesh_asset_path),
+                        material: load_context.get_handle(material_asset_path),
+                        ..Default::default()
+                    })
+                    .insert(Aabb::from_min_max(
+                        Vec3::from_slice(&bounds.min),
+                        Vec3::from_slice(&bounds.max),
+                    ));
             }
         }
 
@@ -646,7 +654,7 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
-    const OCTET_STREAM_URI: &str = "application/octet-stream";
+    const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
@@ -657,7 +665,9 @@ async fn load_buffers(
                     .unwrap();
                 let uri = uri.as_ref();
                 let buffer_bytes = match DataUri::parse(uri) {
-                    Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
+                    Ok(data_uri) if VALID_MIME_TYPES.contains(&data_uri.mime_type) => {
+                        data_uri.decode()?
+                    }
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep

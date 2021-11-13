@@ -81,7 +81,7 @@ fn setup(
             scale: Vec3::splat(4.0),
             ..Default::default()
         },
-        sprite: TextureAtlasSprite::new(vendor_index as u32),
+        sprite: TextureAtlasSprite::new(vendor_index),
         texture_atlas: atlas_handle,
         ..Default::default()
     });

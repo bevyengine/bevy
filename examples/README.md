@@ -103,6 +103,7 @@ Example | File | Description
 `load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
 `many_cubes_pipelined` | [`3d/many_cubes_pipelined.rs`](./3d/many_cubes_pipelined.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
+`msaa_pipelined` | [`3d/msaa_pipelined.rs`](./3d/msaa_pipelined.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `orthographic_pipelined` | [`3d/orthographic_pipelined.rs`](./3d/orthographic_pipelined.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
@@ -228,6 +229,7 @@ Example | File | Description
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+`shader_defs_pipelined` | [`shader/shader_defs_pipelined.rs`](./shader/shader_defs_pipelined.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
 ## Tests
 

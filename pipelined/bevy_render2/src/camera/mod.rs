@@ -12,7 +12,11 @@ pub use bundle::*;
 pub use camera::*;
 pub use projection::*;
 
-use crate::{view::ExtractedView, RenderApp, RenderStage};
+use crate::{
+    primitives::Aabb,
+    view::{ComputedVisibility, ExtractedView, Visibility, VisibleEntities},
+    RenderApp, RenderStage,
+};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::prelude::*;
 
@@ -30,6 +34,9 @@ impl Plugin for CameraPlugin {
         active_cameras.add(Self::CAMERA_2D);
         active_cameras.add(Self::CAMERA_3D);
         app.register_type::<Camera>()
+            .register_type::<Visibility>()
+            .register_type::<ComputedVisibility>()
+            .register_type::<Aabb>()
             .insert_resource(active_cameras)
             .add_system_to_stage(CoreStage::PostUpdate, crate::camera::active_cameras_system)
             .add_system_to_stage(
@@ -61,12 +68,14 @@ fn extract_cameras(
     mut commands: Commands,
     active_cameras: Res<ActiveCameras>,
     windows: Res<Windows>,
-    query: Query<(Entity, &Camera, &GlobalTransform)>,
+    query: Query<(Entity, &Camera, &GlobalTransform, &VisibleEntities)>,
 ) {
     let mut entities = HashMap::default();
     for camera in active_cameras.iter() {
         let name = &camera.name;
-        if let Some((entity, camera, transform)) = camera.entity.and_then(|e| query.get(e).ok()) {
+        if let Some((entity, camera, transform, visible_entities)) =
+            camera.entity.and_then(|e| query.get(e).ok())
+        {
             entities.insert(name.clone(), entity);
             if let Some(window) = windows.get(camera.window) {
                 commands.get_or_spawn(entity).insert_bundle((
@@ -80,6 +89,7 @@ fn extract_cameras(
                         width: window.physical_width().max(1),
                         height: window.physical_height().max(1),
                     },
+                    visible_entities.clone(),
                 ));
             }
         }

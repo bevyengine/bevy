@@ -25,7 +25,7 @@ pub struct TextureAtlas {
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct TextureAtlasSprite {
     pub color: Color,
-    pub index: u32,
+    pub index: usize,
     pub flip_x: bool,
     pub flip_y: bool,
 }
@@ -42,7 +42,7 @@ impl Default for TextureAtlasSprite {
 }
 
 impl TextureAtlasSprite {
-    pub fn new(index: u32) -> TextureAtlasSprite {
+    pub fn new(index: usize) -> TextureAtlasSprite {
         Self {
             index,
             ..Default::default()
@@ -120,13 +120,15 @@ impl TextureAtlas {
     }
 
     /// Add a sprite to the list of textures in the `TextureAtlas`
+    /// returns an index to the texture which can be used with `TextureAtlasSprite`
     ///
     /// # Arguments
     ///
     /// * `rect` - The section of the atlas that contains the texture to be added,
     /// from the top-left corner of the texture to the bottom-right corner
-    pub fn add_texture(&mut self, rect: Rect) {
+    pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
+        self.textures.len() - 1
     }
 
     /// How many textures are in the `TextureAtlas`

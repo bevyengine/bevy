@@ -1,11 +1,14 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render2::color::Color;
 
 #[derive(Component, Debug, Default, Clone, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[repr(C)]
 pub struct Sprite {
+    /// The sprite's color tint
+    pub color: Color,
     /// Flip the sprite along the X axis
     pub flip_x: bool,
     /// Flip the sprite along the Y axis

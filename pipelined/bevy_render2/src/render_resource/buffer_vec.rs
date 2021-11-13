@@ -43,17 +43,20 @@ impl<T: Pod> BufferVec<T> {
         self.capacity
     }
 
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
     pub fn push(&mut self, value: T) -> usize {
-        let len = self.values.len();
-        if len < self.capacity {
-            self.values.push(value);
-            len
-        } else {
-            panic!(
-                "Cannot push value because capacity of {} has been reached",
-                self.capacity
-            );
-        }
+        let index = self.values.len();
+        self.values.push(value);
+        index
     }
 
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
@@ -69,12 +72,11 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    pub fn reserve_and_clear(&mut self, capacity: usize, device: &RenderDevice) {
-        self.clear();
-        self.reserve(capacity, device);
-    }
-
-    pub fn write_buffer(&mut self, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve(self.values.len(), device);
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
             let bytes: &[u8] = cast_slice(&self.values);

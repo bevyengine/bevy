@@ -101,7 +101,7 @@ ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
-crevice = {path = "crates/crevice"}
+crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 
 [[example]]
 name = "hello_world"
@@ -172,6 +172,10 @@ path = "examples/3d/load_gltf_pipelined.rs"
 [[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
+
+[[example]]
+name = "msaa_pipelined"
+path = "examples/3d/msaa_pipelined.rs"
 
 [[example]]
 name = "orthographic"
@@ -463,6 +467,10 @@ path = "examples/shader/shader_defs.rs"
 [[example]]
 name = "custom_shader_pipelined"
 path = "examples/shader/custom_shader_pipelined.rs"
+
+[[example]]
+name = "shader_defs_pipelined"
+path = "examples/shader/shader_defs_pipelined.rs"
 
 # Tools
 [[example]]
