@@ -21,9 +21,11 @@ anyhow = "1.0.4"
 rodio = { version = "0.14", default-features = false }
 parking_lot = "0.11.0"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rodio = { version = "0.14", default-features = false, features = ["wasm-bindgen"] }
+
 [features]
 mp3 = ["rodio/mp3"]
 flac = ["rodio/flac"]
 wav = ["rodio/wav"]
 vorbis = ["rodio/vorbis"]
-wasm_audio = ["rodio/wasm-bindgen"]

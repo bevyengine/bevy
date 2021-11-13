@@ -57,6 +57,14 @@ impl AddAssign<f32> for Val {
     }
 }
 
+/// UI node style.
+///
+/// The UI layout system follows the CSS layout model specification (see
+/// [this section](https://www.w3.org/TR/CSS2/visuren.html) in particular).
+/// One notable difference however is that the vertical axis is inverted,
+/// with the Y axis pointing up in Bevy (origin in bottom left corner).
+///
+/// You may find [this flexbox guide](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) helpful.
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Style {
