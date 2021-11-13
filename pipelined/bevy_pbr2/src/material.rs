@@ -229,7 +229,6 @@ impl RenderAsset for StandardMaterial {
             reflectance: material.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
-            ..Default::default()
         };
         let value_std140 = value.as_std140();
 
