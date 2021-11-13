@@ -286,6 +286,7 @@ const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
     const_vec3!([0.5, 0.5, 0.0]),
 ];
 
+#[derive(Component)]
 pub struct SpriteBatch {
     range: Range<u32>,
     handle: Handle<Image>,

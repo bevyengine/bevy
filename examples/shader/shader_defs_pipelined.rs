@@ -43,7 +43,7 @@ fn main() {
         .run();
 }
 
-#[derive(Hash, PartialEq, Eq, Copy, Clone)]
+#[derive(Hash, PartialEq, Eq, Copy, Clone, Component)]
 struct IsRed(bool);
 
 impl ExtractComponent for IsRed {
