@@ -133,6 +133,15 @@ impl<T: Asset> Assets<T> {
         self.assets.iter().map(|(k, v)| (*k, v))
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
+        for id in self.assets.keys() {
+            self.events.send(AssetEvent::Modified {
+                handle: Handle::weak(*id),
+            });
+        }
+        self.assets.iter_mut().map(|(k, v)| (*k, v))
+    }
+
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
         self.assets.keys().cloned()
     }
