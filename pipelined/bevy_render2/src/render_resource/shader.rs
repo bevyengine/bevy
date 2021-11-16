@@ -83,7 +83,7 @@ impl Shader {
         self.import_path.as_ref()
     }
 
-    pub fn imports(&self) -> impl Iterator<Item = &ShaderImport> {
+    pub fn imports(&self) -> impl ExactSizeIterator<Item = &ShaderImport> {
         self.imports.iter()
     }
 }
