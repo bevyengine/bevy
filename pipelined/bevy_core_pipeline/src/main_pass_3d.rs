@@ -3,10 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
-    },
+    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -61,24 +58,12 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
-                color_attachments: &[RenderPassColorAttachment {
-                    view: if let Some(sampled_target) = &target.sampled_target {
-                        sampled_target
-                    } else {
-                        &target.view
-                    },
-                    resolve_target: if target.sampled_target.is_some() {
-                        Some(&target.view)
-                    } else {
-                        None
-                    },
-                    // NOTE: The opaque pass clears and initializes the color
-                    //       buffer as well as writing to it.
-                    ops: Operations {
-                        load: LoadOp::Clear(clear_color.0.into()),
-                        store: true,
-                    },
-                }],
+                // NOTE: The opaque pass clears and initializes the color
+                //       buffer as well as writing to it.
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Clear(clear_color.0.into()),
+                    store: true,
+                })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass clears and writes to the depth buffer.
@@ -108,23 +93,11 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
-                color_attachments: &[RenderPassColorAttachment {
-                    view: if let Some(sampled_target) = &target.sampled_target {
-                        sampled_target
-                    } else {
-                        &target.view
-                    },
-                    resolve_target: if target.sampled_target.is_some() {
-                        Some(&target.view)
-                    } else {
-                        None
-                    },
-                    // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    },
-                }],
+                // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
@@ -154,23 +127,11 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
-                color_attachments: &[RenderPassColorAttachment {
-                    view: if let Some(sampled_target) = &target.sampled_target {
-                        sampled_target
-                    } else {
-                        &target.view
-                    },
-                    resolve_target: if target.sampled_target.is_some() {
-                        Some(&target.view)
-                    } else {
-                        None
-                    },
-                    // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    },
-                }],
+                // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer but do not write to it.
