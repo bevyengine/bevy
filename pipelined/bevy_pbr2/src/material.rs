@@ -1,4 +1,4 @@
-use crate::{PbrPipeline, StandardMaterialFlags};
+use crate::{AlphaMode, PbrPipeline, StandardMaterialFlags};
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -7,9 +7,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render2::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{
-        BindGroup, Buffer, BufferInitDescriptor, BufferUsages, Sampler, TextureView,
-    },
+    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsages},
     renderer::RenderDevice,
     texture::Image,
 };
@@ -47,6 +45,7 @@ pub struct StandardMaterial {
     pub occlusion_texture: Option<Handle<Image>>,
     pub double_sided: bool,
     pub unlit: bool,
+    pub alpha_mode: AlphaMode,
 }
 
 impl Default for StandardMaterial {
@@ -73,6 +72,7 @@ impl Default for StandardMaterial {
             normal_map_texture: None,
             double_sided: false,
             unlit: false,
+            alpha_mode: AlphaMode::Opaque,
         }
     }
 }
@@ -95,7 +95,7 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
-#[derive(Clone, AsStd140)]
+#[derive(Clone, Default, AsStd140)]
 pub struct StandardMaterialUniformData {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
@@ -112,6 +112,9 @@ pub struct StandardMaterialUniformData {
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
     pub flags: u32,
+    /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
+    /// and any below means fully transparent.
+    pub alpha_cutoff: f32,
 }
 
 pub struct StandardMaterialPlugin;
@@ -127,7 +130,10 @@ impl Plugin for StandardMaterialPlugin {
 pub struct GpuStandardMaterial {
     pub buffer: Buffer,
     pub bind_group: BindGroup,
+    pub has_normal_map: bool,
     pub flags: StandardMaterialFlags,
+    pub base_color_texture: Option<Handle<Image>>,
+    pub alpha_mode: AlphaMode,
 }
 
 impl RenderAsset for StandardMaterial {
@@ -148,7 +154,7 @@ impl RenderAsset for StandardMaterial {
         (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let (base_color_texture_view, base_color_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.base_color_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.base_color_texture)
         {
             result
         } else {
@@ -156,7 +162,7 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (emissive_texture_view, emissive_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.emissive_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.emissive_texture)
         {
             result
         } else {
@@ -164,24 +170,21 @@ impl RenderAsset for StandardMaterial {
         };
 
         let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(
-                pbr_pipeline,
-                gpu_images,
-                &material.metallic_roughness_texture,
-            ) {
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.metallic_roughness_texture)
+        {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
         let (normal_map_texture_view, normal_map_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.normal_map_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.normal_map_texture)
         {
             result
         } else {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
         let (occlusion_texture_view, occlusion_sampler) = if let Some(result) =
-            image_handle_to_view_sampler(pbr_pipeline, gpu_images, &material.occlusion_texture)
+            pbr_pipeline.image_handle_to_texture(gpu_images, &material.occlusion_texture)
         {
             result
         } else {
@@ -206,9 +209,18 @@ impl RenderAsset for StandardMaterial {
         if material.unlit {
             flags |= StandardMaterialFlags::UNLIT;
         }
-        if material.normal_map_texture.is_some() {
-            flags |= StandardMaterialFlags::NORMAL_MAP_TEXTURE;
-        }
+        let has_normal_map = material.normal_map_texture.is_some();
+        // NOTE: 0.5 is from the glTF default - do we want this?
+        let mut alpha_cutoff = 0.5;
+        match material.alpha_mode {
+            AlphaMode::Opaque => flags |= StandardMaterialFlags::ALPHA_MODE_OPAQUE,
+            AlphaMode::Mask(c) => {
+                alpha_cutoff = c;
+                flags |= StandardMaterialFlags::ALPHA_MODE_MASK
+            }
+            AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
+        };
+
         let value = StandardMaterialUniformData {
             base_color: material.base_color.as_rgba_linear().into(),
             emissive: material.emissive.into(),
@@ -216,6 +228,7 @@ impl RenderAsset for StandardMaterial {
             metallic: material.metallic,
             reflectance: material.reflectance,
             flags: flags.bits(),
+            alpha_cutoff,
         };
         let value_std140 = value.as_std140();
 
@@ -279,22 +292,9 @@ impl RenderAsset for StandardMaterial {
             buffer,
             bind_group,
             flags,
+            has_normal_map,
+            base_color_texture: material.base_color_texture,
+            alpha_mode: material.alpha_mode,
         })
-    }
-}
-
-fn image_handle_to_view_sampler<'a>(
-    pbr_pipeline: &'a PbrPipeline,
-    gpu_images: &'a RenderAssets<Image>,
-    handle_option: &Option<Handle<Image>>,
-) -> Option<(&'a TextureView, &'a Sampler)> {
-    if let Some(handle) = handle_option {
-        let gpu_image = gpu_images.get(handle)?;
-        Some((&gpu_image.texture_view, &gpu_image.sampler))
-    } else {
-        Some((
-            &pbr_pipeline.dummy_white_gpu_image.texture_view,
-            &pbr_pipeline.dummy_white_gpu_image.sampler,
-        ))
     }
 }
