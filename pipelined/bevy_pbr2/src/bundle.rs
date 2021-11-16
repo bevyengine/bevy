@@ -8,6 +8,7 @@ use bevy_render2::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
+/// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 #[derive(Bundle, Clone)]
 pub struct PbrBundle {
     pub mesh: Handle<Mesh>,
@@ -56,7 +57,7 @@ impl CubemapVisibleEntities {
     }
 }
 
-/// A component bundle for "point light" entities
+/// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
@@ -66,7 +67,7 @@ pub struct PointLightBundle {
     pub global_transform: GlobalTransform,
 }
 
-/// A component bundle for "directional light" entities
+/// A component bundle for [`DirectionalLight`] entities.
 #[derive(Debug, Bundle, Default)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,

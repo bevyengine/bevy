@@ -79,12 +79,13 @@ impl Mesh {
         }
     }
 
+    /// Returns the topology of the mesh.
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
     }
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
-    /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`]
+    /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     pub fn set_attribute(
         &mut self,
         name: impl Into<Cow<'static, str>>,
@@ -94,11 +95,12 @@ impl Mesh {
         self.attributes.insert(name.into(), values);
     }
 
-    /// Retrieve the data currently set behind a vertex attribute.
+    /// Retrieves the data currently set to the vertex attribute with the specified `name`.
     pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
         self.attributes.get(&name.into())
     }
 
+    /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
     pub fn attribute_mut(
         &mut self,
         name: impl Into<Cow<'static, str>>,
@@ -106,21 +108,25 @@ impl Mesh {
         self.attributes.get_mut(&name.into())
     }
 
-    /// Indices describe how triangles are constructed out of the vertex attributes.
-    /// They are only useful for the [`crate::pipeline::PrimitiveTopology`] variants that use
-    /// triangles
+    /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
+    /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
+    /// that use triangles.
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
     }
 
+    /// Retrieves the vertex `indices` of the mesh.
     pub fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
     }
 
+    /// Retrieves the vertex `indices` of the mesh mutably.
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
         self.indices.as_mut()
     }
 
+    /// Computes and returns the index data of the mesh as bytes.
+    /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
         self.indices.as_ref().map(|indices| match &indices {
             Indices::U16(indices) => cast_slice(&indices[..]),
@@ -150,6 +156,10 @@ impl Mesh {
     //     }
     // }
 
+    /// Counts all vertices of the mesh.
+    ///
+    /// # Panics
+    /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_name, attribute_data) in self.attributes.iter() {
@@ -164,6 +174,12 @@ impl Mesh {
         vertex_count.unwrap_or(0)
     }
 
+    /// Computes and returns the vertex data of the mesh as bytes.
+    /// Therefore the attributes are located in alphabetical order.
+    /// This is used to transform the vertex data into a GPU friendly format.
+    ///
+    /// # Panics
+    /// Panics if the attributes have different vertex counts.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
         for attribute_values in self.attributes.values() {
@@ -197,6 +213,9 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
+    ///
+    /// # Panics
+    /// If the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -248,7 +267,8 @@ impl Mesh {
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
-    /// Panics if [`Indices`] are set.
+    /// # Panics
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         if self.indices().is_some() {
@@ -349,7 +369,8 @@ impl VertexFormatSize for wgpu::VertexFormat {
     }
 }
 
-/// An array where each entry describes a property of a single vertex.
+/// Contains an array where each entry describes a property of a single vertex.
+/// Matches the [`VertexFormats`](VertexFormat).
 #[derive(Clone, Debug, EnumVariantMeta)]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
@@ -418,11 +439,12 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Returns `true` if there are no vertices in this VertexAttributeValue
+    /// Returns `true` if there are no vertices in this VertexAttributeValue.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Returns the values as float triples if possible.
     fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
@@ -502,7 +524,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
     }
 }
 
-/// An array of indices into the VertexAttributeValues for a mesh.
+/// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
 #[derive(Debug, Clone)]
@@ -512,6 +534,7 @@ pub enum Indices {
 }
 
 impl Indices {
+    /// Returns an iterator over the indices.
     fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
             Indices::U16(vec) => IndicesIter::U16(vec.iter()),
@@ -519,6 +542,7 @@ impl Indices {
         }
     }
 
+    /// Returns the number of indices.
     pub fn len(&self) -> usize {
         match self {
             Indices::U16(vec) => vec.len(),
@@ -526,6 +550,7 @@ impl Indices {
         }
     }
 
+    /// Returns `true` if there are no indices.
     pub fn is_empty(&self) -> bool {
         match self {
             Indices::U16(vec) => vec.is_empty(),
@@ -533,10 +558,13 @@ impl Indices {
         }
     }
 }
+
+/// An Iterator for the [`Indices`].
 enum IndicesIter<'a> {
     U16(std::slice::Iter<'a, u16>),
     U32(std::slice::Iter<'a, u32>),
 }
+
 impl Iterator for IndicesIter<'_> {
     type Item = usize;
 
@@ -557,15 +585,20 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+/// The GPU-representation of a [`Mesh`].
+/// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
 pub struct GpuMesh {
+    /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
     pub index_info: Option<GpuIndexInfo>,
     pub has_tangents: bool,
 }
 
+/// The index info of a [`GpuMesh`].
 #[derive(Debug, Clone)]
 pub struct GpuIndexInfo {
+    /// Contains all index data of a mesh.
     pub buffer: Buffer,
     pub count: u32,
     pub index_format: IndexFormat,
@@ -576,10 +609,12 @@ impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
     type Param = SRes<RenderDevice>;
 
+    /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
     }
 
+    /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,

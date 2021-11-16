@@ -35,12 +35,12 @@ use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, Textur
 
 use crate::{Gltf, GltfNode};
 
-/// An error that occurs when loading a GLTF file
+/// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("invalid GLTF file: {0}")]
+    #[error("invalid glTF file: {0}")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
     MissingBlob,
@@ -56,7 +56,7 @@ pub enum GltfError {
     AssetIoError(#[from] AssetIoError),
 }
 
-/// Loads meshes from GLTF files into Mesh assets
+/// Loads glTF files with all of their data as their corresponding bevy representations.
 #[derive(Default)]
 pub struct GltfLoader;
 
@@ -74,6 +74,7 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+/// Loads an entire glTF file.
 async fn load_gltf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
@@ -265,7 +266,7 @@ async fn load_gltf<'a, 'b>(
         .into_iter()
         .filter_map(|res| {
             if let Err(err) = res.as_ref() {
-                warn!("Error loading GLTF texture: {}", err);
+                warn!("Error loading glTF texture: {}", err);
             }
             res.ok()
         })
@@ -320,6 +321,7 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
+/// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
 async fn load_texture<'a>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
@@ -368,6 +370,7 @@ async fn load_texture<'a>(
     Ok((texture, texture_label(&gltf_texture)))
 }
 
+/// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(material);
 
@@ -444,6 +447,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     )
 }
 
+/// Loads a glTF node.
 fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
@@ -559,14 +563,17 @@ fn load_node(
     }
 }
 
+/// Returns the label for the `mesh`.
 fn mesh_label(mesh: &gltf::Mesh) -> String {
     format!("Mesh{}", mesh.index())
 }
 
+/// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
 }
 
+/// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
     if let Some(index) = material.index() {
         format!("Material{}", index)
@@ -575,18 +582,22 @@ fn material_label(material: &gltf::Material) -> String {
     }
 }
 
+/// Returns the label for the `texture`.
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
 }
 
+/// Returns the label for the `node`.
 fn node_label(node: &gltf::Node) -> String {
     format!("Node{}", node.index())
 }
 
+/// Returns the label for the `scene`.
 fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
 }
 
+/// Extracts the texture sampler data from the glTF texture.
 fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
     let gltf_sampler = texture.sampler();
 
@@ -631,6 +642,7 @@ fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
     }
 }
 
+/// Maps the texture address mode form glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
@@ -639,6 +651,7 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Addr
     }
 }
 
+/// Maps the primitive_topology form glTF to wgpu.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -658,6 +671,7 @@ fn alpha_mode(material: &Material) -> AlphaMode {
     }
 }
 
+/// Loads the raw glTF buffer data for a specific glTF file.
 async fn load_buffers(
     gltf: &gltf::Gltf,
     load_context: &LoadContext<'_>,

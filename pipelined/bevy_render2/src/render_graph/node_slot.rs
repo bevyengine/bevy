@@ -3,15 +3,27 @@ use std::borrow::Cow;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
+/// A value passed between render [`Nodes`](super::Node).
+/// Corresponds to the [SlotType] specified in the [`RenderGraph`](super::RenderGraph).
+///
+/// Slots can have four different types of values:
+/// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].
+///
+/// These values do not contain the actual render data, but only the ids to retrieve them.
 #[derive(Debug, Clone)]
 pub enum SlotValue {
+    /// A GPU-accessible [`Buffer`].
     Buffer(Buffer),
+    /// A [`TextureView`] describes a texture used in a pipeline.
     TextureView(TextureView),
+    /// A texture [`Sampler`] defines how a pipeline will sample from a [`TextureView`].
     Sampler(Sampler),
+    /// An entity from the ECS.
     Entity(Entity),
 }
 
 impl SlotValue {
+    /// Returns the [`SlotType`] of this value.
     pub fn slot_type(&self) -> SlotType {
         match self {
             SlotValue::Buffer(_) => SlotType::Buffer,
@@ -46,14 +58,24 @@ impl From<Entity> for SlotValue {
     }
 }
 
+/// Describes the render resources created (output) or used (input) by
+/// the render [`Nodes`](super::Node).
+///
+/// This should not be confused with [`SlotValue`], which actually contains the passed data.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SlotType {
+    /// A GPU-accessible [`Buffer`].
     Buffer,
+    /// A [`TextureView`] describes a texture used in a pipeline.
     TextureView,
+    /// A texture [`Sampler`] defines how a pipeline will sample from a [`TextureView`].
     Sampler,
+    /// An entity from the ECS.
     Entity,
 }
 
+/// A [`SlotLabel`] is used to reference a slot by either its name or index
+/// inside the [`RenderGraph`](super::RenderGraph).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SlotLabel {
     Index(usize),
@@ -90,6 +112,7 @@ impl From<usize> for SlotLabel {
     }
 }
 
+/// The internal representation of a slot, which specifies its [`SlotType`] and name.
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
     pub name: Cow<'static, str>,
@@ -105,6 +128,8 @@ impl SlotInfo {
     }
 }
 
+/// A collection of input or output [`SlotInfos`](SlotInfo) for
+/// a [`NodeState`](super::NodeState).
 #[derive(Default, Debug)]
 pub struct SlotInfos {
     slots: Vec<SlotInfo>,
@@ -119,28 +144,33 @@ impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
 }
 
 impl SlotInfos {
+    /// Returns the count of slots.
     #[inline]
     pub fn len(&self) -> usize {
         self.slots.len()
     }
 
+    /// Returns true if there are no slots.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.slots.is_empty()
     }
 
+    /// Retrieves the [`SlotInfo`] for the provided label.
     pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Option<&SlotInfo> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
         self.slots.get(index)
     }
 
+    /// Retrieves the [`SlotInfo`] for the provided label mutably.
     pub fn get_slot_mut(&mut self, label: impl Into<SlotLabel>) -> Option<&mut SlotInfo> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
         self.slots.get_mut(index)
     }
 
+    /// Retrieves the index (inside input or output slots) of the slot for the provided label.
     pub fn get_slot_index(&self, label: impl Into<SlotLabel>) -> Option<usize> {
         let label = label.into();
         match label {
@@ -154,6 +184,7 @@ impl SlotInfos {
         }
     }
 
+    /// Returns an iterator over the slot infos.
     pub fn iter(&self) -> impl Iterator<Item = &SlotInfo> {
         self.slots.iter()
     }

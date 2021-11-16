@@ -27,6 +27,7 @@ use bevy_transform::TransformSystem;
 
 pub mod draw_3d_graph {
     pub mod node {
+        /// Label for the shadow pass node.
         pub const SHADOW_PASS: &str = "shadow_pass";
     }
 }
@@ -36,6 +37,7 @@ pub const PBR_SHADER_HANDLE: HandleUntyped =
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
+/// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
 pub struct PbrPlugin;
 
