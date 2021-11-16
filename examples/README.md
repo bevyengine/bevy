@@ -82,6 +82,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`change_sprite_runtime` | [`2d/change_sprite_runtime.rs`](./2d/change_sprite_runtime.rs) | Changing sprite texture & color at runtime
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `mesh` | [`2d/mesh.rs`](./2d/mesh.rs) | Renders a custom mesh
