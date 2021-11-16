@@ -268,10 +268,10 @@ impl ShaderProcessor {
         for line in shader.split('\n') {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
             } else if let Some(cap) = self.ifndef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(!shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
             } else if self.endif_regex.is_match(line) {
                 scopes.pop();
                 if scopes.is_empty() {
@@ -308,6 +308,38 @@ var<uniform> view: View;
 # ifdef TEXTURE
 [[group(1), binding(0)]]
 var sprite_texture: texture_2d<f32>;
+# endif
+
+struct VertexOutput {
+    [[location(0)]] uv: vec2<f32>;
+    [[builtin(position)]] position: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn vertex(
+    [[location(0)]] vertex_position: vec3<f32>,
+    [[location(1)]] vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+    const WGSL_NESTED_IFDEF: &str = r"
+[[block]]
+struct View {
+    view_proj: mat4x4<f32>;
+    world_position: vec3<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> view: View;
+
+# ifdef TEXTURE
+# ifdef ATTRIBUTE
+[[group(1), binding(0)]]
+var sprite_texture: texture_2d<f32>;
+# endif
 # endif
 
 struct VertexOutput {
@@ -431,5 +463,152 @@ fn foo() { }
         let processor = ShaderProcessor::default();
         let result = processor.process_str(INPUT, &[]).unwrap();
         assert_eq!(result, INPUT);
+    }
+
+    #[test]
+    fn process_nested_shader_def_outer_defined_inner_not() {
+        #[rustfmt::skip]
+    const EXPECTED: &str = r"
+[[block]]
+struct View {
+    view_proj: mat4x4<f32>;
+    world_position: vec3<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    [[location(0)]] uv: vec2<f32>;
+    [[builtin(position)]] position: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn vertex(
+    [[location(0)]] vertex_position: vec3<f32>,
+    [[location(1)]] vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process_str(WGSL_NESTED_IFDEF, &["TEXTURE".to_string()])
+            .unwrap();
+        assert_eq!(result, EXPECTED);
+    }
+
+    #[test]
+    fn process_nested_shader_def_neither_defined() {
+        #[rustfmt::skip]
+    const EXPECTED: &str = r"
+[[block]]
+struct View {
+    view_proj: mat4x4<f32>;
+    world_position: vec3<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    [[location(0)]] uv: vec2<f32>;
+    [[builtin(position)]] position: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn vertex(
+    [[location(0)]] vertex_position: vec3<f32>,
+    [[location(1)]] vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result = processor.process_str(WGSL_NESTED_IFDEF, &[]).unwrap();
+        assert_eq!(result, EXPECTED);
+    }
+
+    #[test]
+    fn process_nested_shader_def_inner_defined_outer_not() {
+        #[rustfmt::skip]
+    const EXPECTED: &str = r"
+[[block]]
+struct View {
+    view_proj: mat4x4<f32>;
+    world_position: vec3<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    [[location(0)]] uv: vec2<f32>;
+    [[builtin(position)]] position: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn vertex(
+    [[location(0)]] vertex_position: vec3<f32>,
+    [[location(1)]] vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process_str(WGSL_NESTED_IFDEF, &["ATTRIBUTE".to_string()])
+            .unwrap();
+        assert_eq!(result, EXPECTED);
+    }
+
+    #[test]
+    fn process_nested_shader_def_both_defined() {
+        #[rustfmt::skip]
+    const EXPECTED: &str = r"
+[[block]]
+struct View {
+    view_proj: mat4x4<f32>;
+    world_position: vec3<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> view: View;
+
+[[group(1), binding(0)]]
+var sprite_texture: texture_2d<f32>;
+
+struct VertexOutput {
+    [[location(0)]] uv: vec2<f32>;
+    [[builtin(position)]] position: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn vertex(
+    [[location(0)]] vertex_position: vec3<f32>,
+    [[location(1)]] vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process_str(
+                WGSL_NESTED_IFDEF,
+                &["TEXTURE".to_string(), "ATTRIBUTE".to_string()],
+            )
+            .unwrap();
+        assert_eq!(result, EXPECTED);
     }
 }

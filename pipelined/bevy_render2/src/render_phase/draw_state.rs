@@ -5,7 +5,7 @@ use bevy_utils::tracing::debug;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
-/// Tracks the current pipeline state to ensure draw calls are valid.
+/// Tracks the current [`TrackedRenderPipeline`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
 pub struct DrawState {
     pipeline: Option<RenderPipelineId>,
@@ -83,12 +83,16 @@ impl DrawState {
     }
 }
 
+/// A [`RenderPass`], which tracks the current pipeline state to ensure all draw calls are valid.
+/// It is used to set the current [`RenderPipeline`], [`BindGroups`](BindGroup) and buffers.
+/// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
     pass: RenderPass<'a>,
     state: DrawState,
 }
 
 impl<'a> TrackedRenderPass<'a> {
+    /// Tracks the supplied render pass.
     pub fn new(pass: RenderPass<'a>) -> Self {
         Self {
             state: DrawState::default(),
@@ -96,6 +100,9 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
 
+    /// Sets the active [`RenderPipeline`].
+    ///
+    /// Subsequent draw calls will exhibit the behavior defined by the `pipeline`.
     pub fn set_render_pipeline(&mut self, pipeline: &'a RenderPipeline) {
         debug!("set pipeline: {:?}", pipeline);
         if self.state.is_pipeline_set(pipeline.id()) {
@@ -105,6 +112,9 @@ impl<'a> TrackedRenderPass<'a> {
         self.state.set_pipeline(pipeline.id());
     }
 
+    /// Sets the active [`BindGroup`] for a given bind group index. The bind group layout in the
+    /// active pipeline when any `draw()` function is called must match the layout
+    /// of this `bind group`.
     pub fn set_bind_group(
         &mut self,
         index: usize,
@@ -132,6 +142,13 @@ impl<'a> TrackedRenderPass<'a> {
             .set_bind_group(index as usize, bind_group.id(), dynamic_uniform_indices);
     }
 
+    /// Assign a vertex buffer to a slot.
+    ///
+    /// Subsequent calls to [`TrackedRenderPass::draw`] and [`TrackedRenderPass::draw_indexed`]
+    /// will use the `buffer` as one of the source vertex buffers.
+    ///
+    /// The `slot` refers to the index of the matching descriptor in
+    /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
     pub fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice<'a>) {
         let offset = buffer_slice.offset();
         if self
@@ -158,6 +175,10 @@ impl<'a> TrackedRenderPass<'a> {
             .set_vertex_buffer(index, buffer_slice.id(), offset);
     }
 
+    /// Sets the active index buffer.
+    ///
+    /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the `buffer` as
+    /// the source index buffer.
     pub fn set_index_buffer(
         &mut self,
         buffer_slice: BufferSlice<'a>,
@@ -182,11 +203,18 @@ impl<'a> TrackedRenderPass<'a> {
             .set_index_buffer(buffer_slice.id(), offset, index_format);
     }
 
+    /// Draws primitives from the active vertex buffer(s).
+    ///
+    /// The active vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
         debug!("draw: {:?} {:?}", vertices, instances);
         self.pass.draw(vertices, instances);
     }
 
+    /// Draws indexed primitives using the active index buffer and the active vertex buffer(s).
+    ///
+    /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the
+    /// active vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         debug!(
             "draw indexed: {:?} {} {:?}",

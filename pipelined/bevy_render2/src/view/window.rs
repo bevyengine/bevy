@@ -11,7 +11,7 @@ use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
-// Token to ensure a system runs on the main thread.
+/// Token to ensure a system runs on the main thread.
 #[derive(Default)]
 pub struct NonSendMarker;
 

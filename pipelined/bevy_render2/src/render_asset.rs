@@ -12,18 +12,38 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     RetryNextUpdate(E),
 }
 
+/// Describes how an asset gets extracted and prepared for rendering.
+///
+/// In the [`RenderStage::Extract`](crate::RenderStage::Extract) step the asset is transferred
+/// from the "app world" into the "render world".
+/// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
+/// as the render asset itself.
+///
+/// After that in the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step the extracted asset
+/// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
+    /// The representation of the the asset in the "render world".
     type ExtractedAsset: Send + Sync + 'static;
+    /// The GPU-representation of the the asset.
     type PreparedAsset: Send + Sync + 'static;
+    /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
     type Param: SystemParam;
+    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
     fn extract_asset(&self) -> Self::ExtractedAsset;
+    /// Prepares the `extracted asset` for the GPU by transforming it into
+    /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
         extracted_asset: Self::ExtractedAsset,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-/// Extracts assets into gpu-usable data
+/// This plugin extracts the changed assets from the "app world" into the "render world"
+/// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
+///
+/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) and
+/// [`RenderStage::Prepare`](crate::RenderStage::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset>(PhantomData<fn() -> A>);
 
 impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
@@ -45,6 +65,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     }
 }
 
+/// Temporarily stores the extracted and removed assets of the current frame.
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(Handle<A>, A::ExtractedAsset)>,
     removed: Vec<Handle<A>>,
@@ -59,8 +80,12 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
+/// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
+/// of [`RenderAssets`](RenderAsset) as long as they exist.
 pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
 
+/// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
+/// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<A>>,
@@ -97,6 +122,7 @@ fn extract_render_asset<A: RenderAsset>(
     })
 }
 
+/// Specifies all ECS data required by [`PrepareAssetSystem`].
 pub type RenderAssetParams<R> = (
     SResMut<ExtractedAssets<R>>,
     SResMut<RenderAssets<R>>,
@@ -105,6 +131,7 @@ pub type RenderAssetParams<R> = (
 );
 
 // TODO: consider storing inside system?
+/// All assets that should be prepared next frame.
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
     assets: Vec<(Handle<A>, A::ExtractedAsset)>,
 }
@@ -117,10 +144,13 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
     }
 }
 
+/// This system prepares all assets of the corresponding [`RenderAsset`] type
+/// which where extracted this frame for the GPU.
 pub struct PrepareAssetSystem<R: RenderAsset>(PhantomData<R>);
 
 impl<R: RenderAsset> RunSystem for PrepareAssetSystem<R> {
     type Param = RenderAssetParams<R>;
+
     fn run(
         (mut extracted_assets, mut render_assets, mut prepare_next_frame, mut param): SystemParamItem<Self::Param>,
     ) {

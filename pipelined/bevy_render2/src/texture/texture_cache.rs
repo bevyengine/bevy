@@ -6,6 +6,8 @@ use bevy_ecs::prelude::ResMut;
 use bevy_utils::HashMap;
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
+/// The internal representation of a [`CachedTexture`] used to track whether it was recently used
+/// and is currently taken.
 struct CachedTextureMeta {
     texture: Texture,
     default_view: TextureView,
@@ -13,17 +15,24 @@ struct CachedTextureMeta {
     frames_since_last_use: usize,
 }
 
+/// A cached GPU [`Texture`] with corresponding [`TextureView`].
+/// This is useful for textures that are created repeatedly (each frame) in the rendering process
+/// to reduce the amount of GPU memory allocations.
 pub struct CachedTexture {
     pub texture: Texture,
     pub default_view: TextureView,
 }
 
+/// This resource caches textures that are created repeatedly in the rendering process and
+/// are only required for one frame.
 #[derive(Default)]
 pub struct TextureCache {
     textures: HashMap<wgpu::TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
 }
 
 impl TextureCache {
+    /// Retrieves a texture that matches the `descriptor`. If no matching one is found a new
+    /// [`CachedTexture`] is created.
     pub fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -72,6 +81,7 @@ impl TextureCache {
         }
     }
 
+    /// Updates the cache and only retains recently used textures.
     pub fn update(&mut self) {
         for textures in self.textures.values_mut() {
             for texture in textures.iter_mut() {
@@ -84,6 +94,7 @@ impl TextureCache {
     }
 }
 
+/// Updates the [`TextureCache`] to only retains recently used textures.
 pub fn update_texture_cache_system(mut texture_cache: ResMut<TextureCache>) {
     texture_cache.update();
 }

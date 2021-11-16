@@ -29,28 +29,32 @@ use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
 use wgpu::Backends;
 
+/// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin;
 
-/// The names of the default App stages
+/// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
-    /// Extract data from "app world" and insert it into "render world". This step should be kept
-    /// as short as possible to increase the "pipelining potential" for running the next frame
-    /// while rendering the current frame.
+    /// Extract data from the "app world" and insert it into the "render world".
+    /// This step should be kept as short as possible to increase the "pipelining potential" for
+    /// running the next frame while rendering the current frame.
     Extract,
 
-    /// Prepare render resources from extracted data.
+    /// Prepare render resources from the extracted data for the GPU.
     Prepare,
 
-    /// Create Bind Groups that depend on Prepare data and queue up draw calls to run during the Render stage.
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
+    /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
+    /// [`Render`](RenderStage::Render) stage.
     Queue,
 
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
-    /// Sort RenderPhases here
+    /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
     PhaseSort,
 
-    /// Actual rendering happens here. In most cases, only the render backend should insert resources here
+    /// Actual rendering happens here.
+    /// In most cases, only the render backend should insert resources here.
     Render,
 
     /// Cleanup render resources here.
@@ -75,16 +79,17 @@ impl DerefMut for RenderWorld {
     }
 }
 
-/// Label for the rendering sub-app
+/// A Label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
-// swapping out the Render World.
+/// swapping out the [`RenderWorld`].
 #[derive(Default)]
 struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
+    /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         let default_backend = if cfg!(not(target_arch = "wasm32")) {
             Backends::PRIMARY
@@ -271,6 +276,8 @@ impl Plugin for RenderPlugin {
     }
 }
 
+/// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
+/// This updates the render world with the extracted ECS data of the current frame.
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule

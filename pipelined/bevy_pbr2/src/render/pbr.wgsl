@@ -110,6 +110,7 @@ struct StandardMaterial {
     reflectance: f32;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
+    alpha_cutoff: f32;
 };
 
 let STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -118,6 +119,9 @@ let STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
 let STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT: u32          = 8u;
 let STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
 let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
+let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
+let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
+let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
 
 struct PointLight {
     projection: mat4x4<f32>;
@@ -558,6 +562,20 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
 #endif
 #endif
+
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+            // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
+            output_color.a = 1.0;
+        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+            if (output_color.a >= material.alpha_cutoff) {
+                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
+                output_color.a = 1.0;
+            } else {
+                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
+                // NOTE: This and any other discards mean that early-z testing cannot be done!
+                discard;
+            }
+        }
 
         var V: vec3<f32>;
         if (view.projection[3].w != 1.0) { // If the projection is not orthographic

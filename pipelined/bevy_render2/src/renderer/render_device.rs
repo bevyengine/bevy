@@ -1,12 +1,12 @@
-use futures_lite::future;
-use wgpu::util::DeviceExt;
-
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use futures_lite::future;
 use std::sync::Arc;
+use wgpu::util::DeviceExt;
 
+/// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Clone)]
 pub struct RenderDevice {
     device: Arc<wgpu::Device>,
@@ -19,7 +19,7 @@ impl From<Arc<wgpu::Device>> for RenderDevice {
 }
 
 impl RenderDevice {
-    /// List all features that may be used with this device.
+    /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
     #[inline]
@@ -27,7 +27,7 @@ impl RenderDevice {
         self.device.features()
     }
 
-    /// List all limits that were requested of this device.
+    /// List all [`Limits`](wgpu::Limits) that were requested of this device.
     ///
     /// If any of these limits are exceeded, functions may panic.
     #[inline]
@@ -35,7 +35,7 @@ impl RenderDevice {
         self.device.limits()
     }
 
-    /// Creates a shader module from either SPIR-V or WGSL source code.
+    /// Creates a [ShaderModule](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
         self.device.create_shader_module(desc)
@@ -49,7 +49,7 @@ impl RenderDevice {
         self.device.poll(maintain)
     }
 
-    /// Creates an empty [`CommandEncoder`].
+    /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
     #[inline]
     pub fn create_command_encoder(
         &self,
@@ -58,7 +58,7 @@ impl RenderDevice {
         self.device.create_command_encoder(desc)
     }
 
-    /// Creates an empty [`RenderBundleEncoder`].
+    /// Creates an empty [`RenderBundleEncoder`](wgpu::RenderBundleEncoder).
     #[inline]
     pub fn create_render_bundle_encoder(
         &self,
@@ -67,14 +67,14 @@ impl RenderDevice {
         self.device.create_render_bundle_encoder(desc)
     }
 
-    /// Creates a new [`BindGroup`].
+    /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
     pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
         let wgpu_bind_group = self.device.create_bind_group(desc);
         BindGroup::from(wgpu_bind_group)
     }
 
-    /// Creates a [`BindGroupLayout`].
+    /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
     #[inline]
     pub fn create_bind_group_layout(
         &self,
@@ -83,7 +83,7 @@ impl RenderDevice {
         BindGroupLayout::from(self.device.create_bind_group_layout(desc))
     }
 
-    /// Creates a [`PipelineLayout`].
+    /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
     #[inline]
     pub fn create_pipeline_layout(
         &self,
@@ -115,7 +115,7 @@ impl RenderDevice {
         Buffer::from(wgpu_buffer)
     }
 
-    /// Creates a [`Buffer`].
+    /// Creates a [`Buffer`] and initializes it with the specified data.
     pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor) -> Buffer {
         let wgpu_buffer = self.device.create_buffer_init(desc);
         Buffer::from(wgpu_buffer)
@@ -137,16 +137,17 @@ impl RenderDevice {
         Sampler::from(wgpu_sampler)
     }
 
-    /// Create a new [`SwapChain`] which targets `surface`.
+    /// Create a new [`SwapChain`](wgpu::SwapChain) which targets `surface`.
     ///
     /// # Panics
     ///
-    /// - A old [`SwapChainFrame`] is still alive referencing an old swapchain.
+    /// - A old [`SwapChainFrame`](wgpu::SwapChain) is still alive referencing an old swap chain.
     /// - Texture format requested is unsupported on the swap chain.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
         surface.configure(&self.device, config)
     }
 
+    /// Returns the wgpu [`Device`](wgpu::Device).
     pub fn wgpu_device(&self) -> &wgpu::Device {
         &self.device
     }

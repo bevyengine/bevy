@@ -1,8 +1,10 @@
+mod alpha;
 mod bundle;
 mod light;
 mod material;
 mod render;
 
+pub use alpha::*;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -10,7 +12,7 @@ pub use render::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::Transparent3d;
+use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render2::{
@@ -25,6 +27,7 @@ use bevy_transform::TransformSystem;
 
 pub mod draw_3d_graph {
     pub mod node {
+        /// Label for the shadow pass node.
         pub const SHADOW_PASS: &str = "shadow_pass";
     }
 }
@@ -34,6 +37,7 @@ pub const PBR_SHADER_HANDLE: HandleUntyped =
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
+/// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
 pub struct PbrPlugin;
 
@@ -109,6 +113,8 @@ impl Plugin for PbrPlugin {
             .init_resource::<SpecializedPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
+        render_app.add_render_command::<Opaque3d, DrawPbr>();
+        render_app.add_render_command::<AlphaMask3d, DrawPbr>();
         render_app.add_render_command::<Transparent3d, DrawPbr>();
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
