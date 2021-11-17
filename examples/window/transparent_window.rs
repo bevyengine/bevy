@@ -1,5 +1,5 @@
 /// An example of how to display a window in transparent mode
-/// [Documentation & Platform support.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_window/src/window.rs)
+/// [Documentation & Platform support.](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
 use bevy::{prelude::*, render::pass::ClearColor, window::WindowDescriptor};
 
 fn main() {
