@@ -45,6 +45,8 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
 /// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+/// If you define the `RUST_LOG` environment variable, the [`LogSettings`] resource
+/// will be ignored.
 ///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
