@@ -388,6 +388,10 @@ path = "examples/reflection/trait_reflection.rs"
 name = "scene"
 path = "examples/scene/scene.rs"
 
+[[example]]
+name = "prefab"
+path = "examples/scene/prefab.rs"
+
 # Shaders
 [[example]]
 name = "animate_shader"

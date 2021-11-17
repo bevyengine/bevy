@@ -47,12 +47,15 @@ fn main() {
     let mut app = App::build();
     app
         .init_resource::<PrefabFactory>()
+        .register_type::<A>
+        .register_type::<B>
         .add_system_to_stage(
             CoreStage::Last, 
             prefab_factory_system_ex.exclusive_system()
                 .with_run_criteria(run_if_queue_occupied.system())
         )
-        .add_startup_system(setup.system())
+        .add_startup_system(setup.system()).label("setup")
+        .add_startup_system(write_scene.exclusive_system()).before("setup")
     ;
 
     app.run()
@@ -120,4 +123,33 @@ pub fn prefab_factory_system_ex(world: &mut World) {
         }
 
     })
+}
+
+fn write_scene(&world: &mut World) {
+    let mut scene_world = World::new();
+    
+    let path = "assets/my_scene/path.scn.ron";
+
+    scene_world
+        .spawn()
+        .insert(A {"My scene prefab is here!".to_string()})
+        .insert(B {
+            data: vec![
+                5, 7, 8, 22, 42, 1001
+            ]
+        })
+    ;
+    
+    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
+    let scene = DynamicScene::from_world(&scene_world, type_registry);
+
+    let mut file = match File::create(path) {
+        Err(why) => panic!("Failed to create file: {}", why),
+        Ok(file) => file,
+    };
+
+    match file.write_all(scene.serialize_ron(&type_registry).unwrap().as_bytes()) {
+        Err(why) => panic!("couldn't write to file: {}", why),
+        Ok(_) => println!("File write success"),
+    }
 }

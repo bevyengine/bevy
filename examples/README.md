@@ -206,7 +206,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `scene` | [`scene/scene.rs`](./scene/scene.rs) | Demonstrates loading from and saving scenes to files
-
+`prefab` | [`scene/prefab.rs`](./scene/prefab.rs) | Demonstrates creating a prefab factory using scenes
 ## Shaders
 
 Example | File | Description
