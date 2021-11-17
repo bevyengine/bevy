@@ -266,8 +266,12 @@ pub enum ProcessShaderError {
     NotEnoughEndIfs,
     #[error("This Shader's format does not support processing shader defs.")]
     ShaderFormatDoesNotSupportShaderDefs,
+    #[error("This Shader's formatdoes not support imports.")]
+    ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
     UnresolvedImport(ShaderImport),
+    #[error("The shader import {0:?} does not match the source file type. Support for this might be added in the future.")]
+    MismatchedImportFormat(ShaderImport),
 }
 
 pub struct ShaderImportProcessor {
@@ -420,10 +424,20 @@ fn apply_import(
         Source::Wgsl(_) => {
             if let Source::Wgsl(import_source) = &imported_shader.source {
                 final_string.push_str(import_source);
+            } else {
+                return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
             }
         }
-        Source::Glsl(_, _) => todo!(),
-        Source::SpirV(_) => todo!(),
+        Source::Glsl(_, _) => {
+            if let Source::Glsl(import_source, _) = &imported_shader.source {
+                final_string.push_str(import_source);
+            } else {
+                return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
+            }
+        }
+        Source::SpirV(_) => {
+            return Err(ProcessShaderError::ShaderFormatDoesNotSupportImports);
+        }
     }
 
     Ok(())
@@ -433,6 +447,7 @@ fn apply_import(
 mod tests {
     use bevy_asset::Handle;
     use bevy_utils::HashMap;
+    use naga::ShaderStage;
 
     use crate::render_resource::{ProcessShaderError, Shader, ShaderImport, ShaderProcessor};
     #[rustfmt::skip]
@@ -635,7 +650,7 @@ fn foo() { }
     }
 
     #[test]
-    fn process_import() {
+    fn process_import_wgsl() {
         #[rustfmt::skip]
         const FOO: &str = r"
 fn foo() { }
@@ -664,6 +679,46 @@ fn bar() { }
             .process(&Shader::from_wgsl(INPUT), &[], &shaders, &import_handles)
             .unwrap();
         assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_import_glsl() {
+        #[rustfmt::skip]
+        const FOO: &str = r"
+void foo() { }
+";
+        #[rustfmt::skip]
+        const INPUT: &str = r"
+#import FOO
+void bar() { }
+";
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+
+void foo() { }
+void bar() { }
+";
+        let processor = ShaderProcessor::default();
+        let mut shaders = HashMap::default();
+        let mut import_handles = HashMap::default();
+        let foo_handle = Handle::<Shader>::default();
+        shaders.insert(
+            foo_handle.clone_weak(),
+            Shader::from_glsl(FOO, ShaderStage::Vertex),
+        );
+        import_handles.insert(
+            ShaderImport::Custom("FOO".to_string()),
+            foo_handle.clone_weak(),
+        );
+        let result = processor
+            .process(
+                &Shader::from_glsl(INPUT, ShaderStage::Vertex),
+                &[],
+                &shaders,
+                &import_handles,
+            )
+            .unwrap();
+        assert_eq!(result.get_glsl_source().unwrap(), EXPECTED);
     }
 
     #[test]
