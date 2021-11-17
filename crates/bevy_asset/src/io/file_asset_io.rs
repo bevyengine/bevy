@@ -1,15 +1,23 @@
-use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
+#[cfg(feature = "filesystem_watcher")]
+use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
+use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
+#[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::Res;
-use bevy_utils::{BoxedFuture, HashSet};
+use bevy_utils::BoxedFuture;
+#[cfg(feature = "filesystem_watcher")]
+use bevy_utils::HashSet;
+#[cfg(feature = "filesystem_watcher")]
 use crossbeam_channel::TryRecvError;
 use fs::File;
-use io::Read;
+#[cfg(feature = "filesystem_watcher")]
 use parking_lot::RwLock;
+#[cfg(feature = "filesystem_watcher")]
+use std::sync::Arc;
 use std::{
-    env, fs, io,
+    env, fs,
+    io::Read,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 pub struct FileAssetIo {
@@ -21,6 +29,7 @@ pub struct FileAssetIo {
 impl FileAssetIo {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         FileAssetIo {
+            #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
             root_path: Self::get_root_path().join(path.as_ref()),
         }
