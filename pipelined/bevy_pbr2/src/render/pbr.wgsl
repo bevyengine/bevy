@@ -1,72 +1,3 @@
-// NOTE: Keep in sync with depth.wgsl
-[[block]]
-struct View {
-    view_proj: mat4x4<f32>;
-    projection: mat4x4<f32>;
-    world_position: vec3<f32>;
-};
-
-
-[[block]]
-struct Mesh {
-    model: mat4x4<f32>;
-    inverse_transpose_model: mat4x4<f32>;
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
-    flags: u32;
-};
-
-let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
-
-[[group(0), binding(0)]]
-var<uniform> view: View;
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-
-struct Vertex {
-    [[location(0)]] position: vec3<f32>;
-    [[location(1)]] normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] tangent: vec4<f32>;
-#endif
-};
-
-struct VertexOutput {
-    [[builtin(position)]] clip_position: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
-#endif
-};
-
-[[stage(vertex)]]
-fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
-    var out: VertexOutput;
-    out.uv = vertex.uv;
-    out.world_position = world_position;
-    out.clip_position = view.view_proj * world_position;
-    out.world_normal = mat3x3<f32>(
-        mesh.inverse_transpose_model[0].xyz,
-        mesh.inverse_transpose_model[1].xyz,
-        mesh.inverse_transpose_model[2].xyz
-    ) * vertex.normal;
-#ifdef VERTEX_TANGENTS
-    out.world_tangent = vec4<f32>(
-        mat3x3<f32>(
-            mesh.model[0].xyz,
-            mesh.model[1].xyz,
-            mesh.model[2].xyz
-        ) * vertex.tangent.xyz,
-        vertex.tangent.w
-    );
-#endif
-    return out;
-}
-
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -101,6 +32,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 //
 // The above integration needs to be approximated.
 
+#import bevy_pbr::mesh_view_bind_group
+#import bevy_pbr::mesh_struct
+
+[[group(2), binding(0)]]
+var<uniform> mesh: Mesh;
+
 [[block]]
 struct StandardMaterial {
     base_color: vec4<f32>;
@@ -122,49 +59,6 @@ let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
-
-struct PointLight {
-    projection: mat4x4<f32>;
-    color: vec4<f32>;
-    position: vec3<f32>;
-    inverse_square_range: f32;
-    radius: f32;
-    near: f32;
-    far: f32;
-    shadow_depth_bias: f32;
-    shadow_normal_bias: f32;
-};
-
-struct DirectionalLight {
-    view_projection: mat4x4<f32>;
-    color: vec4<f32>;
-    direction_to_light: vec3<f32>;
-    shadow_depth_bias: f32;
-    shadow_normal_bias: f32;
-};
-
-[[block]]
-struct Lights {
-    // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
-    // TODO: this can be removed if we move to storage buffers for light arrays
-    point_lights: array<PointLight, 10>;
-    directional_lights: array<DirectionalLight, 1>;
-    ambient_color: vec4<f32>;
-    n_point_lights: u32;
-    n_directional_lights: u32;
-};
-
-
-[[group(0), binding(1)]]
-var<uniform> lights: Lights;
-[[group(0), binding(2)]]
-var point_shadow_textures: texture_depth_cube_array;
-[[group(0), binding(3)]]
-var point_shadow_textures_sampler: sampler_comparison;
-[[group(0), binding(4)]]
-var directional_shadow_textures: texture_depth_2d_array;
-[[group(0), binding(5)]]
-var directional_shadow_textures_sampler: sampler_comparison;
 
 [[group(1), binding(0)]]
 var<uniform> material: StandardMaterial;

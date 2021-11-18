@@ -1,16 +1,6 @@
-[[block]]
-struct View {
-    view_proj: mat4x4<f32>;
-    projection: mat4x4<f32>;
-    world_position: vec3<f32>;
-};
-[[group(0), binding(0)]]
-var<uniform> view: View;
+#import bevy_pbr::mesh_view_bind_group
+#import bevy_pbr::mesh_struct
 
-[[block]]
-struct Mesh {
-    transform: mat4x4<f32>;
-};
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh;
 
@@ -26,7 +16,7 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.transform * vec4<f32>(vertex.position, 1.0);
+    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
 
     var out: VertexOutput;
     out.clip_position = view.view_proj * world_position;

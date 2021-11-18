@@ -16,7 +16,7 @@ use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render2::{
-    render_component::{ExtractComponentPlugin, UniformComponentPlugin},
+    render_component::ExtractComponentPlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
@@ -44,14 +44,18 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        let pbr_shader = Shader::from_wgsl(include_str!("render/pbr.wgsl"));
-        shaders.set_untracked(PBR_SHADER_HANDLE, pbr_shader);
-        let shadow_shader = Shader::from_wgsl(include_str!("render/depth.wgsl"));
-        shaders.set_untracked(SHADOW_SHADER_HANDLE, shadow_shader);
+        shaders.set_untracked(
+            PBR_SHADER_HANDLE,
+            Shader::from_wgsl(include_str!("render/pbr.wgsl")),
+        );
+        shaders.set_untracked(
+            SHADOW_SHADER_HANDLE,
+            Shader::from_wgsl(include_str!("render/depth.wgsl")),
+        );
 
         app.add_plugin(StandardMaterialPlugin)
+            .add_plugin(MeshRenderPlugin)
             .add_plugin(ExtractComponentPlugin::<Handle<StandardMaterial>>::default())
-            .add_plugin(UniformComponentPlugin::<MeshUniform>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -84,7 +88,6 @@ impl Plugin for PbrPlugin {
 
         let render_app = app.sub_app(RenderApp);
         render_app
-            .add_system_to_stage(RenderStage::Extract, render::extract_meshes)
             .add_system_to_stage(
                 RenderStage::Extract,
                 render::extract_lights.label(RenderLightSystems::ExtractLights),
@@ -97,13 +100,12 @@ impl Plugin for PbrPlugin {
                     .exclusive_system()
                     .label(RenderLightSystems::PrepareLights),
             )
-            .add_system_to_stage(RenderStage::Queue, render::queue_meshes)
             .add_system_to_stage(
                 RenderStage::Queue,
                 render::queue_shadows.label(RenderLightSystems::QueueShadows),
             )
+            .add_system_to_stage(RenderStage::Queue, queue_meshes)
             .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
-            .add_system_to_stage(RenderStage::Queue, render::queue_transform_bind_group)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
             .init_resource::<PbrPipeline>()
             .init_resource::<ShadowPipeline>()

@@ -1,15 +1,14 @@
 use crate::{
-    render_asset::RenderAssets,
     render_resource::{
         AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ProcessShaderError,
         RawFragmentState, RawRenderPipelineDescriptor, RawVertexState, RenderPipeline,
-        RenderPipelineDescriptor, Shader, ShaderProcessor,
+        RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor,
     },
     renderer::RenderDevice,
     RenderWorld,
 };
 use bevy_app::EventReader;
-use bevy_asset::{AssetEvent, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{HashMap, HashSet};
 use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
@@ -20,6 +19,8 @@ use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
 pub struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
     processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
+    dependents: HashSet<Handle<Shader>>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -32,6 +33,9 @@ impl CachedPipelineId {
 #[derive(Default)]
 struct ShaderCache {
     data: HashMap<Handle<Shader>, ShaderData>,
+    shaders: HashMap<Handle<Shader>, Shader>,
+    import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
+    waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
     processor: ShaderProcessor,
 }
 
@@ -39,41 +43,101 @@ impl ShaderCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
-        shaders: &RenderAssets<Shader>,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
     ) -> Result<Arc<ShaderModule>, RenderPipelineError> {
-        let shader = shaders
+        let shader = self
+            .shaders
             .get(handle)
             .ok_or_else(|| RenderPipelineError::ShaderNotLoaded(handle.clone_weak()))?;
         let data = self.data.entry(handle.clone_weak()).or_default();
+        if shader.imports().len() != data.resolved_imports.len() {
+            return Err(RenderPipelineError::ShaderImportNotYetAvailable);
+        }
+
         data.pipelines.insert(pipeline);
+
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                let processed = self.processor.process_shader(shader, shader_defs)?;
+                let processed = self.processor.process(
+                    shader,
+                    shader_defs,
+                    &self.shaders,
+                    &self.import_path_shaders,
+                )?;
                 let module_descriptor = processed.get_module_descriptor()?;
                 entry.insert(Arc::new(
                     render_device.create_shader_module(&module_descriptor),
                 ))
             }
         };
+
         Ok(module.clone())
     }
 
-    fn clear(
-        &mut self,
-        handle: &Handle<Shader>,
-    ) -> Option<impl Iterator<Item = CachedPipelineId> + '_> {
-        let data = self.data.get_mut(handle)?;
-        data.processed_shaders.clear();
-        Some(data.pipelines.drain())
+    fn clear(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
+        let mut shaders_to_clear = vec![handle.clone_weak()];
+        let mut pipelines_to_queue = Vec::new();
+        while let Some(handle) = shaders_to_clear.pop() {
+            if let Some(data) = self.data.get_mut(&handle) {
+                data.processed_shaders.clear();
+                pipelines_to_queue.extend(data.pipelines.iter().cloned());
+                shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
+            }
+        }
+
+        pipelines_to_queue
     }
 
-    fn remove(&mut self, handle: &Handle<Shader>) {
-        self.data.remove(handle);
+    fn set_shader(&mut self, handle: &Handle<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
+        let pipelines_to_queue = self.clear(handle);
+        if let Some(path) = shader.import_path() {
+            self.import_path_shaders
+                .insert(path.clone(), handle.clone_weak());
+            if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
+                for waiting_shader in waiting_shaders.drain(..) {
+                    // resolve waiting shader import
+                    let data = self.data.entry(waiting_shader.clone_weak()).or_default();
+                    data.resolved_imports
+                        .insert(path.clone(), handle.clone_weak());
+                    // add waiting shader as dependent of this shader
+                    let data = self.data.entry(handle.clone_weak()).or_default();
+                    data.dependents.insert(waiting_shader.clone_weak());
+                }
+            }
+        }
+
+        for import in shader.imports() {
+            if let Some(import_handle) = self.import_path_shaders.get(import) {
+                // resolve import because it is currently available
+                let data = self.data.entry(handle.clone_weak()).or_default();
+                data.resolved_imports
+                    .insert(import.clone(), import_handle.clone_weak());
+                // add this shader as a dependent of the import
+                let data = self.data.entry(import_handle.clone_weak()).or_default();
+                data.dependents.insert(handle.clone_weak());
+            } else {
+                let waiting = self.waiting_on_import.entry(import.clone()).or_default();
+                waiting.push(handle.clone_weak());
+            }
+        }
+
+        self.shaders.insert(handle.clone_weak(), shader);
+        pipelines_to_queue
+    }
+
+    fn remove(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
+        let pipelines_to_queue = self.clear(handle);
+        if let Some(shader) = self.shaders.remove(handle) {
+            if let Some(import_path) = shader.import_path() {
+                self.import_path_shaders.remove(import_path);
+            }
+        }
+
+        pipelines_to_queue
     }
 }
 
@@ -107,7 +171,7 @@ pub struct RenderPipelineCache {
     shader_cache: ShaderCache,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
-    waiting_pipelines: Vec<CachedPipelineId>,
+    waiting_pipelines: HashSet<CachedPipelineId>,
 }
 
 struct CachedPipeline {
@@ -144,6 +208,8 @@ pub enum RenderPipelineError {
     ProcessShaderError(#[from] ProcessShaderError),
     #[error(transparent)]
     AsModuleDescriptorError(#[from] AsModuleDescriptorError),
+    #[error("Shader import not yet available.")]
+    ShaderImportNotYetAvailable,
 }
 
 impl RenderPipelineCache {
@@ -177,29 +243,27 @@ impl RenderPipelineCache {
             descriptor,
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.push(id);
+        self.waiting_pipelines.insert(id);
         id
     }
 
-    pub fn mark_shader_dirty(&mut self, shader: &Handle<Shader>) {
-        if let Some(cached_pipelines) = self.shader_cache.clear(shader) {
-            for cached_pipeline in cached_pipelines {
-                self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
-                self.waiting_pipelines.push(cached_pipeline);
-            }
+    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
+        let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
+        for cached_pipeline in pipelines_to_queue {
+            self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
+            self.waiting_pipelines.insert(cached_pipeline);
         }
     }
 
-    pub fn remove_shader(&mut self, shader: &Handle<Shader>) {
-        if let Some(cached_pipelines) = self.shader_cache.clear(shader) {
-            for cached_pipeline in cached_pipelines {
-                self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
-                self.waiting_pipelines.push(cached_pipeline);
-            }
+    fn remove_shader(&mut self, shader: &Handle<Shader>) {
+        let pipelines_to_queue = self.shader_cache.remove(shader);
+        for cached_pipeline in pipelines_to_queue {
+            self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
+            self.waiting_pipelines.insert(cached_pipeline);
         }
     }
 
-    pub fn process_queue(&mut self, shaders: &RenderAssets<Shader>) {
+    pub fn process_queue(&mut self) {
         let pipelines = std::mem::take(&mut self.waiting_pipelines);
         for id in pipelines {
             let state = &mut self.pipelines[id.0];
@@ -208,7 +272,8 @@ impl RenderPipelineCache {
                 CachedPipelineState::Queued => {}
                 CachedPipelineState::Err(err) => {
                     match err {
-                        RenderPipelineError::ShaderNotLoaded(_) => { /* retry */ }
+                        RenderPipelineError::ShaderNotLoaded(_)
+                        | RenderPipelineError::ShaderImportNotYetAvailable => { /* retry */ }
                         RenderPipelineError::ProcessShaderError(_)
                         | RenderPipelineError::AsModuleDescriptorError(_) => {
                             // shader could not be processed ... retrying won't help
@@ -221,7 +286,6 @@ impl RenderPipelineCache {
             let descriptor = &state.descriptor;
             let vertex_module = match self.shader_cache.get(
                 &self.device,
-                shaders,
                 id,
                 &descriptor.vertex.shader,
                 &descriptor.vertex.shader_defs,
@@ -229,7 +293,7 @@ impl RenderPipelineCache {
                 Ok(module) => module,
                 Err(err) => {
                     state.state = CachedPipelineState::Err(err);
-                    self.waiting_pipelines.push(id);
+                    self.waiting_pipelines.insert(id);
                     continue;
                 }
             };
@@ -237,7 +301,6 @@ impl RenderPipelineCache {
             let fragment_data = if let Some(fragment) = &descriptor.fragment {
                 let fragment_module = match self.shader_cache.get(
                     &self.device,
-                    shaders,
                     id,
                     &fragment.shader,
                     &fragment.shader_defs,
@@ -245,7 +308,7 @@ impl RenderPipelineCache {
                     Ok(module) => module,
                     Err(err) => {
                         state.state = CachedPipelineState::Err(err);
-                        self.waiting_pipelines.push(id);
+                        self.waiting_pipelines.insert(id);
                         continue;
                     }
                 };
@@ -300,24 +363,24 @@ impl RenderPipelineCache {
         }
     }
 
-    pub(crate) fn process_pipeline_queue_system(
-        mut cache: ResMut<Self>,
-        shaders: Res<RenderAssets<Shader>>,
-    ) {
-        cache.process_queue(&shaders);
+    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+        cache.process_queue();
     }
 
-    pub(crate) fn extract_dirty_shaders(
+    pub(crate) fn extract_shaders(
         mut world: ResMut<RenderWorld>,
+        shaders: Res<Assets<Shader>>,
         mut events: EventReader<AssetEvent<Shader>>,
     ) {
         let mut cache = world.get_resource_mut::<Self>().unwrap();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    cache.mark_shader_dirty(handle)
+                    if let Some(shader) = shaders.get(handle) {
+                        cache.set_shader(handle, shader);
+                    }
                 }
-                AssetEvent::Removed { handle } => cache.shader_cache.remove(handle),
+                AssetEvent::Removed { handle } => cache.remove_shader(handle),
             }
         }
     }

@@ -1,6 +1,6 @@
 use crate::{
     AmbientLight, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap, DrawMesh,
-    NotShadowCaster, PbrPipeline, PointLight, PointLightShadowMap, SetTransformBindGroup,
+    MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
     SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
@@ -19,7 +19,8 @@ use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        EntityRenderCommand, PhaseItem, RenderPhase, SetItemPipeline, TrackedRenderPass,
+        EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -140,11 +141,11 @@ impl FromWorld for ShadowPipeline {
             label: Some("shadow_view_layout"),
         });
 
-        let pbr_pipeline = world.get_resource::<PbrPipeline>().unwrap();
+        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
         ShadowPipeline {
             view_layout,
-            mesh_layout: pbr_pipeline.mesh_layout.clone(),
+            mesh_layout: mesh_pipeline.mesh_layout.clone(),
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
@@ -881,7 +882,7 @@ impl Node for ShadowPassNode {
 pub type DrawShadowMesh = (
     SetItemPipeline,
     SetShadowViewBindGroup<0>,
-    SetTransformBindGroup<1>,
+    SetMeshBindGroup<1>,
     DrawMesh,
 );
 
@@ -894,7 +895,7 @@ impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
         _item: Entity,
         (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let view_uniform_offset = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
@@ -905,5 +906,7 @@ impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
                 .unwrap(),
             &[view_uniform_offset.offset],
         );
+
+        RenderCommandResult::Success
     }
 }

@@ -7,8 +7,8 @@ use bevy::{
     },
     math::{Vec3, Vec4},
     pbr2::{
-        DrawMesh, MeshUniform, PbrPipeline, PbrPipelineKey, SetMeshViewBindGroup,
-        SetTransformBindGroup,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
     prelude::{AddAsset, App, AssetServer, Assets, GlobalTransform, Handle, Plugin, Transform},
     reflect::TypeUuid,
@@ -19,8 +19,8 @@ use bevy::{
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::ExtractComponentPlugin,
         render_phase::{
-            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderPhase, SetItemPipeline,
-            TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
+            SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -127,22 +127,21 @@ impl Plugin for CustomMaterialPlugin {
 }
 
 pub struct CustomPipeline {
+    mesh_pipeline: MeshPipeline,
     material_layout: BindGroupLayout,
     shader: Handle<Shader>,
-    pbr_pipeline: PbrPipeline,
 }
 
 impl SpecializedPipeline for CustomPipeline {
-    type Key = PbrPipelineKey;
+    type Key = MeshPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.pbr_pipeline.specialize(key);
-        descriptor.vertex.shader = self.shader.clone();
+        let mut descriptor = self.mesh_pipeline.specialize(key);
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
-            self.pbr_pipeline.view_layout.clone(),
-            self.pbr_pipeline.mesh_layout.clone(),
+            self.mesh_pipeline.view_layout.clone(),
             self.material_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
         ]);
         descriptor
     }
@@ -167,8 +166,8 @@ impl FromWorld for CustomPipeline {
         });
 
         CustomPipeline {
-            pbr_pipeline: world.get_resource::<PbrPipeline>().unwrap().clone(),
-            shader: asset_server.load("shaders/custom.wgsl"),
+            mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
+            shader: asset_server.load("shaders/custom_material.wgsl"),
             material_layout,
         }
     }
@@ -189,7 +188,7 @@ pub fn queue_custom(
         .read()
         .get_id::<DrawCustom>()
         .unwrap();
-    let key = PbrPipelineKey::from_msaa_samples(msaa.samples);
+    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
@@ -213,8 +212,8 @@ pub fn queue_custom(
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetTransformBindGroup<1>,
     SetCustomMaterialBindGroup,
+    SetMeshBindGroup<2>,
     DrawMesh,
 );
 
@@ -229,9 +228,10 @@ impl EntityRenderCommand for SetCustomMaterialBindGroup {
         item: Entity,
         (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let material_handle = query.get(item).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
-        pass.set_bind_group(2, &material.bind_group, &[]);
+        pass.set_bind_group(1, &material.bind_group, &[]);
+        RenderCommandResult::Success
     }
 }
