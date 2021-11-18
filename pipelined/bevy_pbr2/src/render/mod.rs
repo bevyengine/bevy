@@ -219,7 +219,6 @@ pub fn queue_meshes(
     mut pipelines: ResMut<SpecializedPipelines<PbrPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     msaa: Res<Msaa>,
-    global_light_meta: Res<GlobalLightMeta>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
     standard_material_meshes: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &MeshUniform)>,
