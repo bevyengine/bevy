@@ -1,8 +1,8 @@
 use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
 use bevy_math::{Size, Vec2};
-use bevy_render::prelude::Texture;
-use bevy_sprite::TextureAtlas;
+use bevy_render2::texture::Image;
+use bevy_sprite2::TextureAtlas;
 use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText,
 };
@@ -50,7 +50,7 @@ impl GlyphBrush {
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         fonts: &Assets<Font>,
         texture_atlases: &mut Assets<TextureAtlas>,
-        textures: &mut Assets<Texture>,
+        textures: &mut Assets<Image>,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());

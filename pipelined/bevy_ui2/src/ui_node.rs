@@ -1,11 +1,10 @@
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
-#[derive(Debug, Clone, Default, RenderResources, Reflect)]
+#[derive(Debug, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,

@@ -1,21 +1,15 @@
-use crate::{CalculatedSize, Node, Style, Val};
+use crate::{CalculatedSize, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or, QueryState, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    prelude::QueryState,
+    query::{Changed, Or, With},
+    system::{Local, QuerySet, Res, ResMut},
 };
 use bevy_math::Size;
-use bevy_render::{
-    draw::{Draw, DrawContext, Drawable, OutsideFrustum},
-    mesh::Mesh,
-    prelude::{Msaa, Visible},
-    renderer::RenderResourceBindings,
-    texture::Texture,
-};
-use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError};
-use bevy_transform::prelude::GlobalTransform;
+use bevy_render2::texture::Image;
+use bevy_sprite2::TextureAtlas;
+use bevy_text2::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
 use bevy_window::Windows;
 
 #[derive(Debug, Default)]
@@ -46,7 +40,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
-    mut textures: ResMut<Assets<Texture>>,
+    mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -138,7 +132,7 @@ pub fn text_system(
 
     queued_text.entities = new_queue;
 }
-
+/*
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn draw_text_system(
     mut context: DrawContext,
@@ -182,3 +176,4 @@ pub fn draw_text_system(
         }
     }
 }
+*/

@@ -1,6 +1,6 @@
 use bevy_asset::Handle;
 use bevy_math::Size;
-use bevy_render::color::Color;
+use bevy_render2::color::Color;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::Font;
@@ -16,8 +16,8 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::{AssetServer, Handle};
-    /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle};
+    /// # use bevy_render2::color::Color;
+    /// # use bevy_text2::{Font, Text, TextAlignment, TextStyle};
     /// # use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();

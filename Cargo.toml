@@ -25,6 +25,8 @@ default = [
   "bevy_sprite2",
   "bevy_render2",
   "bevy_pbr2",
+  "bevy_ui2",
+  "bevy_text2",
   "bevy_winit",
   "render",
   "png",
@@ -59,6 +61,8 @@ bevy_render2 = ["bevy_internal/bevy_render2"]
 bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
 bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
 bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
+bevy_ui2 = ["bevy_internal/bevy_ui2"]
+bevy_text2 = ["bevy_internal/bevy_text2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace_tracy = ["bevy_internal/trace_tracy"]
@@ -139,6 +143,10 @@ path = "examples/2d/sprite_sheet.rs"
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
+
+[[example]]
+name = "text2d_pipelined"
+path = "examples/2d/text2d_pipelined.rs"
 
 [[example]]
 name = "texture_atlas"
@@ -505,6 +513,10 @@ path = "examples/ui/text_debug.rs"
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
+
+[[example]]
+name = "ui_pipelined"
+path = "examples/ui/ui_pipelined.rs"
 
 # Window
 [[example]]

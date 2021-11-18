@@ -2,58 +2,40 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    query::{Changed, QueryState, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    query::{Changed, QueryState, With},
+    system::{Local, QuerySet, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
-use bevy_render::{
-    draw::{DrawContext, Drawable, OutsideFrustum},
-    mesh::Mesh,
-    prelude::{Draw, Msaa, Texture, Visible},
-    render_graph::base::MainPass,
-    renderer::RenderResourceBindings,
-};
-use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
+use bevy_math::Size;
+use bevy_render2::texture::Image;
+use bevy_sprite2::TextureAtlas;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
+use crate::{DefaultTextPipeline, Font, FontAtlasSet, Text, Text2dSize, TextError};
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug)]
 pub struct Text2dBundle {
-    pub draw: Draw,
-    pub visible: Visible,
     pub text: Text,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub main_pass: MainPass,
     pub text_2d_size: Text2dSize,
 }
 
 impl Default for Text2dBundle {
     fn default() -> Self {
         Self {
-            draw: Draw {
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
             text: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            main_pass: MainPass {},
             text_2d_size: Text2dSize {
                 size: Size::default(),
             },
         }
     }
 }
-
+/*
 /// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
 /// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
 /// rotation are ignored.
@@ -118,7 +100,7 @@ pub fn draw_text2d_system(
             drawable_text.draw(&mut draw, &mut context).unwrap();
         }
     }
-}
+}*/
 
 #[derive(Debug, Default)]
 pub struct QueuedText2d {
@@ -129,15 +111,15 @@ pub struct QueuedText2d {
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
-    mut textures: ResMut<Assets<Texture>>,
+    mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        QueryState<Entity, (With<MainPass>, Changed<Text>)>,
-        QueryState<(&Text, &mut Text2dSize), With<MainPass>>,
+        QueryState<Entity, (With<Text2dSize>, Changed<Text>)>,
+        QueryState<(&Text, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue

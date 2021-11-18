@@ -5,8 +5,6 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_math::Size;
-use bevy_render::texture::Texture;
-use bevy_sprite::ColorMaterial;
 
 #[derive(Debug, Clone)]
 pub enum Image {
@@ -20,19 +18,23 @@ impl Default for Image {
 }
 
 pub fn image_node_system(
-    materials: Res<Assets<ColorMaterial>>,
-    textures: Res<Assets<Texture>>,
-    mut query: Query<(&mut CalculatedSize, &Handle<ColorMaterial>), With<Image>>,
+    textures: Res<Assets<bevy_render2::texture::Image>>,
+    mut query: Query<
+        (
+            &mut CalculatedSize,
+            &Option<Handle<bevy_render2::texture::Image>>,
+        ),
+        With<Image>,
+    >,
 ) {
-    for (mut calculated_size, material_handle) in query.iter_mut() {
-        if let Some(texture) = materials
-            .get(material_handle)
-            .and_then(|material| material.texture.as_ref())
-            .and_then(|texture_handle| textures.get(texture_handle))
+    for (mut calculated_size, texture_handle) in query.iter_mut() {
+        if let Some(texture) = texture_handle
+            .as_ref()
+            .and_then(|handle| textures.get(handle))
         {
             let size = Size {
-                width: texture.size.width as f32,
-                height: texture.size.height as f32,
+                width: texture.texture_descriptor.size.width as f32,
+                height: texture.texture_descriptor.size.height as f32,
             };
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
