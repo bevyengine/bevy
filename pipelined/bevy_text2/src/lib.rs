@@ -27,7 +27,9 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
+use bevy_render2::{RenderApp, RenderStage};
+use bevy_sprite2::SpriteSystem;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
@@ -41,6 +43,11 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(CoreStage::PostUpdate, text2d_system);
-        // .add_system_to_stage(RenderStage::Draw, text2d::draw_text2d_system);
+
+        let render_app = app.sub_app(RenderApp);
+        render_app.add_system_to_stage(
+            RenderStage::Extract,
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprite),
+        );
     }
 }
