@@ -1,4 +1,7 @@
-use crate::{LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline, ViewLights};
+use crate::{
+    LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline, ViewLightsUniformOffset,
+    ViewShadowBindings,
+};
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
@@ -523,13 +526,13 @@ pub fn queue_mesh_view_bind_groups(
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewLights)>,
+    mut views: Query<(Entity, &ViewShadowBindings)>,
 ) {
     if let (Some(view_binding), Some(light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
-        for (entity, view_lights) in views.iter_mut() {
+        for (entity, view_shadow_bindings) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -543,7 +546,7 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 2,
                         resource: BindingResource::TextureView(
-                            &view_lights.point_light_depth_texture_view,
+                            &view_shadow_bindings.point_light_depth_texture_view,
                         ),
                     },
                     BindGroupEntry {
@@ -553,7 +556,7 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 4,
                         resource: BindingResource::TextureView(
-                            &view_lights.directional_light_depth_texture_view,
+                            &view_shadow_bindings.directional_light_depth_texture_view,
                         ),
                     },
                     BindGroupEntry {
@@ -578,7 +581,7 @@ pub struct SetMeshViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
     type Param = SQuery<(
         Read<ViewUniformOffset>,
-        Read<ViewLights>,
+        Read<ViewLightsUniformOffset>,
         Read<MeshViewBindGroup>,
     )>;
     #[inline]
@@ -592,7 +595,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.gpu_light_binding_index],
+            &[view_uniform.offset, view_lights.offset],
         );
 
         RenderCommandResult::Success

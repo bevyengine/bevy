@@ -33,6 +33,7 @@ pub struct PointLight {
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
+    pub shadows_enabled: bool,
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
@@ -48,6 +49,7 @@ impl Default for PointLight {
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
+            shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
         }
@@ -101,6 +103,7 @@ pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
     pub illuminance: f32,
+    pub shadows_enabled: bool,
     pub shadow_projection: OrthographicProjection,
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
@@ -114,6 +117,7 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             illuminance: 100000.0,
+            shadows_enabled: false,
             shadow_projection: OrthographicProjection {
                 left: -size,
                 right: size,
@@ -178,6 +182,13 @@ pub fn update_directional_light_frusta(
     mut views: Query<(&GlobalTransform, &DirectionalLight, &mut Frustum)>,
 ) {
     for (transform, directional_light, mut frustum) in views.iter_mut() {
+        // The frustum is used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frustum is
+        // not needed.
+        if !directional_light.shadows_enabled {
+            continue;
+        }
+
         let view_projection = directional_light.shadow_projection.get_projection_matrix()
             * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
@@ -199,6 +210,13 @@ pub fn update_point_light_frusta(
         .collect::<Vec<_>>();
 
     for (transform, point_light, mut cubemap_frusta) in views.iter_mut() {
+        // The frusta are used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frusta are
+        // not needed.
+        if !point_light.shadows_enabled {
+            continue;
+        }
+
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
         // and ignore rotation because we want the shadow map projections to align with the axes
@@ -227,10 +245,12 @@ pub fn check_light_visibility(
         &mut CubemapVisibleEntities,
         Option<&RenderLayers>,
     )>,
-    mut directional_lights: Query<
-        (&Frustum, &mut VisibleEntities, Option<&RenderLayers>),
-        With<DirectionalLight>,
-    >,
+    mut directional_lights: Query<(
+        &DirectionalLight,
+        &Frustum,
+        &mut VisibleEntities,
+        Option<&RenderLayers>,
+    )>,
     mut visible_entity_query: Query<
         (
             Entity,
@@ -244,8 +264,16 @@ pub fn check_light_visibility(
     >,
 ) {
     // Directonal lights
-    for (frustum, mut visible_entities, maybe_view_mask) in directional_lights.iter_mut() {
+    for (directional_light, frustum, mut visible_entities, maybe_view_mask) in
+        directional_lights.iter_mut()
+    {
         visible_entities.entities.clear();
+
+        // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+        if !directional_light.shadows_enabled {
+            continue;
+        }
+
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         for (
@@ -288,6 +316,12 @@ pub fn check_light_visibility(
         for visible_entities in cubemap_visible_entities.iter_mut() {
             visible_entities.entities.clear();
         }
+
+        // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+        if !point_light.shadows_enabled {
+            continue;
+        }
+
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         let light_sphere = Sphere {
             center: transform.translation,
