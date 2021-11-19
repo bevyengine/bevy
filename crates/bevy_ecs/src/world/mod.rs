@@ -656,7 +656,7 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
+    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None].
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn get_resource<T: Resource>(&self) -> Option<&T> {
