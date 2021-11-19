@@ -49,7 +49,7 @@ impl Default for PointLight {
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: true,
+            shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
         }
@@ -117,7 +117,7 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             illuminance: 100000.0,
-            shadows_enabled: true,
+            shadows_enabled: false,
             shadow_projection: OrthographicProjection {
                 left: -size,
                 right: size,
