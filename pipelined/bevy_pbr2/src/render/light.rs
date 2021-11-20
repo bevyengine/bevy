@@ -979,10 +979,6 @@ pub fn prepare_clusters(
             .cluster_offsets_and_counts
             .write_buffer(&render_device, &render_queue);
 
-        // dbg!(view_clusters_bindings.cluster_light_index_lists.values());
-        // dbg!(view_clusters_bindings.cluster_offsets_and_counts.values());
-        // panic!("SMURF");
-
         commands.get_or_spawn(entity).insert(view_clusters_bindings);
     }
 }

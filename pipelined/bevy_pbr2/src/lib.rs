@@ -132,7 +132,6 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 RenderStage::Prepare,
-                // FIXME: Is this true?
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_clusters

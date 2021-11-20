@@ -259,39 +259,27 @@ fn compute_aabb_for_cluster(
     // Calculate the minimum and maximum points in screen space
     let p_min = ijk.xy() * tile_size;
     let p_max = p_min + tile_size;
-    // dbg!(p_min);
 
     // Convert to view space at the near plane
     // NOTE: 1.0 is the near plane due to using reverse z projections
     let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
     let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
-    // dbg!(p_min);
 
-    // dbg!(z_near);
-    // dbg!(z_far);
     let z_far_over_z_near = -z_far / -z_near;
-    // dbg!(z_far_over_z_near);
     let cluster_near = -z_near * z_far_over_z_near.powf(ijk.z / cluster_dimensions.z as f32);
-    // dbg!(cluster_near);
     // NOTE: This could be simplified to:
     // let cluster_far = cluster_near * z_far_over_z_near;
     let cluster_far = -z_near * z_far_over_z_near.powf((ijk.z + 1.0) / cluster_dimensions.z as f32);
-    // dbg!(cluster_far);
 
     // Calculate the four intersection points of the min and max points with the cluster near and far planes
     let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
-    // dbg!(p_min_near);
     let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
-    // dbg!(p_min_far);
     let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
-    // dbg!(p_max_near);
     let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
-    // dbg!(p_max_far);
 
     let cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
     let cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
 
-    // panic!("blerp");
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
@@ -324,7 +312,7 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         // Calculate view space AABBs
         // NOTE: It is important that these are iterated in a specific order
         //       so that we can calculate the cluster index in the fragment shader!
-        // I choose to scan along rows of tiles in x,y, and for each tile then scan
+        // I (robswain) choose to scan along rows of tiles in x,y, and for each tile then scan
         // along z
         let mut aabbs = Vec::with_capacity(
             (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
@@ -387,12 +375,8 @@ fn ndc_position_to_cluster(
     let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
     let frag_coord =
         (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
-    // dbg!(ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5));
-    // dbg!(&frag_coord);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
-    // dbg!(&xy);
     let z_slice = view_z_to_z_slice(cluster_factors, view_z);
-    // dbg!(&z_slice);
     xy.as_uvec2()
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
