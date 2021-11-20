@@ -10,18 +10,26 @@ use bevy::{ecs::schedule::ShouldRun, prelude::*, reflect::TypeRegistry, scene::S
 ///     Component data from the prefab won't be available immediately; the PrefabFactory system runs once per frame,
 ///     and the actual scene must load before the scene is applied.
 ///     
-///     Sub-entities are not supported currently, as the factory only applies the first entity listed in the scene.
-///     It may be possible to spawn multiple new entities at a time, but it would be difficult to capture them.
-///     It is likely that nested scene support is necessary before prefab sub-entities are ergonomic.
+///     Only the FIRST entity listed in the file will be inserted into the provided entity.
+///     All others will be spawned into the world as needed.
+///     Make sure to the other entities are parented somehow when writing the scene file so you can keep track of them!
 
 #[derive(Default)]
 pub struct PrefabFactory {
-    queue: HashMap<Entity, Handle<DynamicScene>>,
+    queue: HashMap<Entity, PrefabFactoryEntry>,
+}
+
+struct PrefabFactoryEntry {
+    handle: Handle<DynamicScene>,
+    overwrite_existing_components: bool
 }
 
 impl PrefabFactory {
-    pub fn add_to_queue(&mut self, entity: Entity, handle: Handle<DynamicScene>) {
-        self.queue.insert(entity, handle);
+    pub fn add_to_queue(&mut self, entity: Entity, handle: Handle<DynamicScene>, overwrite_existing_components: bool) {
+        self.queue.insert(entity, PrefabFactoryEntry {
+            handle,
+            overwrite_existing_components,
+        });
     }
 }
 
@@ -70,9 +78,14 @@ fn setup(
 ) {
     let handle: Handle<DynamicScene> = asset_server.load("my_scene/path.scn.ron");
 
-    let prefab_entity = commands.spawn().insert(TrackingComponent).id();
+    let prefab_entity = commands.spawn()
+        .insert(TrackingComponent).id()
+        .insert(A {
+            message: "I came from the code!".to_string()
+        })
+        ;
 
-    prefab_factory.add_to_queue(prefab_entity, handle);
+    prefab_factory.add_to_queue(prefab_entity, handle, false);
 }
 
 fn locate_prefab(
@@ -106,33 +119,47 @@ pub fn prefab_factory_system_ex(world: &mut World) {
 
         // Another resource scope. We need to get the actual scene from the handle.
         world.resource_scope(|world, dynamic_scenes: Mut<Assets<DynamicScene>>| {
-            for (&entity, handle) in factory.queue.iter() {
+            for (&entity, entry) in factory.queue.iter() {
 
                 // We check if the scene is loaded. If get returns Some(), it's done!
-                if let Some(scene) = dynamic_scenes.get(handle) {
-                    for component in scene.entities.first().unwrap().components.iter() {
-
-                        // Remember to register any components you want spawned!
-                        let registration = type_registry
-                            .get_with_name(component.type_name())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                                type_name: component.type_name().to_string(),
-                            }).unwrap();
-                        let reflect_component =
-                            registration.data::<ReflectComponent>().ok_or_else(|| {
-                                SceneSpawnError::UnregisteredComponent {
+                if let Some(scene) = dynamic_scenes.get(&entry.handle) {
+                    if scene.entities.is_empty() {
+                        // Print the asset path if it's empty.
+                        println!("Empty prefab scene found: {:?}", entry.handle.id)
+                    }
+                    // We insert components from the first scene entity onto the provided entity.
+                    // If there are multiple scene_entites, they will be placed on newly spawned entities. 
+                    for (idx, scene_entity) in scene.entities.iter().enumerate() {
+                        let new_entity = match idx == 0 {
+                            true => entity,
+                            false => world.spawn().id(),
+                        };
+                        for component in scene_entity.components.iter() {
+                            // Remember to register any components you want spawned!
+                            let registration = type_registry
+                                .get_with_name(component.type_name())
+                                .ok_or_else(|| SceneSpawnError::UnregisteredType {
                                     type_name: component.type_name().to_string(),
+                                }).unwrap();
+                            let reflect_component =
+                                registration.data::<ReflectComponent>().ok_or_else(|| {
+                                    SceneSpawnError::UnregisteredComponent {
+                                        type_name: component.type_name().to_string(),
+                                    }
+                                }).unwrap();
+                            if world
+                                .entity(new_entity)
+                                .contains_type_id(registration.type_id())
+                            {
+                                if entry.overwrite_existing_components {
+                                    reflect_component.apply_component(world, new_entity, &**component);
                                 }
-                            }).unwrap();
-                        if world
-                            .entity(entity)
-                            .contains_type_id(registration.type_id())
-                        {
-                            reflect_component.apply_component(world, entity, &**component);
-                        } else {
-                            reflect_component.add_component(world, entity, &**component);
+                            } else {
+                                reflect_component.add_component(world, new_entity, &**component);
+                            }
                         }
                     }
+
                     complete.push(entity);
                 }
             };
@@ -154,7 +181,7 @@ fn write_scene(world: &mut World) {
     scene_world
         .spawn()
         .insert(A {
-            message: "My scene prefab is here!".to_string()
+            message: "I came from the scene file!".to_string()
         })
         .insert(B {
             data: vec![
