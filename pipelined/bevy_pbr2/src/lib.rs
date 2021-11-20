@@ -67,16 +67,14 @@ impl Plugin for PbrPlugin {
                 //       add as an exclusive system
                 add_clusters
                     .exclusive_system()
-                    .label(SimulationLightSystems::AddClusters)
-                    .after(TransformSystem::TransformPropagate),
+                    .label(SimulationLightSystems::AddClusters),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Must come after add_clusters!
                 update_clusters
                     .label(SimulationLightSystems::UpdateClusters)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::AddClusters),
+                    .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -128,7 +126,7 @@ impl Plugin for PbrPlugin {
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights
                     .exclusive_system()
-                    .label(RenderLightSystems::PrepareClusters),
+                    .label(RenderLightSystems::PrepareLights),
             )
             .add_system_to_stage(
                 RenderStage::Prepare,
