@@ -573,10 +573,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 emissive.rgb * output_color.a,
             output_color.a);
 
+#ifdef CLUSTERED_FORWARD_DEBUG
         // Cluster allocation debug (using 'over' alpha blending)
-        let cluster_debug_mode = 2;
-        let cluster_overlay_alpha = 0.05;
-        if (cluster_debug_mode == 1) {
+        let cluster_debug_mode = 1;
+        let cluster_overlay_alpha = 1.0;
+        if (cluster_debug_mode == 0) {
+            // NOTE: This debug mode visualises the z-slices
             var z_slice: u32 = view_z_to_z_slice(view_z);
             // A hack to make the colors alternate a bit more
             if ((z_slice & 1u) == 1u) {
@@ -587,12 +589,15 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
                 output_color.a
             );
-        } elseif (cluster_debug_mode == 2) {
+        } elseif (cluster_debug_mode == 1) {
+            // NOTE: This debug mode visualises the number of lights within the cluster that contains
+            // the fragment. It shows a sort of lighting complexity measure.
             output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
                 + cluster_overlay_alpha * smoothStep(0.0, 16.0, f32(offset_and_count.count));
             output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
                 + cluster_overlay_alpha * (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
         }
+#endif
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
