@@ -91,9 +91,13 @@ fn setup(
 ) {
     let handle: Handle<DynamicScene> = asset_server.load("my_scene/path.scn.ron");
 
-    let prefab_entity = commands.spawn().insert(TrackingComponent).insert(A {
-        message: "I came from the code!".to_string(),
-    }).id();
+    let prefab_entity = commands
+        .spawn()
+        .insert(TrackingComponent)
+        .insert(A {
+            message: "I came from the code!".to_string(),
+        })
+        .id();
 
     prefab_factory.add_to_queue(prefab_entity, handle, false);
 }
