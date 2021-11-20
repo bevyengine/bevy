@@ -140,10 +140,11 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_POINT_LIGHTS: usize = 256;
-pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 //        point light shadow maps for now
-pub const POINT_SHADOW_LAYERS: u32 = (6 * 10) as u32;
+pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -660,20 +661,20 @@ pub fn prepare_lights(
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
+        let mut point_light_count = 0;
         for (light_entity, light) in point_lights.iter() {
-            if !light.shadows_enabled {
-                continue;
-            }
-            let light_index = *global_light_meta
-                .entity_to_index
-                .get(&light_entity)
-                .unwrap();
-            // ignore scale because we don't want to effectively scale light radius and range
-            // by applying those as a view transform to shadow map rendering of objects
-            // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            if point_light_count < MAX_POINT_LIGHT_SHADOW_MAPS && light.shadows_enabled {
+                point_light_count += 1;
+                let light_index = *global_light_meta
+                    .entity_to_index
+                    .get(&light_entity)
+                    .unwrap();
+                // ignore scale because we don't want to effectively scale light radius and range
+                // by applying those as a view transform to shadow map rendering of objects
+                // and ignore rotation because we want the shadow map projections to align with the axes
+                let view_translation =
+                    GlobalTransform::from_translation(light.transform.translation);
 
-            if light.shadows_enabled {
                 for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                     let depth_texture_view =
                         point_light_depth_texture
