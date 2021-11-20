@@ -10,7 +10,7 @@ use bevy::{ecs::schedule::ShouldRun, prelude::*, reflect::TypeRegistry, scene::S
 ///     Component data from the prefab won't be available immediately; the PrefabFactory system runs once per frame,
 ///     and the actual scene must load before the scene is applied.
 ///     
-///     Only the FIRST entity listed in the file will be inserted into the provided entity.
+///     Only components from the FIRST entity listed in the file will be inserted into the provided entity.
 ///     All others will be spawned into the world as needed.
 ///     Make sure to the other entities are parented somehow when writing the scene file so you can keep track of them!
 
@@ -33,7 +33,7 @@ impl PrefabFactory {
     }
 }
 
-#[derive(Reflect, Clone)]
+#[derive(Reflect, Clone, Component)]
 #[reflect(Component)]
 struct A {
     message: String,
@@ -44,12 +44,13 @@ impl Default for A {
         A { message: "Hello!".to_string() }
     }
 }
-#[derive(Reflect, Clone, Default)]
+#[derive(Reflect, Clone, Default, Component)]
 #[reflect(Component)]
 struct B {
     data: Vec<usize>,
 }
 
+#[derive(Component)]
 pub struct TrackingComponent;
 
 fn main() {
@@ -63,9 +64,9 @@ fn main() {
             prefab_factory_system_ex.exclusive_system()
             .with_run_criteria(run_if_queue_occupied.system())
         )
-        .add_startup_system(setup.system().label("setup"))
+        .add_startup_system(setup.label("setup"))
         .add_startup_system(write_scene.exclusive_system().before("setup"))
-        .add_system(locate_prefab.system())
+        .add_system(locate_prefab)
     ;
 
     app.run()
@@ -194,12 +195,12 @@ fn write_scene(world: &mut World) {
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     let mut file = match File::create(path) {
-        Err(why) => panic!("Failed to create file: {}", why),
+        Err(reason) => panic!("Failed to create file: {}", reason),
         Ok(file) => file,
     };
 
     match file.write_all(scene.serialize_ron(&type_registry).unwrap().as_bytes()) {
-        Err(why) => panic!("couldn't write to file: {}", why),
+        Err(reason) => panic!("couldn't write to file: {}", reason),
         Ok(_) => println!("File write success"),
     }
 }
