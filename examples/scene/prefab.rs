@@ -207,7 +207,7 @@ fn write_scene(world: &mut World) {
         Ok(file) => file,
     };
 
-    match file.write_all(scene.serialize_ron(&type_registry).unwrap().as_bytes()) {
+    match file.write_all(scene.serialize_ron(type_registry).unwrap().as_bytes()) {
         Err(reason) => panic!("couldn't write to file: {}", reason),
         Ok(_) => println!("File write success"),
     }
