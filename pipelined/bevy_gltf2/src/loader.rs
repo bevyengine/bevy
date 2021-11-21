@@ -27,7 +27,7 @@ use gltf::{
     Material, Primitive,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     path::Path,
 };
 use thiserror::Error;
@@ -718,36 +718,32 @@ fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
 ) -> Vec<(String, GltfNode)> {
     let mut max_steps = nodes_intermediate.len();
+    let mut empty_children = VecDeque::new();
     let mut nodes_step = nodes_intermediate
         .into_iter()
         .enumerate()
-        .map(|(i, (label, node, children))| (i, label, node, children))
-        .collect::<Vec<_>>();
+        .map(|(i, (label, node, children))| {
+            let children = children.into_iter().collect::<HashSet<_>>();
+            if children.is_empty() {
+                empty_children.push_back(i);
+            }
+            (i, (label, node, children))
+        })
+        .collect::<HashMap<_, _>>();
     let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
     while max_steps > 0 && !nodes_step.is_empty() {
-        if let Some((index, label, node, _)) = nodes_step
-            .iter()
-            .find(|(_, _, _, children)| children.is_empty())
-            .cloned()
-        {
+        if let Some(index) = empty_children.pop_front() {
+            let (label, node, children) = nodes_step.remove(&index).unwrap();
+            assert!(children.is_empty());
             nodes.insert(index, (label, node));
-            for (_, _, node, children) in nodes_step.iter_mut() {
-                if let Some((i, _)) = children
-                    .iter()
-                    .enumerate()
-                    .find(|(_, child_index)| **child_index == index)
-                {
-                    children.remove(i);
-
+            for (_label, node, children) in nodes_step.values_mut() {
+                if let Some(_) = children.get(&index) {
+                    children.remove(&index);
                     if let Some((_, child_node)) = nodes.get(&index) {
                         node.children.push(child_node.clone())
                     }
                 }
             }
-            nodes_step = nodes_step
-                .into_iter()
-                .filter(|(i, _, _, _)| *i != index)
-                .collect()
         }
         max_steps -= 1;
     }
