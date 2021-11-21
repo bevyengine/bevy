@@ -717,14 +717,20 @@ async fn load_buffers(
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
 ) -> Vec<(String, GltfNode)> {
+    let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
-    let mut nodes_step = nodes_intermediate
+    let mut unprocessed_nodes = nodes_intermediate
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
             for child in children.iter() {
-                parents[*child] = Some(i);
+                if let Some(parent) = parents.get_mut(*child) {
+                    *parent = Some(i);
+                } else if !has_errored {
+                    has_errored = true;
+                    warn!("Unexpected child in GLTF Mesh {}", child);
+                }
             }
             let children = children.into_iter().collect::<HashSet<_>>();
             if children.is_empty() {
@@ -735,11 +741,12 @@ fn resolve_node_hierarchy(
         .collect::<HashMap<_, _>>();
     let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
     while let Some(index) = empty_children.pop_front() {
-        let (label, node, children) = nodes_step.remove(&index).unwrap();
+        let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
         nodes.insert(index, (label, node));
         if let Some(parent_index) = parents[index] {
-            let (_, parent_node, parent_children) = nodes_step.get_mut(&parent_index).unwrap();
+            let (_, parent_node, parent_children) =
+                unprocessed_nodes.get_mut(&parent_index).unwrap();
 
             assert!(parent_children.remove(&index));
             if let Some((_, child_node)) = nodes.get(&index) {
@@ -750,7 +757,9 @@ fn resolve_node_hierarchy(
             }
         }
     }
-    assert!(nodes_step.is_empty(), "GLTF must be a tree");
+    if !unprocessed_nodes.is_empty() {
+        warn!("GLTF model must be a tree");
+    }
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
     nodes_to_sort
