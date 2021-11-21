@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QuerySingleError, QueryIter, QueryState,
-        ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QuerySingleError,
+        QueryState, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
