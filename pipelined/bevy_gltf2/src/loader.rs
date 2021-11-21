@@ -718,10 +718,14 @@ fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
 ) -> Vec<(String, GltfNode)> {
     let mut empty_children = VecDeque::new();
+    let mut parents = vec![None; nodes_intermediate.len()];
     let mut nodes_step = nodes_intermediate
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
+            for child in children.iter() {
+                parents[*child] = Some(i);
+            }
             let children = children.into_iter().collect::<HashSet<_>>();
             if children.is_empty() {
                 empty_children.push_back(i);
@@ -734,16 +738,15 @@ fn resolve_node_hierarchy(
         let (label, node, children) = nodes_step.remove(&index).unwrap();
         assert!(children.is_empty());
         nodes.insert(index, (label, node));
-        for (parent_index, (_, parent_node, parent_children)) in nodes_step.iter_mut() {
-            if parent_children.remove(&index) {
-                if let Some((_, child_node)) = nodes.get(&index) {
-                    parent_node.children.push(child_node.clone())
-                }
-                if parent_children.is_empty() {
-                    empty_children.push_back(*parent_index);
-                }
-                // GLTF is a tree, so each item only has one parent
-                continue;
+        if let Some(parent_index) = parents[index] {
+            let (_, parent_node, parent_children) = nodes_step.get_mut(&parent_index).unwrap();
+
+            assert!(parent_children.remove(&index));
+            if let Some((_, child_node)) = nodes.get(&index) {
+                parent_node.children.push(child_node.clone())
+            }
+            if parent_children.is_empty() {
+                empty_children.push_back(parent_index);
             }
         }
     }
