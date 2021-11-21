@@ -734,18 +734,20 @@ fn resolve_node_hierarchy(
         let (label, node, children) = nodes_step.remove(&index).unwrap();
         assert!(children.is_empty());
         nodes.insert(index, (label, node));
-        for (_label, node, children) in nodes_step.values_mut() {
-            if children.remove(&index) {
+        for (parent_index, (_, parent_node, parent_children)) in nodes_step.iter_mut() {
+            if parent_children.remove(&index) {
                 if let Some((_, child_node)) = nodes.get(&index) {
-                    node.children.push(child_node.clone())
+                    parent_node.children.push(child_node.clone())
                 }
-                if children.is_empty() {
-                    empty_children.push_back(index);
+                if parent_children.is_empty() {
+                    empty_children.push_back(*parent_index);
                 }
+                // GLTF is a tree, so each item only has one parent
+                continue;
             }
         }
     }
-
+    assert!(nodes_step.is_empty(), "GLTF must be a tree");
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
     nodes_to_sort
