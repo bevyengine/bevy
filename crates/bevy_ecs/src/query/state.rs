@@ -758,7 +758,7 @@ pub enum QueryEntityError {
     NoSuchEntity,
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
+/// An error that occurs when evaluating a [`Query`] as a single expected result
 #[derive(Error, Debug)]
 pub enum QuerySingleError {
     #[error("No entities fit the query {0}")]
