@@ -1,9 +1,8 @@
-use crate::query::QuerySingleError;
 use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
+        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QuerySingleError, QueryIter, QueryState,
         ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
