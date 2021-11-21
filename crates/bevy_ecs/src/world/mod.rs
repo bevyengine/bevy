@@ -621,7 +621,7 @@ impl World {
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
-    /// Inserts a new resource with default values.
+    /// Inserts a new non-send resource with default values.
     ///
     /// If the resource already exists, nothing happens.
     ///
