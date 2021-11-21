@@ -717,7 +717,6 @@ async fn load_buffers(
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
 ) -> Vec<(String, GltfNode)> {
-    let mut max_steps = nodes_intermediate.len();
     let mut empty_children = VecDeque::new();
     let mut nodes_step = nodes_intermediate
         .into_iter()
@@ -731,21 +730,20 @@ fn resolve_node_hierarchy(
         })
         .collect::<HashMap<_, _>>();
     let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
-    while max_steps > 0 && !nodes_step.is_empty() {
-        if let Some(index) = empty_children.pop_front() {
-            let (label, node, children) = nodes_step.remove(&index).unwrap();
-            assert!(children.is_empty());
-            nodes.insert(index, (label, node));
-            for (_label, node, children) in nodes_step.values_mut() {
-                if let Some(_) = children.get(&index) {
-                    children.remove(&index);
-                    if let Some((_, child_node)) = nodes.get(&index) {
-                        node.children.push(child_node.clone())
-                    }
+    while let Some(index) = empty_children.pop_front() {
+        let (label, node, children) = nodes_step.remove(&index).unwrap();
+        assert!(children.is_empty());
+        nodes.insert(index, (label, node));
+        for (_label, node, children) in nodes_step.values_mut() {
+            if children.remove(&index) {
+                if let Some((_, child_node)) = nodes.get(&index) {
+                    node.children.push(child_node.clone())
+                }
+                if children.is_empty() {
+                    empty_children.push_back(index);
                 }
             }
         }
-        max_steps -= 1;
     }
 
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
