@@ -21,15 +21,13 @@ use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
 };
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    path::Path,
-};
+use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat};
 
@@ -83,8 +81,8 @@ async fn load_gltf<'a, 'b>(
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
     let mut materials = vec![];
-    let mut named_materials = HashMap::new();
-    let mut linear_textures = HashSet::new();
+    let mut named_materials = HashMap::default();
+    let mut linear_textures = HashSet::default();
     for material in gltf.materials() {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
@@ -106,7 +104,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut meshes = vec![];
-    let mut named_meshes = HashMap::new();
+    let mut named_meshes = HashMap::default();
     for mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
@@ -195,7 +193,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut nodes_intermediate = vec![];
-    let mut named_nodes_intermediate = HashMap::new();
+    let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
         let node_label = node_label(&node);
         nodes_intermediate.push((
@@ -275,7 +273,7 @@ async fn load_gltf<'a, 'b>(
         });
 
     let mut scenes = vec![];
-    let mut named_scenes = HashMap::new();
+    let mut named_scenes = HashMap::default();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
