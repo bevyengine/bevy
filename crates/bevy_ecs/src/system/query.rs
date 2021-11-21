@@ -846,7 +846,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::QuerySingleError;
+    /// # use bevy_ecs::query::QuerySingleError;
     /// # #[derive(Component)]
     /// # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
