@@ -1,3 +1,4 @@
+use crate::query::QuerySingleError;
 use crate::{
     component::Component,
     entity::Entity,
@@ -824,7 +825,8 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&'s self) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    #[inline]
+    pub fn single(&self) -> <Q::Fetch as Fetch<'_, '_>>::Item
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -863,20 +865,17 @@ where
     /// }
     /// # player_scoring_system.system();
     /// ```
-    pub fn get_single(&'s self) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    #[inline]
+    pub fn get_single(&self) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        let mut query = self.iter();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -905,6 +904,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
+    #[inline]
     pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
         self.get_single_mut().unwrap()
     }
@@ -931,19 +931,16 @@ where
     /// }
     /// # regenerate_player_health_system.system();
     /// ```
+    #[inline]
     pub fn get_single_mut(
         &mut self,
     ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
-        let mut query = self.iter_mut();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -988,14 +985,4 @@ pub enum QueryComponentError {
     MissingComponent,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
-}
-
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
-/// [`Query::single`] or [`Query::single_mut`].
-#[derive(Debug, Error)]
-pub enum QuerySingleError {
-    #[error("No entities fit the query {0}")]
-    NoEntities(&'static str),
-    #[error("Multiple entities fit the query {0}!")]
-    MultipleEntities(&'static str),
 }

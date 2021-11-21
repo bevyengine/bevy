@@ -616,6 +616,137 @@ where
             }
         });
     }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
+    /// bound). Use [`single_mut`](Self::single_mut) for queries that contain at least one
+    /// mutable component.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single<'w, 's>(&'s mut self, world: &'w World) -> <Q::Fetch as Fetch<'w, 's>>::Item
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.get_single(world).unwrap()
+    }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
+    /// bound). Use [`get_single_mut`](Self::get_single_mut) for queries that contain at least one
+    /// mutable component.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFETY: query is read only
+        unsafe {
+            self.get_single_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> <Q::Fetch as Fetch<'w, 's>>::Item {
+        // SAFETY: query has unique world access
+        self.get_single_mut(world).unwrap()
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        // SAFETY: query has unique world access
+        unsafe {
+            self.get_single_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        self.get_single_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query,
+    /// where the last change and the current change tick are given.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked_manual<'w, 's>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        let mut query = self.iter_unchecked_manual(world, last_change_tick, change_tick);
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
@@ -625,4 +756,13 @@ pub enum QueryEntityError {
     QueryDoesNotMatch,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
+}
+
+/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
+#[derive(Error, Debug)]
+pub enum QuerySingleError {
+    #[error("No entities fit the query {0}")]
+    NoEntities(&'static str),
+    #[error("Multiple entities fit the query {0}!")]
+    MultipleEntities(&'static str),
 }
