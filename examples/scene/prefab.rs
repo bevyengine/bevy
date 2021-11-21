@@ -1,5 +1,8 @@
 use bevy::{
-    ecs::schedule::ShouldRun, prelude::*, reflect::TypeRegistry, scene::SceneSpawnError,
+    ecs::{entity::EntityMap, reflect::ReflectMapEntities, schedule::ShouldRun},
+    prelude::*,
+    reflect::TypeRegistry,
+    scene::SceneSpawnError,
     utils::HashMap,
 };
 use std::{fs::File, io::Write};
@@ -135,13 +138,16 @@ pub fn prefab_factory_system_ex(world: &mut World) {
                         // Print the asset path if it's empty.
                         println!("Empty prefab scene found: {:?}", entry.handle.id)
                     }
-                    // We insert components from the first scene entity onto the provided entity.
-                    // If there are multiple scene_entites, they will be placed on newly spawned entities.
-                    for (idx, scene_entity) in scene.entities.iter().enumerate() {
-                        let new_entity = match idx == 0 {
-                            true => entity,
-                            false => world.spawn().id(),
-                        };
+                    // MapEntities is a trait that allows components spawned from scenes that contain other entities
+                    // to map to them in the world.
+                    // Since we're writing to an existing entity, we need to to add it to the map manually.
+                    // All other entities in the scene file will be mapped to new entities.
+                    let mut entity_map = EntityMap::default();
+                    entity_map.insert(Entity::new(0), entity);
+                    for scene_entity in scene.entities.iter() {
+                        let new_entity = *entity_map
+                            .entry(Entity::new(scene_entity.entity))
+                            .or_insert_with(|| world.spawn().id());
                         for component in scene_entity.components.iter() {
                             // Remember to register any components you want spawned!
                             let registration = type_registry
@@ -170,6 +176,18 @@ pub fn prefab_factory_system_ex(world: &mut World) {
                             } else {
                                 reflect_component.add_component(world, new_entity, &**component);
                             }
+                        }
+                    }
+
+                    // This is where we map the scene entities to the world entities in any component
+                    // that implements MapEntities.
+                    for registration in type_registry.iter() {
+                        if let Some(map_entities_reflect) =
+                            registration.data::<ReflectMapEntities>()
+                        {
+                            map_entities_reflect
+                                .map_entities(world, &entity_map)
+                                .unwrap();
                         }
                     }
 
