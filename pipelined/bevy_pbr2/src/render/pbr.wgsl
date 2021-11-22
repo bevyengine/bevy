@@ -533,10 +533,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         var light_accum: vec3<f32> = vec3<f32>(0.0);
 
         let view_z = dot(vec4<f32>(
-            view.inverse_view.x.z,
-            view.inverse_view.y.z,
-            view.inverse_view.z.z,
-            view.inverse_view.w.z
+            view.inverse_view[0].z,
+            view.inverse_view[1].z,
+            view.inverse_view[2].z,
+            view.inverse_view[3].z
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z);
         let offset_and_count = unpack_offset_and_count(cluster_index);
