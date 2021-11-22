@@ -227,7 +227,7 @@ async fn load_gltf<'a, 'b>(
             named_nodes_intermediate.insert(name, node.index());
         }
     }
-    let nodes = resolve_node_hierarchy(nodes_intermediate)
+    let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
         .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
@@ -714,6 +714,7 @@ async fn load_buffers(
 
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+    asset_path: &Path,
 ) -> Vec<(String, GltfNode)> {
     let mut has_errored = false;
     let mut empty_children = VecDeque::new();
@@ -756,7 +757,7 @@ fn resolve_node_hierarchy(
         }
     }
     if !unprocessed_nodes.is_empty() {
-        warn!("GLTF model must be a tree");
+        warn!("GLTF model must be a tree: {:?}", asset_path);
     }
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
@@ -805,6 +806,8 @@ impl<'a> DataUri<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::path::PathBuf;
+
     use super::resolve_node_hierarchy;
     use crate::GltfNode;
 
@@ -819,7 +822,10 @@ mod test {
     }
     #[test]
     fn node_hierarchy_single_node() {
-        let result = resolve_node_hierarchy(vec![("l1".to_string(), GltfNode::empty(), vec![])]);
+        let result = resolve_node_hierarchy(
+            vec![("l1".to_string(), GltfNode::empty(), vec![])],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l1");
@@ -828,10 +834,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_no_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -842,10 +851,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_simple_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -856,15 +868,18 @@ mod test {
 
     #[test]
     fn node_hierarchy_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![2]),
-            ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
-            ("l4".to_string(), GltfNode::empty(), vec![6]),
-            ("l5".to_string(), GltfNode::empty(), vec![]),
-            ("l6".to_string(), GltfNode::empty(), vec![]),
-            ("l7".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![2]),
+                ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
+                ("l4".to_string(), GltfNode::empty(), vec![6]),
+                ("l5".to_string(), GltfNode::empty(), vec![]),
+                ("l6".to_string(), GltfNode::empty(), vec![]),
+                ("l7".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 7);
         assert_eq!(result[0].0, "l1");
@@ -885,20 +900,26 @@ mod test {
 
     #[test]
     fn node_hierarchy_cyclic() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![0]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![0]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_missing_node() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![2]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![2]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l2");
