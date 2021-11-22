@@ -365,18 +365,18 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
     // NOTE: These simplifications come from multiplying:
-    //       projection * vec4(0, 0, -major_axis_magnitude, 1.0)
-    //       and keeping only the terms that have any impact on the depth.
+    // projection * vec4(0, 0, -major_axis_magnitude, 1.0)
+    // and keeping only the terms that have any impact on the depth.
     // Projection-agnostic approach:
     let zw = -major_axis_magnitude * light.projection_lr.xy + light.projection_lr.zw;
     let depth = zw.x / zw.y;
 
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
-    //       textureSampleCompare to avoid undefined behaviour due to some of the fragments in
-    //       a quad (2x2 fragments) being processed not being sampled, and this messing with
-    //       mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
-    //       from LOD 0.
+    // textureSampleCompare to avoid undefined behaviour due to some of the fragments in
+    // a quad (2x2 fragments) being processed not being sampled, and this messing with
+    // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
+    // from LOD 0.
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
 }
 
@@ -407,7 +407,7 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
     let depth = offset_position_ndc.z;
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
-    //       sampler to avoid use of implicit derivatives causing possible undefined behavior.
+    // sampler to avoid use of implicit derivatives causing possible undefined behavior.
     return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
 }
 

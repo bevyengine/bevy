@@ -141,7 +141,7 @@ pub struct GpuLights {
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
-//        point light shadow maps for now
+// point light shadow maps for now
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
@@ -743,7 +743,7 @@ pub fn prepare_lights(
             let intensity = light.illuminance * exposure;
 
             // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
-            //       through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
+            // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
             let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
             // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
             let projection = light.projection;
@@ -855,14 +855,14 @@ const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-//       that means we can fit say 128 point lights in one uniform
-//       buffer, which means the count can be at most 128 so it
-//       needs 7 bits, use 8 for convenience.
-//       The array of indices can also use u8 and that means the
-//       offset in to the array of indices needs to be able to address
-//       16384 values. lod2(16384) = 21 bits.
-//       This means we can pack the offset into the upper 24 bits of a u32
-//       and the count into the lower 8 bits.
+// that means we can fit say 128 point lights in one uniform
+// buffer, which means the count can be at most 128 so it
+// needs 7 bits, use 8 for convenience.
+// The array of indices can also use u8 and that means the
+// offset in to the array of indices needs to be able to address
+// 16384 values. lod2(16384) = 21 bits.
+// This means we can pack the offset into the upper 24 bits of a u32
+// and the count into the lower 8 bits.
 // FIXME: Probably there are endianness concerns here????!!!!!
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
@@ -1037,7 +1037,7 @@ pub fn queue_shadows(
                     .get(*face_index),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
-            //       so no meshes will be queued
+            // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
                 let mut key = ShadowPipelineKey::empty();
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
