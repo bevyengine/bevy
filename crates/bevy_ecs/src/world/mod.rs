@@ -597,7 +597,7 @@ impl World {
     /// If the resource already exists, nothing happens.
     ///
     /// Uses the [`FromWorld`] trait to determine values,
-    /// which has a blanket impl for all `T: Default`.
+    /// which has a blanket impl for all `R: Default`.
     #[inline]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
@@ -612,8 +612,8 @@ impl World {
     /// Inserts a new resource with the given `value`.
     ///
     /// Resources are "unique" data of a given type.
-    /// Insert a resource of a type that already exists
-    /// will overwrite any existing data.
+    /// If you insert a resource of a type that already exists,
+    /// you will overwrite any existing data.
     #[inline]
     pub fn insert_resource<T: Resource>(&mut self, value: T) {
         let component_id = self.components.init_resource::<T>();
@@ -626,7 +626,7 @@ impl World {
     /// If the resource already exists, nothing happens.
     ///
     /// Uses the [`FromWorld`] trait to determine values,
-    /// which has a blanket impl for all `T: Default`.
+    /// which has a blanket impl for all `R: Default`.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
