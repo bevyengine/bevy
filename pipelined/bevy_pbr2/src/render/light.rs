@@ -131,7 +131,7 @@ pub struct GpuLights {
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
     ambient_color: Vec4,
     cluster_dimensions: UVec4,
-    // xy are vec2<f32<(cluster_dimensions.xy) / vec2<f32<(view.width, view.height)
+    // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     // z is cluster_dimensions.z / log(far / near)
     // w is cluster_dimensions.z * log(near) / log(far / near)
     cluster_factors: Vec4,

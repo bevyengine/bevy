@@ -311,8 +311,8 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
 
         // Calculate view space AABBs
         // NOTE: It is important that these are iterated in a specific order
-        //       so that we can calculate the cluster index in the fragment shader!
-        // I (robswain) choose to scan along rows of tiles in x,y, and for each tile then scan
+        // so that we can calculate the cluster index in the fragment shader!
+        // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
         // along z
         let mut aabbs = Vec::with_capacity(
             (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
