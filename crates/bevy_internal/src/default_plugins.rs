@@ -109,3 +109,40 @@ impl PluginGroup for MinimalPlugins {
         group.add(ScheduleRunnerPlugin::default());
     }
 }
+
+pub struct PipelinedDefaultPlugins;
+
+impl PluginGroup for PipelinedDefaultPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(bevy_log::LogPlugin::default());
+        group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_transform::TransformPlugin::default());
+        group.add(bevy_diagnostic::DiagnosticsPlugin::default());
+        group.add(bevy_input::InputPlugin::default());
+        group.add(bevy_window::WindowPlugin::default());
+        group.add(bevy_asset::AssetPlugin::default());
+        group.add(bevy_scene::ScenePlugin::default());
+
+        #[cfg(feature = "bevy_winit")]
+        group.add(bevy_winit::WinitPlugin::default());
+
+        #[cfg(feature = "bevy_render2")]
+        {
+            group.add(bevy_render2::RenderPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_core_pipeline")]
+        {
+            group.add(bevy_core_pipeline::CorePipelinePlugin::default());
+
+            #[cfg(feature = "bevy_sprite2")]
+            group.add(bevy_sprite2::SpritePlugin::default());
+
+            #[cfg(feature = "bevy_pbr2")]
+            group.add(bevy_pbr2::PbrPlugin::default());
+
+            #[cfg(feature = "bevy_gltf2")]
+            group.add(bevy_gltf2::GltfPlugin::default());
+        }
+    }
+}

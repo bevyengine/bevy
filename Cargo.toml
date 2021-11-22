@@ -13,14 +13,18 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "errors"]
+members = ["crates/*", "pipelined/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
   "bevy_audio",
+  "bevy_core_pipeline",
   "bevy_gilrs",
-  "bevy_gltf",
+  "bevy_gltf2",
   "bevy_wgpu",
+  "bevy_sprite2",
+  "bevy_render2",
+  "bevy_pbr2",
   "bevy_winit",
   "render",
   "png",
@@ -49,6 +53,12 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+bevy_render2 = ["bevy_internal/bevy_render2"]
+bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
+bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
+bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace_tracy = ["bevy_internal/trace_tracy"]
@@ -95,6 +105,7 @@ ron = "0.6.2"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 
 [[example]]
 name = "hello_world"
@@ -133,22 +144,50 @@ path = "examples/2d/text2d.rs"
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
+[[example]]
+name = "pipelined_texture_atlas"
+path = "examples/2d/pipelined_texture_atlas.rs"
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "3d_scene_pipelined"
+path = "examples/3d/3d_scene_pipelined.rs"
+
+[[example]]
+name = "many_cubes_pipelined"
+path = "examples/3d/many_cubes_pipelined.rs"
+
+[[example]]
+name = "cornell_box_pipelined"
+path = "examples/3d/cornell_box_pipelined.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+
+[[example]]
+name = "load_gltf_pipelined"
+path = "examples/3d/load_gltf_pipelined.rs"
 
 [[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "msaa_pipelined"
+path = "examples/3d/msaa_pipelined.rs"
+
+[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
+
+[[example]]
+name = "orthographic_pipelined"
+path = "examples/3d/orthographic_pipelined.rs"
 
 [[example]]
 name = "parenting"
@@ -159,8 +198,20 @@ name = "pbr"
 path = "examples/3d/pbr.rs"
 
 [[example]]
+name = "pbr_pipelined"
+path = "examples/3d/pbr_pipelined.rs"
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
+
+[[example]]
+name = "shadow_biases_pipelined"
+path = "examples/3d/shadow_biases_pipelined.rs"
+
+[[example]]
+name = "shadow_caster_receiver_pipelined"
+path = "examples/3d/shadow_caster_receiver_pipelined.rs"
 
 [[example]]
 name = "spawner"
@@ -169,6 +220,10 @@ path = "examples/3d/spawner.rs"
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[[example]]
+name = "texture_pipelined"
+path = "examples/3d/texture_pipelined.rs"
 
 [[example]]
 name = "update_gltf_scene"
@@ -413,10 +468,22 @@ path = "examples/shader/shader_custom_material.rs"
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
+[[example]]
+name = "custom_shader_pipelined"
+path = "examples/shader/custom_shader_pipelined.rs"
+
+[[example]]
+name = "shader_defs_pipelined"
+path = "examples/shader/shader_defs_pipelined.rs"
+
 # Tools
 [[example]]
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
+
+[[example]]
+name = "bevymark_pipelined"
+path = "examples/tools/bevymark_pipelined.rs"
 
 # UI (User Interface)
 [[example]]
@@ -443,6 +510,10 @@ path = "examples/ui/ui.rs"
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
+
+[[example]]
+name = "clear_color_pipelined"
+path = "examples/window/clear_color_pipelined.rs"
 
 [[example]]
 name = "multiple_windows"

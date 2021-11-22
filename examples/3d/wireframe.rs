@@ -10,7 +10,7 @@ fn main() {
         .insert_resource(WgpuOptions {
             features: WgpuFeatures {
                 // The Wireframe requires NonFillPolygonMode feature
-                features: vec![WgpuFeature::NonFillPolygonMode],
+                features: vec![WgpuFeature::PolygonModeLine],
             },
             ..Default::default()
         })

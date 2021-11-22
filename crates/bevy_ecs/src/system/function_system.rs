@@ -4,7 +4,7 @@ use crate::{
     query::{Access, FilteredAccessSet},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamState,
+        SystemParamItem, SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -45,6 +45,11 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+
+    #[inline]
+    pub(crate) fn check_change_tick(&mut self, change_tick: u32) {
+        check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
     }
 }
 
@@ -121,6 +126,10 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
+    pub(crate) fn new_archetype(&mut self, archetype: &Archetype) {
+        self.param_state.new_archetype(archetype, &mut self.meta);
+    }
+
     fn validate_world_and_update_archetypes(&mut self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
         let archetypes = world.archetypes();
@@ -156,6 +165,74 @@ impl<Param: SystemParam> SystemState<Param> {
         );
         self.meta.last_change_tick = change_tick;
         param
+    }
+}
+
+/// A trait for defining systems with a [`SystemParam`] associated type.
+///
+/// This facilitates the creation of systems that are generic over some trait
+/// and that use that trait's associated types as `SystemParam`s.
+pub trait RunSystem: Send + Sync + 'static {
+    /// The `SystemParam` type passed to the system when it runs.
+    type Param: SystemParam;
+
+    /// Runs the system.
+    fn run(param: SystemParamItem<Self::Param>);
+
+    /// Creates a concrete instance of the system for the specified `World`.
+    fn system(world: &mut World) -> ParamSystem<Self::Param> {
+        ParamSystem {
+            run: Self::run,
+            state: SystemState::new(world),
+        }
+    }
+}
+
+pub struct ParamSystem<P: SystemParam> {
+    state: SystemState<P>,
+    run: fn(SystemParamItem<P>),
+}
+
+impl<P: SystemParam + 'static> System for ParamSystem<P> {
+    type In = ();
+
+    type Out = ();
+
+    fn name(&self) -> Cow<'static, str> {
+        self.state.meta().name.clone()
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        self.state.new_archetype(archetype);
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.state.meta().component_access_set.combined_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.state.meta().archetype_component_access
+    }
+
+    fn is_send(&self) -> bool {
+        self.state.meta().is_send()
+    }
+
+    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
+        let param = self.state.get_unchecked_manual(world);
+        (self.run)(param);
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.state.apply(world);
+    }
+
+    fn initialize(&mut self, _world: &mut World) {
+        // already initialized by nature of the SystemState being constructed
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.state.meta.check_change_tick(change_tick);
     }
 }
 
