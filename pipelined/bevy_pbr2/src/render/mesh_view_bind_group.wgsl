@@ -11,7 +11,7 @@ struct View {
 };
 
 struct PointLight {
-    // NOTE: .z.z .z.w .w.z .w.w
+    // NOTE: [2][2] [2][3] [3][2] [3][3]
     projection_lr: vec4<f32>;
     color_inverse_square_range: vec4<f32>;
     position_radius: vec4<f32>;
@@ -40,10 +40,12 @@ struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>;
     ambient_color: vec4<f32>;
-    cluster_dimensions: vec4<u32>; // x/y/z dimensions
-    cluster_factors: vec4<f32>; // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
-                                // z is cluster_dimensions.z / log(far / near)
-                                // w is cluster_dimensions.z * log(near) / log(far / near)
+    // x/y/z dimensions
+    cluster_dimensions: vec4<u32>;
+    // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
+    // z is cluster_dimensions.z / log(far / near)
+    // w is cluster_dimensions.z * log(near) / log(far / near)
+    cluster_factors: vec4<f32>;
     n_directional_lights: u32;
 };
 
@@ -54,13 +56,15 @@ struct PointLights {
 
 [[block]]
 struct ClusterLightIndexLists {
-    data: array<vec4<u32>, 1024u>; // each u32 contains 4 u8 indices into the PointLights array
+    // each u32 contains 4 u8 indices into the PointLights array
+    data: array<vec4<u32>, 1024u>;
 };
 
 [[block]]
 struct ClusterOffsetsAndCounts {
-    data: array<vec4<u32>, 1024u>; // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
-                             // and an 8-bit count of the number of lights in the low 8 bits
+    // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
+    // and an 8-bit count of the number of lights in the low 8 bits
+    data: array<vec4<u32>, 1024u>;
 };
 
 [[group(0), binding(0)]]

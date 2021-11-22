@@ -279,9 +279,9 @@ pub fn queue_meshes(
                                 draw_function: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
-                                //       lowest sort key and getting further away should increase. As we have
-                                //       -z in front of the camera, values in view space decrease away from the
-                                //       camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -mesh_z,
                             });
                         }
@@ -291,9 +291,9 @@ pub fn queue_meshes(
                                 draw_function: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
-                                //       lowest sort key and getting further away should increase. As we have
-                                //       -z in front of the camera, values in view space decrease away from the
-                                //       camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -mesh_z,
                             });
                         }
@@ -303,9 +303,9 @@ pub fn queue_meshes(
                                 draw_function: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                                //       lowest sort key and getting closer should increase. As we have
-                                //       -z in front of the camera, the largest distance is -far with values increasing toward the
-                                //       camera. As such we can just use mesh_z as the distance
+                                // lowest sort key and getting closer should increase. As we have
+                                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                                // camera. As such we can just use mesh_z as the distance
                                 distance: mesh_z,
                             });
                         }
