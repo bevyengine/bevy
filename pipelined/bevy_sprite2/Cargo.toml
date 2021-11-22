@@ -30,6 +30,7 @@ bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }
+crevice = { path = "../../crates/crevice", version = "0.8.0", features = ["glam"] }
 guillotiere = "0.6.0"
 thiserror = "1.0"
 rectangle-pack = "0.4"
