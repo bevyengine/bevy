@@ -36,5 +36,6 @@ pub use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
+    ImageDataLayout, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase, ImageSubresourceRange,
     VertexStepMode,
 };
