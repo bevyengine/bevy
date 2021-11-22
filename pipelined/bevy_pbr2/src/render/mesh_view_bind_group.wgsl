@@ -41,7 +41,7 @@ struct Lights {
     directional_lights: array<DirectionalLight, 1u>;
     ambient_color: vec4<f32>;
     cluster_dimensions: vec4<u32>; // x/y/z dimensions
-    cluster_factors: vec4<f32>; // xy are vec2<f32<(cluster_dimensions.xy) / vec2<f32<(view.width, view.height)
+    cluster_factors: vec4<f32>; // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
                                 // z is cluster_dimensions.z / log(far / near)
                                 // w is cluster_dimensions.z * log(near) / log(far / near)
     n_directional_lights: u32;
