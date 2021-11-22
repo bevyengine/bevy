@@ -261,7 +261,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
-    /// Inserts a resource with default values to the [`World`].
+    /// Inserts a resource with standard starting values to the [`World`].
     ///
     /// If the resource already exists, nothing happens.
     ///

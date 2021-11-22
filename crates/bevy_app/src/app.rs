@@ -673,11 +673,13 @@ impl App {
         self
     }
 
-    /// Initialize a resource with default values by adding it to the [`World`]
+    /// Initialize a resource with standard starting values by adding it to the [`World`]
     ///
     /// If the resource already exists, nothing happens.
     ///
-    /// The resource must implement either the `Default` or [`FromWorld`] trait.
+    /// The resource must implement the [`FromWorld`] trait.
+    /// If the `Default` trait is implemented, the `FromWorld` trait will use
+    /// the `Default::default` method to initialize the resource.
     ///
     /// ## Example
     /// ```
@@ -703,11 +705,11 @@ impl App {
         self
     }
 
-    /// Initialize a non-send resource with default values by adding it to the [`World`]
+    /// Initialize a non-send resource with standard starting values by adding it to the [`World`]
     ///
-    /// If the resource already exists, nothing happens.
-    ///
-    /// The resource must implement either the `Default` or [`FromWorld`] trait.
+    /// The resource must implement the [`FromWorld`] trait.
+    /// If the `Default` trait is implemented, the `FromWorld` trait will use
+    /// the `Default::default` method to initialize the resource.
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world.init_non_send_resource::<R>();
         self

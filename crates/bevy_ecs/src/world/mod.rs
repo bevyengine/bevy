@@ -592,12 +592,13 @@ impl World {
         }
     }
 
-    /// Inserts a new resource with default values.
+    /// Inserts a new resource with standard starting values.
     ///
     /// If the resource already exists, nothing happens.
     ///
-    /// Uses the [`FromWorld`] trait to determine values,
-    /// which has a blanket impl for all `R: Default`.
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
     #[inline]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
@@ -621,12 +622,13 @@ impl World {
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
-    /// Inserts a new non-send resource with default values.
+    /// Inserts a new non-send resource with standard starting values.
     ///
     /// If the resource already exists, nothing happens.
     ///
-    /// Uses the [`FromWorld`] trait to determine values,
-    /// which has a blanket impl for all `R: Default`.
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
