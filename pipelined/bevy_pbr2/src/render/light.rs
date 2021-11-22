@@ -25,7 +25,9 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms, VisibleEntities, VisibleEntity},
+    view::{
+        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities, VisibleEntity,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
@@ -155,9 +157,7 @@ impl FromWorld for ShadowPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
-                        // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(144),
+                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
                     },
                     count: None,
                 },

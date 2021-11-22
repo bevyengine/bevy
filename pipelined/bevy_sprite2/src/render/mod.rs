@@ -19,12 +19,13 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ComputedVisibility, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+use crevice::std140::AsStd140;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -43,9 +44,7 @@ impl FromWorld for SpritePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
-                    // Context: https://github.com/LPGhatguy/crevice/issues/29
-                    min_binding_size: BufferSize::new(144),
+                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
                 },
                 count: None,
             }],

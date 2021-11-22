@@ -1,6 +1,6 @@
 use crate::{
-    LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline, ViewLightsUniformOffset,
-    ViewShadowBindings,
+    GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewLightsUniformOffset, ViewShadowBindings,
 };
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -18,7 +18,7 @@ use bevy_render2::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ComputedVisibility, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -180,9 +180,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: change this to ViewUniform::std140_size_static once crevice fixes this!
-                        // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(144),
+                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
                     },
                     count: None,
                 },
@@ -193,9 +191,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        // TODO: change this to GpuLights::std140_size_static once crevice fixes this!
-                        // Context: https://github.com/LPGhatguy/crevice/issues/29
-                        min_binding_size: BufferSize::new(1424),
+                        min_binding_size: BufferSize::new(GpuLights::std140_size_static() as u64),
                     },
                     count: None,
                 },
@@ -252,9 +248,7 @@ impl FromWorld for MeshPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    // TODO: change this to MeshUniform::std140_size_static once crevice fixes this!
-                    // Context: https://github.com/LPGhatguy/crevice/issues/29
-                    min_binding_size: BufferSize::new(144),
+                    min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
                 },
                 count: None,
             }],
