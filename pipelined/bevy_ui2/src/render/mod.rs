@@ -1,159 +1,480 @@
-use crate::Node;
-use bevy_asset::{Assets, HandleUntyped};
-use bevy_ecs::world::World;
+mod camera;
+mod pipeline;
+mod render_pass;
+
+pub use camera::*;
+pub use pipeline::*;
+pub use render_pass::*;
+
+use std::ops::Range;
+
+use bevy_app::prelude::*;
+use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_core::FloatOrd;
+use bevy_ecs::prelude::*;
+use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
-use bevy_render::{
+use bevy_render2::{
     camera::ActiveCameras,
-    pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachment, TextureAttachment,
-    },
-    pipeline::*,
-    prelude::Msaa,
-    render_graph::{
-        base, CameraNode, PassNode, RenderGraph, RenderResourcesNode, WindowSwapChainNode,
-        WindowTextureNode,
-    },
-    shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat,
+    color::Color,
+    render_asset::RenderAssets,
+    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
+    render_resource::*,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    view::ViewUniforms,
+    RenderApp, RenderStage, RenderWorld,
 };
+use bevy_sprite2::TextureAtlas;
+use bevy_text2::{DefaultTextPipeline, Text};
+use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashMap;
+use bevy_window::Windows;
 
-pub const UI_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
+use bytemuck::{Pod, Zeroable};
+use wgpu::{ImageCopyTexture, ImageDataLayout, Origin3d};
 
-pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
-        depth_stencil: Some(DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        }),
-        color_target_states: vec![ColorTargetState {
-            format: TextureFormat::default(),
-            blend: Some(BlendState {
-                color: BlendComponent {
-                    src_factor: BlendFactor::SrcAlpha,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Add,
-                },
-                alpha: BlendComponent {
-                    src_factor: BlendFactor::One,
-                    dst_factor: BlendFactor::One,
-                    operation: BlendOperation::Add,
-                },
-            }),
-            write_mask: ColorWrite::ALL,
-        }],
-        ..PipelineDescriptor::new(ShaderStages {
-            vertex: shaders.add(Shader::from_glsl(
-                ShaderStage::Vertex,
-                include_str!("ui.vert"),
-            )),
-            fragment: Some(shaders.add(Shader::from_glsl(
-                ShaderStage::Fragment,
-                include_str!("ui.frag"),
-            ))),
-        })
-    }
-}
+use crate::Node;
+
+// bevy_sprite2::lib.rs
 
 pub mod node {
-    pub const CAMERA_UI: &str = "camera_ui";
-    pub const NODE: &str = "node";
-    pub const UI_PASS: &str = "ui_pass";
+    pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
 }
 
-pub mod camera {
-    pub const CAMERA_UI: &str = "CameraUi";
+pub mod draw_ui_graph {
+    pub const NAME: &str = "draw_ui";
+    pub mod input {
+        pub const VIEW_ENTITY: &str = "view_entity";
+    }
+    pub mod node {
+        pub const UI_PASS: &str = "ui_pass";
+    }
 }
 
-pub(crate) fn add_ui_graph(world: &mut World) {
-    let world = world.cell();
-    let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
-    let mut pipelines = world
-        .get_resource_mut::<Assets<PipelineDescriptor>>()
-        .unwrap();
-    let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
-    let mut active_cameras = world.get_resource_mut::<ActiveCameras>().unwrap();
-    let msaa = world.get_resource::<Msaa>().unwrap();
+pub const UI_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
-    pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum UiSystem {
+    ExtractNode,
+}
 
-    let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
-        color_attachments: vec![msaa.color_attachment(
-            TextureAttachment::Input("color_attachment".to_string()),
-            TextureAttachment::Input("color_resolve_target".to_string()),
-            Operations {
-                load: LoadOp::Load,
-                store: true,
-            },
-        )],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-            attachment: TextureAttachment::Input("depth".to_string()),
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(1.0),
-                store: true,
-            }),
-            stencil_ops: None,
-        }),
-        sample_count: msaa.samples,
-    });
+pub fn build_ui_render(app: &mut App) {
+    let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+    let ui_shader = Shader::from_wgsl(include_str!("ui.wgsl"));
+    shaders.set_untracked(UI_SHADER_HANDLE, ui_shader);
 
-    ui_pass_node.add_camera(camera::CAMERA_UI);
-    graph.add_node(node::UI_PASS, ui_pass_node);
+    let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
+    active_cameras.add(CAMERA_UI);
 
-    graph
+    let render_app = app.sub_app(RenderApp);
+    render_app
+        .init_resource::<UiPipeline>()
+        .init_resource::<SpecializedPipelines<UiPipeline>>()
+        .init_resource::<ImageBindGroups>()
+        .init_resource::<UiMeta>()
+        .init_resource::<ExtractedUiNodes>()
+        .init_resource::<DrawFunctions<TransparentUi>>()
+        .add_render_command::<TransparentUi, DrawUi>()
+        .add_system_to_stage(RenderStage::Extract, extract_ui_camera_phases)
+        .add_system_to_stage(
+            RenderStage::Extract,
+            extract_uinodes.label(UiSystem::ExtractNode),
+        )
+        .add_system_to_stage(
+            RenderStage::Extract,
+            extract_text_uinodes.after(UiSystem::ExtractNode),
+        )
+        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
+        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
+        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+
+    // Render graph
+    let ui_pass_node = UiPassNode::new(&mut render_app.world);
+    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+
+    let mut draw_ui_graph = RenderGraph::default();
+    draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
+    let input_node_id = draw_ui_graph.set_input(vec![SlotInfo::new(
+        draw_ui_graph::input::VIEW_ENTITY,
+        SlotType::Entity,
+    )]);
+    draw_ui_graph
         .add_slot_edge(
-            base::node::PRIMARY_SWAP_CHAIN,
-            WindowSwapChainNode::OUT_TEXTURE,
-            node::UI_PASS,
-            if msaa.samples > 1 {
-                "color_resolve_target"
-            } else {
-                "color_attachment"
-            },
+            input_node_id,
+            draw_ui_graph::input::VIEW_ENTITY,
+            draw_ui_graph::node::UI_PASS,
+            UiPassNode::IN_VIEW,
         )
         .unwrap();
+    graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
 
+    graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
     graph
-        .add_slot_edge(
-            base::node::MAIN_DEPTH_TEXTURE,
-            WindowTextureNode::OUT_TEXTURE,
-            node::UI_PASS,
-            "depth",
+        .add_node_edge(
+            bevy_core_pipeline::node::MAIN_PASS_DRIVER,
+            node::UI_PASS_DRIVER,
         )
         .unwrap();
+}
 
-    if msaa.samples > 1 {
-        graph
-            .add_slot_edge(
-                base::node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-                WindowSwapChainNode::OUT_TEXTURE,
-                node::UI_PASS,
-                "color_attachment",
-            )
-            .unwrap();
+pub struct ExtractedUiNode {
+    pub transform: Mat4,
+    pub color: Color,
+    pub rect: bevy_sprite2::Rect,
+    pub image: Option<Handle<Image>>,
+    pub atlas_size: Option<Vec2>,
+}
+
+#[derive(Default)]
+pub struct ExtractedUiNodes {
+    pub uinodes: Vec<ExtractedUiNode>,
+}
+
+pub fn extract_uinodes(
+    mut render_world: ResMut<RenderWorld>,
+    images: Res<Assets<Image>>,
+    uinode_query: Query<(&Node, &GlobalTransform, &Color, &Option<Handle<Image>>)>,
+) {
+    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    extracted_uinodes.uinodes.clear();
+    for (uinode, transform, color, image) in uinode_query.iter() {
+        let image = if let Some(image) = image {
+            // Skip loading images
+            if !images.contains(image) {
+                continue;
+            }
+            Some(image.clone_weak())
+        } else {
+            None
+        };
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            transform: transform.compute_matrix(),
+            color: *color,
+            rect: bevy_sprite2::Rect {
+                min: Vec2::ZERO,
+                max: uinode.size,
+            },
+            image,
+            atlas_size: None,
+        });
+    }
+}
+
+pub fn extract_text_uinodes(
+    mut render_world: ResMut<RenderWorld>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    text_pipeline: Res<DefaultTextPipeline>,
+    windows: Res<Windows>,
+    uinode_query: Query<(Entity, &Node, &GlobalTransform, &Text)>,
+) {
+    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor() as f32
+    } else {
+        1.
+    };
+
+    for (entity, uinode, transform, text) in uinode_query.iter() {
+        if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
+            let text_glyphs = &text_layout.glyphs;
+            let alignment_offset = (uinode.size / -2.0).extend(0.0);
+
+            for text_glyph in text_glyphs {
+                let color = text.sections[text_glyph.section_index].style.color;
+                let atlas = texture_atlases
+                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .unwrap();
+                let texture = Some(atlas.texture.clone_weak());
+                let index = text_glyph.atlas_info.glyph_index as usize;
+                let rect = atlas.textures[index];
+                let atlas_size = Some(atlas.size);
+
+                let transform =
+                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
+                        * Mat4::from_scale(transform.scale / scale_factor)
+                        * Mat4::from_translation(
+                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                        );
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    transform,
+                    color,
+                    rect,
+                    image: texture,
+                    atlas_size,
+                });
+            }
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable)]
+struct UiVertex {
+    pub position: [f32; 3],
+    pub uv: [f32; 2],
+    pub color: u32,
+}
+
+pub struct UiMeta {
+    vertices: BufferVec<UiVertex>,
+    view_bind_group: Option<BindGroup>,
+}
+
+impl Default for UiMeta {
+    fn default() -> Self {
+        Self {
+            vertices: BufferVec::new(BufferUsages::VERTEX),
+            view_bind_group: None,
+        }
+    }
+}
+
+const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
+    const_vec3!([-0.5, -0.5, 0.0]),
+    const_vec3!([0.5, 0.5, 0.0]),
+    const_vec3!([-0.5, 0.5, 0.0]),
+    const_vec3!([-0.5, -0.5, 0.0]),
+    const_vec3!([0.5, -0.5, 0.0]),
+    const_vec3!([0.5, 0.5, 0.0]),
+];
+
+pub struct UiBatch {
+    range: Range<u32>,
+    handle: Option<Handle<Image>>,
+    z: f32,
+}
+
+pub fn prepare_uinodes(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut ui_meta: ResMut<UiMeta>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+) {
+    ui_meta.vertices.clear();
+
+    // sort by increasing z for correct transparency
+    extracted_uinodes
+        .uinodes
+        .sort_by(|a, b| FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])));
+
+    let mut start = 0;
+    let mut end = 0;
+    let mut current_batch_handle: Option<Handle<Image>> = None;
+    let mut last_z = 0.0;
+    for extracted_uinode in extracted_uinodes.uinodes.iter() {
+        if current_batch_handle != extracted_uinode.image {
+            if start != end {
+                commands.spawn_bundle((UiBatch {
+                    range: start..end,
+                    handle: current_batch_handle,
+                    z: last_z,
+                },));
+                start = end;
+            }
+            current_batch_handle = extracted_uinode
+                .image
+                .as_ref()
+                .map(|handle| handle.clone_weak());
+        }
+
+        let uinode_rect = extracted_uinode.rect;
+
+        // Specify the corners of the node
+        let mut bottom_left = Vec2::new(uinode_rect.min.x, uinode_rect.max.y);
+        let mut top_left = uinode_rect.min;
+        let mut top_right = Vec2::new(uinode_rect.max.x, uinode_rect.min.y);
+        let mut bottom_right = uinode_rect.max;
+
+        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+        bottom_left /= atlas_extent;
+        bottom_right /= atlas_extent;
+        top_left /= atlas_extent;
+        top_right /= atlas_extent;
+
+        let uvs: [[f32; 2]; 6] = [
+            bottom_left.into(),
+            top_right.into(),
+            top_left.into(),
+            bottom_left.into(),
+            bottom_right.into(),
+            top_right.into(),
+        ];
+
+        let rect_size = extracted_uinode.rect.size().extend(1.0);
+        let color = extracted_uinode.color.as_linear_rgba_f32();
+        // encode color as a single u32 to save space
+        let color = (color[0] * 255.0) as u32
+            | ((color[1] * 255.0) as u32) << 8
+            | ((color[2] * 255.0) as u32) << 16
+            | ((color[3] * 255.0) as u32) << 24;
+        for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
+            let mut final_position = *vertex_position * rect_size;
+            final_position = (extracted_uinode.transform * final_position.extend(1.0)).xyz();
+            ui_meta.vertices.push(UiVertex {
+                position: final_position.into(),
+                uv: uvs[index],
+                color,
+            });
+        }
+
+        last_z = extracted_uinode.transform.w_axis[2];
+        end += QUAD_VERTEX_POSITIONS.len() as u32;
     }
 
-    // ensure ui pass runs after main pass
-    graph
-        .add_node_edge(base::node::MAIN_PASS, node::UI_PASS)
-        .unwrap();
+    // if start != end, there is one last batch to process
+    if start != end {
+        commands.spawn_bundle((UiBatch {
+            range: start..end,
+            handle: current_batch_handle,
+            z: last_z,
+        },));
+    }
 
-    // setup ui camera
-    graph.add_system_node(node::CAMERA_UI, CameraNode::new(camera::CAMERA_UI));
-    graph.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
-    graph.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
-    graph.add_node_edge(node::NODE, node::UI_PASS).unwrap();
-    active_cameras.add(camera::CAMERA_UI);
+    ui_meta.vertices.write_buffer(&render_device, &render_queue);
+}
+
+pub struct ImageBindGroups {
+    pub values: HashMap<Handle<Image>, BindGroup>,
+    /// This dummy white texture is used in place of optional images
+    pub dummy_gpu_image: GpuImage,
+    pub dummy_bind_group: BindGroup,
+}
+
+impl FromWorld for ImageBindGroups {
+    fn from_world(world: &mut World) -> Self {
+        let world = world.cell();
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let ui_pipeline = world.get_resource::<UiPipeline>().unwrap();
+
+        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of the optional texture
+        let dummy_gpu_image = {
+            let image = Image::new_fill(
+                Extent3d::default(),
+                TextureDimension::D2,
+                &[255u8; 4],
+                TextureFormat::bevy_default(),
+            );
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+
+            let format_size = image.texture_descriptor.format.pixel_size();
+            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
+                    aspect: TextureAspect::All,
+                },
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
+            );
+
+            let texture_view = texture.create_view(&TextureViewDescriptor::default());
+            GpuImage {
+                texture,
+                texture_view,
+                sampler,
+            }
+        };
+        let dummy_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&dummy_gpu_image.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&dummy_gpu_image.sampler),
+                },
+            ],
+            label: None,
+            layout: &ui_pipeline.image_layout,
+        });
+
+        Self {
+            values: Default::default(),
+            dummy_gpu_image,
+            dummy_bind_group,
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn queue_uinodes(
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    render_device: Res<RenderDevice>,
+    mut ui_meta: ResMut<UiMeta>,
+    view_uniforms: Res<ViewUniforms>,
+    ui_pipeline: Res<UiPipeline>,
+    mut pipelines: ResMut<SpecializedPipelines<UiPipeline>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut image_bind_groups: ResMut<ImageBindGroups>,
+    gpu_images: Res<RenderAssets<Image>>,
+    mut ui_batches: Query<(Entity, &UiBatch)>,
+    mut views: Query<&mut RenderPhase<TransparentUi>>,
+) {
+    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: view_binding,
+            }],
+            label: Some("ui_view_bind_group"),
+            layout: &ui_pipeline.view_layout,
+        }));
+        let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
+        let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
+        for mut transparent_phase in views.iter_mut() {
+            for (entity, batch) in ui_batches.iter_mut() {
+                if let Some(handle) = &batch.handle {
+                    image_bind_groups
+                        .values
+                        .entry(handle.clone_weak())
+                        .or_insert_with(|| {
+                            let gpu_image = gpu_images.get(&handle).unwrap();
+                            render_device.create_bind_group(&BindGroupDescriptor {
+                                entries: &[
+                                    BindGroupEntry {
+                                        binding: 0,
+                                        resource: BindingResource::TextureView(
+                                            &gpu_image.texture_view,
+                                        ),
+                                    },
+                                    BindGroupEntry {
+                                        binding: 1,
+                                        resource: BindingResource::Sampler(&gpu_image.sampler),
+                                    },
+                                ],
+                                label: Some("ui_material_bind_group"),
+                                layout: &ui_pipeline.image_layout,
+                            })
+                        });
+                }
+
+                transparent_phase.add(TransparentUi {
+                    draw_function: draw_ui_function,
+                    pipeline,
+                    entity,
+                    sort_key: FloatOrd(batch.z),
+                });
+            }
+        }
+    }
 }

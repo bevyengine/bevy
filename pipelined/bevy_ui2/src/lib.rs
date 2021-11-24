@@ -2,7 +2,7 @@ mod anchors;
 mod flex;
 mod focus;
 mod margins;
-// mod render;
+mod render;
 mod ui_node;
 
 pub mod entity;
@@ -13,7 +13,7 @@ pub use anchors::*;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
-// pub use render::*;
+pub use render::*;
 pub use ui_node::*;
 
 pub mod prelude {
@@ -81,8 +81,7 @@ impl Plugin for UiPlugin {
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
             );
-        // .add_system_to_stage(RenderStage::Draw, widget::draw_text_system);
 
-        // crate::render::add_ui_graph(&mut app.world);
+        crate::render::build_ui_render(app);
     }
 }

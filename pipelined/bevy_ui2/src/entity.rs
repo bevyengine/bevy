@@ -1,13 +1,14 @@
 use super::Node;
 use crate::{
     widget::{Button, Image},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    CalculatedSize, FocusPolicy, Interaction, Style, CAMERA_UI,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
     color::Color,
+    view::VisibleEntities,
 };
 use bevy_text2::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -122,6 +123,8 @@ pub struct UiCameraBundle {
     pub orthographic_projection: OrthographicProjection,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    // FIXME there is no frustrum culling for UI
+    pub visible_entities: VisibleEntities,
 }
 
 impl Default for UiCameraBundle {
@@ -131,7 +134,7 @@ impl Default for UiCameraBundle {
         let far = 1000.0;
         UiCameraBundle {
             camera: Camera {
-                // name: Some(crate::camera::CAMERA_UI.to_string()),
+                name: Some(CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
@@ -142,6 +145,7 @@ impl Default for UiCameraBundle {
             },
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
+            visible_entities: Default::default(),
         }
     }
 }
