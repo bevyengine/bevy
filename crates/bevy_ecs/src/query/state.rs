@@ -66,7 +66,7 @@ where
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
         };
-        state.validate_world_and_update_archetypes(world);
+        state.update_archetypes(world);
         state
     }
 
@@ -87,11 +87,8 @@ where
     /// # Panics
     ///
     /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
-    pub fn validate_world_and_update_archetypes(&mut self, world: &World) {
-        if world.id() != self.world_id {
-            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>());
-        }
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.validate_world(world);
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -99,6 +96,14 @@ where
 
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
+        }
+    }
+
+    #[inline]
+    pub fn validate_world(&self, world: &World) {
+        if world.id() != self.world_id {
+            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
+                std::any::type_name::<Self>());
         }
     }
 
@@ -153,6 +158,27 @@ where
         unsafe { self.get_unchecked(world, entity) }
     }
 
+    #[inline]
+    pub fn get_manual<'w, 's>(
+        &'s self,
+        world: &'w World,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.validate_world(world);
+        // SAFETY: query is read only and world is validated
+        unsafe {
+            self.get_unchecked_manual(
+                world,
+                entity,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// # Safety
@@ -165,7 +191,7 @@ where
         world: &'w World,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.get_unchecked_manual(
             world,
             entity,
@@ -243,6 +269,28 @@ where
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
     #[inline]
+    pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, Q, F>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.validate_world(world);
+        // SAFETY: query is read only and world is validated
+        unsafe {
+            self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+        }
+    }
+
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries.
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
+    /// write-queries.
+    #[inline]
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
@@ -281,7 +329,7 @@ where
         &'s mut self,
         world: &'w World,
     ) -> QueryIter<'w, 's, Q, F> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
@@ -298,7 +346,7 @@ where
         &'s mut self,
         world: &'w World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.iter_combinations_unchecked_manual(
             world,
             world.last_change_tick(),
@@ -392,7 +440,7 @@ where
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w, 's>>::Item),
     ) {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.for_each_unchecked_manual(
             world,
             func,
@@ -452,7 +500,7 @@ where
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
     ) {
-        self.validate_world_and_update_archetypes(world);
+        self.update_archetypes(world);
         self.par_for_each_unchecked_manual(
             world,
             task_pool,

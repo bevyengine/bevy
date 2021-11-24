@@ -96,6 +96,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    #[inline]
     pub fn weak(id: HandleId) -> Self {
         Self {
             id,
@@ -129,6 +130,7 @@ impl<T: Asset> Handle<T> {
         self.handle_type = HandleType::Strong(sender);
     }
 
+    #[inline]
     pub fn clone_weak(&self) -> Self {
         Handle::weak(self.id)
     }

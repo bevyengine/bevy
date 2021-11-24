@@ -13,7 +13,7 @@ use bevy_render::{
     texture::{
         AddressMode, Extent3d, FilterMode, SamplerBorderColor, SamplerDescriptor,
         StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsage, TextureViewDimension,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
 };
 use bevy_window::Window;
@@ -83,11 +83,11 @@ impl WgpuFrom<&VertexAttribute> for wgpu::VertexAttribute {
     }
 }
 
-impl WgpuFrom<InputStepMode> for wgpu::InputStepMode {
+impl WgpuFrom<InputStepMode> for wgpu::VertexStepMode {
     fn from(val: InputStepMode) -> Self {
         match val {
-            InputStepMode::Vertex => wgpu::InputStepMode::Vertex,
-            InputStepMode::Instance => wgpu::InputStepMode::Instance,
+            InputStepMode::Vertex => wgpu::VertexStepMode::Vertex,
+            InputStepMode::Instance => wgpu::VertexStepMode::Instance,
         }
     }
 }
@@ -95,7 +95,7 @@ impl WgpuFrom<InputStepMode> for wgpu::InputStepMode {
 #[derive(Clone, Debug)]
 pub struct OwnedWgpuVertexBufferLayout {
     pub array_stride: wgpu::BufferAddress,
-    pub step_mode: wgpu::InputStepMode,
+    pub step_mode: wgpu::VertexStepMode,
     pub attributes: Vec<wgpu::VertexAttribute>,
 }
 
@@ -137,9 +137,9 @@ impl WgpuFrom<Color> for wgpu::Color {
     }
 }
 
-impl WgpuFrom<BufferUsage> for wgpu::BufferUsage {
+impl WgpuFrom<BufferUsage> for wgpu::BufferUsages {
     fn from(val: BufferUsage) -> Self {
-        wgpu::BufferUsage::from_bits(val.bits()).unwrap()
+        wgpu::BufferUsages::from_bits(val.bits()).unwrap()
     }
 }
 
@@ -190,7 +190,9 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
             } => wgpu::BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: *has_dynamic_offset,
-                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                // FIXME: The line below cause a validation error
+                // min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                min_binding_size: None,
             },
             BindType::StorageBuffer {
                 has_dynamic_offset,
@@ -200,7 +202,9 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                     read_only: *readonly,
                 },
                 has_dynamic_offset: *has_dynamic_offset,
-                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                // FIXME: The line below cause a validation error
+                // min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
+                min_binding_size: None,
             },
             BindType::Texture {
                 view_dimension,
@@ -346,9 +350,9 @@ impl WgpuFrom<TextureFormat> for wgpu::TextureFormat {
     }
 }
 
-impl WgpuFrom<TextureUsage> for wgpu::TextureUsage {
-    fn from(val: TextureUsage) -> Self {
-        wgpu::TextureUsage::from_bits(val.bits()).unwrap()
+impl WgpuFrom<TextureUsages> for wgpu::TextureUsages {
+    fn from(val: TextureUsages) -> Self {
+        wgpu::TextureUsages::from_bits(val.bits()).unwrap()
     }
 }
 
@@ -526,9 +530,9 @@ impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
     }
 }
 
-impl WgpuFrom<ColorWrite> for wgpu::ColorWrite {
+impl WgpuFrom<ColorWrite> for wgpu::ColorWrites {
     fn from(val: ColorWrite) -> Self {
-        wgpu::ColorWrite::from_bits(val.bits()).unwrap()
+        wgpu::ColorWrites::from_bits(val.bits()).unwrap()
     }
 }
 
@@ -640,10 +644,10 @@ impl WgpuFrom<SamplerBorderColor> for wgpu::SamplerBorderColor {
     }
 }
 
-impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
+impl WgpuFrom<&Window> for wgpu::SurfaceConfiguration {
     fn from(window: &Window) -> Self {
-        wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
             width: window.physical_width().max(1),
             height: window.physical_height().max(1),
@@ -664,21 +668,12 @@ impl WgpuFrom<WgpuFeature> for wgpu::Features {
             WgpuFeature::TimestampQuery => wgpu::Features::TIMESTAMP_QUERY,
             WgpuFeature::PipelineStatisticsQuery => wgpu::Features::PIPELINE_STATISTICS_QUERY,
             WgpuFeature::MappablePrimaryBuffers => wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
-            WgpuFeature::SampledTextureBindingArray => {
-                wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
-            }
-            WgpuFeature::SampledTextureArrayDynamicIndexing => {
-                wgpu::Features::SAMPLED_TEXTURE_ARRAY_DYNAMIC_INDEXING
-            }
-            WgpuFeature::SampledTextureArrayNonUniformIndexing => {
-                wgpu::Features::SAMPLED_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
-            }
             WgpuFeature::UnsizedBindingArray => wgpu::Features::UNSIZED_BINDING_ARRAY,
             WgpuFeature::MultiDrawIndirect => wgpu::Features::MULTI_DRAW_INDIRECT,
             WgpuFeature::MultiDrawIndirectCount => wgpu::Features::MULTI_DRAW_INDIRECT_COUNT,
             WgpuFeature::PushConstants => wgpu::Features::PUSH_CONSTANTS,
             WgpuFeature::AddressModeClampToBorder => wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER,
-            WgpuFeature::NonFillPolygonMode => wgpu::Features::NON_FILL_POLYGON_MODE,
+            WgpuFeature::PolygonModeLine => wgpu::Features::POLYGON_MODE_LINE,
             WgpuFeature::TextureCompressionEtc2 => wgpu::Features::TEXTURE_COMPRESSION_ETC2,
             WgpuFeature::TextureCompressionAstcLdr => wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR,
             WgpuFeature::TextureAdapterSpecificFormatFeatures => {
@@ -724,6 +719,8 @@ impl WgpuFrom<WgpuLimits> for wgpu::Limits {
             max_vertex_buffers: val.max_vertex_buffers,
             max_vertex_attributes: val.max_vertex_attributes,
             max_vertex_buffer_array_stride: val.max_vertex_buffer_array_stride,
+            min_storage_buffer_offset_alignment: val.min_storage_buffer_offset_alignment,
+            min_uniform_buffer_offset_alignment: val.min_uniform_buffer_offset_alignment,
         }
     }
 }
