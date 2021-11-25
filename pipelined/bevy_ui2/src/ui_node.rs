@@ -251,12 +251,14 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Component, Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct CalculatedSize {
     pub size: Size,
 }
 
-#[derive(Component, Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Color(pub bevy_render2::color::Color);
 
 impl From<bevy_render2::color::Color> for Color {
@@ -265,7 +267,9 @@ impl From<bevy_render2::color::Color> for Color {
     }
 }
 
-#[derive(Component, Default, Clone, Debug)]
+// NOTE: Option<Handle<Image>> is reflected as a value, so this derive(Reflect) requires Handle<T> to derive Serialize and Deserialize
+#[derive(Component, Default, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Image(pub Option<Handle<bevy_render2::texture::Image>>);
 
 impl From<Handle<bevy_render2::texture::Image>> for Image {

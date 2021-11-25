@@ -4,10 +4,13 @@ use bevy_ecs::{
     component::Component,
     query::With,
     system::{Query, Res},
+    reflect::ReflectComponent
 };
 use bevy_math::Size;
+use bevy_reflect::Reflect;
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub enum ImageMode {
     KeepAspect,
 }

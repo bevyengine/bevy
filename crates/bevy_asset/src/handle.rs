@@ -58,7 +58,7 @@ impl HandleId {
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
 /// collection.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Handle<T>
 where
@@ -66,6 +66,7 @@ where
 {
     pub id: HandleId,
     #[reflect(ignore)]
+    #[serde(skip)]
     handle_type: HandleType,
     #[reflect(ignore)]
     // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
@@ -83,6 +84,12 @@ impl Debug for HandleType {
             HandleType::Weak => f.write_str("Weak"),
             HandleType::Strong(_) => f.write_str("Strong"),
         }
+    }
+}
+
+impl Default for HandleType {
+    fn default() -> Self {
+        Self::Weak
     }
 }
 

@@ -44,10 +44,15 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
+            .register_type::<CalculatedSize>()
+            .register_type::<Color>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
+            .register_type::<FocusPolicy>()
+            .register_type::<Interaction>()
+            .register_type::<Image>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             .register_type::<PositionType>()
@@ -56,6 +61,8 @@ impl Plugin for UiPlugin {
             .register_type::<Rect<Val>>()
             .register_type::<Style>()
             .register_type::<Val>()
+            .register_type::<widget::Button>()
+            .register_type::<widget::ImageMode>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
