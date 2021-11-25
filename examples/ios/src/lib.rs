@@ -43,9 +43,8 @@ fn touch_camera(
     mut last_position: Local<Option<Vec2>>,
 ) {
     for touch in touches.iter() {
-        match touch.phase {
-            TouchPhase::Started => *last_position = None,
-            _ => (),
+        if touch.phase == TouchPhase::Started {
+            *last_position = None;
         }
         if let Some(last_position) = *last_position {
             let window = windows.get_primary().unwrap();
