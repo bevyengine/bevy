@@ -186,6 +186,15 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
+// Clustered-forward rendering notes
+// The main initial reference material used was this rather accessible article:
+// http://www.aortiz.me/2018/12/21/CG.html
+// Some inspiration was taken from “Practical Clustered Shading” which is part 2 of:
+// https://efficientshading.com/2015/01/01/real-time-many-light-management-and-shadows-with-clustered-shading/
+// (Also note that Part 3 of the above shows how we could support the shadow mapping for many lights.)
+// The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa’s Siggraph 2016 talk about Doom 2016:
+// http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
+
 #[derive(Component, Debug)]
 pub struct Clusters {
     /// Tile size
