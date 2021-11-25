@@ -22,6 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_asset::Handle;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
@@ -55,6 +56,10 @@ impl Plugin for UiPlugin {
             .register_type::<Image>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
+            // NOTE: used by Style::aspect_ratio
+            .register_type::<Option<f32>>()
+            // NOTE: used by Image
+            .register_type::<Option<Handle<bevy_render2::texture::Image>>>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()

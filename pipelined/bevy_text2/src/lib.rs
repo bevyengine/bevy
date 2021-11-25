@@ -20,9 +20,10 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
-    #[doc(hidden)]
-    pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    pub use crate::{
+        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
+        TextStyle, VerticalAlign,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -40,6 +41,10 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
+            // TODO: uncomment when #2215 is fixed
+            // .register_type::<Text>()
+            .register_type::<VerticalAlign>()
+            .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(CoreStage::PostUpdate, text2d_system);

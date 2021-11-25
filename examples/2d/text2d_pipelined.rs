@@ -1,12 +1,9 @@
 use bevy::{
     core::Time,
     math::{Quat, Vec3},
-    prelude::{
-        App, AssetServer, Commands, Component, HorizontalAlign, Query, Res, Transform,
-        VerticalAlign, With,
-    },
+    prelude::{App, AssetServer, Commands, Component, Query, Res, Transform, With},
     render2::{camera::OrthographicCameraBundle, color::Color},
-    text2::{Text, Text2dBundle, TextAlignment, TextStyle},
+    text2::{HorizontalAlign, Text, Text2dBundle, TextAlignment, TextStyle, VerticalAlign},
     PipelinedDefaultPlugins,
 };
 

@@ -30,3 +30,4 @@ anyhow = "1.0.4"
 ab_glyph = "0.2.6"
 glyph_brush_layout = "0.2.1"
 thiserror = "1.0"
+serde = {version = "1", features = ["derive"]}

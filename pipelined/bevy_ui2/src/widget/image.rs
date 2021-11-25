@@ -3,14 +3,15 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
     query::With,
+    reflect::ReflectComponent,
     system::{Query, Res},
-    reflect::ReflectComponent
 };
 use bevy_math::Size;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
+#[reflect_value(Component, Serialize, Deserialize)]
 pub enum ImageMode {
     KeepAspect,
 }

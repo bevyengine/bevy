@@ -10,9 +10,11 @@ use bevy_render2::{texture::Image, RenderWorld};
 use bevy_sprite2::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{DefaultTextPipeline, Font, FontAtlasSet, Text, Text2dSize, TextError};
+use crate::{
+    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, Text2dSize, TextError,
+    VerticalAlign,
+};
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
