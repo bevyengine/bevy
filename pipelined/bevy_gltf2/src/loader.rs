@@ -21,15 +21,13 @@ use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
 };
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat};
 
@@ -83,8 +81,8 @@ async fn load_gltf<'a, 'b>(
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
     let mut materials = vec![];
-    let mut named_materials = HashMap::new();
-    let mut linear_textures = HashSet::new();
+    let mut named_materials = HashMap::default();
+    let mut linear_textures = HashSet::default();
     for material in gltf.materials() {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
@@ -106,7 +104,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut meshes = vec![];
-    let mut named_meshes = HashMap::new();
+    let mut named_meshes = HashMap::default();
     for mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
@@ -195,7 +193,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut nodes_intermediate = vec![];
-    let mut named_nodes_intermediate = HashMap::new();
+    let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
         let node_label = node_label(&node);
         nodes_intermediate.push((
@@ -229,7 +227,7 @@ async fn load_gltf<'a, 'b>(
             named_nodes_intermediate.insert(name, node.index());
         }
     }
-    let nodes = resolve_node_hierarchy(nodes_intermediate)
+    let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
         .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
@@ -275,7 +273,7 @@ async fn load_gltf<'a, 'b>(
         });
 
     let mut scenes = vec![];
-    let mut named_scenes = HashMap::new();
+    let mut named_scenes = HashMap::default();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
@@ -716,42 +714,51 @@ async fn load_buffers(
 
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+    asset_path: &Path,
 ) -> Vec<(String, GltfNode)> {
-    let mut max_steps = nodes_intermediate.len();
-    let mut nodes_step = nodes_intermediate
+    let mut has_errored = false;
+    let mut empty_children = VecDeque::new();
+    let mut parents = vec![None; nodes_intermediate.len()];
+    let mut unprocessed_nodes = nodes_intermediate
         .into_iter()
         .enumerate()
-        .map(|(i, (label, node, children))| (i, label, node, children))
-        .collect::<Vec<_>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
-    while max_steps > 0 && !nodes_step.is_empty() {
-        if let Some((index, label, node, _)) = nodes_step
-            .iter()
-            .find(|(_, _, _, children)| children.is_empty())
-            .cloned()
-        {
-            nodes.insert(index, (label, node));
-            for (_, _, node, children) in nodes_step.iter_mut() {
-                if let Some((i, _)) = children
-                    .iter()
-                    .enumerate()
-                    .find(|(_, child_index)| **child_index == index)
-                {
-                    children.remove(i);
-
-                    if let Some((_, child_node)) = nodes.get(&index) {
-                        node.children.push(child_node.clone())
-                    }
+        .map(|(i, (label, node, children))| {
+            for child in children.iter() {
+                if let Some(parent) = parents.get_mut(*child) {
+                    *parent = Some(i);
+                } else if !has_errored {
+                    has_errored = true;
+                    warn!("Unexpected child in GLTF Mesh {}", child);
                 }
             }
-            nodes_step = nodes_step
-                .into_iter()
-                .filter(|(i, _, _, _)| *i != index)
-                .collect()
-        }
-        max_steps -= 1;
-    }
+            let children = children.into_iter().collect::<HashSet<_>>();
+            if children.is_empty() {
+                empty_children.push_back(i);
+            }
+            (i, (label, node, children))
+        })
+        .collect::<HashMap<_, _>>();
+    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
+    while let Some(index) = empty_children.pop_front() {
+        let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
+        assert!(children.is_empty());
+        nodes.insert(index, (label, node));
+        if let Some(parent_index) = parents[index] {
+            let (_, parent_node, parent_children) =
+                unprocessed_nodes.get_mut(&parent_index).unwrap();
 
+            assert!(parent_children.remove(&index));
+            if let Some((_, child_node)) = nodes.get(&index) {
+                parent_node.children.push(child_node.clone())
+            }
+            if parent_children.is_empty() {
+                empty_children.push_back(parent_index);
+            }
+        }
+    }
+    if !unprocessed_nodes.is_empty() {
+        warn!("GLTF model must be a tree: {:?}", asset_path);
+    }
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
     nodes_to_sort
@@ -799,6 +806,8 @@ impl<'a> DataUri<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::path::PathBuf;
+
     use super::resolve_node_hierarchy;
     use crate::GltfNode;
 
@@ -813,7 +822,10 @@ mod test {
     }
     #[test]
     fn node_hierarchy_single_node() {
-        let result = resolve_node_hierarchy(vec![("l1".to_string(), GltfNode::empty(), vec![])]);
+        let result = resolve_node_hierarchy(
+            vec![("l1".to_string(), GltfNode::empty(), vec![])],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l1");
@@ -822,10 +834,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_no_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -836,10 +851,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_simple_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -850,15 +868,18 @@ mod test {
 
     #[test]
     fn node_hierarchy_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![2]),
-            ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
-            ("l4".to_string(), GltfNode::empty(), vec![6]),
-            ("l5".to_string(), GltfNode::empty(), vec![]),
-            ("l6".to_string(), GltfNode::empty(), vec![]),
-            ("l7".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![2]),
+                ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
+                ("l4".to_string(), GltfNode::empty(), vec![6]),
+                ("l5".to_string(), GltfNode::empty(), vec![]),
+                ("l6".to_string(), GltfNode::empty(), vec![]),
+                ("l7".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 7);
         assert_eq!(result[0].0, "l1");
@@ -879,20 +900,26 @@ mod test {
 
     #[test]
     fn node_hierarchy_cyclic() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![0]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![0]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_missing_node() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![2]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![2]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l2");
