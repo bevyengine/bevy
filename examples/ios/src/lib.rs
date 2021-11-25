@@ -1,4 +1,21 @@
-use bevy::{prelude::*, window::WindowMode};
+use bevy::{
+    audio::{Audio, AudioPlugin},
+    input::touch::TouchPhase,
+    math::{Vec2, Vec3},
+    pbr2::{PbrBundle, PointLight, PointLightBundle, StandardMaterial},
+    prelude::{
+        bevy_main, App, AssetServer, Assets, Commands, EventReader, Local, Query, Res, ResMut,
+        TouchInput, Transform, With,
+    },
+    render2::{
+        camera::{Camera, PerspectiveCameraBundle},
+        color::Color,
+        mesh::{shape, Mesh},
+        view::Msaa,
+    },
+    window::{WindowDescriptor, WindowMode, Windows},
+    PipelinedDefaultPlugins,
+};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
@@ -11,7 +28,8 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(Msaa { samples: 4 })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(PipelinedDefaultPlugins)
+        .add_plugin(AudioPlugin)
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .run();
@@ -48,6 +66,11 @@ fn setup_scene(
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        point_light: PointLight {
+            intensity: 5000.0,
+            shadows_enabled: true,
+            ..Default::default()
+        },
         ..Default::default()
     });
     // camera
