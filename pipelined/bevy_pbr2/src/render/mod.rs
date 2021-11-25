@@ -260,6 +260,9 @@ pub fn queue_meshes(
                         if mesh.has_tangents {
                             pbr_key.mesh_key |= MeshPipelineKey::VERTEX_TANGENTS;
                         }
+                        if mesh.has_colors {
+                            pbr_key.mesh_key |= MeshPipelineKey::VERTEX_COLORS;
+                        }
                     }
 
                     if let AlphaMode::Blend = material.alpha_mode {

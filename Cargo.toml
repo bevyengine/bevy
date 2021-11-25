@@ -202,6 +202,10 @@ name = "pbr_pipelined"
 path = "examples/3d/pbr_pipelined.rs"
 
 [[example]]
+name = "pbr_colors_pipelined"
+path = "examples/3d/pbr_colors_pipelined.rs"
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 

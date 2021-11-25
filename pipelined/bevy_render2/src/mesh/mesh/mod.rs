@@ -593,6 +593,7 @@ pub struct GpuMesh {
     pub vertex_buffer: Buffer,
     pub index_info: Option<GpuIndexInfo>,
     pub has_tangents: bool,
+    pub has_colors: bool,
 }
 
 /// The index info of a [`GpuMesh`].
@@ -640,6 +641,7 @@ impl RenderAsset for Mesh {
             vertex_buffer,
             index_info,
             has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
+            has_colors: mesh.attributes.contains_key(Mesh::ATTRIBUTE_COLOR),
         })
     }
 }

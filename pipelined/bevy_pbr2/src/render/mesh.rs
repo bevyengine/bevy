@@ -329,6 +329,7 @@ bitflags::bitflags! {
         const NONE                        = 0;
         const VERTEX_TANGENTS             = (1 << 0);
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
+        const VERTEX_COLORS               = (1 << 2);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
     }
 }
@@ -351,65 +352,68 @@ impl SpecializedPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
+        let mut vertex_attributes: Vec<VertexAttribute> = vec![];
+        let mut offset = 0;
+
+        // Mesh attributes are sorted alphabetically in the buffer, so add them in the correct
+        // order.
+
+        // colors: will be at location 3 or 4 depending on wether Vertex_Tangents are used
+        if key.contains(MeshPipelineKey::VERTEX_COLORS) {
+            vertex_attributes.push(VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset,
+                shader_location: if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
+                    4
+                } else {
+                    3
+                },
+            });
+            offset += 16;
+        }
+
+        // normals
+        vertex_attributes.push(VertexAttribute {
+            format: VertexFormat::Float32x3,
+            offset,
+            shader_location: 1,
+        });
+        offset += 12;
+
+        // positions
+        vertex_attributes.push(VertexAttribute {
+            format: VertexFormat::Float32x3,
+            offset,
+            shader_location: 0,
+        });
+        offset += 12;
+
+        // tangents
+        if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
+            vertex_attributes.push(VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset,
+                shader_location: 3,
+            });
+            offset += 16;
+        }
+
+        // uvs
+        vertex_attributes.push(VertexAttribute {
+            format: VertexFormat::Float32x2,
+            offset,
+            shader_location: 2,
+        });
+        offset += 8;
+
+        let vertex_array_stride = offset;
+
         let mut shader_defs = Vec::new();
         if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
+        }
+        if key.contains(MeshPipelineKey::VERTEX_COLORS) {
+            shader_defs.push(String::from("VERTEX_COLORS"));
         }
 
         let (label, blend, depth_write_enabled);

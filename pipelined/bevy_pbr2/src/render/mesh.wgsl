@@ -8,6 +8,14 @@ struct Vertex {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+#ifdef VERTEX_TANGENTS
+    [[location(4)]] color: vec4<f32>;
+#endif
+#ifndef VERTEX_TANGENTS
+    [[location(3)]] color: vec4<f32>;
+#endif
+#endif
 };
 
 struct VertexOutput {
@@ -17,6 +25,14 @@ struct VertexOutput {
     [[location(2)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
+#endif
+#ifdef VERTEX_COLORS
+#ifdef VERTEX_TANGENTS
+    [[location(4)]] world_color: vec4<f32>;
+#endif
+#ifndef VERTEX_TANGENTS
+    [[location(3)]] world_color: vec4<f32>;
+#endif
 #endif
 };
 
@@ -46,6 +62,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vertex.tangent.w
     );
 #endif
+#ifdef VERTEX_COLORS
+    out.world_color = vertex.color;
+#endif
     return out;
 }
 
@@ -56,6 +75,14 @@ struct FragmentInput {
     [[location(2)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
+#endif
+#ifdef VERTEX_COLORS
+#ifdef VERTEX_TANGENTS
+    [[location(4)]] world_color: vec4<f32>;
+#endif
+#ifndef VERTEX_TANGENTS
+    [[location(3)]] world_color: vec4<f32>;
+#endif
 #endif
 };
 

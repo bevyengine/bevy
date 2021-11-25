@@ -118,6 +118,7 @@ Example | File | Description
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
+`pbr_colors_pipelined` | [`3d/pbr_colors_pipelined.rs`](./3d/pbr_colors_pipelined.rs) | PBR rendering with custom vertex colors
 
 ## Application
 
