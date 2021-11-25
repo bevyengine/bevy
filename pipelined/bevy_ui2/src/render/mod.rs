@@ -136,12 +136,12 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut render_world: ResMut<RenderWorld>,
     images: Res<Assets<Image>>,
-    uinode_query: Query<(&Node, &GlobalTransform, &Color, &Option<Handle<Image>>)>,
+    uinode_query: Query<(&Node, &GlobalTransform, &crate::Color, &crate::Image)>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image) in uinode_query.iter() {
-        let image = if let Some(image) = image {
+        let image = if let Some(image) = &image.0 {
             // Skip loading images
             if !images.contains(image) {
                 continue;
@@ -152,7 +152,7 @@ pub fn extract_uinodes(
         };
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
-            color: *color,
+            color: color.0,
             rect: bevy_sprite2::Rect {
                 min: Vec2::ZERO,
                 max: uinode.size,
@@ -243,10 +243,11 @@ const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
     const_vec3!([0.5, 0.5, 0.0]),
 ];
 
+#[derive(Component)]
 pub struct UiBatch {
-    range: Range<u32>,
-    handle: Option<Handle<Image>>,
-    z: f32,
+    pub range: Range<u32>,
+    pub image: Option<Handle<Image>>,
+    pub z: f32,
 }
 
 pub fn prepare_uinodes(
@@ -265,14 +266,14 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle: Option<Handle<Image>> = None;
+    let mut current_batch_handle = None;
     let mut last_z = 0.0;
     for extracted_uinode in extracted_uinodes.uinodes.iter() {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
                 commands.spawn_bundle((UiBatch {
                     range: start..end,
-                    handle: current_batch_handle,
+                    image: current_batch_handle,
                     z: last_z,
                 },));
                 start = end;
@@ -331,7 +332,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn_bundle((UiBatch {
             range: start..end,
-            handle: current_batch_handle,
+            image: current_batch_handle,
             z: last_z,
         },));
     }
@@ -443,12 +444,12 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
         for mut transparent_phase in views.iter_mut() {
             for (entity, batch) in ui_batches.iter_mut() {
-                if let Some(handle) = &batch.handle {
+                if let Some(handle) = &batch.image {
                     image_bind_groups
                         .values
                         .entry(handle.clone_weak())
                         .or_insert_with(|| {
-                            let gpu_image = gpu_images.get(&handle).unwrap();
+                            let gpu_image = gpu_images.get(handle).unwrap();
                             render_device.create_bind_group(&BindGroupDescriptor {
                                 entries: &[
                                     BindGroupEntry {

@@ -2,7 +2,8 @@ use bevy::{
     core::Time,
     math::{Quat, Vec3},
     prelude::{
-        App, AssetServer, Commands, HorizontalAlign, Query, Res, Transform, VerticalAlign, With,
+        App, AssetServer, Commands, Component, HorizontalAlign, Query, Res, Transform,
+        VerticalAlign, With,
     },
     render2::{camera::OrthographicCameraBundle, color::Color},
     text2::{Text, Text2dBundle, TextAlignment, TextStyle},
@@ -19,8 +20,11 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct AnimateTranslation;
+#[derive(Component)]
 struct AnimateRotation;
+#[derive(Component)]
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

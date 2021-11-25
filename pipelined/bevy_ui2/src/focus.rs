@@ -2,6 +2,7 @@ use crate::Node;
 use bevy_core::FloatOrd;
 use bevy_ecs::{
     entity::Entity,
+    prelude::Component,
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
@@ -9,7 +10,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
 use smallvec::SmallVec;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
     Clicked,
     Hovered,
@@ -22,7 +23,7 @@ impl Default for Interaction {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum FocusPolicy {
     Block,
     Pass,

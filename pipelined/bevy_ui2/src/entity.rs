@@ -1,66 +1,36 @@
 use super::Node;
 use crate::{
-    widget::{Button, Image},
+    widget::{Button, ImageMode},
     CalculatedSize, FocusPolicy, Interaction, Style, CAMERA_UI,
 };
-use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
-    color::Color,
     view::VisibleEntities,
 };
 use bevy_text2::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
     pub node: Node,
     pub style: Style,
-    pub color: Color,
-    pub texture: Option<Handle<bevy_render2::texture::Image>>,
+    pub color: crate::Color,
+    pub image: crate::Image,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
 
-impl Default for NodeBundle {
-    fn default() -> Self {
-        NodeBundle {
-            node: Default::default(),
-            style: Default::default(),
-            color: Default::default(),
-            texture: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-        }
-    }
-}
-
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ImageBundle {
     pub node: Node,
     pub style: Style,
-    pub image: Image,
+    pub image_mode: ImageMode,
     pub calculated_size: CalculatedSize,
-    pub color: Color,
-    pub texture: Option<Handle<bevy_render2::texture::Image>>,
+    pub color: crate::Color,
+    pub image: crate::Image,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-}
-
-impl Default for ImageBundle {
-    fn default() -> Self {
-        ImageBundle {
-            node: Default::default(),
-            image: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            color: Default::default(),
-            texture: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-        }
-    }
 }
 
 #[derive(Bundle, Clone, Debug)]
@@ -95,8 +65,8 @@ pub struct ButtonBundle {
     pub style: Style,
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy,
-    pub color: Color,
-    pub texture: Option<Handle<bevy_render2::texture::Image>>,
+    pub color: crate::Color,
+    pub image: crate::Image,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -110,7 +80,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             style: Default::default(),
             color: Default::default(),
-            texture: Default::default(),
+            image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
         }

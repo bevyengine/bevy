@@ -1,10 +1,11 @@
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_asset::Handle;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
-#[derive(Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
@@ -48,7 +49,7 @@ impl AddAssign<f32> for Val {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Style {
     pub display: Display,
@@ -250,7 +251,25 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug)]
 pub struct CalculatedSize {
     pub size: Size,
+}
+
+#[derive(Component, Default, Copy, Clone, Debug)]
+pub struct Color(pub bevy_render2::color::Color);
+
+impl From<bevy_render2::color::Color> for Color {
+    fn from(color: bevy_render2::color::Color) -> Self {
+        Self(color)
+    }
+}
+
+#[derive(Component, Default, Clone, Debug)]
+pub struct Image(pub Option<Handle<bevy_render2::texture::Image>>);
+
+impl From<Handle<bevy_render2::texture::Image>> for Image {
+    fn from(handle: Handle<bevy_render2::texture::Image>) -> Self {
+        Self(Some(handle))
+    }
 }

@@ -1,37 +1,29 @@
 use crate::CalculatedSize;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_ecs::{
+    component::Component,
     query::With,
     system::{Query, Res},
 };
 use bevy_math::Size;
 
-#[derive(Debug, Clone)]
-pub enum Image {
+#[derive(Component, Debug, Clone)]
+pub enum ImageMode {
     KeepAspect,
 }
 
-impl Default for Image {
+impl Default for ImageMode {
     fn default() -> Self {
-        Image::KeepAspect
+        ImageMode::KeepAspect
     }
 }
 
 pub fn image_node_system(
     textures: Res<Assets<bevy_render2::texture::Image>>,
-    mut query: Query<
-        (
-            &mut CalculatedSize,
-            &Option<Handle<bevy_render2::texture::Image>>,
-        ),
-        With<Image>,
-    >,
+    mut query: Query<(&mut CalculatedSize, &crate::Image), With<ImageMode>>,
 ) {
-    for (mut calculated_size, texture_handle) in query.iter_mut() {
-        if let Some(texture) = texture_handle
-            .as_ref()
-            .and_then(|handle| textures.get(handle))
-        {
+    for (mut calculated_size, image) in query.iter_mut() {
+        if let Some(texture) = image.0.as_ref().and_then(|handle| textures.get(handle)) {
             let size = Size {
                 width: texture.texture_descriptor.size.width as f32,
                 height: texture.texture_descriptor.size.height as f32,

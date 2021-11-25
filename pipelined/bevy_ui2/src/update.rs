@@ -53,6 +53,7 @@ fn update_hierarchy(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
+        prelude::Component,
         schedule::{Schedule, Stage, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
@@ -63,12 +64,19 @@ mod tests {
 
     use super::{ui_z_system, UI_Z_STEP};
 
-    fn node_with_transform(name: &str) -> (String, Node, Transform) {
-        (name.to_owned(), Node::default(), Transform::identity())
+    #[derive(Component)]
+    struct Name(String);
+
+    fn node_with_transform(name: &str) -> (Name, Node, Transform) {
+        (
+            Name(name.to_owned()),
+            Node::default(),
+            Transform::identity(),
+        )
     }
 
-    fn node_without_transform(name: &str) -> (String, Node) {
-        (name.to_owned(), Node::default())
+    fn node_without_transform(name: &str) -> (Name, Node) {
+        (Name(name.to_owned()), Node::default())
     }
 
     fn get_steps(transform: &Transform) -> u32 {
@@ -127,9 +135,9 @@ mod tests {
         schedule.run(&mut world);
 
         let mut actual_result = world
-            .query::<(&String, &Transform)>()
+            .query::<(&Name, &Transform)>()
             .iter(&world)
-            .map(|(name, transform)| (name.clone(), get_steps(transform)))
+            .map(|(name, transform)| (name.0.clone(), get_steps(transform)))
             .collect::<Vec<(String, u32)>>();
         actual_result.sort_unstable_by_key(|(name, _)| name.clone());
         let expected_result = vec![
