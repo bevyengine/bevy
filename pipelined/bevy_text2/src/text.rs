@@ -20,8 +20,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::{AssetServer, Handle};
     /// # use bevy_render2::color::Color;
-    /// # use bevy_text2::{Font, Text, TextAlignment, TextStyle};
-    /// # use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    /// # use bevy_text2::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
