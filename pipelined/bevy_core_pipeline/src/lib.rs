@@ -1,3 +1,4 @@
+mod clear_pass;
 mod main_pass_2d;
 mod main_pass_3d;
 mod main_pass_driver;
@@ -24,6 +25,8 @@ use bevy_render2::{
     RenderApp, RenderStage, RenderWorld,
 };
 
+use crate::clear_pass::ClearPassNode;
+
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
@@ -42,6 +45,7 @@ impl Default for ClearColor {
 pub mod node {
     pub const MAIN_PASS_DEPENDENCIES: &str = "main_pass_dependencies";
     pub const MAIN_PASS_DRIVER: &str = "main_pass_driver";
+    pub const CLEAR_PASS: &str = "clear_pass";
     pub const VIEW: &str = "view";
 }
 
@@ -86,6 +90,7 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
+        let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
@@ -126,6 +131,11 @@ impl Plugin for CorePipelinePlugin {
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
         graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
+            .unwrap();
+
+        graph.add_node(node::CLEAR_PASS, clear_pass_node);
+        graph
+            .add_node_edge(node::CLEAR_PASS, node::MAIN_PASS_DEPENDENCIES)
             .unwrap();
     }
 }
