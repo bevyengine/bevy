@@ -93,6 +93,7 @@ impl SpecializedPipeline for WireframePipeline {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     wireframe_config: Res<WireframeConfig>,
