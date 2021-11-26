@@ -8,6 +8,8 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
+use super::DespawnRecursiveExt;
+
 pub fn parent_update_system(
     mut commands: Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
@@ -61,10 +63,11 @@ pub fn parent_update_system(
                     .push(entity);
             }
             Err(bevy_ecs::query::QueryEntityError::NoSuchEntity) => {
-                panic!(
-                    "{:?}'s parent is {:?}, which no longer exists",
-                    entity, parent.0
-                );
+                // Our parent does not exist, so we should no longer exist.
+                // Please note that this is only triggered if `Parent` is changed.
+                // (e.g. if `Parent` is newly added, such as from scene spawning)
+                // So this is a slight hack
+                commands.entity(entity).despawn_recursive();
             }
         }
     }
