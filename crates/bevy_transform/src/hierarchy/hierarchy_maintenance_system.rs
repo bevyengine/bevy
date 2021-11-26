@@ -45,20 +45,27 @@ pub fn parent_update_system(
             commands.entity(entity).insert(PreviousParent(parent.0));
         };
 
-        // Add to the parent's `Children` (either the real component, or
-        // `children_additions`).
-        if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
-            // This is the parent
-            // PERF: Ideally we shouldn't need to check for duplicates
-            if !(*new_parent_children).0.contains(&entity) {
-                (*new_parent_children).0.push(entity);
+        match children_query.get_mut(parent.0) {
+            Ok(mut new_parent_children) => {
+                // This is the parent
+                // PERF: Ideally we shouldn't need to check for duplicates
+                if !(*new_parent_children).0.contains(&entity) {
+                    (*new_parent_children).0.push(entity);
+                }
             }
-        } else {
-            // The parent doesn't have a children entity, lets add it
-            children_additions
-                .entry(parent.0)
-                .or_insert_with(Default::default)
-                .push(entity);
+            Err(bevy_ecs::query::QueryEntityError::QueryDoesNotMatch) => {
+                // The parent doesn't have a children component, lets add it
+                children_additions
+                    .entry(parent.0)
+                    .or_insert_with(Default::default)
+                    .push(entity);
+            }
+            Err(bevy_ecs::query::QueryEntityError::NoSuchEntity) => {
+                panic!(
+                    "{:?}'s parent is {:?}, which no longer exists",
+                    entity, parent.0
+                );
+            }
         }
     }
 
