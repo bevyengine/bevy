@@ -93,6 +93,7 @@ fn setup(
             intensity: 0.0,
             range: spawn_plane_depth,
             color: Color::WHITE,
+            shadows_enabled: true,
             ..Default::default()
         },
         ..Default::default()
@@ -112,6 +113,7 @@ fn setup(
                 far: 50.0,
                 ..Default::default()
             },
+            shadows_enabled: true,
             ..Default::default()
         },
         transform: Transform::from_matrix(light_transform),
