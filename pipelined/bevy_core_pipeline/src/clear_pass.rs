@@ -38,7 +38,7 @@ impl Node for ClearPassNode {
         for (target, depth) in self.query.iter_manual(world) {
             let clear_color = world.get_resource::<ClearColor>().unwrap();
             let pass_descriptor = RenderPassDescriptor {
-                label: Some(crate::node::CLEAR_PASS),
+                label: Some("clear_pass"),
                 color_attachments: &[target.get_color_attachment(Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,

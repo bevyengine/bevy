@@ -1,8 +1,11 @@
 mod clear_pass;
+mod clear_pass_driver;
 mod main_pass_2d;
 mod main_pass_3d;
 mod main_pass_driver;
 
+pub use clear_pass::*;
+pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
@@ -45,7 +48,7 @@ impl Default for ClearColor {
 pub mod node {
     pub const MAIN_PASS_DEPENDENCIES: &str = "main_pass_dependencies";
     pub const MAIN_PASS_DRIVER: &str = "main_pass_driver";
-    pub const CLEAR_PASS: &str = "clear_pass";
+    pub const CLEAR_PASS_DRIVER: &str = "clear_pass_driver";
     pub const VIEW: &str = "view";
 }
 
@@ -66,6 +69,13 @@ pub mod draw_3d_graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+    }
+}
+
+pub mod clear_graph {
+    pub const NAME: &str = "clear";
+    pub mod node {
+        pub const CLEAR_PASS: &str = "clear_pass";
     }
 }
 
@@ -127,15 +137,18 @@ impl Plugin for CorePipelinePlugin {
             .unwrap();
         graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
 
+        let mut clear_graph = RenderGraph::default();
+        clear_graph.add_node(clear_graph::node::CLEAR_PASS, clear_pass_node);
+        graph.add_sub_graph(clear_graph::NAME, clear_graph);
+
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
         graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();
-
-        graph.add_node(node::CLEAR_PASS, clear_pass_node);
+        graph.add_node(node::CLEAR_PASS_DRIVER, ClearPassDriverNode);
         graph
-            .add_node_edge(node::CLEAR_PASS, node::MAIN_PASS_DEPENDENCIES)
+            .add_node_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
             .unwrap();
     }
 }
