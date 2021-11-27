@@ -509,7 +509,6 @@ pub fn prepare_lights(
 ) {
     light_meta.view_gpu_lights.clear();
 
-    let ambient_color = ambient_light.color.as_rgba_linear() * ambient_light.brightness;
     // Pre-calculate for PointLights
     let cube_face_projection =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
@@ -555,7 +554,8 @@ pub fn prepare_lights(
         let mut view_lights = Vec::new();
 
         let mut gpu_lights = GpuLights {
-            ambient_color: ambient_color.into(),
+            ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
+                * ambient_light.brightness,
             n_point_lights: point_lights.iter().len() as u32,
             n_directional_lights: directional_lights.iter().len() as u32,
             point_lights: [GpuPointLight::default(); MAX_POINT_LIGHTS],
@@ -622,7 +622,7 @@ pub fn prepare_lights(
                 projection: cube_face_projection,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color: (light.color.as_rgba_linear() * light.intensity).into(),
+                color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.intensity,
                 radius: light.radius,
                 position: light.transform.translation,
                 inverse_square_range: 1.0 / (light.range * light.range),
@@ -669,7 +669,7 @@ pub fn prepare_lights(
             gpu_lights.directional_lights[i] = GpuDirectionalLight {
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color: (light.color.as_rgba_linear() * intensity).into(),
+                color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
                 dir_to_light,
                 // NOTE: * view is correct, it should not be view.inverse() here
                 view_projection: projection * view,
