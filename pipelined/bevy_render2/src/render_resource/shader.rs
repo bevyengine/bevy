@@ -492,7 +492,7 @@ fn vertex(
 }
 ";
 
-const WGSL_ELSE: &str = r"
+    const WGSL_ELSE: &str = r"
 [[block]]
 struct View {
     view_proj: mat4x4<f32>;
