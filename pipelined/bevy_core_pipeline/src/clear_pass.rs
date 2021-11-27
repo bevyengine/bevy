@@ -1,7 +1,6 @@
 use crate::ClearColor;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    camera::{CameraPlugin, ExtractedCameraNames},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo},
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -35,21 +34,8 @@ impl Node for ClearPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
-        let view_entities: Vec<&Entity> = extracted_cameras
-            .entities
-            .iter()
-            .filter(|(name, _)| {
-                name.as_str() == CameraPlugin::CAMERA_2D || name.as_str() == CameraPlugin::CAMERA_3D
-            })
-            .map(|(_, entity)| entity)
-            .collect();
-
-        for view_entity in view_entities {
-            let (target, depth) = self
-                .query
-                .get_manual(world, *view_entity)
-                .expect("view entity should exist");
+        /* This gets all ViewTargets and ViewDepthTextures and clears its attachments */
+        for (target, depth) in self.query.iter_manual(world) {
             let clear_color = world.get_resource::<ClearColor>().unwrap();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some(crate::node::CLEAR_PASS),
@@ -59,7 +45,6 @@ impl Node for ClearPassNode {
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: The opaque main pass clears and writes to the depth buffer.
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
                         store: true,
@@ -67,7 +52,7 @@ impl Node for ClearPassNode {
                     stencil_ops: None,
                 }),
             };
-            
+
             render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
