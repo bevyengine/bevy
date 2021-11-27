@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Range};
+use std::{cmp::Ordering, collections::hash_map::Entry, ops::Range};
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
@@ -18,7 +18,7 @@ use bevy_render2::{
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, Image},
+    texture::{BevyDefault, GpuImage, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
@@ -437,7 +437,8 @@ pub fn prepare_sprites(
 
 #[derive(Default)]
 pub struct ImageBindGroups {
-    values: HashMap<Handle<Image>, BindGroup>,
+    // We don't support change detection on RenderAssets, so we have to cache the GpuImage here
+    values: HashMap<Handle<Image>, (BindGroup, GpuImage)>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -476,26 +477,26 @@ pub fn queue_sprites(
         );
         for mut transparent_phase in views.iter_mut() {
             for (entity, batch) in sprite_batches.iter_mut() {
-                image_bind_groups
-                    .values
-                    .entry(batch.handle.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.handle).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("sprite_material_bind_group"),
-                            layout: &sprite_pipeline.material_layout,
-                        })
-                    });
+                let gpu_image = gpu_images.get(&batch.handle).unwrap().clone();
+                match image_bind_groups.values.entry(batch.handle.clone_weak()) {
+                    Entry::Occupied(mut already_existing) => {
+                        let (group, image) = already_existing.get_mut();
+                        // Can't compare GPUImages directly, this has to be good enough
+                        if image.texture_view.id() != gpu_image.texture_view.id()
+                            || image.sampler.id() != gpu_image.sampler.id()
+                        {
+                            *group =
+                                create_bind_group(&render_device, &gpu_image, &sprite_pipeline);
+                            *image = gpu_image;
+                        }
+                    }
+                    Entry::Vacant(vacant) => {
+                        vacant.insert((
+                            create_bind_group(&render_device, &gpu_image, &sprite_pipeline),
+                            gpu_image,
+                        ));
+                    }
+                };
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
                     pipeline: if batch.colored {
@@ -509,6 +510,27 @@ pub fn queue_sprites(
             }
         }
     }
+}
+
+fn create_bind_group(
+    render_device: &RenderDevice,
+    gpu_image: &GpuImage,
+    sprite_pipeline: &SpritePipeline,
+) -> BindGroup {
+    render_device.create_bind_group(&BindGroupDescriptor {
+        entries: &[
+            BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(&gpu_image.texture_view),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: BindingResource::Sampler(&gpu_image.sampler),
+            },
+        ],
+        label: Some("sprite_material_bind_group"),
+        layout: &sprite_pipeline.material_layout,
+    })
 }
 
 pub struct DrawSprite {
@@ -556,7 +578,11 @@ impl Draw<Transparent2d> for DrawSprite {
             );
             pass.set_bind_group(
                 1,
-                image_bind_groups.values.get(&sprite_batch.handle).unwrap(),
+                &image_bind_groups
+                    .values
+                    .get(&sprite_batch.handle)
+                    .unwrap()
+                    .0,
                 &[],
             );
 
