@@ -69,6 +69,7 @@ fn setup(
             color: Color::WHITE,
             shadow_depth_bias: 0.0,
             shadow_normal_bias: 0.0,
+            shadows_enabled: true,
             ..Default::default()
         },
         ..Default::default()
@@ -90,6 +91,7 @@ fn setup(
             },
             shadow_depth_bias: 0.0,
             shadow_normal_bias: 0.0,
+            shadows_enabled: true,
             ..Default::default()
         },
         transform: Transform::from_matrix(light_transform),
