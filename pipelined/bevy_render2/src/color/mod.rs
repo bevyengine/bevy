@@ -633,12 +633,21 @@ impl From<Vec4> for Color {
 
 impl From<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
-        let color = color.as_rgba_linear();
-        wgpu::Color {
-            r: color.r() as f64,
-            g: color.g() as f64,
-            b: color.b() as f64,
-            a: color.a() as f64,
+        if let Color::RgbaLinear {
+            red,
+            green,
+            blue,
+            alpha,
+        } = color.as_rgba_linear()
+        {
+            wgpu::Color {
+                r: red as f64,
+                g: green as f64,
+                b: blue as f64,
+                a: alpha as f64,
+            }
+        } else {
+            unreachable!()
         }
     }
 }
