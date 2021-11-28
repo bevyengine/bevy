@@ -1624,11 +1624,22 @@ impl World {
         self.last_check_tick = change_tick;
     }
 
+    pub fn clear_all(&mut self) {
+        self.clear_entities();
+        self.clear_resources();
+    }
+
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
         self.storages.sparse_sets.clear();
         self.archetypes.clear_entities();
         self.entities.clear();
+    }
+
+    pub fn clear_resources(&mut self) {
+        for column in self.archetypes.resource_mut().unique_components.values_mut() {
+            column.clear();
+        }
     }
 }
 
