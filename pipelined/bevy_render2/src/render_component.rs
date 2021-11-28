@@ -8,7 +8,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, ReadOnlyQueryItem, QueryItem, ReadOnlyFetch, WorldQuery},
+    query::{FilterFetch, ReadOnlyFetch, ReadOnlyQueryItem, WorldQuery},
     system::{
         lifetimeless::{Read, SCommands, SQuery},
         RunSystem, SystemParamItem,

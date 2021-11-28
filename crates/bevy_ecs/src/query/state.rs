@@ -176,8 +176,7 @@ where
         &'s self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>
-    {
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         self.validate_world(world);
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -290,9 +289,8 @@ where
     #[inline]
     pub fn iter_manual<'w, 's>(
         &'s self,
-        world: &'w World
-    ) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F>
-    {
+        world: &'w World,
+    ) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F> {
         self.validate_world(world);
         // SAFETY: query is read only and world is validated
         unsafe {
