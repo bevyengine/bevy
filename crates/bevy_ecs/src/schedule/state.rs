@@ -713,6 +713,6 @@ mod test {
         stage.run(&mut world);
         stage.run(&mut world);
         // This is 3 even though we run twice, because the first actually does two so MyState::S2 is also updated.
-        assert_eq!(world.get_resource::<u32>().unwrap(), &3);
+        assert_eq!(*world.get_resource::<u32>().unwrap(), 3);
     }
 }
