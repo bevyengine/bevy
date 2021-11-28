@@ -183,14 +183,19 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed
+/// 
 /// The use_size option that is used in the Fullscreen variant
 /// defines whether a videomode is chosen that best fits the width and height
 /// in the Window structure, or if these are ignored.
+/// 
 /// E.g. when use_size is set to false the best video mode possible is chosen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
     Windowed,
     BorderlessFullscreen,
+    /// When set to true, the window uses the given size.
+    /// 
+    /// When set to false, the window uses the best possible size for the screen.
     Fullscreen { use_size: bool },
 }
 
