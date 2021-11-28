@@ -691,7 +691,7 @@ mod test {
     }
 
     #[test]
-    fn pr_2211() {
+    fn repeated_on_in_stack_triggers() {
         let mut world = World::default();
 
         world.insert_resource(0u32);
