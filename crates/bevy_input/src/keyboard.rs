@@ -3,7 +3,7 @@ use bevy_app::EventReader;
 use bevy_ecs::system::ResMut;
 
 /// A key input event from a keyboard device
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct KeyboardInput {
     pub scan_code: u32,
     pub key_code: Option<KeyCode>,
