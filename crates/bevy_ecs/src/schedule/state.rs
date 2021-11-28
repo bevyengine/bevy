@@ -129,17 +129,24 @@ where
         (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
-            Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
+            Some(StateTransition::ExitingToResume(ref relevant, _)) => {
                 if relevant == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            Some(StateTransition::ExitingFull(ref relevant, _)) if relevant == pred.as_ref().unwrap() => {
+                *is_in_stack = !*is_in_stack;
+                false
+            }
+            Some(StateTransition::Pausing(_, ref relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }
+                false
+            }
+            Some(StateTransition::ExitingFull(_, ref relevant)) if relevant == pred.as_ref().unwrap() => {
+                *is_in_stack = !*is_in_stack;
                 false
             }
             Some(StateTransition::Startup) => {
@@ -231,6 +238,10 @@ where
 
     pub fn on_inactive_update_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_inactive_update(s))
+    }
+
+    pub fn on_in_stack_update_set(s: T) -> SystemSet {
+        SystemSet::new().with_run_criteria(Self::on_in_stack_update(s))
     }
 
     pub fn on_enter_set(s: T) -> SystemSet {
@@ -543,6 +554,9 @@ mod test {
                 State::on_pause_set(MyState::S3)
                     .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")),
             )
+              .add_system_set(State::on_in_stack_update_set(MyState::S4).with_system(
+                  (|mut r: ResMut<Vec<&'static str>>| r.push("in stack update S4")).before("inactive s4"),
+              ))
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
@@ -599,15 +613,19 @@ mod test {
             "update S3",
             //
             "pause S3",
+            "in stack update S4",
             "update S4",
             //
+            "in stack update S4",
             "inactive S4",
             "update S5",
             //
+            "in stack update S4",
             "inactive S4",
             "inactive S5",
             "update S6",
             //
+            "in stack update S4",
             "inactive S4",
             "inactive S5",
         ];
