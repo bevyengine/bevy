@@ -1637,7 +1637,8 @@ impl World {
     }
 
     pub fn clear_resources(&mut self) {
-        for column in self.archetypes.resource_mut().unique_components.values_mut() {
+        let resource_archetype = self.archetypes.resource_mut();
+        for column in resource_archetype.values_mut() {
             column.clear();
         }
     }
