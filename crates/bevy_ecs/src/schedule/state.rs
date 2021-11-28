@@ -135,7 +135,9 @@ where
                 }
                 false
             }
-            Some(StateTransition::ExitingFull(ref relevant, _)) if relevant == pred.as_ref().unwrap() => {
+            Some(StateTransition::ExitingFull(ref relevant, _))
+                if relevant == pred.as_ref().unwrap() =>
+            {
                 *is_in_stack = !*is_in_stack;
                 false
             }
@@ -145,7 +147,9 @@ where
                 }
                 false
             }
-            Some(StateTransition::ExitingFull(_, ref relevant)) if relevant == pred.as_ref().unwrap() => {
+            Some(StateTransition::ExitingFull(_, ref relevant))
+                if relevant == pred.as_ref().unwrap() =>
+            {
                 *is_in_stack = !*is_in_stack;
                 false
             }
@@ -554,9 +558,12 @@ mod test {
                 State::on_pause_set(MyState::S3)
                     .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")),
             )
-              .add_system_set(State::on_in_stack_update_set(MyState::S4).with_system(
-                  (|mut r: ResMut<Vec<&'static str>>| r.push("in stack update S4")).before("inactive s4"),
-              ))
+            .add_system_set(
+                State::on_in_stack_update_set(MyState::S4).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("in stack update S4"))
+                        .before("inactive s4"),
+                ),
+            )
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
