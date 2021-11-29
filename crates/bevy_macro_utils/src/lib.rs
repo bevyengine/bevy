@@ -35,7 +35,9 @@ impl BevyManifest {
         const BEVY_INTERNAL: &str = "bevy_internal";
 
         let find_in_deps = |deps: &DepsSet| -> Option<syn::Path> {
-            let package = if let Some(dep) = deps.get(BEVY) {
+            let package = if let Some(dep) = deps.get(name) {
+                return Some(get_path(dep.package().unwrap_or(name)));
+            } else if let Some(dep) = deps.get(BEVY) {
                 dep.package().unwrap_or(BEVY)
             } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
                 dep.package().unwrap_or(BEVY_INTERNAL)
