@@ -322,9 +322,14 @@ Example | File | Description
 
 ### Setup
 
+You need to install the correct rust targets:
+
+- `aarch64-apple-ios`: iOS devices
+- `x86_64-apple-ios`: iOS simulator on x86 processors
+- `aarch64-apple-ios-sim`: iOS simulator on Apple processors
+
 ```sh
-rustup target add aarch64-apple-ios x86_64-apple-ios
-cargo install cargo-lipo
+rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
 ### Build & Run
@@ -352,15 +357,6 @@ open bevy_ios_example.xcodeproj/
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
-
-The Xcode build GUI will by default build the rust library for both
-`x86_64-apple-ios`, and `aarch64-apple-ios` which may take a while. If you'd
-like speed this up, you update the `IOS_TARGETS` User-Defined environment
-variable in the "`cargo_ios` target" to be either `x86_64-apple-ios` or
-`aarch64-apple-ios` depending on your goal.
-
-Note: if you update this variable in Xcode, it will also change the default
-used for the `Makefile`.
 
 Example | File | Description
 --- | --- | ---
