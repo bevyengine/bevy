@@ -156,7 +156,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     type Filter = ();
 
     #[inline]
-    fn extract_component(handle: QueryItem<Self::Query>) -> Self {
+    fn extract_component(handle: ReadOnlyQueryItem<Self::Query>) -> Self {
         handle.clone_weak()
     }
 }
