@@ -1,10 +1,10 @@
-use std::{cmp::Ordering, collections::hash_map::Entry, ops::Range};
+use std::{cmp::Ordering, ops::Range};
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
@@ -170,6 +170,37 @@ pub struct ExtractedSprite {
 #[derive(Default)]
 pub struct ExtractedSprites {
     sprites: Vec<ExtractedSprite>,
+}
+
+#[derive(Default)]
+pub struct SpriteAssetEvents {
+    images: Vec<AssetEvent<Image>>,
+}
+
+pub fn extract_events(
+    mut render_world: ResMut<RenderWorld>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+) {
+    let mut events = render_world
+        .get_resource_mut::<SpriteAssetEvents>()
+        .unwrap();
+    let SpriteAssetEvents { ref mut images } = *events;
+    images.clear();
+
+    for image in image_events.iter() {
+        // AssetEvent: !Clone
+        images.push(match image {
+            AssetEvent::Created { handle } => AssetEvent::Created {
+                handle: handle.clone_weak(),
+            },
+            AssetEvent::Modified { handle } => AssetEvent::Modified {
+                handle: handle.clone_weak(),
+            },
+            AssetEvent::Removed { handle } => AssetEvent::Removed {
+                handle: handle.clone_weak(),
+            },
+        });
+    }
 }
 
 pub fn extract_sprites(
@@ -438,7 +469,7 @@ pub fn prepare_sprites(
 #[derive(Default)]
 pub struct ImageBindGroups {
     // We don't support change detection on RenderAssets, so we have to cache the GpuImage here
-    values: HashMap<Handle<Image>, (BindGroup, GpuImage)>,
+    values: HashMap<Handle<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -454,7 +485,17 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     mut sprite_batches: Query<(Entity, &SpriteBatch)>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
+    events: Res<SpriteAssetEvents>,
 ) {
+    // If an image has changed, the GpuImage has (probably) changed
+    for event in &events.images {
+        match event {
+            AssetEvent::Created { .. } => None,
+            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+        };
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
@@ -477,26 +518,13 @@ pub fn queue_sprites(
         );
         for mut transparent_phase in views.iter_mut() {
             for (entity, batch) in sprite_batches.iter_mut() {
-                let gpu_image = gpu_images.get(&batch.handle).unwrap().clone();
-                match image_bind_groups.values.entry(batch.handle.clone_weak()) {
-                    Entry::Occupied(mut already_existing) => {
-                        let (group, image) = already_existing.get_mut();
-                        // Can't compare GPUImages directly, this has to be good enough
-                        if image.texture_view.id() != gpu_image.texture_view.id()
-                            || image.sampler.id() != gpu_image.sampler.id()
-                        {
-                            *group =
-                                create_bind_group(&render_device, &gpu_image, &sprite_pipeline);
-                            *image = gpu_image;
-                        }
-                    }
-                    Entry::Vacant(vacant) => {
-                        vacant.insert((
-                            create_bind_group(&render_device, &gpu_image, &sprite_pipeline),
-                            gpu_image,
-                        ));
-                    }
-                };
+                image_bind_groups
+                    .values
+                    .entry(batch.handle.clone_weak())
+                    .or_insert_with(|| {
+                        let gpu_image = gpu_images.get(&batch.handle).unwrap().clone();
+                        create_bind_group(&render_device, &gpu_image, &sprite_pipeline)
+                    });
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
                     pipeline: if batch.colored {
@@ -578,11 +606,7 @@ impl Draw<Transparent2d> for DrawSprite {
             );
             pass.set_bind_group(
                 1,
-                &image_bind_groups
-                    .values
-                    .get(&sprite_batch.handle)
-                    .unwrap()
-                    .0,
+                image_bind_groups.values.get(&sprite_batch.handle).unwrap(),
                 &[],
             );
 

@@ -44,6 +44,7 @@ impl Plugin for SpritePlugin {
             .init_resource::<SpriteMeta>()
             .init_resource::<ExtractedSprites>()
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)
+            .add_system_to_stage(RenderStage::Extract, render::extract_events)
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
             .add_system_to_stage(RenderStage::Queue, queue_sprites);
 
