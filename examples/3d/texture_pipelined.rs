@@ -1,7 +1,7 @@
 use bevy::{
     ecs::prelude::*,
     math::{Quat, Vec2, Vec3},
-    pbr2::{PbrBundle, StandardMaterial},
+    pbr2::{AlphaMode, PbrBundle, StandardMaterial},
     prelude::{App, AssetServer, Assets, Transform},
     render2::{
         camera::PerspectiveCameraBundle,
@@ -41,6 +41,7 @@ fn setup(
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         unlit: true,
+        alpha_mode: AlphaMode::Blend,
         ..Default::default()
     });
 
@@ -49,6 +50,7 @@ fn setup(
         base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
         unlit: true,
+        alpha_mode: AlphaMode::Blend,
         ..Default::default()
     });
 
@@ -57,6 +59,7 @@ fn setup(
         base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
         unlit: true,
+        alpha_mode: AlphaMode::Blend,
         ..Default::default()
     });
 
