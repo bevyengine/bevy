@@ -411,12 +411,9 @@ impl<T> Clone for WriteFetch<T> {
 /// The [`ReadOnlyFetch`] of `&mut T`.
 pub struct ReadOnlyWriteFetch<T> {
     table_components: NonNull<T>,
-    table_ticks: *const UnsafeCell<ComponentTicks>,
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
-    last_change_tick: u32,
-    change_tick: u32,
 }
 
 /// SAFETY: access is read only
@@ -426,12 +423,9 @@ impl<T> Clone for ReadOnlyWriteFetch<T> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
-            table_ticks: self.table_ticks,
             entities: self.entities,
             entity_table_rows: self.entity_table_rows,
             sparse_set: self.sparse_set,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
         }
     }
 }
@@ -602,17 +596,14 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         let mut value = Self {
             table_components: NonNull::dangling(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
-            table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
-            last_change_tick,
-            change_tick,
         };
         if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
@@ -638,7 +629,6 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
                     .get_column(state.component_id)
                     .unwrap();
                 self.table_components = column.get_data_ptr().cast::<T>();
-                self.table_ticks = column.get_ticks_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -648,7 +638,6 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         let column = table.get_column(state.component_id).unwrap();
         self.table_components = column.get_data_ptr().cast::<T>();
-        self.table_ticks = column.get_ticks_ptr();
     }
 
     #[inline]
