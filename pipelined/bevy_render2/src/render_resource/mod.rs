@@ -22,7 +22,7 @@ pub use uniform_vec::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
-    util::BufferInitDescriptor, AddressMode, BindGroupDescriptor, BindGroupEntry,
+    util::BufferInitDescriptor, AddressMode, BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
     BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBindingType, BufferSize,
     BufferUsages, ColorTargetState, ColorWrites, CompareFunction, ComputePassDescriptor,
