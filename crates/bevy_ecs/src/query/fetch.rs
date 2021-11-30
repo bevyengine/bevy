@@ -48,7 +48,6 @@ pub trait WorldQuery {
 }
 
 pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
-pub type ReadOnlyQueryItem<'w, 's, Q> = <<Q as WorldQuery>::ReadOnlyFetch as Fetch<'w, 's>>::Item;
 
 pub trait Fetch<'world, 'state>: Sized {
     type Item;
