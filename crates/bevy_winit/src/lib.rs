@@ -59,16 +59,18 @@ fn change_window(world: &mut World) {
                         bevy_window::WindowMode::BorderlessFullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
                         }
-                        bevy_window::WindowMode::Fullscreen { use_size } => window.set_fullscreen(
-                            Some(winit::window::Fullscreen::Exclusive(match use_size {
-                                true => get_fitting_videomode(
-                                    &window.current_monitor().unwrap(),
-                                    width,
-                                    height,
-                                ),
-                                false => get_best_videomode(&window.current_monitor().unwrap()),
-                            })),
-                        ),
+                        bevy_window::WindowMode::Fullscreen => {
+                            window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
+                                get_best_videomode(&window.current_monitor().unwrap()),
+                            )))
+                        }
+                        bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
+                            winit::window::Fullscreen::Exclusive(get_fitting_videomode(
+                                &window.current_monitor().unwrap(),
+                                width,
+                                height,
+                            )),
+                        )),
                         bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
                     }
                 }
