@@ -346,15 +346,15 @@ macro_rules! impl_query_filter_tuple {
         }
 
         impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)>
-            where $($filter::Fetch: FilterFetch),*
+            where $($filter::Fetch: FilterFetch, $filter::ReadOnlyFetch: FilterFetch),*
         {
             type Fetch = Or<($(OrFetch<$filter::Fetch>,)*)>;
             type State = Or<($($filter::State,)*)>;
-            type ReadOnlyFetch = Or<($(OrFetch<$filter::Fetch>,)*)>;
+            type ReadOnlyFetch = Or<($(OrFetch<$filter::ReadOnlyFetch>,)*)>;
         }
 
         /// SAFETY: this only works using the filter which doesn't write
-        unsafe impl<$($filter: FilterFetch),*> ReadOnlyFetch for Or<($(OrFetch<$filter>,)*)> {}
+        unsafe impl<$($filter: FilterFetch + ReadOnlyFetch),*> ReadOnlyFetch for Or<($(OrFetch<$filter>,)*)> {}
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
