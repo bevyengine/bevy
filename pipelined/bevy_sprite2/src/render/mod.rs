@@ -4,7 +4,7 @@ use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
@@ -170,6 +170,37 @@ pub struct ExtractedSprite {
 #[derive(Default)]
 pub struct ExtractedSprites {
     sprites: Vec<ExtractedSprite>,
+}
+
+#[derive(Default)]
+pub struct SpriteAssetEvents {
+    images: Vec<AssetEvent<Image>>,
+}
+
+pub fn extract_sprite_events(
+    mut render_world: ResMut<RenderWorld>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+) {
+    let mut events = render_world
+        .get_resource_mut::<SpriteAssetEvents>()
+        .unwrap();
+    let SpriteAssetEvents { ref mut images } = *events;
+    images.clear();
+
+    for image in image_events.iter() {
+        // AssetEvent: !Clone
+        images.push(match image {
+            AssetEvent::Created { handle } => AssetEvent::Created {
+                handle: handle.clone_weak(),
+            },
+            AssetEvent::Modified { handle } => AssetEvent::Modified {
+                handle: handle.clone_weak(),
+            },
+            AssetEvent::Removed { handle } => AssetEvent::Removed {
+                handle: handle.clone_weak(),
+            },
+        });
+    }
 }
 
 pub fn extract_sprites(
@@ -453,7 +484,17 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     mut sprite_batches: Query<(Entity, &SpriteBatch)>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
+    events: Res<SpriteAssetEvents>,
 ) {
+    // If an image has changed, the GpuImage has (probably) changed
+    for event in &events.images {
+        match event {
+            AssetEvent::Created { .. } => None,
+            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+        };
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
