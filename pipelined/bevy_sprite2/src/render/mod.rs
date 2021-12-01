@@ -18,7 +18,7 @@ use bevy_render2::{
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image},
+    texture::{BevyDefault, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
@@ -177,7 +177,7 @@ pub struct SpriteAssetEvents {
     images: Vec<AssetEvent<Image>>,
 }
 
-pub fn extract_events(
+pub fn extract_sprite_events(
     mut render_world: ResMut<RenderWorld>,
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
@@ -468,7 +468,6 @@ pub fn prepare_sprites(
 
 #[derive(Default)]
 pub struct ImageBindGroups {
-    // We don't support change detection on RenderAssets, so we have to cache the GpuImage here
     values: HashMap<Handle<Image>, BindGroup>,
 }
 
@@ -522,8 +521,21 @@ pub fn queue_sprites(
                     .values
                     .entry(batch.handle.clone_weak())
                     .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.handle).unwrap().clone();
-                        create_bind_group(&render_device, &gpu_image, &sprite_pipeline)
+                        let gpu_image = gpu_images.get(&batch.handle).unwrap();
+                        render_device.create_bind_group(&BindGroupDescriptor {
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::Sampler(&gpu_image.sampler),
+                                },
+                            ],
+                            label: Some("sprite_material_bind_group"),
+                            layout: &sprite_pipeline.material_layout,
+                        })
                     });
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
@@ -538,27 +550,6 @@ pub fn queue_sprites(
             }
         }
     }
-}
-
-fn create_bind_group(
-    render_device: &RenderDevice,
-    gpu_image: &GpuImage,
-    sprite_pipeline: &SpritePipeline,
-) -> BindGroup {
-    render_device.create_bind_group(&BindGroupDescriptor {
-        entries: &[
-            BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::TextureView(&gpu_image.texture_view),
-            },
-            BindGroupEntry {
-                binding: 1,
-                resource: BindingResource::Sampler(&gpu_image.sampler),
-            },
-        ],
-        label: Some("sprite_material_bind_group"),
-        layout: &sprite_pipeline.material_layout,
-    })
 }
 
 pub struct DrawSprite {
