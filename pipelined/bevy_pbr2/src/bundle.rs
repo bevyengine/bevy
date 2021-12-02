@@ -9,7 +9,7 @@ use bevy_render2::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Default)]
 pub struct PbrBundle {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
@@ -19,19 +19,6 @@ pub struct PbrBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
-}
-
-impl Default for PbrBundle {
-    fn default() -> Self {
-        Self {
-            mesh: Default::default(),
-            material: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
 }
 
 #[derive(Component, Clone, Debug, Default)]

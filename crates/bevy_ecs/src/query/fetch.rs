@@ -132,7 +132,11 @@ pub unsafe trait FetchState: Send + Sync + Sized {
     fn matches_table(&self, table: &Table) -> bool;
 }
 
-/// A fetch that is read only. This must only be implemented for read-only fetches.
+/// A fetch that is read only.
+///
+/// # Safety
+///
+/// This must only be implemented for read-only fetches.
 pub unsafe trait ReadOnlyFetch {}
 
 impl WorldQuery for Entity {

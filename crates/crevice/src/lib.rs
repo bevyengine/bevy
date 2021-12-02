@@ -2,7 +2,8 @@
     clippy::new_without_default,
     clippy::needless_update,
     clippy::len_without_is_empty,
-    clippy::needless_range_loop
+    clippy::needless_range_loop,
+    clippy::all
 )]
 /*!
 [![GitHub CI Status](https://github.com/LPGhatguy/crevice/workflows/CI/badge.svg)](https://github.com/LPGhatguy/crevice/actions)
