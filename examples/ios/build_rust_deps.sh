@@ -21,8 +21,6 @@ if [[ -n "${DEVELOPER_SDK_DIR:-}" ]]; then
   export LIBRARY_PATH="${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}"
 fi
 
-export LIBRARY_PATH="${LIBRARY_PATH:-}:$(xcrun --show-sdk-path)/usr/lib"
-
 # add homebrew bin path, as it's the most commonly used package manager on macOS
 # this is needed for cmake on apple arm processors as it's not available by default
 export PATH="$PATH:/opt/homebrew/bin"
