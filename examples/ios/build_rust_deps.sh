@@ -13,11 +13,12 @@ fi
 
 set -euvx
 
-# add path to the system SDK, needed since macOS 11
-if [ -z ${LIBRARY_PATH+x} ]; then
-    export LIBRARY_PATH="$(xcrun --show-sdk-path)/usr/lib"
-else
-    export LIBRARY_PATH="$LIBRARY_PATH:$(xcrun --show-sdk-path)/usr/lib"
+if [[ -n "${DEVELOPER_SDK_DIR:-}" ]]; then
+  # Assume we're in Xcode, which means we're probably cross-compiling.
+  # In this case, we need to add an extra library search path for build scripts and proc-macros,
+  # which run on the host instead of the target.
+  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)
+  export LIBRARY_PATH="${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}"
 fi
 
 # add homebrew bin path, as it's the most commonly used package manager on macOS
