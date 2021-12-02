@@ -1,5 +1,6 @@
 use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
+use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -19,6 +20,8 @@ impl WindowId {
 }
 
 use std::fmt;
+
+use crate::raw_window_handle::RawWindowHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -123,6 +126,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
+    raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
@@ -179,15 +183,17 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed
-/// The use_size option that is used in the Fullscreen variant
-/// defines whether a videomode is chosen that best fits the width and height
-/// in the Window structure, or if these are ignored.
-/// E.g. when use_size is set to false the best video mode possible is chosen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
+    /// Creates a window that uses the given size
     Windowed,
+    /// Creates a borderless window that uses the full size of the screen
     BorderlessFullscreen,
-    Fullscreen { use_size: bool },
+    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
+    /// from the given size and scale it to fit the screen.
+    SizedFullscreen,
+    /// Creates a fullscreen window that uses the maximum supported size
+    Fullscreen,
 }
 
 impl Window {
@@ -198,6 +204,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
+        raw_window_handle: RawWindowHandle,
     ) -> Self {
         Window {
             id,
@@ -216,6 +223,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
             physical_cursor_position: None,
+            raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
@@ -519,12 +527,17 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
+
+    pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
+        self.raw_window_handle.clone()
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub position: Option<Vec2>,
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
@@ -544,6 +557,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            position: None,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             vsync: true,

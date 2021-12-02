@@ -11,3 +11,4 @@ keywords = ["bevy"]
 [dependencies]
 cargo-manifest = "0.2.6"
 syn = "1.0"
+quote = "1.0"

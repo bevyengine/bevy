@@ -38,6 +38,8 @@ pub mod prelude {
     };
 }
 
+pub use bevy_ecs_macros::all_tuples;
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;

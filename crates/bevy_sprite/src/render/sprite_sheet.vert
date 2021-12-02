@@ -21,7 +21,7 @@ struct Rect {
     vec2 end;
 };
 
-layout(set = 1, binding = 1) buffer TextureAtlas_textures {
+layout(set = 1, binding = 1) readonly buffer TextureAtlas_textures {
     Rect[] Textures;
 };
 
