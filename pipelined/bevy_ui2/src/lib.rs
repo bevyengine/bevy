@@ -26,6 +26,7 @@ use bevy_asset::Handle;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
+use bevy_render2::texture::Image;
 use bevy_transform::TransformSystem;
 use update::ui_z_system;
 
@@ -46,25 +47,25 @@ impl Plugin for UiPlugin {
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
             .register_type::<CalculatedSize>()
-            .register_type::<Color>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
             .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
-            .register_type::<Image>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             // NOTE: used by Image
-            .register_type::<Option<Handle<bevy_render2::texture::Image>>>()
+            .register_type::<Option<Handle<Image>>>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
             .register_type::<Rect<Val>>()
             .register_type::<Style>()
+            .register_type::<UiColor>()
+            .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()

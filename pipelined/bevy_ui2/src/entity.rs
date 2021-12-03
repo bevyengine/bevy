@@ -1,7 +1,6 @@
-use super::Node;
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Style, CAMERA_UI,
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
@@ -15,8 +14,8 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct NodeBundle {
     pub node: Node,
     pub style: Style,
-    pub color: crate::Color,
-    pub image: crate::Image,
+    pub color: UiColor,
+    pub image: UiImage,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -27,8 +26,8 @@ pub struct ImageBundle {
     pub style: Style,
     pub image_mode: ImageMode,
     pub calculated_size: CalculatedSize,
-    pub color: crate::Color,
-    pub image: crate::Image,
+    pub color: UiColor,
+    pub image: UiImage,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -65,8 +64,8 @@ pub struct ButtonBundle {
     pub style: Style,
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy,
-    pub color: crate::Color,
-    pub image: crate::Image,
+    pub color: UiColor,
+    pub image: UiImage,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

@@ -1,4 +1,4 @@
-use crate::CalculatedSize;
+use crate::{CalculatedSize, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use bevy_math::Size;
 use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_render2::texture::Image;
 use serde::{Deserialize, Serialize};
 
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -23,8 +24,8 @@ impl Default for ImageMode {
 }
 
 pub fn image_node_system(
-    textures: Res<Assets<bevy_render2::texture::Image>>,
-    mut query: Query<(&mut CalculatedSize, &crate::Image), With<ImageMode>>,
+    textures: Res<Assets<Image>>,
+    mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,
 ) {
     for (mut calculated_size, image) in query.iter_mut() {
         if let Some(texture) = image.0.as_ref().and_then(|handle| textures.get(handle)) {

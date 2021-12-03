@@ -2,6 +2,7 @@ use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_render2::{color::Color, texture::Image};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
@@ -259,10 +260,10 @@ pub struct CalculatedSize {
 
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub struct Color(pub bevy_render2::color::Color);
+pub struct UiColor(pub Color);
 
-impl From<bevy_render2::color::Color> for Color {
-    fn from(color: bevy_render2::color::Color) -> Self {
+impl From<Color> for UiColor {
+    fn from(color: Color) -> Self {
         Self(color)
     }
 }
@@ -270,10 +271,10 @@ impl From<bevy_render2::color::Color> for Color {
 // NOTE: Option<Handle<Image>> is reflected as a value, so this derive(Reflect) requires Handle<T> to derive Serialize and Deserialize
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub struct Image(pub Option<Handle<bevy_render2::texture::Image>>);
+pub struct UiImage(pub Option<Handle<Image>>);
 
-impl From<Handle<bevy_render2::texture::Image>> for Image {
-    fn from(handle: Handle<bevy_render2::texture::Image>) -> Self {
+impl From<Handle<Image>> for UiImage {
+    fn from(handle: Handle<Image>) -> Self {
         Self(Some(handle))
     }
 }

@@ -35,9 +35,7 @@ use bevy_window::Windows;
 use bytemuck::{Pod, Zeroable};
 use wgpu::{ImageCopyTexture, ImageDataLayout, Origin3d};
 
-use crate::Node;
-
-// bevy_sprite2::lib.rs
+use crate::{Node, UiColor, UiImage};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -136,7 +134,7 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut render_world: ResMut<RenderWorld>,
     images: Res<Assets<Image>>,
-    uinode_query: Query<(&Node, &GlobalTransform, &crate::Color, &crate::Image)>,
+    uinode_query: Query<(&Node, &GlobalTransform, &UiColor, &UiImage)>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
