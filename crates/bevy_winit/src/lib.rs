@@ -564,10 +564,10 @@ fn handle_window_close_request(
     let world = world.cell();
 
     let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
-    let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    // let windows = world.get_resource_mut::<Windows>().unwrap();
     let windows_config = world.get_resource::<WindowsConfig>().unwrap();
 
-    let mut window_close_requested_events = world
+    let window_close_requested_events = world
         .get_resource_mut::<Events<WindowCloseRequested>>()
         .unwrap();
     let mut exit_app_events = world.get_resource_mut::<Events<AppExit>>().unwrap();
