@@ -9,7 +9,7 @@ pub use render_pass::*;
 use std::ops::Range;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
@@ -26,7 +26,7 @@ use bevy_render2::{
     view::ViewUniforms,
     RenderApp, RenderStage, RenderWorld,
 };
-use bevy_sprite2::TextureAtlas;
+use bevy_sprite2::{SpriteAssetEvents, TextureAtlas};
 use bevy_text2::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -430,7 +430,17 @@ pub fn queue_uinodes(
     gpu_images: Res<RenderAssets<Image>>,
     mut ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<&mut RenderPhase<TransparentUi>>,
+    events: Res<SpriteAssetEvents>,
 ) {
+    // If an image has changed, the GpuImage has (probably) changed
+    for event in &events.images {
+        match event {
+            AssetEvent::Created { .. } => None,
+            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+        };
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {

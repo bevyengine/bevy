@@ -174,7 +174,7 @@ pub struct ExtractedSprites {
 
 #[derive(Default)]
 pub struct SpriteAssetEvents {
-    images: Vec<AssetEvent<Image>>,
+    pub images: Vec<AssetEvent<Image>>,
 }
 
 pub fn extract_sprite_events(
