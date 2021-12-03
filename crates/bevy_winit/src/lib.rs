@@ -257,7 +257,7 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+                let winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
                 let window_id =
                     if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
