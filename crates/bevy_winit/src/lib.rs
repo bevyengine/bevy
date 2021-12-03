@@ -572,11 +572,11 @@ fn handle_window_close_request(
         .unwrap();
     let mut exit_app_events = world.get_resource_mut::<Events<AppExit>>().unwrap();
 
-    for WindowCloseRequested { id: window_id } in
+    for WindowCloseRequested { id: ref window_id } in
         close_window_event_reader.iter(&window_close_requested_events)
     {
         // Destroy window
-        let winit_id = winit_windows.window_id_to_winit.remove(&window_id).unwrap();
+        let winit_id = winit_windows.window_id_to_winit.remove(window_id).unwrap();
         let window_count = winit_windows.windows.len();
         winit_windows.winit_to_window_id.remove(&winit_id);
         winit_windows.windows.remove(&winit_id);
