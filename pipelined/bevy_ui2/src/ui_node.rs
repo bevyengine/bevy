@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render2::{color::Color, texture::Image};
@@ -10,14 +10,6 @@ use std::ops::{Add, AddAssign};
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
-}
-
-/// If you add this to an entity, it should be the *only* component on it from bevy_ui.
-/// This component marks an entity as "transparent" to the UI layout system, meaning the
-/// children of this entity will be treated as the children of this entity s parent by the layout system.
-#[derive(Clone, Default, Component)]
-pub struct ControlNode {
-    pub(crate) true_parent: Option<Entity>,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
