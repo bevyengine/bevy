@@ -101,7 +101,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-feat
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
-ron = "0.6.2"
+ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
