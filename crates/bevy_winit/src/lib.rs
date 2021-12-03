@@ -16,9 +16,10 @@ use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowExitMethod,
+    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows, WindowsConfig,
 };
+
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -221,6 +222,7 @@ pub fn winit_runner(app: App) {
 pub fn winit_runner_with(mut app: App) {
     let mut event_loop = app.world.remove_non_send::<EventLoop<()>>().unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
+    let mut close_window_event_reader = ManualEventReader::<WindowCloseRequested>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     app.world.insert_non_send(event_loop.create_proxy());
 
@@ -261,10 +263,12 @@ pub fn winit_runner_with(mut app: App) {
                     if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
                         window_id
                     } else {
-                        warn!(
-                            "Skipped event for unknown winit Window Id {:?}",
-                            winit_window_id
-                        );
+                        if event != WindowEvent::Destroyed {
+                            warn!(
+                                "Skipped event for unknown winit Window Id {:?}",
+                                winit_window_id
+                            );
+                        }
                         return;
                     };
 
@@ -290,9 +294,6 @@ pub fn winit_runner_with(mut app: App) {
                         let mut window_close_requested_events = world
                             .get_resource_mut::<Events<WindowCloseRequested>>()
                             .unwrap();
-                        let winit_id = winit_windows.window_id_to_winit.remove(&window_id).unwrap();
-                        winit_windows.winit_to_window_id.remove(&winit_id);
-                        winit_windows.windows.remove(&winit_id);
                         window_close_requested_events.send(WindowCloseRequested { id: window_id });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {
@@ -499,6 +500,7 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
+                handle_window_close_request(&mut app.world, &mut close_window_event_reader);
                 if active {
                     app.update();
                 }
@@ -552,5 +554,57 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
         window_created_events.send(WindowCreated {
             id: create_window_event.id,
         });
+    }
+}
+
+fn handle_window_close_request(
+    world: &mut World,
+    close_window_event_reader: &mut ManualEventReader<WindowCloseRequested>,
+) {
+    let world = world.cell();
+
+    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+    let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    let windows_config = world.get_resource::<WindowsConfig>().unwrap();
+
+    let mut window_close_requested_events = world
+        .get_resource_mut::<Events<WindowCloseRequested>>()
+        .unwrap();
+    let mut exit_app_events = world.get_resource_mut::<Events<AppExit>>().unwrap();
+
+    for WindowCloseRequested { id: window_id } in
+        close_window_event_reader.iter(&window_close_requested_events)
+    {
+        // Destroy window
+        let winit_id = winit_windows.window_id_to_winit.remove(&window_id).unwrap();
+        let window_count = winit_windows.windows.len();
+        winit_windows.winit_to_window_id.remove(&winit_id);
+        winit_windows.windows.remove(&winit_id);
+
+        // Handle app exiting
+        match &windows_config.exit_method {
+            WindowExitMethod::AnyClosed => {
+                exit_app_events.send(AppExit);
+            }
+            WindowExitMethod::PrimaryClosed => {
+                if window_id.is_primary() {
+                    exit_app_events.send(AppExit);
+                }
+            }
+            WindowExitMethod::LastClosed => {
+                if window_count == 1 {
+                    exit_app_events.send(AppExit);
+                }
+            }
+            WindowExitMethod::WindowClosed(match_id) => {
+                if window_id == match_id {
+                    exit_app_events.send(AppExit);
+                }
+            }
+            WindowExitMethod::KeepOpen => {}
+        }
+
+        // TODO: Remove destroyed window
+        // windows.remove(*window_id);
     }
 }

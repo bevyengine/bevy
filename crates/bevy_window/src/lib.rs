@@ -1,16 +1,14 @@
+mod config;
 mod event;
 mod raw_window_handle;
-mod system;
 mod window;
 mod windows;
-mod config;
 
 pub use crate::raw_window_handle::*;
+pub use config::*;
 pub use event::*;
-pub use system::*;
 pub use window::*;
 pub use windows::*;
-pub use config::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -52,7 +50,10 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .init_resource::<Windows>();
+            .init_resource::<Windows>()
+            .insert_resource(WindowsConfig {
+                exit_method: self.exit_method.clone(),
+            });
 
         if self.add_primary_window {
             let window_descriptor = app
@@ -68,22 +69,6 @@ impl Plugin for WindowPlugin {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,
             });
-        }
-
-        match self.exit_method {
-            WindowExitMethod::PrimaryClosed => {
-                app.add_system(exit_on_primary_window_close_system);
-            }
-            WindowExitMethod::LastClosed => {
-                app.add_system(exit_on_last_window_close_system);
-            }
-            WindowExitMethod::AnyClosed => {
-                app.add_system(exit_on_any_window_close_system);
-            }
-            WindowExitMethod::WindowClosed(id) => {
-                // app.add_system(exit_on_primary_window_close_system);
-            }
-            WindowExitMethod::KeepOpen => {}
         }
     }
 }
