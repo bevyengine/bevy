@@ -255,7 +255,7 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+                let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
                 let window_id =
                     if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
@@ -290,6 +290,9 @@ pub fn winit_runner_with(mut app: App) {
                         let mut window_close_requested_events = world
                             .get_resource_mut::<Events<WindowCloseRequested>>()
                             .unwrap();
+                        let winit_id = winit_windows.window_id_to_winit.remove(&window_id).unwrap();
+                        winit_windows.winit_to_window_id.remove(&winit_id);
+                        winit_windows.windows.remove(&winit_id);
                         window_close_requested_events.send(WindowCloseRequested { id: window_id });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {

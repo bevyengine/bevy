@@ -3,12 +3,14 @@ mod raw_window_handle;
 mod system;
 mod window;
 mod windows;
+mod config;
 
 pub use crate::raw_window_handle::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
 pub use windows::*;
+pub use config::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -22,14 +24,14 @@ use bevy_app::{prelude::*, Events};
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
-    pub exit_on_close: bool,
+    pub exit_method: WindowExitMethod,
 }
 
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
             add_primary_window: true,
-            exit_on_close: true,
+            exit_method: WindowExitMethod::PrimaryClosed,
         }
     }
 }
@@ -68,8 +70,20 @@ impl Plugin for WindowPlugin {
             });
         }
 
-        if self.exit_on_close {
-            app.add_system(exit_on_window_close_system);
+        match self.exit_method {
+            WindowExitMethod::PrimaryClosed => {
+                app.add_system(exit_on_primary_window_close_system);
+            }
+            WindowExitMethod::LastClosed => {
+                app.add_system(exit_on_last_window_close_system);
+            }
+            WindowExitMethod::AnyClosed => {
+                app.add_system(exit_on_any_window_close_system);
+            }
+            WindowExitMethod::WindowClosed(id) => {
+                // app.add_system(exit_on_primary_window_close_system);
+            }
+            WindowExitMethod::KeepOpen => {}
         }
     }
 }
