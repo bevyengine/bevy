@@ -1,11 +1,17 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::info, HashMap, HashSet};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamepad(pub usize);
+
+#[derive(Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct GamepadLobby {
+    pub gamepads: HashSet<Gamepad>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -198,6 +204,25 @@ impl ButtonAxisSettings {
             return Some(1.0);
         }
         Some(new_value)
+    }
+}
+
+pub fn connection_system(
+    mut lobby: ResMut<GamepadLobby>,
+    mut gamepad_event: EventReader<GamepadEvent>,
+) {
+    for event in gamepad_event.iter() {
+        match &event {
+            GamepadEvent(gamepad, GamepadEventType::Connected) => {
+                lobby.gamepads.insert(*gamepad);
+                info!("{:?} Connected", gamepad);
+            }
+            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
+                lobby.gamepads.remove(gamepad);
+                info!("{:?} Disconnected", gamepad);
+            }
+            _ => (),
+        }
     }
 }
 

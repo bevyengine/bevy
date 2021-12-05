@@ -15,7 +15,7 @@ pub mod prelude {
     pub use crate::{
         gamepad::{
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
-            GamepadEventType,
+            GamepadEventType, GamepadLobby,
         },
         keyboard::KeyCode,
         mouse::MouseButton,
@@ -27,11 +27,12 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use prelude::GamepadLobby;
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
-    GamepadSettings,
+    connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
+    GamepadEventRaw, GamepadSettings,
 };
 
 /// Adds keyboard and mouse input to an App
@@ -72,6 +73,8 @@ impl Plugin for InputPlugin {
                 gamepad_event_system.label(InputSystem),
             )
             // touch
+            .init_resource::<GamepadLobby>()
+            .add_system_to_stage(CoreStage::PreUpdate, connection_system.label(InputSystem))
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(

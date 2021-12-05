@@ -1,40 +1,10 @@
-use bevy::{
-    input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType},
-    prelude::*,
-    utils::HashSet,
-};
+use bevy::{input::gamepad::GamepadButton, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<GamepadLobby>()
-        .add_system_to_stage(CoreStage::PreUpdate, connection_system)
         .add_system(gamepad_system)
         .run();
-}
-
-#[derive(Default)]
-struct GamepadLobby {
-    gamepads: HashSet<Gamepad>,
-}
-
-fn connection_system(
-    mut lobby: ResMut<GamepadLobby>,
-    mut gamepad_event: EventReader<GamepadEvent>,
-) {
-    for event in gamepad_event.iter() {
-        match &event {
-            GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                lobby.gamepads.insert(*gamepad);
-                info!("{:?} Connected", gamepad);
-            }
-            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                lobby.gamepads.remove(gamepad);
-                info!("{:?} Disconnected", gamepad);
-            }
-            _ => (),
-        }
-    }
 }
 
 fn gamepad_system(
