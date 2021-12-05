@@ -204,6 +204,7 @@ mod test {
     use std::ops::{Add, Mul};
     use std::time::Duration;
 
+    type Count = usize;
     const LABEL: &str = "test_step";
 
     #[test]
@@ -214,7 +215,7 @@ mod test {
         time.update_with_instant(instance);
         world.insert_resource(time);
         world.insert_resource(FixedTimesteps::default());
-        world.insert_resource(0usize);
+        world.insert_resource::<Count>(0);
         let mut schedule = Schedule::default();
 
         schedule.add_stage(
@@ -227,29 +228,29 @@ mod test {
         // if time does not progress, the step does not run
         schedule.run(&mut world);
         schedule.run(&mut world);
-        assert_eq!(0usize, *world.get_resource::<usize>().unwrap());
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
         // let's progress less than one step
         set_time(&mut world, instance, 0.4);
         schedule.run(&mut world);
-        assert_eq!(0usize, *world.get_resource::<usize>().unwrap());
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
         assert_eq!(4., get_accumulator_deciseconds(&world));
 
         // finish the first step with 0.1s above the step length
         set_time(&mut world, instance, 0.6);
         schedule.run(&mut world);
-        assert_eq!(1usize, *world.get_resource::<usize>().unwrap());
+        assert_eq!(1, *world.get_resource::<Count>().unwrap());
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
         // runs multiple times if the delta is multiple step lengths
         set_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
-        assert_eq!(3usize, *world.get_resource::<usize>().unwrap());
+        assert_eq!(3, *world.get_resource::<Count>().unwrap());
         assert_eq!(2., get_accumulator_deciseconds(&world));
     }
 
-    fn fixed_update(mut count: ResMut<usize>) {
+    fn fixed_update(mut count: ResMut<Count>) {
         *count += 1;
     }
 
