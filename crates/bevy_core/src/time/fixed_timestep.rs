@@ -242,7 +242,7 @@ mod test {
         assert_eq!(1usize, *world.get_resource::<usize>().unwrap());
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
-        // runns multiple times if the delta is multiple step lengths
+        // runs multiple times if the delta is multiple step lengths
         set_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
         assert_eq!(3usize, *world.get_resource::<usize>().unwrap());
