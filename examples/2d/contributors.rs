@@ -9,6 +9,7 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_startup_system(setup_contributor_selection)
         .add_startup_system(setup)
         .add_system(velocity_system)
         .add_system(move_system)
@@ -52,7 +53,7 @@ const ALPHA: f32 = 0.92;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
-fn setup(
+fn setup_contributor_selection(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -60,9 +61,6 @@ fn setup(
     let contribs = contributors();
 
     let texture_handle = asset_server.load("branding/icon.png");
-
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
 
     let mut contributor_selection = ContributorSelection {
         order: vec![],
@@ -112,6 +110,13 @@ fn setup(
 
     contributor_selection.order.shuffle(&mut rnd);
 
+    commands.insert_resource(contributor_selection);
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
+
     commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
 
     commands
@@ -145,8 +150,6 @@ fn setup(
             },
             ..Default::default()
         });
-
-    commands.insert_resource(contributor_selection);
 }
 
 /// Finds the next contributor to display and selects the entity
