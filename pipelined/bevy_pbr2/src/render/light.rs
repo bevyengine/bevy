@@ -880,7 +880,8 @@ pub struct ViewClusterBindings {
 }
 
 impl ViewClusterBindings {
-    const MAX_UNIFORM_ITEMS: usize = 16384 / (4 * 4);
+    pub const MAX_OFFSETS: usize = 16384 / 4;
+    const MAX_UNIFORM_ITEMS: usize = Self::MAX_OFFSETS / 4;
     const MAX_INDICES: usize = 16384;
 
     pub fn reserve_and_clear(&mut self) {

@@ -11,7 +11,9 @@ use bevy_render2::{
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
 
-use crate::{CubeMapFace, CubemapVisibleEntities, CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z};
+use crate::{
+    CubeMapFace, CubemapVisibleEntities, ViewClusterBindings, CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z,
+};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -217,8 +219,17 @@ impl Clusters {
         clusters
     }
 
-    fn update_tile_size(&mut self, screen_size: UVec2) {
-        self.tile_size = (screen_size + UVec2::ONE) / self.axis_slices.xy();
+    fn from_screen_size_and_z_slices(screen_size: UVec2, z_slices: u32) -> Self {
+        let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
+        let n_tiles_y =
+            ((ViewClusterBindings::MAX_OFFSETS as u32 / z_slices) as f32 / aspect_ratio).sqrt();
+        // NOTE: Round down the number of tiles in order to avoid overflowing the maximum number of
+        // clusters.
+        let n_tiles = UVec2::new(
+            (aspect_ratio * n_tiles_y).floor() as u32,
+            n_tiles_y.floor() as u32,
+        );
+        Clusters::new((screen_size + UVec2::ONE) / n_tiles, screen_size, Z_SLICES)
     }
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
@@ -292,6 +303,8 @@ fn compute_aabb_for_cluster(
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
+const Z_SLICES: u32 = 24;
+
 pub fn add_clusters(
     mut commands: Commands,
     windows: Res<Windows>,
@@ -299,10 +312,9 @@ pub fn add_clusters(
 ) {
     for (entity, camera) in cameras.iter() {
         let window = windows.get(camera.window).unwrap();
-        let clusters = Clusters::new(
-            UVec2::splat(window.physical_width() / 16),
+        let clusters = Clusters::from_screen_size_and_z_slices(
             UVec2::new(window.physical_width(), window.physical_height()),
-            24,
+            Z_SLICES,
         );
         commands.entity(entity).insert(clusters);
     }
@@ -313,7 +325,8 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
-        clusters.update_tile_size(screen_size_u32);
+        *clusters =
+            Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
         let screen_size = screen_size_u32.as_vec2();
         let tile_size_u32 = clusters.tile_size;
         let tile_size = tile_size_u32.as_vec2();
