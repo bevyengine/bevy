@@ -69,7 +69,7 @@ fn setup_contributor_selection(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Load contributors from the git history log or use default values from
-    // the constant array. Contributors must be unique. That's why BTreeSet is used
+    // the constant array. Contributors must be unique, so they are stored in a BTreeSet
     let contribs = contributors().unwrap_or_else(|_| {
         BTreeSet::from_iter(CONTRIBUTORS_LIST.iter().map(|name| name.to_string()))
     });
