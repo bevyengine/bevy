@@ -65,6 +65,7 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadEvent>()
             .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
+            .init_resource::<GamepadLobby>()
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
@@ -72,12 +73,11 @@ impl Plugin for InputPlugin {
                 CoreStage::PreUpdate,
                 gamepad_event_system.label(InputSystem),
             )
-            // touch
-            .init_resource::<GamepadLobby>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 gamepad_connection_system.label(InputSystem),
             )
+            // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(

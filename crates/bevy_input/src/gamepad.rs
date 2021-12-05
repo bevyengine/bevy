@@ -8,7 +8,6 @@ use bevy_utils::{tracing::info, HashMap, HashSet};
 pub struct Gamepad(pub usize);
 
 #[derive(Default)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Container of unique connected [Gamepad]s
 ///
 /// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
