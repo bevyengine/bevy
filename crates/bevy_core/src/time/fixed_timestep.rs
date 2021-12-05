@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct FixedTimestepState {
     pub step: f64,
     pub accumulator: f64,
