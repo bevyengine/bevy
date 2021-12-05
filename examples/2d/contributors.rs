@@ -44,9 +44,9 @@ struct Velocity {
 }
 
 enum LoadContributorsError {
-    IOError(io::Error),
-    VarError(VarError),
-    StdoutError,
+    IO(io::Error),
+    Var(VarError),
+    Stdout,
 }
 
 const GRAVITY: f32 = -9.821 * 100.0;
@@ -375,9 +375,9 @@ fn setup_contributor_selection(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let contribs = contributors().unwrap_or(BTreeSet::from_iter(
-        CONTRIBUTORS_LIST.iter().map(|name| name.to_string()),
-    ));
+    let contribs = contributors().unwrap_or_else(|_| {
+        BTreeSet::from_iter(CONTRIBUTORS_LIST.iter().map(|name| name.to_string()))
+    });
 
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -650,20 +650,16 @@ fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
 /// This function only works if `git` is installed and
 /// the program is run through `cargo`.
 fn contributors() -> Result<Contributors, LoadContributorsError> {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").map_err(|err| LoadContributorsError::VarError(err))?;
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
         .args(&["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|err| LoadContributorsError::IOError(err))?;
+        .map_err(LoadContributorsError::IO)?;
 
-    let stdout = cmd
-        .stdout
-        .take()
-        .ok_or_else(|| LoadContributorsError::StdoutError)?;
+    let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
     let contributors = BufReader::new(stdout)
         .lines()
