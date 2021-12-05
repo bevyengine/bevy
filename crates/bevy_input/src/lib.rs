@@ -31,7 +31,7 @@ use prelude::GamepadLobby;
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
+    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
     GamepadEventRaw, GamepadSettings,
 };
 
@@ -74,7 +74,10 @@ impl Plugin for InputPlugin {
             )
             // touch
             .init_resource::<GamepadLobby>()
-            .add_system_to_stage(CoreStage::PreUpdate, connection_system.label(InputSystem))
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                gamepad_connection_system.label(InputSystem),
+            )
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(

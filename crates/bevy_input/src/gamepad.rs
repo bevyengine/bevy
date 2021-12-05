@@ -9,6 +9,9 @@ pub struct Gamepad(pub usize);
 
 #[derive(Default)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+/// Container of unique connected [Gamepad]s
+///
+/// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
 pub struct GamepadLobby {
     pub gamepads: HashSet<Gamepad>,
 }
@@ -207,7 +210,10 @@ impl ButtonAxisSettings {
     }
 }
 
-pub fn connection_system(
+/// Monitors gamepad connection and disconnection events, updating the [GamepadLobby] resource accordingly
+///
+/// By default, runs during `CoreStage::PreUpdate` when added via [InputPlugin].
+pub fn gamepad_connection_system(
     mut lobby: ResMut<GamepadLobby>,
     mut gamepad_event: EventReader<GamepadEvent>,
 ) {
