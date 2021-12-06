@@ -61,7 +61,7 @@ impl Time {
         self.delta_seconds_f64
     }
 
-    /// The time since startup in seconds
+    /// The time from startup to the last update in seconds
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
@@ -79,8 +79,9 @@ impl Time {
         self.last_update
     }
 
+    /// The ['Duration'] from startup to the last update
     pub fn time_since_startup(&self) -> Duration {
-        Instant::now() - self.startup
+        self.last_update.unwrap_or(self.startup) - self.startup
     }
 }
 
@@ -110,6 +111,7 @@ mod tests {
         assert_eq!(time.startup(), start_instant);
         assert_eq!(time.delta_seconds_f64(), 0.0);
         assert_eq!(time.seconds_since_startup(), 0.0);
+        assert_eq!(time.time_since_startup(), Duration::from_secs(0));
         assert_eq!(time.delta_seconds(), 0.0);
 
         // Update `time` and check results
@@ -124,6 +126,10 @@ mod tests {
         assert_eq!(
             time.seconds_since_startup(),
             (first_update_instant - start_instant).as_secs_f64()
+        );
+        assert_eq!(
+            time.time_since_startup(),
+            (first_update_instant - start_instant)
         );
         assert_eq!(time.delta_seconds, 0.0);
 
@@ -141,6 +147,10 @@ mod tests {
         assert_eq!(
             time.seconds_since_startup(),
             (second_update_instant - start_instant).as_secs_f64()
+        );
+        assert_eq!(
+            time.time_since_startup(),
+            (second_update_instant - start_instant)
         );
         assert_eq!(time.delta_seconds(), time.delta().as_secs_f32());
     }
