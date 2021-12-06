@@ -22,7 +22,7 @@ bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-winit = { version = "0.25.0", default-features = false }
+winit = { version = "0.26.0", default-features = false }
 approx = { version = "0.5.0", default-features = false }
 raw-window-handle = "0.3.0"
 
