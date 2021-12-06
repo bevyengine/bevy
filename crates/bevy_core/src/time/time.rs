@@ -82,6 +82,7 @@ impl Time {
     }
 
     /// The ['Duration'] from startup to the last update
+    #[inline]
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
