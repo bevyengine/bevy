@@ -60,7 +60,11 @@ impl Camera {
         }
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-        Some(screen_space_coords)
+        if !screen_space_coords.is_nan() {
+            Some(screen_space_coords)
+        } else {
+            None
+        }
     }
 }
 
