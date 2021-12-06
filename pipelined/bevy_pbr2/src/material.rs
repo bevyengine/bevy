@@ -238,7 +238,7 @@ impl RenderAsset for StandardMaterial {
         };
 
         let value = StandardMaterialUniformData {
-            base_color: material.base_color.as_rgba_linear().into(),
+            base_color: material.base_color.as_linear_rgba_f32().into(),
             emissive: material.emissive.into(),
             roughness: material.perceptual_roughness,
             metallic: material.metallic,

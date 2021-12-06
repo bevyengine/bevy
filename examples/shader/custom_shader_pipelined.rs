@@ -90,7 +90,7 @@ impl RenderAsset for CustomMaterial {
         extracted_asset: Self::ExtractedAsset,
         (render_device, custom_pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let color: Vec4 = extracted_asset.color.as_rgba_linear().into();
+        let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             contents: color.as_std140().as_bytes(),
             label: None,

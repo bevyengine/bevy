@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 pub mod camera;
 pub mod color;
 pub mod colorspace;

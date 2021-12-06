@@ -321,7 +321,7 @@ impl Color {
                 green,
                 blue,
                 alpha,
-            } => Color::Rgba {
+            } => Color::RgbaLinear {
                 red: red.nonlinear_to_linear_srgb(),
                 green: green.nonlinear_to_linear_srgb(),
                 blue: blue.nonlinear_to_linear_srgb(),

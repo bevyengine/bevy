@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 mod loader;
 pub use loader::*;
