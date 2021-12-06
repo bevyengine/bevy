@@ -1,7 +1,6 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
-    collections::BTreeSet,
     env::VarError,
     io::{self, BufRead, BufReader},
     process::Stdio,
@@ -19,8 +18,8 @@ fn main() {
         .run();
 }
 
-// Store contributors in a sorted collection that preserves the uniqueness
-type Contributors = BTreeSet<String>;
+// Store contributors in a collection that preserves the uniqueness
+type Contributors = HashSet<String>;
 
 struct ContributorSelection {
     order: Vec<(String, Entity)>,
@@ -69,9 +68,12 @@ fn setup_contributor_selection(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Load contributors from the git history log or use default values from
-    // the constant array. Contributors must be unique, so they are stored in a BTreeSet
+    // the constant array. Contributors must be unique, so they are stored in a HashSet
     let contribs = contributors().unwrap_or_else(|_| {
-        BTreeSet::from_iter(CONTRIBUTORS_LIST.iter().map(|name| name.to_string()))
+        CONTRIBUTORS_LIST
+            .iter()
+            .map(|name| name.to_string())
+            .collect()
     });
 
     let texture_handle = asset_server.load("branding/icon.png");
