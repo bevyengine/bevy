@@ -5,7 +5,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render2::{
-    texture::Image,
+    texture::{Image, DEFAULT_IMAGE_HANDLE},
     view::{ComputedVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -28,16 +28,15 @@ impl Default for PipelinedSpriteBundle {
             sprite: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            texture: Default::default(),
+            texture: DEFAULT_IMAGE_HANDLE.typed(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
         }
     }
 }
-
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Default)]
 pub struct PipelinedSpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn
     pub sprite: TextureAtlasSprite,
@@ -50,17 +49,4 @@ pub struct PipelinedSpriteSheetBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
-}
-
-impl Default for PipelinedSpriteSheetBundle {
-    fn default() -> Self {
-        Self {
-            sprite: Default::default(),
-            texture_atlas: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
 }

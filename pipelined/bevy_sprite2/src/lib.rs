@@ -43,7 +43,9 @@ impl Plugin for SpritePlugin {
             .init_resource::<SpecializedPipelines<SpritePipeline>>()
             .init_resource::<SpriteMeta>()
             .init_resource::<ExtractedSprites>()
+            .init_resource::<SpriteAssetEvents>()
             .add_system_to_stage(RenderStage::Extract, render::extract_sprites)
+            .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
             .add_system_to_stage(RenderStage::Queue, queue_sprites);
 

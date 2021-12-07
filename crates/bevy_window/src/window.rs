@@ -183,15 +183,17 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed
-/// The use_size option that is used in the Fullscreen variant
-/// defines whether a videomode is chosen that best fits the width and height
-/// in the Window structure, or if these are ignored.
-/// E.g. when use_size is set to false the best video mode possible is chosen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
+    /// Creates a window that uses the given size
     Windowed,
+    /// Creates a borderless window that uses the full size of the screen
     BorderlessFullscreen,
-    Fullscreen { use_size: bool },
+    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
+    /// from the given size and scale it to fit the screen.
+    SizedFullscreen,
+    /// Creates a fullscreen window that uses the maximum supported size
+    Fullscreen,
 }
 
 impl Window {

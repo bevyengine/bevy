@@ -31,15 +31,17 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
-            WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(
-                        &event_loop.primary_monitor().unwrap(),
-                        window_descriptor.width as u32,
-                        window_descriptor.height as u32,
-                    ),
-                    false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                }),
+            WindowMode::Fullscreen => {
+                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
+                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
+                )))
+            }
+            WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
+                    &event_loop.primary_monitor().unwrap(),
+                    window_descriptor.width as u32,
+                    window_descriptor.height as u32,
+                )),
             )),
             _ => {
                 let WindowDescriptor {
@@ -180,6 +182,7 @@ impl WinitWindows {
         self.winit_to_window_id.get(&id).cloned()
     }
 }
+
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     width: u32,

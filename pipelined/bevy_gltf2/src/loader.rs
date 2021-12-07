@@ -354,9 +354,7 @@ async fn load_texture<'a>(
 
             Image::from_buffer(
                 &bytes,
-                mime_type
-                    .map(|mt| ImageType::MimeType(mt))
-                    .unwrap_or(image_type),
+                mime_type.map(ImageType::MimeType).unwrap_or(image_type),
             )?
         }
     };
