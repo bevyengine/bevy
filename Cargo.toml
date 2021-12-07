@@ -112,6 +112,11 @@ crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 [profile.dev.package."*"]
 opt-level = 3
 
+# This profile is used during test. By default it inherits the value from the dev profile, so this
+# sets it back to the default value.
+[profile.test.package."*"]
+opt-level = 0
+
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
