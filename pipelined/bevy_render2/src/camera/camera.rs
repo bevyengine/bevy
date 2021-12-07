@@ -54,7 +54,7 @@ impl Camera {
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
-        // NDC z-values outside of 0 < z < 1 are behind the camera and are thus not in screen space
+        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
