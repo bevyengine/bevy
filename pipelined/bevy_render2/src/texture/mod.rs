@@ -15,7 +15,7 @@ pub use texture_cache::*;
 
 use crate::{render_asset::RenderAssetPlugin, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, Assets};
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -30,6 +30,10 @@ impl Plugin for ImagePlugin {
 
         app.add_plugin(RenderAssetPlugin::<Image>::default())
             .add_asset::<Image>();
+        app.world
+            .get_resource_mut::<Assets<Image>>()
+            .unwrap()
+            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         app.sub_app(RenderApp)
             .init_resource::<TextureCache>()
