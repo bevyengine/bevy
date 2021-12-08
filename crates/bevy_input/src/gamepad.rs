@@ -32,7 +32,7 @@ impl Gamepads {
     }
 
     /// Deregisters [Gamepad.
-    fn deregister(&mut self, gamepad: &Gamepad)  {
+    fn deregister(&mut self, gamepad: &Gamepad) {
         self.gamepads.remove(gamepad);
     }
 }
