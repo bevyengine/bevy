@@ -43,12 +43,6 @@ struct Velocity {
     rotation: f32,
 }
 
-enum LoadContributorsError {
-    IO(io::Error),
-    Var(VarError),
-    Stdout,
-}
-
 const GRAVITY: f32 = -9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
@@ -339,6 +333,12 @@ fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
         transform.translation += delta * velocity.translation;
         transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
     }
+}
+
+enum LoadContributorsError {
+    IO(io::Error),
+    Var(VarError),
+    Stdout,
 }
 
 /// Get the names of all contributors from the git log.
