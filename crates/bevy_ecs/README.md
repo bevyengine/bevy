@@ -109,7 +109,7 @@ struct Position {
 }
 
 // This system moves each entity with a Position and Velocity component
-fn movement(query: Query<(&mut Position, &Velocity)>) {
+fn movement(mut query: Query<(&mut Position, &Velocity)>) {
     for (mut position, velocity) in query.iter_mut() {
         position.x += velocity.x;
         position.y += velocity.y;
@@ -131,7 +131,7 @@ fn main() {
     // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
     // before moving on to the next Stage
     schedule.add_stage("update", SystemStage::parallel()
-        .with_system(movement)
+        .with_system(movement.system())
     );
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
