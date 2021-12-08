@@ -1,11 +1,41 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::info, HashMap, HashSet};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamepad(pub usize);
+
+#[derive(Default)]
+/// Container of unique connected [Gamepad]s
+///
+/// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
+pub struct Gamepads {
+    gamepads: HashSet<Gamepad>,
+}
+
+impl Gamepads {
+    /// Returns true if the [Gamepads] contains a [Gamepad].
+    pub fn contains(&self, gamepad: &Gamepad) -> bool {
+        self.gamepads.contains(gamepad)
+    }
+
+    /// Iterates over registered [Gamepad]s
+    pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
+        self.gamepads.iter()
+    }
+
+    /// Registers [Gamepad].
+    fn register(&mut self, gamepad: Gamepad) {
+        self.gamepads.insert(gamepad);
+    }
+
+    /// Deregisters [Gamepad.
+    fn deregister(&mut self, gamepad: &Gamepad) {
+        self.gamepads.remove(gamepad);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -201,6 +231,28 @@ impl ButtonAxisSettings {
         }
 
         Some(new_value)
+    }
+}
+
+/// Monitors gamepad connection and disconnection events, updating the [GamepadLobby] resource accordingly
+///
+/// By default, runs during `CoreStage::PreUpdate` when added via [InputPlugin].
+pub fn gamepad_connection_system(
+    mut gamepads: ResMut<Gamepads>,
+    mut gamepad_event: EventReader<GamepadEvent>,
+) {
+    for event in gamepad_event.iter() {
+        match &event {
+            GamepadEvent(gamepad, GamepadEventType::Connected) => {
+                gamepads.register(*gamepad);
+                info!("{:?} Connected", gamepad);
+            }
+            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
+                gamepads.deregister(gamepad);
+                info!("{:?} Disconnected", gamepad);
+            }
+            _ => (),
+        }
     }
 }
 
