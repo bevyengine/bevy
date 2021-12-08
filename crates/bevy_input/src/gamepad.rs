@@ -22,7 +22,7 @@ impl Gamepads {
     }
 
     /// Iterates over registered [Gamepad]s
-    pub fn iter(&self) -> std::collections::hash_set::Iter<Gamepad> {
+    pub fn iter(&self) -> impl Iterator {
         self.gamepads.iter()
     }
 
