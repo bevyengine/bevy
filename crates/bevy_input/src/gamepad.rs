@@ -11,8 +11,34 @@ pub struct Gamepad(pub usize);
 /// Container of unique connected [Gamepad]s
 ///
 /// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
-pub struct GamepadLobby {
-    pub gamepads: HashSet<Gamepad>,
+pub struct Gamepads {
+    gamepads: HashSet<Gamepad>,
+}
+
+impl Gamepads {
+    /// Returns true if the [Gamepads] contains a [Gamepad].
+    pub fn contains(&self, gamepad: &Gamepad) -> bool {
+        self.gamepads.contains(gamepad)
+    }
+
+    /// Iterates over registered [Gamepad]s
+    pub fn iter(&self) -> std::collections::hash_set::Iter<Gamepad> {
+        self.gamepads.iter()
+    }
+
+    /// Registers [Gamepad].
+    ///
+    /// If this [Gamepad] was present, `true` is returned.
+    ///
+    /// If this [Gamepad] wasn't present, `false` is returned.
+    fn register(&mut self, gamepad: Gamepad) -> bool {
+        self.gamepads.insert(gamepad)
+    }
+
+    /// Deregisters [Gamepad] and returns whether the value was registered
+    fn deregister(&mut self, gamepad: &Gamepad) -> bool {
+        self.gamepads.remove(gamepad)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -213,17 +239,17 @@ impl ButtonAxisSettings {
 ///
 /// By default, runs during `CoreStage::PreUpdate` when added via [InputPlugin].
 pub fn gamepad_connection_system(
-    mut lobby: ResMut<GamepadLobby>,
+    mut gamepads: ResMut<Gamepads>,
     mut gamepad_event: EventReader<GamepadEvent>,
 ) {
     for event in gamepad_event.iter() {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                lobby.gamepads.insert(*gamepad);
+                gamepads.register(*gamepad);
                 info!("{:?} Connected", gamepad);
             }
             GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                lobby.gamepads.remove(gamepad);
+                gamepads.deregister(gamepad);
                 info!("{:?} Disconnected", gamepad);
             }
             _ => (),

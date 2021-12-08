@@ -8,12 +8,12 @@ fn main() {
 }
 
 fn gamepad_system(
-    lobby: Res<GamepadLobby>,
+    gamepads: Res<Gamepads>,
     button_inputs: Res<Input<GamepadButton>>,
     button_axes: Res<Axis<GamepadButton>>,
     axes: Res<Axis<GamepadAxis>>,
 ) {
-    for gamepad in lobby.gamepads.iter().cloned() {
+    for gamepad in gamepads.iter().cloned() {
         if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
             info!("{:?} just pressed South", gamepad);
         } else if button_inputs.just_released(GamepadButton(gamepad, GamepadButtonType::South)) {
