@@ -22,7 +22,7 @@ impl Gamepads {
     }
 
     /// Iterates over registered [Gamepad]s
-    pub fn iter(&self) -> impl Iterator {
+    pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
         self.gamepads.iter()
     }
 
