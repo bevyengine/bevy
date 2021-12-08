@@ -1,9 +1,11 @@
 use bevy_utils::HashMap;
 use std::hash::Hash;
 
+/// Stores the position data of input devices of type T
+///
+/// Values are stored as `f32` values, which range from `min` to `max`.
+/// The default valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug)]
-/// An axis that stores f32 values in range from `min` to `max`.
-/// By default `min` and `max` equal `-1.0` and `1.0`.
 pub struct Axis<T> {
     axis_data: HashMap<T, f32>,
     min: f32,
