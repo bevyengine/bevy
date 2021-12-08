@@ -27,17 +27,13 @@ impl Gamepads {
     }
 
     /// Registers [Gamepad].
-    ///
-    /// If this [Gamepad] was present, `true` is returned.
-    ///
-    /// If this [Gamepad] wasn't present, `false` is returned.
-    fn register(&mut self, gamepad: Gamepad) -> bool {
-        self.gamepads.insert(gamepad)
+    fn register(&mut self, gamepad: Gamepad) {
+        self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters [Gamepad] and returns whether the value was registered
-    fn deregister(&mut self, gamepad: &Gamepad) -> bool {
-        self.gamepads.remove(gamepad)
+    /// Deregisters [Gamepad.
+    fn deregister(&mut self, gamepad: &Gamepad)  {
+        self.gamepads.remove(gamepad);
     }
 }
 
