@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 1-7 3,6,9,12 *"
-    
+    # at 0:00, on the first seven days of the month, in march, june, september and december
+    # in cron, it is not possible to say "first monday of the month", so the cron is selecting
+    # the first week, and the action is only running if the day is a monday using the 
+    # is-it-monday step
+
 env:
   CARGO_TERM_COLOR: always
 
