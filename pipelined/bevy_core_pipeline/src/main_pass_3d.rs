@@ -59,7 +59,7 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass clears and initializes the color
-                //       buffer as well as writing to it.
+                // buffer as well as writing to it.
                 color_attachments: &[target.get_color_attachment(Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,
@@ -135,8 +135,8 @@ impl Node for MainPass3dNode {
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer but do not write to it.
-                    //       As the opaque and alpha mask passes run first, opaque meshes can occlude
-                    //       transparent ones.
+                    // As the opaque and alpha mask passes run first, opaque meshes can occlude
+                    // transparent ones.
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
                         store: false,

@@ -60,6 +60,29 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .init_resource::<AmbientLight>()
+            .init_resource::<VisiblePointLights>()
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                // NOTE: Clusters need to have been added before update_clusters is run so
+                // add as an exclusive system
+                add_clusters
+                    .exclusive_system()
+                    .label(SimulationLightSystems::AddClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                // NOTE: Must come after add_clusters!
+                update_clusters
+                    .label(SimulationLightSystems::UpdateClusters)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                assign_lights_to_clusters
+                    .label(SimulationLightSystems::AssignLightsToClusters)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateClusters),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
@@ -70,11 +93,12 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 update_point_light_frusta
                     .label(SimulationLightSystems::UpdatePointLightFrusta)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                check_light_visibility
+                check_light_mesh_visibility
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
@@ -90,6 +114,10 @@ impl Plugin for PbrPlugin {
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,
+                render::extract_clusters.label(RenderLightSystems::ExtractClusters),
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
                 render::extract_lights.label(RenderLightSystems::ExtractLights),
             )
             .add_system_to_stage(
@@ -99,6 +127,15 @@ impl Plugin for PbrPlugin {
                 render::prepare_lights
                     .exclusive_system()
                     .label(RenderLightSystems::PrepareLights),
+            )
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
+                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
+                render::prepare_clusters
+                    .exclusive_system()
+                    .label(RenderLightSystems::PrepareClusters)
+                    .after(RenderLightSystems::PrepareLights),
             )
             .add_system_to_stage(
                 RenderStage::Queue,
@@ -111,6 +148,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
+            .init_resource::<GlobalLightMeta>()
             .init_resource::<SpecializedPipelines<PbrPipeline>>()
             .init_resource::<SpecializedPipelines<ShadowPipeline>>();
 

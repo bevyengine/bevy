@@ -249,7 +249,7 @@ pub fn queue_meshes(
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
-                standard_material_meshes.get(visible_entity.entity)
+                standard_material_meshes.get(*visible_entity)
             {
                 if let Some(material) = render_materials.get(material_handle) {
                     let mut pbr_key = PbrPipelineKey {
@@ -275,37 +275,37 @@ pub fn queue_meshes(
                     match material.alpha_mode {
                         AlphaMode::Opaque => {
                             opaque_phase.add(Opaque3d {
-                                entity: visible_entity.entity,
+                                entity: *visible_entity,
                                 draw_function: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
-                                //       lowest sort key and getting further away should increase. As we have
-                                //       -z in front of the camera, values in view space decrease away from the
-                                //       camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -mesh_z,
                             });
                         }
                         AlphaMode::Mask(_) => {
                             alpha_mask_phase.add(AlphaMask3d {
-                                entity: visible_entity.entity,
+                                entity: *visible_entity,
                                 draw_function: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
-                                //       lowest sort key and getting further away should increase. As we have
-                                //       -z in front of the camera, values in view space decrease away from the
-                                //       camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -mesh_z,
                             });
                         }
                         AlphaMode::Blend => {
                             transparent_phase.add(Transparent3d {
-                                entity: visible_entity.entity,
+                                entity: *visible_entity,
                                 draw_function: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                                //       lowest sort key and getting closer should increase. As we have
-                                //       -z in front of the camera, the largest distance is -far with values increasing toward the
-                                //       camera. As such we can just use mesh_z as the distance
+                                // lowest sort key and getting closer should increase. As we have
+                                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                                // camera. As such we can just use mesh_z as the distance
                                 distance: mesh_z,
                             });
                         }
