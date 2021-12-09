@@ -33,6 +33,10 @@ use thiserror::Error;
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
+
+    /// Calling this function `changes` a component. This means, that the change detection system
+    /// recognizes the component as `changed` and the query filter `Changed<T>` takes effect again.
+    fn touch(&mut self) {}
 }
 
 pub struct TableStorage;

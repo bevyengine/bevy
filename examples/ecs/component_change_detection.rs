@@ -25,6 +25,8 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
         if rand::thread_rng().gen_bool(0.1) {
             info!("changing component {:?}", entity);
             component.0 = time.seconds_since_startup();
+            // You can even manually trigger a change on a component, without actually
+            // changing anything, you just need to call: `component.touch()`
         }
     }
 }
