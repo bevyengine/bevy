@@ -4,12 +4,10 @@ use std::hash::Hash;
 /// Stores the position data of input devices of type T
 ///
 /// Values are stored as `f32` values, which range from `min` to `max`.
-/// The default valid range is from -1.0 to 1.0, inclusive.
+/// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug)]
 pub struct Axis<T> {
     axis_data: HashMap<T, f32>,
-    min: f32,
-    max: f32,
 }
 
 impl<T> Default for Axis<T>
@@ -19,8 +17,6 @@ where
     fn default() -> Self {
         Axis {
             axis_data: HashMap::default(),
-            min: AXIS_MIN,
-            max: AXIS_MAX,
         }
     }
 }
@@ -29,28 +25,36 @@ impl<T> Axis<T>
 where
     T: Copy + Eq + Hash,
 {
-    pub fn set(&mut self, axis: T, value: f32) -> Option<f32> {
-        if value < self.min || value > self.max {
-            None
-        } else {
-            self.axis_data.insert(axis, value)
-        }
+    /// Inserts a position data for an input device,
+    /// restricting the position data to an interval `min..=max`.
+    ///
+    /// If the input device wasn't present before, [None] is returned.
+    ///
+    /// If the input device was present, the position data is updated, and the old value is returned.
+    pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
+        let new_position_data = position_data.clamp(self.get_min(), self.get_max());
+        self.axis_data.insert(input_device, new_position_data)
     }
 
-    pub fn get(&self, axis: T) -> Option<f32> {
-        self.axis_data.get(&axis).copied()
+    /// Returns a position data corresponding to the input device.
+    pub fn get(&self, input_device: T) -> Option<f32> {
+        self.axis_data.get(&input_device).copied()
     }
 
-    pub fn remove(&mut self, axis: T) -> Option<f32> {
-        self.axis_data.remove(&axis)
+    /// Removes the position data of the input device,
+    /// returning the position data if the input device was previously set.
+    pub fn remove(&mut self, input_device: T) -> Option<f32> {
+        self.axis_data.remove(&input_device)
     }
 
+    /// Returns maximum allowed position data, which is 1.0.
     pub fn get_min(&self) -> f32 {
-        self.min
+        AXIS_MIN
     }
 
+    /// Returns minimum allowed position data, which is -1.0.
     pub fn get_max(&self) -> f32 {
-        self.max
+        AXIS_MAX
     }
 }
 
@@ -70,8 +74,8 @@ mod tests {
     #[test]
     fn test_axis_set() {
         let cases = [
-            (-1.5, None),
-            (-1.1, None),
+            (-1.5, Some(-1.0)),
+            (-1.1, Some(-1.0)),
             (-1.0, Some(-1.0)),
             (-0.9, Some(-0.9)),
             (-0.1, Some(-0.1)),
@@ -79,8 +83,8 @@ mod tests {
             (0.1, Some(0.1)),
             (0.9, Some(0.9)),
             (1.0, Some(1.0)),
-            (1.1, None),
-            (1.6, None),
+            (1.1, Some(1.0)),
+            (1.6, Some(1.0)),
         ];
 
         for (value, expected) in cases {
