@@ -435,8 +435,7 @@ struct FragmentInput {
 #ifdef VERTEX_COLORS
 #ifdef VERTEX_TANGENTS
     [[location(4)]] world_color: vec4<f32>;
-#endif
-#ifndef VERTEX_TANGENTS
+#else
     [[location(3)]] world_color: vec4<f32>;
 #endif
 #endif
