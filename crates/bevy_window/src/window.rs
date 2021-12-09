@@ -183,15 +183,17 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed
-/// The use_size option that is used in the Fullscreen variant
-/// defines whether a videomode is chosen that best fits the width and height
-/// in the Window structure, or if these are ignored.
-/// E.g. when use_size is set to false the best video mode possible is chosen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
+    /// Creates a window that uses the given size
     Windowed,
+    /// Creates a borderless window that uses the full size of the screen
     BorderlessFullscreen,
-    Fullscreen { use_size: bool },
+    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
+    /// from the given size and scale it to fit the screen.
+    SizedFullscreen,
+    /// Creates a fullscreen window that uses the maximum supported size
+    Fullscreen,
 }
 
 impl Window {
@@ -545,6 +547,13 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     pub cursor_locked: bool,
     pub mode: WindowMode,
+    /// Sets whether the background of the window should be transparent.
+    /// # Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - OSX / Linux : Not working as expected.
+    /// OSX transparent works with winit out of the box, so this issue might be related to: https://github.com/gfx-rs/wgpu/issues/687
+    /// Linux now works with this pr merged in, which should work with the next release of winit : https://github.com/rust-windowing/winit/pull/2006
+    pub transparent: bool,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
 }
@@ -564,6 +573,7 @@ impl Default for WindowDescriptor {
             cursor_locked: false,
             cursor_visible: true,
             mode: WindowMode::Windowed,
+            transparent: false,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
         }

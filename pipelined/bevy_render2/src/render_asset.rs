@@ -102,9 +102,8 @@ fn extract_render_asset<A: RenderAsset>(
                 changed_assets.insert(handle);
             }
             AssetEvent::Removed { handle } => {
-                if !changed_assets.remove(handle) {
-                    removed.push(handle.clone_weak());
-                }
+                changed_assets.remove(handle);
+                removed.push(handle.clone_weak());
             }
         }
     }

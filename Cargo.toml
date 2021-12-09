@@ -524,6 +524,10 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [[example]]
+name = "transparent_window"
+path = "examples/window/transparent_window.rs"
+
+[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 

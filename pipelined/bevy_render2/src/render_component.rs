@@ -8,7 +8,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, QueryItem, ReadOnlyFetch, WorldQuery},
+    query::{FilterFetch, QueryItem, WorldQuery},
     system::{
         lifetimeless::{Read, SCommands, SQuery},
         RunSystem, SystemParamItem,
@@ -141,7 +141,6 @@ impl<C, F> Default for ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
 where
-    <C::Query as WorldQuery>::Fetch: ReadOnlyFetch,
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
 {
     fn build(&self, app: &mut App) {
@@ -167,7 +166,6 @@ pub struct ExtractComponentSystem<C: ExtractComponent>(PhantomData<C>);
 impl<C: ExtractComponent> RunSystem for ExtractComponentSystem<C>
 where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
-    <C::Query as WorldQuery>::Fetch: ReadOnlyFetch,
 {
     type Param = (
         SCommands,
@@ -176,9 +174,9 @@ where
         SQuery<(Entity, C::Query), C::Filter>,
     );
 
-    fn run((mut commands, mut previous_len, query): SystemParamItem<Self::Param>) {
+    fn run((mut commands, mut previous_len, mut query): SystemParamItem<Self::Param>) {
         let mut values = Vec::with_capacity(*previous_len);
-        for (entity, query_item) in query.iter() {
+        for (entity, query_item) in query.iter_mut() {
             values.push((entity, (C::extract_component(query_item),)));
         }
         *previous_len = values.len();

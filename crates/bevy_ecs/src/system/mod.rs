@@ -785,4 +785,29 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn immutable_mut_test() {
+        #[derive(Component, Eq, PartialEq, Debug, Clone, Copy)]
+        struct A(usize);
+
+        let mut world = World::default();
+        world.spawn().insert(A(1));
+        world.spawn().insert(A(2));
+
+        let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
+        {
+            let mut query = system_state.get_mut(&mut world);
+            assert_eq!(
+                query.iter_mut().map(|m| *m).collect::<Vec<A>>(),
+                vec![A(1), A(2)],
+                "both components returned by iter_mut of &mut"
+            );
+            assert_eq!(
+                query.iter().collect::<Vec<&A>>(),
+                vec![&A(1), &A(2)],
+                "both components returned by iter of &mut"
+            );
+        }
+    }
 }

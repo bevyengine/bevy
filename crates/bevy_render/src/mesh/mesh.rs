@@ -464,7 +464,7 @@ impl Mesh {
         let normals: Vec<_> = positions
             .chunks_exact(3)
             .map(|p| face_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| std::array::IntoIter::new([normal, normal, normal]))
+            .flat_map(|normal| [normal; 3])
             .collect();
 
         self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);

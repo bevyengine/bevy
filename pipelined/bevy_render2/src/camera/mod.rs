@@ -88,6 +88,8 @@ fn extract_cameras(
                         transform: *transform,
                         width: window.physical_width().max(1),
                         height: window.physical_height().max(1),
+                        near: camera.near,
+                        far: camera.far,
                     },
                     visible_entities.clone(),
                 ));

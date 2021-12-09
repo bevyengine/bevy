@@ -67,7 +67,7 @@ fn setup(
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(50.0, 50.0, 50.0)),
         point_light: PointLight {
-            intensity: 50000.,
+            intensity: 600000.,
             range: 100.,
             ..Default::default()
         },

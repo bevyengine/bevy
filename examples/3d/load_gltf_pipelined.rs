@@ -41,6 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 far: 10.0 * HALF_SIZE,
                 ..Default::default()
             },
+            shadows_enabled: true,
             ..Default::default()
         },
         ..Default::default()

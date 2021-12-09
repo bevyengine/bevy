@@ -117,6 +117,7 @@ fn setup(
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::RED,
+                shadows_enabled: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -144,6 +145,7 @@ fn setup(
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
+                shadows_enabled: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -171,6 +173,7 @@ fn setup(
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::BLUE,
+                shadows_enabled: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -204,6 +207,7 @@ fn setup(
                 far: 10.0 * HALF_SIZE,
                 ..Default::default()
             },
+            shadows_enabled: true,
             ..Default::default()
         },
         transform: Transform {

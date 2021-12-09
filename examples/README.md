@@ -262,6 +262,7 @@ Example | File | Description
 `clear_color_pipelined` | [`window/clear_color_pipelined.rs`](./window/clear_color_pipelined.rs) | Creates a solid color window with the pipelined renderer
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+`transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
 
 # Platform-Specific Examples
@@ -322,9 +323,14 @@ Example | File | Description
 
 ### Setup
 
+You need to install the correct rust targets:
+
+- `aarch64-apple-ios`: iOS devices
+- `x86_64-apple-ios`: iOS simulator on x86 processors
+- `aarch64-apple-ios-sim`: iOS simulator on Apple processors
+
 ```sh
-rustup target add aarch64-apple-ios x86_64-apple-ios
-cargo install cargo-lipo
+rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
 ### Build & Run
@@ -352,15 +358,6 @@ open bevy_ios_example.xcodeproj/
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
-
-The Xcode build GUI will by default build the rust library for both
-`x86_64-apple-ios`, and `aarch64-apple-ios` which may take a while. If you'd
-like speed this up, you update the `IOS_TARGETS` User-Defined environment
-variable in the "`cargo_ios` target" to be either `x86_64-apple-ios` or
-`aarch64-apple-ios` depending on your goal.
-
-Note: if you update this variable in Xcode, it will also change the default
-used for the `Makefile`.
 
 Example | File | Description
 --- | --- | ---
