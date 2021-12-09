@@ -62,11 +62,11 @@ impl Command for DespawnChildrenRecursive {
 }
 
 pub trait DespawnRecursiveExt {
-    /// Despawns the provided entity and its children.
+    /// Despawns the provided entity alongside all descendants.
     fn despawn_recursive(self);
 
-    /// Despawns the provided entity's children.
-    fn despawn_children(&mut self);
+    /// Despawns all descendants of the given entity.
+    fn despawn_descendants(&mut self);
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
@@ -76,7 +76,7 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
         self.commands().add(DespawnRecursive { entity });
     }
 
-    fn despawn_children(&mut self) {
+    fn despawn_descendants(&mut self) {
         let entity = self.id();
         self.commands().add(DespawnChildrenRecursive { entity });
     }
@@ -93,7 +93,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         }
     }
 
-    fn despawn_children(&mut self) {
+    fn despawn_descendants(&mut self) {
         let entity = self.id();
         // SAFE: The location is updated.
         unsafe {
