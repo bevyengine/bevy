@@ -1,4 +1,4 @@
-use crate::{AlphaMask3d, ClearColor, Opaque3d, Transparent3d};
+use crate::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -51,24 +51,23 @@ impl Node for MainPass3dNode {
             .query
             .get_manual(world, view_entity)
             .expect("view entity should exist");
-        let clear_color = world.get_resource::<ClearColor>().unwrap();
 
         {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
-                // NOTE: The opaque pass clears and initializes the color
+                // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
                 color_attachments: &[target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(clear_color.0.into()),
+                    load: LoadOp::Load,
                     store: true,
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: The opaque main pass clears and writes to the depth buffer.
+                    // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
+                        load: LoadOp::Load,
                         store: true,
                     }),
                     stencil_ops: None,
