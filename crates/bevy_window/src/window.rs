@@ -550,9 +550,10 @@ pub struct WindowDescriptor {
     /// Sets whether the background of the window should be transparent.
     /// # Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - OSX / Linux : Not working as expected.
-    /// OSX transparent works with winit out of the box, so this issue might be related to: https://github.com/gfx-rs/wgpu/issues/687
-    /// Linux now works with this pr merged in, which should work with the next release of winit : https://github.com/rust-windowing/winit/pull/2006
+    /// - macOS X: Not working as expected.
+    /// - Windows 11: Not working as expected
+    /// macOS X transparent works with winit out of the box, so this issue might be related to: https://github.com/gfx-rs/wgpu/issues/687
+    /// Windows 11 is related to https://github.com/rust-windowing/winit/issues/2082
     pub transparent: bool,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,

@@ -10,6 +10,12 @@ If you don't see your distro present in the list, feel free to add the instructi
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
 ```
 
+if using Wayland, you will also need to install
+
+```bash
+sudo apt-get install libwayland-dev libxkbcommon-dev
+```
+
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
