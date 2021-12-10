@@ -362,46 +362,59 @@ impl ShaderProcessor {
 
         let shader_defs = HashSet::<String>::from_iter(shader_defs.iter().cloned());
         let mut scopes = vec![true];
-        let mut final_string = String::new();
-        for line in shader_str.split('\n') {
-            if let Some(cap) = self.ifdef_regex.captures(line) {
-                let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
-            } else if let Some(cap) = self.ifndef_regex.captures(line) {
-                let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
-            } else if self.else_regex.is_match(line) {
-                let mut is_parent_scope_truthy = true;
-                if scopes.len() > 1 {
-                    is_parent_scope_truthy = scopes[scopes.len() - 2];
+        let mut processing = shader_str.to_string();
+        let final_string = loop {
+            let mut processed = String::new();
+            let mut changed = false;
+            for line in processing.split('\n') {
+                if let Some(cap) = self.ifdef_regex.captures(line) {
+                    let def = cap.get(1).unwrap();
+                    scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
+                    changed = true;
+                } else if let Some(cap) = self.ifndef_regex.captures(line) {
+                    let def = cap.get(1).unwrap();
+                    scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
+                    changed = true;
+                } else if self.else_regex.is_match(line) {
+                    let mut is_parent_scope_truthy = true;
+                    if scopes.len() > 1 {
+                        is_parent_scope_truthy = scopes[scopes.len() - 2];
+                    }
+                    if let Some(last) = scopes.last_mut() {
+                        *last = is_parent_scope_truthy && !*last;
+                    }
+                    changed = true;
+                } else if self.endif_regex.is_match(line) {
+                    scopes.pop();
+                    if scopes.is_empty() {
+                        return Err(ProcessShaderError::TooManyEndIfs);
+                    }
+                    changed = true;
+                } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
+                    .import_asset_path_regex
+                    .captures(line)
+                {
+                    let import = ShaderImport::AssetPath(cap.get(1).unwrap().as_str().to_string());
+                    apply_import(import_handles, shaders, &import, shader, &mut processed)?;
+                    changed = true;
+                } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
+                    .import_custom_path_regex
+                    .captures(line)
+                {
+                    let import = ShaderImport::Custom(cap.get(1).unwrap().as_str().to_string());
+                    apply_import(import_handles, shaders, &import, shader, &mut processed)?;
+                    changed = true;
+                } else if *scopes.last().unwrap() {
+                    processed.push_str(line);
+                    processed.push('\n');
                 }
-                if let Some(last) = scopes.last_mut() {
-                    *last = is_parent_scope_truthy && !*last;
-                }
-            } else if self.endif_regex.is_match(line) {
-                scopes.pop();
-                if scopes.is_empty() {
-                    return Err(ProcessShaderError::TooManyEndIfs);
-                }
-            } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
-                .import_asset_path_regex
-                .captures(line)
-            {
-                let import = ShaderImport::AssetPath(cap.get(1).unwrap().as_str().to_string());
-                apply_import(import_handles, shaders, &import, shader, &mut final_string)?;
-            } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
-                .import_custom_path_regex
-                .captures(line)
-            {
-                let import = ShaderImport::Custom(cap.get(1).unwrap().as_str().to_string());
-                apply_import(import_handles, shaders, &import, shader, &mut final_string)?;
-            } else if *scopes.last().unwrap() {
-                final_string.push_str(line);
-                final_string.push('\n');
             }
-        }
-
-        final_string.pop();
+            processed.pop();
+            if !changed {
+                break processed;
+            }
+            processing = processed.clone();
+        };
 
         if scopes.len() != 1 {
             return Err(ProcessShaderError::NotEnoughEndIfs);
@@ -1090,6 +1103,53 @@ fn vertex(
                 &["TEXTURE".to_string(), "ATTRIBUTE".to_string()],
                 &HashMap::default(),
                 &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_import_ifdef() {
+        #[rustfmt::skip]
+        const FOO: &str = r"
+#ifdef IMPORT_MISSING
+fn in_import_missing() { }
+#endif
+#ifdef IMPORT_PRESENT
+fn in_import_present() { }
+#endif
+";
+        #[rustfmt::skip]
+        const INPUT: &str = r"
+#import FOO
+#ifdef MAIN_MISSING
+fn in_main_missing() { }
+#endif
+#ifdef MAIN_PRESENT
+fn in_main_present() { }
+#endif
+";
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+
+fn in_import_present() { }
+fn in_main_present() { }
+";
+        let processor = ShaderProcessor::default();
+        let mut shaders = HashMap::default();
+        let mut import_handles = HashMap::default();
+        let foo_handle = Handle::<Shader>::default();
+        shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
+        import_handles.insert(
+            ShaderImport::Custom("FOO".to_string()),
+            foo_handle.clone_weak(),
+        );
+        let result = processor
+            .process(
+                &Shader::from_wgsl(INPUT),
+                &["MAIN_PRESENT".to_string(), "IMPORT_PRESENT".to_string()],
+                &shaders,
+                &import_handles,
             )
             .unwrap();
         assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
