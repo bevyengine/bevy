@@ -172,6 +172,10 @@ pub fn extract_text_uinodes(
     };
 
     for (entity, uinode, transform, text) in uinode_query.iter() {
+        // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if uinode.size == Vec2::ZERO {
+            continue;
+        }
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
             let text_glyphs = &text_layout.glyphs;
             let alignment_offset = (uinode.size / -2.0).extend(0.0);
