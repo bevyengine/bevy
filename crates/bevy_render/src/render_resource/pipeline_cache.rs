@@ -54,7 +54,16 @@ impl ShaderCache {
             .get(handle)
             .ok_or_else(|| RenderPipelineError::ShaderNotLoaded(handle.clone_weak()))?;
         let data = self.data.entry(handle.clone_weak()).or_default();
-        if shader.imports().len() != data.resolved_imports.len() {
+        let n_asset_imports = shader
+            .imports()
+            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
+            .count();
+        let n_resolved_asset_imports = data
+            .resolved_imports
+            .keys()
+            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
+            .count();
+        if n_asset_imports != n_resolved_asset_imports {
             return Err(RenderPipelineError::ShaderImportNotYetAvailable);
         }
 
