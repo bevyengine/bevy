@@ -41,6 +41,9 @@ x11 = ["bevy_winit/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
+# Optimise for WebGL2
+webgl2 = ["bevy_pbr/webgl2"]
+
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
