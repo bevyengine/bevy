@@ -158,23 +158,23 @@ impl SpecializedPipeline for SpritePipeline {
 }
 
 pub struct ExtractedSprite {
-    transform: Mat4,
-    color: Color,
-    rect: Rect,
-    handle: Handle<Image>,
-    atlas_size: Option<Vec2>,
-    flip_x: bool,
-    flip_y: bool,
+    pub transform: Mat4,
+    pub color: Color,
+    pub rect: Rect,
+    pub handle: Handle<Image>,
+    pub atlas_size: Option<Vec2>,
+    pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 #[derive(Default)]
 pub struct ExtractedSprites {
-    sprites: Vec<ExtractedSprite>,
+    pub sprites: Vec<ExtractedSprite>,
 }
 
 #[derive(Default)]
 pub struct SpriteAssetEvents {
-    images: Vec<AssetEvent<Image>>,
+    pub images: Vec<AssetEvent<Image>>,
 }
 
 pub fn extract_sprite_events(

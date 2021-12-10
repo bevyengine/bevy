@@ -147,10 +147,22 @@ pub mod text {
     pub use bevy_text::*;
 }
 
+#[cfg(feature = "bevy_text2")]
+pub mod text2 {
+    //! Text drawing, styling, and font assets.
+    pub use bevy_text2::*;
+}
+
 #[cfg(feature = "bevy_ui")]
 pub mod ui {
     //! User interface components and widgets.
     pub use bevy_ui::*;
+}
+
+#[cfg(feature = "bevy_ui2")]
+pub mod ui2 {
+    //! User interface components and widgets.
+    pub use bevy_ui2::*;
 }
 
 #[cfg(feature = "bevy_winit")]

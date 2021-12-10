@@ -1,0 +1,35 @@
+[package]
+name = "bevy_ui2"
+version = "0.5.0"
+edition = "2021"
+description = "A custom ECS-driven UI framework built specifically for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../../crates/bevy_app", version = "0.5.0" }
+bevy_asset = { path = "../../crates/bevy_asset", version = "0.5.0" }
+bevy_core = { path = "../../crates/bevy_core", version = "0.5.0" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.5.0" }
+bevy_derive = { path = "../../crates/bevy_derive", version = "0.5.0" }
+bevy_ecs = { path = "../../crates/bevy_ecs", version = "0.5.0" }
+bevy_input = { path = "../../crates/bevy_input", version = "0.5.0" }
+bevy_log = { path = "../../crates/bevy_log", version = "0.5.0" }
+bevy_math = { path = "../../crates/bevy_math", version = "0.5.0" }
+bevy_reflect = { path = "../../crates/bevy_reflect", version = "0.5.0", features = ["bevy"] }
+bevy_render2 = { path = "../bevy_render2", version = "0.5.0" }
+bevy_sprite2 = { path = "../bevy_sprite2", version = "0.5.0" }
+bevy_text2 = { path = "../bevy_text2", version = "0.5.0" }
+bevy_transform = { path = "../../crates/bevy_transform", version = "0.5.0" }
+bevy_window = { path = "../../crates/bevy_window", version = "0.5.0" }
+bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
+
+# other
+stretch = "0.3.2"
+serde = {version = "1", features = ["derive"]}
+smallvec = { version = "1.6", features = ["union", "const_generics"] }
+bytemuck = { version = "1.5", features = ["derive"] }
+crevice = { path = "../../crates/crevice", version = "0.8.0", features = ["glam"] }

@@ -49,7 +49,6 @@ pub mod node {
     pub const MAIN_PASS_DEPENDENCIES: &str = "main_pass_dependencies";
     pub const MAIN_PASS_DRIVER: &str = "main_pass_driver";
     pub const CLEAR_PASS_DRIVER: &str = "clear_pass_driver";
-    pub const VIEW: &str = "view";
 }
 
 pub mod draw_2d_graph {

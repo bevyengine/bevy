@@ -89,6 +89,7 @@ Example | File | Description
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
+`text2d_pipelined` | [`2d/text2d_pipelined.rs`](./2d/text2d_pipelined.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
@@ -253,6 +254,7 @@ Example | File | Description
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
+`ui_pipelined` | [`ui/ui_pipelined.rs`](./ui/ui_pipelined.rs) | Illustrates various features of Bevy UI
 
 ## Window
 

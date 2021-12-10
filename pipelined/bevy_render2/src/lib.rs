@@ -16,6 +16,7 @@ pub use once_cell;
 
 use crate::{
     camera::CameraPlugin,
+    color::Color,
     mesh::MeshPlugin,
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
@@ -122,7 +123,8 @@ impl Plugin for RenderPlugin {
             .insert_resource(queue.clone())
             .add_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_resource::<ScratchRenderWorld>();
+            .init_resource::<ScratchRenderWorld>()
+            .register_type::<Color>();
         let render_pipeline_cache = RenderPipelineCache::new(device.clone());
         let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
