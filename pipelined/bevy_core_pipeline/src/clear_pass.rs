@@ -8,7 +8,8 @@ use bevy_render2::{
 };
 
 pub struct ClearPassNode {
-    query: QueryState<(&'static ViewTarget, &'static ViewDepthTexture), With<ExtractedView>>,
+    query:
+        QueryState<(&'static ViewTarget, Option<&'static ViewDepthTexture>), With<ExtractedView>>,
 }
 
 impl ClearPassNode {
@@ -43,7 +44,7 @@ impl Node for ClearPassNode {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,
                 })],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                depth_stencil_attachment: depth.map(|depth| RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
