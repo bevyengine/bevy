@@ -4,11 +4,15 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render2::{
-    camera::ExtractedCameraNames, render_graph::*, render_phase::*,
-    render_resource::CachedPipelineId, renderer::*, view::*,
+    camera::ExtractedCameraNames,
+    render_graph::*,
+    render_phase::*,
+    render_resource::{
+        CachedPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+    },
+    renderer::*,
+    view::*,
 };
-
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 
 use super::{draw_ui_graph, ImageBindGroups, UiBatch, UiMeta, CAMERA_UI};
 

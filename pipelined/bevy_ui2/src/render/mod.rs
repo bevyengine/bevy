@@ -33,7 +33,6 @@ use bevy_utils::HashMap;
 use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
-use wgpu::{ImageCopyTexture, ImageDataLayout, Origin3d};
 
 use crate::{Node, UiColor, UiImage};
 

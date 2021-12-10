@@ -32,5 +32,4 @@ stretch = "0.3.2"
 serde = {version = "1", features = ["derive"]}
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }
-wgpu = "0.11.0"
 crevice = { path = "../../crates/crevice", version = "0.8.0", features = ["glam"] }
