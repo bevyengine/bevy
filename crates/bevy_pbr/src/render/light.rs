@@ -833,7 +833,10 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
+                    #[cfg(not(feature = "webgl2"))]
                     dimension: Some(TextureViewDimension::CubeArray),
+                    #[cfg(feature = "webgl2")]
+                    dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
                     mip_level_count: None,
@@ -845,7 +848,10 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
+                #[cfg(not(feature = "webgl2"))]
                 dimension: Some(TextureViewDimension::D2Array),
+                #[cfg(feature = "webgl2")]
+                dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
                 mip_level_count: None,
