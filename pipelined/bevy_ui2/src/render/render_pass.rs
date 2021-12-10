@@ -14,7 +14,7 @@ use bevy_render2::{
     view::*,
 };
 
-use super::{draw_ui_graph, ImageBindGroups, UiBatch, UiMeta, CAMERA_UI};
+use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
 
 pub struct UiPassDriverNode;
 
@@ -163,7 +163,7 @@ impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
-    type Param = (SRes<ImageBindGroups>, SQuery<Read<UiBatch>>);
+    type Param = (SRes<UiImageBindGroups>, SQuery<Read<UiBatch>>);
 
     fn render<'w>(
         _view: Entity,

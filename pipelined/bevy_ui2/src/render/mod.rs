@@ -70,7 +70,7 @@ pub fn build_ui_render(app: &mut App) {
     render_app
         .init_resource::<UiPipeline>()
         .init_resource::<SpecializedPipelines<UiPipeline>>()
-        .init_resource::<ImageBindGroups>()
+        .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
@@ -337,14 +337,14 @@ pub fn prepare_uinodes(
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }
 
-pub struct ImageBindGroups {
+pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
     /// This dummy white texture is used in place of optional images
     pub dummy_gpu_image: GpuImage,
     pub dummy_bind_group: BindGroup,
 }
 
-impl FromWorld for ImageBindGroups {
+impl FromWorld for UiImageBindGroups {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
@@ -423,7 +423,7 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedPipelines<UiPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut image_bind_groups: ResMut<ImageBindGroups>,
+    mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     mut ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<&mut RenderPhase<TransparentUi>>,
