@@ -2,7 +2,10 @@ use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_render2::{color::Color, texture::Image};
+use bevy_render2::{
+    color::Color,
+    texture::{Image, DEFAULT_IMAGE_HANDLE},
+};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
@@ -268,13 +271,18 @@ impl From<Color> for UiColor {
     }
 }
 
-// NOTE: Option<Handle<Image>> is reflected as a value, so this derive(Reflect) requires Handle<T> to derive Serialize and Deserialize
-#[derive(Component, Default, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub struct UiImage(pub Option<Handle<Image>>);
+pub struct UiImage(pub Handle<Image>);
+
+impl Default for UiImage {
+    fn default() -> Self {
+        Self(DEFAULT_IMAGE_HANDLE.typed())
+    }
+}
 
 impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
-        Self(Some(handle))
+        Self(handle)
     }
 }

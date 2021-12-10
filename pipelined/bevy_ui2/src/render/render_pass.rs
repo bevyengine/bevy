@@ -174,11 +174,7 @@ impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
         let batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
-        if let Some(handle) = &batch.image {
-            pass.set_bind_group(1, image_bind_groups.values.get(handle).unwrap(), &[]);
-        } else {
-            pass.set_bind_group(1, &image_bind_groups.dummy_bind_group, &[]);
-        }
+        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }

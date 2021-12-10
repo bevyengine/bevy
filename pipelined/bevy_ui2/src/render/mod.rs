@@ -22,7 +22,7 @@ use bevy_render2::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    texture::Image,
     view::ViewUniforms,
     RenderApp, RenderStage, RenderWorld,
 };
@@ -121,7 +121,7 @@ pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
     pub rect: bevy_sprite2::Rect,
-    pub image: Option<Handle<Image>>,
+    pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
 }
 
@@ -138,15 +138,11 @@ pub fn extract_uinodes(
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image) in uinode_query.iter() {
-        let image = if let Some(image) = &image.0 {
-            // Skip loading images
-            if !images.contains(image) {
-                continue;
-            }
-            Some(image.clone_weak())
-        } else {
-            None
-        };
+        let image = image.0.clone_weak();
+        // Skip loading images
+        if !images.contains(image.clone_weak()) {
+            continue;
+        }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color: color.0,
@@ -185,7 +181,7 @@ pub fn extract_text_uinodes(
                 let atlas = texture_atlases
                     .get(text_glyph.atlas_info.texture_atlas.clone_weak())
                     .unwrap();
-                let texture = Some(atlas.texture.clone_weak());
+                let texture = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
@@ -243,7 +239,7 @@ const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
 #[derive(Component)]
 pub struct UiBatch {
     pub range: Range<u32>,
-    pub image: Option<Handle<Image>>,
+    pub image: Handle<Image>,
     pub z: f32,
 }
 
@@ -263,7 +259,7 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = None;
+    let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
     for extracted_uinode in extracted_uinodes.uinodes.iter() {
         if current_batch_handle != extracted_uinode.image {
@@ -275,10 +271,7 @@ pub fn prepare_uinodes(
                 },));
                 start = end;
             }
-            current_batch_handle = extracted_uinode
-                .image
-                .as_ref()
-                .map(|handle| handle.clone_weak());
+            current_batch_handle = extracted_uinode.image.clone_weak();
         }
 
         let uinode_rect = extracted_uinode.rect;
@@ -337,81 +330,9 @@ pub fn prepare_uinodes(
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }
 
+#[derive(Default)]
 pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
-    /// This dummy white texture is used in place of optional images
-    pub dummy_gpu_image: GpuImage,
-    pub dummy_bind_group: BindGroup,
-}
-
-impl FromWorld for UiImageBindGroups {
-    fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let ui_pipeline = world.get_resource::<UiPipeline>().unwrap();
-
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of the optional texture
-        let dummy_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(&image.sampler_descriptor);
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                sampler,
-            }
-        };
-        let dummy_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&dummy_gpu_image.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&dummy_gpu_image.sampler),
-                },
-            ],
-            label: None,
-            layout: &ui_pipeline.image_layout,
-        });
-
-        Self {
-            values: Default::default(),
-            dummy_gpu_image,
-            dummy_bind_group,
-        }
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -451,30 +372,26 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
         for mut transparent_phase in views.iter_mut() {
             for (entity, batch) in ui_batches.iter_mut() {
-                if let Some(handle) = &batch.image {
-                    image_bind_groups
-                        .values
-                        .entry(handle.clone_weak())
-                        .or_insert_with(|| {
-                            let gpu_image = gpu_images.get(handle).unwrap();
-                            render_device.create_bind_group(&BindGroupDescriptor {
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(
-                                            &gpu_image.texture_view,
-                                        ),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&gpu_image.sampler),
-                                    },
-                                ],
-                                label: Some("ui_material_bind_group"),
-                                layout: &ui_pipeline.image_layout,
-                            })
-                        });
-                }
+                image_bind_groups
+                    .values
+                    .entry(batch.image.clone_weak())
+                    .or_insert_with(|| {
+                        let gpu_image = gpu_images.get(&batch.image).unwrap();
+                        render_device.create_bind_group(&BindGroupDescriptor {
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::Sampler(&gpu_image.sampler),
+                                },
+                            ],
+                            label: Some("ui_material_bind_group"),
+                            layout: &ui_pipeline.image_layout,
+                        })
+                    });
 
                 transparent_phase.add(TransparentUi {
                     draw_function: draw_ui_function,
