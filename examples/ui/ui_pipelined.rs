@@ -23,9 +23,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
 
-    // FIXME: 2D or 3D camera is required to clear the background
-    commands.spawn_bundle(bevy::render2::camera::OrthographicCameraBundle::new_2d());
-
     // root node
     commands
         .spawn_bundle(NodeBundle {
