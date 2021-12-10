@@ -142,6 +142,9 @@ pub struct GpuLights {
 pub const MAX_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 // point light shadow maps for now
+#[cfg(feature = "webgl2")]
+pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
+#[cfg(not(feature = "webgl2"))]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
