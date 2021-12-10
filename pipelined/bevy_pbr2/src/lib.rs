@@ -1,3 +1,5 @@
+pub mod wireframe;
+
 mod alpha;
 mod bundle;
 mod light;
