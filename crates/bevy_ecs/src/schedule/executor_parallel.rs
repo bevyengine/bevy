@@ -175,7 +175,7 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope [ParallelSystemContainer],
+        systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {
         #[cfg(feature = "trace")]
@@ -183,13 +183,15 @@ impl ParallelExecutor {
         #[cfg(feature = "trace")]
         let _guard = span.enter();
         self.should_run.clear();
-        for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
+        for (index, (system_data, system)) in
+            self.system_metadata.iter_mut().zip(systems).enumerate()
+        {
             // Spawn the system task.
-            if systems[index].should_run() {
+            if system.should_run() {
                 self.should_run.set(index, true);
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
-                let system = unsafe { systems[index].system_mut_unsafe() };
+                let system = system.system_mut();
                 #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
                 let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
                 let task = async move {
