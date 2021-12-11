@@ -89,6 +89,7 @@ Example | File | Description
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
+`text2d_pipelined` | [`2d/text2d_pipelined.rs`](./2d/text2d_pipelined.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
@@ -253,6 +254,7 @@ Example | File | Description
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
+`ui_pipelined` | [`ui/ui_pipelined.rs`](./ui/ui_pipelined.rs) | Illustrates various features of Bevy UI
 
 ## Window
 
@@ -262,6 +264,7 @@ Example | File | Description
 `clear_color_pipelined` | [`window/clear_color_pipelined.rs`](./window/clear_color_pipelined.rs) | Creates a solid color window with the pipelined renderer
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+`transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
 
 # Platform-Specific Examples

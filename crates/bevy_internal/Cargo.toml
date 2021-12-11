@@ -39,7 +39,7 @@ wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
 # enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
+subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas", "bevy_text2/subpixel_glyph_atlas"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
@@ -74,10 +74,12 @@ bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, versio
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.5.0" }
 bevy_sprite2 = { path = "../../pipelined/bevy_sprite2", optional = true, version = "0.5.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.5.0" }
+bevy_text2 = { path = "../../pipelined/bevy_text2", optional = true, version = "0.5.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
+bevy_ui2 = { path = "../../pipelined/bevy_ui2", optional = true, version = "0.5.0" }
 bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = {version = "0.4", features = ["logger"]}
+ndk-glue = {version = "0.5", features = ["logger"]}

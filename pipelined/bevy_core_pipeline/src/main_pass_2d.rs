@@ -1,4 +1,4 @@
-use crate::{ClearColor, Transparent2d};
+use crate::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -43,14 +43,14 @@ impl Node for MainPass2dNode {
             .query
             .get_manual(world, view_entity)
             .expect("view entity should exist");
-        let clear_color = world.get_resource::<ClearColor>().unwrap();
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[RenderPassColorAttachment {
                 view: &target.view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(clear_color.0.into()),
+                    load: LoadOp::Load,
                     store: true,
                 },
             }],

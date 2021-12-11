@@ -5,6 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
+use bevy_asset::HandleUntyped;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
@@ -15,6 +16,8 @@ use wgpu::{
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
+pub const DEFAULT_IMAGE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 13148262314052771789);
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
@@ -28,7 +31,7 @@ pub struct Image {
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![1; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size() as usize];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {

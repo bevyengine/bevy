@@ -178,6 +178,18 @@ impl From<&str> for HandleId {
     }
 }
 
+impl From<&String> for HandleId {
+    fn from(value: &String) -> Self {
+        AssetPathId::from(value).into()
+    }
+}
+
+impl From<String> for HandleId {
+    fn from(value: String) -> Self {
+        AssetPathId::from(&value).into()
+    }
+}
+
 impl<T: Asset> From<&Handle<T>> for HandleId {
     fn from(value: &Handle<T>) -> Self {
         value.id

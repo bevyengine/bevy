@@ -36,6 +36,12 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()
+            .register_type::<OrthographicProjection>()
+            .register_type::<PerspectiveProjection>()
+            .register_type::<VisibleEntities>()
+            .register_type::<WindowOrigin>()
+            .register_type::<ScalingMode>()
+            .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
             .insert_resource(active_cameras)
             .add_system_to_stage(CoreStage::PostUpdate, crate::camera::active_cameras_system)
@@ -88,6 +94,8 @@ fn extract_cameras(
                         transform: *transform,
                         width: window.physical_width().max(1),
                         height: window.physical_height().max(1),
+                        near: camera.near,
+                        far: camera.far,
                     },
                     visible_entities.clone(),
                 ));

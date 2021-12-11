@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
+pub mod options;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
@@ -15,6 +16,7 @@ pub use once_cell;
 
 use crate::{
     camera::CameraPlugin,
+    color::Color,
     mesh::MeshPlugin,
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
@@ -26,7 +28,6 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
-use wgpu::Backends;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -90,13 +91,12 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let default_backend = if cfg!(not(target_arch = "wasm32")) {
-            Backends::PRIMARY
-        } else {
-            Backends::GL
-        };
-        let backends = wgpu::util::backend_bits_from_env().unwrap_or(default_backend);
-        let instance = wgpu::Instance::new(backends);
+        let options = app
+            .world
+            .get_resource::<options::WgpuOptions>()
+            .cloned()
+            .unwrap_or_default();
+        let instance = wgpu::Instance::new(options.backends);
         let surface = {
             let world = app.world.cell();
             let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
@@ -109,26 +109,22 @@ impl Plugin for RenderPlugin {
         let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
             &instance,
             &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             },
             &wgpu::DeviceDescriptor {
-                features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-                #[cfg(not(target_arch = "wasm32"))]
-                limits: wgpu::Limits::default(),
-                #[cfg(target_arch = "wasm32")]
-                limits: wgpu::Limits {
-                    ..wgpu::Limits::downlevel_webgl2_defaults()
-                },
-                ..Default::default()
+                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                features: options.features,
+                limits: options.limits,
             },
         ));
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
             .add_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_resource::<ScratchRenderWorld>();
+            .init_resource::<ScratchRenderWorld>()
+            .register_type::<Color>();
         let render_pipeline_cache = RenderPipelineCache::new(device.clone());
         let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 

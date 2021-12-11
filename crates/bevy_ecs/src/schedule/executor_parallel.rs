@@ -150,6 +150,10 @@ impl ParallelExecutor {
     /// Calls system.new_archetype() for each archetype added since the last call to
     /// [update_archetypes] and updates cached archetype_component_access.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
+        #[cfg(feature = "trace")]
+        let span = bevy_utils::tracing::info_span!("update_archetypes");
+        #[cfg(feature = "trace")]
+        let _guard = span.enter();
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -174,6 +178,10 @@ impl ParallelExecutor {
         systems: &'scope [ParallelSystemContainer],
         world: &'scope World,
     ) {
+        #[cfg(feature = "trace")]
+        let span = bevy_utils::tracing::info_span!("prepare_systems");
+        #[cfg(feature = "trace")]
+        let _guard = span.enter();
         self.should_run.clear();
         for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
             // Spawn the system task.
