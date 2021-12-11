@@ -176,6 +176,7 @@ path = "examples/3d/cornell_box_pipelined.rs"
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "load_gltf_pipelined"
@@ -236,6 +237,7 @@ path = "examples/3d/texture_pipelined.rs"
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "wireframe"
@@ -290,6 +292,7 @@ path = "examples/app/thread_pool_resources.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "custom_asset"
@@ -302,6 +305,7 @@ path = "examples/asset/custom_asset_io.rs"
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+required-features = ["bevy_gltf"]
 
 # Async Tasks
 [[example]]
@@ -383,6 +387,7 @@ path = "examples/ecs/timers.rs"
 [[example]]
 name = "alien_cake_addict"
 path = "examples/game/alien_cake_addict.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "breakout"
@@ -530,6 +535,7 @@ path = "examples/window/clear_color_pipelined.rs"
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "scale_factor_override"
