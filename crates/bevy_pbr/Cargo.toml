@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-webgl2 = []
+webgl = []
 
 [dependencies]
 # bevy

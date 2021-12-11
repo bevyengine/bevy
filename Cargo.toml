@@ -86,7 +86,7 @@ x11 = ["bevy_internal/x11"]
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl2 = ["bevy_internal/webgl2"]
+webgl = ["bevy_internal/webgl"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]

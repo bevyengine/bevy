@@ -142,9 +142,9 @@ pub struct GpuLights {
 pub const MAX_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 // point light shadow maps for now
-#[cfg(feature = "webgl2")]
+#[cfg(feature = "webgl")]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
-#[cfg(not(feature = "webgl2"))]
+#[cfg(not(feature = "webgl"))]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
@@ -833,9 +833,9 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(not(feature = "webgl2"))]
+                    #[cfg(not(feature = "webgl"))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(feature = "webgl2")]
+                    #[cfg(feature = "webgl")]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
@@ -848,9 +848,9 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
-                #[cfg(not(feature = "webgl2"))]
+                #[cfg(not(feature = "webgl"))]
                 dimension: Some(TextureViewDimension::D2Array),
-                #[cfg(feature = "webgl2")]
+                #[cfg(feature = "webgl")]
                 dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
