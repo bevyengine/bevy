@@ -154,6 +154,9 @@ impl ButtonSettings {
     }
 }
 
+/// Stores settings for axis.
+///
+/// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
 pub struct AxisSettings {
     pub positive_high: f32,
