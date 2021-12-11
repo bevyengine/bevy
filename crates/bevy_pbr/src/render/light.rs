@@ -600,7 +600,7 @@ pub fn prepare_lights(
             .shadows_enabled
             .cmp(&light_2.shadows_enabled)
             .reverse()
-            .then_with(|| entity_1.cmp(&entity_2))
+            .then_with(|| entity_1.cmp(entity_2))
     });
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
