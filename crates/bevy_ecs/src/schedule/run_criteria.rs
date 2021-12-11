@@ -366,6 +366,8 @@ impl RunCriteria {
 
 pub trait RunCriteriaPiping {
     /// See [`RunCriteria::pipe()`].
+    // TODO: Support `IntoSystem` here instead, and stop using
+    // `IntoSystem::into_system` in the call sites
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
