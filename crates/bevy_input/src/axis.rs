@@ -25,6 +25,9 @@ impl<T> Axis<T>
 where
     T: Copy + Eq + Hash,
 {
+    pub const MIN: f32 = -1.0;
+    pub const MAX: f32 = 1.0;
+
     /// Inserts a position data for an input device,
     /// restricting the position data to an interval `min..=max`.
     ///
@@ -32,7 +35,7 @@ where
     ///
     /// If the input device was present, the position data is updated, and the old value is returned.
     pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
-        let new_position_data = position_data.clamp(self.get_min(), self.get_max());
+        let new_position_data = position_data.clamp(Self::MIN, Self::MAX);
         self.axis_data.insert(input_device, new_position_data)
     }
 
@@ -46,30 +49,14 @@ where
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
     }
-
-    /// Returns maximum allowed position data, which is 1.0.
-    pub fn get_min(&self) -> f32 {
-        AXIS_MIN
-    }
-
-    /// Returns minimum allowed position data, which is -1.0.
-    pub fn get_max(&self) -> f32 {
-        AXIS_MAX
-    }
 }
-
-const AXIS_MIN: f32 = -1.0;
-const AXIS_MAX: f32 = 1.0;
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        axis::AXIS_MAX,
         gamepad::{Gamepad, GamepadButton, GamepadButtonType},
         Axis,
     };
-
-    use super::AXIS_MIN;
 
     #[test]
     fn test_axis_set() {
@@ -115,23 +102,5 @@ mod tests {
 
             assert_eq!(expected, actual);
         }
-    }
-
-    #[test]
-    fn test_axis_min() {
-        let expected = AXIS_MIN;
-        let axis = Axis::<GamepadButton>::default();
-
-        let actual = axis.get_min();
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn test_axis_max() {
-        let expected = AXIS_MAX;
-        let axis = Axis::<GamepadButton>::default();
-
-        let actual = axis.get_max();
-        assert_eq!(expected, actual);
     }
 }
