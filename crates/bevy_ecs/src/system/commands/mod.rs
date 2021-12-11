@@ -78,7 +78,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
     /// }
-    /// # example_system.system();
+    /// # IntoSystem::into_system(example_system);
     /// ```
     pub fn spawn<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
@@ -156,7 +156,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///         // or insert single components like this:
     ///         .insert(Label("hello world"));
     /// }
-    /// # example_system.system();
+    /// # IntoSystem::into_system(example_system);
     /// ```
     pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn();
@@ -188,7 +188,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
     /// }
-    /// # example_system.system();
+    /// # IntoSystem::into_system(example_system);
     /// ```
     #[track_caller]
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
@@ -232,7 +232,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     ),
     /// ]);
     /// # }
-    /// # system.system();
+    /// # IntoSystem::into_system(system);
     /// ```
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
@@ -281,7 +281,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     high_score: 0,
     /// });
     /// # }
-    /// # system.system();
+    /// # IntoSystem::into_system(system);
     /// ```
     pub fn insert_resource<T: Resource>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
@@ -304,7 +304,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # fn system(mut commands: Commands) {
     /// commands.remove_resource::<Scoreboard>();
     /// # }
-    /// # system.system();
+    /// # IntoSystem::into_system(system);
     /// ```
     pub fn remove_resource<T: Resource>(&mut self) {
         self.queue.push(RemoveResource::<T> {
@@ -345,7 +345,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///         },
     ///     });
     /// }
-    /// # add_combat_stats_system.system();
+    /// # IntoSystem::into_system(add_combat_stats_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
@@ -369,7 +369,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// fn my_system(mut commands: Commands) {
     ///     let entity_id = commands.spawn().id();
     /// }
-    /// # my_system.system();
+    /// # IntoSystem::into_system(my_system);
     /// ```
     #[inline]
     pub fn id(&self) -> Entity {
@@ -405,7 +405,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///         defense: Defense(20),
     ///     });
     /// }
-    /// # add_combat_stats_system.system();
+    /// # IntoSystem::into_system(add_combat_stats_system);
     /// ```
     pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(InsertBundle {
@@ -449,7 +449,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///     commands.spawn().insert_bundle((Component1, Component2));
     ///     commands.spawn_bundle((Component1, Component2));
     /// }
-    /// # example_system.system();
+    /// # IntoSystem::into_system(example_system);
     /// ```
     pub fn insert(&mut self, component: impl Component) -> &mut Self {
         self.commands.add(Insert {
@@ -479,7 +479,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();
     /// }
-    /// # remove_combat_stats_system.system();
+    /// # IntoSystem::into_system(remove_combat_stats_system);
     /// ```
     pub fn remove_bundle<T>(&mut self) -> &mut Self
     where
@@ -508,7 +508,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// fn convert_enemy_system(mut commands: Commands, enemy: Res<TargetEnemy>) {
     ///     commands.entity(enemy.entity).remove::<Enemy>();
     /// }
-    /// # convert_enemy_system.system();
+    /// # IntoSystem::into_system(convert_enemy_system);
     /// ```
     pub fn remove<T>(&mut self) -> &mut Self
     where
@@ -539,7 +539,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// {
     ///     commands.entity(character_to_remove.entity).despawn();
     /// }
-    /// # remove_character_system.system();
+    /// # IntoSystem::into_system(remove_character_system);
     /// ```
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {

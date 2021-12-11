@@ -30,7 +30,7 @@
 //!     }
 //!     round.0 += 1;
 //! }
-//! # update_score_system.system();
+//! # IntoSystem::into_system(update_score_system);
 //! ```
 //!
 //! # System ordering
@@ -125,7 +125,7 @@ mod tests {
             }
         }
 
-        let mut system = sys.system();
+        let mut system = IntoSystem::into_system(sys);
         let mut world = World::new();
         world.spawn().insert(A);
 
@@ -583,8 +583,8 @@ mod tests {
         fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
 
         let mut world = World::default();
-        let mut x = sys_x.system();
-        let mut y = sys_y.system();
+        let mut x = IntoSystem::into_system(sys_x);
+        let mut y = IntoSystem::into_system(sys_y);
         x.initialize(&mut world);
         y.initialize(&mut world);
 
@@ -612,11 +612,11 @@ mod tests {
         let mut world = World::default();
         world.spawn().insert(A).insert(C);
 
-        let mut without_filter = without_filter.system();
+        let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
         without_filter.run((), &mut world);
 
-        let mut with_filter = with_filter.system();
+        let mut with_filter = IntoSystem::into_system(with_filter);
         with_filter.initialize(&mut world);
         with_filter.run((), &mut world);
     }
@@ -663,8 +663,8 @@ mod tests {
         ) {
         }
         let mut world = World::default();
-        let mut x = sys_x.system();
-        let mut y = sys_y.system();
+        let mut x = IntoSystem::into_system(sys_x);
+        let mut y = IntoSystem::into_system(sys_y);
         x.initialize(&mut world);
         y.initialize(&mut world);
     }

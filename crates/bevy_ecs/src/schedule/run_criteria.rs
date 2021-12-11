@@ -235,7 +235,7 @@ where
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(
-            self.system(),
+            IntoSystem::into_system(self),
         )))
     }
 }
@@ -333,19 +333,20 @@ where
     S: IntoSystem<(), ShouldRun, Param>,
 {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
     fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label_discard_if_duplicate(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self)))
+            .label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).before(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
     fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).after(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 }
 

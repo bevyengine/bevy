@@ -303,7 +303,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// use bevy_ecs::prelude::*;
 ///
 /// fn main() {
-///     let mut square_system = square.system();
+///     let mut square_system = IntoSystem::into_system(square);
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
@@ -391,7 +391,7 @@ where
         self,
         f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
     ) -> Self::System {
-        self.system().config(f)
+        IntoSystem::into_system(self).config(f)
     }
 }
 

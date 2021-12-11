@@ -79,7 +79,7 @@ impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
             state: LocalFixedTimestepState::default(),
-            internal_system: Box::new(Self::prepare_system.system()),
+            internal_system: Box::new(IntoSystem::into_system(Self::prepare_system)),
         }
     }
 }
