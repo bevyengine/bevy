@@ -562,18 +562,43 @@ impl App {
     /// ```
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
-            .add_stage(
+            .add_stage_after(
+                CoreStage::First,
                 CoreStage::Startup,
                 Schedule::default()
                     .with_run_criteria(RunOnce::default())
                     .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
+                    .with_stage_after(
+                        StartupStage::PreStartup,
+                        StartupStage::Startup,
+                        SystemStage::parallel(),
+                    )
+                    .with_stage_after(
+                        StartupStage::Startup,
+                        StartupStage::PostStartup,
+                        SystemStage::parallel(),
+                    ),
             )
-            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Update, SystemStage::parallel())
-            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Last, SystemStage::parallel())
+            .add_stage_after(
+                CoreStage::Startup,
+                CoreStage::PreUpdate,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                CoreStage::PreUpdate,
+                CoreStage::Update,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                CoreStage::Update,
+                CoreStage::PostUpdate,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                CoreStage::PostUpdate,
+                CoreStage::Last,
+                SystemStage::parallel(),
+            )
     }
 
     /// Setup the application to manage events of type `T`.

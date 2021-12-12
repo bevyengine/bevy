@@ -136,16 +136,33 @@ impl Plugin for RenderPlugin {
         extract_stage.set_apply_buffers(false);
         render_app
             .add_stage(RenderStage::Extract, extract_stage)
-            .add_stage(RenderStage::Prepare, SystemStage::parallel())
-            .add_stage(RenderStage::Queue, SystemStage::parallel())
-            .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
-            .add_stage(
+            .add_stage_after(
+                RenderStage::Extract,
+                RenderStage::Prepare,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                RenderStage::Prepare,
+                RenderStage::Queue,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                RenderStage::Queue,
+                RenderStage::PhaseSort,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                RenderStage::PhaseSort,
                 RenderStage::Render,
                 SystemStage::parallel()
                     .with_system(RenderPipelineCache::process_pipeline_queue_system)
                     .with_system(render_system.exclusive_system().at_end()),
             )
-            .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+            .add_stage_after(
+                RenderStage::Render,
+                RenderStage::Cleanup,
+                SystemStage::parallel(),
+            )
             .insert_resource(instance)
             .insert_resource(device)
             .insert_resource(queue)
