@@ -60,7 +60,7 @@ enum State {
 /// Events can be written to using an [`EventWriter`]
 /// and are typically cheaply read using an [`EventReader`].
 ///
-/// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs#L284)
+/// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs)
 /// is applied between writing and reading systems, there is a risk of a race condition.
 /// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
 ///
