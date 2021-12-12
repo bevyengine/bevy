@@ -30,7 +30,7 @@
 //!     }
 //!     round.0 += 1;
 //! }
-//! # IntoSystem::into_system(update_score_system);
+//! # bevy_ecs::system::assert_is_system(update_score_system);
 //! ```
 //!
 //! # System ordering
@@ -81,6 +81,13 @@ pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
+
+pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+    if false {
+        // Check it can be converted into a system
+        IntoSystem::into_system(sys);
+    }
+}
 
 #[cfg(test)]
 mod tests {

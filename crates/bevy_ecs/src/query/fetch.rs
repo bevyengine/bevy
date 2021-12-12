@@ -806,7 +806,7 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
 ///         }
 ///     }
 /// }
-/// # IntoSystem::into_system(print_moving_objects_system);
+/// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {

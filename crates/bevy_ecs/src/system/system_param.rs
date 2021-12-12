@@ -42,7 +42,7 @@ use std::{
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # IntoSystem::into_system(my_system);
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
@@ -652,7 +652,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 ///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
 /// }
 ///
-/// # IntoSystem::into_system(react_on_removal);
+/// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
 pub struct RemovedComponents<'a, T: Component> {
     world: &'a World,

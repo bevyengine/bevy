@@ -266,7 +266,7 @@ pub trait IntoSystem<In, Out, Params>: Sized {
     /// In future, this method will be removed.
     ///
     /// One valid use of this method is to assert that a given function is a valid system.
-    /// For this case, use `IntoSystem::into_system` instead.
+    /// For this case, use `bevy_ecs::system::assert_is_system` instead.
     #[deprecated(
         since = "0.6.0",
         note = "In most cases, using `.system()` is no longer necessary, and so it can be removed"
