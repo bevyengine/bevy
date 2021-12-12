@@ -1,231 +1,309 @@
-#![allow(clippy::all)]
 pub mod camera;
 pub mod color;
-pub mod colorspace;
-pub mod draw;
-pub mod entity;
 pub mod mesh;
-pub mod pass;
-pub mod pipeline;
+pub mod options;
+pub mod primitives;
+pub mod render_asset;
+pub mod render_component;
 pub mod render_graph;
+pub mod render_phase;
+pub mod render_resource;
 pub mod renderer;
-pub mod shader;
 pub mod texture;
-pub mod wireframe;
-
-use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
-    system::{IntoExclusiveSystem, Res},
-};
-use bevy_transform::TransformSystem;
-use bevy_utils::tracing::warn;
-use draw::{OutsideFrustum, Visible};
-
-pub use once_cell;
+pub mod view;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        base::Msaa,
+        camera::{
+            Camera, OrthographicCameraBundle, OrthographicProjection, PerspectiveCameraBundle,
+            PerspectiveProjection,
+        },
         color::Color,
-        draw::{Draw, Visible},
-        entity::*,
         mesh::{shape, Mesh},
-        pass::ClearColor,
-        pipeline::RenderPipelines,
-        shader::Shader,
-        texture::Texture,
+        render_resource::Shader,
+        texture::Image,
+        view::{ComputedVisibility, Msaa, Visibility},
     };
 }
 
-use crate::prelude::*;
-use base::Msaa;
-use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::schedule::{StageLabel, SystemLabel};
-use camera::{
-    ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
-    RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
-};
-use pipeline::{
-    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
-    ShaderSpecialization, VertexBufferLayout,
-};
-use render_graph::{
-    base::{self, BaseRenderGraphConfig, MainPass},
-    RenderGraph,
-};
-use renderer::{AssetRenderResourceBindings, RenderResourceBindings, RenderResourceContext};
-use shader::ShaderLoader;
-#[cfg(feature = "hdr")]
-use texture::HdrTextureLoader;
-#[cfg(any(
-    feature = "png",
-    feature = "dds",
-    feature = "tga",
-    feature = "jpeg",
-    feature = "bmp"
-))]
-use texture::ImageTextureLoader;
+pub use once_cell;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum RenderSystem {
-    VisibleEntities,
-}
+use crate::{
+    camera::CameraPlugin,
+    color::Color,
+    mesh::MeshPlugin,
+    render_graph::RenderGraph,
+    render_resource::{RenderPipelineCache, Shader, ShaderLoader},
+    renderer::render_system,
+    texture::ImagePlugin,
+    view::{ViewPlugin, WindowRenderPlugin},
+};
+use bevy_app::{App, AppLabel, Plugin};
+use bevy_asset::{AddAsset, AssetServer};
+use bevy_ecs::prelude::*;
+use std::ops::{Deref, DerefMut};
 
-/// The names of "render" App stages
+/// Contains the default Bevy rendering backend based on wgpu.
+#[derive(Default)]
+pub struct RenderPlugin;
+
+/// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
-    /// Stage where render resources are set up
-    RenderResource,
-    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this
-    /// stage manually.
-    RenderGraphSystems,
-    // Stage where draw systems are executed. This is generally where Draw components are setup
-    Draw,
+    /// Extract data from the "app world" and insert it into the "render world".
+    /// This step should be kept as short as possible to increase the "pipelining potential" for
+    /// running the next frame while rendering the current frame.
+    Extract,
+
+    /// Prepare render resources from the extracted data for the GPU.
+    Prepare,
+
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
+    /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
+    /// [`Render`](RenderStage::Render) stage.
+    Queue,
+
+    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
+    /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
+    PhaseSort,
+
+    /// Actual rendering happens here.
+    /// In most cases, only the render backend should insert resources here.
     Render,
-    PostRender,
+
+    /// Cleanup render resources here.
+    Cleanup,
 }
 
-/// Adds core render types and systems to an App
-pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be
-    /// added
-    pub base_render_graph_config: Option<BaseRenderGraphConfig>,
-}
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Default)]
+pub struct RenderWorld(World);
 
-impl Default for RenderPlugin {
-    fn default() -> Self {
-        RenderPlugin {
-            base_render_graph_config: Some(BaseRenderGraphConfig::default()),
-        }
+impl Deref for RenderWorld {
+    type Target = World;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
+
+impl DerefMut for RenderWorld {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// A Label for the rendering sub-app.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+pub struct RenderApp;
+
+/// A "scratch" world used to avoid allocating new worlds every frame when
+/// swapping out the [`RenderWorld`].
+#[derive(Default)]
+struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
+    /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        #[cfg(any(
-            feature = "png",
-            feature = "dds",
-            feature = "tga",
-            feature = "jpeg",
-            feature = "bmp"
-        ))]
-        {
-            app.init_asset_loader::<ImageTextureLoader>();
-        }
-        #[cfg(feature = "hdr")]
-        {
-            app.init_asset_loader::<HdrTextureLoader>();
-        }
+        let options = app
+            .world
+            .get_resource::<options::WgpuOptions>()
+            .cloned()
+            .unwrap_or_default();
+        let instance = wgpu::Instance::new(options.backends);
+        let surface = {
+            let world = app.world.cell();
+            let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+            let raw_handle = windows.get_primary().map(|window| unsafe {
+                let handle = window.raw_window_handle().get_handle();
+                instance.create_surface(&handle)
+            });
+            raw_handle
+        };
+        let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
+            &instance,
+            &wgpu::RequestAdapterOptions {
+                power_preference: options.power_preference,
+                compatible_surface: surface.as_ref(),
+                ..Default::default()
+            },
+            &wgpu::DeviceDescriptor {
+                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                features: options.features,
+                limits: options.limits,
+            },
+        ));
+        app.insert_resource(device.clone())
+            .insert_resource(queue.clone())
+            .add_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>()
+            .init_resource::<ScratchRenderWorld>()
+            .register_type::<Color>();
+        let render_pipeline_cache = RenderPipelineCache::new(device.clone());
+        let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
-        app.add_stage_after(
-            AssetStage::AssetEvents,
-            RenderStage::RenderResource,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            RenderStage::RenderResource,
-            RenderStage::RenderGraphSystems,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            RenderStage::RenderGraphSystems,
-            RenderStage::Draw,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            RenderStage::Draw,
-            RenderStage::Render,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            RenderStage::Render,
-            RenderStage::PostRender,
-            SystemStage::parallel(),
-        )
-        .init_asset_loader::<ShaderLoader>()
-        .add_asset::<Mesh>()
-        .add_asset::<Texture>()
-        .add_asset::<Shader>()
-        .add_asset::<PipelineDescriptor>()
-        .register_type::<Camera>()
-        .register_type::<DepthCalculation>()
-        .register_type::<Draw>()
-        .register_type::<Visible>()
-        .register_type::<OutsideFrustum>()
-        .register_type::<RenderPipelines>()
-        .register_type::<OrthographicProjection>()
-        .register_type::<PerspectiveProjection>()
-        .register_type::<MainPass>()
-        .register_type::<VisibleEntities>()
-        .register_type::<Color>()
-        .register_type::<ShaderSpecialization>()
-        .register_type::<PrimitiveTopology>()
-        .register_type::<IndexFormat>()
-        .register_type::<PipelineSpecialization>()
-        .register_type::<RenderLayers>()
-        .register_type::<ScalingMode>()
-        .register_type::<VertexBufferLayout>()
-        .register_type::<WindowOrigin>()
-        .init_resource::<ClearColor>()
-        .init_resource::<RenderGraph>()
-        .init_resource::<PipelineCompiler>()
-        .init_resource::<Msaa>()
-        .init_resource::<RenderResourceBindings>()
-        .init_resource::<AssetRenderResourceBindings>()
-        .init_resource::<ActiveCameras>()
-        .add_startup_system_to_stage(StartupStage::PreStartup, check_for_render_resource_context)
-        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system)
-        .add_system_to_stage(CoreStage::PostUpdate, camera::active_cameras_system)
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.before(RenderSystem::VisibleEntities),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.before(RenderSystem::VisibleEntities),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::visible_entities_system
-                .label(RenderSystem::VisibleEntities)
-                .after(TransformSystem::TransformPropagate),
-        )
-        .add_system_to_stage(RenderStage::RenderResource, shader::shader_update_system)
-        .add_system_to_stage(
-            RenderStage::RenderResource,
-            mesh::mesh_resource_provider_system,
-        )
-        .add_system_to_stage(
-            RenderStage::RenderResource,
-            Texture::texture_resource_system,
-        )
-        .add_system_to_stage(
-            RenderStage::RenderGraphSystems,
-            render_graph::render_graph_schedule_executor_system.exclusive_system(),
-        )
-        .add_system_to_stage(RenderStage::Draw, pipeline::draw_render_pipelines_system)
-        .add_system_to_stage(RenderStage::PostRender, shader::clear_shader_defs_system);
+        let mut render_app = App::empty();
+        let mut extract_stage =
+            SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
+        // don't apply buffers when the stage finishes running
+        // extract stage runs on the app world, but the buffers are applied to the render world
+        extract_stage.set_apply_buffers(false);
+        render_app
+            .add_stage(RenderStage::Extract, extract_stage)
+            .add_stage(RenderStage::Prepare, SystemStage::parallel())
+            .add_stage(RenderStage::Queue, SystemStage::parallel())
+            .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
+            .add_stage(
+                RenderStage::Render,
+                SystemStage::parallel()
+                    .with_system(RenderPipelineCache::process_pipeline_queue_system)
+                    .with_system(render_system.exclusive_system().at_end()),
+            )
+            .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+            .insert_resource(instance)
+            .insert_resource(device)
+            .insert_resource(queue)
+            .insert_resource(render_pipeline_cache)
+            .insert_resource(asset_server)
+            .init_resource::<RenderGraph>();
 
-        if let Some(ref config) = self.base_render_graph_config {
-            crate::base::add_base_graph(config, &mut app.world);
-            let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
-            if config.add_3d_camera {
-                active_cameras.add(base::camera::CAMERA_3D);
+        app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
+            #[cfg(feature = "trace")]
+            let render_span = bevy_utils::tracing::info_span!("renderer subapp");
+            #[cfg(feature = "trace")]
+            let _render_guard = render_span.enter();
+            {
+                #[cfg(feature = "trace")]
+                let stage_span =
+                    bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // reserve all existing app entities for use in render_app
+                // they can only be spawned using `get_or_spawn()`
+                let meta_len = app_world.entities().meta.len();
+                render_app
+                    .world
+                    .entities()
+                    .reserve_entities(meta_len as u32);
+
+                // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
+                // these entities cannot be accessed without spawning directly onto them
+                // this _only_ works as expected because clear_entities() is called at the end of every frame.
+                render_app.world.entities_mut().flush_as_invalid();
             }
 
-            if config.add_2d_camera {
-                active_cameras.add(base::camera::CAMERA_2D);
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "extract");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // extract
+                extract(app_world, render_app);
             }
-        }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "prepare");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // prepare
+                let prepare = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                    .unwrap();
+                prepare.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "queue");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // queue
+                let queue = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                    .unwrap();
+                queue.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "sort");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // phase sort
+                let phase_sort = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                    .unwrap();
+                phase_sort.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "render");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // render
+                let render = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                    .unwrap();
+                render.run(&mut render_app.world);
+            }
+
+            {
+                #[cfg(feature = "trace")]
+                let stage_span = bevy_utils::tracing::info_span!("stage", name = "cleanup");
+                #[cfg(feature = "trace")]
+                let _stage_guard = stage_span.enter();
+
+                // cleanup
+                let cleanup = render_app
+                    .schedule
+                    .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                    .unwrap();
+                cleanup.run(&mut render_app.world);
+
+                render_app.world.clear_entities();
+            }
+        });
+
+        app.add_plugin(WindowRenderPlugin)
+            .add_plugin(CameraPlugin)
+            .add_plugin(ViewPlugin)
+            .add_plugin(MeshPlugin)
+            .add_plugin(ImagePlugin);
     }
 }
 
-fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceContext>>>) {
-    if context.is_none() {
-        warn!(
-            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
-        );
-    }
+/// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
+/// This updates the render world with the extracted ECS data of the current frame.
+fn extract(app_world: &mut World, render_app: &mut App) {
+    let extract = render_app
+        .schedule
+        .get_stage_mut::<SystemStage>(&RenderStage::Extract)
+        .unwrap();
+
+    // temporarily add the render world to the app world as a resource
+    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
+    let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
+    app_world.insert_resource(RenderWorld(render_world));
+
+    extract.run(app_world);
+
+    // add the render world back to the render app
+    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
+    let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
+    app_world.insert_resource(ScratchRenderWorld(scratch_world));
+
+    extract.apply_buffers(&mut render_app.world);
 }

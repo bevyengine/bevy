@@ -5,42 +5,40 @@ use bevy_asset::{
 use bevy_core::Name;
 use bevy_ecs::world::World;
 use bevy_log::warn;
-use bevy_math::Mat4;
-use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
+use bevy_math::{Mat4, Vec3};
+use bevy_pbr::{AlphaMode, PbrBundle, StandardMaterial};
 use bevy_render::{
     camera::{
-        Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+        Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
     },
+    color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
-    pipeline::PrimitiveTopology,
-    prelude::{Color, Texture},
-    render_graph::base,
-    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError, TextureFormat},
+    primitives::Aabb,
+    texture::{Image, ImageType, TextureError},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
 };
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
+use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat};
 
 use crate::{Gltf, GltfNode};
 
-/// An error that occurs when loading a GLTF file
+/// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("invalid GLTF file: {0}")]
+    #[error("invalid glTF file: {0}")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
     MissingBlob,
@@ -56,7 +54,7 @@ pub enum GltfError {
     AssetIoError(#[from] AssetIoError),
 }
 
-/// Loads meshes from GLTF files into Mesh assets
+/// Loads glTF files with all of their data as their corresponding bevy representations.
 #[derive(Default)]
 pub struct GltfLoader;
 
@@ -74,6 +72,7 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+/// Loads an entire glTF file.
 async fn load_gltf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
@@ -82,8 +81,8 @@ async fn load_gltf<'a, 'b>(
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
     let mut materials = vec![];
-    let mut named_materials = HashMap::new();
-    let mut linear_textures = HashSet::new();
+    let mut named_materials = HashMap::default();
+    let mut linear_textures = HashSet::default();
     for material in gltf.materials() {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
@@ -105,7 +104,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut meshes = vec![];
-    let mut named_meshes = HashMap::new();
+    let mut named_meshes = HashMap::default();
     for mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
@@ -148,12 +147,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
-            if let Some(vertex_attribute) = reader
-                .read_colors(0)
-                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            }
+            // if let Some(vertex_attribute) = reader
+            //     .read_colors(0)
+            //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
+            // {
+            //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            // }
 
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
@@ -194,7 +193,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut nodes_intermediate = vec![];
-    let mut named_nodes_intermediate = HashMap::new();
+    let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
         let node_label = node_label(&node);
         nodes_intermediate.push((
@@ -228,7 +227,7 @@ async fn load_gltf<'a, 'b>(
             named_nodes_intermediate.insert(name, node.index());
         }
     }
-    let nodes = resolve_node_hierarchy(nodes_intermediate)
+    let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
         .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
@@ -265,7 +264,7 @@ async fn load_gltf<'a, 'b>(
         .into_iter()
         .filter_map(|res| {
             if let Err(err) = res.as_ref() {
-                warn!("Error loading GLTF texture: {}", err);
+                warn!("Error loading glTF texture: {}", err);
             }
             res.ok()
         })
@@ -274,7 +273,7 @@ async fn load_gltf<'a, 'b>(
         });
 
     let mut scenes = vec![];
-    let mut named_scenes = HashMap::new();
+    let mut named_scenes = HashMap::default();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
@@ -320,18 +319,19 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
+/// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
 async fn load_texture<'a>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
     load_context: &LoadContext<'a>,
-) -> Result<(Texture, String), GltfError> {
+) -> Result<(Image, String), GltfError> {
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset() as usize;
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            Image::from_buffer(buffer, ImageType::MimeType(mime_type))?
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -352,20 +352,21 @@ async fn load_texture<'a>(
                 }
             };
 
-            Texture::from_buffer(
+            Image::from_buffer(
                 &bytes,
                 mime_type.map(ImageType::MimeType).unwrap_or(image_type),
             )?
         }
     };
-    texture.sampler = texture_sampler(&gltf_texture);
+    texture.sampler_descriptor = texture_sampler(&gltf_texture);
     if (linear_textures).contains(&gltf_texture.index()) {
-        texture.format = TextureFormat::Rgba8Unorm;
+        texture.texture_descriptor.format = TextureFormat::Rgba8Unorm;
     }
 
     Ok((texture, texture_label(&gltf_texture)))
 }
 
+/// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(material);
 
@@ -381,15 +382,16 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
-    let normal_map = if let Some(normal_texture) = material.normal_texture() {
-        // TODO: handle normal_texture.scale
-        // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-        let label = texture_label(&normal_texture.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+    let normal_map_texture: Option<Handle<Image>> =
+        if let Some(normal_texture) = material.normal_texture() {
+            // TODO: handle normal_texture.scale
+            // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+            let label = texture_label(&normal_texture.texture());
+            let path = AssetPath::new_ref(load_context.path(), Some(&label));
+            Some(load_context.get_handle(path))
+        } else {
+            None
+        };
 
     let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
@@ -426,20 +428,22 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         LoadedAsset::new(StandardMaterial {
             base_color: Color::rgba(color[0], color[1], color[2], color[3]),
             base_color_texture,
-            roughness: pbr.roughness_factor(),
+            perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             metallic_roughness_texture,
-            normal_map,
+            normal_map_texture,
             double_sided: material.double_sided(),
             occlusion_texture,
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
             emissive_texture,
             unlit: material.unlit(),
+            alpha_mode: alpha_mode(material),
             ..Default::default()
         }),
     )
 }
 
+/// Loads a glTF node.
 fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
@@ -459,9 +463,9 @@ fn load_node(
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
-        node.insert(VisibleEntities {
-            ..Default::default()
-        });
+        // node.insert(VisibleEntities {
+        //     ..Default::default()
+        // });
 
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
@@ -478,7 +482,7 @@ fn load_node(
                 };
 
                 node.insert(Camera {
-                    name: Some(base::camera::CAMERA_2D.to_owned()),
+                    name: Some(CameraPlugin::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
@@ -497,7 +501,7 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.insert(Camera {
-                    name: Some(base::camera::CAMERA_3D.to_owned()),
+                    name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });
@@ -526,11 +530,17 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                parent.spawn_bundle(PbrBundle {
-                    mesh: load_context.get_handle(mesh_asset_path),
-                    material: load_context.get_handle(material_asset_path),
-                    ..Default::default()
-                });
+                let bounds = primitive.bounding_box();
+                parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: load_context.get_handle(mesh_asset_path),
+                        material: load_context.get_handle(material_asset_path),
+                        ..Default::default()
+                    })
+                    .insert(Aabb::from_min_max(
+                        Vec3::from_slice(&bounds.min),
+                        Vec3::from_slice(&bounds.max),
+                    ));
             }
         }
 
@@ -549,14 +559,17 @@ fn load_node(
     }
 }
 
+/// Returns the label for the `mesh`.
 fn mesh_label(mesh: &gltf::Mesh) -> String {
     format!("Mesh{}", mesh.index())
 }
 
+/// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
 }
 
+/// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
     if let Some(index) = material.index() {
         format!("Material{}", index)
@@ -565,19 +578,23 @@ fn material_label(material: &gltf::Material) -> String {
     }
 }
 
+/// Returns the label for the `texture`.
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
 }
 
+/// Returns the label for the `node`.
 fn node_label(node: &gltf::Node) -> String {
     format!("Node{}", node.index())
 }
 
+/// Returns the label for the `scene`.
 fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
 }
 
-fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
+/// Extracts the texture sampler data from the glTF texture.
+fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
     let gltf_sampler = texture.sampler();
 
     SamplerDescriptor {
@@ -621,6 +638,7 @@ fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
     }
 }
 
+/// Maps the texture address mode form glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
@@ -629,6 +647,7 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Addr
     }
 }
 
+/// Maps the primitive_topology form glTF to wgpu.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -640,6 +659,15 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
+fn alpha_mode(material: &Material) -> AlphaMode {
+    match material.alpha_mode() {
+        gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
+        gltf::material::AlphaMode::Mask => AlphaMode::Mask(material.alpha_cutoff().unwrap_or(0.5)),
+        gltf::material::AlphaMode::Blend => AlphaMode::Blend,
+    }
+}
+
+/// Loads the raw glTF buffer data for a specific glTF file.
 async fn load_buffers(
     gltf: &gltf::Gltf,
     load_context: &LoadContext<'_>,
@@ -684,42 +712,51 @@ async fn load_buffers(
 
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+    asset_path: &Path,
 ) -> Vec<(String, GltfNode)> {
-    let mut max_steps = nodes_intermediate.len();
-    let mut nodes_step = nodes_intermediate
+    let mut has_errored = false;
+    let mut empty_children = VecDeque::new();
+    let mut parents = vec![None; nodes_intermediate.len()];
+    let mut unprocessed_nodes = nodes_intermediate
         .into_iter()
         .enumerate()
-        .map(|(i, (label, node, children))| (i, label, node, children))
-        .collect::<Vec<_>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
-    while max_steps > 0 && !nodes_step.is_empty() {
-        if let Some((index, label, node, _)) = nodes_step
-            .iter()
-            .find(|(_, _, _, children)| children.is_empty())
-            .cloned()
-        {
-            nodes.insert(index, (label, node));
-            for (_, _, node, children) in nodes_step.iter_mut() {
-                if let Some((i, _)) = children
-                    .iter()
-                    .enumerate()
-                    .find(|(_, child_index)| **child_index == index)
-                {
-                    children.remove(i);
-
-                    if let Some((_, child_node)) = nodes.get(&index) {
-                        node.children.push(child_node.clone())
-                    }
+        .map(|(i, (label, node, children))| {
+            for child in children.iter() {
+                if let Some(parent) = parents.get_mut(*child) {
+                    *parent = Some(i);
+                } else if !has_errored {
+                    has_errored = true;
+                    warn!("Unexpected child in GLTF Mesh {}", child);
                 }
             }
-            nodes_step = nodes_step
-                .into_iter()
-                .filter(|(i, _, _, _)| *i != index)
-                .collect()
-        }
-        max_steps -= 1;
-    }
+            let children = children.into_iter().collect::<HashSet<_>>();
+            if children.is_empty() {
+                empty_children.push_back(i);
+            }
+            (i, (label, node, children))
+        })
+        .collect::<HashMap<_, _>>();
+    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
+    while let Some(index) = empty_children.pop_front() {
+        let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
+        assert!(children.is_empty());
+        nodes.insert(index, (label, node));
+        if let Some(parent_index) = parents[index] {
+            let (_, parent_node, parent_children) =
+                unprocessed_nodes.get_mut(&parent_index).unwrap();
 
+            assert!(parent_children.remove(&index));
+            if let Some((_, child_node)) = nodes.get(&index) {
+                parent_node.children.push(child_node.clone())
+            }
+            if parent_children.is_empty() {
+                empty_children.push_back(parent_index);
+            }
+        }
+    }
+    if !unprocessed_nodes.is_empty() {
+        warn!("GLTF model must be a tree: {:?}", asset_path);
+    }
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
     nodes_to_sort
@@ -767,6 +804,8 @@ impl<'a> DataUri<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::path::PathBuf;
+
     use super::resolve_node_hierarchy;
     use crate::GltfNode;
 
@@ -781,7 +820,10 @@ mod test {
     }
     #[test]
     fn node_hierarchy_single_node() {
-        let result = resolve_node_hierarchy(vec![("l1".to_string(), GltfNode::empty(), vec![])]);
+        let result = resolve_node_hierarchy(
+            vec![("l1".to_string(), GltfNode::empty(), vec![])],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l1");
@@ -790,10 +832,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_no_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -804,10 +849,13 @@ mod test {
 
     #[test]
     fn node_hierarchy_simple_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].0, "l1");
@@ -818,15 +866,18 @@ mod test {
 
     #[test]
     fn node_hierarchy_hierarchy() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![2]),
-            ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
-            ("l4".to_string(), GltfNode::empty(), vec![6]),
-            ("l5".to_string(), GltfNode::empty(), vec![]),
-            ("l6".to_string(), GltfNode::empty(), vec![]),
-            ("l7".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![2]),
+                ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
+                ("l4".to_string(), GltfNode::empty(), vec![6]),
+                ("l5".to_string(), GltfNode::empty(), vec![]),
+                ("l6".to_string(), GltfNode::empty(), vec![]),
+                ("l7".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 7);
         assert_eq!(result[0].0, "l1");
@@ -847,20 +898,26 @@ mod test {
 
     #[test]
     fn node_hierarchy_cyclic() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![1]),
-            ("l2".to_string(), GltfNode::empty(), vec![0]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![1]),
+                ("l2".to_string(), GltfNode::empty(), vec![0]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_missing_node() {
-        let result = resolve_node_hierarchy(vec![
-            ("l1".to_string(), GltfNode::empty(), vec![2]),
-            ("l2".to_string(), GltfNode::empty(), vec![]),
-        ]);
+        let result = resolve_node_hierarchy(
+            vec![
+                ("l1".to_string(), GltfNode::empty(), vec![2]),
+                ("l2".to_string(), GltfNode::empty(), vec![]),
+            ],
+            PathBuf::new().as_path(),
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l2");

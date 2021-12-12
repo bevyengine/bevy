@@ -1,9 +1,6 @@
+use crate::mesh::{Indices, Mesh};
 use hexasphere::shapes::IcoSphere;
-
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use wgpu::PrimitiveTopology;
 
 /// A sphere made from a subdivided Icosahedron.
 #[derive(Debug, Clone, Copy)]

@@ -10,18 +10,17 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-wgpu_trace = ["bevy_wgpu/trace"]
-trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render2/trace" ]
+trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = [ "bevy_log/tracing-tracy" ]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
-hdr = ["bevy_render/hdr", "bevy_render2/hdr" ]
-png = ["bevy_render/png", "bevy_render2/png" ]
-dds = ["bevy_render/dds", "bevy_render2/dds" ]
-tga = ["bevy_render/tga", "bevy_render2/tga" ]
-jpeg = ["bevy_render/jpeg", "bevy_render2/jpeg" ]
-bmp = ["bevy_render/bmp", "bevy_render2/bmp" ]
+hdr = ["bevy_render/hdr"]
+png = ["bevy_render/png"]
+dds = ["bevy_render/dds"]
+tga = ["bevy_render/tga"]
+jpeg = ["bevy_render/jpeg"]
+bmp = ["bevy_render/bmp"]
 
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_audio/flac"]
@@ -39,7 +38,7 @@ wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
 # enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas", "bevy_text2/subpixel_glyph_atlas"]
+subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
@@ -63,21 +62,14 @@ bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
 # bevy (optional)
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.5.0" }
-bevy_core_pipeline = { path = "../../pipelined/bevy_core_pipeline", optional = true, version = "0.5.0" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.5.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.5.0" }
-bevy_gltf2 = { path = "../../pipelined/bevy_gltf2", optional = true, version = "0.5.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.5.0" }
-bevy_pbr2 = { path = "../../pipelined/bevy_pbr2", optional = true, version = "0.5.0" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.5.0" }
-bevy_render2 = { path = "../../pipelined/bevy_render2", optional = true, version = "0.5.0" }
 bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.5.0" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.5.0" }
-bevy_sprite2 = { path = "../../pipelined/bevy_sprite2", optional = true, version = "0.5.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.5.0" }
-bevy_text2 = { path = "../../pipelined/bevy_text2", optional = true, version = "0.5.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
-bevy_ui2 = { path = "../../pipelined/bevy_ui2", optional = true, version = "0.5.0" }
-bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 

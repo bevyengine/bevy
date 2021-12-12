@@ -13,20 +13,12 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "pipelined/*", "examples/ios", "tools/ci", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
   "bevy_audio",
-  "bevy_core_pipeline",
   "bevy_gilrs",
-  "bevy_gltf2",
-  "bevy_wgpu",
-  "bevy_sprite2",
-  "bevy_render2",
-  "bevy_pbr2",
-  "bevy_ui2",
-  "bevy_text2",
   "bevy_winit",
   "render",
   "png",
@@ -41,7 +33,9 @@ dynamic = ["bevy_dylib"]
 
 # Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
 render = [
+  "bevy_internal/bevy_core_pipeline",
   "bevy_internal/bevy_pbr",
+  "bevy_internal/bevy_gltf",
   "bevy_internal/bevy_render",
   "bevy_internal/bevy_sprite",
   "bevy_internal/bevy_text",
@@ -50,24 +44,19 @@ render = [
 
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
-bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
-
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
-bevy_render2 = ["bevy_internal/bevy_render2"]
-bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
-bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
-bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
-bevy_ui2 = ["bevy_internal/bevy_ui2"]
-bevy_text2 = ["bevy_internal/bevy_text2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace_tracy = ["bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
-wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
@@ -121,10 +110,6 @@ name = "contributors"
 path = "examples/2d/contributors.rs"
 
 [[example]]
-name = "mesh"
-path = "examples/2d/mesh.rs"
-
-[[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
@@ -145,16 +130,8 @@ name = "text2d"
 path = "examples/2d/text2d.rs"
 
 [[example]]
-name = "text2d_pipelined"
-path = "examples/2d/text2d_pipelined.rs"
-
-[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
-
-[[example]]
-name = "pipelined_texture_atlas"
-path = "examples/2d/pipelined_texture_atlas.rs"
 
 # 3D Rendering
 [[example]]
@@ -162,41 +139,24 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
-name = "3d_scene_pipelined"
-path = "examples/3d/3d_scene_pipelined.rs"
-
-[[example]]
-name = "many_cubes_pipelined"
-path = "examples/3d/many_cubes_pipelined.rs"
-
-[[example]]
-name = "cornell_box_pipelined"
-path = "examples/3d/cornell_box_pipelined.rs"
+name = "lighting"
+path = "examples/3d/lighting.rs"
 
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-required-features = ["bevy_gltf"]
 
 [[example]]
-name = "load_gltf_pipelined"
-path = "examples/3d/load_gltf_pipelined.rs"
+name = "many_cubes"
+path = "examples/3d/many_cubes.rs"
 
 [[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
-name = "msaa_pipelined"
-path = "examples/3d/msaa_pipelined.rs"
-
-[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
-
-[[example]]
-name = "orthographic_pipelined"
-path = "examples/3d/orthographic_pipelined.rs"
 
 [[example]]
 name = "parenting"
@@ -207,45 +167,24 @@ name = "pbr"
 path = "examples/3d/pbr.rs"
 
 [[example]]
-name = "pbr_pipelined"
-path = "examples/3d/pbr_pipelined.rs"
+name = "shadow_biases"
+path = "examples/3d/shadow_biases.rs"
 
 [[example]]
-name = "render_to_texture"
-path = "examples/3d/render_to_texture.rs"
-
-[[example]]
-name = "shadow_biases_pipelined"
-path = "examples/3d/shadow_biases_pipelined.rs"
-
-[[example]]
-name = "shadow_caster_receiver_pipelined"
-path = "examples/3d/shadow_caster_receiver_pipelined.rs"
-
-[[example]]
-name = "spawner"
-path = "examples/3d/spawner.rs"
+name = "shadow_caster_receiver"
+path = "examples/3d/shadow_caster_receiver.rs"
 
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
-name = "texture_pipelined"
-path = "examples/3d/texture_pipelined.rs"
-
-[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
-required-features = ["bevy_gltf"]
 
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
-
-[[example]]
-name = "z_sort_debug"
-path = "examples/3d/z_sort_debug.rs"
 
 # Application
 [[example]]
@@ -292,7 +231,6 @@ path = "examples/app/thread_pool_resources.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
-required-features = ["bevy_gltf"]
 
 [[example]]
 name = "custom_asset"
@@ -305,7 +243,6 @@ path = "examples/asset/custom_asset_io.rs"
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
-required-features = ["bevy_gltf"]
 
 # Async Tasks
 [[example]]
@@ -387,7 +324,6 @@ path = "examples/ecs/timers.rs"
 [[example]]
 name = "alien_cake_addict"
 path = "examples/game/alien_cake_addict.rs"
-required-features = ["bevy_gltf"]
 
 [[example]]
 name = "breakout"
@@ -458,45 +394,17 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
-name = "animate_shader"
-path = "examples/shader/animate_shader.rs"
-
-[[example]]
-name = "array_texture"
-path = "examples/shader/array_texture.rs"
-
-[[example]]
-name = "hot_shader_reloading"
-path = "examples/shader/hot_shader_reloading.rs"
-
-[[example]]
-name = "mesh_custom_attribute"
-path = "examples/shader/mesh_custom_attribute.rs"
-
-[[example]]
-name = "shader_custom_material"
-path = "examples/shader/shader_custom_material.rs"
-
-[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
 [[example]]
-name = "custom_shader_pipelined"
-path = "examples/shader/custom_shader_pipelined.rs"
-
-[[example]]
-name = "shader_defs_pipelined"
-path = "examples/shader/shader_defs_pipelined.rs"
+name = "shader_material"
+path = "examples/shader/shader_material.rs"
 
 # Tools
 [[example]]
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
-
-[[example]]
-name = "bevymark_pipelined"
-path = "examples/tools/bevymark_pipelined.rs"
 
 # UI (User Interface)
 [[example]]
@@ -519,23 +427,10 @@ path = "examples/ui/text_debug.rs"
 name = "ui"
 path = "examples/ui/ui.rs"
 
-[[example]]
-name = "ui_pipelined"
-path = "examples/ui/ui_pipelined.rs"
-
 # Window
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
-
-[[example]]
-name = "clear_color_pipelined"
-path = "examples/window/clear_color_pipelined.rs"
-
-[[example]]
-name = "multiple_windows"
-path = "examples/window/multiple_windows.rs"
-required-features = ["bevy_gltf"]
 
 [[example]]
 name = "scale_factor_override"

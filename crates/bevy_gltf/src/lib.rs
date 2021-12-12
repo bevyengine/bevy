@@ -1,16 +1,16 @@
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 mod loader;
 pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
-use bevy_pbr::prelude::StandardMaterial;
+use bevy_pbr::StandardMaterial;
 use bevy_reflect::TypeUuid;
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
-/// Adds support for GLTF file loading to Apps
+/// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin;
 
@@ -24,6 +24,7 @@ impl Plugin for GltfPlugin {
     }
 }
 
+/// Representation of a loaded glTF file.
 #[derive(Debug, TypeUuid)]
 #[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
 pub struct Gltf {
@@ -38,6 +39,8 @@ pub struct Gltf {
     pub default_scene: Option<Handle<Scene>>,
 }
 
+/// A glTF node with all of its child nodes, its [`GltfMesh`] and
+/// [`Transform`](bevy_transform::prelude::Transform).
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "dad74750-1fd6-460f-ac51-0a7937563865"]
 pub struct GltfNode {
@@ -46,12 +49,14 @@ pub struct GltfNode {
     pub transform: bevy_transform::prelude::Transform,
 }
 
+/// A glTF mesh, which may consists of multiple [`GtlfPrimitives`](GltfPrimitive).
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "8ceaec9a-926a-4f29-8ee3-578a69f42315"]
 pub struct GltfMesh {
     pub primitives: Vec<GltfPrimitive>,
 }
 
+/// Part of a [`GltfMesh`] that consists of a [`Mesh`] and an optional [`StandardMaterial`].
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "cbfca302-82fd-41cb-af77-cab6b3d50af1"]
 pub struct GltfPrimitive {
