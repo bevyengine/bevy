@@ -76,7 +76,7 @@ enum State {
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
 /// dropped silently.
-/// 
+///
 /// # Example
 /// ```
 /// use bevy_ecs::event::Events;
