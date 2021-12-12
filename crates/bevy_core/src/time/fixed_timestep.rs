@@ -232,19 +232,19 @@ mod test {
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
         // let's progress less than one step
-        set_time(&mut world, instance, 0.4);
+        advance_time(&mut world, instance, 0.4);
         schedule.run(&mut world);
         assert_eq!(0, *world.get_resource::<Count>().unwrap());
         assert_eq!(4., get_accumulator_deciseconds(&world));
 
         // finish the first step with 0.1s above the step length
-        set_time(&mut world, instance, 0.6);
+        advance_time(&mut world, instance, 0.6);
         schedule.run(&mut world);
         assert_eq!(1, *world.get_resource::<Count>().unwrap());
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
         // runs multiple times if the delta is multiple step lengths
-        set_time(&mut world, instance, 1.7);
+        advance_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
         assert_eq!(3, *world.get_resource::<Count>().unwrap());
         assert_eq!(2., get_accumulator_deciseconds(&world));
@@ -254,7 +254,7 @@ mod test {
         *count += 1;
     }
 
-    fn set_time(world: &mut World, instance: Instant, seconds: f32) {
+    fn advance_time(world: &mut World, instance: Instant, seconds: f32) {
         world
             .get_resource_mut::<Time>()
             .unwrap()
