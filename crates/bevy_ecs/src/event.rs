@@ -106,7 +106,7 @@ enum State {
 ///
 /// # Details
 ///
-/// [Events] is implemented using a variation of double buffer.
+/// [Events] is implemented using a variation of a double buffer strategy.
 /// Each call to [Events::update] swaps buffers and clears out the oldest one.
 /// [EventReader]s will read events from both buffers.
 /// [EventReader]s that read at least once per update will never drop events.
