@@ -59,6 +59,9 @@ enum State {
 /// [`Events::update`] calls.
 /// Events can be written to using an [`EventWriter`]
 /// and are typically cheaply read using an [`EventReader`].
+/// 
+/// If no ordering is applied between writing and reading systems, there is a risk of a race condition.
+/// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
 ///
 /// Each event can be consumed by multiple systems, in parallel,
 /// with consumption tracked by the [`EventReader`] on a per-system basis.
@@ -77,7 +80,7 @@ enum State {
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
 /// dropped silently.
-///
+/// 
 /// # Example
 /// ```
 /// use bevy_ecs::event::Events;
