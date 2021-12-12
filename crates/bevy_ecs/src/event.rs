@@ -59,7 +59,7 @@ enum State {
 /// [`Events::update`] calls.
 /// Events can be written to using an [`EventWriter`]
 /// and are typically cheaply read using an [`EventReader`].
-/// 
+///
 /// If no ordering is applied between writing and reading systems, there is a risk of a race condition.
 /// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
 ///
