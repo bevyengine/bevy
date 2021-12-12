@@ -27,7 +27,7 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<ViewUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_msaa)
             .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)

@@ -54,7 +54,7 @@ impl Plugin for SpritePlugin {
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>().register_type::<Sprite>();
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<ImageBindGroups>()
             .init_resource::<SpritePipeline>()

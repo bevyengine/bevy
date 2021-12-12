@@ -58,7 +58,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<MeshPipeline>()
             .add_system_to_stage(RenderStage::Extract, extract_meshes)
             .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
