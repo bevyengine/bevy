@@ -9,6 +9,7 @@ pub mod graph_utils;
 mod label;
 mod run_criteria;
 mod stage;
+mod stage_order;
 mod state;
 mod system_container;
 mod system_descriptor;
@@ -30,6 +31,8 @@ use std::fmt::Debug;
 use crate::{system::System, world::World};
 use bevy_utils::HashMap;
 
+use self::stage_order::StageOrder;
+
 /// A container of [`Stage`]s set to be run in a linear order.
 ///
 /// Since `Schedule` implements the [`Stage`] trait, it can be inserted into another schedule.
@@ -39,7 +42,7 @@ use bevy_utils::HashMap;
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<BoxedStageLabel, Box<dyn Stage>>,
-    stage_order: Vec<BoxedStageLabel>,
+    stage_order: StageOrder,
     run_criteria: BoxedRunCriteria,
 }
 
@@ -106,8 +109,8 @@ impl Schedule {
     /// schedule.add_stage("my_stage", SystemStage::parallel());
     /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
-        self.stage_order.push(label.clone());
+        let label = label.dyn_clone();
+        self.stage_order.add_stage(label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
         if prev.is_some() {
             panic!("Stage already exists: {:?}.", label);
@@ -132,17 +135,11 @@ impl Schedule {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
-        let target = &target as &dyn StageLabel;
-        let target_index = self
-            .stage_order
-            .iter()
-            .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
-            .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+        let label = label.dyn_clone();
+        let target = target.dyn_clone();
+        self.stage_order
+            .add_stage_after(target.clone(), label.clone());
 
-        self.stage_order.insert(target_index + 1, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
         if prev.is_some() {
             panic!("Stage already exists: {:?}.", label);
@@ -167,17 +164,11 @@ impl Schedule {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
-        let target = &target as &dyn StageLabel;
-        let target_index = self
-            .stage_order
-            .iter()
-            .enumerate()
-            .find(|(_i, stage_label)| &***stage_label == target)
-            .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+        let label = label.dyn_clone();
+        let target = target.dyn_clone();
+        self.stage_order
+            .add_stage_before(target.clone(), label.clone());
 
-        self.stage_order.insert(target_index, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
         if prev.is_some() {
             panic!("Stage already exists: {:?}.", label);
@@ -337,16 +328,16 @@ impl Schedule {
             let stage_span = bevy_utils::tracing::info_span!("stage", name = ?label);
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
-            let stage = self.stages.get_mut(label).unwrap();
+            let stage = self.stages.get_mut(&label).unwrap();
             stage.run(world);
         }
     }
 
     /// Iterates over all of schedule's stages and their labels, in execution order.
-    pub fn iter_stages(&self) -> impl Iterator<Item = (&dyn StageLabel, &dyn Stage)> {
+    pub fn iter_stages(&self) -> impl Iterator<Item = (BoxedStageLabel, &dyn Stage)> {
         self.stage_order
             .iter()
-            .map(move |label| (&**label, &*self.stages[label]))
+            .map(move |label| (label.clone(), &*self.stages[&label]))
     }
 }
 
