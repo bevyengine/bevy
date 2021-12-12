@@ -25,6 +25,8 @@ default = [
   "bevy_sprite2",
   "bevy_render2",
   "bevy_pbr2",
+  "bevy_ui2",
+  "bevy_text2",
   "bevy_winit",
   "render",
   "png",
@@ -59,6 +61,8 @@ bevy_render2 = ["bevy_internal/bevy_render2"]
 bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
 bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
 bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
+bevy_ui2 = ["bevy_internal/bevy_ui2"]
+bevy_text2 = ["bevy_internal/bevy_text2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace_tracy = ["bevy_internal/trace_tracy"]
@@ -101,7 +105,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-feat
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
-ron = "0.6.2"
+ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
@@ -141,6 +145,10 @@ name = "text2d"
 path = "examples/2d/text2d.rs"
 
 [[example]]
+name = "text2d_pipelined"
+path = "examples/2d/text2d_pipelined.rs"
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
@@ -168,6 +176,7 @@ path = "examples/3d/cornell_box_pipelined.rs"
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "load_gltf_pipelined"
@@ -228,6 +237,7 @@ path = "examples/3d/texture_pipelined.rs"
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "wireframe"
@@ -282,6 +292,7 @@ path = "examples/app/thread_pool_resources.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "custom_asset"
@@ -294,6 +305,7 @@ path = "examples/asset/custom_asset_io.rs"
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+required-features = ["bevy_gltf"]
 
 # Async Tasks
 [[example]]
@@ -375,6 +387,7 @@ path = "examples/ecs/timers.rs"
 [[example]]
 name = "alien_cake_addict"
 path = "examples/game/alien_cake_addict.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "breakout"
@@ -506,6 +519,10 @@ path = "examples/ui/text_debug.rs"
 name = "ui"
 path = "examples/ui/ui.rs"
 
+[[example]]
+name = "ui_pipelined"
+path = "examples/ui/ui_pipelined.rs"
+
 # Window
 [[example]]
 name = "clear_color"
@@ -518,10 +535,15 @@ path = "examples/window/clear_color_pipelined.rs"
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+required-features = ["bevy_gltf"]
 
 [[example]]
 name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
+
+[[example]]
+name = "transparent_window"
+path = "examples/window/transparent_window.rs"
 
 [[example]]
 name = "window_settings"

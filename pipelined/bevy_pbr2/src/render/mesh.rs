@@ -1,6 +1,6 @@
 use crate::{
-    GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
 };
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -234,6 +234,47 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Sampler {
                         comparison: true,
                         filtering: true,
+                    },
+                    count: None,
+                },
+                // PointLights
+                BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        // NOTE: Static size for uniform buffers. GpuPointLight has a padded
+                        // size of 128 bytes, so 16384 / 128 = 128 point lights max
+                        min_binding_size: BufferSize::new(16384),
+                    },
+                    count: None,
+                },
+                // ClusteredLightIndexLists
+                BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        // NOTE: With 128 point lights max, indices need 7 bits. Use u8 for
+                        // convenience.
+                        min_binding_size: BufferSize::new(16384),
+                    },
+                    count: None,
+                },
+                // ClusterOffsetsAndCounts
+                BindGroupLayoutEntry {
+                    binding: 8,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        // NOTE: The offset needs to address 16384 indices, which needs 21 bits.
+                        // The count can be at most all 128 lights so 7 bits.
+                        // Pack the offset into the upper 24 bits and the count into the
+                        // lower 8 bits for convenience.
+                        min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
                 },
@@ -514,20 +555,23 @@ pub struct MeshViewBindGroup {
     pub value: BindGroup,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
+    global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewShadowBindings)>,
+    mut views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
 ) {
-    if let (Some(view_binding), Some(light_binding)) = (
+    if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
+        global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings) in views.iter_mut() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter_mut() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -559,6 +603,24 @@ pub fn queue_mesh_view_bind_groups(
                         resource: BindingResource::Sampler(
                             &shadow_pipeline.directional_light_sampler,
                         ),
+                    },
+                    BindGroupEntry {
+                        binding: 6,
+                        resource: point_light_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 7,
+                        resource: view_cluster_bindings
+                            .cluster_light_index_lists
+                            .binding()
+                            .unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 8,
+                        resource: view_cluster_bindings
+                            .cluster_offsets_and_counts
+                            .binding()
+                            .unwrap(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),

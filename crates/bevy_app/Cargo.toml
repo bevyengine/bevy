@@ -22,7 +22,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-ron = { version = "0.6.2", optional = true }
+ron = { version = "0.7.0", optional = true }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

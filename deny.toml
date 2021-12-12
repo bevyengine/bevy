@@ -6,8 +6,12 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0056", # stdweb unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
+    "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
+    "RUSTSEC-2020-0158", # from rodio v0.14.0 - unmaintained - https://github.com/gnzlbg/slice_deque/issues/94
+    "RUSTSEC-2021-0047", # from rodio v0.14.0 - unsafety - https://github.com/gnzlbg/slice_deque/issues/90
+    "RUSTSEC-2020-0095", # from crevice dev dependency - unmaintained - https://github.com/johannhof/difference.rs/issues/45
+    "RUSTSEC-2021-0096", # from spirv-reflect v0.2.3 - unmaintained - https://github.com/gfx-rs/rspirv/issues/197
+    "RUSTSEC-2021-0119", # from rodio 0.14.0 - unsafety - https://github.com/nix-rust/nix/issues/1541
 ]
 
 [licenses]
@@ -36,21 +40,26 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "ahash", version = "0.4" },
-    { name = "cfg-if", version = "0.1" },             # https://github.com/rustwasm/console_error_panic_hook/pull/18
-    { name = "core-foundation", version = "0.6" },
-    { name = "core-foundation", version = "0.7" },
-    { name = "core-foundation-sys", version = "0.6" },
-    { name = "core-foundation-sys", version = "0.7" },
-    { name = "core-graphics", version = "0.19" },
-    { name = "fixedbitset", version = "0.2" },
-    { name = "hashbrown", version = "0.9" },
-    { name = "libm", version = "0.1" },
-    { name = "mach", version = "0.2" },
-    { name = "ndk", version = "0.3" },
-    { name = "ndk-glue", version = "0.3" },
-    { name = "proc-macro-crate", version = "0.1" },
-    { name = "stdweb", version = "0.1" },
+    { name = "cfg-if", version = "0.1" },               # from winit v0.26.0
+    { name = "core-foundation", version = "0.6" },      # from gilrs v0.8.1
+    { name = "core-foundation", version = "0.7" },      # from winit v0.26.0
+    { name = "core-foundation-sys", version = "0.6" },  # from gilrs v0.8.1
+    { name = "core-foundation-sys", version = "0.7" },  # from winit v0.26.0
+    { name = "core-graphics", version = "0.19" },       # from winit v0.26.0
+    { name = "darling", version = "0.10" },             # from rodio v0.14.0
+    { name = "darling_core", version = "0.10" },        # from rodio v0.14.0
+    { name = "darling_macro", version = "0.10" },       # from rodio v0.14.0
+    { name = "mach", version = "0.2" },                 # from gilrs v0.8.1
+    { name = "mio", version = "0.7" },                  # from notify v5.0.0-pre.11
+    { name = "ndk", version = "0.3" },                  # from rodio v0.14.0
+    { name = "ndk", version = "0.4" },                  # from rodio v0.14.0
+    { name = "ndk-macro", version = "0.2" },            # from rodio v0.14.0
+    { name = "ndk-glue", version = "0.3" },             # from rodio v0.14.0
+    { name = "ndk-glue", version = "0.4" },             # from rodio v0.14.0
+    { name = "proc-macro-crate", version = "0.1" },     # from rodio v0.14.0
+    { name = "stdweb", version = "0.1" },               # from rodio v0.14.0
+    { name = "strsim", version = "0.9" },               # from rodio v0.14.0
+    { name = "raw-window-handle", version = "0.3" },    # from wgpu v0.11.1
 ]
 
 [sources]
