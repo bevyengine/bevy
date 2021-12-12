@@ -854,7 +854,24 @@ impl App {
     }
 
     /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
-    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app_mut(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+        }
+    }
+
+    /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
+    /// an [Err] containing the given label.
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+        self.sub_apps
+            .get_mut((&label) as &dyn AppLabel)
+            .map(|sub_app| &mut sub_app.app)
+            .ok_or(label)
+    }
+
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
+    pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
@@ -863,10 +880,10 @@ impl App {
 
     /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
     /// an [Err] containing the given label.
-    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
-            .map(|sub_app| &mut sub_app.app)
+            .get((&label) as &dyn AppLabel)
+            .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
 }
