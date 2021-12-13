@@ -33,7 +33,7 @@ impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration);
+impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
 
 impl<T: Reflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
@@ -296,5 +296,15 @@ impl GetTypeRegistration for Cow<'static, str> {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Reflect;
+
+    #[test]
+    fn can_serialize_duration() {
+        assert!(std::time::Duration::ZERO.serializable().is_some())
     }
 }
