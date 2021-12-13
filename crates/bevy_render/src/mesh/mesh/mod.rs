@@ -623,15 +623,15 @@ impl RenderAsset for Mesh {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: None,
+            label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
         let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
             buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                usage: BufferUsages::INDEX,
+                usage: BufferUsages::INDEX | BufferUsages::MAP_WRITE,
                 contents: data,
-                label: None,
+                label: Some("Mesh Index Buffer"),
             }),
             count: mesh.indices().unwrap().len() as u32,
             index_format: mesh.indices().unwrap().into(),
