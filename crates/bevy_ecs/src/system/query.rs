@@ -8,6 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
+use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
@@ -643,28 +644,45 @@ where
         }
     }
 
-    /// Returns the read-only query result for the HashSet of [`Entity`] provided.
+    /// Returns the read-only query results for the ['HashSet'](bevy_utils::HashSet) of [`Entity`]s provided.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
-    /// returned instead.
+    /// In case of a nonexisting entity or mismatched component,
+    /// a [`QueryEntityError`] is returned instead.
     ///
-    /// If you need to reduce performance overhead, you can (carefully) call the unsafe `get_unchecked` method repeatedly instead.
+    /// If you need to reduce performance overhead, you can call the [`get`](Self::get) method repeatedly instead.
     pub fn get_multiple(
         &'s self,
         entities: HashSet<Entity>,
     ) -> HashMap<Entity, Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
+        let mut entity_map = HashMap::default();
+        for entity in entities {
+            entity_map.insert(entity, self.get(entity));
+        }
+
+        entity_map
     }
 
-    /// Returns the query result for the HashSet of [`Entity`] provided.
+    /// Returns the query results for the ['HashSet'](bevy_utils::HashSet) of [`Entity`]s provided.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
-    /// returned instead.
+    /// As HashSets are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
     ///
-    /// If you need to reduce performance overhead, you can (carefully) call the unsafe `get_unchecked` method repeatedly instead.
+    /// In case of a nonexisting entity or mismatched component,
+    /// a [`QueryEntityError`] is returned instead.
+    ///
+    /// If you need to reduce performance overhead, you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
     pub fn get_multiple_mut(
         &mut self,
         entities: HashSet<Entity>,
     ) -> HashMap<Entity, Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
+        let mut entity_map = HashMap::default();
+        for entity in entities {
+            // SAFE: the entities are guaranteed to be unique, as they are passed in as a HashSet
+            unsafe {
+                entity_map.insert(entity, self.get_unchecked(entity));
+            }
+        }
+
+        entity_map
     }
 
     /// Returns the query result for the given [`Entity`].
