@@ -22,7 +22,9 @@ use std::{
     fmt,
     mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
+    iter::IntoIterator,
 };
+use bevy_utils::{HashMap, HashSet};
 
 mod identifier;
 
@@ -311,7 +313,49 @@ impl World {
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
-    /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
+    /// Returns the [EntityRef] of multiple entities, which expose read-only operations for those entities
+    /// 
+    /// Entity data will be returned in the same order as the provided iterator.
+    /// The `entities` argument does not need to be unique, as the underlying data cannot be modified.
+    ///
+    /// This will panic if any of the entities do not exist. Use [World::get_multiple_entities] if you want
+    /// to check for entity existence instead of implicitly panic-ing.
+    pub fn multiple_entities(&mut self, entities: impl IntoIterator<Item=Entity>) -> impl IntoIterator<Item=EntityRef> {
+        Vec::default()
+    }
+
+    /// Returns the [EntityMut] of multiple entities, which expose read and write operations for those entities
+    /// 
+    /// Entity data will be returned in the same order as the provided iterator.
+    /// This will panic if any of the entities do not exist. Use [World::get_multiple_entities_mut] if you want
+    /// to check for entity existence instead of implicitly panic-ing.
+    /// 
+    /// SAFETY:
+    /// The iterator of entities passed in may not contain any duplicates.
+    pub unsafe fn multiple_entities_mut(&mut self, entities: impl IntoIterator<Item=Entity>) -> impl IntoIterator<Item=EntityMut> {
+        Vec::default()
+    }
+
+    /// Returns the [EntityRef] of multiple entities, which expose read-only operations for those entities
+    /// 
+    /// As HashSet's are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
+    ///
+    /// If an entity was not found, the HashMap entry for that identifier will be `None`.
+    pub fn get_multiple_entities(&mut self, entities: HashSet<Entity>) -> HashMap<Entity, Option<EntityRef>> {
+        HashMap::default()
+    }
+
+
+    /// Returns the [EntityMut] of multiple entities, which expose read and write operations for those entities
+    /// 
+    /// As HashSet's are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
+    ///
+    /// If an entity was not found, the HashMap entry for that identifier will be `None`.
+    pub fn get_multiple_entities_mut(&mut self, entities: HashSet<Entity>) -> HashMap<Entity, Option<EntityRef>> {
+        HashMap::default()
+    }
+
+    /// Spawns a new [Entity] and returns a corresponding [EntityMut], which can be used
     /// to add components to the entity or retrieve its id.
     ///
     /// ```

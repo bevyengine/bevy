@@ -233,6 +233,9 @@ use thiserror::Error;
 /// If you have an [`Entity`] ID, you can use the [`get`](Self::get) or
 /// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
+/// If you require access to the data of multiple entities at once,
+/// you can use the ['get_multiple'](Self::get_multiple) or ['get_multiple_mut'](Self::get_multiple_mut) methods.
+///
 /// ## Getting a single query result
 ///
 /// While it's possible to get a single result from a query by using `iter.next()`, a more
@@ -551,7 +554,7 @@ where
         };
     }
 
-    /// Returns the query result for the given [`Entity`].
+    /// Returns the read-only query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
@@ -638,6 +641,30 @@ where
                 self.change_tick,
             )
         }
+    }
+
+    /// Returns the read-only query result for the HashSet of [`Entity`] provided.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// If you need to reduce performance overhead, you can (carefully) call the unsafe `get_unchecked` method repeatedly instead.
+    pub fn get_multiple(
+        &'s self,
+        entities: HashSet<Entity>,
+    ) -> HashMap<Entity, Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
+    }
+
+    /// Returns the query result for the HashSet of [`Entity`] provided.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// If you need to reduce performance overhead, you can (carefully) call the unsafe `get_unchecked` method repeatedly instead.
+    pub fn get_multiple_mut(
+        &mut self,
+        entities: HashSet<Entity>,
+    ) -> HashMap<Entity, Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
     }
 
     /// Returns the query result for the given [`Entity`].
