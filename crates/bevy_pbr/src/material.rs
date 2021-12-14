@@ -1,6 +1,6 @@
 use crate::{AlphaMode, PbrPipeline, StandardMaterialFlags};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, Handle};
+use bevy_asset::{AddAsset, Handle, HandleUntyped};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
@@ -13,6 +13,9 @@ use bevy_render::{
 };
 use crevice::std140::{AsStd140, Std140};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};
+
+pub const DEFAULT_STANDARD_MATERIAL_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(StandardMaterial::TYPE_UUID, 13142262394054731189);
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
