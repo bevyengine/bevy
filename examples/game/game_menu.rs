@@ -78,11 +78,7 @@ mod splash {
     // Newtype to use a `Timer` for this screen as a resource
     struct SplashTimer(Timer);
 
-    fn splash_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
+    fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
         commands
@@ -94,7 +90,7 @@ mod splash {
                     size: Size::new(Val::Px(200.0), Val::Auto),
                     ..Default::default()
                 },
-                material: materials.add(icon.into()),
+                image: UiImage(icon),
                 ..Default::default()
             })
             .insert(OnSplashScreen);
@@ -142,7 +138,6 @@ mod game {
     fn game_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
     ) {
@@ -163,7 +158,7 @@ mod game {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                material: materials.add(Color::BLACK.into()),
+                color: Color::BLACK.into(),
                 ..Default::default()
             })
             .insert(OnGameScreen)
@@ -251,7 +246,7 @@ mod menu {
 
     impl Plugin for MenuPlugin {
         fn build(&self, app: &mut bevy::prelude::App) {
-            app.init_resource::<ButtonMaterials>()
+            app
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
@@ -332,26 +327,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    // Helper struct used as a resource that will hold the different materials for the buttons.
-    // It will be created from its `FromWorld` implementation when added to the application.
-    struct ButtonMaterials {
-        normal: Handle<ColorMaterial>,
-        hovered: Handle<ColorMaterial>,
-        hovered_pressed: Handle<ColorMaterial>,
-        pressed: Handle<ColorMaterial>,
-    }
-
-    impl FromWorld for ButtonMaterials {
-        fn from_world(world: &mut World) -> Self {
-            let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
-            ButtonMaterials {
-                normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-                hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
-                hovered_pressed: materials.add(Color::rgb(0.25, 0.65, 0.25).into()),
-                pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
-            }
-        }
-    }
+    const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark wich setting is currently selected
     #[derive(Component)]
@@ -371,23 +350,18 @@ mod menu {
 
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
-        button_materials: Res<ButtonMaterials>,
         mut interaction_query: Query<
-            (
-                &Interaction,
-                &mut Handle<ColorMaterial>,
-                Option<&SelectedOption>,
-            ),
+            (&Interaction, &mut UiColor, Option<&SelectedOption>),
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut material, selected) in interaction_query.iter_mut() {
-            *material = match (*interaction, selected) {
-                (Interaction::Clicked, _) => button_materials.pressed.clone(),
-                (Interaction::Hovered, Some(_)) => button_materials.hovered_pressed.clone(),
-                (Interaction::Hovered, None) => button_materials.hovered.clone(),
-                (Interaction::None, Some(_)) => button_materials.pressed.clone(),
-                (Interaction::None, None) => button_materials.normal.clone(),
+        for (interaction, mut color, selected) in interaction_query.iter_mut() {
+            *color = match (*interaction, selected) {
+                (Interaction::Clicked, _) => PRESSED_BUTTON.into(),
+                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
+                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
+                (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
+                (Interaction::None, None) => NORMAL_BUTTON.into(),
             }
         }
     }
@@ -395,16 +369,15 @@ mod menu {
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
     fn setting_button<T: Component + PartialEq + Copy>(
-        button_materials: Res<ButtonMaterials>,
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut Handle<ColorMaterial>), With<SelectedOption>>,
+        mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in interaction_query.iter() {
             if *interaction == Interaction::Clicked && *setting != *button_setting {
-                let (previous_button, mut previous_material) = selected_query.single_mut();
-                *previous_material = button_materials.normal.clone();
+                let (previous_button, mut previous_color) = selected_query.single_mut();
+                *previous_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -416,12 +389,7 @@ mod menu {
         let _ = menu_state.set(MenuState::Main);
     }
 
-    fn main_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        button_materials: Res<ButtonMaterials>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
+    fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         // Common style for all buttons on the screen
         let button_style = Style {
@@ -458,7 +426,7 @@ mod menu {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                material: materials.add(Color::CRIMSON.into()),
+                color: Color::CRIMSON.into(),
                 ..Default::default()
             })
             .insert(OnMainMenuScreen)
@@ -488,7 +456,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::Play)
@@ -496,7 +464,7 @@ mod menu {
                         let icon = asset_server.load("textures/Game Icons/right.png");
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style.clone(),
-                            material: materials.add(icon.into()),
+                            image: UiImage(icon),
                             ..Default::default()
                         });
                         parent.spawn_bundle(TextBundle {
@@ -511,7 +479,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::Settings)
@@ -519,7 +487,7 @@ mod menu {
                         let icon = asset_server.load("textures/Game Icons/wrench.png");
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style.clone(),
-                            material: materials.add(icon.into()),
+                            image: UiImage(icon),
                             ..Default::default()
                         });
                         parent.spawn_bundle(TextBundle {
@@ -534,7 +502,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::Quit)
@@ -542,7 +510,7 @@ mod menu {
                         let icon = asset_server.load("textures/Game Icons/exitRight.png");
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style,
-                            material: materials.add(icon.into()),
+                            image: UiImage(icon),
                             ..Default::default()
                         });
                         parent.spawn_bundle(TextBundle {
@@ -553,12 +521,7 @@ mod menu {
             });
     }
 
-    fn settings_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        button_materials: Res<ButtonMaterials>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
+    fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Rect::all(Val::Px(20.0)),
@@ -580,7 +543,7 @@ mod menu {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                material: materials.add(Color::CRIMSON.into()),
+                color: Color::CRIMSON.into(),
                 ..Default::default()
             })
             .insert(OnSettingsMenuScreen)
@@ -589,7 +552,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::SettingsDisplay)
@@ -606,7 +569,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::SettingsSound)
@@ -624,7 +587,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::BackToMainMenu)
@@ -640,8 +603,6 @@ mod menu {
     fn display_settings_menu_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
-        button_materials: Res<ButtonMaterials>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
         display_quality: Res<DisplayQuality>,
     ) {
         let button_style = Style {
@@ -665,7 +626,7 @@ mod menu {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                material: materials.add(Color::CRIMSON.into()),
+                color: Color::CRIMSON.into(),
                 ..Default::default()
             })
             .insert(OnDisplaySettingsMenuScreen)
@@ -678,7 +639,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..Default::default()
                         },
-                        material: materials.add(Color::CRIMSON.into()),
+                        color: Color::CRIMSON.into(),
                         ..Default::default()
                     })
                     .with_children(|parent| {
@@ -702,7 +663,7 @@ mod menu {
                                     size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                                     ..button_style.clone()
                                 },
-                                material: button_materials.normal.clone(),
+                                color: NORMAL_BUTTON.into(),
                                 ..Default::default()
                             });
                             entity.insert(quality_setting).with_children(|parent| {
@@ -724,7 +685,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::BackToSettings)
@@ -740,8 +701,6 @@ mod menu {
     fn sound_settings_menu_setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
-        button_materials: Res<ButtonMaterials>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
         volume: Res<Volume>,
     ) {
         let button_style = Style {
@@ -765,7 +724,7 @@ mod menu {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                material: materials.add(Color::CRIMSON.into()),
+                color: Color::CRIMSON.into(),
                 ..Default::default()
             })
             .insert(OnSoundSettingsMenuScreen)
@@ -776,7 +735,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..Default::default()
                         },
-                        material: materials.add(Color::CRIMSON.into()),
+                        color: Color::CRIMSON.into(),
                         ..Default::default()
                     })
                     .with_children(|parent| {
@@ -794,7 +753,7 @@ mod menu {
                                     size: Size::new(Val::Px(30.0), Val::Px(65.0)),
                                     ..button_style.clone()
                                 },
-                                material: button_materials.normal.clone(),
+                                color: NORMAL_BUTTON.into(),
                                 ..Default::default()
                             });
                             entity.insert(Volume(volume_setting));
@@ -806,7 +765,7 @@ mod menu {
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
-                        material: button_materials.normal.clone(),
+                        color: NORMAL_BUTTON.into(),
                         ..Default::default()
                     })
                     .insert(MenuButtonAction::BackToSettings)
