@@ -13,6 +13,8 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
 bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.5.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_input = { path = "../bevy_input", version = "0.5.0" }
 bevy_log = { path = "../bevy_log", version = "0.5.0" }
@@ -29,3 +31,5 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 stretch = "0.3.2"
 serde = {version = "1", features = ["derive"]}
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
+bytemuck = { version = "1.5", features = ["derive"] }
+crevice = { path = "../crevice", version = "0.8.0", features = ["glam"] }

@@ -1,21 +1,15 @@
-use crate::{CalculatedSize, Node, Style, Val};
+use crate::{CalculatedSize, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or, QueryState, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    prelude::QueryState,
+    query::{Changed, Or, With},
+    system::{Local, QuerySet, Res, ResMut},
 };
 use bevy_math::Size;
-use bevy_render::{
-    draw::{Draw, DrawContext, Drawable, OutsideFrustum},
-    mesh::Mesh,
-    prelude::{Msaa, Visible},
-    renderer::RenderResourceBindings,
-    texture::Texture,
-};
-use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError};
-use bevy_transform::prelude::GlobalTransform;
+use bevy_render::texture::Image;
+use bevy_sprite::TextureAtlas;
+use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
 use bevy_window::Windows;
 
 #[derive(Debug, Default)]
@@ -46,7 +40,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
-    mut textures: ResMut<Assets<Texture>>,
+    mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -137,48 +131,4 @@ pub fn text_system(
     }
 
     queued_text.entities = new_queue;
-}
-
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn draw_text_system(
-    mut context: DrawContext,
-    msaa: Res<Msaa>,
-    windows: Res<Windows>,
-    meshes: Res<Assets<Mesh>>,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<
-        (Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform),
-        Without<OutsideFrustum>,
-    >,
-) {
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
-
-    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_layout = font_quad.get_vertex_buffer_layout();
-
-    for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
-        if !visible.is_visible {
-            continue;
-        }
-
-        if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let mut drawable_text = DrawableText {
-                render_resource_bindings: &mut render_resource_bindings,
-                global_transform: *global_transform,
-                scale_factor: scale_factor as f32,
-                msaa: &msaa,
-                text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_layout: &vertex_buffer_layout,
-                sections: &text.sections,
-                alignment_offset: (node.size / -2.0).extend(0.0),
-            };
-
-            drawable_text.draw(&mut draw, &mut context).unwrap();
-        }
-    }
 }

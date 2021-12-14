@@ -8,7 +8,6 @@
 |bevy_gilrs|Adds gamepad support.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
 |bevy_winit|GUI support.|
-|bevy_wgpu|Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.|
 |render|The render pipeline and all render related plugins.|
 |png|PNG picture format support.|
 |hdr|[HDR](https://en.wikipedia.org/wiki/High_dynamic_range) support.|

@@ -76,7 +76,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     meta_item.path(),
                     format!(
                         "unknown component attribute `{}`",
-                        meta_item.path().into_token_stream().to_string()
+                        meta_item.path().into_token_stream()
                     ),
                 ));
             }

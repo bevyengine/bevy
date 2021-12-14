@@ -1,8 +1,6 @@
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use crate::mesh::{Indices, Mesh};
 use bevy_math::Vec3;
+use wgpu::PrimitiveTopology;
 
 /// A torus (donut) shape.
 #[derive(Debug, Clone, Copy)]
