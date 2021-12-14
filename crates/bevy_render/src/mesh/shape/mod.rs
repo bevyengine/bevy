@@ -48,6 +48,17 @@ impl Box {
             min_z: -z_length / 2.0,
         }
     }
+
+    pub fn from_min_max(min: Vec3, max: Vec3) -> Box {
+        Box {
+            max_x: max.x,
+            min_x: min.x,
+            max_y: max.y,
+            min_y: min.y,
+            max_z: max.z,
+            min_z: min.z,
+        }
+    }
 }
 
 impl Default for Box {
