@@ -8,6 +8,16 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+png = ["image/png"]
+hdr = ["image/hdr"]
+dds = ["image/dds"]
+tga = ["image/tga"]
+jpeg = ["image/jpeg"]
+bmp = ["image/bmp"]
+trace = []
+wgpu_trace = ["wgpu/trace"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
@@ -43,12 +53,3 @@ crevice = { path = "../crevice", version = "0.8.0", features = ["glam"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wgpu = { version = "0.11.0", features = ["spirv", "webgl"] }
-
-[features]
-png = ["image/png"]
-hdr = ["image/hdr"]
-dds = ["image/dds"]
-tga = ["image/tga"]
-jpeg = ["image/jpeg"]
-bmp = ["image/bmp"]
-trace = []

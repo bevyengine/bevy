@@ -75,14 +75,14 @@ pub async fn initialize_renderer(
     #[cfg(not(target_arch = "wasm32"))]
     info!("{:?}", adapter.get_info());
 
-    #[cfg(feature = "trace")]
+    #[cfg(feature = "wgpu_trace")]
     let trace_path = {
         let path = std::path::Path::new("wgpu_trace");
         // ignore potential error, wgpu will log it
         let _ = std::fs::create_dir(path);
         Some(path)
     };
-    #[cfg(not(feature = "trace"))]
+    #[cfg(not(feature = "wgpu_trace"))]
     let trace_path = None;
 
     let (device, queue) = adapter
