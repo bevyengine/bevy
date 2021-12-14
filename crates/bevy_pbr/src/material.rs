@@ -84,17 +84,6 @@ impl Default for StandardMaterial {
     }
 }
 
-impl StandardMaterial {
-    /// Create a high visibility material. It will be used by default when no material are specified in a `PbrBundle`
-    pub fn high_vis() -> Self {
-        StandardMaterial {
-            base_color: Color::rgb(1.0, 0.0, 0.5),
-            unlit: true,
-            ..Default::default()
-        }
-    }
-}
-
 impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
