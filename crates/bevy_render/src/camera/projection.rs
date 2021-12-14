@@ -63,12 +63,17 @@ pub enum ScalingMode {
     /// Manually specify left/right/top/bottom values.
     /// Ignore window resizing; the image will stretch.
     None,
-    /// Match the window size. 1 world unit = 1 pixel.
-    WindowSize,
+    /// Match the window size.
+    /// The argument is the amount of world units per pixel.
+    WindowSize(f32),
+    /// Use minimal possible viewport size while keeping the aspect ratio.
+    Auto { min_width: f32, min_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    FixedVertical,
+    /// The argument is the height of the viewport.
+    FixedVertical(f32),
     /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    FixedHorizontal,
+    /// The argument is the width of the viewport.
+    FixedHorizontal(f32),
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -101,50 +106,46 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        match (&self.scaling_mode, &self.window_origin) {
-            (ScalingMode::WindowSize, WindowOrigin::Center) => {
-                let half_width = width / 2.0;
-                let half_height = height / 2.0;
+        if let ScalingMode::None = self.scaling_mode {
+            return;
+        }
+
+        let (viewport_width, viewport_height) = match self.scaling_mode {
+            ScalingMode::WindowSize(scale) => (width * scale, height * scale),
+            ScalingMode::Auto {
+                min_width,
+                min_height,
+            } => {
+                if width * min_height > min_width * height {
+                    (width * min_height / height, min_height)
+                } else {
+                    (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::FixedVertical(viewport_height) => {
+                (width * viewport_height / height, viewport_height)
+            }
+            ScalingMode::FixedHorizontal(viewport_width) => {
+                (viewport_width, height * viewport_width / width)
+            }
+            ScalingMode::None => unreachable!(),
+        };
+
+        match self.window_origin {
+            WindowOrigin::Center => {
+                let half_width = viewport_width / 2.0;
+                let half_height = viewport_height / 2.0;
                 self.left = -half_width;
+                self.bottom = -half_height;
                 self.right = half_width;
                 self.top = half_height;
-                self.bottom = -half_height;
             }
-            (ScalingMode::WindowSize, WindowOrigin::BottomLeft) => {
+            WindowOrigin::BottomLeft => {
                 self.left = 0.0;
-                self.right = width;
-                self.top = height;
                 self.bottom = 0.0;
+                self.right = viewport_width;
+                self.top = viewport_height;
             }
-            (ScalingMode::FixedVertical, WindowOrigin::Center) => {
-                let aspect_ratio = width / height;
-                self.left = -aspect_ratio;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = -1.0;
-            }
-            (ScalingMode::FixedVertical, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = width / height;
-                self.left = 0.0;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::Center) => {
-                let aspect_ratio = height / width;
-                self.left = -1.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = -aspect_ratio;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = height / width;
-                self.left = 0.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::None, _) => {}
         }
     }
 
@@ -167,7 +168,7 @@ impl Default for OrthographicProjection {
             near: 0.0,
             far: 1000.0,
             window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::WindowSize,
+            scaling_mode: ScalingMode::WindowSize(1.0),
             scale: 1.0,
             depth_calculation: DepthCalculation::Distance,
         }

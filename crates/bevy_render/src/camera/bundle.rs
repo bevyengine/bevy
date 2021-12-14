@@ -110,7 +110,7 @@ impl OrthographicCameraBundle {
 
     pub fn new_3d() -> Self {
         let orthographic_projection = OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical,
+            scaling_mode: ScalingMode::FixedVertical(1.0),
             depth_calculation: DepthCalculation::Distance,
             ..Default::default()
         };
