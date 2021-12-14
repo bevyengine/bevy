@@ -877,15 +877,16 @@ const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit say 128 point lights in one uniform
-// buffer, which means the count can be at most 128 so it
-// needs 7 bits, use 8 for convenience.
+// that means we can fit say 256 point lights in one uniform
+// buffer, which means the count can be at most 256 so it
+// needs 8 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
-// 16384 values. lod2(16384) = 21 bits.
+// 16384 values. log2(16384) = 14 bits.
 // This means we can pack the offset into the upper 24 bits of a u32
 // and the count into the lower 8 bits.
-// FIXME: Probably there are endianness concerns here????!!!!!
+// NOTE: This assumes CPU and GPU endianness are the same which is true
+// for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
         | (count as u32 & CLUSTER_COUNT_MASK)
