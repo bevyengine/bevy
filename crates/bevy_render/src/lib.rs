@@ -17,7 +17,7 @@ pub mod prelude {
     pub use crate::{
         camera::{
             Camera, OrthographicCameraBundle, OrthographicProjection, PerspectiveCameraBundle,
-            PerspectiveProjection,
+            PerspectiveCameraBundleBuilder, PerspectiveProjection,
         },
         color::Color,
         mesh::{shape, Mesh},

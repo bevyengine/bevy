@@ -61,6 +61,62 @@ impl Default for PerspectiveCameraBundle {
     }
 }
 
+pub struct PerspectiveCameraBundleBuilder {
+    name: Option<String>,
+    perspective_projection: PerspectiveProjection,
+    transform: Transform,
+}
+
+impl PerspectiveCameraBundleBuilder {
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+
+    pub fn perspective_projection(mut self, perspective_projection: PerspectiveProjection) -> Self {
+        self.perspective_projection = perspective_projection;
+        self
+    }
+
+    pub fn transform(mut self, transform: Transform) -> Self {
+        self.transform = transform;
+        self
+    }
+
+    pub fn build(self) -> PerspectiveCameraBundle {
+        let view_projection = self.perspective_projection.get_projection_matrix();
+        let frustum = Frustum::from_view_projection(
+            &view_projection,
+            &Vec3::ZERO,
+            &Vec3::Z,
+            self.perspective_projection.far(),
+        );
+        PerspectiveCameraBundle {
+            camera: Camera {
+                name: self.name,
+                near: self.perspective_projection.near,
+                far: self.perspective_projection.far,
+                ..Default::default()
+            },
+            perspective_projection: self.perspective_projection,
+            visible_entities: VisibleEntities::default(),
+            frustum,
+            transform: self.transform,
+            global_transform: Default::default(),
+        }
+    }
+}
+
+impl Default for PerspectiveCameraBundleBuilder {
+    fn default() -> Self {
+        Self {
+            name: Some(CameraPlugin::CAMERA_3D.to_string()),
+            perspective_projection: Default::default(),
+            transform: Default::default(),
+        }
+    }
+}
+
 /// Component bundle for camera entities with orthographic projection
 ///
 /// Use this for 2D games, isometric games, CAD-like 3D views.
