@@ -31,7 +31,7 @@ default = [
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
 
-# Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
+# Rendering support
 render = [
   "bevy_internal/bevy_core_pipeline",
   "bevy_internal/bevy_pbr",
