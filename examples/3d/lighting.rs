@@ -1,14 +1,8 @@
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    ecs::prelude::*,
-    prelude::*,
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(movement)
         .add_system(animate_light_direction)
