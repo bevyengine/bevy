@@ -80,8 +80,10 @@ pub struct Plane {
     pub normal_d: Vec4,
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct Frustum {
+    #[reflect(ignore)]
     pub planes: [Plane; 6],
 }
 

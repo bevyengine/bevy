@@ -13,8 +13,9 @@ use bevy_render::{
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
-    primitives::Aabb,
+    primitives::{Aabb, Frustum},
     texture::{Image, ImageType, TextureError},
+    view::VisibleEntities,
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -463,9 +464,12 @@ fn load_node(
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
-        // node.insert(VisibleEntities {
-        //     ..Default::default()
-        // });
+        node.insert_bundle((
+            VisibleEntities {
+                ..Default::default()
+            },
+            Frustum::default(),
+        ));
 
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
