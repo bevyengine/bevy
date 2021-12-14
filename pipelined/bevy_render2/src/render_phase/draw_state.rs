@@ -228,4 +228,11 @@ impl<'a> TrackedRenderPass<'a> {
 
         self.pass.set_stencil_reference(reference);
     }
+
+    /// Sets the scissor region.
+    /// Subsequent draw calls will discard any fragments that fall outside this region.
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
+        debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
+        self.pass.set_scissor_rect(x, y, width, height);
+    }
 }
