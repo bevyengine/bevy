@@ -380,7 +380,7 @@ where
             self.scheduled = Some(ScheduledOperation::Set(state.clone()));
             Ok(())
         } else {
-            return Err(StateError::StackEmpty);
+            Err(StateError::StackEmpty)
         }
     }
 
@@ -391,7 +391,7 @@ where
             self.scheduled = Some(ScheduledOperation::Set(state.clone()));
             Ok(())
         } else {
-            return Err(StateError::StackEmpty);
+            Err(StateError::StackEmpty)
         }
     }
 
