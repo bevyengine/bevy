@@ -681,4 +681,90 @@ mod test {
         stage.run(&mut world);
         assert!(*world.get_resource::<bool>().unwrap(), "after test");
     }
+
+    #[test]
+    fn restart_state_tests() {
+        #[derive(Clone, PartialEq, Eq, Debug, Hash)]
+        enum LoadState {
+            Load,
+            Finish,
+        }
+
+        #[derive(PartialEq, Eq, Debug)]
+        enum LoadStatus {
+            EnterLoad,
+            ExitLoad,
+            EnterFinish,
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Vec::<LoadStatus>::new());
+        world.insert_resource(State::new(LoadState::Load));
+
+        let mut stage = SystemStage::parallel();
+        stage.add_system_set(State::<LoadState>::get_driver());
+
+        // Systems to track loading status
+        stage
+            .add_system_set(
+                State::on_enter_set(LoadState::Load)
+                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::EnterLoad)),
+            )
+            .add_system_set(
+                State::on_exit_set(LoadState::Load)
+                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::ExitLoad)),
+            )
+            .add_system_set(
+                State::on_enter_set(LoadState::Finish)
+                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::EnterFinish)),
+            );
+
+        stage.run(&mut world);
+
+        // A. Restart state
+        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let result = state.restart();
+        assert!(matches!(result, Ok(())));
+        stage.run(&mut world);
+
+        // B. Restart state (overwrite schedule)
+        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        state.set(LoadState::Finish).unwrap();
+        let result = state.overwrite_restart();
+        assert!(matches!(result, Ok(())));
+        stage.run(&mut world);
+
+        // C. Fail restart state (transition already scheduled)
+        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        state.set(LoadState::Finish).unwrap();
+        let result = state.restart();
+        assert!(matches!(result, Err(StateError::StateAlreadyQueued)));
+        stage.run(&mut world);
+
+        const EXPECTED: &[LoadStatus] = &[
+            LoadStatus::EnterLoad,
+            // A
+            LoadStatus::ExitLoad,
+            LoadStatus::EnterLoad,
+            // B
+            LoadStatus::ExitLoad,
+            LoadStatus::EnterLoad,
+            // C
+            LoadStatus::ExitLoad,
+            LoadStatus::EnterFinish,
+        ];
+
+        let mut collected = world.get_resource_mut::<Vec<LoadStatus>>().unwrap();
+        let mut count = 0;
+        for (found, expected) in collected.drain(..).zip(EXPECTED) {
+            assert_eq!(found, *expected);
+            count += 1;
+        }
+        // If not equal, some elements weren't executed
+        assert_eq!(EXPECTED.len(), count);
+        assert_eq!(
+            world.get_resource::<State<LoadState>>().unwrap().current(),
+            &LoadState::Finish
+        );
+    }
 }
