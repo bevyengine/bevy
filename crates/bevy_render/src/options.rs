@@ -24,7 +24,13 @@ impl Default for WgpuOptions {
         let limits = if cfg!(target_arch = "wasm32") {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            wgpu::Limits::default()
+            #[allow(unused_mut)]
+            let mut limits = wgpu::Limits::default();
+            #[cfg(feature = "ci_limits")]
+            {
+                limits.max_storage_textures_per_shader_stage = 4;
+            }
+            limits
         };
 
         Self {

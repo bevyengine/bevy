@@ -17,6 +17,7 @@ jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
 trace = []
 wgpu_trace = ["wgpu/trace"]
+ci_limits = []
 
 [dependencies]
 # bevy
