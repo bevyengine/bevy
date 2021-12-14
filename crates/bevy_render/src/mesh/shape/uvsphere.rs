@@ -1,10 +1,9 @@
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use wgpu::PrimitiveTopology;
+
+use crate::mesh::{Indices, Mesh};
 use std::f32::consts::PI;
 
-/// A sphere made of sectors and stacks
+/// A sphere made of sectors and stacks.
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
 pub struct UVSphere {

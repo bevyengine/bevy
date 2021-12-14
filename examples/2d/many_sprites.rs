@@ -3,7 +3,6 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
-    sprite::SpriteSettings,
 };
 
 use rand::Rng;
@@ -16,10 +15,6 @@ fn main() {
     App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(SpriteSettings {
-            // NOTE: this is an experimental feature that doesn't work in all cases
-            frustum_culling_enabled: true,
-        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(tick_system.label("Tick"))
@@ -27,11 +22,7 @@ fn main() {
         .run()
 }
 
-fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);
@@ -40,7 +31,7 @@ fn setup(
     let half_x = (map_size.x / 2.0) as i32;
     let half_y = (map_size.y / 2.0) as i32;
 
-    let sprite_handle = materials.add(assets.load("branding/icon.png").into());
+    let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
     commands
@@ -59,13 +50,16 @@ fn setup(
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
             sprites.push(SpriteBundle {
-                material: sprite_handle.clone(),
+                texture: sprite_handle.clone(),
                 transform: Transform {
                     translation,
                     rotation,
                     scale,
                 },
-                sprite: Sprite::new(tile_size),
+                sprite: Sprite {
+                    custom_size: Some(tile_size),
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         }

@@ -99,22 +99,10 @@ pub mod gltf {
     pub use bevy_gltf::*;
 }
 
-#[cfg(feature = "bevy_gltf2")]
-pub mod gltf2 {
-    //! Support for GLTF file loading.
-    pub use bevy_gltf2::*;
-}
-
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.
     pub use bevy_pbr::*;
-}
-
-#[cfg(feature = "bevy_pbr2")]
-pub mod pbr2 {
-    //! Physically based rendering.
-    pub use bevy_pbr2::*;
 }
 
 #[cfg(feature = "bevy_render")]
@@ -123,22 +111,10 @@ pub mod render {
     pub use bevy_render::*;
 }
 
-#[cfg(feature = "bevy_render2")]
-pub mod render2 {
-    //! Cameras, meshes, textures, shaders, and pipelines.
-    pub use bevy_render2::*;
-}
-
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
     //! Items for sprites, rects, texture atlases, etc.
     pub use bevy_sprite::*;
-}
-
-#[cfg(feature = "bevy_sprite2")]
-pub mod sprite2 {
-    //! Items for sprites, rects, texture atlases, etc.
-    pub use bevy_sprite2::*;
 }
 
 #[cfg(feature = "bevy_text")]
@@ -147,33 +123,15 @@ pub mod text {
     pub use bevy_text::*;
 }
 
-#[cfg(feature = "bevy_text2")]
-pub mod text2 {
-    //! Text drawing, styling, and font assets.
-    pub use bevy_text2::*;
-}
-
 #[cfg(feature = "bevy_ui")]
 pub mod ui {
     //! User interface components and widgets.
     pub use bevy_ui::*;
 }
 
-#[cfg(feature = "bevy_ui2")]
-pub mod ui2 {
-    //! User interface components and widgets.
-    pub use bevy_ui2::*;
-}
-
 #[cfg(feature = "bevy_winit")]
 pub mod winit {
     pub use bevy_winit::*;
-}
-
-#[cfg(feature = "bevy_wgpu")]
-pub mod wgpu {
-    //! A render backend utilizing [wgpu](https://wgpu.rs/).
-    pub use bevy_wgpu::*;
 }
 
 #[cfg(feature = "bevy_dynamic_plugin")]

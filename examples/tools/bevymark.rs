@@ -1,11 +1,11 @@
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
-use rand::Rng;
+use rand::{random, Rng};
 
-const BIRDS_PER_SECOND: u32 = 1000;
-const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
+const BIRDS_PER_SECOND: u32 = 10000;
+const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
@@ -13,22 +13,12 @@ const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
 struct BevyCounter {
     pub count: u128,
+    pub color: Color,
 }
 
 #[derive(Component)]
 struct Bird {
     velocity: Vec3,
-}
-
-struct BirdMaterial(Handle<ColorMaterial>);
-
-impl FromWorld for BirdMaterial {
-    fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let mut color_materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
-        let asset_server = world.get_resource_mut::<AssetServer>().unwrap();
-        BirdMaterial(color_materials.add(asset_server.load("branding/icon.png").into()))
-    }
 }
 
 fn main() {
@@ -37,14 +27,17 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            vsync: true,
-            resizable: false,
+            vsync: false,
+            resizable: true,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(BevyCounter { count: 0 })
-        .init_resource::<BirdMaterial>()
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .insert_resource(BevyCounter {
+            count: 0,
+            color: Color::WHITE,
+        })
         .add_startup_system(setup)
         .add_system(mouse_handler)
         .add_system(movement_system)
@@ -53,7 +46,27 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+struct BirdTexture(Handle<Image>);
+
+fn setup(
+    mut commands: Commands,
+    window: Res<WindowDescriptor>,
+    mut counter: ResMut<BevyCounter>,
+    asset_server: Res<AssetServer>,
+) {
+    let texture = asset_server.load("branding/icon.png");
+    if let Some(initial_count) = std::env::args()
+        .nth(1)
+        .and_then(|arg| arg.parse::<u128>().ok())
+    {
+        spawn_birds(
+            &mut commands,
+            &window,
+            &mut counter,
+            initial_count,
+            texture.clone_weak(),
+        );
+    }
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
@@ -105,59 +118,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..Default::default()
     });
+
+    commands.insert_resource(BirdTexture(texture));
 }
 
-#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,
-    mut bird_material: ResMut<BirdMaterial>,
+    bird_texture: Res<BirdTexture>,
     mut counter: ResMut<BevyCounter>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        let mut rnd = rand::thread_rng();
-        let color = gen_color(&mut rnd);
-
-        let texture_handle = asset_server.load("branding/icon.png");
-
-        bird_material.0 = materials.add(ColorMaterial {
-            color: BASE_COLOR * color,
-            texture: Some(texture_handle),
-        });
+    if mouse_button_input.just_released(MouseButton::Left) {
+        counter.color = Color::rgb(random(), random(), random());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
-        let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
-        let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
-
-        for count in 0..spawn_count {
-            let bird_z = (counter.count + count) as f32 * 0.00001;
-            commands
-                .spawn_bundle(SpriteBundle {
-                    material: bird_material.0.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(bird_x, bird_y, bird_z),
-                        scale: Vec3::splat(BIRD_SCALE),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(Bird {
-                    velocity: Vec3::new(
-                        rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
-                        0.,
-                        0.,
-                    ),
-                });
-        }
-
-        counter.count += spawn_count;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as u128;
+        spawn_birds(
+            &mut commands,
+            &window,
+            &mut counter,
+            spawn_count,
+            bird_texture.0.clone(),
+        );
     }
+}
+
+fn spawn_birds(
+    commands: &mut Commands,
+    window: &WindowDescriptor,
+    counter: &mut BevyCounter,
+    spawn_count: u128,
+    texture: Handle<Image>,
+) {
+    let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
+    let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
+    for count in 0..spawn_count {
+        let bird_z = (counter.count + count) as f32 * 0.00001;
+        commands
+            .spawn_bundle(SpriteBundle {
+                texture: texture.clone(),
+                transform: Transform {
+                    translation: Vec3::new(bird_x, bird_y, bird_z),
+                    scale: Vec3::splat(BIRD_SCALE),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color: counter.color,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(Bird {
+                velocity: Vec3::new(
+                    rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
+                    0.,
+                    0.,
+                ),
+            });
+    }
+    counter.count += spawn_count;
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
@@ -208,7 +230,7 @@ fn counter_system(
 ///
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
-fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+fn _gen_color(rng: &mut impl Rng) -> [f32; 3] {
     let r = rng.gen_range(0.2..1.0);
     let g = rng.gen_range(0.2..1.0);
     let b = rng.gen_range(0.2..1.0);

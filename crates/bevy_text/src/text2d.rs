@@ -2,51 +2,36 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    query::{Changed, QueryState, With, Without},
+    query::{Changed, QueryState, With},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
-use bevy_render::{
-    draw::{DrawContext, Drawable, OutsideFrustum},
-    mesh::Mesh,
-    prelude::{Draw, Msaa, Texture, Visible},
-    render_graph::base::MainPass,
-    renderer::RenderResourceBindings,
-};
-use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
+use bevy_math::{Mat4, Size, Vec3};
+use bevy_render::{texture::Image, RenderWorld};
+use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
+use crate::{
+    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, Text2dSize, TextError,
+    VerticalAlign,
+};
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug)]
 pub struct Text2dBundle {
-    pub draw: Draw,
-    pub visible: Visible,
     pub text: Text,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub main_pass: MainPass,
     pub text_2d_size: Text2dSize,
 }
 
 impl Default for Text2dBundle {
     fn default() -> Self {
         Self {
-            draw: Draw {
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
             text: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            main_pass: MainPass {},
             text_2d_size: Text2dSize {
                 size: Size::default(),
             },
@@ -54,46 +39,25 @@ impl Default for Text2dBundle {
     }
 }
 
-/// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
-/// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
-/// rotation are ignored.
-#[allow(clippy::type_complexity)]
-pub fn draw_text2d_system(
-    mut context: DrawContext,
-    msaa: Res<Msaa>,
-    meshes: Res<Assets<Mesh>>,
-    windows: Res<Windows>,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
+pub fn extract_text2d_sprite(
+    mut render_world: ResMut<RenderWorld>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<
-        (
-            Entity,
-            &mut Draw,
-            &Visible,
-            &Text,
-            &GlobalTransform,
-            &Text2dSize,
-        ),
-        (With<MainPass>, Without<OutsideFrustum>),
-    >,
+    windows: Res<Windows>,
+    mut text2d_query: Query<(Entity, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
-    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let font_quad_vertex_layout = font_quad.get_vertex_buffer_layout();
-
+    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32
     } else {
         1.
     };
 
-    for (entity, mut draw, visible, text, global_transform, calculated_size) in query.iter_mut() {
-        if !visible.is_visible {
-            continue;
-        }
-
+    for (entity, text, transform, calculated_size) in text2d_query.iter_mut() {
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
-        if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
+        if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
+            let text_glyphs = &text_layout.glyphs;
             let alignment_offset = match text.alignment.vertical {
                 VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
                 VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
@@ -104,18 +68,36 @@ pub fn draw_text2d_system(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut drawable_text = DrawableText {
-                render_resource_bindings: &mut render_resource_bindings,
-                global_transform: *global_transform,
-                scale_factor,
-                msaa: &msaa,
-                text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_layout: &font_quad_vertex_layout,
-                sections: &text.sections,
-                alignment_offset,
-            };
+            for text_glyph in text_glyphs {
+                let color = text.sections[text_glyph.section_index]
+                    .style
+                    .color
+                    .as_rgba_linear();
+                let atlas = texture_atlases
+                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .unwrap();
+                let handle = atlas.texture.clone_weak();
+                let index = text_glyph.atlas_info.glyph_index as usize;
+                let rect = atlas.textures[index];
+                let atlas_size = Some(atlas.size);
 
-            drawable_text.draw(&mut draw, &mut context).unwrap();
+                let transform =
+                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
+                        * Mat4::from_scale(transform.scale / scale_factor)
+                        * Mat4::from_translation(
+                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                        );
+
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    transform,
+                    color,
+                    rect,
+                    handle,
+                    atlas_size,
+                    flip_x: false,
+                    flip_y: false,
+                });
+            }
         }
     }
 }
@@ -129,15 +111,15 @@ pub struct QueuedText2d {
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
-    mut textures: ResMut<Assets<Texture>>,
+    mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        QueryState<Entity, (With<MainPass>, Changed<Text>)>,
-        QueryState<(&Text, &mut Text2dSize), With<MainPass>>,
+        QueryState<Entity, (With<Text2dSize>, Changed<Text>)>,
+        QueryState<(&Text, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
