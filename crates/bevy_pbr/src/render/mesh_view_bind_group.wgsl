@@ -43,8 +43,15 @@ struct Lights {
     // x/y/z dimensions
     cluster_dimensions: vec4<u32>;
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
+    //
+    // For perspective projections:
     // z is cluster_dimensions.z / log(far / near)
     // w is cluster_dimensions.z * log(near) / log(far / near)
+    //
+    // For orthographic projections:
+    // NOTE: near and far are +ve but -z is infront of the camera
+    // z is -near
+    // w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>;
     n_directional_lights: u32;
 };

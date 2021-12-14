@@ -12,7 +12,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
 
 use crate::{
-    CubeMapFace, CubemapVisibleEntities, ViewClusterBindings, CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z,
+    calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
+    CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -265,12 +266,14 @@ fn line_intersection_to_z_plane(origin: Vec3, p: Vec3, z: f32) -> Vec3 {
     origin + t * v
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compute_aabb_for_cluster(
     z_near: f32,
     z_far: f32,
     tile_size: Vec2,
     screen_size: Vec2,
     inverse_projection: Mat4,
+    is_orthographic: bool,
     cluster_dimensions: UVec3,
     ijk: UVec3,
 ) -> Aabb {
@@ -280,25 +283,52 @@ fn compute_aabb_for_cluster(
     let p_min = ijk.xy() * tile_size;
     let p_max = p_min + tile_size;
 
-    // Convert to view space at the near plane
-    // NOTE: 1.0 is the near plane due to using reverse z projections
-    let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
-    let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
+    let cluster_min;
+    let cluster_max;
+    if is_orthographic {
+        // Use linear depth slicing for orthographic
 
-    let z_far_over_z_near = -z_far / -z_near;
-    let cluster_near = -z_near * z_far_over_z_near.powf(ijk.z / cluster_dimensions.z as f32);
-    // NOTE: This could be simplified to:
-    // let cluster_far = cluster_near * z_far_over_z_near;
-    let cluster_far = -z_near * z_far_over_z_near.powf((ijk.z + 1.0) / cluster_dimensions.z as f32);
+        // Convert to view space at the cluster near and far planes
+        // NOTE: 1.0 is the near plane due to using reverse z projections
+        let p_min = screen_to_view(
+            screen_size,
+            inverse_projection,
+            p_min,
+            1.0 - (ijk.z / cluster_dimensions.z as f32),
+        )
+        .xyz();
+        let p_max = screen_to_view(
+            screen_size,
+            inverse_projection,
+            p_max,
+            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
+        )
+        .xyz();
 
-    // Calculate the four intersection points of the min and max points with the cluster near and far planes
-    let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
-    let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
-    let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
-    let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
+        cluster_min = p_min.min(p_max);
+        cluster_max = p_min.max(p_max);
+    } else {
+        // Convert to view space at the near plane
+        // NOTE: 1.0 is the near plane due to using reverse z projections
+        let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
+        let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
 
-    let cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
-    let cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
+        let z_far_over_z_near = -z_far / -z_near;
+        let cluster_near = -z_near * z_far_over_z_near.powf(ijk.z / cluster_dimensions.z as f32);
+        // NOTE: This could be simplified to:
+        // cluster_far = cluster_near * z_far_over_z_near;
+        let cluster_far =
+            -z_near * z_far_over_z_near.powf((ijk.z + 1.0) / cluster_dimensions.z as f32);
+
+        // Calculate the four intersection points of the min and max points with the cluster near and far planes
+        let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
+        let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
+        let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
+        let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
+
+        cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
+        cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
+    }
 
     Aabb::from_min_max(cluster_min, cluster_max)
 }
@@ -322,6 +352,7 @@ pub fn add_clusters(
 
 pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Clusters)>) {
     for (camera, mut clusters) in views.iter_mut() {
+        let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
@@ -348,6 +379,7 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
                         tile_size,
                         screen_size,
                         inverse_projection,
+                        is_orthographic,
                         clusters.axis_slices,
                         UVec3::new(x, y, z),
                     ));
@@ -383,14 +415,20 @@ impl VisiblePointLights {
     }
 }
 
-fn view_z_to_z_slice(cluster_factors: Vec2, view_z: f32) -> u32 {
-    // NOTE: had to use -view_z to make it positive else log(negative) is nan
-    ((-view_z).ln() * cluster_factors.x - cluster_factors.y).floor() as u32
+fn view_z_to_z_slice(cluster_factors: Vec2, view_z: f32, is_orthographic: bool) -> u32 {
+    if is_orthographic {
+        // NOTE: view_z is correct in the orthographic case
+        ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
+    } else {
+        // NOTE: had to use -view_z to make it positive else log(negative) is nan
+        ((-view_z).ln() * cluster_factors.x - cluster_factors.y).floor() as u32
+    }
 }
 
 fn ndc_position_to_cluster(
     cluster_dimensions: UVec3,
     cluster_factors: Vec2,
+    is_orthographic: bool,
     ndc_p: Vec3,
     view_z: f32,
 ) -> UVec3 {
@@ -398,7 +436,7 @@ fn ndc_position_to_cluster(
     let frag_coord =
         (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
-    let z_slice = view_z_to_z_slice(cluster_factors, view_z);
+    let z_slice = view_z_to_z_slice(cluster_factors, view_z, is_orthographic);
     xy.as_uvec2()
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
@@ -421,11 +459,12 @@ pub fn assign_lights_to_clusters(
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let cluster_count = clusters.aabbs.len();
-        let z_slices_of_ln_zfar_over_znear =
-            clusters.axis_slices.z as f32 / (camera.far / camera.near).ln();
-        let cluster_factors = Vec2::new(
-            z_slices_of_ln_zfar_over_znear,
-            camera.near.ln() * z_slices_of_ln_zfar_over_znear,
+        let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
+        let cluster_factors = calculate_cluster_factors(
+            camera.near,
+            camera.far,
+            clusters.axis_slices.z as f32,
+            is_orthographic,
         );
 
         let mut clusters_lights =
@@ -501,12 +540,14 @@ pub fn assign_lights_to_clusters(
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
                 cluster_factors,
+                is_orthographic,
                 light_aabb_ndc_min,
                 light_aabb_view_min.z,
             );
             let max_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
                 cluster_factors,
+                is_orthographic,
                 light_aabb_ndc_max,
                 light_aabb_view_max.z,
             );

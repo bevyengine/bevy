@@ -239,14 +239,19 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
-fn view_z_to_z_slice(view_z: f32) -> u32 {
-    // NOTE: had to use -view_z to make it positive else log(negative) is nan
-    return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
+fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+    if (is_orthographic) {
+        // NOTE: view_z is correct in the orthographic case
+        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+    } else {
+        // NOTE: had to use -view_z to make it positive else log(negative) is nan
+        return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
+    }
 }
 
-fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32) -> u32 {
+fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
     let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
-    let z_slice = view_z_to_z_slice(view_z);
+    let z_slice = view_z_to_z_slice(view_z, is_orthographic);
     return (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice;
 }
 
@@ -423,6 +428,10 @@ fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
 	return value * mix( vec3<f32>(1.0), rgb, vec3<f32>(saturation));
 }
 
+fn random1D(s: f32) -> f32 {
+    return fract(sin(s * 12.9898) * 43758.5453123);
+}
+
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
@@ -508,12 +517,14 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         }
 
         var V: vec3<f32>;
-        if (view.projection[3].w != 1.0) { // If the projection is not orthographic
+        // If the projection is not orthographic
+        let is_orthographic = view.projection[3].w == 1.0;
+        if (is_orthographic) {
+            // Orthographic view vector
+            V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
+        } else {
             // Only valid for a perpective projection
             V = normalize(view.world_position.xyz - in.world_position.xyz);
-        } else {
-            // Ortho view vec
-            V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
         }
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -538,7 +549,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             view.inverse_view[2].z,
             view.inverse_view[3].z
         ), in.world_position);
-        let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z);
+        let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
         let offset_and_count = unpack_offset_and_count(cluster_index);
         for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
             let light_id = get_light_id(i);
@@ -573,31 +584,40 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 emissive.rgb * output_color.a,
             output_color.a);
 
-#ifdef CLUSTERED_FORWARD_DEBUG
         // Cluster allocation debug (using 'over' alpha blending)
-        let cluster_debug_mode = 1;
-        let cluster_overlay_alpha = 1.0;
-        if (cluster_debug_mode == 0) {
-            // NOTE: This debug mode visualises the z-slices
-            var z_slice: u32 = view_z_to_z_slice(view_z);
-            // A hack to make the colors alternate a bit more
-            if ((z_slice & 1u) == 1u) {
-                z_slice = z_slice + lights.cluster_dimensions.z / 2u;
-            }
-            let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
-            output_color = vec4<f32>(
-                (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
-                output_color.a
-            );
-        } elseif (cluster_debug_mode == 1) {
-            // NOTE: This debug mode visualises the number of lights within the cluster that contains
-            // the fragment. It shows a sort of lighting complexity measure.
-            output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-                + cluster_overlay_alpha * smoothStep(0.0, 16.0, f32(offset_and_count.count));
-            output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-                + cluster_overlay_alpha * (1.0 - smoothStep(0.0, 16.0, f32(offset_and_count.count)));
+#ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
+        // NOTE: This debug mode visualises the z-slices
+        let cluster_overlay_alpha = 0.1;
+        var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
+        // A hack to make the colors alternate a bit more
+        if ((z_slice & 1u) == 1u) {
+            z_slice = z_slice + lights.cluster_dimensions.z / 2u;
         }
-#endif
+        let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+        output_color = vec4<f32>(
+            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
+            output_color.a
+        );
+#endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
+#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
+        // NOTE: This debug mode visualises the number of lights within the cluster that contains
+        // the fragment. It shows a sort of lighting complexity measure.
+        let cluster_overlay_alpha = 0.1;
+        let max_light_complexity_per_cluster = 64.0;
+        output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
+            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
+        output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
+            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
+#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
+#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+        // NOTE: Visualizes the cluster to which the fragment belongs
+        let cluster_overlay_alpha = 0.1;
+        let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
+        output_color = vec4<f32>(
+            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
+            output_color.a
+        );
+#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
