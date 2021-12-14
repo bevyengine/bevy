@@ -369,6 +369,32 @@ where
         Ok(())
     }
 
+    /// Schedule a state change that restarts the active state.
+    /// This will fail if there is a scheduled operation
+    pub fn restart(&mut self) -> Result<(), StateError> {
+        if self.scheduled.is_some() {
+            return Err(StateError::StateAlreadyQueued);
+        }
+
+        if let Some(state) = self.stack.last() {
+            self.scheduled = Some(ScheduledOperation::Set(state.clone()));
+            Ok(())
+        } else {
+            return Err(StateError::StackEmpty);
+        }
+    }
+
+    /// Same as [Self::restart], but if there is already a scheduled state operation,
+    /// it will be overwritten instead of failing
+    pub fn overwrite_restart(&mut self) -> Result<(), StateError> {
+        if let Some(state) = self.stack.last() {
+            self.scheduled = Some(ScheduledOperation::Set(state.clone()));
+            Ok(())
+        } else {
+            return Err(StateError::StackEmpty);
+        }
+    }
+
     pub fn current(&self) -> &T {
         self.stack.last().unwrap()
     }
