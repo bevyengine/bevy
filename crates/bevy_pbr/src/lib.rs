@@ -122,6 +122,14 @@ impl Plugin for PbrPlugin {
                     .after(VisibilitySystems::CheckVisibility),
             );
 
+        app.world
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .unwrap()
+            .set_untracked(
+                DEFAULT_STANDARD_MATERIAL_HANDLE,
+                StandardMaterial::high_vis(),
+            );
+
         let render_app = app.sub_app(RenderApp);
         render_app
             .add_system_to_stage(
