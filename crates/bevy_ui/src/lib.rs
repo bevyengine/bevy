@@ -25,7 +25,6 @@ use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
-use bevy_render::RenderStage;
 use bevy_transform::TransformSystem;
 use update::ui_z_system;
 
@@ -45,18 +44,27 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
+            .register_type::<CalculatedSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
+            .register_type::<FocusPolicy>()
+            .register_type::<Interaction>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
+            // NOTE: used by Style::aspect_ratio
+            .register_type::<Option<f32>>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
             .register_type::<Rect<Val>>()
             .register_type::<Style>()
+            .register_type::<UiColor>()
+            .register_type::<UiImage>()
             .register_type::<Val>()
+            .register_type::<widget::Button>()
+            .register_type::<widget::ImageMode>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
@@ -81,9 +89,8 @@ impl Plugin for UiPlugin {
                 ui_z_system
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(RenderStage::Draw, widget::draw_text_system);
+            );
 
-        crate::render::add_ui_graph(&mut app.world);
+        crate::render::build_ui_render(app);
     }
 }

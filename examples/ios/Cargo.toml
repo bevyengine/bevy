@@ -13,12 +13,8 @@ crate-type = ["staticlib"]
 [dependencies]
 bevy = { path = "../../", features = [ 
   "bevy_audio",
-  "bevy_core_pipeline",
-  "bevy_gltf2",
-  "bevy_sprite2",
-  "bevy_render2",
-  "bevy_pbr2",
   "bevy_winit",
+  "render",
   "mp3",
   "x11",
   "filesystem_watcher"

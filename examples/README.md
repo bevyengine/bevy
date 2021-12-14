@@ -84,12 +84,9 @@ Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
-`mesh` | [`2d/mesh.rs`](./2d/mesh.rs) | Renders a custom mesh
-`pipelined_texture_atlas` | [`2d/pipelined_texture_atlas.rs`](./2d/pipelined_texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
-`text2d_pipelined` | [`2d/text2d_pipelined.rs`](./2d/text2d_pipelined.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
@@ -98,27 +95,18 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
-`3d_scene_pipelined` | [`3d/3d_scene_pipelined.rs`](./3d/3d_scene_pipelined.rs) | Simple 3D scene with basic shapes and lighting
-`cornell_box_pipelined` | [`3d/cornell_box_pipelined.rs`](./3d/cornell_box_pipelined.rs) | Re-production of the cornell box
+`lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
-`load_gltf_pipelined` | [`3d/load_gltf_pipelined.rs`](./3d/load_gltf_pipelined.rs) | Loads and renders a gltf file as a scene
-`many_cubes_pipelined` | [`3d/many_cubes_pipelined.rs`](./3d/many_cubes_pipelined.rs) | Simple benchmark to test per-entity draw overhead
+`many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
-`msaa_pipelined` | [`3d/msaa_pipelined.rs`](./3d/msaa_pipelined.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
-`orthographic_pipelined` | [`3d/orthographic_pipelined.rs`](./3d/orthographic_pipelined.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
-`pbr_pipelined` | [`3d/pbr_pipelined.rs`](./3d/pbr_pipelined.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
-`render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
-`shadow_caster_receiver_pipelined` | [`3d/shadow_caster_receiver_pipelined.rs`](./3d/shadow_caster_receiver_pipelined.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
-`shadow_biases_pipelined` | [`3d/shadow_biases_pipelined.rs`](./3d/shadow_biases_pipelined.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
-`spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
+`shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
+`shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
-`texture_pipelined` | [`3d/texture_pipelined.rs`](./3d/texture_pipelined.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
-`z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
 
 ## Application
 
@@ -223,14 +211,8 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to animate a shader by accessing a time uniform variable
-`array_texture` | [`shader/array_texture.rs`](./shader/array_texture.rs) | Illustrates how to create a texture for use with a texture2DArray shader uniform variable
-`custom_shader_pipelined` | [`shader/custom_shader_pipelined.rs`](./shader/custom_shader_pipelined.rs) | Illustrates how to create custom shaders
-`hot_shader_reloading` | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs) | Illustrates how to load shaders such that they can be edited while the example is still running
-`mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
-`shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
+`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
-`shader_defs_pipelined` | [`shader/shader_defs_pipelined.rs`](./shader/shader_defs_pipelined.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
 ## Tests
 
@@ -242,8 +224,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy workload to benchmark your system with Bevy
-`bevymark_pipelined` | [`tools/bevymark_pipelined.rs`](./tools/bevymark_pipelined.rs) | A heavy workload to benchmark your system with Bevy
+`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 
 ## UI (User Interface)
 
@@ -254,15 +235,12 @@ Example | File | Description
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
-`ui_pipelined` | [`ui/ui_pipelined.rs`](./ui/ui_pipelined.rs) | Illustrates various features of Bevy UI
 
 ## Window
 
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
-`clear_color_pipelined` | [`window/clear_color_pipelined.rs`](./window/clear_color_pipelined.rs) | Creates a solid color window with the pipelined renderer
-`multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
