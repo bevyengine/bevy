@@ -29,6 +29,7 @@ impl Default for WgpuOptions {
             #[cfg(feature = "ci_limits")]
             {
                 limits.max_storage_textures_per_shader_stage = 4;
+                limits.max_texture_dimension_3d = 1024;
             }
             limits
         };
