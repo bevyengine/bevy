@@ -706,6 +706,7 @@ where
     ///
     /// assert_eq!(entity_1_life, Life(1));
     /// assert_eq!(entity_2_life, Life(2));
+    /// ```
     #[inline]
     pub fn get_pair(
         &'s self,
@@ -751,6 +752,7 @@ where
     ///
     /// assert_eq!(entity_1_life, Life(0));
     /// assert_eq!(entity_2_life, Life(100));
+    /// ```
     #[inline]
     pub fn get_pair_mut(
         &'s self,
