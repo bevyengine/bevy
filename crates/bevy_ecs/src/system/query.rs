@@ -296,7 +296,7 @@ where
     ///
     /// # Example
     /// ```rust
-    /// # use bevy_ecs::prelude;
+    /// # use bevy_ecs::prelude::*;
     /// #[derive(Component)]
     /// struct PowerLevel(u64);
     ///
@@ -696,7 +696,7 @@ where
     /// #[derive(Component, PartialEq, Debug)]
     /// struct Life(u64);
     ///
-    /// let world = World::new();
+    /// let mut world = World::new();
     /// let entity_1 = world.spawn().insert(Life(1)).id();
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
@@ -704,8 +704,8 @@ where
     /// let life_query = Query::from_state(&mut world, &query_state);
     /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2).unwrap();
     ///
-    /// assert_eq!(entity_1_life, Life(1));
-    /// assert_eq!(entity_2_life, Life(2));
+    /// assert_eq!(*entity_1_life, Life(1));
+    /// assert_eq!(*entity_2_life, Life(2));
     /// ```
     #[inline]
     pub fn get_pair(
@@ -739,7 +739,7 @@ where
     /// #[derive(Component, PartialEq, Debug)]
     /// struct Life(u64);
     ///
-    /// let world = World::new();
+    /// let mut world = World::new();
     /// let entity_1 = world.spawn().insert(Life(1)).id();
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
@@ -750,8 +750,8 @@ where
     /// *entity_1_life = Life(0);
     /// *entity_2_life = Life(100);
     ///
-    /// assert_eq!(entity_1_life, Life(0));
-    /// assert_eq!(entity_2_life, Life(100));
+    /// assert_eq!(*entity_1_life, Life(0));
+    /// assert_eq!(*entity_2_life, Life(100));
     /// ```
     #[inline]
     pub fn get_pair_mut(
@@ -795,22 +795,31 @@ where
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(u64);
     ///
-    /// let world = World::new();
+    /// let mut world = World::new();
     /// let entity_1 = world.spawn().insert(A(1)).id();
     /// let entity_2 = world.spawn().insert(A(2)).id();
+    /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
     /// let query_state = world.query::<&A>();
     /// let a_query = Query::from_state(&mut world, &query_state);
-    /// let a_iterator = a_query.get_multiple([entity_1, entity_2]);
-    /// assert_eq!(a_iterator.next().unwrap(), A(1));
-    /// assert_eq!(a_iterator.next().unwrap(), A(2));
+    /// let mut a_iterator = a_query.get_multiple([entity_3, entity_2, entity_1]).unwrap();
+    /// assert_eq!(*a_iterator.next().unwrap(), A(3));
+    /// assert_eq!(*a_iterator.next().unwrap(), A(2));
+    /// assert_eq!(*a_iterator.next().unwrap(), A(1));
     /// ```
     #[inline]
     pub fn get_multiple(
         &'s self,
         entities: impl IntoIterator<Item = Entity>,
-    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
-        entities.into_iter().map(|entity| self.get(entity))
+    ) -> Result<impl Iterator<Item = <Q::ReadOnlyFetch as Fetch>::Item>, QueryEntityError> {
+        // PERF: we could estimate the capacity and preallocate
+        // based on the size of the data in the query and the number of items in the iter
+        let mut data = Vec::new();
+        for entity in entities {
+            data.push(self.get(entity)?);
+        }
+
+        Ok(data.into_iter())
     }
 
     /// Returns the query results for the ['BTreeSet'](std::collections::BTreeSet) of [`Entity`]s provided.
@@ -834,23 +843,27 @@ where
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(u64);
     ///
-    /// let world = World::new();
+    /// let mut world = World::new();
     /// let entity_1 = world.spawn().insert(A(1)).id();
     /// let entity_2 = world.spawn().insert(A(2)).id();
     /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
     /// let query_state = world.query::<&mut A>();
-    /// let a_query = Query::from_state(&mut world, &query_state);
-    /// let a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).unwrap();
-    /// let mut a_1 = a_iterator.next();
-    /// let mut a_3 = a_iterator.next();
+    /// let mut a_query = Query::from_state(&mut world, &query_state);
+    /// let mut a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).unwrap();
+    /// let mut a_1 = a_iterator.next().unwrap();
+    /// let mut a_3 = a_iterator.next().unwrap();
     ///
     /// *a_1 = A(11);
     /// *a_3 = A(33);
     ///
+    /// // Manually drop references so we can access the `World` again
+    /// std::mem::drop(a_iterator);
+    /// std::mem::drop(a_query);
+    ///
     /// assert_eq!(*world.get::<A>(entity_1).unwrap(), A(11));
     /// assert_eq!(*world.get::<A>(entity_2).unwrap(), A(2));
-    /// assert_eq!(*world.get::<A>(entity_2).unwrap(), A(33));
+    /// assert_eq!(*world.get::<A>(entity_3).unwrap(), A(33));
     /// ```
     #[inline]
     pub fn get_multiple_mut(
