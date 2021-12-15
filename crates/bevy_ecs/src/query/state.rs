@@ -739,4 +739,6 @@ pub enum QueryEntityError {
     QueryDoesNotMatch,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
+    #[error("The same entity was accessed mutably more than once.")]
+    AliasedMutability,
 }

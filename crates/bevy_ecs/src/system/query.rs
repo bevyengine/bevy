@@ -303,7 +303,7 @@ where
     /// world.spawn().insert(PowerLevel(9001));
     ///
     /// let query_state = world.query::<&PowerLevel>();
-    /// let query = Query::from_state(&mut world, query_state);
+    /// let query = Query::from_state(&mut world, &query_state);
     /// let power_level = query.single();
     ///
     /// assert!(power_level.0 > 9000);
@@ -700,8 +700,8 @@ where
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
     /// let query_state = world.query::<&Life>();
-    /// let life_query = Query::from_state(&mut world, query_state);
-    /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2);
+    /// let life_query = Query::from_state(&mut world, &query_state);
+    /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2).unwrap();
     ///
     /// assert_eq!(entity_1_life, Life(1));
     /// assert_eq!(entity_2_life, Life(2));
@@ -710,18 +710,23 @@ where
         &'s self,
         entity_0: Entity,
         entity_1: Entity,
-    ) -> (
-        Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>,
-        Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>,
-    ) {
-        (self.get(entity_0), self.get(entity_1))
+    ) -> Result<
+        (
+            <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
+            <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
+        ),
+        QueryEntityError,
+    > {
+        let data_0 = self.get(entity_0)?;
+        let data_1 = self.get(entity_1)?;
+
+        Ok((data_0, data_1))
     }
 
     /// Returns the query result for the given pair of [`Entity`]s.
     ///
-    /// These entities must be unique, and this method will panic if they are not.
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
-    /// returned instead.
+    /// In case of a nonunique entities, a nonexisting entity or mismatched component,
+    /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to get the data from more than two specific entities at once,
     /// use ['get_multiple_mut'](Self::get_multiple)
@@ -737,8 +742,8 @@ where
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
     /// let query_state = world.query::<&mut Life>();
-    /// let life_query = Query::from_state(&mut world, query_state);
-    /// let (mut entity_1_life, mut entity_2_life) = life_query.get_pair_mut(entity_1, entity_2);
+    /// let life_query = Query::from_state(&mut world, &query_state);
+    /// let (mut entity_1_life, mut entity_2_life) = life_query.get_pair_mut(entity_1, entity_2).unwrap();
     ///
     /// *entity_1_life = Life(0);
     /// *entity_2_life = Life(100);
@@ -750,13 +755,23 @@ where
         &'s self,
         entity_0: Entity,
         entity_1: Entity,
-    ) -> (
-        Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>,
-        Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>,
-    ) {
-        assert!(entity_0 != entity_1);
-        // SAFE: the two entities are distinct
-        unsafe { (self.get_unchecked(entity_0), self.get_unchecked(entity_1)) }
+    ) -> Result<
+        (
+            <Q::Fetch as Fetch<'w, 's>>::Item,
+            <Q::Fetch as Fetch<'w, 's>>::Item,
+        ),
+        QueryEntityError,
+    > {
+        if entity_0 == entity_1 {
+            return Err(QueryEntityError::AliasedMutability);
+        }
+
+        // SAFE: entities do not match
+        unsafe {
+            let data_0 = self.get_unchecked(entity_0)?;
+            let data_1 = self.get_unchecked(entity_1)?;
+            Ok((data_0, data_1))
+        }
     }
 
     /// Returns the read-only query results for the iterator of [`Entity`]s provided.
@@ -782,7 +797,7 @@ where
     /// let entity_2 = world.spawn().insert(A(2)).id();
     ///
     /// let query_state = world.query::<&A>();
-    /// let a_query = Query::from_state(&mut world, query_state);
+    /// let a_query = Query::from_state(&mut world, &query_state);
     /// let a_iterator = a_query.get_multiple([entity_1, entity_2]);
     /// assert_eq!(a_iterator.next().unwrap(), A(1));
     /// assert_eq!(a_iterator.next().unwrap(), A(2));
@@ -824,7 +839,7 @@ where
     /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
     /// let query_state = world.query::<&mut A>();
-    /// let a_query = Query::from_state(&mut world, query_state);
+    /// let a_query = Query::from_state(&mut world, &query_state);
     /// let a_iterator = a_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
     /// let mut a_1 = a_iterator.next().unwrap();
     /// let mut a_3 = a_iterator.next().unwrap();
