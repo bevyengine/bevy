@@ -649,7 +649,8 @@ where
     /// In case of a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
-    /// If you need to reduce performance overhead, you can call the [`get`](Self::get) method repeatedly instead.
+    /// If you need to verify the identity of each item returned,
+    /// add [`Entity`] to your [`Query`].
     ///
     /// # Example
     /// ```rust
@@ -680,9 +681,14 @@ where
     /// In case of a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
-    /// BTreeSets are used as both ordered and unique, and an ordered stream of component values will be produced, in the same order as was provided in the BTreeSet
+    /// BTreeSets are used as both ordered and unique, and an ordered stream of component values will be produced,
+    /// in the same order as was provided in the BTreeSet.
     ///
-    /// If you need to reduce performance overhead, you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
+    /// If you need to verify the identity of each item returned,
+    /// add [`Entity`] to your [`Query`].
+    ///
+    /// If you absolutely cannot afford the overhead of verifying uniqueness in this way,
+    /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
     ///
     /// # Example
     /// ```rust
