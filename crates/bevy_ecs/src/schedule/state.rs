@@ -21,6 +21,9 @@ impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'stat
 #[derive(Debug)]
 pub struct State<T: StateData> {
     transition: Option<StateTransition<T>>,
+    /// The current states in the stack.
+    ///
+    /// There is always guaranteed to be at least one.
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
     end_next_loop: bool,
