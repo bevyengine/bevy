@@ -17,7 +17,6 @@ use crate::{
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
-
 use std::{
     any::TypeId,
     fmt,
