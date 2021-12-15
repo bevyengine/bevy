@@ -282,6 +282,40 @@ where
         }
     }
 
+    /// Creates a new [`Query`] from a [`QueryState`]
+    ///
+    /// [`Query`] is a simply a borrow of [`QueryState`],
+    /// but when working directly with the [`World`]
+    /// we need to store the query's internal data somewhere, and so cannot return a [`Query`] directly.
+    ///
+    /// As queries can modify the entity-component data in ways that could conflict dangerously,
+    /// this method requires a mutable reference to the [`World`],
+    /// ensuring only one query is active at once.
+    /// This can be quite restrictive: consider using ['SystemState::new'](bevy_ecs::system::SystemState::new) if this is a problem.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_ecs::prelude;
+    /// #[derive(Component)]
+    /// struct PowerLevel(u64);
+    ///
+    /// let mut world = World::new();
+    /// world.spawn().insert(PowerLevel(9001));
+    ///
+    /// let query_state = world.query::<&PowerLevel>();
+    /// let query = Query::from_state(&mut world, query_state);
+    /// let power_level = query.single();
+    ///
+    /// assert!(power_level.0 > 9000);
+    /// ```
+    pub fn from_state(world: &'w mut World, state: &'s QueryState<Q, F>) -> Self {
+        let last_change_tick = world.last_change_tick();
+        let change_tick = world.change_tick();
+
+        // SAFE: the `World` is borrowed mutably, so no other queries can have simultaneous access
+        unsafe { Self::new(world, state, last_change_tick, change_tick) }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     ///
     /// This can only return immutable data (mutable data will be cast to an immutable form).
@@ -665,8 +699,10 @@ where
     /// let entity_1 = world.spawn().insert(Life(1)).id();
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
-    /// let life_query = world.query::<&Life>();
+    /// let query_state = world.query::<&Life>();
+    /// let life_query = Query::from_state(&mut world, query_state);
     /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2);
+    ///
     /// assert_eq!(entity_1_life, Life(1));
     /// assert_eq!(entity_2_life, Life(2));
     #[inline]
@@ -700,7 +736,8 @@ where
     /// let entity_1 = world.spawn().insert(Life(1)).id();
     /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
-    /// let life_query = world.query::<&mut Life>();
+    /// let query_state = world.query::<&mut Life>();
+    /// let life_query = Query::from_state(&mut world, query_state);
     /// let (mut entity_1_life, mut entity_2_life) = life_query.get_pair_mut(entity_1, entity_2);
     ///
     /// *entity_1_life = Life(0);
@@ -744,7 +781,8 @@ where
     /// let entity_1 = world.spawn().insert(A(1)).id();
     /// let entity_2 = world.spawn().insert(A(2)).id();
     ///
-    /// let a_query = world.query::<&A>();
+    /// let query_state = world.query::<&A>();
+    /// let a_query = Query::from_state(&mut world, query_state);
     /// let a_iterator = a_query.get_multiple([entity_1, entity_2]);
     /// assert_eq!(a_iterator.next().unwrap(), A(1));
     /// assert_eq!(a_iterator.next().unwrap(), A(2));
@@ -785,7 +823,8 @@ where
     /// let entity_2 = world.spawn().insert(A(2)).id();
     /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
-    /// let a_query = world.query::<&mut A>();
+    /// let query_state = world.query::<&mut A>();
+    /// let a_query = Query::from_state(&mut world, query_state);
     /// let a_iterator = a_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
     /// let mut a_1 = a_iterator.next().unwrap();
     /// let mut a_3 = a_iterator.next().unwrap();
