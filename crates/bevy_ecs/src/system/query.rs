@@ -663,7 +663,7 @@ where
     /// let entity_2 = world.spawn().insert(A(2)).id();
     ///
     /// let a_query = world.query::<A>();
-    /// let a_iterator = name_query.get_multiple([entity_1, entity_2]);
+    /// let a_iterator = a_query.get_multiple([entity_1, entity_2]);
     /// assert_eq!(a_iterator.next().unwrap(), A(1));
     /// assert_eq!(a_iterator.next().unwrap(), A(2));
     /// ```
