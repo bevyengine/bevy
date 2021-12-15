@@ -8,8 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use bevy_utils::{HashMap, HashSet};
-use std::{any::TypeId, fmt::Debug};
+use std::{any::TypeId, collections::BTreeSet, fmt::Debug};
 use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
@@ -644,8 +643,9 @@ where
         }
     }
 
-    /// Returns the read-only query results for the ['HashSet'](bevy_utils::HashSet) of [`Entity`]s provided.
+    /// Returns the read-only query results for the iterator of [`Entity`]s provided.
     ///
+    /// These values follow the order of your input iterator (if any).
     /// In case of a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
@@ -655,36 +655,32 @@ where
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component, PartialEq)]
-    /// struct Name(String);
+    /// struct A(u64);
     ///
     /// let world = World::new();
-    /// let entity_1 = world.spawn().insert(Name("Alan")).id();
-    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
-    /// let entities = [entity_1, entity_2];
+    /// let entity_1 = world.spawn().insert(A(1)).id();
+    /// let entity_2 = world.spawn().insert(A(2)).id();
     ///
-    /// let name_query = world.query::<Name>();
-    /// let name_map = name_query.get_multiple(HashSet::from_iter(entities));
-    /// assert_eq!(*name_map.get(entity_1).unwrap(), Name("Alan"));
-    /// assert_eq!(*name_map.get(entity_2).unwrap(), Name("Bob"));
+    /// let a_query = world.query::<A>();
+    /// let a_iterator = name_query.get_multiple([entity_1, entity_2]);
+    /// assert_eq!(a_iterator.next().unwrap(), A(1));
+    /// assert_eq!(a_iterator.next().unwrap(), A(2));
     /// ```
+    #[inline]
     pub fn get_multiple(
         &'s self,
-        entities: HashSet<Entity>,
-    ) -> HashMap<Entity, Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
-        let mut entity_map = HashMap::default();
-        for entity in entities {
-            entity_map.insert(entity, self.get(entity));
-        }
-
-        entity_map
+        entities: impl IntoIterator<Item = Entity>,
+    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
+        entities.into_iter().map(|entity| self.get(entity))
     }
 
-    /// Returns the query results for the ['HashSet'](bevy_utils::HashSet) of [`Entity`]s provided.
+    /// Returns the query results for the ['BTreeSet'](std::collections::BTreeSet) of [`Entity`]s provided.
     ///
-    /// As HashSets are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
-    ///
+    /// These values are returned as a (Enity, COMPONENTS) tuple, following the order of your input iterator.
     /// In case of a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
+    ///
+    /// BTreeSets are used as both ordered and unique, and an ordered stream of component values will be produced, in the same order as was provided in the BTreeSet
     ///
     /// If you need to reduce performance overhead, you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
     ///
@@ -695,35 +691,34 @@ where
     /// struct Name(String);
     ///
     /// let world = World::new();
-    /// let entity_1 = world.spawn().insert(Name("Alan")).id();
-    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
-    /// let entities = [entity_1, entity_2];
+    /// let entity_1 = world.spawn().insert(A(1)).id();
+    /// let entity_2 = world.spawn().insert(A(2)).id();
+    /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
-    /// let name_query = world.query::<Name>();
-    /// let mut name_map = name_query.get_multiple_mut(HashSet::from_iter(entities));
+    /// let a_query = world.query::<A>();
+    /// let a_iterator = name_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
+    /// let mut a_1 = a_iterator.next().unwrap();
+    /// let mut a_3 = a_iterator.next().unwrap();
     ///
-    /// let mut entity_1_name = name_map.get_mut(entity_1).unwrap();
-    /// let mut entity_2_name = name_map.get_mut(entity_1).unwrap();
+    /// *a_1 = A(11);
+    /// *a_3 = A(33);
     ///
-    /// *entity_1_name = Name("Alice");
-    /// *entity_2_name = Name("Brigitte");
-    ///
-    /// assert_eq!(*name_map.get(entity_1).unwrap(), Name("Alice"));
-    /// assert_eq!(*name_map.get(entity_2).unwrap(), Name("Brigitte"));
+    /// assert_eq!(world.get::<A>(entity_1).unwrap(), A(11));
+    /// assert_eq!(world.get::<A>(entity_2).unwrap(), A(2));
+    /// assert_eq!(world.get::<A>(entity_2).unwrap(), A(33));
     /// ```
+    #[inline]
     pub fn get_multiple_mut(
         &mut self,
-        entities: HashSet<Entity>,
-    ) -> HashMap<Entity, Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
-        let mut entity_map = HashMap::default();
-        for entity in entities {
-            // SAFE: the entities are guaranteed to be unique, as they are passed in as a HashSet
-            unsafe {
-                entity_map.insert(entity, self.get_unchecked(entity));
-            }
+        entities: BTreeSet<Entity>,
+    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
+        // SAFE: the entities supplied are guaranteed to be unique,
+        // as they are passed in as a BTreeSet, which enforces uniqueness
+        unsafe {
+            entities
+                .into_iter()
+                .map(|entity| self.get_unchecked(entity))
         }
-
-        entity_map
     }
 
     /// Returns the query result for the given [`Entity`].
