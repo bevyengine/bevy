@@ -802,7 +802,7 @@ where
     ///
     /// let query_state = world.query::<&A>();
     /// let a_query = Query::from_state(&mut world, &query_state);
-    /// let mut a_iterator = a_query.get_multiple([entity_3, entity_2, entity_1]).unwrap();
+    /// let mut a_iterator = a_query.get_multiple([entity_3, entity_2, entity_1]).map(|i|i.unwrap());
     /// assert_eq!(*a_iterator.next().unwrap(), A(3));
     /// assert_eq!(*a_iterator.next().unwrap(), A(2));
     /// assert_eq!(*a_iterator.next().unwrap(), A(1));
@@ -811,15 +811,8 @@ where
     pub fn get_multiple(
         &'s self,
         entities: impl IntoIterator<Item = Entity>,
-    ) -> Result<impl Iterator<Item = <Q::ReadOnlyFetch as Fetch>::Item>, QueryEntityError> {
-        // PERF: we could estimate the capacity and preallocate
-        // based on the size of the data in the query and the number of items in the iter
-        let mut data = Vec::new();
-        for entity in entities {
-            data.push(self.get(entity)?);
-        }
-
-        Ok(data.into_iter())
+    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
+        entities.into_iter().map(|entity| self.get(entity))
     }
 
     /// Returns the query results for the ['BTreeSet'](std::collections::BTreeSet) of [`Entity`]s provided.
@@ -850,7 +843,7 @@ where
     ///
     /// let query_state = world.query::<&mut A>();
     /// let mut a_query = Query::from_state(&mut world, &query_state);
-    /// let mut a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).unwrap();
+    /// let mut a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).map(|i|i.unwrap());
     /// let mut a_1 = a_iterator.next().unwrap();
     /// let mut a_3 = a_iterator.next().unwrap();
     ///
@@ -869,10 +862,10 @@ where
     pub fn get_multiple_mut(
         &mut self,
         entities: impl IntoIterator<Item = Entity>,
-    ) -> Result<impl Iterator<Item = <Q::Fetch as Fetch>::Item>, QueryEntityError> {
+    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
         let entities_iter = entities.into_iter();
 
-        // Preallocating the hash-set used to check uniqueness based on the expected maximum amount of space
+        // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
         let (lower_bound, maybe_upper_bound) = entities_iter.size_hint();
         let best_bound = if let Some(upper_bound) = maybe_upper_bound {
             upper_bound
@@ -881,20 +874,23 @@ where
         };
 
         let mut entities_seen = HashSet::with_capacity(best_bound * std::mem::size_of::<Entity>());
-        // PERF: we could estimate the capacity and preallocate
-        // based on the size of the data in the query and the number of items in the iter
-        let mut data = Vec::new();
-        for entity in entities_iter {
-            if entities_seen.contains(&entity) {
-                return Err(QueryEntityError::AliasedMutability);
-            } else {
-                entities_seen.insert(entity);
-                unsafe {
-                    data.push(self.get_unchecked(entity)?);
+
+        // We must collect the results before converting back into an iterator
+        // in order to ensure that we don't have any dangling references to entities_seen that need to be evaluated later
+        let results: Vec<Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> = entities_iter
+            .map(|entity| {
+                if entities_seen.contains(&entity) {
+                    Err(QueryEntityError::AliasedMutability)
+                } else {
+                    entities_seen.insert(entity);
+
+                    // SAFE: entities are checked for uniqueness using a HashSet
+                    unsafe { self.get_unchecked(entity) }
                 }
-            }
-        }
-        Ok(data.into_iter())
+            })
+            .collect();
+
+        results.into_iter()
     }
 
     /// Returns the query result for the given [`Entity`].
