@@ -657,18 +657,18 @@ where
     ///
     /// # Example
     /// ```rust
-    /// # use bevy::ecs::prelude::*;
-    /// #[derive(Component, PartialEq)]
-    /// struct Name(String);
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct Life(u64);
     ///
     /// let world = World::new();
-    /// let entity_1 = world.spawn().insert(Name("Ferris")).id();
-    /// let entity_2 = world.spawn().insert(Name("Cart")).id();
+    /// let entity_1 = world.spawn().insert(Life(1)).id();
+    /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
-    /// let name_query = world.query::<Name>();
-    /// let (entity_1_name, entity_2_name) = name_query.get_pair(entity_1, entity_2);
-    /// asserteq!(entity_1_name, Name("Ferris"));
-    /// asserteq!(entity_2_name, Name("Cart"));
+    /// let life_query = world.query::<&Life>();
+    /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2);
+    /// assert_eq!(entity_1_life, Life(1));
+    /// assert_eq!(entity_2_life, Life(2));
     #[inline]
     pub fn get_pair(
         &'s self,
@@ -692,22 +692,22 @@ where
     ///
     /// # Example
     /// ```rust
-    /// # use bevy::ecs::prelude::*;
-    /// #[derive(Component, PartialEq)]
-    /// struct Name(String);
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct Life(u64);
     ///
     /// let world = World::new();
-    /// let entity_1 = world.spawn().insert(Name("Alice")).id();
-    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
+    /// let entity_1 = world.spawn().insert(Life(1)).id();
+    /// let entity_2 = world.spawn().insert(Life(2)).id();
     ///
-    /// let name_query = world.query::<Name>();
-    /// let (mut entity_1_name, mut entity_2_name) = name_query.get_pair_mut(entity_1, entity_2);
+    /// let life_query = world.query::<&mut Life>();
+    /// let (mut entity_1_life, mut entity_2_life) = life_query.get_pair_mut(entity_1, entity_2);
     ///
-    /// *entity_1_name = Name("Alan");
-    /// *entity_2_name = Name("Brigitte");
+    /// *entity_1_life = Life(0);
+    /// *entity_2_life = Life(100);
     ///
-    /// asserteq!(entity_1_name, Name("Alan"));
-    /// asserteq!(entity_2_name, Name("Brigitte"));
+    /// assert_eq!(entity_1_life, Life(0));
+    /// assert_eq!(entity_2_life, Life(100));
     #[inline]
     pub fn get_pair_mut(
         &'s self,
@@ -737,14 +737,14 @@ where
     /// # Example
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq)]
+    /// #[derive(Component, PartialEq, Debug)]
     /// struct A(u64);
     ///
     /// let world = World::new();
     /// let entity_1 = world.spawn().insert(A(1)).id();
     /// let entity_2 = world.spawn().insert(A(2)).id();
     ///
-    /// let a_query = world.query::<A>();
+    /// let a_query = world.query::<&A>();
     /// let a_iterator = a_query.get_multiple([entity_1, entity_2]);
     /// assert_eq!(a_iterator.next().unwrap(), A(1));
     /// assert_eq!(a_iterator.next().unwrap(), A(2));
@@ -776,15 +776,16 @@ where
     /// # Example
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq)]
-    /// struct Name(String);
+    /// use std::collections::BTreeSet;
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(u64);
     ///
     /// let world = World::new();
     /// let entity_1 = world.spawn().insert(A(1)).id();
     /// let entity_2 = world.spawn().insert(A(2)).id();
     /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
-    /// let a_query = world.query::<A>();
+    /// let a_query = world.query::<&mut A>();
     /// let a_iterator = a_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
     /// let mut a_1 = a_iterator.next().unwrap();
     /// let mut a_3 = a_iterator.next().unwrap();
@@ -792,9 +793,9 @@ where
     /// *a_1 = A(11);
     /// *a_3 = A(33);
     ///
-    /// assert_eq!(world.get::<A>(entity_1).unwrap(), A(11));
-    /// assert_eq!(world.get::<A>(entity_2).unwrap(), A(2));
-    /// assert_eq!(world.get::<A>(entity_2).unwrap(), A(33));
+    /// assert_eq!(*world.get::<A>(entity_1).unwrap(), A(11));
+    /// assert_eq!(*world.get::<A>(entity_2).unwrap(), A(2));
+    /// assert_eq!(*world.get::<A>(entity_2).unwrap(), A(33));
     /// ```
     #[inline]
     pub fn get_multiple_mut(
