@@ -17,7 +17,7 @@ use crate::{
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
-use bevy_utils::{HashMap, HashSet};
+
 use std::{
     any::TypeId,
     fmt,
@@ -311,73 +311,6 @@ impl World {
         let location = self.entities.get(entity)?;
         // SAFE: `entity` exists and `location` is that entity's location
         Some(unsafe { EntityMut::new(self, entity, location) })
-    }
-
-    /// Returns the [EntityRef] of multiple entities, which expose read-only operations for those entities
-    ///
-    /// Entity data will be returned in the same order as the provided iterator.
-    /// The `entities` argument does not need to be unique, as the underlying data cannot be modified.
-    ///
-    /// This will panic if any of the entities do not exist. Use [World::get_multiple_entities] if you want
-    /// to check for entity existence instead of implicitly panic-ing.
-    pub fn multiple_entities(
-        &mut self,
-        entities: impl IntoIterator<Item = Entity>,
-    ) -> impl IntoIterator<Item = EntityRef> {
-        entities.into_iter().map(|entity| self.entity(entity))
-    }
-
-    /// Returns the [EntityMut] of multiple entities, which expose read and write operations for those entities
-    ///
-    /// Entity data will be returned in the same order as the provided iterator.
-    /// This will panic if any of the entities do not exist. Use [World::get_multiple_entities_mut] if you want
-    /// to check for entity existence instead of implicitly panic-ing.
-    ///
-    /// SAFETY:
-    /// The iterator of entities passed in may not contain any duplicates.
-    pub unsafe fn multiple_entities_mut<'w>(
-        &'w mut self,
-        entities: impl IntoIterator<Item = Entity>,
-    ) -> impl IntoIterator<Item = EntityMut> {
-        entities.into_iter().map(|entity| {
-            let location = self.entities.get(entity).expect("Entity not found.");
-            // SAFE: `entity` exists and `location` is that entity's location
-            unsafe { EntityMut::new(self, entity, location) }
-        })
-    }
-
-    /// Returns the [EntityRef] of multiple entities, which expose read-only operations for those entities
-    ///
-    /// As HashSets are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
-    ///
-    /// If an entity was not found, the HashMap entry for that identifier will be `None`.
-    pub fn get_multiple_entities(
-        &mut self,
-        entities: HashSet<Entity>,
-    ) -> HashMap<Entity, Option<EntityRef>> {
-        // PERF: we can probably preallocate this in a smarter fashion
-        let mut results = HashMap::default();
-        for entity in entities {
-            results.insert(entity, self.get_entity(entity));
-        }
-        results
-    }
-
-    /// Returns the [EntityMut] of multiple entities, which expose read and write operations for those entities
-    ///
-    /// As HashSets are unordered, the entity data is returned in a HashMap, keyed by the corresponding ['Entity'] identifier.
-    ///
-    /// If an entity was not found, the HashMap entry for that identifier will be `None`.
-    pub fn get_multiple_entities_mut(
-        &mut self,
-        entities: HashSet<Entity>,
-    ) -> HashMap<Entity, Option<EntityMut>> {
-        // PERF: we can probably preallocate this in a smarter fashion
-        let mut results = HashMap::default();
-        for entity in entities {
-            results.insert(entity, self.get_entity_mut(entity));
-        }
-        results
     }
 
     /// Spawns a new [Entity] and returns a corresponding [EntityMut], which can be used
