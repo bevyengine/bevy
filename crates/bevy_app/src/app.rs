@@ -802,6 +802,14 @@ impl App {
         self
     }
 
+    /// Check that a plugin has already been added to the app.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugins.contains_key(&std::any::TypeId::of::<T>())
+    }
+
     /// Adds a single plugin
     ///
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
