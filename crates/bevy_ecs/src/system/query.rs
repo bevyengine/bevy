@@ -702,7 +702,7 @@ where
     /// let entity_3 = world.spawn().insert(A(3)).id();
     ///
     /// let a_query = world.query::<A>();
-    /// let a_iterator = name_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
+    /// let a_iterator = a_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
     /// let mut a_1 = a_iterator.next().unwrap();
     /// let mut a_3 = a_iterator.next().unwrap();
     ///
