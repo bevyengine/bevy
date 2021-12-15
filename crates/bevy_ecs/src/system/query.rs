@@ -650,6 +650,23 @@ where
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to reduce performance overhead, you can call the [`get`](Self::get) method repeatedly instead.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, PartialEq)]
+    /// struct Name(String);
+    ///
+    /// let world = World::new();
+    /// let entity_1 = world.spawn().insert(Name("Alan")).id();
+    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
+    /// let entities = [entity_1, entity_2];
+    ///
+    /// let name_query = world.query::<Name>();
+    /// let name_map = name_query.get_multiple(HashSet::from_iter(entities));
+    /// assert_eq!(*name_map.get(entity_1).unwrap(), Name("Alan"));
+    /// assert_eq!(*name_map.get(entity_2).unwrap(), Name("Bob"));
+    /// ```
     pub fn get_multiple(
         &'s self,
         entities: HashSet<Entity>,
@@ -670,6 +687,30 @@ where
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to reduce performance overhead, you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, PartialEq)]
+    /// struct Name(String);
+    ///
+    /// let world = World::new();
+    /// let entity_1 = world.spawn().insert(Name("Alan")).id();
+    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
+    /// let entities = [entity_1, entity_2];
+    ///
+    /// let name_query = world.query::<Name>();
+    /// let mut name_map = name_query.get_multiple_mut(HashSet::from_iter(entities));
+    ///
+    /// let mut entity_1_name = name_map.get_mut(entity_1).unwrap();
+    /// let mut entity_2_name = name_map.get_mut(entity_1).unwrap();
+    ///
+    /// *entity_1_name = Name("Alice");
+    /// *entity_2_name = Name("Brigitte");
+    ///
+    /// assert_eq!(*name_map.get(entity_1).unwrap(), Name("Alice"));
+    /// assert_eq!(*name_map.get(entity_2).unwrap(), Name("Brigitte"));
+    /// ```
     pub fn get_multiple_mut(
         &mut self,
         entities: HashSet<Entity>,
