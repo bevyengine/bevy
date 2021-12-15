@@ -233,6 +233,10 @@ use thiserror::Error;
 /// If you have an [`Entity`] ID, you can use the [`get`](Self::get) or
 /// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
+/// To access the data of exactly two specific entities at once, use [`get_pair`](Self::get_pair),
+/// or ['get_pair_mut'](Self::get_pair_mut).
+/// This is a surprisingly common pattern, and the API provided is both faster and more convenient than ['get_multiple_mut'](Self::get_multiple_mut).
+///
 /// If you require access to the data of multiple entities at once,
 /// you can use the ['get_multiple'](Self::get_multiple) or ['get_multiple_mut'](Self::get_multiple_mut) methods.
 ///
@@ -643,6 +647,81 @@ where
         }
     }
 
+    /// Returns the read-only query result for the given pair of [`Entity`]s.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// If you need to get the data from more than two specific entities at once,
+    /// use ['get_multiple'](Self::get_multiple)
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy::ecs::prelude::*;
+    /// #[derive(Component, PartialEq)]
+    /// struct Name(String);
+    ///
+    /// let world = World::new();
+    /// let entity_1 = world.spawn().insert(Name("Ferris")).id();
+    /// let entity_2 = world.spawn().insert(Name("Cart")).id();
+    ///
+    /// let name_query = world.query::<Name>();
+    /// let (entity_1_name, entity_2_name) = name_query.get_pair(entity_1, entity_2);
+    /// asserteq!(entity_1_name, Name("Ferris"));
+    /// asserteq!(entity_2_name, Name("Cart"));
+    #[inline]
+    pub fn get_pair(
+        &'s self,
+        entity_0: Entity,
+        entity_1: Entity,
+    ) -> (
+        Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>,
+        Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>,
+    ) {
+        (self.get(entity_0), self.get(entity_1))
+    }
+
+    /// Returns the query result for the given pair of [`Entity`]s.
+    ///
+    /// These entities must be unique, and this method will panic if they are not.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// If you need to get the data from more than two specific entities at once,
+    /// use ['get_multiple_mut'](Self::get_multiple)
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy::ecs::prelude::*;
+    /// #[derive(Component, PartialEq)]
+    /// struct Name(String);
+    ///
+    /// let world = World::new();
+    /// let entity_1 = world.spawn().insert(Name("Alice")).id();
+    /// let entity_2 = world.spawn().insert(Name("Bob")).id();
+    ///
+    /// let name_query = world.query::<Name>();
+    /// let (mut entity_1_name, mut entity_2_name) = name_query.get_pair_mut(entity_1, entity_2);
+    ///
+    /// *entity_1_name = Name("Alan");
+    /// *entity_2_name = Name("Brigitte");
+    ///
+    /// asserteq!(entity_1_name, Name("Alan"));
+    /// asserteq!(entity_2_name, Name("Brigitte"));
+    #[inline]
+    pub fn get_pair_mut(
+        &'s self,
+        entity_0: Entity,
+        entity_1: Entity,
+    ) -> (
+        Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>,
+        Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>,
+    ) {
+        assert!(entity_0 != entity_1);
+        // SAFE: the two entities are distinct
+        unsafe { (self.get_unchecked(entity_0), self.get_unchecked(entity_1)) }
+    }
+
     /// Returns the read-only query results for the iterator of [`Entity`]s provided.
     ///
     /// These values follow the order of your input iterator (if any).
@@ -651,6 +730,9 @@ where
     ///
     /// If you need to verify the identity of each item returned,
     /// add [`Entity`] to your [`Query`].
+    ///
+    /// If you need to get the data from exactly two specific entities at once,
+    /// use ['get_pair'](Self::get_pair).
     ///
     /// # Example
     /// ```rust
@@ -687,6 +769,9 @@ where
     ///
     /// If you absolutely cannot afford the overhead of verifying uniqueness in this way,
     /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
+    ///
+    /// If you need to get the data from exactly two specific entities at once,
+    /// use ['get_pair_mut'](Self::get_pair_mut).
     ///
     /// # Example
     /// ```rust
