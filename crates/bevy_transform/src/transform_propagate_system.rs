@@ -67,7 +67,7 @@ fn propagate_recursive(
         for child in children.0.iter() {
             propagate_recursive(
                 &global_matrix,
-                &dirty_parent_query,
+                dirty_parent_query,
                 changed_transform_query,
                 transform_query,
                 children_query,
