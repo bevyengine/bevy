@@ -53,67 +53,25 @@ impl PerspectiveCameraBundle {
             global_transform: Default::default(),
         }
     }
+
+    pub fn set_perspective_projection(&mut self, perspective_projection: PerspectiveProjection) {
+        let view_projection = perspective_projection.get_projection_matrix();
+        let frustum = Frustum::from_view_projection(
+            &view_projection,
+            &Vec3::ZERO,
+            &Vec3::Z,
+            perspective_projection.far(),
+        );
+        self.camera.near = perspective_projection.near;
+        self.camera.far = perspective_projection.far;
+        self.perspective_projection = perspective_projection;
+        self.frustum = frustum;
+    }
 }
 
 impl Default for PerspectiveCameraBundle {
     fn default() -> Self {
         PerspectiveCameraBundle::with_name(CameraPlugin::CAMERA_3D)
-    }
-}
-
-pub struct PerspectiveCameraBundleBuilder {
-    name: Option<String>,
-    perspective_projection: PerspectiveProjection,
-    transform: Transform,
-}
-
-impl PerspectiveCameraBundleBuilder {
-    pub fn name(mut self, name: &str) -> Self {
-        self.name = Some(name.to_string());
-        self
-    }
-
-    pub fn perspective_projection(mut self, perspective_projection: PerspectiveProjection) -> Self {
-        self.perspective_projection = perspective_projection;
-        self
-    }
-
-    pub fn transform(mut self, transform: Transform) -> Self {
-        self.transform = transform;
-        self
-    }
-
-    pub fn build(self) -> PerspectiveCameraBundle {
-        let view_projection = self.perspective_projection.get_projection_matrix();
-        let frustum = Frustum::from_view_projection(
-            &view_projection,
-            &Vec3::ZERO,
-            &Vec3::Z,
-            self.perspective_projection.far(),
-        );
-        PerspectiveCameraBundle {
-            camera: Camera {
-                name: self.name,
-                near: self.perspective_projection.near,
-                far: self.perspective_projection.far,
-                ..Default::default()
-            },
-            perspective_projection: self.perspective_projection,
-            visible_entities: VisibleEntities::default(),
-            frustum,
-            transform: self.transform,
-            global_transform: Default::default(),
-        }
-    }
-}
-
-impl Default for PerspectiveCameraBundleBuilder {
-    fn default() -> Self {
-        Self {
-            name: Some(CameraPlugin::CAMERA_3D.to_string()),
-            perspective_projection: Default::default(),
-            transform: Default::default(),
-        }
     }
 }
 
