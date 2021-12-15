@@ -8,7 +8,8 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use std::{any::TypeId, collections::BTreeSet, fmt::Debug};
+use bevy_utils::{AHashExt, HashSet};
+use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
@@ -725,7 +726,7 @@ where
 
     /// Returns the query result for the given pair of [`Entity`]s.
     ///
-    /// In case of a nonunique entities, a nonexisting entity or mismatched component,
+    /// In case of nonunique entities, a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to get the data from more than two specific entities at once,
@@ -812,9 +813,8 @@ where
 
     /// Returns the query results for the ['BTreeSet'](std::collections::BTreeSet) of [`Entity`]s provided.
     ///
-    /// BTreeSets are used as both ordered and unique, and an ordered stream of component values will be produced,
-    /// in the same order as was provided in the BTreeSet.
-    /// In case of a nonexisting entity or mismatched component,
+    /// These values follow the order of your input iterator (if any).
+    /// In case of nonunique entities, a nonexisting entity or a mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to verify the identity of each item returned,
@@ -829,7 +829,6 @@ where
     /// # Example
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// use std::collections::BTreeSet;
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(u64);
     ///
@@ -840,9 +839,9 @@ where
     ///
     /// let query_state = world.query::<&mut A>();
     /// let a_query = Query::from_state(&mut world, &query_state);
-    /// let a_iterator = a_query.get_multiple_mut(BTreeSet::from_iter([entity_1, entity_3]));
-    /// let mut a_1 = a_iterator.next().unwrap();
-    /// let mut a_3 = a_iterator.next().unwrap();
+    /// let a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).unwrap();
+    /// let mut a_1 = a_iterator.next();
+    /// let mut a_3 = a_iterator.next();
     ///
     /// *a_1 = A(11);
     /// *a_3 = A(33);
@@ -854,15 +853,33 @@ where
     #[inline]
     pub fn get_multiple_mut(
         &mut self,
-        entities: BTreeSet<Entity>,
-    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
-        // SAFE: the entities supplied are guaranteed to be unique,
-        // as they are passed in as a BTreeSet, which enforces uniqueness
-        unsafe {
-            entities
-                .into_iter()
-                .map(|entity| self.get_unchecked(entity))
+        entities: impl IntoIterator<Item = Entity>,
+    ) -> Result<impl Iterator<Item = <Q::Fetch as Fetch>::Item>, QueryEntityError> {
+        let entities_iter = entities.into_iter();
+
+        // Preallocating the hash-set used to check uniqueness based on the expected maximum amount of space
+        let (lower_bound, maybe_upper_bound) = entities_iter.size_hint();
+        let best_bound = if let Some(upper_bound) = maybe_upper_bound {
+            upper_bound
+        } else {
+            lower_bound
+        };
+
+        let mut entities_seen = HashSet::with_capacity(best_bound * std::mem::size_of::<Entity>());
+        // PERF: we could estimate the capacity and preallocate
+        // based on the size of the data in the query and the number of items in the iter
+        let mut data = Vec::new();
+        for entity in entities_iter {
+            if entities_seen.contains(&entity) {
+                return Err(QueryEntityError::AliasedMutability);
+            } else {
+                entities_seen.insert(entity);
+                unsafe {
+                    data.push(self.get_unchecked(entity)?);
+                }
+            }
         }
+        Ok(data.into_iter())
     }
 
     /// Returns the query result for the given [`Entity`].
