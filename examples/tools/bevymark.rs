@@ -154,8 +154,8 @@ fn spawn_birds(
     texture: Handle<Image>,
 ) {
     let window = windows.get_primary().unwrap();
-    let bird_x = (window.physical_width() as f32 / -2.) + HALF_BIRD_SIZE;
-    let bird_y = (window.physical_height() as f32 / 2.) - HALF_BIRD_SIZE;
+    let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
+    let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
@@ -193,8 +193,8 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
 
 fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.get_primary().unwrap();
-    let half_width = window.physical_width() as f32 * 0.5;
-    let half_height = window.physical_height() as f32 * 0.5;
+    let half_width = window.width() as f32 * 0.5;
+    let half_height = window.height() as f32 * 0.5;
 
     for (mut bird, transform) in bird_query.iter_mut() {
         let x_vel = bird.velocity.x;
