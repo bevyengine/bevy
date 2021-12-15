@@ -9,7 +9,10 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
+use prelude::{
+    clean_dirty_parents, parent_update_system, Children, GlobalTransform, Parent, PreviousParent,
+    Transform,
+};
 
 #[derive(Default)]
 pub struct TransformPlugin;
@@ -47,6 +50,7 @@ impl Plugin for TransformPlugin {
                 transform_propagate_system::transform_propagate_system
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
-            );
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, clean_dirty_parents);
     }
 }

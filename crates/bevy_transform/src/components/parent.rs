@@ -59,3 +59,6 @@ impl FromWorld for PreviousParent {
         PreviousParent(Entity::new(u32::MAX))
     }
 }
+
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+pub struct DirtyParent;

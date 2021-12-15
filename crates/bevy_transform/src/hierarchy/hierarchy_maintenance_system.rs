@@ -2,7 +2,7 @@ use crate::components::*;
 use bevy_ecs::{
     entity::Entity,
     prelude::Changed,
-    query::Without,
+    query::{With, Without},
     system::{Commands, Query},
 };
 use bevy_utils::HashMap;
@@ -67,9 +67,23 @@ pub fn parent_update_system(
     // collect multiple new children that point to the same parent into the same
     // SmallVec, and to prevent redundant add+remove operations.
     children_additions.iter().for_each(|(e, v)| {
-        commands.entity(*e).insert(Children::with(v));
+        // Mark the entity with `Dirty` so that systems which run
+        // in the same stage have a way to `Query` for a missed update
+        commands
+            .entity(*e)
+            .insert_bundle((Children::with(v), DirtyParent));
     });
 }
+
+pub fn clean_dirty_parents(
+    mut commands: Commands,
+    dirty_parent_query: Query<Entity, With<DirtyParent>>,
+) {
+    for entity in dirty_parent_query.iter() {
+        commands.entity(entity).remove::<DirtyParent>();
+    }
+}
+
 #[cfg(test)]
 mod test {
     use bevy_ecs::{
@@ -77,9 +91,71 @@ mod test {
         system::CommandQueue,
         world::World,
     };
+    use bevy_math::vec3;
 
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
+
+    #[test]
+    fn correct_transforms_when_no_children() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(clean_dirty_parents);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+
+        let translation = vec3(1.0, 0.0, 0.0);
+
+        let parent = commands
+            .spawn()
+            .insert(Transform::from_translation(translation))
+            .insert(GlobalTransform::default())
+            .id();
+
+        let child = commands
+            .spawn()
+            .insert(Transform::default())
+            .insert(GlobalTransform::default())
+            .insert(Parent(parent))
+            .id();
+
+        let children = vec![child];
+
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        // check the `Children` structure is spawned
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .0
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            children,
+        );
+        assert!(world.get::<DirtyParent>(parent).is_some());
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<GlobalTransform>(child).unwrap(),
+            &GlobalTransform {
+                translation,
+                ..Default::default()
+            },
+        );
+
+        assert!(world.get::<DirtyParent>(parent).is_none());
+    }
 
     #[test]
     fn correct_children() {
