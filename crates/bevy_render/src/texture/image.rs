@@ -241,7 +241,7 @@ pub trait Volume {
 }
 
 impl Volume for Extent3d {
-    /// Calculates the volume of the [`Extent3D`].
+    /// Calculates the volume of the [`Extent3d`].
     fn volume(&self) -> usize {
         (self.width * self.height * self.depth_or_array_layers) as usize
     }

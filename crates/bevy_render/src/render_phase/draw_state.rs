@@ -5,7 +5,7 @@ use bevy_utils::tracing::debug;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
-/// Tracks the current [`TrackedRenderPipeline`] state to ensure draw calls are valid.
+/// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
 pub struct DrawState {
     pipeline: Option<RenderPipelineId>,

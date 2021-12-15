@@ -552,8 +552,8 @@ pub struct WindowDescriptor {
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
     /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: https://github.com/gfx-rs/wgpu/issues/687
-    /// Windows 11 is related to https://github.com/rust-windowing/winit/issues/2082
+    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
+    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
