@@ -341,7 +341,10 @@ pub fn add_clusters(
     cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
     for (entity, camera) in cameras.iter() {
-        let window = windows.get(camera.window).unwrap();
+        let window = match windows.get(camera.window) {
+            Some(window) => window,
+            None => continue,
+        };
         let clusters = Clusters::from_screen_size_and_z_slices(
             UVec2::new(window.physical_width(), window.physical_height()),
             Z_SLICES,

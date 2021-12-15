@@ -228,6 +228,10 @@ path = "examples/app/return_after_run.rs"
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
+[[example]]
+name = "without_winit"
+path = "examples/app/without_winit.rs"
+
 # Assets
 [[example]]
 name = "asset_loading"
