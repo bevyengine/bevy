@@ -33,8 +33,6 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-use crate::clear_pass::ClearPassNode;
-
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
