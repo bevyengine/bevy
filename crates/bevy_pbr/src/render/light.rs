@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -540,6 +540,22 @@ pub enum LightEntity {
         face_index: usize,
     },
 }
+pub fn calculate_cluster_factors(
+    near: f32,
+    far: f32,
+    z_slices: f32,
+    is_orthographic: bool,
+) -> Vec2 {
+    if is_orthographic {
+        Vec2::new(-near, z_slices / (-far - -near))
+    } else {
+        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        Vec2::new(
+            z_slices_of_ln_zfar_over_znear,
+            near.ln() * z_slices_of_ln_zfar_over_znear,
+        )
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
@@ -644,8 +660,14 @@ pub fn prepare_lights(
         );
         let mut view_lights = Vec::new();
 
-        let z_times_ln_far_over_near =
-            clusters.axis_slices.z as f32 / (extracted_view.far / extracted_view.near).ln();
+        let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
+        let cluster_factors_zw = calculate_cluster_factors(
+            extracted_view.near,
+            extracted_view.far,
+            clusters.axis_slices.z as f32,
+            is_orthographic,
+        );
+
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
@@ -653,8 +675,8 @@ pub fn prepare_lights(
             cluster_factors: Vec4::new(
                 clusters.axis_slices.x as f32 / extracted_view.width as f32,
                 clusters.axis_slices.y as f32 / extracted_view.height as f32,
-                z_times_ln_far_over_near,
-                extracted_view.near.ln() * z_times_ln_far_over_near,
+                cluster_factors_zw.x,
+                cluster_factors_zw.y,
             ),
             cluster_dimensions: clusters.axis_slices.extend(0),
             n_directional_lights: directional_lights.iter().len() as u32,
@@ -855,15 +877,16 @@ const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit say 128 point lights in one uniform
-// buffer, which means the count can be at most 128 so it
-// needs 7 bits, use 8 for convenience.
+// that means we can fit say 256 point lights in one uniform
+// buffer, which means the count can be at most 256 so it
+// needs 8 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
-// 16384 values. lod2(16384) = 21 bits.
+// 16384 values. log2(16384) = 14 bits.
 // This means we can pack the offset into the upper 24 bits of a u32
 // and the count into the lower 8 bits.
-// FIXME: Probably there are endianness concerns here????!!!!!
+// NOTE: This assumes CPU and GPU endianness are the same which is true
+// for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
         | (count as u32 & CLUSTER_COUNT_MASK)

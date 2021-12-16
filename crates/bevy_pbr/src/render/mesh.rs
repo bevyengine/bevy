@@ -245,7 +245,7 @@ impl FromWorld for MeshPipeline {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         // NOTE: Static size for uniform buffers. GpuPointLight has a padded
-                        // size of 128 bytes, so 16384 / 128 = 128 point lights max
+                        // size of 64 bytes, so 16384 / 64 = 256 point lights max
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
@@ -257,8 +257,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        // NOTE: With 128 point lights max, indices need 7 bits. Use u8 for
-                        // convenience.
+                        // NOTE: With 256 point lights max, indices need 8 bits so use u8
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
@@ -270,10 +269,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        // NOTE: The offset needs to address 16384 indices, which needs 21 bits.
-                        // The count can be at most all 128 lights so 7 bits.
+                        // NOTE: The offset needs to address 16384 indices, which needs 14 bits.
+                        // The count can be at most all 256 lights so 8 bits.
                         // Pack the offset into the upper 24 bits and the count into the
-                        // lower 8 bits for convenience.
+                        // lower 8 bits.
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,

@@ -122,6 +122,7 @@ Example | File | Description
 `plugin_group` | [`app/plugin_group.rs`](./app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 `return_after_run` | [`app/return_after_run.rs`](./app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 `thread_pool_resources` | [`app/thread_pool_resources.rs`](./app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+`without_winit` | [`app/without_winit.rs`](./app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ## Assets
 

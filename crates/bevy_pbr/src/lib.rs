@@ -35,6 +35,7 @@ use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    prelude::Color,
     render_component::ExtractComponentPlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
@@ -120,6 +121,18 @@ impl Plugin for PbrPlugin {
                     // because that resets entity ComputedVisibility for the first view
                     // which would override any results from this otherwise
                     .after(VisibilitySystems::CheckVisibility),
+            );
+
+        app.world
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .unwrap()
+            .set_untracked(
+                DEFAULT_STANDARD_MATERIAL_HANDLE,
+                StandardMaterial {
+                    base_color: Color::rgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
             );
 
         let render_app = app.sub_app(RenderApp);

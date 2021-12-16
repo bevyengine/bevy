@@ -47,10 +47,11 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
+            match self.query.get_manual(world, view_entity) {
+                Ok(query) => query,
+                Err(_) => return Ok(()), // No window
+            };
 
         {
             // Run the opaque pass, sorted front-to-back
