@@ -12,7 +12,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 50.0)), 
+            custom_size: Some(Vec2::new(50.0, 50.0)),
             ..Default::default()
         },
     });
