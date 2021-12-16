@@ -8,7 +8,7 @@ jobs:
   conflicts:
     runs-on: ubuntu-latest
     steps:
-      - uses: mschilde/auto-label-merge-conflicts@5981f8933e92b78098af86b9e33fe0871cc7a3be
+      - uses: mschilde/auto-label-merge-conflicts@8c6faa8a252e35ba5e15703b3d747bf726cdb95c
         with:
           CONFLICT_LABEL_NAME: "S-Conflicts"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
