@@ -154,7 +154,14 @@ impl ButtonSettings {
     }
 }
 
-/// Stores settings for axis.
+/// Defines the sensitivity range and threshold for an axis.
+///
+/// Values that are lower `negative_high` will be rounded to -1.0.
+/// Values that are higher than `positive_high` will be rounded to 1.0.
+/// Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
+/// Otherwise, values will not be rounded.
+///
+/// `threshold` defines the minimum difference between old and new values to apply the changes.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
