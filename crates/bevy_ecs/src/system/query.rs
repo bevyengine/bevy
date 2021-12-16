@@ -873,7 +873,7 @@ where
             lower_bound
         };
 
-        let entities_seen = HashSet::with_capacity(best_bound * std::mem::size_of::<Entity>());
+        let entities_seen = HashSet::with_capacity(best_bound);
 
         // This is an iterator adaptor struct
         // used to capture the value of `entities_seen` into the iterator returned
