@@ -873,24 +873,15 @@ where
             lower_bound
         };
 
-        let mut entities_seen = HashSet::with_capacity(best_bound * std::mem::size_of::<Entity>());
+        let entities_seen = HashSet::with_capacity(best_bound * std::mem::size_of::<Entity>());
 
-        // We must collect the results before converting back into an iterator
-        // in order to ensure that we don't have any dangling references to entities_seen that need to be evaluated later
-        let results: Vec<Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> = entities_iter
-            .map(|entity| {
-                if entities_seen.contains(&entity) {
-                    Err(QueryEntityError::AliasedMutability)
-                } else {
-                    entities_seen.insert(entity);
-
-                    // SAFE: entities are checked for uniqueness using a HashSet
-                    unsafe { self.get_unchecked(entity) }
-                }
-            })
-            .collect();
-
-        results.into_iter()
+        // This is an iterator adaptor struct
+        // used to capture the value of `entities_seen` into the iterator returned
+        GetMultipleMut {
+            seen: entities_seen,
+            query: self,
+            iter: entities_iter,
+        }
     }
 
     /// Returns the query result for the given [`Entity`].
@@ -1249,6 +1240,37 @@ where
                 )
                 .is_ok()
         }
+    }
+}
+
+/// Iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
+/// See https://stackoverflow.com/a/49813195 for more exposition
+struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, I>
+where
+    F::Fetch: FilterFetch,
+{
+    seen: HashSet<Entity>,
+    query: &'q Query<'w, 's, Q, F>,
+    iter: I,
+}
+
+impl<'w, 's, 'q: 's, Q: WorldQuery, F: WorldQuery, I: Iterator<Item = Entity>> Iterator
+    for GetMultipleMut<'w, 's, 'q, Q, F, I>
+where
+    F::Fetch: FilterFetch,
+{
+    type Item = Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some({
+            let entity = self.iter.next()?;
+            if self.seen.insert(entity) {
+                // SAFE: entities are checked for uniqueness using a HashSet
+                unsafe { Query::<'w, 's, Q, F>::get_unchecked(self.query, entity) }
+            } else {
+                Err(QueryEntityError::AliasedMutability)
+            }
+        })
     }
 }
 
