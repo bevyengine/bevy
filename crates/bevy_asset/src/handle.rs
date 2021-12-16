@@ -58,12 +58,28 @@ impl HandleId {
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
 /// collection.
+///
+/// ## Accessing the Asset
+///
+/// A handle is _not_ the asset itself, but should be seen as a pointer to the asset. Modifying a
+/// handle's `id` only modifies which asset is being pointed to. To get the actual asset, try using
+/// [`Assets::get`](crate::Assets::get) or [`Assets::get_mut`](crate::Assets::get_mut).
+///
+/// ## Strong and Weak
+///
+/// A handle can be either "Weak" or "Strong". Simply put: Strong handles keep the asset loaded,
+/// while Weak handles allow it to unload. This is due to a type of _reference counting_. When
+/// the number of Strong handles that exist for any given asset reach zero, the asset is dropped
+/// and becomes unloaded. In some cases, you might want a reference to an asset but don't want to
+/// take the responsibility of unloading that comes with a Strong handle.
+///
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct Handle<T>
 where
     T: Asset,
 {
+    /// The ID of the asset as contained within its respective [Assets](crate::Assets) collection
     pub id: HandleId,
     #[reflect(ignore)]
     handle_type: HandleType,
