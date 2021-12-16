@@ -269,6 +269,8 @@ pub fn queue_meshes(
                         if mesh.has_tangents {
                             pbr_key.mesh_key |= MeshPipelineKey::VERTEX_TANGENTS;
                         }
+                        pbr_key.mesh_key |=
+                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     }
 
                     if let AlphaMode::Blend = material.alpha_mode {
