@@ -10,8 +10,13 @@ fn main() {
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(Color::rgb(0.25, 0.25, 0.75).into()),
-        sprite: Sprite::new(Vec2::new(50., 50.)),
-        ..Default::default()
+        transform: Transform {
+            scale: Vec3::new(50.0, 50.0, 0.0),
+            ..Default::default()
+        },
+        sprite: Sprite {
+            color: Color::rgb(0.25, 0.25, 0.75),
+            ..Default::default()
+        },
     });
 }
