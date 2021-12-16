@@ -7,7 +7,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn setup(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
@@ -15,5 +15,6 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             custom_size: Some(Vec2::new(50.0, 50.0)),
             ..Default::default()
         },
+        ..Default::default()
     });
 }
