@@ -895,7 +895,7 @@ where
     /// this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked(
-        &'s self,
+        &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
@@ -1254,7 +1254,7 @@ where
     iter: I,
 }
 
-impl<'w, 's, 'q: 's, Q: WorldQuery, F: WorldQuery, I: Iterator<Item = Entity>> Iterator
+impl<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, I: Iterator<Item = Entity>> Iterator
     for GetMultipleMut<'w, 's, 'q, Q, F, I>
 where
     F::Fetch: FilterFetch,
