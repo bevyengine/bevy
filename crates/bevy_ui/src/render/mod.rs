@@ -26,7 +26,7 @@ use bevy_render::{
     view::ViewUniforms,
     RenderApp, RenderStage, RenderWorld,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -34,7 +34,7 @@ use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{Node, UiColor, UiImage};
+use crate::{CalculatedClip, Node, UiColor, UiImage};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -120,9 +120,10 @@ pub fn build_ui_render(app: &mut App) {
 pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
-    pub rect: bevy_sprite::Rect,
+    pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
+    pub clip: Option<Rect>,
 }
 
 #[derive(Default)]
@@ -133,11 +134,17 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut render_world: ResMut<RenderWorld>,
     images: Res<Assets<Image>>,
-    uinode_query: Query<(&Node, &GlobalTransform, &UiColor, &UiImage)>,
+    uinode_query: Query<(
+        &Node,
+        &GlobalTransform,
+        &UiColor,
+        &UiImage,
+        Option<&CalculatedClip>,
+    )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image) in uinode_query.iter() {
+    for (uinode, transform, color, image, clip) in uinode_query.iter() {
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(image.clone_weak()) {
@@ -152,6 +159,7 @@ pub fn extract_uinodes(
             },
             image,
             atlas_size: None,
+            clip: clip.map(|clip| clip.clip),
         });
     }
 }
@@ -161,7 +169,13 @@ pub fn extract_text_uinodes(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    uinode_query: Query<(Entity, &Node, &GlobalTransform, &Text)>,
+    uinode_query: Query<(
+        Entity,
+        &Node,
+        &GlobalTransform,
+        &Text,
+        Option<&CalculatedClip>,
+    )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
 
@@ -171,7 +185,7 @@ pub fn extract_text_uinodes(
         1.
     };
 
-    for (entity, uinode, transform, text) in uinode_query.iter() {
+    for (entity, uinode, transform, text, clip) in uinode_query.iter() {
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
         if uinode.size == Vec2::ZERO {
             continue;
@@ -203,6 +217,7 @@ pub fn extract_text_uinodes(
                     rect,
                     image: texture,
                     atlas_size,
+                    clip: clip.map(|clip| clip.clip),
                 });
             }
         }
@@ -231,14 +246,14 @@ impl Default for UiMeta {
     }
 }
 
-const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
-    const_vec3!([-0.5, -0.5, 0.0]),
-    const_vec3!([0.5, 0.5, 0.0]),
-    const_vec3!([-0.5, 0.5, 0.0]),
+const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     const_vec3!([-0.5, -0.5, 0.0]),
     const_vec3!([0.5, -0.5, 0.0]),
     const_vec3!([0.5, 0.5, 0.0]),
+    const_vec3!([-0.5, 0.5, 0.0]),
 ];
+
+const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct UiBatch {
@@ -279,47 +294,90 @@ pub fn prepare_uinodes(
         }
 
         let uinode_rect = extracted_uinode.rect;
+        let rect_size = uinode_rect.size().extend(1.0);
 
         // Specify the corners of the node
-        let mut bottom_left = Vec2::new(uinode_rect.min.x, uinode_rect.max.y);
-        let mut top_left = uinode_rect.min;
-        let mut top_right = Vec2::new(uinode_rect.max.x, uinode_rect.min.y);
-        let mut bottom_right = uinode_rect.max;
+        let positions = QUAD_VERTEX_POSITIONS
+            .map(|pos| (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz());
 
-        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        bottom_left /= atlas_extent;
-        bottom_right /= atlas_extent;
-        top_left /= atlas_extent;
-        top_right /= atlas_extent;
+        // Calculate the effect of clipping
+        // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+        let positions_diff = if let Some(clip) = extracted_uinode.clip {
+            [
+                Vec2::new(
+                    f32::max(clip.min.x - positions[0].x, 0.),
+                    f32::max(clip.min.y - positions[0].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[1].x, 0.),
+                    f32::max(clip.min.y - positions[1].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[2].x, 0.),
+                    f32::min(clip.max.y - positions[2].y, 0.),
+                ),
+                Vec2::new(
+                    f32::max(clip.min.x - positions[3].x, 0.),
+                    f32::min(clip.max.y - positions[3].y, 0.),
+                ),
+            ]
+        } else {
+            [Vec2::ZERO; 4]
+        };
 
-        let uvs: [[f32; 2]; 6] = [
-            bottom_left.into(),
-            top_right.into(),
-            top_left.into(),
-            bottom_left.into(),
-            bottom_right.into(),
-            top_right.into(),
+        let positions_clipped = [
+            positions[0] + positions_diff[0].extend(0.),
+            positions[1] + positions_diff[1].extend(0.),
+            positions[2] + positions_diff[2].extend(0.),
+            positions[3] + positions_diff[3].extend(0.),
         ];
 
-        let rect_size = extracted_uinode.rect.size().extend(1.0);
+        // Cull nodes that are completely clipped
+        if positions_diff[0].x - positions_diff[1].x >= rect_size.x
+            || positions_diff[1].y - positions_diff[2].y >= rect_size.y
+        {
+            continue;
+        }
+
+        // Clip UVs (Note: y is reversed in UV space)
+        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+        let uvs = [
+            Vec2::new(
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.max.y - positions_diff[0].y,
+            ),
+            Vec2::new(
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.max.y - positions_diff[1].y,
+            ),
+            Vec2::new(
+                uinode_rect.max.x + positions_diff[2].x,
+                uinode_rect.min.y - positions_diff[2].y,
+            ),
+            Vec2::new(
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.min.y - positions_diff[3].y,
+            ),
+        ]
+        .map(|pos| pos / atlas_extent);
+
         let color = extracted_uinode.color.as_linear_rgba_f32();
         // encode color as a single u32 to save space
         let color = (color[0] * 255.0) as u32
             | ((color[1] * 255.0) as u32) << 8
             | ((color[2] * 255.0) as u32) << 16
             | ((color[3] * 255.0) as u32) << 24;
-        for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
-            let mut final_position = *vertex_position * rect_size;
-            final_position = (extracted_uinode.transform * final_position.extend(1.0)).xyz();
+
+        for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
-                position: final_position.into(),
-                uv: uvs[index],
+                position: positions_clipped[i].into(),
+                uv: uvs[i].into(),
                 color,
             });
         }
 
         last_z = extracted_uinode.transform.w_axis[2];
-        end += QUAD_VERTEX_POSITIONS.len() as u32;
+        end += QUAD_INDICES.len() as u32;
     }
 
     // if start != end, there is one last batch to process
