@@ -1,11 +1,41 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::info, HashMap, HashSet};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamepad(pub usize);
+
+#[derive(Default)]
+/// Container of unique connected [Gamepad]s
+///
+/// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
+pub struct Gamepads {
+    gamepads: HashSet<Gamepad>,
+}
+
+impl Gamepads {
+    /// Returns true if the [Gamepads] contains a [Gamepad].
+    pub fn contains(&self, gamepad: &Gamepad) -> bool {
+        self.gamepads.contains(gamepad)
+    }
+
+    /// Iterates over registered [Gamepad]s
+    pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
+        self.gamepads.iter()
+    }
+
+    /// Registers [Gamepad].
+    fn register(&mut self, gamepad: Gamepad) {
+        self.gamepads.insert(gamepad);
+    }
+
+    /// Deregisters [Gamepad.
+    fn deregister(&mut self, gamepad: &Gamepad) {
+        self.gamepads.remove(gamepad);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -186,18 +216,43 @@ impl Default for ButtonAxisSettings {
 
 impl ButtonAxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+        let new_value = if new_value <= self.low {
+            0.0
+        } else if new_value >= self.high {
+            1.0
+        } else {
+            new_value
+        };
+
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
                 return None;
             }
         }
-        if new_value <= self.low {
-            return Some(0.0);
-        }
-        if new_value >= self.high {
-            return Some(1.0);
-        }
+
         Some(new_value)
+    }
+}
+
+/// Monitors gamepad connection and disconnection events, updating the [GamepadLobby] resource accordingly
+///
+/// By default, runs during `CoreStage::PreUpdate` when added via [InputPlugin].
+pub fn gamepad_connection_system(
+    mut gamepads: ResMut<Gamepads>,
+    mut gamepad_event: EventReader<GamepadEvent>,
+) {
+    for event in gamepad_event.iter() {
+        match &event {
+            GamepadEvent(gamepad, GamepadEventType::Connected) => {
+                gamepads.register(*gamepad);
+                info!("{:?} Connected", gamepad);
+            }
+            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
+                gamepads.deregister(gamepad);
+                info!("{:?} Disconnected", gamepad);
+            }
+            _ => (),
+        }
     }
 }
 
@@ -306,3 +361,64 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
     GamepadAxisType::DPadX,
     GamepadAxisType::DPadY,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::ButtonAxisSettings;
+
+    fn test_button_axis_settings_filter(
+        settings: ButtonAxisSettings,
+        new_value: f32,
+        old_value: Option<f32>,
+        expected: Option<f32>,
+    ) {
+        let actual = settings.filter(new_value, old_value);
+        assert_eq!(
+            expected, actual,
+            "Testing filtering for {:?} with new_value = {:?}, old_value = {:?}",
+            settings, new_value, old_value
+        );
+    }
+
+    #[test]
+    fn test_button_axis_settings_default_filter() {
+        let cases = [
+            (1.0, None, Some(1.0)),
+            (0.99, None, Some(1.0)),
+            (0.96, None, Some(1.0)),
+            (0.95, None, Some(1.0)),
+            (0.9499, None, Some(0.9499)),
+            (0.84, None, Some(0.84)),
+            (0.43, None, Some(0.43)),
+            (0.05001, None, Some(0.05001)),
+            (0.05, None, Some(0.0)),
+            (0.04, None, Some(0.0)),
+            (0.01, None, Some(0.0)),
+            (0.0, None, Some(0.0)),
+        ];
+
+        for (new_value, old_value, expected) in cases {
+            let settings = ButtonAxisSettings::default();
+            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+        }
+    }
+
+    #[test]
+    fn test_button_axis_settings_default_filter_with_old_value() {
+        let cases = [
+            (0.43, Some(0.44001), Some(0.43)),
+            (0.43, Some(0.44), None),
+            (0.43, Some(0.43), None),
+            (0.43, Some(0.41999), Some(0.43)),
+            (0.43, Some(0.17), Some(0.43)),
+            (0.43, Some(0.84), Some(0.43)),
+            (0.05, Some(0.055), Some(0.0)),
+            (0.95, Some(0.945), Some(1.0)),
+        ];
+
+        for (new_value, old_value, expected) in cases {
+            let settings = ButtonAxisSettings::default();
+            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+        }
+    }
+}

@@ -96,6 +96,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    #[inline]
     pub fn weak(id: HandleId) -> Self {
         Self {
             id,
@@ -129,6 +130,7 @@ impl<T: Asset> Handle<T> {
         self.handle_type = HandleType::Strong(sender);
     }
 
+    #[inline]
     pub fn clone_weak(&self) -> Self {
         Handle::weak(self.id)
     }
@@ -173,6 +175,18 @@ impl From<HandleUntyped> for HandleId {
 impl From<&str> for HandleId {
     fn from(value: &str) -> Self {
         AssetPathId::from(value).into()
+    }
+}
+
+impl From<&String> for HandleId {
+    fn from(value: &String) -> Self {
+        AssetPathId::from(value).into()
+    }
+}
+
+impl From<String> for HandleId {
+    fn from(value: String) -> Self {
+        AssetPathId::from(&value).into()
     }
 }
 

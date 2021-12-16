@@ -1,4 +1,5 @@
 use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupStage};
+pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
@@ -8,11 +9,13 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+
+bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -42,6 +45,12 @@ pub struct App {
     pub world: World,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
+    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+}
+
+struct SubApp {
+    app: App,
+    runner: Box<dyn Fn(&mut World, &mut App)>,
 }
 
 impl Default for App {
@@ -73,6 +82,7 @@ impl App {
             world: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
+            sub_apps: HashMap::default(),
         }
     }
 
@@ -85,6 +95,9 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_guard = bevy_frame_update_span.enter();
         self.schedule.run(&mut self.world);
+        for sub_app in self.sub_apps.values_mut() {
+            (sub_app.runner)(&mut self.world, &mut sub_app.app);
+        }
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -822,6 +835,39 @@ impl App {
             registry.write().register::<T>();
         }
         self
+    }
+
+    pub fn add_sub_app(
+        &mut self,
+        label: impl AppLabel,
+        app: App,
+        f: impl Fn(&mut World, &mut App) + 'static,
+    ) -> &mut Self {
+        self.sub_apps.insert(
+            Box::new(label),
+            SubApp {
+                app,
+                runner: Box::new(f),
+            },
+        );
+        self
+    }
+
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
+    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+        }
+    }
+
+    /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
+    /// an [Err] containing the given label.
+    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+        self.sub_apps
+            .get_mut((&label) as &dyn AppLabel)
+            .map(|sub_app| &mut sub_app.app)
+            .ok_or(label)
     }
 }
 
