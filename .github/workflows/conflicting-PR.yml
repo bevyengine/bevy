@@ -1,0 +1,14 @@
+name: PR-Conflict-Labeler
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mschilde/auto-label-merge-conflicts@5981f8933e92b78098af86b9e33fe0871cc7a3be
+        with:
+          CONFLICT_LABEL_NAME: "S-Conflicts"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
