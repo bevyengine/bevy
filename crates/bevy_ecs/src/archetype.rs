@@ -14,6 +14,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// The unique identifier of an [`Archetype`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeId(usize);
 
@@ -33,16 +34,22 @@ impl ArchetypeId {
     }
 }
 
+/// Records whether a component was modified by addition or mutation
 pub enum ComponentStatus {
     Added,
     Mutated,
 }
 
+/// Stores the information needed to add a bundle to the archetype graph.
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub bundle_status: Vec<ComponentStatus>,
 }
 
+/// The connections from one [`Archetype`] to its neighbours
+///
+/// Used to acccelerate add and remove operations.
+/// Edges, like archetypes, are never cleaned up.
 #[derive(Default)]
 pub struct Edges {
     pub add_bundle: SparseArray<BundleId, AddBundle>,
@@ -116,6 +123,9 @@ pub(crate) struct ArchetypeComponentInfo {
     pub(crate) archetype_component_id: ArchetypeComponentId,
 }
 
+/// A unique set of components stored within the [`World`](crate::world::World)
+///
+/// Archetypes are used internally to accelerate iteration over queries
 pub struct Archetype {
     id: ArchetypeId,
     entities: Vec<Entity>,
@@ -335,6 +345,9 @@ pub struct ArchetypeIdentity {
     sparse_set_components: Cow<'static, [ComponentId]>,
 }
 
+/// The unique identifier for a component within a particular archetype
+///
+/// These are unique across archetypes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
@@ -361,6 +374,7 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
+/// The collection of [`Archetype`] stored in the [`World`](crate::world::World)
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
