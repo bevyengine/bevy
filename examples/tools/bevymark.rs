@@ -235,6 +235,9 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
         if y_vel < 0. && y_pos - HALF_BIRD_SIZE < -half_height {
             bird.velocity.y = -y_vel;
         }
+        if y_pos + HALF_BIRD_SIZE > half_height && y_vel > 0.0 {
+            bird.velocity.y = 0.0;
+        }
     }
 }
 
