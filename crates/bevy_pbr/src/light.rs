@@ -220,7 +220,7 @@ impl Clusters {
         clusters
     }
 
-    fn from_screen_size_and_z_slices(screen_size: UVec2, z_slices: u32) -> Self {     
+    fn from_screen_size_and_z_slices(screen_size: UVec2, z_slices: u32) -> Self {
         let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
         let n_tiles_y =
             ((ViewClusterBindings::MAX_OFFSETS as u32 / z_slices) as f32 / aspect_ratio).sqrt();
