@@ -47,7 +47,7 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.2))
-                .with_system(scheduled_spawne),
+                .with_system(scheduled_spawner),
         )
         .run();
 }
@@ -57,7 +57,7 @@ struct BirdScheduled {
     per_wave: u128,
 }
 
-fn scheduled_spawne(
+fn scheduled_spawner(
     mut commands: Commands,
     windows: Res<Windows>,
     mut scheduled: ResMut<BirdScheduled>,
