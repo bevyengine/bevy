@@ -110,7 +110,7 @@ impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let shader = asset_server.load("shaders/custom_minimal.wgsl");
+        let shader = asset_server.load("shaders/custom_material_minimal.wgsl");
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
         CustomPipeline {

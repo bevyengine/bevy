@@ -156,7 +156,7 @@ impl FromWorld for CustomPipeline {
         let world = world.cell();
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         asset_server.watch_for_changes().unwrap();
-        let shader = asset_server.load("shaders/custom_instancing.wgsl");
+        let shader = asset_server.load("shaders/instancing.wgsl");
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 

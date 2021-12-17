@@ -1,36 +1,41 @@
 use bevy::{
-    core_pipeline::Transparent3d,
-    pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-        SetMeshViewBindGroup,
-    },
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    pbr::{MaterialPipeline, SpecializedMaterial},
     prelude::*,
+    reflect::TypeUuid,
     render::{
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-        render_resource::*,
-        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
-        RenderApp, RenderStage,
+        render_asset::{PrepareAssetError, RenderAsset},
+        render_resource::{
+            std140::{AsStd140, Std140},
+            *,
+        },
+        renderer::RenderDevice,
     },
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(CustomMaterialPlugin)
+        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
         .add_startup_system(setup)
         .run();
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+/// set up a simple 3D scene
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<CustomMaterial>>,
+) {
     // cube
-    commands.spawn().insert_bundle((
-        meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
-        GlobalTransform::default(),
-        CustomMaterial,
-        Visibility::default(),
-        ComputedVisibility::default(),
-    ));
+    commands.spawn().insert_bundle(MaterialMeshBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        material: materials.add(CustomMaterial {
+            color: Color::GREEN,
+        }),
+        ..Default::default()
+    });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -39,112 +44,87 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     });
 }
 
-#[derive(Component)]
-struct CustomMaterial;
+#[derive(Debug, Clone, TypeUuid)]
+#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+pub struct CustomMaterial {
+    color: Color,
+}
 
-pub struct CustomMaterialPlugin;
+#[derive(Clone)]
+pub struct GpuCustomMaterial {
+    _buffer: Buffer,
+    bind_group: BindGroup,
+}
 
-impl Plugin for CustomMaterialPlugin {
-    fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .add_render_command::<Transparent3d, DrawCustom>()
-            .init_resource::<CustomPipeline>()
-            .init_resource::<SpecializedPipelines<CustomPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_custom_material)
-            .add_system_to_stage(RenderStage::Queue, queue_custom);
+impl RenderAsset for CustomMaterial {
+    type ExtractedAsset = CustomMaterial;
+    type PreparedAsset = GpuCustomMaterial;
+    type Param = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        extracted_asset: Self::ExtractedAsset,
+        (render_device, material_pipeline): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
+        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            contents: color.as_std140().as_bytes(),
+            label: None,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: None,
+            layout: &material_pipeline.material_layout,
+        });
+
+        Ok(GpuCustomMaterial {
+            _buffer: buffer,
+            bind_group,
+        })
     }
 }
 
-// extract the `CustomMaterial` component into the render world
-fn extract_custom_material(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    mut query: Query<Entity, With<CustomMaterial>>,
-) {
-    let mut values = Vec::with_capacity(*previous_len);
-    for entity in query.iter_mut() {
-        values.push((entity, (CustomMaterial,)));
-    }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
-}
+impl SpecializedMaterial for CustomMaterial {
+    type Key = ();
 
-// add each entity with a mesh and a `CustomMaterial` to every view's `Transparent3d` render phase using the `CustomPipeline`
-fn queue_custom(
-    transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
-    custom_pipeline: Res<CustomPipeline>,
-    msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    material_meshes: Query<(Entity, &MeshUniform), (With<Handle<Mesh>>, With<CustomMaterial>)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
-) {
-    let draw_custom = transparent_3d_draw_functions
-        .read()
-        .get_id::<DrawCustom>()
-        .unwrap();
+    fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
 
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    let pipeline = pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key);
-
-    for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform) in material_meshes.iter() {
-            transparent_phase.add(Transparent3d {
-                entity,
-                pipeline,
-                draw_function: draw_custom,
-                distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
-        }
-    }
-}
-
-pub struct CustomPipeline {
-    shader_vert: Handle<Shader>,
-    shader_frag: Handle<Shader>,
-    mesh_pipeline: MeshPipeline,
-}
-
-impl FromWorld for CustomPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let shader_vert = asset_server.load("shaders/custom.vert");
-        let shader_frag = asset_server.load("shaders/custom.frag");
-
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
-
-        CustomPipeline {
-            shader_vert,
-            shader_frag,
-            mesh_pipeline: mesh_pipeline.clone(),
-        }
-    }
-}
-
-impl SpecializedPipeline for CustomPipeline {
-    type Key = MeshPipelineKey;
-
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key);
-        descriptor.vertex.shader = self.shader_vert.clone();
+    fn specialize(_: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
         descriptor.vertex.entry_point = "main".into();
-        let mut fragment = descriptor.fragment.as_mut().unwrap();
-        fragment.shader = self.shader_frag.clone();
-        fragment.entry_point = "main".into();
-        descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ]);
-        descriptor
+        descriptor.fragment.as_mut().unwrap().entry_point = "main".into();
+    }
+
+    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        Some(asset_server.load("shaders/custom_material.vert"))
+    }
+
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        Some(asset_server.load("shaders/custom_material.frag"))
+    }
+
+    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
+        &render_asset.bind_group
+    }
+
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: BufferSize::new(Vec4::std140_size_static() as u64),
+                },
+                count: None,
+            }],
+            label: None,
+        })
     }
 }
-
-type DrawCustom = (
-    SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    DrawMesh,
-);

@@ -6,11 +6,16 @@ layout(location = 2) in vec2 Vertex_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
+    mat4 InverseView;
     mat4 Projection;
     vec3 WorldPosition;
+    float near;
+    float far;
+    float width;
+    float height;
 };
 
-layout(set = 1, binding = 0) uniform Mesh {
+layout(set = 2, binding = 0) uniform Mesh {
     mat4 Model;
     mat4 InverseTransposeModel;
     uint flags;
