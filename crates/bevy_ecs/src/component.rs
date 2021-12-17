@@ -137,6 +137,9 @@ impl ComponentInfo {
     }
 }
 
+/// Unique identifier for a component (or resource) type.
+///
+/// Used to lookup storage information in ['Components'](crate::component::Components)
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -163,6 +166,9 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+/// Functional metadata for a component (or resource) type
+///
+/// Used for control flow in ECS internals to ensure the correct behavior is followed.
 #[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
@@ -232,6 +238,14 @@ impl ComponentDescriptor {
     }
 }
 
+/// The ['World'](crate::world::World)'s collection of component and resource types.
+///
+/// Can be accessed via ['World::components'](crate::world::World::components)
+///
+/// Stores metadata about component storage layout.
+/// ['ComponentId'](crate::component::ComponentId)'s can be produced from
+/// ['TypeId'](std::any::TypeId) using ['get_id'](Self::get_id).
+/// These can then be used to access the corresponding ['ComponentInfo'](crate::component::ComponentInfo).
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
