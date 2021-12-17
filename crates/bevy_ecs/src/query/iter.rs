@@ -153,6 +153,7 @@ where
     }
 }
 
+/// An iterator type for [Query::iter_combinations](crate::system::Query::iter_combinations)
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, QF, F: WorldQuery, const K: usize>
 where
     QF: Fetch<'w, 's, State = Q::State>,
