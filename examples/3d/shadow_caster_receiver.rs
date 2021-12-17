@@ -144,28 +144,28 @@ fn toggle_light(
 fn toggle_shadows(
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
-    mut queries: QuerySet<(
-        QueryState<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        QueryState<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        QueryState<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        QueryState<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+    mut queries: ParamSet<(
+        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
+        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
+        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
+        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
     if input.just_pressed(KeyCode::C) {
         println!("Toggling casters");
-        for entity in queries.q0().iter() {
+        for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
         }
-        for entity in queries.q2().iter() {
+        for entity in queries.p2().iter() {
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
     if input.just_pressed(KeyCode::R) {
         println!("Toggling receivers");
-        for entity in queries.q1().iter() {
+        for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();
         }
-        for entity in queries.q3().iter() {
+        for entity in queries.p3().iter() {
             commands.entity(entity).insert(NotShadowReceiver);
         }
     }

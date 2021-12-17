@@ -98,9 +98,9 @@ fn queue_wireframes(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedPipelines<WireframePipeline>>,
     msaa: Res<Msaa>,
-    mut material_meshes: QuerySet<(
-        QueryState<(Entity, &MeshUniform), With<Handle<Mesh>>>,
-        QueryState<(Entity, &MeshUniform), (With<Handle<Mesh>>, With<Wireframe>)>,
+    mut material_meshes: ParamSet<(
+        Query<(Entity, &MeshUniform), With<Handle<Mesh>>>,
+        Query<(Entity, &MeshUniform), (With<Handle<Mesh>>, With<Wireframe>)>,
     )>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -127,9 +127,9 @@ fn queue_wireframes(
         };
 
         if wireframe_config.global {
-            material_meshes.q0().iter().for_each(add_render_phase);
+            material_meshes.p0().iter().for_each(add_render_phase);
         } else {
-            material_meshes.q1().iter().for_each(add_render_phase);
+            material_meshes.p1().iter().for_each(add_render_phase);
         }
     }
 }
