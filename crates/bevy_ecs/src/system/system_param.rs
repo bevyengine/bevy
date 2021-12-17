@@ -226,7 +226,9 @@ impl<T> Resource for T where T: Send + Sync + 'static {}
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
+/// #[derive(Component)]
 /// struct A(usize);
+/// #[derive(Component)]
 /// struct B(usize);
 /// fn write_to_both(
 ///         mut param_set: ParamSet<(Query<&mut A>, Query<(&A, &mut B)>)> // These Queries are conflicting
