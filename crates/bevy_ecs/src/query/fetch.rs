@@ -41,14 +41,28 @@ use std::{
 ///
 /// [`Or`]: crate::query::Or
 pub trait WorldQuery {
+    /// The data requested by this query parameter, which must implement the [Fetch] trait
     type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
+    /// The type that can be used to cache internal state for the query parameter
     type State: FetchState;
+    /// The read-only version of the data requested by this query parameter, which must implement both [Fetch] and [ReadOnlyFetch]
     type ReadOnlyFetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>
         + ReadOnlyFetch;
 }
 
+/// The type of the items returned when a [Query](crate::system::Query) is iterated over.
+///
+/// The particular tuple of items returned is constructed based on the [Fetch] field of the [WorldQuery] type passed in.
 pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
 
+/// Describes the data that is accessed by a [WorldQuery] type.
+///
+/// See [SystemParamFetch](crate::system::system_param::SystemParamFetch) for the [SystemParam](crate::system::SystemParam) analogue.
+///
+/// By default, a [Fetch] implies read-write access.
+/// Structs which implement this trait may also want to implement one of the following extension traits:
+/// - [ReadOnlyFetch], for when the data access is entirely read-only.
+/// - [FilterFetch](crate::query::FilterFetch), for when only information about presence/absence is required.
 pub trait Fetch<'world, 'state>: Sized {
     type Item;
     type State: FetchState;
@@ -110,9 +124,9 @@ pub trait Fetch<'world, 'state>: Sized {
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item;
 }
 
-/// State used to construct a Fetch. This will be cached inside [`QueryState`](crate::query::QueryState),
-///  so it is best to move as much data / computation here as possible to reduce the cost of
-/// constructing Fetch.
+/// State used to construct a [Fetch]. This will be cached inside [`QueryState`](crate::query::QueryState),
+/// so it is best to move as much data / computation here as possible
+/// to reduce the cost of construction.
 ///
 /// # Safety
 ///
@@ -132,7 +146,7 @@ pub unsafe trait FetchState: Send + Sync + Sized {
     fn matches_table(&self, table: &Table) -> bool;
 }
 
-/// A fetch that is read only.
+/// A [Fetch] that only permits read access to data.
 ///
 /// # Safety
 ///
@@ -232,7 +246,7 @@ impl<T: Component> WorldQuery for &T {
     type ReadOnlyFetch = ReadFetch<T>;
 }
 
-/// The [`FetchState`] of `&T`.
+/// The [`FetchState`] of `&T`, when used as a [Component] in a [WorldQuery].
 pub struct ReadState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -278,7 +292,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
     }
 }
 
-/// The [`Fetch`] of `&T`.
+/// The [`Fetch`] of `&T`, when used as a [Component] in a [WorldQuery].
 pub struct ReadFetch<T> {
     table_components: NonNull<T>,
     entity_table_rows: *const usize,
@@ -387,7 +401,7 @@ impl<T: Component> WorldQuery for &mut T {
     type ReadOnlyFetch = ReadOnlyWriteFetch<T>;
 }
 
-/// The [`Fetch`] of `&mut T`.
+/// The [`Fetch`] of `&mut T`, when used as a [Component] in a [WorldQuery].
 pub struct WriteFetch<T> {
     table_components: NonNull<T>,
     table_ticks: *const UnsafeCell<ComponentTicks>,
@@ -412,7 +426,7 @@ impl<T> Clone for WriteFetch<T> {
     }
 }
 
-/// The [`ReadOnlyFetch`] of `&mut T`.
+/// The [`ReadOnlyFetch`] of `&mut T`, when used as a [Component] in a [WorldQuery].
 pub struct ReadOnlyWriteFetch<T> {
     table_components: NonNull<T>,
     entities: *const Entity,
@@ -434,14 +448,14 @@ impl<T> Clone for ReadOnlyWriteFetch<T> {
     }
 }
 
-/// The [`FetchState`] of `&mut T`.
+/// The [`FetchState`] of `&mut T`, when used as a [Component] in a [WorldQuery].
 pub struct WriteState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
 
-// SAFETY: component access and archetype component access are properly updated to reflect that T is
-// written
+// SAFETY: component access and archetype component access are properly updated
+// to reflect that T is written
 unsafe impl<T: Component> FetchState for WriteState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
@@ -671,6 +685,8 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+///
+/// `T` may implement [SystemParam](crate::system::SystemParam) or [WorldQuery]
 #[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
@@ -681,12 +697,14 @@ pub struct OptionFetch<T> {
 unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
+///
+/// `T` may implement [SystemParam](crate::system::SystemParam) or [WorldQuery]
 pub struct OptionState<T: FetchState> {
     state: T,
 }
 
-// SAFETY: component access and archetype component access are properly updated according to the
-// internal Fetch
+// SAFETY: component access and archetype component access are properly updated
+// according to the internal Fetch
 unsafe impl<T: FetchState> FetchState for OptionState<T> {
     fn init(world: &mut World) -> Self {
         Self {
@@ -776,12 +794,12 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
     }
 }
 
-/// [`WorldQuery`] that tracks changes and additions for component `T`.
+/// A [`WorldQuery`] parameter that tracks changes and additions for component `T`.
 ///
 /// Wraps a [`Component`] to track whether the component changed for the corresponding entities in
-/// a query since the last time the system that includes these queries ran.
+/// a query since the last time the system that contains the query ran.
 ///
-/// If you only care about entities that changed or that got added use the
+/// If you only care about entities that have been changed or added use the
 /// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters instead.
 ///
 /// # Examples

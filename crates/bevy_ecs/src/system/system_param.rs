@@ -21,6 +21,7 @@ use std::{
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
+///
 /// # Derive
 ///
 /// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requirement
@@ -45,12 +46,16 @@ use std::{
 /// # my_system.system();
 /// ```
 pub trait SystemParam: Sized {
+    /// The data requested by this system parameter, which must implement the [SystemParamFetch] trait
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
 
+/// The concrete type returned by the [SystemParam] P
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
 
-/// The state of a [`SystemParam`].
+/// The internal state of a [`SystemParam`].
+///
+/// Used for caching work and storing data between executions of the system.
 ///
 /// # Safety
 ///
@@ -80,12 +85,15 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn default_config() -> Self::Config;
 }
 
-/// A [`SystemParamFetch`] that only reads a given [`World`].
+/// A [`SystemParamFetch`] that can only read from a [`World`].
 ///
 /// # Safety
 /// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
 
+/// The data requested by a [SystemParam]
+///
+/// See [Fetch](crate::query::Fetch) for the [WorldQuery](crate::query::WorldQuery) analogue.
 pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     type Item;
     /// # Safety
