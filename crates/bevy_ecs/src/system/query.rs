@@ -83,7 +83,7 @@ use thiserror::Error;
 ///
 /// Similarly, a system cannot contain two queries that would break Rust's mutability Rules.
 /// If you need such Queries, you can use Filters to make the Queries disjoint or use a
-/// [`QuerySet`](super::QuerySet).
+/// [`ParamSet`](super::ParamSet).
 ///
 /// ## Entity ID access
 ///
