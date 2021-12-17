@@ -50,6 +50,7 @@ pub struct Entity {
     pub(crate) id: u32,
 }
 
+/// The result of attempting to allocate an entity using [Entity::alloc_at_without_replacement]
 pub enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
@@ -158,6 +159,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 
+/// The central collection of [Entity]s found within a [World](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Entities {
     pub meta: Vec<EntityMeta>,
@@ -404,6 +406,9 @@ impl Entities {
             .map_or(false, |e| e.generation() == entity.generation)
     }
 
+    /// Despawns all entities, removing them from the [World](crate::world::World)
+    ///
+    /// All data will be lost, but the size of the underlying vector storages will not be reset.
     pub fn clear(&mut self) {
         self.meta.clear();
         self.pending.clear();
@@ -516,6 +521,7 @@ impl Entities {
     }
 }
 
+/// The position within [Entities] of a particular [Entity]
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
     pub generation: u32,
