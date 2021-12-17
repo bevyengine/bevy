@@ -19,6 +19,7 @@ crates=(
     bevy_transform
     bevy_window
     bevy_render
+    bevy_core_pipeline
     bevy_input
     bevy_gilrs
     bevy_pbr
@@ -28,7 +29,6 @@ crates=(
     bevy_text
     bevy_ui
     bevy_winit
-    bevy_wgpu
     bevy_internal
     bevy_dylib
 )

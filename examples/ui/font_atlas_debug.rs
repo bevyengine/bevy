@@ -33,7 +33,6 @@ impl Default for State {
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
@@ -48,7 +47,7 @@ fn atlas_render_system(
                 .unwrap();
             state.atlas_count += 1;
             commands.spawn_bundle(ImageBundle {
-                material: materials.add(texture_atlas.texture.clone().into()),
+                image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: Rect {

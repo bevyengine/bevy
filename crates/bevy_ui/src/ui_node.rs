@@ -1,22 +1,18 @@
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_asset::Handle;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_render::renderer::RenderResources;
+use bevy_render::{
+    color::Color,
+    texture::{Image, DEFAULT_IMAGE_HANDLE},
+};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
-#[derive(Component, Debug, Clone, Default, RenderResources, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
-}
-
-/// If you add this to an entity, it should be the *only* component on it from bevy_ui.
-/// This component marks an entity as "transparent" to the UI layout system, meaning the
-/// children of this entity will be treated as the children of this entity s parent by the layout system.
-#[derive(Clone, Default, Component)]
-pub struct ControlNode {
-    pub(crate) true_parent: Option<Entity>,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
@@ -259,7 +255,34 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Component, Default, Copy, Clone, Debug)]
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct CalculatedSize {
     pub size: Size,
+}
+
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct UiColor(pub Color);
+
+impl From<Color> for UiColor {
+    fn from(color: Color) -> Self {
+        Self(color)
+    }
+}
+
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct UiImage(pub Handle<Image>);
+
+impl Default for UiImage {
+    fn default() -> Self {
+        Self(DEFAULT_IMAGE_HANDLE.typed())
+    }
+}
+
+impl From<Handle<Image>> for UiImage {
+    fn from(handle: Handle<Image>) -> Self {
+        Self(handle)
+    }
 }

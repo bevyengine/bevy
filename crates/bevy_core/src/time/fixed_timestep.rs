@@ -10,6 +10,7 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct FixedTimestepState {
     pub step: f64,
     pub accumulator: f64,
@@ -49,14 +50,14 @@ impl FixedTimesteps {
 }
 
 pub struct FixedTimestep {
-    state: State,
+    state: LocalFixedTimestepState,
     internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
 }
 
 impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
-            state: State::default(),
+            state: LocalFixedTimestepState::default(),
             internal_system: Box::new(Self::prepare_system.system()),
         }
     }
@@ -65,7 +66,7 @@ impl Default for FixedTimestep {
 impl FixedTimestep {
     pub fn step(step: f64) -> Self {
         Self {
-            state: State {
+            state: LocalFixedTimestepState {
                 step,
                 ..Default::default()
             },
@@ -75,7 +76,7 @@ impl FixedTimestep {
 
     pub fn steps_per_second(rate: f64) -> Self {
         Self {
-            state: State {
+            state: LocalFixedTimestepState {
                 step: 1.0 / rate,
                 ..Default::default()
             },
@@ -89,7 +90,7 @@ impl FixedTimestep {
     }
 
     fn prepare_system(
-        mut state: Local<State>,
+        mut state: Local<LocalFixedTimestepState>,
         time: Res<Time>,
         mut fixed_timesteps: ResMut<FixedTimesteps>,
     ) -> ShouldRun {
@@ -105,14 +106,14 @@ impl FixedTimestep {
 }
 
 #[derive(Clone)]
-pub struct State {
+pub struct LocalFixedTimestepState {
     label: Option<String>, // TODO: consider making this a TypedLabel
     step: f64,
     accumulator: f64,
     looping: bool,
 }
 
-impl Default for State {
+impl Default for LocalFixedTimestepState {
     fn default() -> Self {
         Self {
             step: 1.0 / 60.0,
@@ -123,7 +124,7 @@ impl Default for State {
     }
 }
 
-impl State {
+impl LocalFixedTimestepState {
     fn update(&mut self, time: &Time) -> ShouldRun {
         if !self.looping {
             self.accumulator += time.delta_seconds_f64();
@@ -192,5 +193,82 @@ impl System for FixedTimestep {
 
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_ecs::prelude::*;
+    use bevy_utils::Instant;
+    use std::ops::{Add, Mul};
+    use std::time::Duration;
+
+    type Count = usize;
+    const LABEL: &str = "test_step";
+
+    #[test]
+    fn test() {
+        let mut world = World::default();
+        let mut time = Time::default();
+        let instance = Instant::now();
+        time.update_with_instant(instance);
+        world.insert_resource(time);
+        world.insert_resource(FixedTimesteps::default());
+        world.insert_resource::<Count>(0);
+        let mut schedule = Schedule::default();
+
+        schedule.add_stage(
+            "update",
+            SystemStage::parallel()
+                .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
+                .with_system(fixed_update),
+        );
+
+        // if time does not progress, the step does not run
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(0., get_accumulator_deciseconds(&world));
+
+        // let's progress less than one step
+        advance_time(&mut world, instance, 0.4);
+        schedule.run(&mut world);
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(4., get_accumulator_deciseconds(&world));
+
+        // finish the first step with 0.1s above the step length
+        advance_time(&mut world, instance, 0.6);
+        schedule.run(&mut world);
+        assert_eq!(1, *world.get_resource::<Count>().unwrap());
+        assert_eq!(1., get_accumulator_deciseconds(&world));
+
+        // runs multiple times if the delta is multiple step lengths
+        advance_time(&mut world, instance, 1.7);
+        schedule.run(&mut world);
+        assert_eq!(3, *world.get_resource::<Count>().unwrap());
+        assert_eq!(2., get_accumulator_deciseconds(&world));
+    }
+
+    fn fixed_update(mut count: ResMut<Count>) {
+        *count += 1;
+    }
+
+    fn advance_time(world: &mut World, instance: Instant, seconds: f32) {
+        world
+            .get_resource_mut::<Time>()
+            .unwrap()
+            .update_with_instant(instance.add(Duration::from_secs_f32(seconds)));
+    }
+
+    fn get_accumulator_deciseconds(world: &World) -> f64 {
+        world
+            .get_resource::<FixedTimesteps>()
+            .unwrap()
+            .get(LABEL)
+            .unwrap()
+            .accumulator
+            .mul(10.)
+            .round()
     }
 }

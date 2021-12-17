@@ -4,18 +4,13 @@ use rand::random;
 #[derive(Component)]
 struct Velocity(Vec2);
 
-fn spawn_system(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    let texture_handle = asset_server.load("branding/icon.png");
-    let material = materials.add(texture_handle.into());
+    let texture = asset_server.load("branding/icon.png");
     for _ in 0..128 {
         commands
             .spawn_bundle(SpriteBundle {
-                material: material.clone(),
+                texture: texture.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
             })

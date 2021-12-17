@@ -5,7 +5,6 @@
 //!
 //! ```rust
 //! use bevy_render::mesh::VertexAttributeValues;
-//! use std::convert::{ TryInto, TryFrom };
 //!
 //! // creating std::vec::Vec
 //! let buffer = vec![[0_u32; 4]; 10];
@@ -27,7 +26,6 @@
 
 use crate::mesh::VertexAttributeValues;
 use bevy_utils::EnumVariantMeta;
-use std::convert::TryFrom;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -357,7 +355,6 @@ impl TryFrom<VertexAttributeValues> for Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::VertexAttributeValues;
-    use std::convert::{TryFrom, TryInto};
     #[test]
     fn f32() {
         let buffer = vec![0.0; 10];
