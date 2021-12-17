@@ -50,7 +50,7 @@ struct EventInstance<T> {
 }
 
 #[derive(Debug)]
-enum State {
+enum DoubleBufferState {
     A,
     B,
 }
@@ -73,6 +73,9 @@ enum State {
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
 /// dropped silently.
+///
+/// If you require more complex event management, consider working with `ResMut<Events>` directly,
+/// and using a [ManualEventReader] to track which events your system has seen.
 ///
 /// # Example
 /// ```
@@ -124,7 +127,7 @@ pub struct Events<T> {
     a_start_event_count: usize,
     b_start_event_count: usize,
     event_count: usize,
-    state: State,
+    state: DoubleBufferState,
 }
 
 impl<T> Default for Events<T> {
@@ -135,7 +138,7 @@ impl<T> Default for Events<T> {
             event_count: 0,
             events_a: Vec::new(),
             events_b: Vec::new(),
-            state: State::A,
+            state: DoubleBufferState::A,
         }
     }
 }
@@ -173,6 +176,15 @@ impl<'w, 's, T: Resource> EventWriter<'w, 's, T> {
     }
 }
 
+/// A simple event iterator which can be manually controlled.
+///
+/// In most cases, an [EventReader] will better meet your needs,
+/// as it both tracks which events a system has seen and fetches the relevant data.
+/// However, [EventReader] and [EventWriter] have conflicting accesses, and so cannot be used in the same system.
+///
+/// To get around this, you can store a [ManualEventReader] in a [Local] to help track events seen
+/// when working directly with `ResMut<Events<T>>`,
+/// allowing you to read and write events from within the same system.
 pub struct ManualEventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,
@@ -222,7 +234,7 @@ fn internal_event_reader<'a, T>(
     };
     *last_event_count = events.event_count;
     match events.state {
-        State::A => events
+        DoubleBufferState::A => events
             .events_b
             .get(b_index..)
             .unwrap_or_else(|| &[])
@@ -236,7 +248,7 @@ fn internal_event_reader<'a, T>(
                     .iter()
                     .map(map_instance_event_with_id),
             ),
-        State::B => events
+        DoubleBufferState::B => events
             .events_a
             .get(a_index..)
             .unwrap_or_else(|| &[])
@@ -283,8 +295,8 @@ impl<T: Resource> Events<T> {
         let event_instance = EventInstance { event_id, event };
 
         match self.state {
-            State::A => self.events_a.push(event_instance),
-            State::B => self.events_b.push(event_instance),
+            DoubleBufferState::A => self.events_a.push(event_instance),
+            DoubleBufferState::B => self.events_b.push(event_instance),
         }
 
         self.event_count += 1;
@@ -311,14 +323,14 @@ impl<T: Resource> Events<T> {
     /// called once per frame/update.
     pub fn update(&mut self) {
         match self.state {
-            State::A => {
+            DoubleBufferState::A => {
                 self.events_b.clear();
-                self.state = State::B;
+                self.state = DoubleBufferState::B;
                 self.b_start_event_count = self.event_count;
             }
-            State::B => {
+            DoubleBufferState::B => {
                 self.events_a.clear();
-                self.state = State::A;
+                self.state = DoubleBufferState::A;
                 self.a_start_event_count = self.event_count;
             }
         }
@@ -355,12 +367,12 @@ impl<T: Resource> Events<T> {
 
         let map = |i: EventInstance<T>| i.event;
         match self.state {
-            State::A => self
+            DoubleBufferState::A => self
                 .events_b
                 .drain(..)
                 .map(map)
                 .chain(self.events_a.drain(..).map(map)),
-            State::B => self
+            DoubleBufferState::B => self
                 .events_a
                 .drain(..)
                 .map(map)
@@ -376,8 +388,8 @@ impl<T: Resource> Events<T> {
     /// happen after this call and before the next `update()` call will be dropped.
     pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
         match self.state {
-            State::A => self.events_a.iter().map(map_instance_event),
-            State::B => self.events_b.iter().map(map_instance_event),
+            DoubleBufferState::A => self.events_a.iter().map(map_instance_event),
+            DoubleBufferState::B => self.events_b.iter().map(map_instance_event),
         }
     }
 }
@@ -398,8 +410,8 @@ impl<T> std::iter::Extend<T> for Events<T> {
         });
 
         match self.state {
-            State::A => self.events_a.extend(events),
-            State::B => self.events_b.extend(events),
+            DoubleBufferState::A => self.events_a.extend(events),
+            DoubleBufferState::B => self.events_b.extend(events),
         }
 
         trace!(
