@@ -285,7 +285,7 @@ fn focus_camera(
     }
     // look at that new camera's actual focus
     for (mut transform, camera) in transforms.p0().iter_mut() {
-        if camera.name == Some(CAMERA_3D.to_string()) {
+        if camera.name == Some(CameraPlugin::CAMERA_3D.to_string()) {
             *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
         }
     }

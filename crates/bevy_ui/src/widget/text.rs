@@ -2,7 +2,7 @@ use crate::{CalculatedSize, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or, With, Without},
+    query::{Changed, Or, With},
     system::{Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Size;

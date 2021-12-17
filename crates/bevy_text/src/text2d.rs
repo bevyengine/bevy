@@ -2,7 +2,7 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    query::{Changed, With, Without},
+    query::{Changed, With},
     system::{Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::{Mat4, Size, Vec3};
@@ -118,8 +118,8 @@ pub fn text2d_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, (With<MainPass>, Changed<Text>)>,
-        Query<(&Text, &mut Text2dSize), With<MainPass>>,
+        Query<Entity, (With<Text2dSize>, Changed<Text>)>,
+        Query<(&Text, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
