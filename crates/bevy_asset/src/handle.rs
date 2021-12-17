@@ -74,6 +74,15 @@ impl HandleId {
 /// asset but don't want to take the responsibility of keeping it loaded that comes with a Strong handle.
 /// This is where a Weak handle can be very useful.
 ///
+/// For example, imagine you have a `Sprite` component and a `Collider` component. The `Collider` uses
+/// the `Sprite`'s image size to check for collisions. It does so by keeping a Weak copy of the
+/// `Sprite`'s Strong handle to the image asset.
+///
+/// If the `Sprite` is removed, its Strong handle to the image is dropped with it. And since it was the
+/// only Strong handle for that asset, the asset is unloaded. Our `Collider` component still has a Weak
+/// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
+/// collisions no longer being detected for that entity.
+///
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct Handle<T>
