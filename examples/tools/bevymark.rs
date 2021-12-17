@@ -1,4 +1,5 @@
 use bevy::{
+    core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
@@ -43,30 +44,44 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(0.2))
+                .with_system(scheduled_spawne),
+        )
         .run();
 }
 
-struct BirdTexture(Handle<Image>);
+struct BirdScheduled {
+    wave: u128,
+    per_wave: u128,
+}
 
-fn setup(
+fn scheduled_spawne(
     mut commands: Commands,
     windows: Res<Windows>,
+    mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
-    asset_server: Res<AssetServer>,
+    bird_texture: Res<BirdTexture>,
 ) {
-    let texture = asset_server.load("branding/icon.png");
-    if let Some(initial_count) = std::env::args()
-        .nth(1)
-        .and_then(|arg| arg.parse::<u128>().ok())
-    {
+    if scheduled.wave > 0 {
+        counter.color = Color::rgb(random(), random(), random());
         spawn_birds(
             &mut commands,
             &windows,
             &mut counter,
-            initial_count,
-            texture.clone_weak(),
+            scheduled.per_wave,
+            bird_texture.0.clone_weak(),
         );
+        scheduled.wave -= 1;
     }
+}
+
+struct BirdTexture(Handle<Image>);
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let texture = asset_server.load("branding/icon.png");
+
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
@@ -120,6 +135,16 @@ fn setup(
     });
 
     commands.insert_resource(BirdTexture(texture));
+    commands.insert_resource(BirdScheduled {
+        per_wave: std::env::args()
+            .nth(1)
+            .and_then(|arg| arg.parse::<u128>().ok())
+            .unwrap_or_default(),
+        wave: std::env::args()
+            .nth(2)
+            .and_then(|arg| arg.parse::<u128>().ok())
+            .unwrap_or(1),
+    });
 }
 
 fn mouse_handler(
