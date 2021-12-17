@@ -67,8 +67,8 @@ pub fn parent_update_system(
     // collect multiple new children that point to the same parent into the same
     // SmallVec, and to prevent redundant add+remove operations.
     children_additions.iter().for_each(|(e, v)| {
-        // Mark the entity with `Dirty` so that systems which run
-        // in the same stage have a way to `Query` for a missed update
+        // Mark the entity with a `DirtyParent` component so that systems which run
+        // in the same stage have a way to query for a missed update.
         commands
             .entity(*e)
             .insert_bundle((Children::with(v), DirtyParent));
