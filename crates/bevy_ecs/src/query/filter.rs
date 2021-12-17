@@ -40,7 +40,7 @@ where
     }
 }
 
-/// Filter that selects entities with a component `T`.
+/// Query filter that selects entities with a component `T`.
 ///
 /// This can be used in a [`Query`](crate::system::Query) if entities are required to have the
 /// component `T` but you don't actually care about components value.
@@ -166,7 +166,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T> ReadOnlyFetch for WithFetch<T> {}
 
-/// Filter that selects entities without a component `T`.
+/// Query filter that selects entities without a component `T`.
 ///
 /// This is the negation of [`With`].
 ///
@@ -289,13 +289,14 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T> ReadOnlyFetch for WithoutFetch<T> {}
 
-/// A filter that tests if any of the given filters apply.
+/// A query filter that tests if any of the given filters apply.
 ///
-/// This is useful for example if a system with multiple components in a query only wants to run
-/// when one or more of the components have changed.
+/// Multiple query filters can be nested inside of [Or] query filters as tuples;
+/// this filter will return an entity if any of the nested filters apply.
 ///
-/// The `And` equivalent to this filter is a [`prim@tuple`] testing that all the contained filters
-/// apply instead.
+/// `And` is the default behavior:
+/// adding mutliple filters as a tuple to the second type parameter of [Query](crate::system::Query)
+/// will only return an entity if all of the applied filters are met.
 ///
 /// # Examples
 ///
