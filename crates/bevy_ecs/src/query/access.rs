@@ -2,16 +2,17 @@ use crate::storage::SparseSetIndex;
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
-/// `Access` keeps track of read and write accesses to values within a collection.
+/// [Access] keeps track of read and write accesses to values within a collection.
 ///
 /// This is used for ensuring systems are executed soundly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Access<T: SparseSetIndex> {
+    /// Is read-access to the entire [World](crate::world::World) required?
     reads_all: bool,
-    /// A combined set of T read and write accesses.
+    /// A combined set of read and write accesses for T.
     reads_and_writes: FixedBitSet,
     writes: FixedBitSet,
-    marker: PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T: SparseSetIndex> Default for Access<T> {
@@ -20,7 +21,7 @@ impl<T: SparseSetIndex> Default for Access<T> {
             reads_all: false,
             reads_and_writes: Default::default(),
             writes: Default::default(),
-            marker: PhantomData,
+            _marker: PhantomData,
         }
     }
 }
@@ -129,6 +130,10 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
+/// An [Access] which is filtered by various [With](crate::query::With) and [Without](crate::query::Without) query filters.
+///
+/// Used to schedule systems efficiently and verify non-conflicting accesses to entities,
+/// as entities cannot both have and not-have a component.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
@@ -188,6 +193,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
+/// The combined [Access] of a system parameter or system,
+/// used to schedule systems soundly.
+///
+/// A [FilteredAccessSet] is constructed iteratively, by combining the [FilteredAccess] of
+/// its constituents using [FilteredAccessSet::add](Self::add).
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
