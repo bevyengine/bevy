@@ -35,9 +35,15 @@ pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
 
+/// A [ComponentStorage] strategy that prioritizes efficient iteration
 pub struct TableStorage;
+
+/// A [ComponentStorage] strategy that prioritizes efficient insertion and removal
 pub struct SparseStorage;
 
+/// The strategy used to store a [Component] within the [World](crate::world::World)
+///
+/// This trait is sealed, and cannot be implemented externally.
 pub trait ComponentStorage: sealed::Sealed {
     // because the trait is sealed, those items are private API.
     const STORAGE_TYPE: StorageType;
@@ -90,6 +96,7 @@ impl Default for StorageType {
     }
 }
 
+/// Stores metadata that identify and describe a specific [Component]
 #[derive(Debug)]
 pub struct ComponentInfo {
     id: ComponentId,
@@ -139,7 +146,8 @@ impl ComponentInfo {
 
 /// Unique identifier for a component (or resource) type.
 ///
-/// Used to lookup storage information in ['Components'](crate::component::Components)
+/// Used to lookup storage information in ['Components'](crate::component::Components).
+/// These are assigned sequentially, beginning at 0.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -358,6 +366,7 @@ impl Components {
     }
 }
 
+/// Stores the last time a [Component] or [Resource] was added or changed
 #[derive(Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,

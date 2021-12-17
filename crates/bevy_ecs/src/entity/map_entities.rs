@@ -13,6 +13,10 @@ pub trait MapEntities {
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
 }
 
+/// A map storing a map from one set of entities to a new set
+///
+/// This is useful for reflection, scenes, and hierarchies,
+/// particularly when used with the [MapEntities] trait
 #[derive(Default, Debug)]
 pub struct EntityMap {
     map: HashMap<Entity, Entity>,
