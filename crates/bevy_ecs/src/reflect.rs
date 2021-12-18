@@ -15,7 +15,7 @@ pub struct ReflectComponent {
     remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
     reflect_component_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
-    copy_component: fn(&World, &mut World, Entity, Entity),
+    clone_component: fn(&World, &mut World, Entity, Entity),
 }
 
 impl ReflectComponent {
@@ -62,14 +62,14 @@ impl ReflectComponent {
         (self.reflect_component_mut)(world, entity)
     }
 
-    pub fn copy_component(
+    pub fn clone_component(
         &self,
         source_world: &World,
         destination_world: &mut World,
         source_entity: Entity,
         destination_entity: Entity,
     ) {
-        (self.copy_component)(
+        (self.clone_component)(
             source_world,
             destination_world,
             source_entity,
@@ -93,7 +93,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             remove_component: |world, entity| {
                 world.entity_mut(entity).remove::<C>();
             },
-            copy_component: |source_world, destination_world, source_entity, destination_entity| {
+            clone_component: |source_world,
+                              destination_world,
+                              source_entity,
+                              destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
                 let mut destination_component = C::from_world(destination_world);
                 destination_component.apply(source_component);
