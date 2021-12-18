@@ -38,7 +38,7 @@
 [[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
 
-[[block]]
+//[[block]] // someone said that it is deprecated
 struct StandardMaterial {
     base_color: vec4<f32>;
     emissive: vec4<f32>;

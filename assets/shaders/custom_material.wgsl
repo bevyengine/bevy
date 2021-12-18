@@ -1,4 +1,4 @@
-[[block]]
+//[[block]] // someone said that it is deprecated
 struct CustomMaterial {
     color: vec4<f32>;
 };

@@ -1,6 +1,7 @@
 mod light;
 mod mesh;
 
+use wgpu::SamplerBindingType;
 pub use light::*;
 pub use mesh::*;
 
@@ -81,10 +82,7 @@ impl FromWorld for PbrPipeline {
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // Emissive Texture
@@ -102,10 +100,7 @@ impl FromWorld for PbrPipeline {
                 BindGroupLayoutEntry {
                     binding: 4,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // Metallic Roughness Texture
@@ -123,10 +118,7 @@ impl FromWorld for PbrPipeline {
                 BindGroupLayoutEntry {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // Occlusion Texture
@@ -144,10 +136,7 @@ impl FromWorld for PbrPipeline {
                 BindGroupLayoutEntry {
                     binding: 8,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // Normal Map Texture
@@ -165,10 +154,7 @@ impl FromWorld for PbrPipeline {
                 BindGroupLayoutEntry {
                     binding: 10,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],

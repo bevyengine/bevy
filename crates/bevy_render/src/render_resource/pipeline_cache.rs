@@ -339,6 +339,7 @@ impl RenderPipelineCache {
             };
 
             let descriptor = RawRenderPipelineDescriptor {
+                multiview: None,
                 depth_stencil: descriptor.depth_stencil.clone(),
                 label: descriptor.label.as_deref(),
                 layout,

@@ -23,10 +23,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
+use wgpu::{Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -210,10 +207,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 3,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // Directional Shadow Texture Array
@@ -231,10 +225,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 5,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // PointLights
@@ -493,8 +484,8 @@ impl SpecializedPipeline for MeshPipeline {
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,

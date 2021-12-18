@@ -1,4 +1,4 @@
-[[block]]
+//[[block]] // someone said that it is deprecated
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
