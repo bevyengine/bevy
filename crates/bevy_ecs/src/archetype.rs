@@ -37,6 +37,10 @@ impl ArchetypeId {
 }
 
 /// Records whether a component was modified by addition or mutation
+///
+/// When adding a bundle to an archetype,
+/// this value will be `Added` if it was not in the archetype,
+/// and `Mutated if it was
 pub enum ComponentStatus {
     Added,
     Mutated,
