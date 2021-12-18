@@ -842,7 +842,6 @@ void bar() { }
     fn process_nested_shader_def_outer_defined_inner_not() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -883,7 +882,6 @@ fn vertex(
     fn process_nested_shader_def_outer_defined_inner_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -926,7 +924,6 @@ fn vertex(
     fn process_nested_shader_def_neither_defined() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
