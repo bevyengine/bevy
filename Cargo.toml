@@ -54,8 +54,8 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
-trace_chrome = ["bevy_internal/trace_chrome"]
-trace_tracy = ["bevy_internal/trace_tracy"]
+trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
