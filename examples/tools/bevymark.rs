@@ -1,8 +1,9 @@
 use bevy::{
+    core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
-use rand::{random, Rng};
+use rand::random;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -43,30 +44,44 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(0.2))
+                .with_system(scheduled_spawner),
+        )
         .run();
 }
 
-struct BirdTexture(Handle<Image>);
+struct BirdScheduled {
+    wave: u128,
+    per_wave: u128,
+}
 
-fn setup(
+fn scheduled_spawner(
     mut commands: Commands,
     windows: Res<Windows>,
+    mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
-    asset_server: Res<AssetServer>,
+    bird_texture: Res<BirdTexture>,
 ) {
-    let texture = asset_server.load("branding/icon.png");
-    if let Some(initial_count) = std::env::args()
-        .nth(1)
-        .and_then(|arg| arg.parse::<u128>().ok())
-    {
+    if scheduled.wave > 0 {
         spawn_birds(
             &mut commands,
             &windows,
             &mut counter,
-            initial_count,
-            texture.clone_weak(),
+            scheduled.per_wave,
+            bird_texture.0.clone_weak(),
         );
+        counter.color = Color::rgb_linear(random(), random(), random());
+        scheduled.wave -= 1;
     }
+}
+
+struct BirdTexture(Handle<Image>);
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let texture = asset_server.load("branding/icon.png");
+
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
@@ -120,6 +135,16 @@ fn setup(
     });
 
     commands.insert_resource(BirdTexture(texture));
+    commands.insert_resource(BirdScheduled {
+        per_wave: std::env::args()
+            .nth(1)
+            .and_then(|arg| arg.parse::<u128>().ok())
+            .unwrap_or_default(),
+        wave: std::env::args()
+            .nth(2)
+            .and_then(|arg| arg.parse::<u128>().ok())
+            .unwrap_or(1),
+    });
 }
 
 fn mouse_handler(
@@ -131,7 +156,7 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb(random(), random(), random());
+        counter.color = Color::rgb_linear(random(), random(), random());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -141,7 +166,7 @@ fn mouse_handler(
             &windows,
             &mut counter,
             spawn_count,
-            bird_texture.0.clone(),
+            bird_texture.0.clone_weak(),
         );
     }
 }
@@ -210,6 +235,9 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
         if y_vel < 0. && y_pos - HALF_BIRD_SIZE < -half_height {
             bird.velocity.y = -y_vel;
         }
+        if y_pos + HALF_BIRD_SIZE > half_height && y_vel > 0.0 {
+            bird.velocity.y = 0.0;
+        }
     }
 }
 
@@ -226,16 +254,4 @@ fn counter_system(
             }
         }
     };
-}
-
-/// Generate a color modulation
-///
-/// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
-/// used.
-fn _gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.2..1.0);
-    let g = rng.gen_range(0.2..1.0);
-    let b = rng.gen_range(0.2..1.0);
-    let v = Vec3::new(r, g, b);
-    v.normalize().into()
 }
