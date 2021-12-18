@@ -50,7 +50,7 @@ struct BirdTexture(Handle<Image>);
 
 fn setup(
     mut commands: Commands,
-    window: Res<WindowDescriptor>,
+    windows: Res<Windows>,
     mut counter: ResMut<BevyCounter>,
     asset_server: Res<AssetServer>,
 ) {
@@ -61,7 +61,7 @@ fn setup(
     {
         spawn_birds(
             &mut commands,
-            &window,
+            &windows,
             &mut counter,
             initial_count,
             texture.clone_weak(),
@@ -126,7 +126,7 @@ fn mouse_handler(
     mut commands: Commands,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
-    window: Res<WindowDescriptor>,
+    windows: Res<Windows>,
     bird_texture: Res<BirdTexture>,
     mut counter: ResMut<BevyCounter>,
 ) {
@@ -138,7 +138,7 @@ fn mouse_handler(
         let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as u128;
         spawn_birds(
             &mut commands,
-            &window,
+            &windows,
             &mut counter,
             spawn_count,
             bird_texture.0.clone(),
@@ -148,13 +148,14 @@ fn mouse_handler(
 
 fn spawn_birds(
     commands: &mut Commands,
-    window: &WindowDescriptor,
+    windows: &Windows,
     counter: &mut BevyCounter,
     spawn_count: u128,
     texture: Handle<Image>,
 ) {
-    let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
-    let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
+    let window = windows.get_primary().unwrap();
+    let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
+    let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
@@ -190,9 +191,10 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
     }
 }
 
-fn collision_system(window: Res<WindowDescriptor>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let half_width = window.width as f32 * 0.5;
-    let half_height = window.height as f32 * 0.5;
+fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+    let window = windows.get_primary().unwrap();
+    let half_width = window.width() as f32 * 0.5;
+    let half_height = window.height() as f32 * 0.5;
 
     for (mut bird, transform) in bird_query.iter_mut() {
         let x_vel = bird.velocity.x;
