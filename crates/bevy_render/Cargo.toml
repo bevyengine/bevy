@@ -36,7 +36,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 image = { version = "0.23.12", default-features = false }
 
 # misc
-wgpu = { git = "https://github.com/gfx-rs/wgpu", features = ["spirv"] }
+wgpu = { version = "0.12.0", features = ["spirv"] }
 naga = { version = "0.7.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
@@ -53,4 +53,4 @@ regex = "1.5"
 crevice = { path = "../crevice", version = "0.8.0", features = ["glam"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wgpu = { git = "https://github.com/gfx-rs/wgpu", features = ["spirv", "webgl"] }
+wgpu = { version = "0.12.0", features = ["spirv", "webgl"] }
