@@ -34,7 +34,6 @@ struct DirectionalLight {
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
-
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>;
