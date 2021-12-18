@@ -58,12 +58,10 @@ struct PointLights {
     data: array<PointLight, 256u>;
 };
 
-
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the PointLights array
     data: array<vec4<u32>, 1024u>;
 };
-
 
 struct ClusterOffsetsAndCounts {
     // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
