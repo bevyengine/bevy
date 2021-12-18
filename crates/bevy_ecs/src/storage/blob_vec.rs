@@ -87,7 +87,12 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in bounds
-    /// - memory must be reserved and uninitialized
+    /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
+    /// `item_layout`, must have been previously allocated, but not initialized yet
+    /// - the memory at `*value` must be previously initialized with an item matching this
+    /// `BlobVec`'s `item_layout`
+    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
+    /// calling this function, and as such should not be used or dropped by the caller.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
@@ -97,12 +102,24 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in-bounds
-    //  - memory must be previously initialized
+    /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
+    /// `item_layout`, must have been previously initialized with an item matching this `BlobVec`'s
+    /// item_layout
+    /// - the memory at `*value` must also be previously initialized with an item matching this
+    /// `BlobVec`'s `item_layout`
+    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
+    /// calling this function, and as such should not be used or dropped by the caller.
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked(index);
+        // If `drop` panics, then when the collection is dropped during stack unwinding, the
+        // collection's `Drop` impl will call `drop` again for the old value (which is still stored
+        // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
+        // done.
+        let old_len = std::mem::replace(&mut self.len, 0);
         (self.drop)(ptr);
         std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
+        self.len = old_len;
     }
 
     /// increases the length by one (and grows the vec if needed) with uninitialized memory and
