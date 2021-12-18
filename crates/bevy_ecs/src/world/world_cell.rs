@@ -11,13 +11,20 @@ use std::{
     rc::Rc,
 };
 
-/// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
-/// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
+/// Exposes safe mutable access to multiple resources at a time in a World.
+///
+/// Attempting to access World in a way that violates Rust's mutability rules
+/// will panic thanks to runtime checks.
+///
+/// NOTE: Currently, this only exposes methods to access resources.
+/// Consider using [SystemState](crate::system::function_system::SystemState) instead
+/// if you need to access entity-component data as well.
 pub struct WorldCell<'w> {
     pub(crate) world: &'w mut World,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
+/// A set of ECS data that is or would be accessed, stored at an archetype-component level of granularity
 pub(crate) struct ArchetypeComponentAccess {
     access: SparseSet<ArchetypeComponentId, usize>,
 }
@@ -78,6 +85,7 @@ impl<'w> Drop for WorldCell<'w> {
     }
 }
 
+/// A runtime-checked read-only borrow of the [World], used by [WorldCell]
 pub struct WorldBorrow<'w, T> {
     value: &'w T,
     archetype_component_id: ArchetypeComponentId,
@@ -120,6 +128,7 @@ impl<'w, T> Drop for WorldBorrow<'w, T> {
     }
 }
 
+/// A runtime-checked mutable borrow of the [World], used by [WorldCell]
 pub struct WorldBorrowMut<'w, T> {
     value: Mut<'w, T>,
     archetype_component_id: ArchetypeComponentId,
