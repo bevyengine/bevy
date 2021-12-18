@@ -27,7 +27,7 @@ use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
 ///
 #[derive(Clone)]
 pub struct ReflectComponent {
-    add_component: fn(&mut World, Entity, &dyn Reflect),
+    insert_component: fn(&mut World, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
@@ -39,6 +39,8 @@ impl ReflectComponent {
     /// Inserts the non-erased value of `component` (with type `C`) into the `entity`
     ///
     /// PANICS: `component` must have the same type `C` as the type used to create this struct
+    pub fn insert_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
+        (self.insert_component)(world, entity, component);
     }
 
     /// Sets the existing value of type `C` found on `entity` to the non-erased value of `component`
@@ -127,7 +129,7 @@ impl ReflectComponent {
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
-            add_component: |world, entity, reflected_component| {
+            insert_component: |world, entity, reflected_component| {
                 let mut component = C::from_world(world);
                 component.apply(reflected_component);
                 world.entity_mut(entity).insert(component);
