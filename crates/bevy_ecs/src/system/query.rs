@@ -976,8 +976,9 @@ pub enum QueryComponentError {
     NoSuchEntity,
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
-/// [`Query::single`] or [`Query::single_mut`].
+/// An error that occurs when failing to retrieve a single expected item from a [`Query`]
+///
+/// Produced by [`Query::single`] and [`Query::single_mut`].
 #[derive(Debug, Error)]
 pub enum QuerySingleError {
     #[error("No entities fit the query {0}")]
