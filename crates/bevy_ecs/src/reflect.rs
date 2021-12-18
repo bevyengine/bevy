@@ -1,4 +1,4 @@
-//! Types that enable reflection support.
+//! Types that enable run-time type reflection of ECS data.
 
 pub use crate::change_detection::ReflectMut;
 use crate::{
@@ -8,6 +8,23 @@ use crate::{
 };
 use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
 
+/// A runtime type-reflectable component
+///
+/// Intended for use with [bevy_reflect],
+/// a [ReflectComponent] is a type-erased version of a component's data,
+/// can be transformed into  ['dyn Reflect'](Reflect) trait objects,
+/// which can be worked with generically
+/// and loaded from disk in a type-safe fashion.
+///
+/// [ReflectComponent] objects are created for a particular [Component] type (`C`) using the [from_type](FromType::from_type) method.
+/// That type `C` is implicitly stored in the function pointers held within the private fields of this type;
+/// it cannot be changed after creation.
+///
+/// Once a [ReflectComponent] object has been created, you can use that concrete struct
+/// to use the methods on this type, which always implicitly affect only the component type originally used to create this struct.
+///
+/// # Example
+///
 #[derive(Clone)]
 pub struct ReflectComponent {
     add_component: fn(&mut World, Entity, &dyn Reflect),
@@ -19,18 +36,27 @@ pub struct ReflectComponent {
 }
 
 impl ReflectComponent {
-    pub fn add_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
-        (self.add_component)(world, entity, component);
+    /// Inserts the non-erased value of `component` (with type `C`) into the `entity`
+    ///
+    /// PANICS: `component` must have the same type `C` as the type used to create this struct
     }
 
+    /// Sets the existing value of type `C` found on `entity` to the non-erased value of `component`
+    ///
+    /// PANICS: `component` must have the same type `C` as the type used to create this struct
+    /// Additionally, a component of type `C` must already exist on `entity.
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
     }
 
+    /// Removes any component of type `C` from the `entity`
     pub fn remove_component(&self, world: &mut World, entity: Entity) {
         (self.remove_component)(world, entity);
     }
 
+    /// Fetches an immutable reference to the component of type `C` on `entity`
+    ///
+    /// If the `Entity` does not have a component of the specified type, `None` is returned instead.
     pub fn reflect_component<'a>(
         &self,
         world: &'a World,
@@ -39,6 +65,9 @@ impl ReflectComponent {
         (self.reflect_component)(world, entity)
     }
 
+    /// Fetches a mutable reference to the component of type `C` on `entity`
+    ///
+    /// If the `Entity` does not have a component of the specified type, `None` is returned instead.
     pub fn reflect_component_mut<'a>(
         &self,
         world: &'a mut World,
@@ -48,6 +77,13 @@ impl ReflectComponent {
         unsafe { (self.reflect_component_mut)(world, entity) }
     }
 
+    /// Recklessly fetches a mutable reference to the component of type `C` on `entity`
+    ///
+    /// This method does not require exclusive [World] access, and so multiple mutable references can be alive at once.
+    /// If possible you should prefer the safe version of this method, [reflect_component_mut](Self::reflect_component_mut).
+    ///
+    /// If the `Entity` does not have a component of the specified type, `None` is returned instead.
+    ///
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
@@ -62,7 +98,17 @@ impl ReflectComponent {
         (self.reflect_component_mut)(world, entity)
     }
 
-    pub fn clone_component(
+    /// Directly copies the value of the component of type `C` to a new entity
+    ///
+    /// This method creates a new component of type `C` using the [FromWorld] trait,
+    /// sets its value to the value of the component of type `C` on the `source_entity`,
+    /// and then inserts the new component into the `destination_entity`.
+    ///
+    /// WARNING: this method does not use the `Clone` method: instead, memory is copied directly.
+    /// This can have unexpected negative consequences if you are relying on ref-counting or the like.
+    ///
+    /// PANICS: the `source_entity` in the `source_world` must have a component of type `C`
+    pub fn copy_component(
         &self,
         source_world: &World,
         destination_world: &mut World,
@@ -125,6 +171,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 
 impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
 
+/// A reflected [EntityMap]
 #[derive(Clone)]
 pub struct ReflectMapEntities {
     map_entities: fn(&mut World, &EntityMap) -> Result<(), MapEntitiesError>,
