@@ -1,13 +1,13 @@
 use bevy_asset::{AssetLoader, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
+use naga::back::wgsl::WriterFlags;
 use naga::{valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
-use naga::back::wgsl::WriterFlags;
 use thiserror::Error;
 use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
