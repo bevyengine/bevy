@@ -191,6 +191,10 @@ fn assert_component_access_compatibility(
                 query_type, filter_type, system_name, accesses);
 }
 
+/// A collection of [Query], which may be incompatible
+///
+/// Only one item may be accessed at any given time,
+/// allowing you to safely work with incompatible queries in a single system.
 pub struct QuerySet<'w, 's, T> {
     query_states: &'s T,
     world: &'w World,
@@ -198,10 +202,14 @@ pub struct QuerySet<'w, 's, T> {
     change_tick: u32,
 }
 
+/// The state of a [QuerySet]
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
 
+/// A type that can be used as a globally-accessible singleton in a [World]
+///
+/// See [Res] and [ResMut] for usage.
 pub trait Resource: Send + Sync + 'static {}
 impl<T> Resource for T where T: Send + Sync + 'static {}
 
@@ -532,10 +540,12 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
     }
 }
 
-/// A system local [`SystemParam`].
+/// Data that can only be accesssed from within the associated system
 ///
-/// A local may only be accessed by the system itself and is therefore not visible to other systems.
-/// If two or more systems specify the same local type each will have their own unique local.
+/// [Local] resources may only be accessed by the system itself.
+/// Each system with a `Local<T>` system parameter will have their own unique value of `T`.
+///
+/// Any type that implements [Resource] can be used as a [Local] resource.
 ///
 /// # Examples
 ///
@@ -622,7 +632,22 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
     }
 }
 
-/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+/// A [`SystemParam`] that returns an iterator of the entities that recently had their `T` [`Component`] removed.
+///
+/// Entities with a `T` component that were completely despawned will also be returned.
+///
+/// Only components removed earlier in the current frame will be detected;
+/// if you are failing to detect removed components, ensure that this system is running in a late enough stage.
+/// Remember that [Commands] are only processed at the end of each stage!
+///
+/// Only an iterator of [Entity] is returned: no special access is granted, and you cannot view the removed components.
+/// Like usual, these [Entity] can be passed into [EntityCommands](crate::system::commands::EntityCommands),
+/// or used for [Query::get](Query::get)
+///
+/// If you need to access the values of removed components, they must be manually cached:
+/// a system with a `Query<&T, Changed<T>>` query that saves the data into a resource
+/// is a sensible strategy, although you need to ensure that this system runs after any changes,
+/// but before removal occurs.
 ///
 /// # Examples
 ///
@@ -1131,6 +1156,11 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     }
 }
 
+/// Records the last instant a system was run, as well as the current instant
+///
+/// This is used for change detection,
+/// principally for the [Changed](crate::query::Changed) and [Added](crate::query::Added) query filters.
+/// Relative time is measured in looping "change ticks", which advance by one each time a system is run.
 #[derive(Debug)]
 pub struct SystemChangeTick {
     pub last_change_tick: u32,
@@ -1233,6 +1263,7 @@ macro_rules! impl_system_param_tuple {
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
+/// 'static lifetime type aliases for various [SystemParam]
 pub mod lifetimeless {
     pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
     pub type Read<T> = &'static T;
