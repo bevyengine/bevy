@@ -7,6 +7,7 @@ use regex::Regex;
 use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
+use naga::back::wgsl::WriterFlags;
 use thiserror::Error;
 use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
@@ -29,9 +30,8 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
-    Validation(#[from] naga::valid::ValidationError),
+    Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
-
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Debug, Clone, TypeUuid)]
@@ -204,7 +204,7 @@ impl ShaderReflection {
     }
 
     pub fn get_wgsl(&self) -> Result<String, naga::back::wgsl::Error> {
-        naga::back::wgsl::write_string(&self.module, &self.module_info)
+        naga::back::wgsl::write_string(&self.module, &self.module_info, WriterFlags::EXPLICIT_TYPES)
     }
 }
 
