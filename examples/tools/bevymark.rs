@@ -65,7 +65,6 @@ fn scheduled_spawner(
     bird_texture: Res<BirdTexture>,
 ) {
     if scheduled.wave > 0 {
-        counter.color = Color::rgb(random(), random(), random());
         spawn_birds(
             &mut commands,
             &windows,
@@ -73,6 +72,7 @@ fn scheduled_spawner(
             scheduled.per_wave,
             bird_texture.0.clone_weak(),
         );
+        counter.color = Color::rgb(random(), random(), random());
         scheduled.wave -= 1;
     }
 }
