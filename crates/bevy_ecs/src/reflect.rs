@@ -22,9 +22,6 @@ use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
 ///
 /// Once a [ReflectComponent] object has been created, you can use that concrete struct
 /// to use the methods on this type, which always implicitly affect only the component type originally used to create this struct.
-///
-/// # Example
-///
 #[derive(Clone)]
 pub struct ReflectComponent {
     insert_component: fn(&mut World, Entity, &dyn Reflect),
