@@ -505,7 +505,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
             // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
             output_color.a = 1.0;
-        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+        } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
             if (output_color.a >= material.alpha_cutoff) {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
                 output_color.a = 1.0;
