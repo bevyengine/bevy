@@ -89,7 +89,8 @@ impl<T: Asset> Assets<T> {
 
     /// Add/modify the asset pointed to by the given handle.
     ///
-    /// You __must__ use the returned Strong handle. Failing to do so may result in the unexpected release of the asset.
+    /// Unless there exists another Strong handle for this asset, it's advised to use the returned
+    /// Strong handle. Not doing so may result in the unexpected release of the asset.
     ///
     /// See [set_untracked](Assets::set_untracked) for more info.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
