@@ -29,7 +29,7 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
-    Validation(#[from] naga::valid::ValidationError),
+    Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
 
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
@@ -204,7 +204,11 @@ impl ShaderReflection {
     }
 
     pub fn get_wgsl(&self) -> Result<String, naga::back::wgsl::Error> {
-        naga::back::wgsl::write_string(&self.module, &self.module_info)
+        naga::back::wgsl::write_string(
+            &self.module,
+            &self.module_info,
+            naga::back::wgsl::WriterFlags::empty(),
+        )
     }
 }
 
@@ -462,7 +466,7 @@ mod tests {
     use crate::render_resource::{ProcessShaderError, Shader, ShaderImport, ShaderProcessor};
     #[rustfmt::skip]
 const WGSL: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -493,7 +497,7 @@ fn vertex(
 ";
 
     const WGSL_ELSE: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -527,7 +531,7 @@ fn vertex(
 ";
 
     const WGSL_NESTED_IFDEF: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -560,7 +564,7 @@ fn vertex(
 ";
 
     const WGSL_NESTED_IFDEF_ELSE: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -599,7 +603,7 @@ fn vertex(
     fn process_shader_def_defined() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -642,7 +646,7 @@ fn vertex(
     fn process_shader_def_not_defined() {
         #[rustfmt::skip]
         const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -683,7 +687,7 @@ fn vertex(
     fn process_shader_def_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -849,7 +853,7 @@ void bar() { }
     fn process_nested_shader_def_outer_defined_inner_not() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -890,7 +894,7 @@ fn vertex(
     fn process_nested_shader_def_outer_defined_inner_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -933,7 +937,7 @@ fn vertex(
     fn process_nested_shader_def_neither_defined() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -974,7 +978,7 @@ fn vertex(
     fn process_nested_shader_def_neither_defined_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -1015,7 +1019,7 @@ fn vertex(
     fn process_nested_shader_def_inner_defined_outer_not() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -1056,7 +1060,7 @@ fn vertex(
     fn process_nested_shader_def_both_defined() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-[[block]]
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;

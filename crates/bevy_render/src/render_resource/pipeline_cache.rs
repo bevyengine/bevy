@@ -343,6 +343,7 @@ impl RenderPipelineCache {
                 label: descriptor.label.as_deref(),
                 layout,
                 multisample: descriptor.multisample,
+                multiview: None,
                 primitive: descriptor.primitive,
                 vertex: RawVertexState {
                     buffers: &vertex_buffer_layouts,

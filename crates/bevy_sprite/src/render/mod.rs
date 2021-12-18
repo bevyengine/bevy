@@ -66,10 +66,7 @@ impl FromWorld for SpritePipeline {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -141,10 +138,10 @@ impl SpecializedPipeline for SpritePipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
+                unclipped_depth: false,
             },
             depth_stencil: None,
             multisample: MultisampleState {

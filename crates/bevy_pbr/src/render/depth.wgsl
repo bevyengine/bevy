@@ -1,7 +1,6 @@
 #import bevy_pbr::mesh_struct
 
 // NOTE: Keep in sync with pbr.wgsl
-[[block]]
 struct View {
     view_proj: mat4x4<f32>;
     projection: mat4x4<f32>;
