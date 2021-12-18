@@ -55,7 +55,9 @@ impl SystemMeta {
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
-/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].  
+/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
+///
+/// Information can be cached between runs of this system using the [Fetch](SystemParam::Fetch) associated type.
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
@@ -64,11 +66,15 @@ pub struct SystemState<Param: SystemParam> {
 }
 
 impl<Param: SystemParam> SystemState<Param> {
+    /// Correctly initializes the state of the associated system for the supplied world
     pub fn new(world: &mut World) -> Self {
         let config = <Param::Fetch as SystemParamState>::default_config();
         Self::with_config(world, config)
     }
 
+    /// Correctly initializes the state of the associated system for the supplied world with custom configuration
+    ///
+    /// `config` is passed into [SystemParamState::init]
     pub fn with_config(
         world: &mut World,
         config: <Param::Fetch as SystemParamState>::Config,
@@ -83,6 +89,7 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Returns a read-only reference to this system's metadata
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
@@ -102,7 +109,7 @@ impl<Param: SystemParam> SystemState<Param> {
         unsafe { self.get_unchecked_manual(world) }
     }
 
-    /// Retrieve the mutable [`SystemParam`] values.
+    /// Retrieve the possibly-mutable [`SystemParam`] values.
     #[inline]
     pub fn get_mut<'w, 's>(
         &'s mut self,
@@ -121,6 +128,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.param_state.apply(world);
     }
 
+    /// Does this [WorldId] of this system match that of the [World] supplied
     #[inline]
     pub fn matches_world(&self, world: &World) -> bool {
         self.world_id == world.id()
@@ -188,6 +196,7 @@ pub trait RunSystem: Send + Sync + 'static {
     }
 }
 
+/// The [SystemState] and [Fetch](SystemParam::Fetch) of the [SystemParam] `P`
 pub struct ParamSystem<P: SystemParam> {
     state: SystemState<P>,
     run: fn(SystemParamItem<P>),
@@ -260,9 +269,10 @@ pub trait IntoSystem<In, Out, Params> {
     fn system(self) -> Self::System;
 }
 
+/// A helper type that allows to trivially implement [IntoSystem] for all systems
 pub struct AlreadyWasSystem;
 
-// Systems implicitly implement IntoSystem
+// Systems automatically and trivially implement IntoSystem
 impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
     type System = Sys;
     fn system(self) -> Sys {
@@ -276,6 +286,9 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
 /// means a system can only have one or zero input paramaters.
+///
+/// Within a schedule, this is typically used in combination with
+/// a matching `Out` type on the corresponding [ChainSystem](crate::system::system_chaining::ChainSystem)
 ///
 /// # Examples
 ///
@@ -297,13 +310,21 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
+
+/// A marker type for system inputs used in the impl_system_function macro
 pub struct InputMarker;
 
-/// The [`System`] counter part of an ordinary function.
+/// The [`System`] counterpart of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
-/// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
+/// All of the arguments to a function must implement [SystemParam]
+/// in order for it to be converted into a system correctly.
+/// You can do this manually by calling [`IntoSystem::system`].
+///
+/// The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+///
+/// The data accesses of [FunctionSystem] systems are carefully scoped,
+/// allowing simultaneous mutable access to different parts of the [World] that the systems are associated with.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -377,6 +398,7 @@ where
     }
 }
 
+/// A marker type used to declare that the given type implements the [FunctionSystem] trait
 pub struct IsFunctionSystem;
 
 impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
@@ -491,6 +513,9 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
     ) -> Out;
 }
 
+// This macro implements SystemParamFunction for all functions where
+// each of their arguments implement the SystemParam trait,
+// ultimately allowing them to be used as systems.
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
