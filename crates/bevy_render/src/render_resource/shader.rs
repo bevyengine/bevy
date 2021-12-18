@@ -964,7 +964,6 @@ fn vertex(
     fn process_nested_shader_def_neither_defined_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
