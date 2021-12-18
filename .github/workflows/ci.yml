@@ -273,7 +273,7 @@ jobs:
       - name: Installs cargo-deadlinks
         run: cargo install --force cargo-deadlinks
       - name: Build and check doc
-        run: RUSTDOCFLAGS='-D warnings' cargo doc --all-features --no-deps
+        run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true

@@ -38,7 +38,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 pub trait PhaseItem: Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
-    /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`].
+    /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
     fn sort_key(&self) -> Self::SortKey;
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;

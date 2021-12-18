@@ -234,9 +234,9 @@ impl ButtonAxisSettings {
     }
 }
 
-/// Monitors gamepad connection and disconnection events, updating the [GamepadLobby] resource accordingly
+/// Monitors gamepad connection and disconnection events, updating the [`Gamepads`] resource accordingly
 ///
-/// By default, runs during `CoreStage::PreUpdate` when added via [InputPlugin].
+/// By default, runs during `CoreStage::PreUpdate` when added via [`InputPlugin`](crate::InputPlugin).
 pub fn gamepad_connection_system(
     mut gamepads: ResMut<Gamepads>,
     mut gamepad_event: EventReader<GamepadEvent>,
