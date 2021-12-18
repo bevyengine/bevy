@@ -3,7 +3,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
-use rand::{random, Rng};
+use rand::random;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -254,16 +254,4 @@ fn counter_system(
             }
         }
     };
-}
-
-/// Generate a color modulation
-///
-/// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
-/// used.
-fn _gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.2..1.0);
-    let g = rng.gen_range(0.2..1.0);
-    let b = rng.gen_range(0.2..1.0);
-    let v = Vec3::new(r, g, b);
-    v.normalize().into()
 }
