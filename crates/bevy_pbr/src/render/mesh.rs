@@ -23,7 +23,10 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
-use wgpu::{Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension, TextureFormat, TextureViewDescriptor};
+use wgpu::{
+    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
+    TextureFormat, TextureViewDescriptor,
+};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;

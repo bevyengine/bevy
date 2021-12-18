@@ -26,7 +26,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
-use wgpu::{SamplerBindingType};
+use wgpu::SamplerBindingType;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -349,7 +349,7 @@ pub fn prepare_sprites(
                         handle: current_batch_handle.clone_weak(),
                         z: last_z,
                         colored: true,
-                    }, ));
+                    },));
                     colored_start = colored_end;
                 } else {
                     commands.spawn_bundle((SpriteBatch {
@@ -357,7 +357,7 @@ pub fn prepare_sprites(
                         handle: current_batch_handle.clone_weak(),
                         z: last_z,
                         colored: false,
-                    }, ));
+                    },));
                     start = end;
                 }
             }
@@ -445,7 +445,7 @@ pub fn prepare_sprites(
                 handle: current_batch_handle,
                 colored: false,
                 z: last_z,
-            }, ));
+            },));
         }
     } else if colored_start != colored_end {
         if let Some(current_batch_handle) = current_batch_handle {
@@ -454,7 +454,7 @@ pub fn prepare_sprites(
                 handle: current_batch_handle,
                 colored: true,
                 z: last_z,
-            }, ));
+            },));
         }
     }
 

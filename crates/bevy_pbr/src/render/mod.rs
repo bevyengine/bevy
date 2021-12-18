@@ -1,9 +1,9 @@
 mod light;
 mod mesh;
 
-use wgpu::SamplerBindingType;
 pub use light::*;
 pub use mesh::*;
+use wgpu::SamplerBindingType;
 
 use crate::{AlphaMode, StandardMaterial, StandardMaterialUniformData, PBR_SHADER_HANDLE};
 use bevy_asset::Handle;
