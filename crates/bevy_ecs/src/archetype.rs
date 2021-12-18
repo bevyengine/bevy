@@ -15,6 +15,8 @@ use std::{
 };
 
 /// The unique identifier of an [`Archetype`]
+///
+/// These are only unique (and consistent) within a particular [World](crate::world::World)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeId(usize);
 
@@ -348,6 +350,7 @@ pub struct ArchetypeIdentity {
 /// The unique identifier for a component within a particular archetype
 ///
 /// These are unique across archetypes.
+/// These are only unique (and consistent) within a particular [World](crate::world::World)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
