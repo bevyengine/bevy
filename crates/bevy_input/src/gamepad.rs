@@ -156,12 +156,10 @@ impl ButtonSettings {
 
 /// Defines the sensitivity range and threshold for an axis.
 ///
-/// Values that are lower `negative_high` will be rounded to -1.0.
+/// Values that are lower than `negative_high` will be rounded to -1.0.
 /// Values that are higher than `positive_high` will be rounded to 1.0.
 /// Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
 /// Otherwise, values will not be rounded.
-///
-/// `threshold` defines the minimum difference between old and new values to apply the changes.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
@@ -170,6 +168,7 @@ pub struct AxisSettings {
     pub positive_low: f32,
     pub negative_high: f32,
     pub negative_low: f32,
+    ///`threshold` defines the minimum difference between old and new values to apply the changes.
     pub threshold: f32,
 }
 
