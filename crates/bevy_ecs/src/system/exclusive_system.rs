@@ -5,6 +5,11 @@ use crate::{
 };
 use std::borrow::Cow;
 
+/// A system which operates freely on a [World] and cannot share access
+///
+/// Exclusive systems can be constructed by:
+/// - calling [`.exclusive_system()`](IntoExclusiveSystem) on a function whose only argument is `&mut World`.
+/// - coercing an ordinary [FunctionSystem](crate::system::FunctionSystem) system into an exclusive system using [`.exclusive_system()`](IntoExclusiveSystem)
 pub trait ExclusiveSystem: Send + Sync + 'static {
     fn name(&self) -> Cow<'static, str>;
 
@@ -15,6 +20,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: u32);
 }
 
+/// A concrete type to store an [ExclusiveSystem]
 pub struct ExclusiveSystemFn<F> {
     func: F,
     name: Cow<'static, str>,
@@ -51,6 +57,7 @@ where
     }
 }
 
+/// Used to convert functions into exclusive systems
 pub trait IntoExclusiveSystem<Params, SystemType> {
     fn exclusive_system(self) -> SystemType;
 }
@@ -68,6 +75,7 @@ where
     }
 }
 
+/// Stores a boxed [FunctionSystem](crate::system::function_system::FunctionSystem) as an exclusive system
 pub struct ExclusiveSystemCoerced {
     system: BoxedSystem<(), ()>,
     archetype_generation: ArchetypeGeneration,
