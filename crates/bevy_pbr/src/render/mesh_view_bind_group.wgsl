@@ -54,7 +54,6 @@ struct Lights {
     n_directional_lights: u32;
 };
 
-
 struct PointLights {
     data: array<PointLight, 256u>;
 };
