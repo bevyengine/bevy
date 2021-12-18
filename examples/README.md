@@ -243,6 +243,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings

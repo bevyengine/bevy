@@ -25,7 +25,7 @@ default = [
   "hdr",
   "mp3",
   "x11",
-  "filesystem_watcher"
+  "filesystem_watcher",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -440,6 +440,10 @@ path = "examples/ui/ui.rs"
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
+
+[[example]]
+name = "multiple_windows"
+path = "examples/window/multiple_windows.rs"
 
 [[example]]
 name = "scale_factor_override"
