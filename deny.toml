@@ -58,7 +58,6 @@ skip = [
     { name = "proc-macro-crate", version = "0.1" },     # from rodio v0.14.0
     { name = "stdweb", version = "0.1" },               # from rodio v0.14.0
     { name = "strsim", version = "0.9" },               # from rodio v0.14.0
-    { name = "raw-window-handle", version = "0.3" },    # from wgpu v0.11.1
 ]
 
 [sources]
