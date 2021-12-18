@@ -462,7 +462,6 @@ mod tests {
     use crate::render_resource::{ProcessShaderError, Shader, ShaderImport, ShaderProcessor};
     #[rustfmt::skip]
 const WGSL: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -493,7 +492,6 @@ fn vertex(
 ";
 
     const WGSL_ELSE: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -527,7 +525,6 @@ fn vertex(
 ";
 
     const WGSL_NESTED_IFDEF: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -560,7 +557,6 @@ fn vertex(
 ";
 
     const WGSL_NESTED_IFDEF_ELSE: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -599,7 +595,6 @@ fn vertex(
     fn process_shader_def_defined() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -642,7 +637,6 @@ fn vertex(
     fn process_shader_def_not_defined() {
         #[rustfmt::skip]
         const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -683,7 +677,6 @@ fn vertex(
     fn process_shader_def_else() {
         #[rustfmt::skip]
     const EXPECTED: &str = r"
-
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
