@@ -3,6 +3,9 @@ use std::{
     ptr::NonNull,
 };
 
+/// A flat, type-erased data storage type
+///
+/// Used to densely store homogeneous ECS data.
 #[derive(Debug)]
 pub struct BlobVec {
     item_layout: Layout,
@@ -122,7 +125,7 @@ impl BlobVec {
         self.len = old_len;
     }
 
-    /// increases the length by one (and grows the vec if needed) with uninitialized memory and
+    /// Increases the length by one (and grows the vec if needed) with uninitialized memory and
     /// returns the index
     ///
     /// # Safety
