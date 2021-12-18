@@ -72,7 +72,7 @@ fn scheduled_spawner(
             scheduled.per_wave,
             bird_texture.0.clone_weak(),
         );
-        counter.color = Color::rgb(random(), random(), random());
+        counter.color = Color::rgb_linear(random(), random(), random());
         scheduled.wave -= 1;
     }
 }
@@ -156,7 +156,7 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb(random(), random(), random());
+        counter.color = Color::rgb_linear(random(), random(), random());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -166,7 +166,7 @@ fn mouse_handler(
             &windows,
             &mut counter,
             spawn_count,
-            bird_texture.0.clone(),
+            bird_texture.0.clone_weak(),
         );
     }
 }
