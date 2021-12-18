@@ -115,6 +115,10 @@ name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
 [[example]]
+name = "rect"
+path = "examples/2d/rect.rs"
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
