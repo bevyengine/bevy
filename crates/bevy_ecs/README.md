@@ -90,7 +90,9 @@ Apps often require unique resources, such as asset collections, renderers, audio
 use bevy_ecs::prelude::*;
 
 #[derive(Default)]
-struct Time(f32);
+struct Time {
+    seconds: f32,
+}
 
 let mut world = World::new();
 
@@ -100,7 +102,7 @@ let time = world.get_resource::<Time>().unwrap();
 
 // You can also access resources from Systems
 fn print_time(time: Res<Time>) {
-    println!("{}", time.0);
+    println!("{}", time.seconds);
 }
 ```
 
