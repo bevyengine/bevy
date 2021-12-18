@@ -5,7 +5,7 @@ use bevy_utils::tracing::debug;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
-/// Tracks the current [`TrackedRenderPipeline`] state to ensure draw calls are valid.
+/// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
 pub struct DrawState {
     pipeline: Option<RenderPipelineId>,
@@ -227,5 +227,12 @@ impl<'a> TrackedRenderPass<'a> {
         debug!("set stencil reference: {}", reference);
 
         self.pass.set_stencil_reference(reference);
+    }
+
+    /// Sets the scissor region.
+    /// Subsequent draw calls will discard any fragments that fall outside this region.
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
+        debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
+        self.pass.set_scissor_rect(x, y, width, height);
     }
 }

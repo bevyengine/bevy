@@ -54,7 +54,7 @@ pub const UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum UiSystem {
+pub enum RenderUiSystem {
     ExtractNode,
 }
 
@@ -78,11 +78,11 @@ pub fn build_ui_render(app: &mut App) {
         .add_system_to_stage(RenderStage::Extract, extract_ui_camera_phases)
         .add_system_to_stage(
             RenderStage::Extract,
-            extract_uinodes.label(UiSystem::ExtractNode),
+            extract_uinodes.label(RenderUiSystem::ExtractNode),
         )
         .add_system_to_stage(
             RenderStage::Extract,
-            extract_text_uinodes.after(UiSystem::ExtractNode),
+            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
         )
         .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
         .add_system_to_stage(RenderStage::Queue, queue_uinodes)
