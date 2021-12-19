@@ -76,6 +76,7 @@ pub struct Style {
     pub min_size: Size<Val>,
     pub max_size: Size<Val>,
     pub aspect_ratio: Option<f32>,
+    pub overflow: Overflow,
 }
 
 impl Default for Style {
@@ -101,6 +102,7 @@ impl Default for Style {
             min_size: Size::new(Val::Auto, Val::Auto),
             max_size: Size::new(Val::Auto, Val::Auto),
             aspect_ratio: Default::default(),
+            overflow: Default::default(),
         }
     }
 }
@@ -214,19 +216,19 @@ impl Default for JustifyContent {
     }
 }
 
-// TODO: add support for overflow settings
-// #[derive(Copy, Clone, PartialEq, Debug)]
-// pub enum Overflow {
-//     Visible,
-//     Hidden,
-//     Scroll,
-// }
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
+pub enum Overflow {
+    Visible,
+    Hidden,
+    // Scroll,
+}
 
-// impl Default for Overflow {
-//     fn default() -> Overflow {
-//         Overflow::Visible
-//     }
-// }
+impl Default for Overflow {
+    fn default() -> Overflow {
+        Overflow::Visible
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
@@ -285,4 +287,10 @@ impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
         Self(handle)
     }
+}
+
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct CalculatedClip {
+    pub clip: bevy_sprite::Rect,
 }
