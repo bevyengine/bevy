@@ -863,6 +863,7 @@ where
                 self.last_change_tick,
                 self.change_tick,
             )
+        }
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching
