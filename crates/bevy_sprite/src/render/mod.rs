@@ -26,7 +26,6 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use crevice::std140::AsStd140;
-use wgpu::SamplerBindingType;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,

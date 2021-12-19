@@ -4,7 +4,6 @@ use bevy_render::{
 };
 
 use crevice::std140::AsStd140;
-use wgpu::SamplerBindingType;
 
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,

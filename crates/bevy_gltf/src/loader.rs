@@ -14,6 +14,9 @@ use bevy_render::{
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
+    render_resource::{
+        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
+    },
     texture::{Image, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -30,7 +33,6 @@ use gltf::{
 };
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
-use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat};
 
 use crate::{Gltf, GltfNode};
 
