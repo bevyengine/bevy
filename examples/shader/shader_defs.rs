@@ -127,6 +127,7 @@ type DrawIsRed = (
     DrawMesh,
 );
 
+#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
