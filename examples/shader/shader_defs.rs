@@ -6,6 +6,7 @@ use bevy::{
     },
     prelude::*,
     render::{
+        render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -128,11 +129,12 @@ type DrawIsRed = (
 
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    render_meshes: Res<RenderAssets<Mesh>>,
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedPipelines<IsRedPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
-    material_meshes: Query<(Entity, &MeshUniform, &IsRed), With<Handle<Mesh>>>,
+    material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
@@ -143,7 +145,11 @@ fn queue_custom(
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform, is_red) in material_meshes.iter() {
+        for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
+            let mut key = key;
+            if let Some(mesh) = render_meshes.get(mesh_handle) {
+                key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            }
             let pipeline =
                 pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
             transparent_phase.add(Transparent3d {
