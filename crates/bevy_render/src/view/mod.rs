@@ -44,12 +44,18 @@ pub struct Msaa {
     /// smoother edges. Note that WGPU currently only supports 1 or 4 samples.
     /// Ultimately we plan on supporting whatever is natively supported on a given device.
     /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
+    /// It defaults to 1 in wasm - https://github.com/gfx-rs/wgpu/issues/2149     
     pub samples: u32,
 }
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self { samples: 4 }
+        Self {
+            #[cfg(feature = "webgl")]
+            samples: 1,
+            #[cfg(not(feature = "webgl"))]
+            samples: 4,
+        }
     }
 }
 

@@ -151,7 +151,10 @@ pub struct DirectionalLightShadowMap {
 
 impl Default for DirectionalLightShadowMap {
     fn default() -> Self {
-        Self { size: 4096 }
+        #[cfg(feature = "webgl2")]
+        return Self { size: 4096 };
+        #[cfg(not(feature = "webgl2"))]
+        return Self { size: 2048 };
     }
 }
 

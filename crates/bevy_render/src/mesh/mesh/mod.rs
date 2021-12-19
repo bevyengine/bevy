@@ -629,7 +629,7 @@ impl RenderAsset for Mesh {
 
         let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
             buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                usage: BufferUsages::INDEX | BufferUsages::MAP_WRITE,
+                usage: BufferUsages::INDEX,
                 contents: data,
                 label: Some("Mesh Index Buffer"),
             }),
