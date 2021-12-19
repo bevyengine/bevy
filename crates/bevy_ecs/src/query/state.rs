@@ -876,7 +876,8 @@ pub enum QueryEntityError {
     NoSuchEntity,
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected result
+/// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
+/// [`QueryState::single`] or [`QueryState::single_mut`].
 #[derive(Error, Debug)]
 pub enum QuerySingleError {
     #[error("No entities fit the query {0}")]
