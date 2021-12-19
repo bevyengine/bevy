@@ -50,7 +50,7 @@ pub struct Entity {
     pub(crate) id: u32,
 }
 
-/// The result of attempting to allocate an entity using [Entity::alloc_at_without_replacement]
+/// The result of attempting to allocate an entity using [Entity::alloc_at_without_replacement](Entity)
 pub enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,

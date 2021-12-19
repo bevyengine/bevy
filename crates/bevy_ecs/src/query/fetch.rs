@@ -57,7 +57,7 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 
 /// Describes the data that is accessed by a [WorldQuery] type.
 ///
-/// See [SystemParamFetch](crate::system::system_param::SystemParamFetch) for the [SystemParam](crate::system::SystemParam) analogue.
+/// See [SystemParamFetch](crate::system::SystemParamFetch) for the [SystemParam](crate::system::SystemParam) analogue.
 ///
 /// By default, a [Fetch] implies read-write access.
 /// Structs which implement this trait may also want to implement one of the following extension traits:
