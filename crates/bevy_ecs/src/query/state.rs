@@ -749,10 +749,10 @@ where
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
     #[inline]
-    pub fn single<'w, 's>(&'s mut self, world: &'w World) -> <Q::Fetch as Fetch<'w, 's>>::Item
-    where
-        Q::Fetch: ReadOnlyFetch,
-    {
+    pub fn single<'w, 's>(
+        &'s mut self,
+        world: &'w World
+    ) -> <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item {
         self.get_single(world).unwrap()
     }
 
@@ -769,10 +769,7 @@ where
     pub fn get_single<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError>
-    where
-        Q::Fetch: ReadOnlyFetch,
-    {
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
         // SAFETY: query is read only
         unsafe {
             self.get_single_unchecked_manual(
