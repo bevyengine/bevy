@@ -751,7 +751,7 @@ where
     #[inline]
     pub fn single<'w, 's>(
         &'s mut self,
-        world: &'w World
+        world: &'w World,
     ) -> <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item {
         self.get_single(world).unwrap()
     }
