@@ -28,3 +28,5 @@ pub fn derive_glsl_struct(input: CompilerTokenStream) -> CompilerTokenStream {
 
     CompilerTokenStream::from(expanded)
 }
+
+const BEVY_RENDER: &str = "bevy_render";

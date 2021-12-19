@@ -30,7 +30,7 @@ impl Default for BevyManifest {
 }
 
 impl BevyManifest {
-    pub fn get_path(&self, name: &str) -> syn::Path {
+    pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
         const BEVY: &str = "bevy";
         const BEVY_INTERNAL: &str = "bevy_internal";
 
@@ -57,7 +57,9 @@ impl BevyManifest {
 
         deps.and_then(find_in_deps)
             .or_else(|| deps_dev.and_then(find_in_deps))
-            .unwrap_or_else(|| get_path(name))
+    }
+    pub fn get_path(&self, name: &str) -> syn::Path {
+        self.maybe_get_path(name).unwrap_or_else(|| get_path(name))
     }
 }
 
