@@ -11,4 +11,11 @@ name = "bevy_ios_example"
 crate-type = ["staticlib"]
 
 [dependencies]
-bevy = { path = "../../", features = [ "bevy_gilrs", "bevy_gltf", "bevy_wgpu", "bevy_winit", "render", "png", "hdr", "bevy_audio", "mp3"], default-features = false}
+bevy = { path = "../../", features = [ 
+  "bevy_audio",
+  "bevy_winit",
+  "render",
+  "mp3",
+  "x11",
+  "filesystem_watcher"
+], default-features = false}

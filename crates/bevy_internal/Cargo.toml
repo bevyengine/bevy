@@ -10,10 +10,10 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-wgpu_trace = ["bevy_wgpu/trace"]
-trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
+trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = [ "bevy_log/tracing-tracy" ]
+wgpu_trace = ["bevy_render/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
@@ -42,7 +42,7 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
 [dependencies]
 # bevy
@@ -63,6 +63,7 @@ bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
 # bevy (optional)
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.5.0" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.5.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.5.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.5.0" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.5.0" }
@@ -70,9 +71,8 @@ bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, versio
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.5.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.5.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
-bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = {version = "0.4", features = ["logger"]}
+ndk-glue = {version = "0.5", features = ["logger"]}

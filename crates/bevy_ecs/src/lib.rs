@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
@@ -37,6 +39,8 @@ pub mod prelude {
         world::{FromWorld, Mut, World},
     };
 }
+
+pub use bevy_ecs_macros::all_tuples;
 
 #[cfg(test)]
 mod tests {

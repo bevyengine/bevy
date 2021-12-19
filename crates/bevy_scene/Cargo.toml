@@ -19,7 +19,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 serde = { version = "1.0", features = ["derive"] }
-ron = "0.6.2"
+ron = "0.7.0"
 uuid = { version = "0.8", features = ["v4", "serde"] }
 anyhow = "1.0.4"
 thiserror = "1.0"

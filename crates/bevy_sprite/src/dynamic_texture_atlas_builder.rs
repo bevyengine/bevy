@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::Assets;
 use bevy_math::Vec2;
-use bevy_render::texture::Texture;
+use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
 pub struct DynamicTextureAtlasBuilder {
@@ -20,12 +20,12 @@ impl DynamicTextureAtlasBuilder {
     pub fn add_texture(
         &mut self,
         texture_atlas: &mut TextureAtlas,
-        textures: &mut Assets<Texture>,
-        texture: &Texture,
-    ) -> Option<u32> {
+        textures: &mut Assets<Image>,
+        texture: &Image,
+    ) -> Option<usize> {
         let allocation = self.atlas_allocator.allocate(size2(
-            texture.size.width as i32 + self.padding,
-            texture.size.height as i32 + self.padding,
+            texture.texture_descriptor.size.width as i32 + self.padding,
+            texture.texture_descriptor.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
@@ -33,8 +33,7 @@ impl DynamicTextureAtlasBuilder {
             let mut rect: Rect = allocation.rectangle.into();
             rect.max.x -= self.padding as f32;
             rect.max.y -= self.padding as f32;
-            texture_atlas.add_texture(rect);
-            Some((texture_atlas.len() - 1) as u32)
+            Some(texture_atlas.add_texture(rect))
         } else {
             None
         }
@@ -65,16 +64,16 @@ impl DynamicTextureAtlasBuilder {
 
     fn place_texture(
         &mut self,
-        atlas_texture: &mut Texture,
+        atlas_texture: &mut Image,
         allocation: Allocation,
-        texture: &Texture,
+        texture: &Image,
     ) {
         let mut rect = allocation.rectangle;
         rect.max.x -= self.padding;
         rect.max.y -= self.padding;
-        let atlas_width = atlas_texture.size.width as usize;
+        let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
         let rect_width = rect.width() as usize;
-        let format_size = atlas_texture.format.pixel_size();
+        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
             let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;

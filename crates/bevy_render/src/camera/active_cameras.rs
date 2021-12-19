@@ -1,18 +1,14 @@
-use crate::renderer::RenderResourceBindings;
-
 use super::Camera;
 use bevy_ecs::{
-    component::Component,
     entity::Entity,
     system::{Query, ResMut},
 };
 use bevy_utils::HashMap;
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct ActiveCamera {
     pub name: String,
     pub entity: Option<Entity>,
-    pub bindings: RenderResourceBindings,
 }
 
 #[derive(Debug, Default)]

@@ -1,6 +1,7 @@
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
@@ -30,15 +31,17 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
-            WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(
-                        &event_loop.primary_monitor().unwrap(),
-                        window_descriptor.width as u32,
-                        window_descriptor.height as u32,
-                    ),
-                    false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                }),
+            WindowMode::Fullscreen => {
+                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
+                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
+                )))
+            }
+            WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
+                    &event_loop.primary_monitor().unwrap(),
+                    window_descriptor.width as u32,
+                    window_descriptor.height as u32,
+                )),
             )),
             _ => {
                 let WindowDescriptor {
@@ -76,7 +79,8 @@ impl WinitWindows {
                 }
             }
             .with_resizable(window_descriptor.resizable)
-            .with_decorations(window_descriptor.decorations),
+            .with_decorations(window_descriptor.decorations)
+            .with_transparent(window_descriptor.transparent),
         };
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
@@ -156,6 +160,7 @@ impl WinitWindows {
             .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
+        let raw_window_handle = winit_window.raw_window_handle();
         self.windows.insert(winit_window.id(), winit_window);
         Window::new(
             window_id,
@@ -164,6 +169,7 @@ impl WinitWindows {
             inner_size.height,
             scale_factor,
             position,
+            raw_window_handle,
         )
     }
 
@@ -177,6 +183,7 @@ impl WinitWindows {
         self.winit_to_window_id.get(&id).cloned()
     }
 }
+
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     width: u32,
