@@ -1,7 +1,7 @@
 [package]
-name = "crevice-derive"
-description = "Derive crate for the 'crevice' crate"
-version = "0.8.0"
+name = "bevy-crevice-derive"
+description = "Derive crate for the 'crevice' crate (Bevy version)"
+version = "0.5.0"
 edition = "2018"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]
 documentation = "https://docs.rs/crevice-derive"
