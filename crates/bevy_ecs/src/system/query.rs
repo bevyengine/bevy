@@ -858,7 +858,7 @@ where
         &'s self,
     ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
         unsafe {
-            self.state.get_single_unchecked_manual(
+            self.state.get_single_unchecked_manual::<Q::ReadOnlyFetch>(
                 self.world,
                 self.last_change_tick,
                 self.change_tick,
@@ -923,7 +923,7 @@ where
         &mut self,
     ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
         unsafe {
-            self.state.get_single_unchecked_manual(
+            self.state.get_single_unchecked_manual::<Q::Fetch>(
                 self.world,
                 self.last_change_tick,
                 self.change_tick,
