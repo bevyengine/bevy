@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
+    bevy_crevice::std140::AsStd140,
     color::Color,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
@@ -25,7 +26,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-use crevice::std140::AsStd140;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,

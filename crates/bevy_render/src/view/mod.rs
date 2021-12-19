@@ -9,6 +9,7 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
+    bevy_crevice::std140::AsStd140,
     camera::{ExtractedCamera, ExtractedCameraNames},
     render_resource::{DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
@@ -19,7 +20,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
 
 pub struct ViewPlugin;
 

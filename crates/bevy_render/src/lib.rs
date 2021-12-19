@@ -42,6 +42,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
+pub use bevy_crevice;
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
 

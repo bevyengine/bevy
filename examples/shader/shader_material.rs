@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        bevy_crevice::std140::{AsStd140, Std140},
         camera::PerspectiveCameraBundle,
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::ExtractComponentPlugin,
@@ -21,7 +22,6 @@ use bevy::{
         RenderApp, RenderStage,
     },
 };
-use crevice::std140::{AsStd140, Std140};
 
 fn main() {
     App::new()

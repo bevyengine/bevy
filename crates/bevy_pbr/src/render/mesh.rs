@@ -11,6 +11,7 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    bevy_crevice::std140::AsStd140,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -22,7 +23,6 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
     TextureFormat, TextureViewDescriptor,

@@ -13,6 +13,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    bevy_crevice::std140::AsStd140,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_phase::{
@@ -23,7 +24,6 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
 };
-use crevice::std140::AsStd140;
 
 // NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.wgsl!
 bitflags::bitflags! {

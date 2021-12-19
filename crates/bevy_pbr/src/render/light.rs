@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
+    bevy_crevice::std140::AsStd140,
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::Mesh,
@@ -29,7 +30,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::warn, HashMap};
-use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
