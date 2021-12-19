@@ -831,7 +831,11 @@ where
         &'s mut self,
         world: &'w World,
     ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
-        self.get_single_unchecked_manual::<Q::Fetch>(world, world.last_change_tick(), world.read_change_tick())
+        self.get_single_unchecked_manual::<Q::Fetch>(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick()
+        )
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
