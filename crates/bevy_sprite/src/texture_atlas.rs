@@ -1,71 +1,33 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_core::Bytes;
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
-use bevy_render::{
-    color::Color,
-    renderer::{RenderResource, RenderResourceType, RenderResources},
-    texture::Texture,
-};
+use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Debug, RenderResources, TypeUuid)]
-#[uuid = "946dacc5-c2b2-4b30-b81d-af77d79d1db7"]
+#[derive(Debug, Clone, TypeUuid)]
+#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
-    pub texture: Handle<Texture>,
+    pub texture: Handle<Image>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
-    #[render_resources(buffer)]
     pub textures: Vec<Rect>,
-    #[render_resources(ignore)]
-    pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
+    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Component, Debug, Clone, RenderResources)]
-#[render_resources(from_self)]
-#[repr(C)]
+#[derive(Component, Debug, Clone, TypeUuid, Reflect)]
+#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct TextureAtlasSprite {
     pub color: Color,
-    pub index: u32,
+    pub index: usize,
     pub flip_x: bool,
     pub flip_y: bool,
-}
-
-impl RenderResource for TextureAtlasSprite {
-    fn resource_type(&self) -> Option<RenderResourceType> {
-        Some(RenderResourceType::Buffer)
-    }
-
-    fn buffer_byte_len(&self) -> Option<usize> {
-        Some(24)
-    }
-
-    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
-        // Write the color buffer
-        let (color_buf, rest) = buffer.split_at_mut(16);
-        self.color.write_bytes(color_buf);
-
-        // Write the index buffer
-        let (index_buf, flip_buf) = rest.split_at_mut(4);
-        self.index.write_bytes(index_buf);
-
-        // First bit means flip x, second bit means flip y
-        flip_buf[0] = if self.flip_x { 0b01 } else { 0 } | if self.flip_y { 0b10 } else { 0 };
-        flip_buf[1] = 0;
-        flip_buf[2] = 0;
-        flip_buf[3] = 0;
-    }
-
-    fn texture(&self) -> Option<&Handle<Texture>> {
-        None
-    }
 }
 
 impl Default for TextureAtlasSprite {
@@ -80,7 +42,7 @@ impl Default for TextureAtlasSprite {
 }
 
 impl TextureAtlasSprite {
-    pub fn new(index: u32) -> TextureAtlasSprite {
+    pub fn new(index: usize) -> TextureAtlasSprite {
         Self {
             index,
             ..Default::default()
@@ -91,7 +53,7 @@ impl TextureAtlasSprite {
 impl TextureAtlas {
     /// Create a new `TextureAtlas` that has a texture, but does not have
     /// any individual sprites specified
-    pub fn new_empty(texture: Handle<Texture>, dimensions: Vec2) -> Self {
+    pub fn new_empty(texture: Handle<Image>, dimensions: Vec2) -> Self {
         Self {
             texture,
             size: dimensions,
@@ -103,7 +65,7 @@ impl TextureAtlas {
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// cell of the grid  of `tile_size` is one of the textures in the atlas
     pub fn from_grid(
-        texture: Handle<Texture>,
+        texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
@@ -113,10 +75,9 @@ impl TextureAtlas {
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// cell of the grid of `tile_size` is one of the textures in the atlas and is separated by
-    /// some `padding` in the texture. The padding is assumed to be only between tiles
-    /// and not at the borders of the texture.
+    /// some `padding` in the texture
     pub fn from_grid_with_padding(
-        texture: Handle<Texture>,
+        texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
@@ -165,9 +126,9 @@ impl TextureAtlas {
     ///
     /// * `rect` - The section of the atlas that contains the texture to be added,
     /// from the top-left corner of the texture to the bottom-right corner
-    pub fn add_texture(&mut self, rect: Rect) -> u32 {
+    pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
-        (self.textures.len() - 1) as u32
+        self.textures.len() - 1
     }
 
     /// How many textures are in the `TextureAtlas`
@@ -179,7 +140,7 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    pub fn get_texture_index(&self, texture: &Handle<Texture>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()
             .and_then(|texture_handles| texture_handles.get(texture).cloned())

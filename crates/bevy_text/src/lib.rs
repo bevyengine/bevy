@@ -1,4 +1,3 @@
-mod draw;
 mod error;
 mod font;
 mod font_atlas;
@@ -9,7 +8,6 @@ mod pipeline;
 mod text;
 mod text2d;
 
-pub use draw::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -22,15 +20,17 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
-    #[doc(hidden)]
-    pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    pub use crate::{
+        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
+        TextStyle, VerticalAlign,
+    };
 }
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::entity::Entity;
-use bevy_render::RenderStage;
+use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
+use bevy_render::{RenderApp, RenderStage};
+use bevy_sprite::SpriteSystem;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
@@ -41,9 +41,18 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
+            // TODO: uncomment when #2215 is fixed
+            // .register_type::<Text>()
+            .register_type::<VerticalAlign>()
+            .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<DefaultTextPipeline>()
-            .add_system_to_stage(CoreStage::PostUpdate, text2d_system)
-            .add_system_to_stage(RenderStage::Draw, text2d::draw_text2d_system);
+            .insert_resource(DefaultTextPipeline::default())
+            .add_system_to_stage(CoreStage::PostUpdate, text2d_system);
+
+        let render_app = app.sub_app(RenderApp);
+        render_app.add_system_to_stage(
+            RenderStage::Extract,
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprite),
+        );
     }
 }

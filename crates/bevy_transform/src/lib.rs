@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod components;
 pub mod hierarchy;
 pub mod transform_propagate_system;

@@ -123,13 +123,18 @@ impl ComponentSparseSet {
         self.dense.len() == 0
     }
 
-    /// Inserts the `entity` key and component `value` pair into this sparse set.
-    /// The caller is responsible for ensuring the value is not dropped. This collection will drop
-    /// the value when needed.
+    /// Inserts the `entity` key and component `value` pair into this sparse
+    /// set. This collection takes ownership of the contents of `value`, and
+    /// will drop the value when needed. Also, it may overwrite the contents of
+    /// the `value` pointer if convenient. The caller is responsible for
+    /// ensuring it does not drop `*value` after calling `insert`.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout`
-    ///  inside the `ComponentInfo` given when constructing this sparse set.
+    /// * The `value` pointer must point to a valid address that matches the
+    ///   `Layout` inside the `ComponentInfo` given when constructing this
+    ///   sparse set.
+    /// * The caller is responsible for ensuring it does not drop `*value` after
+    ///   calling `insert`.
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);

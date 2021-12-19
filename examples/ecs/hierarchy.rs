@@ -8,11 +8,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     let texture = asset_server.load("branding/icon.png");
 
@@ -20,10 +16,7 @@ fn setup(
     let parent = commands
         .spawn_bundle(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
-            material: materials.add(ColorMaterial {
-                color: Color::WHITE,
-                texture: Some(texture.clone()),
-            }),
+            texture: texture.clone(),
             ..Default::default()
         })
         // With that entity as a parent, run a lambda that spawns its children
@@ -35,10 +28,11 @@ fn setup(
                     scale: Vec3::splat(0.75),
                     ..Default::default()
                 },
-                material: materials.add(ColorMaterial {
+                texture: texture.clone(),
+                sprite: Sprite {
                     color: Color::BLUE,
-                    texture: Some(texture.clone()),
-                }),
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         })
@@ -56,10 +50,11 @@ fn setup(
                 scale: Vec3::splat(0.75),
                 ..Default::default()
             },
-            material: materials.add(ColorMaterial {
+            texture: texture.clone(),
+            sprite: Sprite {
                 color: Color::RED,
-                texture: Some(texture.clone()),
-            }),
+                ..Default::default()
+            },
             ..Default::default()
         })
         // Using the entity from the previous section as the parent:
@@ -74,10 +69,11 @@ fn setup(
                 scale: Vec3::splat(0.75),
                 ..Default::default()
             },
-            material: materials.add(ColorMaterial {
+            texture,
+            sprite: Sprite {
                 color: Color::GREEN,
-                texture: Some(texture),
-            }),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .id();
