@@ -288,7 +288,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// means a system can only have one or zero input paramaters.
 ///
 /// Within a schedule, this is typically used in combination with
-/// a matching `Out` type on the corresponding [ChainSystem](crate::system::system_chaining::ChainSystem)
+/// a matching `Out` type on the corresponding [ChainSystem](crate::system::ChainSystem)
 ///
 /// # Examples
 ///

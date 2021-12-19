@@ -641,7 +641,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 /// Remember that [Commands] are only processed at the end of each stage!
 ///
 /// Only an iterator of [Entity] is returned: no special access is granted, and you cannot view the removed components.
-/// Like usual, these [Entity] can be passed into [EntityCommands](crate::system::commands::EntityCommands),
+/// Like usual, these [Entity] can be passed into [EntityCommands](crate::system::EntityCommands),
 /// or used for [Query::get](Query::get)
 ///
 /// If you need to access the values of removed components, they must be manually cached:

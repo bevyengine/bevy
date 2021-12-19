@@ -75,7 +75,7 @@ where
     }
 }
 
-/// Stores a boxed [FunctionSystem](crate::system::function_system::FunctionSystem) as an exclusive system
+/// Stores a boxed [FunctionSystem](crate::system::FunctionSystem) as an exclusive system
 pub struct ExclusiveSystemCoerced {
     system: BoxedSystem<(), ()>,
     archetype_generation: ArchetypeGeneration,
