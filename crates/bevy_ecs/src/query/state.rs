@@ -834,7 +834,7 @@ where
         self.get_single_unchecked_manual::<Q::Fetch>(
             world,
             world.last_change_tick(),
-            world.read_change_tick()
+            world.read_change_tick(),
         )
     }
 
