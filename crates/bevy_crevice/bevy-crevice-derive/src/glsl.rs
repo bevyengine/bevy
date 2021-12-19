@@ -12,8 +12,8 @@ pub fn emit(input: DeriveInput) -> TokenStream {
         Data::Enum(_) | Data::Union(_) => panic!("Only structs are supported"),
     };
 
-    let base_trait_path: Path = parse_quote!(::crevice::glsl::Glsl);
-    let struct_trait_path: Path = parse_quote!(::crevice::glsl::GlslStruct);
+    let base_trait_path: Path = parse_quote!(::bevy_crevice::glsl::Glsl);
+    let struct_trait_path: Path = parse_quote!(::bevy_crevice::glsl::GlslStruct);
 
     let name = input.ident;
     let name_str = Literal::string(&name.to_string());
@@ -23,14 +23,14 @@ pub fn emit(input: DeriveInput) -> TokenStream {
     let glsl_fields = fields.named.iter().map(|field| {
         let field_ty = &field.ty;
         let field_name_str = Literal::string(&field.ident.as_ref().unwrap().to_string());
-        let field_as = quote! {<#field_ty as ::crevice::glsl::GlslArray>};
+        let field_as = quote! {<#field_ty as ::bevy_crevice::glsl::GlslArray>};
 
         quote! {
             s.push_str("\t");
             s.push_str(#field_as::NAME);
             s.push_str(" ");
             s.push_str(#field_name_str);
-            <#field_as::ArraySize as ::crevice::glsl::DimensionList>::push_to_string(s);
+            <#field_as::ArraySize as ::bevy_crevice::glsl::DimensionList>::push_to_string(s);
             s.push_str(";\n");
         }
     });

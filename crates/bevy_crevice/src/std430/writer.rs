@@ -32,7 +32,7 @@ buffer POINT_LIGHTS {
 ```
 
 ```
-use crevice::std430::{self, AsStd430};
+use bevy_crevice::std430::{self, AsStd430};
 
 #[derive(AsStd430)]
 struct PointLight {

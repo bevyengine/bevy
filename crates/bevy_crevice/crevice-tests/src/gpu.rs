@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use crevice::glsl::{Glsl, GlslStruct};
-use crevice::std140::{AsStd140, Std140};
-use crevice::std430::{AsStd430, Std430};
+use bevy_crevice::glsl::{Glsl, GlslStruct};
+use bevy_crevice::std140::{AsStd140, Std140};
+use bevy_crevice::std430::{AsStd430, Std430};
 use futures::executor::block_on;
 use wgpu::util::DeviceExt;
 

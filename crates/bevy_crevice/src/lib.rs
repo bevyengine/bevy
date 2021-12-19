@@ -56,7 +56,7 @@ uniform MAIN {
 ```
 
 ```rust
-use crevice::std140::{AsStd140, Std140};
+use bevy_crevice::std140::{AsStd140, Std140};
 
 #[derive(AsStd140)]
 struct MainUniform {
@@ -100,7 +100,7 @@ buffer POINT_LIGHTS {
 ```
 
 ```rust
-use crevice::std140::{self, AsStd140};
+use bevy_crevice::std140::{self, AsStd140};
 
 #[derive(AsStd140)]
 struct PointLight {

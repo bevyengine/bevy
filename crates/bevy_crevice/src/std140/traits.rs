@@ -89,7 +89,7 @@ uniform CAMERA {
 ```
 
 ```no_run
-use crevice::std140::{AsStd140, Std140};
+use bevy_crevice::std140::{AsStd140, Std140};
 
 #[derive(AsStd140)]
 struct CameraUniform {

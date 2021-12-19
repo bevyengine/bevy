@@ -15,4 +15,4 @@ pub use self::traits::*;
 #[cfg(feature = "std")]
 pub use self::writer::*;
 
-pub use crevice_derive::AsStd140;
+pub use bevy_crevice_derive::AsStd140;
