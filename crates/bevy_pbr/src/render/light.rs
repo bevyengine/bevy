@@ -293,8 +293,8 @@ impl SpecializedPipeline for ShadowPipeline {
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
