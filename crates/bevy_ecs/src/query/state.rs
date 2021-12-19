@@ -739,9 +739,8 @@ where
     /// Returns a single immutable query result when there is exactly one entity matching
     /// the query.
     ///
-    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
-    /// bound). Use [`single_mut`](Self::single_mut) for queries that contain at least one
-    /// mutable component.
+    /// This can only be called for read-only queries,
+    /// see [`single_mut`](Self::single_mut) for write-queries.
     ///
     /// # Panics
     ///
@@ -759,9 +758,8 @@ where
     /// Returns a single immutable query result when there is exactly one entity matching
     /// the query.
     ///
-    /// This can only be called for read-only queries (due to the [`ReadOnlyFetch`] trait
-    /// bound). Use [`get_single_mut`](Self::get_single_mut) for queries that contain at least one
-    /// mutable component.
+    /// This can only be called for read-only queries,
+    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
