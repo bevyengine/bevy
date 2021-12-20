@@ -248,4 +248,21 @@ impl<'a> TrackedRenderPass<'a> {
         );
         self.pass.set_push_constants(stages, offset, data)
     }
+
+    pub fn set_viewport(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) {
+        debug!(
+            "set viewport: {} {} {} {} {} {}",
+            x, y, width, height, min_depth, max_depth
+        );
+        self.pass
+            .set_viewport(x, y, width, height, min_depth, max_depth)
+    }
 }
