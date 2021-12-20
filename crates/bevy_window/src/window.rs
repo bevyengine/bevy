@@ -19,8 +19,8 @@ impl WindowId {
     }
 }
 
-use std::fmt;
 use crate::CursorIcon;
+use std::fmt;
 
 use crate::raw_window_handle::RawWindowHandleWrapper;
 
@@ -165,7 +165,7 @@ pub enum WindowCommand {
         locked: bool,
     },
     SetCursorIcon {
-        icon: CursorIcon
+        icon: CursorIcon,
     },
     SetCursorVisibility {
         visible: bool,
@@ -486,9 +486,8 @@ impl Window {
     }
 
     pub fn set_cursor_icon(&mut self, icon: CursorIcon) {
-        self.command_queue.push(WindowCommand::SetCursorIcon {
-            icon,
-        });
+        self.command_queue
+            .push(WindowCommand::SetCursorIcon { icon });
     }
 
     /// The current mouse position, in physical pixels.
