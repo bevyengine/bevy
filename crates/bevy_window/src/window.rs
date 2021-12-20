@@ -217,7 +217,7 @@ impl Window {
             resize_constraints: window_descriptor.resize_constraints,
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
-            title: window_descriptor.title().to_owned(),
+            title: window_descriptor.title_or_default().to_owned(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
@@ -541,6 +541,7 @@ pub struct WindowDescriptor {
     pub position: Option<Vec2>,
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
+    /// For reading, prefer title_or_default
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
@@ -568,7 +569,7 @@ static DEFAULT_WINDOW_TITLE: Lazy<String> = Lazy::new(|| {
 });
 
 impl WindowDescriptor {
-    pub fn title(&self) -> &str {
+    pub fn title_or_default(&self) -> &str {
         if self.title.is_empty() {
             &DEFAULT_WINDOW_TITLE
         } else {
