@@ -1,5 +1,5 @@
 use crate::render_resource::{
-    BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
+    BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId, ShaderStages,
 };
 use bevy_utils::tracing::debug;
 use std::ops::Range;
@@ -234,5 +234,18 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
         debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
         self.pass.set_scissor_rect(x, y, width, height);
+    }
+
+    /// Set push constant data.
+    ///
+    /// Features::PUSH_CONSTANTS must be enabled on the device in order to call these functions.
+    pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+        debug!(
+            "set push constants: {:?} offset: {} data.len: {}",
+            stages,
+            offset,
+            data.len()
+        );
+        self.pass.set_push_constants(stages, offset, data)
     }
 }
