@@ -578,12 +578,11 @@ pub struct EntityLocation {
     pub index: usize,
 }
 
-// Constant for the initial generation value, removes the need to unwrap in opt-0 code but doesn't
-// require unsafe. When rust 1.57 drops, we can exchange [][1] for panic!().
+// Constant for the initial generation value, removes the need to unwrap in opt-0 code but doesn't require unsafe.
 const GENERATION_ONE: NonZeroU32 = if let Some(gen) = NonZeroU32::new(1) {
     gen
 } else {
-    [][1]
+    panic!("Failed to unwrap GENERATION_ONE constant")
 };
 
 #[cfg(test)]
