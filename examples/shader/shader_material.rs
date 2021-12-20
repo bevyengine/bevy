@@ -171,11 +171,12 @@ impl FromWorld for CustomPipeline {
 pub fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     materials: Res<RenderAssets<CustomMaterial>>,
+    render_meshes: Res<RenderAssets<Mesh>>,
     custom_pipeline: Res<CustomPipeline>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(Entity, &Handle<CustomMaterial>, &MeshUniform), With<Handle<Mesh>>>,
+    material_meshes: Query<(Entity, &Handle<CustomMaterial>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
@@ -186,18 +187,22 @@ pub fn queue_custom(
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, material_handle, mesh_uniform) in material_meshes.iter() {
+        for (entity, material_handle, mesh_handle, mesh_uniform) in material_meshes.iter() {
             if materials.contains_key(material_handle) {
-                transparent_phase.add(Transparent3d {
-                    entity,
-                    pipeline: specialized_pipelines.specialize(
-                        &mut pipeline_cache,
-                        &custom_pipeline,
-                        key,
-                    ),
-                    draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-                });
+                if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    let key =
+                        key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    transparent_phase.add(Transparent3d {
+                        entity,
+                        pipeline: specialized_pipelines.specialize(
+                            &mut pipeline_cache,
+                            &custom_pipeline,
+                            key,
+                        ),
+                        draw_function: draw_custom,
+                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    });
+                }
             }
         }
     }
