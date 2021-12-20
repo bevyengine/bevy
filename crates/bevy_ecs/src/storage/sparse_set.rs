@@ -88,6 +88,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// A sparse data structure of [Components](crate::component::Component)
+///
+/// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
@@ -228,6 +231,9 @@ impl ComponentSparseSet {
     }
 }
 
+/// A data structure that blends dense and sparse storage
+///
+/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
@@ -391,6 +397,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
+/// A collection of [ComponentSparseSet] storages, indexed by [ComponentId]
+///
+/// Can be accessed via [Storages](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,
