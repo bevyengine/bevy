@@ -31,4 +31,3 @@ guillotiere = "0.6.0"
 thiserror = "1.0"
 rectangle-pack = "0.4"
 serde = { version = "1", features = ["derive"] }
-wgpu = "0.12.0"

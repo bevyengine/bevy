@@ -33,4 +33,3 @@ serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }
 crevice = { path = "../crevice", version = "0.8.0", features = ["glam"] }
-wgpu = "0.12.0"
