@@ -559,10 +559,22 @@ pub struct WindowDescriptor {
     pub canvas: Option<String>,
 }
 
+impl WindowDescriptor {
+    fn default_window_title() -> String {
+        fn inner() -> Option<String> {
+            Some(format!(
+                "{} - bevy",
+                std::env::current_exe().ok()?.file_stem()?.to_string_lossy()
+            ))
+        }
+        inner().unwrap_or_else(|| "bevy".to_string())
+    }
+}
+
 impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
-            title: "bevy".to_string(),
+            title: Self::default_window_title(),
             width: 1280.,
             height: 720.,
             position: None,
