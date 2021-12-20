@@ -359,6 +359,10 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
+        // Don't update clusters if screen size is 0.
+        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
+            continue;
+        }
         *clusters =
             Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
         let screen_size = screen_size_u32.as_vec2();
