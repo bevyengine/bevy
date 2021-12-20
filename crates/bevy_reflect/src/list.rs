@@ -225,11 +225,11 @@ impl DynamicList {
 
 impl List for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
-        self.values.get(index).map(|value| &**value)
+        self.values.get(index)
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        self.values.get_mut(index).map(|value| &mut **value)
+        self.values.get_mut(index).map(|value| &mut *value)
     }
 
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
