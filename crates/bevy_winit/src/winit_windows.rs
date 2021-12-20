@@ -103,7 +103,7 @@ impl WinitWindows {
             };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
+        let mut winit_window_builder = winit_window_builder.with_title(window_descriptor.title());
 
         #[cfg(target_arch = "wasm32")]
         {

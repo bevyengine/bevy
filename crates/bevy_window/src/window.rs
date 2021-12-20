@@ -1,5 +1,6 @@
 use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
+use once_cell::sync::Lazy;
 use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -216,7 +217,7 @@ impl Window {
             resize_constraints: window_descriptor.resize_constraints,
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
-            title: window_descriptor.title.clone(),
+            title: window_descriptor.title().to_owned(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
@@ -559,22 +560,27 @@ pub struct WindowDescriptor {
     pub canvas: Option<String>,
 }
 
+static DEFAULT_WINDOW_TITLE: Lazy<String> = Lazy::new(|| {
+    std::env::current_exe()
+        .ok()
+        .and_then(|it| Some(format!("{} - bevy", it.file_stem()?.to_string_lossy())))
+        .unwrap_or_else(|| "bevy".to_string())
+});
+
 impl WindowDescriptor {
-    fn default_window_title() -> String {
-        fn inner() -> Option<String> {
-            Some(format!(
-                "{} - bevy",
-                std::env::current_exe().ok()?.file_stem()?.to_string_lossy()
-            ))
+    pub fn title(&self) -> &str {
+        if self.title.is_empty() {
+            &DEFAULT_WINDOW_TITLE
+        } else {
+            &self.title
         }
-        inner().unwrap_or_else(|| "bevy".to_string())
     }
 }
 
 impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
-            title: Self::default_window_title(),
+            title: "".to_string(),
             width: 1280.,
             height: 720.,
             position: None,
