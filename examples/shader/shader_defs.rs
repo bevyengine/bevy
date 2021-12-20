@@ -147,18 +147,17 @@ fn queue_custom(
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
-            let mut key = key;
             if let Some(mesh) = render_meshes.get(mesh_handle) {
-                key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let pipeline =
+                    pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    pipeline,
+                    draw_function: draw_custom,
+                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                });
             }
-            let pipeline =
-                pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
-            transparent_phase.add(Transparent3d {
-                entity,
-                pipeline,
-                draw_function: draw_custom,
-                distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
         }
     }
 }

@@ -116,20 +116,20 @@ fn queue_wireframes(
 
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
-                let mut key = key;
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let key =
+                        key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    transparent_phase.add(Opaque3d {
+                        entity,
+                        pipeline: specialized_pipelines.specialize(
+                            &mut pipeline_cache,
+                            &wireframe_pipeline,
+                            key,
+                        ),
+                        draw_function: draw_custom,
+                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    });
                 }
-                transparent_phase.add(Opaque3d {
-                    entity,
-                    pipeline: specialized_pipelines.specialize(
-                        &mut pipeline_cache,
-                        &wireframe_pipeline,
-                        key,
-                    ),
-                    draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-                });
             };
 
         if wireframe_config.global {

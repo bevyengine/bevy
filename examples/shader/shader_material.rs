@@ -189,20 +189,20 @@ pub fn queue_custom(
         let view_row_2 = view_matrix.row(2);
         for (entity, material_handle, mesh_handle, mesh_uniform) in material_meshes.iter() {
             if materials.contains_key(material_handle) {
-                let mut key = key;
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let key =
+                        key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    transparent_phase.add(Transparent3d {
+                        entity,
+                        pipeline: specialized_pipelines.specialize(
+                            &mut pipeline_cache,
+                            &custom_pipeline,
+                            key,
+                        ),
+                        draw_function: draw_custom,
+                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    });
                 }
-                transparent_phase.add(Transparent3d {
-                    entity,
-                    pipeline: specialized_pipelines.specialize(
-                        &mut pipeline_cache,
-                        &custom_pipeline,
-                        key,
-                    ),
-                    draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-                });
             }
         }
     }
