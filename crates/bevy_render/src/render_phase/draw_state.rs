@@ -1,5 +1,9 @@
-use crate::render_resource::{
-    BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId, ShaderStages,
+use crate::{
+    prelude::Color,
+    render_resource::{
+        BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
+        ShaderStages,
+    },
 };
 use bevy_utils::tracing::debug;
 use std::ops::Range;
@@ -272,12 +276,17 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     pub fn push_debug_group(&mut self, label: &str) {
-        debug!("insert push_debug_group marker: {}", label);
+        debug!("push_debug_group marker: {}", label);
         self.pass.push_debug_group(label)
     }
 
     pub fn pop_debug_group(&mut self) {
-        debug!("insert pop_debug_group");
+        debug!("pop_debug_group");
         self.pass.pop_debug_group()
+    }
+
+    pub fn set_blend_constant(&mut self, color: Color) {
+        debug!("set blend constant: {:?}", color);
+        self.pass.set_blend_constant(wgpu::Color::from(color))
     }
 }
