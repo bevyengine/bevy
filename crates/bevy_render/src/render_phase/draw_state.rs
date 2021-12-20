@@ -265,4 +265,19 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass
             .set_viewport(x, y, width, height, min_depth, max_depth)
     }
+
+    pub fn insert_debug_marker(&mut self, label: &str) {
+        debug!("insert debug marker: {}", label);
+        self.pass.insert_debug_marker(label)
+    }
+
+    pub fn push_debug_group(&mut self, label: &str) {
+        debug!("insert push_debug_group marker: {}", label);
+        self.pass.push_debug_group(label)
+    }
+
+    pub fn pop_debug_group(&mut self) {
+        debug!("insert pop_debug_group");
+        self.pass.pop_debug_group()
+    }
 }
