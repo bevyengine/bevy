@@ -20,6 +20,7 @@ impl WindowId {
 }
 
 use std::fmt;
+use crate::CursorIcon;
 
 use crate::raw_window_handle::RawWindowHandleWrapper;
 
@@ -123,6 +124,7 @@ pub struct Window {
     vsync: bool,
     resizable: bool,
     decorations: bool,
+    cursor_icon: CursorIcon,
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
@@ -161,6 +163,9 @@ pub enum WindowCommand {
     },
     SetCursorLockMode {
         locked: bool,
+    },
+    SetCursorIcon {
+        icon: CursorIcon
     },
     SetCursorVisibility {
         visible: bool,
@@ -222,6 +227,7 @@ impl Window {
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
+            cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
@@ -471,6 +477,17 @@ impl Window {
         self.cursor_visible = visibile_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
             visible: visibile_mode,
+        });
+    }
+
+    #[inline]
+    pub fn cursor_icon(&self) -> CursorIcon {
+        self.cursor_icon
+    }
+
+    pub fn set_cursor_icon(&mut self, icon: CursorIcon) {
+        self.command_queue.push(WindowCommand::SetCursorIcon {
+            icon,
         });
     }
 
