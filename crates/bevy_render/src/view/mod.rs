@@ -9,7 +9,9 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ExtractedCameraNames},
+    camera::{ExtractedCamera, ExtractedCameraNames, RenderTarget},
+    prelude::Image,
+    render_asset::RenderAssets,
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -174,6 +176,7 @@ fn prepare_view_targets(
     mut commands: Commands,
     camera_names: Res<ExtractedCameraNames>,
     windows: Res<ExtractedWindows>,
+    gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -185,41 +188,56 @@ fn prepare_view_targets(
         } else {
             continue;
         };
-        let window = if let Some(window) = windows.get(&camera.window_id) {
-            window
-        } else {
-            continue;
+        let view_target = match &camera.target {
+            RenderTarget::Window(window_id) => {
+                let window = if let Some(window) = windows.get(window_id) {
+                    window
+                } else {
+                    continue;
+                };
+                let swap_chain_texture = if let Some(texture) = &window.swap_chain_texture {
+                    texture
+                } else {
+                    continue;
+                };
+                let sampled_target = if msaa.samples > 1 {
+                    let sampled_texture = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("sampled_color_attachment_texture"),
+                            size: Extent3d {
+                                width: window.physical_width,
+                                height: window.physical_height,
+                                depth_or_array_layers: 1,
+                            },
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::bevy_default(),
+                            usage: TextureUsages::RENDER_ATTACHMENT,
+                        },
+                    );
+                    Some(sampled_texture.default_view.clone())
+                } else {
+                    None
+                };
+                ViewTarget {
+                    view: swap_chain_texture.clone(),
+                    sampled_target,
+                }
+            }
+            RenderTarget::Image(image_handle) => {
+                if let Some(gpu_image) = gpu_images.get(image_handle) {
+                    // TODO: MSAA support
+                    ViewTarget {
+                        view: gpu_image.texture_view.clone(),
+                        sampled_target: None,
+                    }
+                } else {
+                    continue;
+                }
+            }
         };
-        let swap_chain_texture = if let Some(texture) = &window.swap_chain_texture {
-            texture
-        } else {
-            continue;
-        };
-        let sampled_target = if msaa.samples > 1 {
-            let sampled_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("sampled_color_attachment_texture"),
-                    size: Extent3d {
-                        width: window.physical_width,
-                        height: window.physical_height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: msaa.samples,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::bevy_default(),
-                    usage: TextureUsages::RENDER_ATTACHMENT,
-                },
-            );
-            Some(sampled_texture.default_view.clone())
-        } else {
-            None
-        };
-
-        commands.entity(entity).insert(ViewTarget {
-            view: swap_chain_texture.clone(),
-            sampled_target,
-        });
+        commands.entity(entity).insert(view_target);
     }
 }

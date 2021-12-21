@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::ClearColor;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, RenderTarget},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo},
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
@@ -47,7 +47,7 @@ impl Node for ClearPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let mut cleared_windows = HashSet::new();
+        let mut cleared_targets = HashSet::new();
         let clear_color = world.get_resource::<ClearColor>().unwrap();
 
         // This gets all ViewTargets and ViewDepthTextures and clears its attachments
@@ -56,7 +56,7 @@ impl Node for ClearPassNode {
         // clearing happen on "render targets" instead of "views" (see the TODO below for more context).
         for (target, depth, camera) in self.query.iter_manual(world) {
             if let Some(camera) = camera {
-                cleared_windows.insert(camera.window_id);
+                cleared_targets.insert(&camera.target);
             }
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
@@ -85,7 +85,7 @@ impl Node for ClearPassNode {
         let windows = world.get_resource::<ExtractedWindows>().unwrap();
         for window in windows.values() {
             // skip windows that have already been cleared
-            if cleared_windows.contains(&window.id) {
+            if cleared_targets.contains(&RenderTarget::Window(window.id)) {
                 continue;
             }
             let pass_descriptor = RenderPassDescriptor {
