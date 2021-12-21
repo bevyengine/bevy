@@ -582,7 +582,7 @@ pub struct EntityLocation {
 const GENERATION_ONE: NonZeroU32 = if let Some(gen) = NonZeroU32::new(1) {
     gen
 } else {
-    panic!("Failed to unwrap GENERATION_ONE constant")
+    unreachable!()
 };
 
 #[cfg(test)]
