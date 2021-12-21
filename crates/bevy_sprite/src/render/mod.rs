@@ -9,13 +9,16 @@ use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
-    render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::{
+        DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
+        TrackedRenderPass,
+    },
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
@@ -550,56 +553,71 @@ pub fn queue_sprites(
     }
 }
 
-pub struct DrawSprite {
-    params: SystemState<(
-        SRes<SpriteMeta>,
-        SRes<ImageBindGroups>,
-        SRes<RenderPipelineCache>,
-        SQuery<Read<ViewUniformOffset>>,
-        SQuery<Read<SpriteBatch>>,
-    )>,
-}
+pub type DrawSprite = (
+    SetItemPipeline,
+    SetSpriteViewBindGroup<0>,
+    SetSpriteTextureBindGroup<1>,
+    DrawSpriteBatch,
+);
 
-impl DrawSprite {
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            params: SystemState::new(world),
-        }
+pub struct SetSpriteViewBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
+    type Param = (SRes<SpriteMeta>, SQuery<Read<ViewUniformOffset>>);
+
+    fn render<'w>(
+        view: Entity,
+        _item: Entity,
+        (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let view_uniform = view_query.get(view).unwrap();
+        pass.set_bind_group(
+            I,
+            sprite_meta.into_inner().view_bind_group.as_ref().unwrap(),
+            &[view_uniform.offset],
+        );
+        RenderCommandResult::Success
     }
 }
+pub struct SetSpriteTextureBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
+    type Param = (SRes<ImageBindGroups>, SQuery<Read<SpriteBatch>>);
 
-impl Draw<Transparent2d> for DrawSprite {
-    fn draw<'w>(
-        &mut self,
-        world: &'w World,
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-        view: Entity,
-        item: &Transparent2d,
-    ) {
-        let (sprite_meta, image_bind_groups, pipelines, views, sprites) = self.params.get(world);
-        let view_uniform = views.get(view).unwrap();
-        let sprite_meta = sprite_meta.into_inner();
+    ) -> RenderCommandResult {
+        let sprite_batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
-        let sprite_batch = sprites.get(item.entity).unwrap();
-        if let Some(pipeline) = pipelines.into_inner().get(item.pipeline) {
-            pass.set_render_pipeline(pipeline);
-            if sprite_batch.colored {
-                pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));
-            } else {
-                pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
-            }
-            pass.set_bind_group(
-                0,
-                sprite_meta.view_bind_group.as_ref().unwrap(),
-                &[view_uniform.offset],
-            );
-            pass.set_bind_group(
-                1,
-                image_bind_groups.values.get(&sprite_batch.handle).unwrap(),
-                &[],
-            );
 
-            pass.draw(sprite_batch.range.clone(), 0..1);
+        pass.set_bind_group(
+            1,
+            image_bind_groups.values.get(&sprite_batch.handle).unwrap(),
+            &[],
+        );
+        RenderCommandResult::Success
+    }
+}
+pub struct DrawSpriteBatch;
+impl EntityRenderCommand for DrawSpriteBatch {
+    type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
+
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let sprite_batch = query_batch.get(item).unwrap();
+        let sprite_meta = sprite_meta.into_inner();
+        if sprite_batch.colored {
+            pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));
+        } else {
+            pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
         }
+        pass.draw(sprite_batch.range.clone(), 0..1);
+        RenderCommandResult::Success
     }
 }

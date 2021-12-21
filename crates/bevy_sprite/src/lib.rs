@@ -32,7 +32,7 @@ use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    render_phase::DrawFunctions,
+    render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedPipelines},
     RenderApp, RenderStage,
 };
@@ -62,6 +62,7 @@ impl Plugin for SpritePlugin {
             .init_resource::<SpriteMeta>()
             .init_resource::<ExtractedSprites>()
             .init_resource::<SpriteAssetEvents>()
+            .add_render_command::<Transparent2d, DrawSprite>()
             .add_system_to_stage(
                 RenderStage::Extract,
                 render::extract_sprites.label(SpriteSystem::ExtractSprite),
@@ -69,13 +70,5 @@ impl Plugin for SpritePlugin {
             .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
             .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
             .add_system_to_stage(RenderStage::Queue, queue_sprites);
-
-        let draw_sprite = DrawSprite::new(&mut render_app.world);
-        render_app
-            .world
-            .get_resource::<DrawFunctions<Transparent2d>>()
-            .unwrap()
-            .write()
-            .add(draw_sprite);
     }
 }

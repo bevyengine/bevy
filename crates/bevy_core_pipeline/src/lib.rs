@@ -176,6 +176,20 @@ impl PhaseItem for Transparent2d {
     }
 }
 
+impl EntityPhaseItem for Transparent2d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedPipelinePhaseItem for Transparent2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedPipelineId {
+        self.pipeline
+    }
+}
+
 pub struct Opaque3d {
     pub distance: f32,
     pub pipeline: CachedPipelineId,
