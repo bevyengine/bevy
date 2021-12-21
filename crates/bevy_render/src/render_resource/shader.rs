@@ -468,7 +468,8 @@ fn apply_import(
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::Handle;
+    use bevy_asset::{Handle, HandleUntyped};
+    use bevy_reflect::TypeUuid;
     use bevy_utils::HashMap;
     use naga::ShaderStage;
 
@@ -1148,6 +1149,61 @@ fn in_main_present() { }
             .process(
                 &Shader::from_wgsl(INPUT),
                 &["MAIN_PRESENT".to_string(), "IMPORT_PRESENT".to_string()],
+                &shaders,
+                &import_handles,
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_import_in_import() {
+        #[rustfmt::skip]
+        const BAR: &str = r"
+#ifdef DEEP
+fn inner_import() { }
+#endif
+";
+        const FOO: &str = r"
+#import BAR
+fn import() { }
+";
+        #[rustfmt::skip]
+        const INPUT: &str = r"
+#import FOO
+fn in_main() { }
+";
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+
+
+fn inner_import() { }
+fn import() { }
+fn in_main() { }
+";
+        let processor = ShaderProcessor::default();
+        let mut shaders = HashMap::default();
+        let mut import_handles = HashMap::default();
+        {
+            let bar_handle = Handle::<Shader>::default();
+            shaders.insert(bar_handle.clone_weak(), Shader::from_wgsl(BAR));
+            import_handles.insert(
+                ShaderImport::Custom("BAR".to_string()),
+                bar_handle.clone_weak(),
+            );
+        }
+        {
+            let foo_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1).typed();
+            shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
+            import_handles.insert(
+                ShaderImport::Custom("FOO".to_string()),
+                foo_handle.clone_weak(),
+            );
+        }
+        let result = processor
+            .process(
+                &Shader::from_wgsl(INPUT),
+                &["DEEP".to_string()],
                 &shaders,
                 &import_handles,
             )
