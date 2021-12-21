@@ -1,10 +1,9 @@
-use super::CameraProjection;
+use crate::camera::CameraProjection;
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::QueryState,
+    prelude::{DetectChanges, QueryState},
     query::Added,
     reflect::ReflectComponent,
     system::{QuerySet, Res},
@@ -24,6 +23,8 @@ pub struct Camera {
     pub window: WindowId,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
+    pub near: f32,
+    pub far: f32,
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]

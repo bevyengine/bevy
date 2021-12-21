@@ -1,24 +1,24 @@
-pub mod collide_aabb;
-pub mod entity;
-
-mod color_material;
+mod bundle;
 mod dynamic_texture_atlas_builder;
-mod frustum_culling;
 mod rect;
 mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 
+pub mod collide_aabb;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        entity::{SpriteBundle, SpriteSheetBundle},
-        ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
+        bundle::{SpriteBundle, SpriteSheetBundle},
+        sprite::Sprite,
+        texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        TextureAtlasBuilder,
     };
 }
 
-pub use color_material::*;
+pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
 pub use render::*;
@@ -27,77 +27,55 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_math::Vec2;
+use bevy_asset::{AddAsset, Assets, HandleUntyped};
+use bevy_core_pipeline::Transparent2d;
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{shape, Mesh},
-    pipeline::PipelineDescriptor,
-    render_graph::RenderGraph,
-    shader::{asset_shader_defs_system, Shader},
+    render_phase::DrawFunctions,
+    render_resource::{Shader, SpecializedPipelines},
+    RenderApp, RenderStage,
 };
-use sprite::sprite_system;
-
-#[derive(Debug, Clone, Default)]
-pub struct SpriteSettings {
-    /// Enable sprite frustum culling.
-    ///
-    /// # Warning
-    /// This is currently experimental. It does not work correctly in all cases.
-    pub frustum_culling_enabled: bool,
-}
 
 #[derive(Default)]
 pub struct SpritePlugin;
 
-pub const QUAD_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
+pub const SPRITE_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum SpriteSystem {
+    ExtractSprite,
+}
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<ColorMaterial>()
-            .add_asset::<TextureAtlas>()
-            .register_type::<Sprite>()
-            .register_type::<SpriteResizeMode>()
-            .add_system_to_stage(CoreStage::PostUpdate, sprite_system)
-            .add_system_to_stage(CoreStage::PostUpdate, material_texture_detection_system)
+        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
+        shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
+        app.add_asset::<TextureAtlas>().register_type::<Sprite>();
+        let render_app = app.sub_app(RenderApp);
+        render_app
+            .init_resource::<ImageBindGroups>()
+            .init_resource::<SpritePipeline>()
+            .init_resource::<SpecializedPipelines<SpritePipeline>>()
+            .init_resource::<SpriteMeta>()
+            .init_resource::<ExtractedSprites>()
+            .init_resource::<SpriteAssetEvents>()
             .add_system_to_stage(
-                CoreStage::PostUpdate,
-                asset_shader_defs_system::<ColorMaterial>,
-            );
-
-        let sprite_settings = app
-            .world
-            .get_resource_or_insert_with(SpriteSettings::default)
-            .clone();
-        if sprite_settings.frustum_culling_enabled {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                frustum_culling::sprite_frustum_culling_system,
+                RenderStage::Extract,
+                render::extract_sprites.label(SpriteSystem::ExtractSprite),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                frustum_culling::atlas_frustum_culling_system,
-            );
-        }
-        let world_cell = app.world.cell();
-        let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
-        let mut pipelines = world_cell
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
-        let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
-        crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
+            .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
+            .add_system_to_stage(RenderStage::Prepare, render::prepare_sprites)
+            .add_system_to_stage(RenderStage::Queue, queue_sprites);
 
-        let mut meshes = world_cell.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let mut color_materials = world_cell
-            .get_resource_mut::<Assets<ColorMaterial>>()
-            .unwrap();
-        color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
-        meshes.set_untracked(
-            QUAD_HANDLE,
-            // Use a flipped quad because the camera is facing "forward" but quads should face
-            // backward
-            Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
-        )
+        let draw_sprite = DrawSprite::new(&mut render_app.world);
+        render_app
+            .world
+            .get_resource::<DrawFunctions<Transparent2d>>()
+            .unwrap()
+            .write()
+            .add(draw_sprite);
     }
 }

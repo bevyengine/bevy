@@ -19,6 +19,7 @@ impl WindowId {
     }
 }
 
+use crate::CursorIcon;
 use std::fmt;
 
 use crate::raw_window_handle::RawWindowHandleWrapper;
@@ -123,6 +124,7 @@ pub struct Window {
     vsync: bool,
     resizable: bool,
     decorations: bool,
+    cursor_icon: CursorIcon,
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
@@ -161,6 +163,9 @@ pub enum WindowCommand {
     },
     SetCursorLockMode {
         locked: bool,
+    },
+    SetCursorIcon {
+        icon: CursorIcon,
     },
     SetCursorVisibility {
         visible: bool,
@@ -222,6 +227,7 @@ impl Window {
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
+            cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
@@ -474,6 +480,16 @@ impl Window {
         });
     }
 
+    #[inline]
+    pub fn cursor_icon(&self) -> CursorIcon {
+        self.cursor_icon
+    }
+
+    pub fn set_cursor_icon(&mut self, icon: CursorIcon) {
+        self.command_queue
+            .push(WindowCommand::SetCursorIcon { icon });
+    }
+
     /// The current mouse position, in physical pixels.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<DVec2> {
@@ -552,8 +568,8 @@ pub struct WindowDescriptor {
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
     /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: https://github.com/gfx-rs/wgpu/issues/687
-    /// Windows 11 is related to https://github.com/rust-windowing/winit/issues/2082
+    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
+    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
