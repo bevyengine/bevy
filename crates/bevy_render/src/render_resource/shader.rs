@@ -360,61 +360,61 @@ impl ShaderProcessor {
             }
         };
 
-        let shader_defs = HashSet::<String>::from_iter(shader_defs.iter().cloned());
+        let shader_defs_unique = HashSet::<String>::from_iter(shader_defs.iter().cloned());
         let mut scopes = vec![true];
-        let mut processing = shader_str.to_string();
-        let final_string = loop {
-            let mut processed = String::new();
-            let mut changed = false;
-            for line in processing.split('\n') {
-                if let Some(cap) = self.ifdef_regex.captures(line) {
-                    let def = cap.get(1).unwrap();
-                    scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
-                    changed = true;
-                } else if let Some(cap) = self.ifndef_regex.captures(line) {
-                    let def = cap.get(1).unwrap();
-                    scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
-                    changed = true;
-                } else if self.else_regex.is_match(line) {
-                    let mut is_parent_scope_truthy = true;
-                    if scopes.len() > 1 {
-                        is_parent_scope_truthy = scopes[scopes.len() - 2];
-                    }
-                    if let Some(last) = scopes.last_mut() {
-                        *last = is_parent_scope_truthy && !*last;
-                    }
-                    changed = true;
-                } else if self.endif_regex.is_match(line) {
-                    scopes.pop();
-                    if scopes.is_empty() {
-                        return Err(ProcessShaderError::TooManyEndIfs);
-                    }
-                    changed = true;
-                } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
-                    .import_asset_path_regex
-                    .captures(line)
-                {
-                    let import = ShaderImport::AssetPath(cap.get(1).unwrap().as_str().to_string());
-                    apply_import(import_handles, shaders, &import, shader, &mut processed)?;
-                    changed = true;
-                } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
-                    .import_custom_path_regex
-                    .captures(line)
-                {
-                    let import = ShaderImport::Custom(cap.get(1).unwrap().as_str().to_string());
-                    apply_import(import_handles, shaders, &import, shader, &mut processed)?;
-                    changed = true;
-                } else if *scopes.last().unwrap() {
-                    processed.push_str(line);
-                    processed.push('\n');
+        let mut final_string = String::new();
+        for line in shader_str.split('\n') {
+            if let Some(cap) = self.ifdef_regex.captures(line) {
+                let def = cap.get(1).unwrap();
+                scopes.push(*scopes.last().unwrap() && shader_defs_unique.contains(def.as_str()));
+            } else if let Some(cap) = self.ifndef_regex.captures(line) {
+                let def = cap.get(1).unwrap();
+                scopes.push(*scopes.last().unwrap() && !shader_defs_unique.contains(def.as_str()));
+            } else if self.else_regex.is_match(line) {
+                let mut is_parent_scope_truthy = true;
+                if scopes.len() > 1 {
+                    is_parent_scope_truthy = scopes[scopes.len() - 2];
                 }
+                if let Some(last) = scopes.last_mut() {
+                    *last = is_parent_scope_truthy && !*last;
+                }
+            } else if self.endif_regex.is_match(line) {
+                scopes.pop();
+                if scopes.is_empty() {
+                    return Err(ProcessShaderError::TooManyEndIfs);
+                }
+            } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
+                .import_asset_path_regex
+                .captures(line)
+            {
+                let import = ShaderImport::AssetPath(cap.get(1).unwrap().as_str().to_string());
+                self.apply_import(
+                    import_handles,
+                    shaders,
+                    &import,
+                    shader,
+                    shader_defs,
+                    &mut final_string,
+                )?;
+            } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
+                .import_custom_path_regex
+                .captures(line)
+            {
+                let import = ShaderImport::Custom(cap.get(1).unwrap().as_str().to_string());
+                self.apply_import(
+                    import_handles,
+                    shaders,
+                    &import,
+                    shader,
+                    shader_defs,
+                    &mut final_string,
+                )?;
+            } else if *scopes.last().unwrap() {
+                final_string.push_str(line);
+                final_string.push('\n');
             }
-            processed.pop();
-            if !changed {
-                break processed;
-            }
-            processing = processed;
-        };
+        }
+        final_string.pop();
 
         if scopes.len() != 1 {
             return Err(ProcessShaderError::NotEnoughEndIfs);
@@ -430,40 +430,45 @@ impl ShaderProcessor {
             }
         }
     }
-}
 
-fn apply_import(
-    import_handles: &HashMap<ShaderImport, Handle<Shader>>,
-    shaders: &HashMap<Handle<Shader>, Shader>,
-    import: &ShaderImport,
-    shader: &Shader,
-    final_string: &mut String,
-) -> Result<(), ProcessShaderError> {
-    let imported_shader = import_handles
-        .get(import)
-        .and_then(|handle| shaders.get(handle))
-        .ok_or_else(|| ProcessShaderError::UnresolvedImport(import.clone()))?;
-    match &shader.source {
-        Source::Wgsl(_) => {
-            if let Source::Wgsl(import_source) = &imported_shader.source {
-                final_string.push_str(import_source);
-            } else {
-                return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
+    fn apply_import(
+        &self,
+        import_handles: &HashMap<ShaderImport, Handle<Shader>>,
+        shaders: &HashMap<Handle<Shader>, Shader>,
+        import: &ShaderImport,
+        shader: &Shader,
+        shader_defs: &[String],
+        final_string: &mut String,
+    ) -> Result<(), ProcessShaderError> {
+        let imported_shader = import_handles
+            .get(import)
+            .and_then(|handle| shaders.get(handle))
+            .ok_or_else(|| ProcessShaderError::UnresolvedImport(import.clone()))?;
+        let imported_processed =
+            self.process(imported_shader, shader_defs, shaders, import_handles)?;
+
+        match &shader.source {
+            Source::Wgsl(_) => {
+                if let ProcessedShader::Wgsl(import_source) = &imported_processed {
+                    final_string.push_str(import_source);
+                } else {
+                    return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
+                }
+            }
+            Source::Glsl(_, _) => {
+                if let ProcessedShader::Glsl(import_source, _) = &imported_processed {
+                    final_string.push_str(import_source);
+                } else {
+                    return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
+                }
+            }
+            Source::SpirV(_) => {
+                return Err(ProcessShaderError::ShaderFormatDoesNotSupportImports);
             }
         }
-        Source::Glsl(_, _) => {
-            if let Source::Glsl(import_source, _) = &imported_shader.source {
-                final_string.push_str(import_source);
-            } else {
-                return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
-            }
-        }
-        Source::SpirV(_) => {
-            return Err(ProcessShaderError::ShaderFormatDoesNotSupportImports);
-        }
+
+        Ok(())
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
