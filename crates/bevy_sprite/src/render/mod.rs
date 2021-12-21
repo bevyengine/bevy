@@ -296,14 +296,14 @@ impl Default for SpriteMeta {
     }
 }
 
-const QUAD_VERTEX_POSITIONS: &[Vec3] = &[
-    const_vec3!([-0.5, -0.5, 0.0]),
-    const_vec3!([0.5, 0.5, 0.0]),
-    const_vec3!([-0.5, 0.5, 0.0]),
+const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     const_vec3!([-0.5, -0.5, 0.0]),
     const_vec3!([0.5, -0.5, 0.0]),
     const_vec3!([0.5, 0.5, 0.0]),
+    const_vec3!([-0.5, 0.5, 0.0]),
 ];
+
+const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct SpriteBatch {
@@ -393,13 +393,11 @@ pub fn prepare_sprites(
         top_left /= atlas_extent;
         top_right /= atlas_extent;
 
-        let uvs: [[f32; 2]; 6] = [
-            bottom_left.into(),
-            top_right.into(),
-            top_left.into(),
+        let uvs: [[f32; 2]; 4] = [
             bottom_left.into(),
             bottom_right.into(),
             top_right.into(),
+            top_left.into(),
         ];
 
         let rect_size = extracted_sprite.rect.size().extend(1.0);
@@ -410,31 +408,31 @@ pub fn prepare_sprites(
                 | ((color[1] * 255.0) as u32) << 8
                 | ((color[2] * 255.0) as u32) << 16
                 | ((color[3] * 255.0) as u32) << 24;
-            for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
-                let mut final_position = *vertex_position * rect_size;
+            for index in QUAD_INDICES.iter() {
+                let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
                 final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
                 sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                     position: final_position.into(),
-                    uv: uvs[index],
+                    uv: uvs[*index],
                     color,
                 });
             }
         } else {
-            for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
-                let mut final_position = *vertex_position * rect_size;
+            for index in QUAD_INDICES.iter() {
+                let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
                 final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
                 sprite_meta.vertices.push(SpriteVertex {
                     position: final_position.into(),
-                    uv: uvs[index],
+                    uv: uvs[*index],
                 });
             }
         }
 
         last_z = extracted_sprite.transform.w_axis[2];
         if current_batch_colored {
-            colored_end += QUAD_VERTEX_POSITIONS.len() as u32;
+            colored_end += QUAD_INDICES.len() as u32;
         } else {
-            end += QUAD_VERTEX_POSITIONS.len() as u32;
+            end += QUAD_INDICES.len() as u32;
         }
     }
 
