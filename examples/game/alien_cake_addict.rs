@@ -309,7 +309,7 @@ fn spawn_bonus(
         game.bonus.entity = None;
         if game.score <= -5 {
             // We don't particularly care if this operation fails
-            let _ = state.set(GameState::GameOver);
+            let _ = state.overwrite_set(GameState::GameOver);
             return;
         }
     }
