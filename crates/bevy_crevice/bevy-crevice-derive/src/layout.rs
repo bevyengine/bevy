@@ -1,4 +1,3 @@
-use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{parse_quote, Data, DeriveInput, Fields, Ident, Path, Type};
@@ -9,17 +8,12 @@ pub fn emit(
     mod_name: &'static str,
     min_struct_alignment: usize,
 ) -> TokenStream {
-    let bevy_prefix_path = BevyManifest::default()
-        .maybe_get_path(crate::BEVY_RENDER)
-        .unwrap_or_else(|| Path {
-            leading_colon: None,
-            segments: Default::default(),
-        });
+    let bevy_crevice_path = crate::bevy_crevice_path();
 
     let mod_name = Ident::new(mod_name, Span::call_site());
     let trait_name = Ident::new(trait_name, Span::call_site());
 
-    let mod_path: Path = parse_quote!(#bevy_prefix_path::bevy_crevice::#mod_name);
+    let mod_path: Path = parse_quote!(#bevy_crevice_path::#mod_name);
     let trait_path: Path = parse_quote!(#mod_path::#trait_name);
 
     let as_trait_name = format_ident!("As{}", trait_name);
@@ -71,7 +65,7 @@ pub fn emit(
 
     let field_alignments = fields.iter().map(|field| layout_alignment_of_ty(&field.ty));
     let struct_alignment = quote! {
-        #bevy_prefix_path::bevy_crevice::internal::max_arr([
+        #bevy_crevice_path::internal::max_arr([
             #min_struct_alignment,
             #(#field_alignments,)*
         ])
@@ -147,13 +141,13 @@ pub fn emit(
                     // We set our target alignment to the larger of the
                     // alignment due to the previous field and the alignment
                     // requirement of the next field.
-                    let alignment = #bevy_prefix_path::bevy_crevice::internal::max(
+                    let alignment = #bevy_crevice_path::internal::max(
                         #next_field_or_self_alignment,
                         min_alignment,
                     );
 
                     // Using everything we've got, compute our padding amount.
-                    #bevy_prefix_path::bevy_crevice::internal::align_offset(starting_offset, alignment)
+                    #bevy_crevice_path::internal::align_offset(starting_offset, alignment)
                 }
             }
         })
@@ -230,7 +224,7 @@ pub fn emit(
                     let size = ::core::mem::size_of::<Self>();
                     let align = <Self as #trait_path>::ALIGNMENT;
 
-                    let zeroed: Self = #bevy_prefix_path::bevy_crevice::internal::bytemuck::Zeroable::zeroed();
+                    let zeroed: Self = #bevy_crevice_path::internal::bytemuck::Zeroable::zeroed();
 
                     #[derive(Debug)]
                     struct Field {
@@ -261,13 +255,13 @@ pub fn emit(
         #pad_fn_impls
         #struct_definition
 
-        unsafe impl #impl_generics #bevy_prefix_path::bevy_crevice::internal::bytemuck::Zeroable for #generated_name #ty_generics #where_clause {}
-        unsafe impl #impl_generics #bevy_prefix_path::bevy_crevice::internal::bytemuck::Pod for #generated_name #ty_generics #where_clause {}
+        unsafe impl #impl_generics #bevy_crevice_path::internal::bytemuck::Zeroable for #generated_name #ty_generics #where_clause {}
+        unsafe impl #impl_generics #bevy_crevice_path::internal::bytemuck::Pod for #generated_name #ty_generics #where_clause {}
 
         unsafe impl #impl_generics #mod_path::#trait_name for #generated_name #ty_generics #where_clause {
             const ALIGNMENT: usize = #struct_alignment;
             const PAD_AT_END: bool = true;
-            type Padded = #padded_path<Self, {#bevy_prefix_path::bevy_crevice::internal::align_offset(
+            type Padded = #padded_path<Self, {#bevy_crevice_path::internal::align_offset(
                     ::core::mem::size_of::<#generated_name>(),
                     #struct_alignment
                 )}>;
@@ -280,7 +274,7 @@ pub fn emit(
                 Self::Output {
                     #generated_struct_field_init
 
-                    ..#bevy_prefix_path::bevy_crevice::internal::bytemuck::Zeroable::zeroed()
+                    ..#bevy_crevice_path::internal::bytemuck::Zeroable::zeroed()
                 }
             }
 

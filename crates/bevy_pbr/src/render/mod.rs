@@ -13,14 +13,13 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    bevy_crevice::std140::AsStd140,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
 };

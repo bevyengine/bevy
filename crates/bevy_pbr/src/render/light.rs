@@ -12,7 +12,6 @@ use bevy_ecs::{
 };
 use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
-    bevy_crevice::std140::AsStd140,
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::Mesh,
@@ -23,7 +22,7 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},

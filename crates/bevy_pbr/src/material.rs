@@ -5,10 +5,12 @@ use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    bevy_crevice::std140::{AsStd140, Std140},
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsages},
+    render_resource::{
+        std140::{AsStd140, Std140},
+        BindGroup, Buffer, BufferInitDescriptor, BufferUsages,
+    },
     renderer::RenderDevice,
     texture::Image,
 };

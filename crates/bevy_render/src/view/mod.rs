@@ -9,9 +9,8 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
-    bevy_crevice::std140::AsStd140,
     camera::{ExtractedCamera, ExtractedCameraNames},
-    render_resource::{DynamicUniformVec, Texture, TextureView},
+    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,

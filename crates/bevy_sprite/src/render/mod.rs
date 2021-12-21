@@ -13,11 +13,10 @@ use bevy_ecs::{
 };
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
-    bevy_crevice::std140::AsStd140,
     color::Color,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},

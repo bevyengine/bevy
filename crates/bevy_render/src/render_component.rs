@@ -1,6 +1,5 @@
 use crate::{
-    bevy_crevice::std140::AsStd140,
-    render_resource::DynamicUniformVec,
+    render_resource::{std140::AsStd140, DynamicUniformVec},
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
 };
