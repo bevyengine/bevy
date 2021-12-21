@@ -419,13 +419,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// See [`EntityMut::insert`](crate::world::EntityMut::insert) for more
     /// details.
     ///
-    /// # Warning
-    ///
-    /// It's possible to call this with a bundle, but this is likely not intended and
-    /// [`Self::insert_bundle`] should be used instead. If `insert` is called with a bundle, the
-    /// bundle itself will be added as a component instead of the bundles' inner components each
-    /// being added.
-    ///
     /// # Example
     ///
     /// `Self::insert` can be chained with [`Commands::spawn`].
