@@ -13,7 +13,7 @@ It was forked to allow better integration in Bevy:
 [Array Support](https://github.com/LPGhatguy/crevice/pull/27/).
 * Renaming of traits and macros to better match Bevy API.
 
-## Crevice 
+## Crevice
 
 Crevice creates GLSL-compatible versions of types through the power of derive
 macros. Generated structures provide an [`as_bytes`][std140::Std140::as_bytes]
