@@ -413,7 +413,7 @@ impl ShaderProcessor {
             if !changed {
                 break processed;
             }
-            processing = processed.clone();
+            processing = processed;
         };
 
         if scopes.len() != 1 {
