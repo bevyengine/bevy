@@ -9,6 +9,8 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
+use std::collections::HashMap;
+
 pub use clear_pass::*;
 pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
@@ -21,7 +23,7 @@ use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin},
+    camera::{ActiveCameras, CameraPlugin, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
@@ -40,11 +42,29 @@ use bevy_render::{
 /// This color appears as the "background" color for simple apps, when
 /// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
-pub struct ClearColor(pub Color);
+pub struct ClearColor {
+    pub default_color: Color,
+    pub per_target: HashMap<RenderTarget, Color>,
+}
+
+impl ClearColor {
+    pub fn from_default_color(default_color: Color) -> Self {
+        Self {
+            default_color,
+            per_target: HashMap::new(),
+        }
+    }
+    pub fn get(&self, target: &RenderTarget) -> &Color {
+        self.per_target.get(target).unwrap_or(&self.default_color)
+    }
+    pub fn insert(&mut self, target: RenderTarget, color: Color) {
+        self.per_target.insert(target, color);
+    }
+}
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
+        Self::from_default_color(Color::rgb(0.4, 0.4, 0.4))
     }
 }
 

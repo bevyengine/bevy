@@ -4,6 +4,8 @@ use crate::ClearColor;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ExtractedCamera, RenderTarget},
+    prelude::Image,
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo},
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
@@ -55,13 +57,15 @@ impl Node for ClearPassNode {
         // are multiple views drawing to the same target. This should be fixed when we make
         // clearing happen on "render targets" instead of "views" (see the TODO below for more context).
         for (target, depth, camera) in self.query.iter_manual(world) {
+            let mut color = &clear_color.default_color;
             if let Some(camera) = camera {
                 cleared_targets.insert(&camera.target);
+                color = clear_color.get(&camera.target);
             }
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
                 color_attachments: &[target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(clear_color.0.into()),
+                    load: LoadOp::Clear((*color).into()),
                     store: true,
                 })],
                 depth_stencil_attachment: depth.map(|depth| RenderPassDepthStencilAttachment {
@@ -83,18 +87,23 @@ impl Node for ClearPassNode {
         // which will cause panics. The real fix here is to clear "render targets" directly
         // instead of "views". This should be removed once full RenderTargets are implemented.
         let windows = world.get_resource::<ExtractedWindows>().unwrap();
-        for window in windows.values() {
+        let images = world.get_resource::<RenderAssets<Image>>().unwrap();
+        for target in clear_color.per_target.keys().cloned().chain(
+            windows
+                .values()
+                .map(|window| RenderTarget::Window(window.id)),
+        ) {
             // skip windows that have already been cleared
-            if cleared_targets.contains(&RenderTarget::Window(window.id)) {
+            if cleared_targets.contains(&target) {
                 continue;
             }
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
                 color_attachments: &[RenderPassColorAttachment {
-                    view: window.swap_chain_texture.as_ref().unwrap(),
+                    view: target.get_texture_view(windows, images).unwrap(),
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(clear_color.0.into()),
+                        load: LoadOp::Clear((*clear_color.get(&target)).into()),
                         store: true,
                     },
                 }],

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.9)))
+        .insert_resource(ClearColor::from_default_color(Color::rgb(0.5, 0.5, 0.9)))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(change_clear_color)
@@ -15,6 +15,6 @@ fn setup(mut commands: Commands) {
 
 fn change_clear_color(input: Res<Input<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
     if input.just_pressed(KeyCode::Space) {
-        clear_color.0 = Color::PURPLE;
+        clear_color.default_color = Color::PURPLE;
     }
 }

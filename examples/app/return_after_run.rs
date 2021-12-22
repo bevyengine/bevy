@@ -6,7 +6,7 @@ fn main() {
         .insert_resource(WinitConfig {
             return_from_run: true,
         })
-        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
+        .insert_resource(ClearColor::from_default_color(Color::rgb(0.2, 0.2, 0.8)))
         .add_plugins(DefaultPlugins)
         .add_system(system1)
         .run();
@@ -15,7 +15,7 @@ fn main() {
         .insert_resource(WinitConfig {
             return_from_run: true,
         })
-        .insert_resource(ClearColor(Color::rgb(0.2, 0.8, 0.2)))
+        .insert_resource(ClearColor::from_default_color(Color::rgb(0.2, 0.8, 0.2)))
         .add_plugins_with(DefaultPlugins, |group| {
             group.disable::<bevy::log::LogPlugin>()
         })

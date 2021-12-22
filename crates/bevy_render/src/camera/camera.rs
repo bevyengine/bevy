@@ -1,4 +1,7 @@
-use crate::{camera::CameraProjection, prelude::Image};
+use crate::{
+    camera::CameraProjection, prelude::Image, render_asset::RenderAssets,
+    render_resource::TextureView, view::ExtractedWindows,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     component::Component,
@@ -40,6 +43,23 @@ pub enum RenderTarget {
 impl Default for RenderTarget {
     fn default() -> Self {
         Self::Window(Default::default())
+    }
+}
+
+impl RenderTarget {
+    pub fn get_texture_view<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<Image>,
+    ) -> Option<&'a TextureView> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(&window_id)
+                .and_then(|window| window.swap_chain_texture.as_ref()),
+            RenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| &image.texture_view)
+            }
+        }
     }
 }
 

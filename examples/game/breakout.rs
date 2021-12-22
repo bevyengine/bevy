@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
-        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .insert_resource(ClearColor::from_default_color(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()

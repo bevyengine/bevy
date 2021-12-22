@@ -6,7 +6,7 @@ use bevy::{prelude::*, text::FontAtlasSet};
 fn main() {
     App::new()
         .init_resource::<State>()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor::from_default_color(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(text_update_system)
