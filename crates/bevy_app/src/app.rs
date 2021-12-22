@@ -86,7 +86,9 @@ impl App {
         }
     }
 
-    /// Advances the execution of the [`Schedule`] by one cycle and updates sub apps.
+    /// Advances the execution of the [`Schedule`] by one cycle.
+    ///
+    /// This method also updates sub apps. See [`add_sub_app`](Self::add_sub_app) for more details.
     ///
     /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
@@ -839,8 +841,9 @@ impl App {
 
     /// Adds an `App` as a child of the current one.
     ///
-    /// The `World` of the sub app is the same of the main app. The provided `f` function runs each
-    /// time [`update`](Self::update) is called.
+    /// The provided function `f` is called by the [`update`](Self::update) method. The `World`
+    /// parameter represents the main app world, while the `App` parameter is just a mutable
+    /// reference to the sub app itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
