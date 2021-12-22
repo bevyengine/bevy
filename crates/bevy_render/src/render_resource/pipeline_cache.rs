@@ -414,9 +414,9 @@ fn log_shader_error(source: &ProcessedShader, err: &AsModuleDescriptorError) {
         term,
     };
 
-    match source {
-        ProcessedShader::Wgsl(source) => match err {
-            AsModuleDescriptorError::ShaderReflectError(err) => match err {
+    if let ProcessedShader::Wgsl(source) = source {
+        if let AsModuleDescriptorError::ShaderReflectError(err) = err {
+            match err {
                 ShaderReflectError::WgslParse(parse) => {
                     let msg = parse.emit_to_string(source);
                     error!("failed to process shader:\n{}", msg);
@@ -446,9 +446,7 @@ fn log_shader_error(source: &ProcessedShader, err: &AsModuleDescriptorError) {
                 }
                 ShaderReflectError::GlslParse(_) => {}
                 ShaderReflectError::SpirVParse(_) => {}
-            },
-            _ => (),
-        },
-        _ => error!("failed to process shader: {}", err),
+            }
+        }
     }
 }
