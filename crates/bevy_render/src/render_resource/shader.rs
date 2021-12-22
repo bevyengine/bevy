@@ -156,7 +156,15 @@ impl ProcessedShader {
         Ok(ShaderModuleDescriptor {
             label: None,
             source: match self {
-                ProcessedShader::Wgsl(source) => ShaderSource::Wgsl(source.clone()),
+                ProcessedShader::Wgsl(source) => {
+                    #[cfg(debug_assertions)]
+                    // This isn't neccessary, but catches errors early during hot reloading of invalid wgsl shaders.
+                    // Eventually, wgpu will have features that will make this unneccessary like compilation info
+                    // or error scopes, but until then parsing the shader twice during development the easiest solution.
+                    let _ = self.reflect()?;
+
+                    ShaderSource::Wgsl(source.clone())
+                }
                 ProcessedShader::Glsl(_source, _stage) => {
                     let reflection = self.reflect()?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
