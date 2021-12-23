@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component)]
 pub struct Visibility {
     pub is_visible: bool,
