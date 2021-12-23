@@ -45,11 +45,6 @@ pub struct Input<T: Inputlike> {
 
 /// Allows a type to be used with the [Input] type
 ///
-/// The [`InputVariants`](Self::InputVariants) associated type is the type (almost always an enum) that contains
-/// the set of possible valid inputs for inputs of this type (e.g. all of the letters on a keyboard of all mouse buttons).
-///
-/// This will often be the same type (`Self`) as the type you are implementing this trait for.
-///
 /// The [IntoEnumIterator] trait bound on this assocaited type allows users to iterate over all possible valid values of an input.
 /// If you are looking to implement this trait for you own type, you will need to derive that trait using the `strum` crate.
 pub trait Inputlike: Clone + Copy + PartialEq + Eq + Hash + IntoEnumIterator {}
