@@ -85,7 +85,7 @@ where
         }
 
         self.pressed.insert(input);
-        self.values.insert(input, 1.0)
+        self.values.insert(input, 1.0);
     }
 
     /// Check if `input` has been pressed.
@@ -105,7 +105,7 @@ where
     pub fn release(&mut self, input: T) {
         self.pressed.remove(&input);
         self.just_released.insert(input);
-        self.values.insert(input, 0.0)
+        self.values.insert(input, 0.0);
     }
 
     /// Check if `input` has been just pressed.

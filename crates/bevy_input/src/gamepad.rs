@@ -271,7 +271,7 @@ pub fn gamepad_event_system(
             }
             GamepadEventType::ButtonChanged(button_type, value) => {
                 let gamepad_button = GamepadButton(gamepad, *button_type);
-                button_input.set_value(gamepad_button, value);
+                button_input.set_value(gamepad_button, *value);
 
                 let button_property = settings.button_settings(gamepad_button);
                 if button_input.pressed(gamepad_button) {
