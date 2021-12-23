@@ -36,7 +36,7 @@ fn main() {
 
     // SystemGraph implements Into<SystemSet> and can be used to add of the graph's systems to an
     // App.
-    App::build()
+    App::new()
         .add_system_set(sequential)
         .add_system_set(wide)
         .run();

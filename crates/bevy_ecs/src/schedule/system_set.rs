@@ -10,8 +10,6 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
-static NEXT_SEQUENCE_ID: AtomicU32 = AtomicU32::new(0);
-
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
 pub struct SystemSet {
