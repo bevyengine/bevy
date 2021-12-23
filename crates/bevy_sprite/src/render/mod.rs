@@ -22,8 +22,8 @@ use bevy_render::{
     },
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    texture::Image,
+    view::{Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -145,7 +145,7 @@ impl SpecializedPipeline for SpritePipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: ViewTarget::TEXTURE_FORMAT_HDR,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 }],

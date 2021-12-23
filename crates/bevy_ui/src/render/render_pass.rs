@@ -73,7 +73,7 @@ impl Node for UiPassNode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
+                view: &target.out_texture,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,

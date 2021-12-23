@@ -23,4 +23,4 @@ bevy_core = { path = "../bevy_core", version = "0.7.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.7.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.7.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.7.0-dev" }
-
+bevy_reflect = { path = "../bevy_reflect", version = "0.7.0-dev" }

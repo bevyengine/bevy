@@ -204,41 +204,6 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
-// from https://64.github.io/tonemapping/
-// reinhard on RGB oversaturates colors
-fn reinhard(color: vec3<f32>) -> vec3<f32> {
-    return color / (1.0 + color);
-}
-
-fn reinhard_extended(color: vec3<f32>, max_white: f32) -> vec3<f32> {
-    let numerator = color * (1.0 + (color / vec3<f32>(max_white * max_white)));
-    return numerator / (1.0 + color);
-}
-
-// luminance coefficients from Rec. 709.
-// https://en.wikipedia.org/wiki/Rec._709
-fn luminance(v: vec3<f32>) -> f32 {
-    return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
-}
-
-fn change_luminance(c_in: vec3<f32>, l_out: f32) -> vec3<f32> {
-    let l_in = luminance(c_in);
-    return c_in * (l_out / l_in);
-}
-
-fn reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
-    let l_old = luminance(color);
-    let l_new = l_old / (1.0 + l_old);
-    return change_luminance(color, l_new);
-}
-
-fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> {
-    let l_old = luminance(color);
-    let numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
-    let l_new = numerator / (1.0 + l_old);
-    return change_luminance(color, l_new);
-}
-
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
@@ -645,12 +610,6 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             output_color.a
         );
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
-
-        // tone_mapping
-        output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
-        // Gamma correction.
-        // Not needed with sRGB buffer
-        // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
     }
 
     return output_color;
