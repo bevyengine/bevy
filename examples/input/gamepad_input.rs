@@ -22,9 +22,7 @@ fn gamepad_system(gamepads: Res<Gamepads>) {
     }
 
     for (gamepad, axes) in gamepads.axes.iter() {
-        let left_stick_x = axes
-            .get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickX))
-            .unwrap();
+        let left_stick_x = axes.get(GamepadAxis::LeftStickX).unwrap();
         if left_stick_x.abs() > 0.01 {
             info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
         }

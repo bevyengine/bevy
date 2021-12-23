@@ -1,4 +1,4 @@
-use crate::{Axis, Input, Inputlike};
+use crate::{Axis, Axislike, Input, Inputlike};
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{HashMap, HashSet};
@@ -16,7 +16,6 @@ pub struct Gamepad(pub usize);
 pub struct Gamepads {
     gamepads: HashSet<Gamepad>,
     pub buttons: HashMap<Gamepad, Input<GamepadButton>>,
-    // FIXME: rethink how to handle this
     pub axes: HashMap<Gamepad, Axis<GamepadAxis>>,
 }
 
@@ -52,7 +51,7 @@ pub enum GamepadEventType {
     Connected,
     Disconnected,
     ButtonChanged(GamepadButton, f32),
-    AxisChanged(GamepadAxisType, f32),
+    AxisChanged(GamepadAxis, f32),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,7 +90,7 @@ impl Inputlike for GamepadButton {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum GamepadAxisType {
+pub enum GamepadAxis {
     LeftStickX,
     LeftStickY,
     LeftZ,
@@ -102,9 +101,7 @@ pub enum GamepadAxisType {
     DPadY,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct GamepadAxis(pub Gamepad, pub GamepadAxisType);
+impl Axislike for GamepadAxis {}
 
 #[derive(Default, Debug)]
 pub struct GamepadSettings {
@@ -240,12 +237,11 @@ pub fn gamepad_event_system(
                     .axes
                     .get_mut(&gamepad)
                     .expect("Gamepad axes were not registered correctly.");
-                let gamepad_axis = GamepadAxis(gamepad, *axis_type);
                 if let Some(filtered_value) = settings
-                    .axis_settings(gamepad_axis)
-                    .filter(*value, axes.get(gamepad_axis))
+                    .axis_settings(*axis_type)
+                    .filter(*value, axes.get(*axis_type))
                 {
-                    axes.set(gamepad_axis, filtered_value);
+                    axes.set(*axis_type, filtered_value);
                     events.send(GamepadEvent(
                         gamepad,
                         GamepadEventType::AxisChanged(*axis_type, filtered_value),

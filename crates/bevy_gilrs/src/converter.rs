@@ -1,4 +1,4 @@
-use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButton};
+use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 
 pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
     Gamepad(gamepad_id.into())
@@ -29,16 +29,16 @@ pub fn convert_button(button: gilrs::Button) -> Option<GamepadButton> {
     }
 }
 
-pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxisType> {
+pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxis> {
     match axis {
-        gilrs::Axis::LeftStickX => Some(GamepadAxisType::LeftStickX),
-        gilrs::Axis::LeftStickY => Some(GamepadAxisType::LeftStickY),
-        gilrs::Axis::LeftZ => Some(GamepadAxisType::LeftZ),
-        gilrs::Axis::RightStickX => Some(GamepadAxisType::RightStickX),
-        gilrs::Axis::RightStickY => Some(GamepadAxisType::RightStickY),
-        gilrs::Axis::RightZ => Some(GamepadAxisType::RightZ),
-        gilrs::Axis::DPadX => Some(GamepadAxisType::DPadX),
-        gilrs::Axis::DPadY => Some(GamepadAxisType::DPadY),
+        gilrs::Axis::LeftStickX => Some(GamepadAxis::LeftStickX),
+        gilrs::Axis::LeftStickY => Some(GamepadAxis::LeftStickY),
+        gilrs::Axis::LeftZ => Some(GamepadAxis::LeftZ),
+        gilrs::Axis::RightStickX => Some(GamepadAxis::RightStickX),
+        gilrs::Axis::RightStickY => Some(GamepadAxis::RightStickY),
+        gilrs::Axis::RightZ => Some(GamepadAxis::RightZ),
+        gilrs::Axis::DPadX => Some(GamepadAxis::DPadX),
+        gilrs::Axis::DPadY => Some(GamepadAxis::DPadY),
         gilrs::Axis::Unknown => None,
     }
 }

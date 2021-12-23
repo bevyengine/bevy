@@ -1,5 +1,6 @@
 use bevy_utils::HashMap;
 use std::hash::Hash;
+use strum::IntoEnumIterator;
 
 /// Stores the position data of input devices of type T
 ///
@@ -9,14 +10,13 @@ use std::hash::Hash;
 /// If you need to represent a continous input with a scalar intensity such as a trigger,
 /// use [Input](crate::Input) instead.
 #[derive(Debug)]
-pub struct Axis<T> {
+pub struct Axis<T: Axislike> {
     axis_data: HashMap<T, f32>,
 }
 
-impl<T> Default for Axis<T>
-where
-    T: Copy + Eq + Hash,
-{
+pub trait Axislike: Clone + Copy + PartialEq + Eq + Hash + IntoEnumIterator {}
+
+impl<T: Axislike> Default for Axis<T> {
     fn default() -> Self {
         Axis {
             axis_data: HashMap::default(),
@@ -24,10 +24,7 @@ where
     }
 }
 
-impl<T> Axis<T>
-where
-    T: Copy + Eq + Hash,
-{
+impl<T: Axislike> Axis<T> {
     pub const MIN: f32 = -1.0;
     pub const MAX: f32 = 1.0;
 
@@ -56,10 +53,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        gamepad::{Gamepad, GamepadAxis, GamepadAxisType},
-        Axis,
-    };
+    use crate::{gamepad::GamepadAxis, Axis};
 
     #[test]
     fn test_axis_set() {
@@ -78,7 +72,7 @@ mod tests {
         ];
 
         for (value, expected) in cases {
-            let gamepad_axis = GamepadAxis(Gamepad(1), GamepadAxisType::LeftStickX);
+            let gamepad_axis = GamepadAxis::LeftStickX;
             let mut axis = Axis::<GamepadAxis>::default();
 
             axis.set(gamepad_axis, value);
@@ -93,7 +87,7 @@ mod tests {
         let cases = [-1.0, -0.9, -0.1, 0.0, 0.1, 0.9, 1.0];
 
         for value in cases {
-            let gamepad_axis = GamepadAxis(Gamepad(1), GamepadAxisType::LeftStickX);
+            let gamepad_axis = GamepadAxis::LeftStickX;
             let mut axis = Axis::<GamepadAxis>::default();
 
             axis.set(gamepad_axis, value);
