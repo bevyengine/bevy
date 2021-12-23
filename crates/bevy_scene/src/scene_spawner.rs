@@ -274,17 +274,16 @@ impl SceneSpawner {
                         // scene have a parent
                         if !entity_mut.contains::<Parent>() {
                             entity_mut.insert(Parent(parent));
-                        }
-                    }
-                    // Add the scene root to the `Children` component on the parent
-                    if let Some(mut parent_entity) = world.get_entity_mut(parent) {
-                        if let Some(children) = parent_entity.get_mut::<Children>() {
-                            let children = &**children;
-                            let mut children = children.to_vec();
-                            children.push(entity);
-                            parent_entity.insert(Children::with(&children));
-                        } else {
-                            parent_entity.insert(Children::with(&[entity]));
+                            if let Some(mut parent_entity) = world.get_entity_mut(parent) {
+                                if let Some(children) = parent_entity.get_mut::<Children>() {
+                                    let children = &**children;
+                                    let mut children = children.to_vec();
+                                    children.push(entity);
+                                    parent_entity.insert(Children::with(&children));
+                                } else {
+                                    parent_entity.insert(Children::with(&[entity]));
+                                }
+                            }
                         }
                     }
                 }
