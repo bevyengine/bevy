@@ -4,11 +4,6 @@ use crate::schedule::{
 };
 
 use super::IntoSystemDescriptor;
-use std::{
-    fmt::Debug,
-    hash::Hash,
-    sync::atomic::{AtomicU32, Ordering},
-};
 
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
