@@ -45,7 +45,7 @@ impl Gamepads {
 pub enum GamepadEventType {
     Connected,
     Disconnected,
-    ButtonChanged(GamepadButtonType, f32),
+    ButtonChanged(GamepadButton, f32),
     AxisChanged(GamepadAxisType, f32),
 }
 
@@ -59,7 +59,7 @@ pub struct GamepadEventRaw(pub Gamepad, pub GamepadEventType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum GamepadButtonType {
+pub enum GamepadButton {
     South,
     East,
     North,
@@ -80,10 +80,6 @@ pub enum GamepadButtonType {
     DPadLeft,
     DPadRight,
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct GamepadButton(pub Gamepad, pub GamepadButtonType);
 
 impl Inputlike for GamepadButton {}
 
@@ -238,7 +234,7 @@ pub fn gamepad_event_system(
         match event {
             GamepadEventType::Connected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in GamepadButtonType::iter() {
+                for button_type in GamepadButton::iter() {
                     let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                 }
@@ -248,7 +244,7 @@ pub fn gamepad_event_system(
             }
             GamepadEventType::Disconnected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in GamepadButtonType::iter() {
+                for button_type in GamepadButton::iter() {
                     let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                 }
