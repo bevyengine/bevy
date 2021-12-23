@@ -1,6 +1,8 @@
-use crate::{ElementState, Input};
+use crate::{ElementState, Input, Inputlike};
 use bevy_app::EventReader;
 use bevy_ecs::system::ResMut;
+
+use strum_macros::EnumIter;
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]
@@ -32,7 +34,7 @@ pub fn keyboard_input_system(
 }
 
 /// The key code of a keyboard input.
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {
@@ -234,3 +236,5 @@ pub enum KeyCode {
     Paste,
     Cut,
 }
+
+impl Inputlike for KeyCode {}

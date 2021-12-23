@@ -1,6 +1,8 @@
-use crate::{ElementState, Input};
+use crate::{ElementState, Input, Inputlike};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
+
+use strum_macros::EnumIter;
 
 /// A mouse button input event
 #[derive(Debug, Clone)]
@@ -10,7 +12,7 @@ pub struct MouseButtonInput {
 }
 
 /// A button on a mouse device
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum MouseButton {
     Left,
@@ -18,6 +20,8 @@ pub enum MouseButton {
     Middle,
     Other(u16),
 }
+
+impl Inputlike for MouseButton {}
 
 /// A mouse motion event
 #[derive(Debug, Clone)]

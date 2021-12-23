@@ -21,3 +21,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
+strum = {version = "0.23"}
+strum_macros = {version = "0.23"}
+

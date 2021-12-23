@@ -1,7 +1,10 @@
-use crate::{Axis, Input};
+use crate::{Axis, Input, Inputlike};
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::info, HashMap, HashSet};
+
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -54,7 +57,7 @@ pub struct GamepadEvent(pub Gamepad, pub GamepadEventType);
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEventRaw(pub Gamepad, pub GamepadEventType);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadButtonType {
     South,
@@ -82,7 +85,9 @@ pub enum GamepadButtonType {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadButton(pub Gamepad, pub GamepadButtonType);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+impl Inputlike for GamepadButton {}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadAxisType {
     LeftStickX,
@@ -233,22 +238,22 @@ pub fn gamepad_event_system(
         match event {
             GamepadEventType::Connected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(gamepad, *button_type);
+                for button_type in GamepadButtonType::iter() {
+                    let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.set(GamepadAxis(gamepad, *axis_type), 0.0);
+                for axis_type in GamepadAxisType::iter() {
+                    axis.set(GamepadAxis(gamepad, axis_type), 0.0);
                 }
             }
             GamepadEventType::Disconnected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(gamepad, *button_type);
+                for button_type in GamepadButtonType::iter() {
+                    let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.remove(GamepadAxis(gamepad, *axis_type));
+                for axis_type in GamepadAxisType::iter() {
+                    axis.remove(GamepadAxis(gamepad, axis_type));
                 }
             }
             GamepadEventType::AxisChanged(axis_type, value) => {
@@ -279,39 +284,6 @@ pub fn gamepad_event_system(
         }
     }
 }
-
-const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
-    GamepadButtonType::South,
-    GamepadButtonType::East,
-    GamepadButtonType::North,
-    GamepadButtonType::West,
-    GamepadButtonType::C,
-    GamepadButtonType::Z,
-    GamepadButtonType::LeftTrigger,
-    GamepadButtonType::LeftTrigger2,
-    GamepadButtonType::RightTrigger,
-    GamepadButtonType::RightTrigger2,
-    GamepadButtonType::Select,
-    GamepadButtonType::Start,
-    GamepadButtonType::Mode,
-    GamepadButtonType::LeftThumb,
-    GamepadButtonType::RightThumb,
-    GamepadButtonType::DPadUp,
-    GamepadButtonType::DPadDown,
-    GamepadButtonType::DPadLeft,
-    GamepadButtonType::DPadRight,
-];
-
-const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
-    GamepadAxisType::LeftStickX,
-    GamepadAxisType::LeftStickY,
-    GamepadAxisType::LeftZ,
-    GamepadAxisType::RightStickX,
-    GamepadAxisType::RightStickY,
-    GamepadAxisType::RightZ,
-    GamepadAxisType::DPadX,
-    GamepadAxisType::DPadY,
-];
 
 #[cfg(test)]
 mod tests {
