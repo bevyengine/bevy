@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -720,13 +720,19 @@ impl EntityRenderCommand for DrawMesh {
         let mesh_handle = mesh_query.get(item).unwrap();
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            if let Some(index_info) = &gpu_mesh.index_info {
-                pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
-                pass.draw_indexed(0..index_info.count, 0, 0..1);
-            } else {
-                panic!("non-indexed drawing not supported yet")
+            match &gpu_mesh.buffer_info {
+                GpuBufferInfo::Indexed {
+                    buffer,
+                    index_format,
+                    count,
+                } => {
+                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                    pass.draw_indexed(0..*count, 0, 0..1);
+                }
+                GpuBufferInfo::NonIndexed { vertex_count } => {
+                    pass.draw(0..*vertex_count, 0..1);
+                }
             }
-
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure
