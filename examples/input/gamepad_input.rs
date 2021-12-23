@@ -8,14 +8,14 @@ fn main() {
 }
 
 fn gamepad_system(gamepads: Res<Gamepads>) {
-    for (gamepad, button_input) in gamepads.buttons.iter() {
-        if button_input.just_pressed(GamepadButton::South) {
+    for (gamepad, buttons) in gamepads.buttons.iter() {
+        if buttons.just_pressed(GamepadButton::South) {
             info!("{:?} just pressed South", gamepad);
-        } else if button_input.just_released(GamepadButton::South) {
+        } else if buttons.just_released(GamepadButton::South) {
             info!("{:?} just released South", gamepad);
         }
 
-        let right_trigger2 = button_input.value(GamepadButton::RightTrigger2);
+        let right_trigger2 = buttons.value(GamepadButton::RightTrigger2);
         if right_trigger2 > 0.01 {
             info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger2);
         }
