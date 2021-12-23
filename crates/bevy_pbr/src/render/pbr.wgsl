@@ -447,6 +447,207 @@ fn random1D(s: f32) -> f32 {
     return fract(sin(s * 12.9898) * 43758.5453123);
 }
 
+fn calculate_normal(
+    world_normal: vec3<f32>,
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+    world_tangent: vec4<f32>,
+#endif
+#endif
+    uv: vec2<f32>,
+    is_front: bool,
+) -> vec3<f32> {
+    var N: vec3<f32> = normalize(world_normal);
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+    var T: vec3<f32> = normalize(world_tangent.xyz - N * dot(world_tangent.xyz, N));
+    var B: vec3<f32> = cross(N, T) * world_tangent.w;
+#endif
+#endif
+
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+        if (!is_front) {
+            N = -N;
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+            T = -T;
+            B = -B;
+#endif
+#endif
+        }
+    }
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+    let TBN = mat3x3<f32>(T, B, N);
+    N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, uv).rgb * 2.0 - 1.0);
+#endif
+#endif
+
+    return N;
+}
+
+fn calculate_view(
+    world_position: vec4<f32>,
+) -> vec3<f32> {
+    var V: vec3<f32>;
+    let is_orthographic = view.projection[3].w == 1.0;
+    if (is_orthographic) {
+        // Orthographic view vector
+        V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
+    } else {
+        // Only valid for a perpective projection
+        V = normalize(view.world_position.xyz - world_position.xyz);
+    }
+    return V;
+}
+
+struct PbrMaterial {
+    material: StandardMaterial;
+    occlusion: f32;
+};
+
+struct PbrInput {
+    frag_coord: vec4<f32>;
+    world_position: vec4<f32>;
+    world_normal: vec3<f32>;
+};
+
+fn pbr(
+    in: PbrInput,
+    pbr: PbrMaterial,
+    N: vec3<f32>,
+    V: vec3<f32>,
+) -> vec4<f32> {
+    var output_color: vec4<f32> = pbr.material.base_color;
+
+    // TODO use .a for exposure compensation in HDR
+    let emissive = pbr.material.emissive;
+
+    // calculate non-linear roughness from linear perceptualRoughness
+    let metallic = pbr.material.metallic;
+    let perceptual_roughness = pbr.material.perceptual_roughness;
+    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+
+    let occlusion = pbr.occlusion;
+
+    if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+        // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
+        output_color.a = 1.0;
+    } else if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+        if (output_color.a >= pbr.material.alpha_cutoff) {
+            // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
+            output_color.a = 1.0;
+        } else {
+            // NOTE: output_color.a < pbr.material.alpha_cutoff should not is not rendered
+            // NOTE: This and any other discards mean that early-z testing cannot be done!
+            discard;
+        }
+    }
+
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    let NdotV = max(dot(N, V), 0.0001);
+
+    // Remapping [0,1] reflectance to F0
+    // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+    let reflectance = pbr.material.reflectance;
+    let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+
+    // Diffuse strength inversely related to metallicity
+    let diffuse_color = output_color.rgb * (1.0 - metallic);
+
+    let R = reflect(-V, N);
+
+    // accumulate color
+    var light_accum: vec3<f32> = vec3<f32>(0.0);
+
+    let view_z = dot(vec4<f32>(
+        view.inverse_view[0].z,
+        view.inverse_view[1].z,
+        view.inverse_view[2].z,
+        view.inverse_view[3].z
+    ), in.world_position);
+    let is_orthographic = view.projection[3].w == 1.0;
+    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
+    let offset_and_count = unpack_offset_and_count(cluster_index);
+    for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
+        let light_id = get_light_id(i);
+        let light = point_lights.data[light_id];
+        var shadow: f32 = 1.0;
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
+        }
+        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
+        light_accum = light_accum + light_contrib * shadow;
+    }
+
+    let n_directional_lights = lights.n_directional_lights;
+    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        let light = lights.directional_lights[i];
+        var shadow: f32 = 1.0;
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+        }
+        let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
+        light_accum = light_accum + light_contrib * shadow;
+    }
+
+    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
+    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+
+    output_color = vec4<f32>(
+        light_accum +
+            (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
+            emissive.rgb * output_color.a,
+        output_color.a);
+
+    // Cluster allocation debug (using 'over' alpha blending)
+#ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
+    // NOTE: This debug mode visualises the z-slices
+    let cluster_overlay_alpha = 0.1;
+    var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
+    // A hack to make the colors alternate a bit more
+    if ((z_slice & 1u) == 1u) {
+        z_slice = z_slice + lights.cluster_dimensions.z / 2u;
+    }
+    let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+    output_color = vec4<f32>(
+        (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
+        output_color.a
+    );
+#endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
+#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
+    // NOTE: This debug mode visualises the number of lights within the cluster that contains
+    // the fragment. It shows a sort of lighting complexity measure.
+    let cluster_overlay_alpha = 0.1;
+    let max_light_complexity_per_cluster = 64.0;
+    output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
+        + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
+    output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
+        + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
+#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
+#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+    // NOTE: Visualizes the cluster to which the fragment belongs
+    let cluster_overlay_alpha = 0.1;
+    let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
+    output_color = vec4<f32>(
+        (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
+        output_color.a
+    );
+#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+
+    // tone_mapping
+    output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
+    // Gamma correction.
+    // Not needed with sRGB buffer
+    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+
+    return output_color;
+}
+
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
@@ -465,13 +666,21 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 
-    // // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
+    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+        // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
+        // the material members
+        var pbr_material: PbrMaterial;
+
+        pbr_material.material.flags = material.flags;
+        pbr_material.material.base_color = output_color;
+
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = material.emissive;
         if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
         }
+        pbr_material.material.emissive = emissive;
 
         // calculate non-linear roughness from linear perceptualRoughness
         var metallic: f32 = material.metallic;
@@ -482,163 +691,36 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
         }
-        let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+        pbr_material.material.metallic = metallic;
+        pbr_material.material.perceptual_roughness = perceptual_roughness;
 
         var occlusion: f32 = 1.0;
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
+        pbr_material.occlusion = occlusion;
 
-        var N: vec3<f32> = normalize(in.world_normal);
-
+        let N = calculate_normal(
+            in.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
-        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+            in.world_tangent,
 #endif
 #endif
-
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
-            if (!in.is_front) {
-                N = -N;
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-                T = -T;
-                B = -B;
-#endif
-#endif
-            }
-        }
-
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-        let TBN = mat3x3<f32>(T, B, N);
-        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
-#endif
-#endif
-
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
-            // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
-            output_color.a = 1.0;
-        } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-            if (output_color.a >= material.alpha_cutoff) {
-                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
-                output_color.a = 1.0;
-            } else {
-                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
-                // NOTE: This and any other discards mean that early-z testing cannot be done!
-                discard;
-            }
-        }
-
-        var V: vec3<f32>;
-        // If the projection is not orthographic
-        let is_orthographic = view.projection[3].w == 1.0;
-        if (is_orthographic) {
-            // Orthographic view vector
-            V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
-        } else {
-            // Only valid for a perpective projection
-            V = normalize(view.world_position.xyz - in.world_position.xyz);
-        }
-
-        // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(N, V), 0.0001);
-
-        // Remapping [0,1] reflectance to F0
-        // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-        let reflectance = material.reflectance;
-        let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
-
-        // Diffuse strength inversely related to metallicity
-        let diffuse_color = output_color.rgb * (1.0 - metallic);
-
-        let R = reflect(-V, N);
-
-        // accumulate color
-        var light_accum: vec3<f32> = vec3<f32>(0.0);
-
-        let view_z = dot(vec4<f32>(
-            view.inverse_view[0].z,
-            view.inverse_view[1].z,
-            view.inverse_view[2].z,
-            view.inverse_view[3].z
-        ), in.world_position);
-        let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
-        let offset_and_count = unpack_offset_and_count(cluster_index);
-        for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
-            let light_id = get_light_id(i);
-            let light = point_lights.data[light_id];
-            var shadow: f32 = 1.0;
-            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                    && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
-            }
-            let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
-            light_accum = light_accum + light_contrib * shadow;
-        }
-
-        let n_directional_lights = lights.n_directional_lights;
-        for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-            let light = lights.directional_lights[i];
-            var shadow: f32 = 1.0;
-            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                    && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
-            }
-            let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
-            light_accum = light_accum + light_contrib * shadow;
-        }
-
-        let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-        let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
-
-        output_color = vec4<f32>(
-            light_accum +
-                (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
-                emissive.rgb * output_color.a,
-            output_color.a);
-
-        // Cluster allocation debug (using 'over' alpha blending)
-#ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
-        // NOTE: This debug mode visualises the z-slices
-        let cluster_overlay_alpha = 0.1;
-        var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
-        // A hack to make the colors alternate a bit more
-        if ((z_slice & 1u) == 1u) {
-            z_slice = z_slice + lights.cluster_dimensions.z / 2u;
-        }
-        let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
-        output_color = vec4<f32>(
-            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
-            output_color.a
+            in.uv,
+            in.is_front,
         );
-#endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
-#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
-        // NOTE: This debug mode visualises the number of lights within the cluster that contains
-        // the fragment. It shows a sort of lighting complexity measure.
-        let cluster_overlay_alpha = 0.1;
-        let max_light_complexity_per_cluster = 64.0;
-        output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
-        output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
-#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
-#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
-        // NOTE: Visualizes the cluster to which the fragment belongs
-        let cluster_overlay_alpha = 0.1;
-        let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
-        output_color = vec4<f32>(
-            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
-            output_color.a
-        );
-#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
 
-        // tone_mapping
-        output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
-        // Gamma correction.
-        // Not needed with sRGB buffer
-        // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+        let V = calculate_view(in.world_position);
+
+        pbr_material.material.reflectance = material.reflectance;
+
+        var pbr_in: PbrInput;
+        pbr_in.frag_coord = in.frag_coord;
+        pbr_in.world_position = in.world_position;
+        pbr_in.world_normal = in.world_normal;
+
+        output_color = pbr(pbr_in, pbr_material, N, V);
     }
 
     return output_color;
