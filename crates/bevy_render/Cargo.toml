@@ -18,12 +18,14 @@ bmp = ["image/bmp"]
 trace = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
+webgl = ["wgpu/webgl"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
 bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_crevice = { path = "../bevy_crevice", version = "0.5.0", features = ["glam"] }
 bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_math = { path = "../bevy_math", version = "0.5.0" }
@@ -37,6 +39,7 @@ image = { version = "0.23.12", default-features = false }
 
 # misc
 wgpu = { version = "0.12.0", features = ["spirv"] }
+codespan-reporting = "0.11.0"
 naga = { version = "0.8.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
@@ -50,7 +53,3 @@ hex = "0.4.2"
 hexasphere = "6.0.0"
 parking_lot = "0.11.0"
 regex = "1.5"
-bevy_crevice = { path = "../bevy_crevice", version = "0.5.0", features = ["glam"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wgpu = { version = "0.12.0", features = ["spirv", "webgl"] }
