@@ -578,7 +578,7 @@ pub struct WindowDescriptor {
 impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
-            title: "bevy".to_string(),
+            title: "app".to_string(),
             width: 1280.,
             height: 720.,
             position: None,
