@@ -15,9 +15,9 @@ fn gamepad_system(gamepads: Res<Gamepads>) {
             info!("{:?} just released South", gamepad);
         }
 
-        let right_trigger = button_input.value(GamepadButton::RightTrigger);
-        if right_trigger > 0.01 {
-            info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
+        let right_trigger2 = button_input.value(GamepadButton::RightTrigger2);
+        if right_trigger2 > 0.01 {
+            info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger2);
         }
     }
 
