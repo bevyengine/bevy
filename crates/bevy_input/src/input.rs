@@ -73,6 +73,7 @@ where
     T: Copy + Eq + Hash,
 {
     /// Register a press for input `input`.
+    #[inline]
     pub fn press(&mut self, input: T) {
         if !self.pressed(input) {
             self.just_pressed.insert(input);
@@ -83,16 +84,19 @@ where
     }
 
     /// Check if `input` has been pressed.
+    #[inline]
     pub fn pressed(&self, input: T) -> bool {
         self.pressed.contains(&input)
     }
 
     /// Check if any item in `inputs` has been pressed.
+    #[inline]
     pub fn any_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.pressed(it))
     }
 
     /// Register a release for input `input`.
+    #[inline]
     pub fn release(&mut self, input: T) {
         self.pressed.remove(&input);
         self.just_released.insert(input);
@@ -100,11 +104,13 @@ where
     }
 
     /// Check if `input` has been just pressed.
+    #[inline]
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
     /// Check if any item in `inputs` has just been pressed.
+    #[inline]
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
@@ -112,16 +118,19 @@ where
     /// Clear the "just pressed" state of `input`. Future calls to [`Input::just_pressed`] for the
     /// given input will return false until a new press event occurs.
     /// Returns true if `input` is currently "just pressed"
+    #[inline]
     pub fn clear_just_pressed(&mut self, input: T) -> bool {
         self.just_pressed.remove(&input)
     }
 
     /// Check if `input` has been just released.
+    #[inline]
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
 
     /// Check if any item in `inputs` has just been released.
+    #[inline]
     pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_released(it))
     }
@@ -129,6 +138,7 @@ where
     /// Clear the "just released" state of `input`. Future calls to [`Input::just_released`] for the
     /// given input will return false until a new release event occurs.
     /// Returns true if `input` is currently "just released"
+    #[inline]
     pub fn clear_just_released(&mut self, input: T) -> bool {
         self.just_released.remove(&input)
     }
@@ -138,6 +148,7 @@ where
     /// Most buttons and other inputs are fully binary,
     /// and this method will only ever return 0.0 or 1.0.
     /// Values returned will always be in [0.0, 1.0].
+    #[inline]
     pub fn value(&self, input: T) -> f32 {
         *self
             .values
@@ -148,11 +159,13 @@ where
     /// Manually set the value of an input
     ///
     /// This is particularly useful for mocking analogue inputs during tests.
+    #[inline]
     pub fn set_value(&mut self, input: T, value: f32) {
         self.values.insert(input, value.clamp(0.0, 1.0));
     }
 
     /// Reset all status for input `input`.
+    #[inline]
     pub fn reset(&mut self, input: T) {
         self.pressed.remove(&input);
         self.just_pressed.remove(&input);
@@ -160,22 +173,26 @@ where
     }
 
     /// Clear just pressed and just released information.
+    #[inline]
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
     }
 
     /// List all inputs that are pressed.
+    #[inline]
     pub fn get_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.pressed.iter()
     }
 
     /// List all inputs that are just pressed.
+    #[inline]
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
     /// List all inputs that are just released.
+    #[inline]
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
