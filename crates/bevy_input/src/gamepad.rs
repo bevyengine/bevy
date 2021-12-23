@@ -5,6 +5,9 @@ use bevy_utils::{HashMap, HashSet};
 
 use strum_macros::EnumIter;
 
+/// A unique identifier for a gamepad, assigned sequentially
+///
+/// These are managed through the use of the [Gamepads] resource
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamepad(pub usize);
@@ -12,7 +15,8 @@ pub struct Gamepad(pub usize);
 #[derive(Default)]
 /// Container of unique connected [Gamepad]s
 ///
-/// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
+/// Gamepads are registered and deregistered automatically in [gamepad_event_system],
+/// which also updates the input values stored in `buttons` and `axes`.
 pub struct Gamepads {
     gamepads: HashSet<Gamepad>,
     pub buttons: HashMap<Gamepad, Input<GamepadButton>>,
