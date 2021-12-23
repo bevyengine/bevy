@@ -156,6 +156,7 @@ pub trait BuildChildren {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -202,6 +203,12 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
             children: SmallVec::from(children),
             parent,
         });
+        self
+    }
+
+    fn add_child(&mut self, child: Entity) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(AddChild { child, parent });
         self
     }
 }
