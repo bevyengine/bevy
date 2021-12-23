@@ -58,7 +58,7 @@ impl<T: Inputlike> Default for Input<T> {
     fn default() -> Self {
         // PERF: this is pointlessly slow;
         // should use HashMap::from_iter() instead
-        let values = HashMap::default();
+        let mut values = HashMap::default();
 
         for input_variant in T::iter() {
             values.insert(input_variant, 0.0);

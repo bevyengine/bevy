@@ -7,26 +7,23 @@ fn main() {
         .run();
 }
 
-fn gamepad_system(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
-    axes: Res<Axis<GamepadAxis>>,
-) {
-    for gamepad in gamepads.iter().cloned() {
-        if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
+fn gamepad_system(gamepads: Res<Gamepads>) {
+    for (gamepad, button_input) in gamepads.buttons.iter() {
+        if button_input.just_pressed(GamepadButton::South) {
             info!("{:?} just pressed South", gamepad);
-        } else if button_inputs.just_released(GamepadButton(gamepad, GamepadButtonType::South)) {
+        } else if button_input.just_released(GamepadButton::South) {
             info!("{:?} just released South", gamepad);
         }
 
-        let right_trigger =
-            button_inputs.value(GamepadButton(gamepad, GamepadButtonType::RightTrigger));
+        let right_trigger = button_input.value(GamepadButton::RightTrigger);
         if right_trigger > 0.01 {
             info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
         }
+    }
 
+    for (gamepad, axes) in gamepads.axes.iter() {
         let left_stick_x = axes
-            .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
+            .get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickX))
             .unwrap();
         if left_stick_x.abs() > 0.01 {
             info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);

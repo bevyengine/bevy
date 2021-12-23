@@ -31,8 +31,8 @@ use prelude::Gamepads;
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
-    GamepadEventRaw, GamepadSettings,
+    gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
+    GamepadSettings,
 };
 
 /// Adds keyboard and mouse input to an App
@@ -71,10 +71,6 @@ impl Plugin for InputPlugin {
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 gamepad_event_system.label(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()

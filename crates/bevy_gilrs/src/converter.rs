@@ -1,30 +1,30 @@
-use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
+use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButton};
 
 pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
     Gamepad(gamepad_id.into())
 }
 
-pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
+pub fn convert_button(button: gilrs::Button) -> Option<GamepadButton> {
     match button {
-        gilrs::Button::South => Some(GamepadButtonType::South),
-        gilrs::Button::East => Some(GamepadButtonType::East),
-        gilrs::Button::North => Some(GamepadButtonType::North),
-        gilrs::Button::West => Some(GamepadButtonType::West),
-        gilrs::Button::C => Some(GamepadButtonType::C),
-        gilrs::Button::Z => Some(GamepadButtonType::Z),
-        gilrs::Button::LeftTrigger => Some(GamepadButtonType::LeftTrigger),
-        gilrs::Button::LeftTrigger2 => Some(GamepadButtonType::LeftTrigger2),
-        gilrs::Button::RightTrigger => Some(GamepadButtonType::RightTrigger),
-        gilrs::Button::RightTrigger2 => Some(GamepadButtonType::RightTrigger2),
-        gilrs::Button::Select => Some(GamepadButtonType::Select),
-        gilrs::Button::Start => Some(GamepadButtonType::Start),
-        gilrs::Button::Mode => Some(GamepadButtonType::Mode),
-        gilrs::Button::LeftThumb => Some(GamepadButtonType::LeftThumb),
-        gilrs::Button::RightThumb => Some(GamepadButtonType::RightThumb),
-        gilrs::Button::DPadUp => Some(GamepadButtonType::DPadUp),
-        gilrs::Button::DPadDown => Some(GamepadButtonType::DPadDown),
-        gilrs::Button::DPadLeft => Some(GamepadButtonType::DPadLeft),
-        gilrs::Button::DPadRight => Some(GamepadButtonType::DPadRight),
+        gilrs::Button::South => Some(GamepadButton::South),
+        gilrs::Button::East => Some(GamepadButton::East),
+        gilrs::Button::North => Some(GamepadButton::North),
+        gilrs::Button::West => Some(GamepadButton::West),
+        gilrs::Button::C => Some(GamepadButton::C),
+        gilrs::Button::Z => Some(GamepadButton::Z),
+        gilrs::Button::LeftTrigger => Some(GamepadButton::LeftTrigger),
+        gilrs::Button::LeftTrigger2 => Some(GamepadButton::LeftTrigger2),
+        gilrs::Button::RightTrigger => Some(GamepadButton::RightTrigger),
+        gilrs::Button::RightTrigger2 => Some(GamepadButton::RightTrigger2),
+        gilrs::Button::Select => Some(GamepadButton::Select),
+        gilrs::Button::Start => Some(GamepadButton::Start),
+        gilrs::Button::Mode => Some(GamepadButton::Mode),
+        gilrs::Button::LeftThumb => Some(GamepadButton::LeftThumb),
+        gilrs::Button::RightThumb => Some(GamepadButton::RightThumb),
+        gilrs::Button::DPadUp => Some(GamepadButton::DPadUp),
+        gilrs::Button::DPadDown => Some(GamepadButton::DPadDown),
+        gilrs::Button::DPadLeft => Some(GamepadButton::DPadLeft),
+        gilrs::Button::DPadRight => Some(GamepadButton::DPadRight),
         gilrs::Button::Unknown => None,
     }
 }
