@@ -26,10 +26,16 @@ use bevy_transform::components::GlobalTransform;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
+pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6944437233335238185);
+pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_STRUCT_HANDLE: HandleUntyped =
+pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
+pub const MESH_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17763658410392053870);
+pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8157763673499264335);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 
@@ -41,14 +47,29 @@ impl Plugin for MeshRenderPlugin {
             Shader::from_wgsl(include_str!("mesh.wgsl")),
         );
         shaders.set_untracked(
-            MESH_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_struct.wgsl"))
-                .with_import_path("bevy_pbr::mesh_struct"),
+            MESH_VIEW_TYPES_HANDLE,
+            Shader::from_wgsl(include_str!("mesh_view_types.wgsl"))
+                .with_import_path("bevy_pbr::mesh_view_types"),
         );
         shaders.set_untracked(
-            MESH_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_view_bind_group.wgsl"))
-                .with_import_path("bevy_pbr::mesh_view_bind_group"),
+            MESH_VIEW_BINDINGS_HANDLE,
+            Shader::from_wgsl(include_str!("mesh_view_bindings.wgsl"))
+                .with_import_path("bevy_pbr::mesh_view_bindings"),
+        );
+        shaders.set_untracked(
+            MESH_TYPES_HANDLE,
+            Shader::from_wgsl(include_str!("mesh_types.wgsl"))
+                .with_import_path("bevy_pbr::mesh_types"),
+        );
+        shaders.set_untracked(
+            MESH_BINDINGS_HANDLE,
+            Shader::from_wgsl(include_str!("mesh_bindings.wgsl"))
+                .with_import_path("bevy_pbr::mesh_bindings"),
+        );
+        shaders.set_untracked(
+            MESH_FUNCTIONS_HANDLE,
+            Shader::from_wgsl(include_str!("mesh_functions.wgsl"))
+                .with_import_path("bevy_pbr::mesh_functions"),
         );
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());

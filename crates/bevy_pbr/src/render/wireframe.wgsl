@@ -1,12 +1,16 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_types
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_types
+
+[[group(1), binding(0)]]
+var<uniform> mesh: Mesh;
+
+// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::mesh_functions
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
 };
-
-[[group(1), binding(0)]]
-var<uniform> mesh: Mesh;
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
@@ -14,11 +18,8 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
     var out: VertexOutput;
-    out.clip_position = view.view_proj * world_position;
-
+    out.clip_position = mesh_model_position_to_clip(vec4<f32>(vertex.position, 1.0));
     return out;
 }
 

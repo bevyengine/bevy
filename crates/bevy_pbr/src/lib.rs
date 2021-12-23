@@ -48,6 +48,12 @@ use bevy_transform::TransformSystem;
 
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
+pub const PBR_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14465578778686805602);
+pub const PBR_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1501114814264999179);
+pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1167493567156271479);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
@@ -61,6 +67,21 @@ impl Plugin for PbrPlugin {
         shaders.set_untracked(
             PBR_SHADER_HANDLE,
             Shader::from_wgsl(include_str!("render/pbr.wgsl")),
+        );
+        shaders.set_untracked(
+            PBR_TYPES_HANDLE,
+            Shader::from_wgsl(include_str!("render/pbr_types.wgsl"))
+                .with_import_path("bevy_pbr::pbr_types"),
+        );
+        shaders.set_untracked(
+            PBR_BINDINGS_HANDLE,
+            Shader::from_wgsl(include_str!("render/pbr_bindings.wgsl"))
+                .with_import_path("bevy_pbr::pbr_bindings"),
+        );
+        shaders.set_untracked(
+            PBR_FUNCTIONS_HANDLE,
+            Shader::from_wgsl(include_str!("render/pbr_functions.wgsl"))
+                .with_import_path("bevy_pbr::pbr_functions"),
         );
         shaders.set_untracked(
             SHADOW_SHADER_HANDLE,
