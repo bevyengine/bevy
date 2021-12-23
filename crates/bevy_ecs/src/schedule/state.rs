@@ -386,10 +386,9 @@ where
 
     /// Same as [Self::restart], but if there is already a scheduled state operation,
     /// it will be overwritten instead of failing
-    pub fn overwrite_restart(&mut self) -> Result<(), StateError> {
+    pub fn overwrite_restart(&mut self) {
         let state = self.stack.last().unwrap();
         self.scheduled = Some(ScheduledOperation::Set(state.clone()));
-        Ok(())
     }
 
     pub fn current(&self) -> &T {
@@ -727,8 +726,7 @@ mod test {
         // B. Restart state (overwrite schedule)
         let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
         state.set(LoadState::Finish).unwrap();
-        let result = state.overwrite_restart();
-        assert!(matches!(result, Ok(())));
+        state.overwrite_restart();
         stage.run(&mut world);
 
         // C. Fail restart state (transition already scheduled)
