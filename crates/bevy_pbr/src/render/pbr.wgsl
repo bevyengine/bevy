@@ -38,7 +38,6 @@
 [[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
 
-[[block]]
 struct StandardMaterial {
     base_color: vec4<f32>;
     emissive: vec4<f32>;
@@ -382,7 +381,11 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // a quad (2x2 fragments) being processed not being sampled, and this messing with
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls, depth);
+#else
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
+#endif
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -413,7 +416,11 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, depth);
+#else
     return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
+#endif
 }
 
 fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
@@ -505,7 +512,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
             // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
             output_color.a = 1.0;
-        } elseif ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+        } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
             if (output_color.a >= material.alpha_cutoff) {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
                 output_color.a = 1.0;

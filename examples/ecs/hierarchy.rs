@@ -107,7 +107,7 @@ fn rotate(
         // seconds
         if time.seconds_since_startup() >= 2.0 && children.len() == 3 {
             let child = children.last().copied().unwrap();
-            commands.entity(child).despawn();
+            commands.entity(child).despawn_recursive();
         }
 
         if time.seconds_since_startup() >= 4.0 {

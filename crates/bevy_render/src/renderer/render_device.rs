@@ -137,12 +137,12 @@ impl RenderDevice {
         Sampler::from(wgpu_sampler)
     }
 
-    /// Create a new [`SwapChain`](wgpu::SwapChain) which targets `surface`.
+    /// Initializes [`Surface`](wgpu::Surface) for presentation.
     ///
     /// # Panics
     ///
-    /// - A old [`SwapChainFrame`](wgpu::SwapChain) is still alive referencing an old swap chain.
-    /// - Texture format requested is unsupported on the swap chain.
+    /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
+    /// - Texture format requested is unsupported on the surface.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
         surface.configure(&self.device, config)
     }

@@ -24,8 +24,8 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
+    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
+    TextureFormat, TextureViewDescriptor,
 };
 
 #[derive(Default)]
@@ -202,7 +202,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::CubeArray,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
                 },
@@ -210,10 +213,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 3,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // Directional Shadow Texture Array
@@ -223,7 +223,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::D2Array,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
                 },
@@ -231,10 +234,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 5,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // PointLights
@@ -370,12 +370,15 @@ bitflags::bitflags! {
         const VERTEX_TANGENTS             = (1 << 0);
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111111;
     const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
@@ -384,6 +387,26 @@ impl MeshPipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits =
+            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
     }
 }
 
@@ -468,6 +491,9 @@ impl SpecializedPipeline for MeshPipeline {
             depth_write_enabled = true;
         }
 
+        #[cfg(feature = "webgl")]
+        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -493,10 +519,10 @@ impl SpecializedPipeline for MeshPipeline {
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
-                topology: PrimitiveTopology::TriangleList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {

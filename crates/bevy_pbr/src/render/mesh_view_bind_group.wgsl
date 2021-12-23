@@ -1,4 +1,3 @@
-[[block]]
 struct View {
     view_proj: mat4x4<f32>;
     inverse_view: mat4x4<f32>;
@@ -35,7 +34,6 @@ struct DirectionalLight {
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
-[[block]]
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>;
@@ -56,18 +54,15 @@ struct Lights {
     n_directional_lights: u32;
 };
 
-[[block]]
 struct PointLights {
     data: array<PointLight, 256u>;
 };
 
-[[block]]
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the PointLights array
     data: array<vec4<u32>, 1024u>;
 };
 
-[[block]]
 struct ClusterOffsetsAndCounts {
     // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
     // and an 8-bit count of the number of lights in the low 8 bits
@@ -78,12 +73,22 @@ struct ClusterOffsetsAndCounts {
 var<uniform> view: View;
 [[group(0), binding(1)]]
 var<uniform> lights: Lights;
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+[[group(0), binding(2)]]
+var point_shadow_textures: texture_depth_cube;
+#else
 [[group(0), binding(2)]]
 var point_shadow_textures: texture_depth_cube_array;
+#endif
 [[group(0), binding(3)]]
 var point_shadow_textures_sampler: sampler_comparison;
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+[[group(0), binding(4)]]
+var directional_shadow_textures: texture_depth_2d;
+#else
 [[group(0), binding(4)]]
 var directional_shadow_textures: texture_depth_2d_array;
+#endif
 [[group(0), binding(5)]]
 var directional_shadow_textures_sampler: sampler_comparison;
 [[group(0), binding(6)]]

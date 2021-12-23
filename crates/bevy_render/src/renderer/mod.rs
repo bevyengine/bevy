@@ -72,7 +72,6 @@ pub async fn initialize_renderer(
         .await
         .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
-    #[cfg(not(target_arch = "wasm32"))]
     info!("{:?}", adapter.get_info());
 
     #[cfg(feature = "wgpu_trace")]
