@@ -102,7 +102,6 @@ ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
-crevice = { path = "crates/crevice", version = "0.8.0", features = ["glam"] }
 
 [[example]]
 name = "hello_world"

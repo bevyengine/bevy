@@ -1,5 +1,5 @@
-use crevice::glsl::GlslStruct;
-use crevice::std140::AsStd140;
+use bevy_crevice::glsl::GlslStruct;
+use bevy_crevice::std140::AsStd140;
 
 #[test]
 fn there_and_back_again() {

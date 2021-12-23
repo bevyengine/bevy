@@ -16,7 +16,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -25,7 +25,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-use crevice::std140::AsStd140;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,

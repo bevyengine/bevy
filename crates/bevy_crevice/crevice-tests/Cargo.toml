@@ -7,8 +7,8 @@ edition = "2018"
 wgpu-validation = ["wgpu", "naga", "futures"]
 
 [dependencies]
-crevice = { path = ".." }
-crevice-derive = { path = "../crevice-derive", features = ["debug-methods"] }
+bevy_crevice = { path = ".." }
+bevy-crevice-derive = { path = "../bevy-crevice-derive", features = ["debug-methods"] }
 
 anyhow = "1.0.44"
 bytemuck = "1.7.2"

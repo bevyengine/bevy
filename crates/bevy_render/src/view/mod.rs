@@ -10,7 +10,7 @@ pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, ExtractedCameraNames},
-    render_resource::{DynamicUniformVec, Texture, TextureView},
+    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
@@ -19,7 +19,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
 
 pub struct ViewPlugin;
 

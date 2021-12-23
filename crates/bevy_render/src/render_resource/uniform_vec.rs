@@ -1,8 +1,8 @@
 use crate::{
+    render_resource::std140::{self, AsStd140, DynamicUniform, Std140},
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use crevice::std140::{self, AsStd140, DynamicUniform, Std140};
 use std::num::NonZeroU64;
 use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
 

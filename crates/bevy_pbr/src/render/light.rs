@@ -22,14 +22,13 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::warn, HashMap};
-use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]

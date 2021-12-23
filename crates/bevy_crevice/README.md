@@ -1,8 +1,19 @@
-# Crevice
+# Bevy Crevice
 
-[![GitHub CI Status](https://github.com/LPGhatguy/crevice/workflows/CI/badge.svg)](https://github.com/LPGhatguy/crevice/actions)
-[![crevice on crates.io](https://img.shields.io/crates/v/crevice.svg)](https://crates.io/crates/crevice)
-[![crevice docs](https://img.shields.io/badge/docs-docs.rs-orange.svg)](https://docs.rs/crevice)
+This is a fork of [Crevice](https://crates.io/crates/crevice) for
+[Bevy](https://bevyengine.org).
+
+For use outside of Bevy, you should consider
+using [Crevice](https://crates.io/crates/crevice) directly.
+
+It was forked to allow better integration in Bevy:
+
+* Easier derive macro usage, without needing to depend on `Crevice` directly.
+* Use of unmerged features (as of the fork), like
+[Array Support](https://github.com/LPGhatguy/crevice/pull/27/).
+* Renaming of traits and macros to better match Bevy API.
+
+## Crevice
 
 Crevice creates GLSL-compatible versions of types through the power of derive
 macros. Generated structures provide an [`as_bytes`][std140::Std140::as_bytes]
@@ -21,7 +32,7 @@ other math libraries by use of the mint crate. Crevice currently supports:
 * mint 0.5, enabled by default
 * cgmath 0.18, using the `cgmath` feature
 * nalgebra 0.29, using the `nalgebra` feature
-* glam 0.19, using the `glam` feature
+* glam 0.20, using the `glam` feature
 
 PRs are welcome to add or update math libraries to Crevice.
 
@@ -50,7 +61,7 @@ uniform MAIN {
 ```
 
 ```rust
-use crevice::std140::{AsStd140, Std140};
+use bevy_crevice::std140::{AsStd140, Std140};
 
 #[derive(AsStd140)]
 struct MainUniform {
@@ -93,7 +104,7 @@ buffer POINT_LIGHTS {
 ```
 
 ```rust
-use crevice::std140::{self, AsStd140};
+use bevy_crevice::std140::{self, AsStd140};
 
 #[derive(AsStd140)]
 struct PointLight {

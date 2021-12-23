@@ -40,3 +40,5 @@ pub use wgpu::{
     TextureViewDimension, VertexAttribute, VertexBufferLayout as RawVertexBufferLayout,
     VertexFormat, VertexState as RawVertexState, VertexStepMode,
 };
+
+pub use bevy_crevice::*;

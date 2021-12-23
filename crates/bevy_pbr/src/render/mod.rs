@@ -19,11 +19,10 @@ use bevy_render::{
         DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
 };
-use crevice::std140::AsStd140;
 
 // NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.wgsl!
 bitflags::bitflags! {

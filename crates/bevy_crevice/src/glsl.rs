@@ -1,6 +1,6 @@
 //! Defines traits and types for generating GLSL code from Rust definitions.
 
-pub use crevice_derive::GlslStruct;
+pub use bevy_crevice_derive::GlslStruct;
 use std::marker::PhantomData;
 
 /// Type-level linked list of array dimensions

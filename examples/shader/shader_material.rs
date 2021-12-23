@@ -15,13 +15,15 @@ use bevy::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
         },
-        render_resource::*,
+        render_resource::{
+            std140::{AsStd140, Std140},
+            *,
+        },
         renderer::RenderDevice,
         view::{ExtractedView, Msaa},
         RenderApp, RenderStage,
     },
 };
-use crevice::std140::{AsStd140, Std140};
 
 fn main() {
     App::new()

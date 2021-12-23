@@ -1,12 +1,12 @@
 [package]
-name = "crevice-derive"
-description = "Derive crate for the 'crevice' crate"
-version = "0.8.0"
+name = "bevy-crevice-derive"
+description = "Derive crate for the 'crevice' crate (Bevy version)"
+version = "0.5.0"
 edition = "2018"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]
 documentation = "https://docs.rs/crevice-derive"
 homepage = "https://github.com/LPGhatguy/crevice"
-repository = "https://github.com/LPGhatguy/crevice"
+repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 
 [features]
@@ -24,3 +24,4 @@ proc-macro = true
 syn = "1.0.40"
 quote = "1.0.7"
 proc-macro2 = "1.0.21"
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.5.0" }

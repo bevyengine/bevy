@@ -7,11 +7,13 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::{BindGroup, Buffer, BufferInitDescriptor, BufferUsages},
+    render_resource::{
+        std140::{AsStd140, Std140},
+        BindGroup, Buffer, BufferInitDescriptor, BufferUsages,
+    },
     renderer::RenderDevice,
     texture::Image,
 };
-use crevice::std140::{AsStd140, Std140};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource};
 
 pub const DEFAULT_STANDARD_MATERIAL_HANDLE: HandleUntyped =

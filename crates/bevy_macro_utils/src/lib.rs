@@ -30,13 +30,13 @@ impl Default for BevyManifest {
 }
 
 impl BevyManifest {
-    pub fn get_path(&self, name: &str) -> syn::Path {
+    pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
         const BEVY: &str = "bevy";
         const BEVY_INTERNAL: &str = "bevy_internal";
 
         let find_in_deps = |deps: &DepsSet| -> Option<syn::Path> {
             let package = if let Some(dep) = deps.get(name) {
-                return Some(get_path(dep.package().unwrap_or(name)));
+                return Some(Self::parse_str(dep.package().unwrap_or(name)));
             } else if let Some(dep) = deps.get(BEVY) {
                 dep.package().unwrap_or(BEVY)
             } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
@@ -45,9 +45,9 @@ impl BevyManifest {
                 return None;
             };
 
-            let mut path = get_path(package);
+            let mut path = Self::parse_str::<syn::Path>(package);
             if let Some(module) = name.strip_prefix("bevy_") {
-                path.segments.push(parse_str(module));
+                path.segments.push(Self::parse_str(module));
             }
             Some(path)
         };
@@ -57,16 +57,15 @@ impl BevyManifest {
 
         deps.and_then(find_in_deps)
             .or_else(|| deps_dev.and_then(find_in_deps))
-            .unwrap_or_else(|| get_path(name))
     }
-}
+    pub fn get_path(&self, name: &str) -> syn::Path {
+        self.maybe_get_path(name)
+            .unwrap_or_else(|| Self::parse_str(name))
+    }
 
-fn get_path(path: &str) -> syn::Path {
-    parse_str(path)
-}
-
-fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
-    syn::parse(path.parse::<TokenStream>().unwrap()).unwrap()
+    pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
+        syn::parse(path.parse::<TokenStream>().unwrap()).unwrap()
+    }
 }
 
 /// Derive a label trait

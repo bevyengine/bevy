@@ -15,9 +15,9 @@ fn test_round_trip_primitive<T>(_value: T) {}
 #[macro_use]
 mod util;
 
-use crevice::glsl::GlslStruct;
-use crevice::std140::AsStd140;
-use crevice::std430::AsStd430;
+use bevy_crevice::glsl::GlslStruct;
+use bevy_crevice::std140::AsStd140;
+use bevy_crevice::std430::AsStd430;
 use mint::{ColumnMatrix2, ColumnMatrix3, ColumnMatrix4, Vector2, Vector3, Vector4};
 
 #[test]

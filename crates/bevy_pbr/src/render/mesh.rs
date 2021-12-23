@@ -15,14 +15,13 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
     TextureFormat, TextureViewDescriptor,

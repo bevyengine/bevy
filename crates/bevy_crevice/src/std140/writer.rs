@@ -4,10 +4,10 @@ use std::mem::size_of;
 use bytemuck::bytes_of;
 
 use crate::internal::align_offset;
-use crate::std430::{AsStd430, Std430, WriteStd430};
+use crate::std140::{AsStd140, Std140, WriteStd140};
 
 /**
-Type that enables writing correctly aligned `std430` values to a buffer.
+Type that enables writing correctly aligned `std140` values to a buffer.
 
 `Writer` is useful when many values need to be laid out in a row that cannot be
 represented by a struct alone, like dynamically sized arrays or dynamically
@@ -15,7 +15,7 @@ laid-out values.
 
 ## Example
 In this example, we'll write a length-prefixed list of lights to a buffer.
-`std430::Writer` helps align correctly, even across multiple structs, which can
+`std140::Writer` helps align correctly, even across multiple structs, which can
 be tricky and error-prone otherwise.
 
 ```glsl
@@ -32,9 +32,9 @@ buffer POINT_LIGHTS {
 ```
 
 ```
-use crevice::std430::{self, AsStd430};
+use bevy_crevice::std140::{self, AsStd140};
 
-#[derive(AsStd430)]
+#[derive(AsStd140)]
 struct PointLight {
     position: mint::Vector3<f32>,
     color: mint::Vector3<f32>,
@@ -58,7 +58,7 @@ let lights = vec![
 #     Box::leak(vec![0; 1024].into_boxed_slice())
 # }
 let target_buffer = map_gpu_buffer_for_write();
-let mut writer = std430::Writer::new(target_buffer);
+let mut writer = std140::Writer::new(target_buffer);
 
 let light_count = lights.len() as u32;
 writer.write(&light_count)?;
@@ -93,9 +93,9 @@ impl<W: Write> Writer<W> {
     /// Returns the offset into the buffer that the value was written to.
     pub fn write<T>(&mut self, value: &T) -> io::Result<usize>
     where
-        T: WriteStd430 + ?Sized,
+        T: WriteStd140 + ?Sized,
     {
-        value.write_std430(self)
+        value.write_std140(self)
     }
 
     /// Write an iterator of values to the underlying buffer.
@@ -105,27 +105,27 @@ impl<W: Write> Writer<W> {
     pub fn write_iter<I, T>(&mut self, iter: I) -> io::Result<usize>
     where
         I: IntoIterator<Item = T>,
-        T: WriteStd430,
+        T: WriteStd140,
     {
         let mut offset = self.offset;
 
         let mut iter = iter.into_iter();
 
         if let Some(item) = iter.next() {
-            offset = item.write_std430(self)?;
+            offset = item.write_std140(self)?;
         }
 
         for item in iter {
-            item.write_std430(self)?;
+            item.write_std140(self)?;
         }
 
         Ok(offset)
     }
 
-    /// Write an `Std430` type to the underlying buffer.
-    pub fn write_std430<T>(&mut self, value: &T) -> io::Result<usize>
+    /// Write an `Std140` type to the underlying buffer.
+    pub fn write_std140<T>(&mut self, value: &T) -> io::Result<usize>
     where
-        T: Std430,
+        T: Std140,
     {
         let padding = align_offset(self.offset, T::ALIGNMENT);
 
@@ -134,13 +134,25 @@ impl<W: Write> Writer<W> {
         }
         self.offset += padding;
 
-        let value = value.as_std430();
+        let value = value.as_std140();
         self.writer.write_all(bytes_of(&value))?;
 
         let write_here = self.offset;
         self.offset += size_of::<T>();
 
         Ok(write_here)
+    }
+
+    /// Write a slice of values to the underlying buffer.
+    #[deprecated(
+        since = "0.6.0",
+        note = "Use `write` instead -- it now works on slices."
+    )]
+    pub fn write_slice<T>(&mut self, slice: &[T]) -> io::Result<usize>
+    where
+        T: AsStd140,
+    {
+        self.write(slice)
     }
 
     /// Returns the amount of data written by this `Writer`.

@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::DynamicUniformVec,
+    render_resource::{std140::AsStd140, DynamicUniformVec},
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
 };
@@ -14,7 +14,6 @@ use bevy_ecs::{
         RunSystem, SystemParamItem,
     },
 };
-use crevice::std140::AsStd140;
 use std::{marker::PhantomData, ops::Deref};
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
