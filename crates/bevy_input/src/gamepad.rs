@@ -108,13 +108,13 @@ pub struct GamepadSettings {
 }
 
 impl GamepadSettings {
-    pub fn get_button_settings(&self, button: GamepadButton) -> &ButtonSettings {
+    pub fn button_settings(&self, button: GamepadButton) -> &ButtonSettings {
         self.button_settings
             .get(&button)
             .unwrap_or(&self.default_button_settings)
     }
 
-    pub fn get_axis_settings(&self, axis: GamepadAxis) -> &AxisSettings {
+    pub fn axis_settings(&self, axis: GamepadAxis) -> &AxisSettings {
         self.axis_settings
             .get(&axis)
             .unwrap_or(&self.default_axis_settings)
@@ -254,7 +254,7 @@ pub fn gamepad_event_system(
             GamepadEventType::AxisChanged(axis_type, value) => {
                 let gamepad_axis = GamepadAxis(gamepad, *axis_type);
                 if let Some(filtered_value) = settings
-                    .get_axis_settings(gamepad_axis)
+                    .axis_settings(gamepad_axis)
                     .filter(*value, axis.get(gamepad_axis))
                 {
                     axis.set(gamepad_axis, filtered_value);
@@ -267,7 +267,7 @@ pub fn gamepad_event_system(
             GamepadEventType::ButtonChanged(button_type, value) => {
                 let gamepad_button = GamepadButton(gamepad, *button_type);
 
-                let button_property = settings.get_button_settings(gamepad_button);
+                let button_property = settings.button_settings(gamepad_button);
                 if button_input.pressed(gamepad_button) {
                     if button_property.is_released(*value) {
                         button_input.release(gamepad_button);
