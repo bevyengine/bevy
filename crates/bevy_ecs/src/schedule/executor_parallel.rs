@@ -6,9 +6,9 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
-use fixedbitset::FixedBitSet;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
+use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
 use SchedulingEvent::*;
@@ -202,7 +202,8 @@ impl ParallelExecutor {
                 #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
                 let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
                 #[cfg(feature = "trace")]
-                let overhead_span = bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
+                let overhead_span =
+                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
                 let task = async move {
                     start_receiver
                         .recv()
