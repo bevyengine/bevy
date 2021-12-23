@@ -23,7 +23,7 @@ default = [
   "render",
   "png",
   "hdr",
-  "mp3",
+  "vorbis",
   "x11",
   "filesystem_watcher",
 ]
