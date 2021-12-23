@@ -5,6 +5,9 @@ use std::hash::Hash;
 ///
 /// Values are stored as `f32` values, which range from `min` to `max`.
 /// The valid range is from -1.0 to 1.0, inclusive.
+///
+/// If you need to represent a continous input with a scalar intensity such as a trigger,
+/// use [Input](crate::Input) instead.
 #[derive(Debug)]
 pub struct Axis<T> {
     axis_data: HashMap<T, f32>,

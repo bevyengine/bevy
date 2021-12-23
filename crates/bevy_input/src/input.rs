@@ -8,6 +8,12 @@ use bevy_ecs::schedule::State;
 
 /// A "press-able" input of type `T`.
 ///
+/// Pressable inputs of this sort can either be continuous or discrete.
+/// Their [`value`](Self::value) will always be between 0.0 and 1.0,
+/// where 0.0 represents a fully released state and 1.0 is the fully pressed state.
+/// If you need to represent an input value with a neutral position and a direction,
+/// use an [Axis](crate::Axis) instead.
+///
 /// This type can be used as a resource to keep the current state of an input, by reacting to
 /// events from the input. For a given input value:
 ///
@@ -23,7 +29,6 @@ use bevy_ecs::schedule::State;
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
 ///
 /// ## Notes when adding this resource for a new input type
-///
 ///
 /// When adding this resource for a new input type, you should:
 ///
