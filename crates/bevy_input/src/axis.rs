@@ -57,7 +57,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        gamepad::{Gamepad, GamepadButton, GamepadButtonType},
+        gamepad::{Gamepad, GamepadAxis, GamepadAxisType},
         Axis,
     };
 
@@ -78,12 +78,12 @@ mod tests {
         ];
 
         for (value, expected) in cases {
-            let gamepad_button = GamepadButton(Gamepad(1), GamepadButtonType::RightTrigger);
-            let mut axis = Axis::<GamepadButton>::default();
+            let gamepad_axis = GamepadAxis(Gamepad(1), GamepadAxisType::LeftStickX);
+            let mut axis = Axis::<GamepadAxis>::default();
 
-            axis.set(gamepad_button, value);
+            axis.set(gamepad_axis, value);
 
-            let actual = axis.get(gamepad_button);
+            let actual = axis.get(gamepad_axis);
             assert_eq!(expected, actual);
         }
     }
@@ -93,14 +93,14 @@ mod tests {
         let cases = [-1.0, -0.9, -0.1, 0.0, 0.1, 0.9, 1.0];
 
         for value in cases {
-            let gamepad_button = GamepadButton(Gamepad(1), GamepadButtonType::RightTrigger);
-            let mut axis = Axis::<GamepadButton>::default();
+            let gamepad_axis = GamepadAxis(Gamepad(1), GamepadAxisType::LeftStickX);
+            let mut axis = Axis::<GamepadAxis>::default();
 
-            axis.set(gamepad_button, value);
-            assert!(axis.get(gamepad_button).is_some());
+            axis.set(gamepad_axis, value);
+            assert!(axis.get(gamepad_axis).is_some());
 
-            axis.remove(gamepad_button);
-            let actual = axis.get(gamepad_button);
+            axis.remove(gamepad_axis);
+            let actual = axis.get(gamepad_axis);
             let expected = None;
 
             assert_eq!(expected, actual);
