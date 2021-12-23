@@ -360,7 +360,7 @@ pub fn add_clusters(
     cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
     for (entity, camera) in cameras.iter() {
-        if let Some(size) = camera.get_physical_size(&windows, &images) {
+        if let Some(size) = camera.target.get_physical_size(&windows, &images) {
             let clusters = Clusters::from_screen_size_and_z_slices(size, Z_SLICES);
             commands.entity(entity).insert(clusters);
         }
@@ -375,7 +375,7 @@ pub fn update_clusters(
     for (camera, mut clusters) in views.iter_mut() {
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let inverse_projection = camera.projection_matrix.inverse();
-        if let Some(screen_size_u32) = camera.get_physical_size(&windows, &images) {
+        if let Some(screen_size_u32) = camera.target.get_physical_size(&windows, &images) {
             // Don't update clusters if screen size is 0.
             if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
                 continue;

@@ -54,11 +54,33 @@ impl RenderTarget {
     ) -> Option<&'a TextureView> {
         match self {
             RenderTarget::Window(window_id) => windows
-                .get(&window_id)
+                .get(window_id)
                 .and_then(|window| window.swap_chain_texture.as_ref()),
             RenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
+        }
+    }
+    pub fn get_physical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<UVec2> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(*window_id)
+                .map(|window| UVec2::new(window.physical_width(), window.physical_height())),
+            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
+                let Extent3d { width, height, .. } = image.texture_descriptor.size;
+                UVec2::new(width, height)
+            }),
+        }
+    }
+    pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(*window_id)
+                .map(|window| Vec2::new(window.width(), window.height())),
+            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
+                let Extent3d { width, height, .. } = image.texture_descriptor.size;
+                Vec2::new(width as f32, height as f32)
+            }),
         }
     }
 }
@@ -86,28 +108,6 @@ impl Camera {
             None
         }
     }
-    pub fn get_physical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<UVec2> {
-        match &self.target {
-            RenderTarget::Window(window_id) => windows
-                .get(*window_id)
-                .map(|window| UVec2::new(window.physical_width(), window.physical_height())),
-            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                UVec2::new(width, height)
-            }),
-        }
-    }
-    pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
-        match &self.target {
-            RenderTarget::Window(window_id) => windows
-                .get(*window_id)
-                .map(|window| Vec2::new(window.width(), window.height())),
-            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                Vec2::new(width as f32, height as f32)
-            }),
-        }
-    }
     /// Given a position in world space, use the camera to compute the screen space coordinates.
     pub fn world_to_screen(
         &self,
@@ -116,7 +116,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec2> {
-        let window_size = self.get_logical_size(windows, images)?;
+        let window_size = self.target.get_logical_size(windows, images)?;
         // Build a transform to convert from world to NDC using camera data
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
@@ -179,7 +179,7 @@ pub fn camera_system<T: CameraProjection + Component>(
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
-            if let Some(size) = camera.get_logical_size(&windows, &images) {
+            if let Some(size) = camera.target.get_logical_size(&windows, &images) {
                 camera_projection.update(size.x, size.y);
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();

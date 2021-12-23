@@ -6,6 +6,7 @@ mod projection;
 
 pub use active_cameras::*;
 use bevy_asset::Assets;
+use bevy_math::UVec2;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::Windows;
@@ -72,6 +73,7 @@ pub struct ExtractedCameraNames {
 pub struct ExtractedCamera {
     pub target: RenderTarget,
     pub name: Option<String>,
+    pub physical_size: Option<UVec2>,
 }
 
 fn extract_cameras(
@@ -87,12 +89,13 @@ fn extract_cameras(
         if let Some((entity, camera, transform, visible_entities)) =
             camera.entity.and_then(|e| query.get(e).ok())
         {
-            if let Some(size) = camera.get_physical_size(&windows, &images) {
+            if let Some(size) = camera.target.get_physical_size(&windows, &images) {
                 entities.insert(name.clone(), entity);
                 commands.get_or_spawn(entity).insert_bundle((
                     ExtractedCamera {
                         target: camera.target.clone(),
                         name: camera.name.clone(),
+                        physical_size: camera.target.get_physical_size(&windows, &images),
                     },
                     ExtractedView {
                         projection: camera.projection_matrix,
