@@ -22,10 +22,6 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
-    TextureFormat, TextureViewDescriptor,
-};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -311,7 +307,7 @@ impl FromWorld for MeshPipeline {
                     texture: &texture,
                     mip_level: 0,
                     origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
+                    aspect: TextureAspect::All,
                 },
                 &image.data,
                 ImageDataLayout {
