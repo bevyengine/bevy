@@ -7,8 +7,6 @@ yanked = "deny"
 notice = "deny"
 ignore = [
     "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2020-0158", # from rodio v0.14.0 - unmaintained - https://github.com/gnzlbg/slice_deque/issues/94
-    "RUSTSEC-2021-0047", # from rodio v0.14.0 - unsafety - https://github.com/gnzlbg/slice_deque/issues/90
     "RUSTSEC-2020-0095", # from crevice dev dependency - unmaintained - https://github.com/johannhof/difference.rs/issues/45
     "RUSTSEC-2021-0119", # from rodio 0.14.0 - unsafety - https://github.com/nix-rust/nix/issues/1541
 ]
