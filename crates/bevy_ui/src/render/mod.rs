@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::ViewUniforms,
+    view::{ViewUniforms, Visibility},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -139,12 +139,16 @@ pub fn extract_uinodes(
         &GlobalTransform,
         &UiColor,
         &UiImage,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(image.clone_weak()) {
@@ -174,6 +178,7 @@ pub fn extract_text_uinodes(
         &Node,
         &GlobalTransform,
         &Text,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
@@ -185,7 +190,10 @@ pub fn extract_text_uinodes(
         1.
     };
 
-    for (entity, uinode, transform, text, clip) in uinode_query.iter() {
+    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
         if uinode.size == Vec2::ZERO {
             continue;
