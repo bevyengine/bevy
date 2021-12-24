@@ -31,7 +31,7 @@ impl Plugin for WireframePlugin {
 
         app.init_resource::<WireframeConfig>();
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Opaque3d, DrawWireframes>()
             .init_resource::<WireframePipeline>()
             .init_resource::<SpecializedPipelines<WireframePipeline>>()

@@ -110,7 +110,7 @@ impl Plugin for CustomMaterialPlugin {
         app.add_asset::<CustomMaterial>()
             .add_plugin(ExtractComponentPlugin::<Handle<CustomMaterial>>::default())
             .add_plugin(RenderAssetPlugin::<CustomMaterial>::default());
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedPipelines<CustomPipeline>>()
