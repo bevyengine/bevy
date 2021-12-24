@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use bevy::{pbr::bloom::BloomSettings, prelude::*};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 fn main() {
     App::new()
@@ -35,13 +37,25 @@ fn setup(
         emissive: Color::rgb_linear(1.0, 0.3, 0.2) * 4.0,
         ..Default::default()
     });
+    let material_non_emissive = materials.add(StandardMaterial {
+        ..Default::default()
+    });
 
     for x in -10..10 {
         for z in -10..10 {
+            let mut hasher = DefaultHasher::new();
+            (x, z).hash(&mut hasher);
+            let rand = hasher.finish() % 2 == 0;
+
+            let material = match rand {
+                true => material.clone(),
+                false => material_non_emissive.clone(),
+            };
+
             commands
                 .spawn_bundle(PbrBundle {
                     mesh: mesh.clone(),
-                    material: material.clone(),
+                    material,
                     transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                     ..Default::default()
                 })
