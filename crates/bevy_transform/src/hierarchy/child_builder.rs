@@ -8,6 +8,28 @@ use bevy_ecs::{
 use smallvec::SmallVec;
 
 #[derive(Debug)]
+pub struct AddChild {
+    pub parent: Entity,
+    pub child: Entity,
+}
+
+impl Command for AddChild {
+    fn write(self, world: &mut World) {
+        world
+            .entity_mut(self.child)
+            // FIXME: don't erase the previous parent (see #1545)
+            .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
+        if let Some(mut children) = world.get_mut::<Children>(self.parent) {
+            children.0.push(self.child);
+        } else {
+            world
+                .entity_mut(self.parent)
+                .insert(Children(smallvec::smallvec![self.child]));
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct InsertChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -134,6 +156,7 @@ pub trait BuildChildren {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -180,6 +203,12 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
             children: SmallVec::from(children),
             parent,
         });
+        self
+    }
+
+    fn add_child(&mut self, child: Entity) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(AddChild { child, parent });
         self
     }
 }
