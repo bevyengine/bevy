@@ -1,6 +1,7 @@
 pub mod wireframe;
 
 mod alpha;
+pub mod bloom;
 mod bundle;
 mod light;
 mod material;
@@ -8,6 +9,7 @@ mod pbr_material;
 mod render;
 
 pub use alpha::*;
+use bloom::BloomPlugin;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -64,6 +66,8 @@ impl Plugin for PbrPlugin {
             "render/depth.wgsl",
             Shader::from_wgsl
         );
+
+        app.add_plugin(BloomPlugin);
 
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()

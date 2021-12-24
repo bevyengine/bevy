@@ -180,6 +180,10 @@ name = "lighting"
 path = "examples/3d/lighting.rs"
 
 [[example]]
+name = "bloom"
+path = "examples/3d/bloom.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
