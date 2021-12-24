@@ -15,6 +15,7 @@ pub struct MainPass2dNode {
 
 impl MainPass2dNode {
     pub const IN_VIEW: &'static str = "view";
+    pub const OUT_TEXTURE: &'static str = "output";
 
     pub fn new(world: &mut World) -> Self {
         Self {
@@ -26,6 +27,13 @@ impl MainPass2dNode {
 impl Node for MainPass2dNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
+    }
+
+    fn output(&self) -> Vec<SlotInfo> {
+        vec![SlotInfo::new(
+            MainPass2dNode::OUT_TEXTURE,
+            SlotType::TextureView,
+        )]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -65,6 +73,11 @@ impl Node for MainPass2dNode {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
+
+        graph
+            .set_output(MainPass2dNode::OUT_TEXTURE, target.hdr_texture.clone())
+            .unwrap();
+
         Ok(())
     }
 }
