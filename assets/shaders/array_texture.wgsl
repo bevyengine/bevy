@@ -18,26 +18,25 @@ struct Vertex {
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
+    [[location(0)]] position: vec4<f32>;
 };
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh_model_position_to_world(vec4<f32>(vertex.position, 1.0));
     var out: VertexOutput;
-    out.clip_position = mesh_world_position_to_clip(world_position);
-    out.world_position = world_position;
+    out.clip_position = mesh_model_position_to_clip(vec4<f32>(vertex.position, 1.0));
+    out.position = out.clip_position;
     return out;
 }
 
 struct FragmentInput {
-    [[location(0)]] world_position: vec4<f32>;
+    [[location(0)]] clip_position: vec4<f32>;
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     // Screen-space coordinates determine which layer of the array texture we sample.
-    let ss = in.world_position.xy / in.world_position.w;
+    let ss = in.clip_position.xy / in.clip_position.w;
     var layer: f32 = 0.0;
     if (ss.x > 0.0 && ss.y > 0.0) {
         layer = 0.0;
