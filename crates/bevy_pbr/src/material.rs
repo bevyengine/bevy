@@ -160,13 +160,15 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
             .add_plugin(RenderAssetPlugin::<M>::default());
-        app.sub_app(RenderApp)
-            .add_render_command::<Transparent3d, DrawMaterial<M>>()
-            .add_render_command::<Opaque3d, DrawMaterial<M>>()
-            .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-            .init_resource::<MaterialPipeline<M>>()
-            .init_resource::<SpecializedPipelines<MaterialPipeline<M>>>()
-            .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .add_render_command::<Transparent3d, DrawMaterial<M>>()
+                .add_render_command::<Opaque3d, DrawMaterial<M>>()
+                .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+                .init_resource::<MaterialPipeline<M>>()
+                .init_resource::<SpecializedPipelines<MaterialPipeline<M>>>()
+                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+        }
     }
 }
 
