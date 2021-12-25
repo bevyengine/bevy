@@ -40,7 +40,7 @@ use std::marker::PhantomData;
 /// and can be used anywhere that type is used (such as [`MaterialPlugin`]).
 pub trait Material: Asset + RenderAsset {
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material::bind_group_layout`].
-    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
 
     /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`Material::bind_group`].
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
@@ -61,8 +61,16 @@ pub trait Material: Asset + RenderAsset {
 
     /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
     #[allow(unused_variables)]
-    fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         AlphaMode::Opaque
+    }
+
+    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
+    /// Defaults to an empty array / no dynamic uniform indices.
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        &[]
     }
 }
 
@@ -70,14 +78,14 @@ impl<M: Material> SpecializedMaterial for M {
     type Key = ();
 
     #[inline]
-    fn key(_render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
+    fn key(_material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
 
     #[inline]
     fn specialize(_key: Self::Key, _descriptor: &mut RenderPipelineDescriptor) {}
 
     #[inline]
-    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
-        <M as Material>::bind_group(render_asset)
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
+        <M as Material>::bind_group(material)
     }
 
     #[inline]
@@ -86,8 +94,8 @@ impl<M: Material> SpecializedMaterial for M {
     }
 
     #[inline]
-    fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
-        <M as Material>::alpha_mode(render_asset)
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+        <M as Material>::alpha_mode(material)
     }
 
     #[inline]
@@ -98,6 +106,12 @@ impl<M: Material> SpecializedMaterial for M {
     #[inline]
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         <M as Material>::fragment_shader(asset_server)
+    }
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        <M as Material>::dynamic_uniform_indices(material)
     }
 }
 
@@ -113,13 +127,13 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
     /// Extract the [`SpecializedMaterial::Key`] for the "prepared" version of this material. This key will be
     /// passed in to the [`SpecializedMaterial::specialize`] function when compiling the [`RenderPipeline`](bevy_render::render_resource::RenderPipeline)
     /// for a given entity's material.
-    fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
+    fn key(material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
 
     /// Specializes the given `descriptor` according to the given `key`.
     fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor);
 
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial::bind_group_layout`].
-    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
 
     /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`SpecializedMaterial::bind_group`].
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
@@ -140,8 +154,16 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
 
     /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
     #[allow(unused_variables)]
-    fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         AlphaMode::Opaque
+    }
+
+    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
+    /// Defaults to an empty array / no dynamic uniform indices.
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        &[]
     }
 }
 
@@ -238,7 +260,11 @@ impl<M: SpecializedMaterial, const I: usize> EntityRenderCommand for SetMaterial
     ) -> RenderCommandResult {
         let material_handle = query.get(item).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
-        pass.set_bind_group(I, M::bind_group(material), &[]);
+        pass.set_bind_group(
+            I,
+            M::bind_group(material),
+            M::dynamic_uniform_indices(material),
+        );
         RenderCommandResult::Success
     }
 }
