@@ -5,6 +5,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::render_resource::PolygonMode;
 use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
@@ -13,7 +14,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
-use wgpu::PolygonMode;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
