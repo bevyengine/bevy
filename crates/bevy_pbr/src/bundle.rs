@@ -11,7 +11,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
 
-/// A component bundle for entities with a [`Mesh`] and a [`Material`].
+/// A component bundle for entities with a [`Mesh`] and a [`SpecializedMaterial`].
 #[derive(Bundle, Clone)]
 pub struct MaterialMeshBundle<M: SpecializedMaterial> {
     pub mesh: Handle<Mesh>,

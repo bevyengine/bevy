@@ -33,17 +33,33 @@ use bevy_render::{
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
+/// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
+/// way to render [`Mesh`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
+/// based on specific material values, see [`SpecializedMaterial`]. [`Material`] automatically implements [`SpecializedMaterial`]
+/// and can be used anywhere that type is used (such as [`MaterialPlugin`]).
 pub trait Material: Asset + RenderAsset {
+    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material::bind_group_layout`].
     fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+
+    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`Material::bind_group`].
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+
+    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
+    /// Defaults to [`None`].
     #[allow(unused_variables)]
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         None
     }
+
+    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
+    /// Defaults to [`None`].
     #[allow(unused_variables)]
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         None
     }
+
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
     #[allow(unused_variables)]
     fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         AlphaMode::Opaque
@@ -85,26 +101,52 @@ impl<M: Material> SpecializedMaterial for M {
     }
 }
 
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
+/// to spawn entities that are rendered with a specific [`SpecializedMaterial`] type. They serve as an easy to use high level
+/// way to render [`Mesh`] entities with custom shader logic. [`SpecializedMaterials`](SpecializedMaterial) use their [`SpecializedMaterial::Key`]
+/// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material`] trait
+/// should be used for materials that do not need specialization. [`Material`] types automatically implement [`SpecializedMaterial`].
 pub trait SpecializedMaterial: Asset + RenderAsset {
+    /// The key used to specialize this material's [`RenderPipelineDescriptor`].
     type Key: PartialEq + Eq + Hash + Clone + Send + Sync;
+
+    /// Extract the [`SpecializedMaterial::Key`] for the "prepared" version of this material. This key will be
+    /// passed in to the [`SpecializedMaterial::specialize`] function when compiling the [`RenderPipeline`](bevy_render::render_resource::RenderPipeline)
+    /// for a given entity's material.
     fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
+
+    /// Specializes the given `descriptor` according to the given `key`.
     fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor);
+
+    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial::bind_group_layout`].
     fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+
+    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`SpecializedMaterial::bind_group`].
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+
+    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
+    /// Defaults to [`None`].
     #[allow(unused_variables)]
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         None
     }
+
+    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
+    /// Defaults to [`None`].
     #[allow(unused_variables)]
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         None
     }
+
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
     #[allow(unused_variables)]
     fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         AlphaMode::Opaque
     }
 }
 
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial`]
+/// asset type (which includes [`Material`] types).
 pub struct MaterialPlugin<M: SpecializedMaterial>(PhantomData<M>);
 
 impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
