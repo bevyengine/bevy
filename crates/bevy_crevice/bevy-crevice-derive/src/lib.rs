@@ -41,7 +41,6 @@ fn bevy_crevice_path() -> Path {
         .map(|bevy_path| {
             let mut segments = bevy_path.segments;
             segments.push(BevyManifest::parse_str("render"));
-            segments.push(BevyManifest::parse_str("render_resource"));
             Path {
                 leading_colon: None,
                 segments,
