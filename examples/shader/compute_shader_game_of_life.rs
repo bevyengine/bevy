@@ -60,7 +60,7 @@ pub struct GameOfLifeComputePlugin;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
         render_app
             .init_resource::<GameOfLifePipeline>()
             .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)

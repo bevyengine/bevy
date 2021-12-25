@@ -113,7 +113,20 @@ impl Plugin for RenderPlugin {
             .get_resource::<options::WgpuOptions>()
             .cloned()
             .unwrap_or_default();
-        let instance = wgpu::Instance::new(options.backends);
+
+        app.add_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>()
+            .register_type::<Color>()
+            .add_plugin(WindowRenderPlugin)
+            .add_plugin(CameraPlugin)
+            .add_plugin(ViewPlugin)
+            .add_plugin(MeshPlugin)
+            .add_plugin(ImagePlugin);
+
+        let instance = match options.backends {
+            Some(backends) => wgpu::Instance::new(backends),
+            None => return,
+        };
         let surface = {
             let world = app.world.cell();
             let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
@@ -138,10 +151,7 @@ impl Plugin for RenderPlugin {
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
             .insert_resource(options.clone())
-            .add_asset::<Shader>()
-            .init_asset_loader::<ShaderLoader>()
             .init_resource::<ScratchRenderWorld>()
-            .register_type::<Color>()
             .register_type::<Frustum>()
             .register_type::<CubemapFrusta>();
         let render_pipeline_cache = RenderPipelineCache::new(device.clone());
@@ -281,12 +291,6 @@ impl Plugin for RenderPlugin {
                 render_app.world.clear_entities();
             }
         });
-
-        app.add_plugin(WindowRenderPlugin)
-            .add_plugin(CameraPlugin)
-            .add_plugin(ViewPlugin)
-            .add_plugin(MeshPlugin)
-            .add_plugin(ImagePlugin);
     }
 }
 

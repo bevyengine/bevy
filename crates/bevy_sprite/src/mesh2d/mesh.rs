@@ -61,12 +61,14 @@ impl Plugin for Mesh2dRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<Mesh2dPipeline>()
-            .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<Mesh2dPipeline>()
+                .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
+                .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
+        }
     }
 }
 

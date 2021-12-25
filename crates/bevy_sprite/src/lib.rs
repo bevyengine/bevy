@@ -59,20 +59,22 @@ impl Plugin for SpritePlugin {
             .register_type::<Sprite>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<ImageBindGroups>()
-            .init_resource::<SpritePipeline>()
-            .init_resource::<SpecializedPipelines<SpritePipeline>>()
-            .init_resource::<SpriteMeta>()
-            .init_resource::<ExtractedSprites>()
-            .init_resource::<SpriteAssetEvents>()
-            .add_render_command::<Transparent2d, DrawSprite>()
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_sprites.label(SpriteSystem::ExtractSprites),
-            )
-            .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
-            .add_system_to_stage(RenderStage::Queue, queue_sprites);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<ImageBindGroups>()
+                .init_resource::<SpritePipeline>()
+                .init_resource::<SpecializedPipelines<SpritePipeline>>()
+                .init_resource::<SpriteMeta>()
+                .init_resource::<ExtractedSprites>()
+                .init_resource::<SpriteAssetEvents>()
+                .add_render_command::<Transparent2d, DrawSprite>()
+                .add_system_to_stage(
+                    RenderStage::Extract,
+                    render::extract_sprites.label(SpriteSystem::ExtractSprites),
+                )
+                .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
+                .add_system_to_stage(RenderStage::Queue, queue_sprites);
+        };
     }
 }

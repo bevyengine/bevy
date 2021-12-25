@@ -70,7 +70,8 @@ pub struct CustomMaterialPlugin;
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
-        app.sub_app_mut(RenderApp)
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedPipelines<CustomPipeline>>()

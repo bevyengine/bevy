@@ -24,15 +24,17 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .init_resource::<ExtractedWindows>()
-            .init_resource::<WindowSurfaces>()
-            .init_resource::<NonSendMarker>()
-            .add_system_to_stage(RenderStage::Extract, extract_windows)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_windows.label(WindowSystem::Prepare),
-            );
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<ExtractedWindows>()
+                .init_resource::<WindowSurfaces>()
+                .init_resource::<NonSendMarker>()
+                .add_system_to_stage(RenderStage::Extract, extract_windows)
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    prepare_windows.label(WindowSystem::Prepare),
+                );
+        }
     }
 }
 

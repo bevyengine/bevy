@@ -53,9 +53,11 @@ impl Plugin for CameraPlugin {
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<PerspectiveProjection>,
             );
-        app.sub_app_mut(RenderApp)
-            .init_resource::<ExtractedCameraNames>()
-            .add_system_to_stage(RenderStage::Extract, extract_cameras);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<ExtractedCameraNames>()
+                .add_system_to_stage(RenderStage::Extract, extract_cameras);
+        }
     }
 }
 
