@@ -1,9 +1,6 @@
 #![warn(missing_docs)]
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
-/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
-pub mod prelude;
-
 mod default_plugins;
 pub use default_plugins::*;
 
@@ -194,16 +191,30 @@ pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;
 }
 
+/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
+        log::prelude::*, math::prelude::*, render::prelude::*, time::prelude::*, transform::prelude::*,
+        utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+    };
+
+    pub use bevy_derive::{bevy_main, Deref, DerefMut};
+}
+
 pub mod prelude2d {
+    pub use crate::prelude::*;
+
     #[cfg(feature = "bevy_core_pipeline")]
     pub use crate::core_pipeline::prelude::*;
-    pub use crate::prelude::*;
     #[cfg(feature = "bevy_sprite")]
     pub use crate::sprite::prelude::*;
 }
 
 pub mod prelude3d {
+    pub use crate::prelude::*;
+
     #[cfg(feature = "bevy_pbr")]
     pub use crate::pbr::prelude::*;
-    pub use crate::prelude::*;
 }
