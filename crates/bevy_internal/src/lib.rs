@@ -195,12 +195,15 @@ pub mod dynamic_plugin {
 }
 
 pub mod prelude2d {
+    #[cfg(feature = "bevy_core_pipeline")]
     pub use crate::core_pipeline::prelude::*;
     pub use crate::prelude::*;
+    #[cfg(feature = "bevy_render")]
     pub use crate::sprite::prelude::*;
 }
 
 pub mod prelude3d {
+    #[cfg(feature = "bevy_pbr")]
     pub use crate::pbr::prelude::*;
     pub use crate::prelude::*;
 }
