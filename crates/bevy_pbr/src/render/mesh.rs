@@ -584,14 +584,14 @@ pub fn queue_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter_mut() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
