@@ -1,5 +1,14 @@
 //! This example illustrates loading scenes from files.
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{
+    core_pipeline::prelude::*,
+    prelude::*,
+    reflect::Reflect,
+    scene::{DynamicScene, DynamicSceneBundle},
+    tasks::IoTaskPool,
+    text::TextStyle,
+    ui::prelude::*,
+    utils::Duration,
+};
 use std::{fs::File, io::Write};
 
 fn main() {

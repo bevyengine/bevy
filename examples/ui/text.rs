@@ -6,6 +6,8 @@
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
 };
 
 fn main() {

@@ -1,7 +1,8 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::ecs::query::BatchingStrategy;
-use bevy::prelude::*;
+use bevy::{
+    core_pipeline::prelude::*, ecs::query::BatchingStrategy, prelude::*, sprite::prelude::*,
+};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(Component, Deref)]

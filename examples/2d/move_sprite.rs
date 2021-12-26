@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::prelude::*;
+use bevy::prelude2d::*;
 
 fn main() {
     App::new()

@@ -6,9 +6,9 @@
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
-    prelude::*,
+    prelude2d::*,
     sprite::Anchor,
-    text::{BreakLineOn, Text2dBounds},
+    text::{prelude::*, BreakLineOn, Text2dBounds},
 };
 
 fn main() {

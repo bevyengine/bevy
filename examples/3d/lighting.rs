@@ -3,11 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    pbr::CascadeShadowConfigBuilder,
-    prelude::*,
-    render::camera::{ExposureSettings, PhysicalCameraParameters},
-};
+use bevy::prelude3d::*;
 
 fn main() {
     App::new()

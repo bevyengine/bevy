@@ -3,6 +3,8 @@
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
     window::{PresentMode, WindowPlugin},
 };
 

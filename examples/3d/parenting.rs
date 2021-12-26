@@ -2,6 +2,8 @@
 //! are propagated to their descendants.
 
 use bevy::prelude::*;
+use bevy_internal::core_pipeline::prelude::Camera3dBundle;
+use bevy_internal::pbr::{PbrBundle, PointLightBundle, StandardMaterial};
 
 fn main() {
     App::new()

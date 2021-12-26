@@ -1,7 +1,11 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
 use bevy::{
+    core_pipeline::prelude::*,
     prelude::*,
+    sprite::prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
     utils::{thiserror, HashSet},
 };
 use rand::{prelude::SliceRandom, Rng};

@@ -2,7 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::prelude::*;
+use bevy::{core_pipeline::prelude::*, prelude::*, sprite::prelude::*};
 
 fn main() {
     App::new()

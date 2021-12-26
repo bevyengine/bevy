@@ -193,3 +193,14 @@ pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
+
+pub mod prelude2d {
+    pub use crate::core_pipeline::prelude::*;
+    pub use crate::prelude::*;
+    pub use crate::sprite::prelude::*;
+}
+
+pub mod prelude3d {
+    pub use crate::pbr::prelude::*;
+    pub use crate::prelude::*;
+}

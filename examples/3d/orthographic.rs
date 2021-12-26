@@ -1,6 +1,9 @@
 //! Shows how to create a 3D orthographic view (for isometric-look games or CAD applications).
 
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::{
+    core_pipeline::prelude::Camera3dBundle, pbr::prelude::*, prelude::*,
+    render::camera::ScalingMode,
+};
 
 fn main() {
     App::new()

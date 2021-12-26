@@ -5,7 +5,7 @@
 //! Note that hot asset reloading requires the [`AssetWatcher`](bevy::asset::io::AssetWatcher) to be enabled
 //! for your current platform. For desktop platforms, enable the `file_watcher` cargo feature.
 
-use bevy::prelude::*;
+use bevy::{core_pipeline::prelude::*, pbr::prelude::*, prelude::*, scene::SceneBundle};
 
 fn main() {
     App::new()

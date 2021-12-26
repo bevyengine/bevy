@@ -9,6 +9,9 @@
 //! This is a native only feature.
 
 use bevy::{
+    core_pipeline::prelude::*,
+    input::prelude::*,
+    pbr::prelude::*,
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
@@ -16,6 +19,8 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
+    text::prelude::*,
+    ui::prelude::*,
 };
 
 fn main() {

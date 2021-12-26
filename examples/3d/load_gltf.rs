@@ -1,8 +1,10 @@
 //! Loads and renders a glTF file as a scene.
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    core_pipeline::prelude::*,
+    pbr::{prelude::*, CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
+    scene::SceneBundle,
 };
 use std::f32::consts::*;
 

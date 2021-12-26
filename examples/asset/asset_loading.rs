@@ -1,6 +1,6 @@
 //! This example illustrates various ways to load assets.
 
-use bevy::{asset::LoadedFolder, prelude::*};
+use bevy::{asset::LoadedFolder, core_pipeline::prelude::*, pbr::prelude::*, prelude::*};
 
 fn main() {
     App::new()
