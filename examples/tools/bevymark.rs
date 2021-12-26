@@ -1,7 +1,10 @@
 use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
+    input::prelude::*,
+    prelude2d::*,
+    text::prelude::*,
+    ui::prelude::*,
 };
 use rand::random;
 

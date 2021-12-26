@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude2d::*;
 
 fn main() {
     App::new()

@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::prelude3d::*;
+use bevy::scene::prelude::*;
 
 fn main() {
     App::new()

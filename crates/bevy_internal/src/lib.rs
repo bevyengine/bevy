@@ -141,3 +141,14 @@ pub mod dynamic_plugin {
 
 #[cfg(target_os = "android")]
 pub use ndk_glue;
+
+pub mod prelude2d {
+    pub use crate::core_pipeline::ClearColor;
+    pub use crate::prelude::*;
+    pub use crate::sprite::prelude::*;
+}
+
+pub mod prelude3d {
+    pub use crate::pbr::prelude::*;
+    pub use crate::prelude::*;
+}

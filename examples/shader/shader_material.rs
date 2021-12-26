@@ -5,7 +5,7 @@ use bevy::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
-    prelude::*,
+    prelude3d::*,
     reflect::TypeUuid,
     render::{
         camera::PerspectiveCameraBundle,

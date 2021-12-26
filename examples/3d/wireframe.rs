@@ -1,6 +1,6 @@
 use bevy::{
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
-    prelude::*,
+    prelude3d::*,
     render::{options::WgpuOptions, render_resource::WgpuFeatures},
 };
 

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude3d::*;
 
 /// This example illustrates various ways to load assets
 fn main() {

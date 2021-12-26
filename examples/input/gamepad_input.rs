@@ -1,3 +1,4 @@
+use bevy::input::prelude::*;
 use bevy::{input::gamepad::GamepadButton, prelude::*};
 
 fn main() {

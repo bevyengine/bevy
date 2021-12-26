@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, text::prelude::*, ui::prelude::*};
 
 /// This example illustrates how to create a button that changes color and text based on its
 /// interaction state.

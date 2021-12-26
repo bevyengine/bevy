@@ -1,4 +1,4 @@
-use bevy::{prelude::*, winit::WinitConfig};
+use bevy::{prelude2d::*, winit::WinitConfig};
 
 fn main() {
     println!("Running first App.");

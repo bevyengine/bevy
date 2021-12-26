@@ -1,3 +1,4 @@
+use bevy::audio::prelude::*;
 use bevy::prelude::*;
 
 /// This example illustrates how to load and play an audio file

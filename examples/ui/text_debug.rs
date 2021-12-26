@@ -1,6 +1,8 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
 };
 
 /// This example is for debugging text layout

@@ -1,4 +1,11 @@
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+use bevy::{
+    prelude::*,
+    reflect::{prelude::*, TypeRegistry},
+    scene::prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
+    utils::Duration,
+};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {

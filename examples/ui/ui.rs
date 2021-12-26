@@ -1,3 +1,5 @@
+use bevy::text::prelude::*;
+use bevy::ui::prelude::*;
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,

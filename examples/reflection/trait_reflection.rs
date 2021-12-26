@@ -1,3 +1,4 @@
+use bevy::reflect::prelude::*;
 use bevy::{prelude::*, reflect::TypeRegistry};
 
 fn main() {

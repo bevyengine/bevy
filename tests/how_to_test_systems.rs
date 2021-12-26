@@ -1,3 +1,4 @@
+use bevy::input::prelude::*;
 use bevy::prelude::*;
 
 #[derive(Component, Default)]

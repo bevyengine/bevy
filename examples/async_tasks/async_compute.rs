@@ -1,5 +1,5 @@
 use bevy::{
-    prelude::*,
+    prelude3d::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
 use futures_lite::future;

@@ -1,4 +1,8 @@
-use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy::input::mouse::MouseMotion;
+
+use bevy::input::prelude::*;
+use bevy::pbr::prelude::*;
+use bevy::prelude::*;
 
 fn main() {
     println!(

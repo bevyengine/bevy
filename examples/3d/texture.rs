@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude3d::*;
 
 /// This example shows various ways to configure texture materials in 3D
 fn main() {

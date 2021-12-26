@@ -1,4 +1,7 @@
+use bevy::input::prelude::*;
 use bevy::prelude::*;
+use bevy::text::prelude::*;
+use bevy::ui::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {

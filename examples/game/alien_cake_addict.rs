@@ -1,6 +1,8 @@
 use bevy::{
-    core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::CameraPlugin,
+    core::FixedTimestep, ecs::schedule::SystemSet, input::prelude::*, prelude3d::*,
+    render::camera::CameraPlugin, scene::prelude::*, text::prelude::*, ui::prelude::*,
 };
+
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]

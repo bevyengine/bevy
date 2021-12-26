@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude3d::*;
 
 // the `bevy_main` proc_macro generates the required android boilerplate
 #[bevy_main]

@@ -1,6 +1,8 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::prelude::*,
+    ui::prelude::*,
 };
 
 /// This example illustrates how to create UI text and update it in a system. It displays the

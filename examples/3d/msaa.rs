@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::input::prelude::*;
+use bevy::prelude3d::*;
 
 /// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher
 /// will result in smoother edges, but it will also increase the cost to render those edges. The

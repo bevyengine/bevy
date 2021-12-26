@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude3d::*;
 
 /// This example shows how to configure Physically Based Rendering (PBR) parameters.
 fn main() {

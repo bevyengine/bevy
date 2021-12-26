@@ -1,3 +1,4 @@
+use bevy::input::prelude::*;
 use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings

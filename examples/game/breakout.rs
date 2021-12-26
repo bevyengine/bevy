@@ -1,7 +1,10 @@
 use bevy::{
     core::FixedTimestep,
-    prelude::*,
+    input::prelude::*,
+    prelude2d::*,
     sprite::collide_aabb::{collide, Collision},
+    text::prelude::*,
+    ui::prelude::*,
 };
 
 /// An implementation of the classic game "Breakout"
