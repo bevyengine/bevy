@@ -1,6 +1,3 @@
-/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
-pub mod prelude;
-
 mod default_plugins;
 pub use default_plugins::*;
 
@@ -142,16 +139,30 @@ pub mod dynamic_plugin {
 #[cfg(target_os = "android")]
 pub use ndk_glue;
 
+/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, log::prelude::*,
+        math::prelude::*, render::prelude::*, transform::prelude::*, window::prelude::*,
+        DefaultPlugins, MinimalPlugins,
+    };
+
+    pub use bevy_derive::bevy_main;
+}
+
 pub mod prelude2d {
+    pub use crate::prelude::*;
+
     #[cfg(feature = "bevy_core_pipeline")]
     pub use crate::core_pipeline::ClearColor;
-    pub use crate::prelude::*;
     #[cfg(feature = "bevy_sprite")]
     pub use crate::sprite::prelude::*;
 }
 
 pub mod prelude3d {
+    pub use crate::prelude::*;
+
     #[cfg(feature = "bevy_pbr")]
     pub use crate::pbr::prelude::*;
-    pub use crate::prelude::*;
 }
