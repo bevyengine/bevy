@@ -1,5 +1,9 @@
-use crate::render_resource::{
-    BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
+use crate::{
+    prelude::Color,
+    render_resource::{
+        BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
+        ShaderStages,
+    },
 };
 use bevy_utils::tracing::debug;
 use std::ops::Range;
@@ -234,5 +238,55 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
         debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
         self.pass.set_scissor_rect(x, y, width, height);
+    }
+
+    /// Set push constant data.
+    ///
+    /// Features::PUSH_CONSTANTS must be enabled on the device in order to call these functions.
+    pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+        debug!(
+            "set push constants: {:?} offset: {} data.len: {}",
+            stages,
+            offset,
+            data.len()
+        );
+        self.pass.set_push_constants(stages, offset, data)
+    }
+
+    pub fn set_viewport(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) {
+        debug!(
+            "set viewport: {} {} {} {} {} {}",
+            x, y, width, height, min_depth, max_depth
+        );
+        self.pass
+            .set_viewport(x, y, width, height, min_depth, max_depth)
+    }
+
+    pub fn insert_debug_marker(&mut self, label: &str) {
+        debug!("insert debug marker: {}", label);
+        self.pass.insert_debug_marker(label)
+    }
+
+    pub fn push_debug_group(&mut self, label: &str) {
+        debug!("push_debug_group marker: {}", label);
+        self.pass.push_debug_group(label)
+    }
+
+    pub fn pop_debug_group(&mut self) {
+        debug!("pop_debug_group");
+        self.pass.pop_debug_group()
+    }
+
+    pub fn set_blend_constant(&mut self, color: Color) {
+        debug!("set blend constant: {:?}", color);
+        self.pass.set_blend_constant(wgpu::Color::from(color))
     }
 }

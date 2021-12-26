@@ -1,4 +1,4 @@
-use crate::{DirectionalLight, PointLight, StandardMaterial, DEFAULT_STANDARD_MATERIAL_HANDLE};
+use crate::{DirectionalLight, PointLight, SpecializedMaterial, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component};
 use bevy_render::{
@@ -9,10 +9,13 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
+pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
+
+/// A component bundle for entities with a [`Mesh`] and a [`SpecializedMaterial`].
 #[derive(Bundle, Clone)]
-pub struct PbrBundle {
+pub struct MaterialMeshBundle<M: SpecializedMaterial> {
     pub mesh: Handle<Mesh>,
-    pub material: Handle<StandardMaterial>,
+    pub material: Handle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
@@ -21,11 +24,11 @@ pub struct PbrBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-impl Default for PbrBundle {
+impl<M: SpecializedMaterial> Default for MaterialMeshBundle<M> {
     fn default() -> Self {
         Self {
             mesh: Default::default(),
-            material: DEFAULT_STANDARD_MATERIAL_HANDLE.typed(),
+            material: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

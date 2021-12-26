@@ -11,22 +11,17 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, SamplerBindingType, TextureDimension,
-    TextureFormat, TextureViewDescriptor,
-};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -58,7 +53,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<MeshPipeline>()
             .add_system_to_stage(RenderStage::Extract, extract_meshes)
             .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
@@ -202,7 +197,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::CubeArray,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
                 },
@@ -220,7 +218,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::D2Array,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
                 },
@@ -306,7 +307,7 @@ impl FromWorld for MeshPipeline {
                     texture: &texture,
                     mip_level: 0,
                     origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
+                    aspect: TextureAspect::All,
                 },
                 &image.data,
                 ImageDataLayout {
@@ -485,6 +486,9 @@ impl SpecializedPipeline for MeshPipeline {
             depth_write_enabled = true;
         }
 
+        #[cfg(feature = "webgl")]
+        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -580,14 +584,14 @@ pub fn queue_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter_mut() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -711,13 +715,19 @@ impl EntityRenderCommand for DrawMesh {
         let mesh_handle = mesh_query.get(item).unwrap();
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            if let Some(index_info) = &gpu_mesh.index_info {
-                pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
-                pass.draw_indexed(0..index_info.count, 0, 0..1);
-            } else {
-                panic!("non-indexed drawing not supported yet")
+            match &gpu_mesh.buffer_info {
+                GpuBufferInfo::Indexed {
+                    buffer,
+                    index_format,
+                    count,
+                } => {
+                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                    pass.draw_indexed(0..*count, 0, 0..1);
+                }
+                GpuBufferInfo::NonIndexed { vertex_count } => {
+                    pass.draw(0..*vertex_count, 0..1);
+                }
             }
-
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure
