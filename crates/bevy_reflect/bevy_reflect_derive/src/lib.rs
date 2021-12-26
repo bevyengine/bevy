@@ -822,8 +822,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         };
 
         if let Some(ident) = meta_list.path.get_ident() {
-            if ident == REFLECT_ATTRIBUTE_NAME {
-            } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+            if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
                 derive_type = DeriveType::Value;
             }
         }
