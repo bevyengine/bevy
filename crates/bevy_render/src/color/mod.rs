@@ -5,11 +5,11 @@ pub use colorspace::*;
 use crate::color::{HslRepresentation, SrgbColorSpace};
 use bevy_core::Bytes;
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color

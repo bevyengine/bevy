@@ -41,8 +41,7 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
-            // TODO: uncomment when #2215 is fixed
-            // .register_type::<Text>()
+            .register_type::<Text>()
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
