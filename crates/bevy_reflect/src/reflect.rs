@@ -48,7 +48,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
 }
 
 pub trait FromReflect: Reflect + Sized {
-    /// Creates a clone of a reflected value, converting it to a concrete type if it was a dynamic types (e.g. [DynamicStruct])
+    /// Creates a clone of a reflected value, converting it to a concrete type if it was a dynamic types (e.g. [`DynamicStruct`](crate::DynamicStruct))
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
 }
 
