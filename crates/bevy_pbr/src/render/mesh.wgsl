@@ -1,9 +1,8 @@
 #import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_bindings
-// NOTE: Bindings must come before functions that use them!
 #import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -26,15 +25,22 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh_model_position_to_world(vec4<f32>(vertex.position, 1.0));
+    let world_position = mesh_model_position_to_world(mesh.model, vec4<f32>(vertex.position, 1.0));
 
     var out: VertexOutput;
     out.uv = vertex.uv;
     out.world_position = world_position;
-    out.clip_position = mesh_world_position_to_clip(world_position);
-    out.world_normal = mesh_model_normal_to_world(vertex.normal);
+    out.clip_position = mesh_world_position_to_clip(view.view_proj, world_position);
+    out.world_normal = mesh_model_normal_to_world(
+        mat3x3<f32>(
+            mesh.inverse_transpose_model[0].xyz,
+            mesh.inverse_transpose_model[1].xyz,
+            mesh.inverse_transpose_model[2].xyz
+        ),
+        vertex.normal
+    );
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh_model_tangent_to_world(vertex.tangent);
+    out.world_tangent = mesh_model_tangent_to_world(mesh.model, vertex.tangent);
 #endif
     return out;
 }

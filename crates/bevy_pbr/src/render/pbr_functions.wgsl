@@ -154,27 +154,37 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
-fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+fn view_z_to_z_slice(
+    cluster_factors_zw: vec2<f32>,
+    max_z_slice: u32,
+    view_z: f32,
+    is_orthographic: bool
+) -> u32 {
+    var z_slice: u32;
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
-        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - cluster_factors_zw.x) * cluster_factors_zw.y));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return min(
-            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
-            lights.cluster_dimensions.z - 1u
-        );
+        z_slice = u32(log(-view_z) * cluster_factors_zw.x - cluster_factors_zw.y + 1.0);
     }
+    return min(z_slice, max_z_slice - 1u);
 }
 
-fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
-    let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
-    let z_slice = view_z_to_z_slice(view_z, is_orthographic);
+fn fragment_cluster_index(
+    cluster_factors: vec4<f32>,
+    cluster_dimensions: vec4<u32>,
+    frag_coord: vec2<f32>,
+    view_z: f32,
+    is_orthographic: bool
+) -> u32 {
+    let xy = vec2<u32>(floor(frag_coord * cluster_factors.xy));
+    let z_slice = view_z_to_z_slice(cluster_factors.zw, cluster_dimensions.z, view_z, is_orthographic);
     // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
     // arrays based on the cluster index.
     return min(
-        (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice,
-        lights.cluster_dimensions.w - 1u
+        (xy.y * cluster_dimensions.x + xy.x) * cluster_dimensions.z + z_slice,
+        cluster_dimensions.w - 1u
     );
 }
 
@@ -183,8 +193,12 @@ struct ClusterOffsetAndCount {
     count: u32;
 };
 
-fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
-    let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
+fn unpack_offset_and_count(
+    cluster_offsets_and_counts: ClusterOffsetsAndCounts,
+    cluster_index: u32
+) -> ClusterOffsetAndCount {
+    var data: array<vec4<u32>, 1024u> = cluster_offsets_and_counts.data;
+    let offset_and_count = data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     var output: ClusterOffsetAndCount;
     // The offset is stored in the upper 24 bits
     output.offset = (offset_and_count >> 8u) & ((1u << 24u) - 1u);
@@ -193,17 +207,28 @@ fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
     return output;
 }
 
-fn get_light_id(index: u32) -> u32 {
+fn get_light_id(
+    cluster_light_index_lists: ClusterLightIndexLists,
+    index: u32
+) -> u32 {
     // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
     // This means the index into cluster_light_index_lists is index / 4
-    let indices = cluster_light_index_lists.data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
+    var data: array<vec4<u32>, 1024u> = cluster_light_index_lists.data;
+    let indices = data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
     return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
 }
 
 fn point_light(
-    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    world_position: vec3<f32>,
+    light: PointLight,
+    roughness: f32,
+    NdotV: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
@@ -256,39 +281,57 @@ fn point_light(
     return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
 }
 
-fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+fn directional_light(
+    light: DirectionalLight,
+    roughness: f32,
+    NdotV: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    diffuseColor: vec3<f32>
+) -> vec3<f32> {
     let incident_light = light.direction_to_light.xyz;
 
-    let half_vector = normalize(incident_light + view);
-    let NoL = saturate(dot(normal, incident_light));
-    let NoH = saturate(dot(normal, half_vector));
-    let LoH = saturate(dot(incident_light, half_vector));
+    let H = normalize(incident_light + V);
+    let NoL = saturate(dot(N, incident_light));
+    let NoH = saturate(dot(N, H));
+    let LoH = saturate(dot(incident_light, H));
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
     let specularIntensity = 1.0;
-    let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
+    let specular_light = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
 
     return (specular_light + diffuse) * light.color.rgb * NoL;
 }
 
-fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = point_lights.data[light_id];
-
+fn fetch_point_shadow(
+    light: PointLight,
+    light_id: u32,
+    frag_position: vec3<f32>,
+    surface_normal: vec3<f32>,
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    point_shadow_textures: texture_depth_cube,
+#else
+    point_shadow_textures: texture_depth_cube_array,
+#endif
+    point_shadow_textures_sampler: sampler_comparison
+) -> f32 {
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
-    let surface_to_light = light.position_radius.xyz - frag_position.xyz;
+    let surface_to_light = light.position_radius.xyz - frag_position;
     let surface_to_light_abs = abs(surface_to_light);
     let distance_to_light = max(surface_to_light_abs.x, max(surface_to_light_abs.y, surface_to_light_abs.z));
 
     // The normal bias here is already scaled by the texel size at 1 world unit from the light.
     // The texel size increases proportionally with distance from the light so multiplying by
     // distance to light scales the normal bias to the texel size at the fragment distance.
-    let normal_offset = light.shadow_normal_bias * distance_to_light * surface_normal.xyz;
-    let depth_offset = light.shadow_depth_bias * normalize(surface_to_light.xyz);
-    let offset_position = frag_position.xyz + normal_offset + depth_offset;
+    let normal_offset = light.shadow_normal_bias * distance_to_light * surface_normal;
+    let depth_offset = light.shadow_depth_bias * normalize(surface_to_light);
+    let offset_position = frag_position + normal_offset + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = light.position_radius.xyz - offset_position.xyz;
+    let frag_ls = light.position_radius.xyz - offset_position;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
@@ -312,11 +355,20 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 #endif
 }
 
-fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = lights.directional_lights[light_id];
-
+fn fetch_directional_shadow(
+    light: DirectionalLight,
+    light_id: u32,
+    frag_position: vec4<f32>,
+    surface_normal: vec3<f32>,
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    directional_shadow_textures: texture_depth_2d,
+#else
+    directional_shadow_textures: texture_depth_2d_array,
+#endif
+    directional_shadow_textures_sampler: sampler_comparison
+) -> f32 {
     // The normal bias is scaled to the texel size.
-    let normal_offset = light.shadow_normal_bias * surface_normal.xyz;
+    let normal_offset = light.shadow_normal_bias * surface_normal;
     let depth_offset = light.shadow_depth_bias * light.direction_to_light.xyz;
     let offset_position = vec4<f32>(frag_position.xyz + normal_offset + depth_offset, frag_position.w);
 
@@ -370,9 +422,12 @@ fn prepare_normal(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     world_tangent: vec4<f32>,
-#endif
-#endif
+    normal_map_texture: texture_2d<f32>,
+    normal_map_sampler: sampler,
     uv: vec2<f32>,
+#endif
+#endif
+    is_double_sided: bool,
     is_front: bool,
 ) -> vec3<f32> {
     var N: vec3<f32> = normalize(world_normal);
@@ -384,7 +439,7 @@ fn prepare_normal(
 #endif
 #endif
 
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+    if (is_double_sided) {
         if (!is_front) {
             N = -N;
 #ifdef VERTEX_TANGENTS
@@ -409,15 +464,18 @@ fn prepare_normal(
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
 fn calculate_view(
-    world_position: vec4<f32>,
+    projection: mat4x4<f32>,
+    view_proj: mat4x4<f32>,
+    view_world_position: vec3<f32>,
+    world_position: vec3<f32>,
 ) -> vec3<f32> {
     var V: vec3<f32>;
-    let is_orthographic = view.projection[3].w == 1.0;
+    let is_orthographic = projection[3].w == 1.0;
     if (is_orthographic) {
-        V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
+        V = normalize(vec3<f32>(view_proj[0].z, view_proj[1].z, view_proj[2].z));
     } else {
         // Only valid for a perspective projection
-        V = normalize(view.world_position.xyz - world_position.xyz);
+        V = normalize(view_world_position - world_position);
     }
     return V;
 }
@@ -433,11 +491,33 @@ struct PbrInput {
     world_normal: vec3<f32>;
 };
 
+struct PbrLights {
+    lights: Lights;
+    point_lights: PointLights;
+    cluster_light_index_lists: ClusterLightIndexLists;
+    cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+};
+
 fn pbr(
+    view: View,
     in: PbrInput,
+    lights: PbrLights,
     pbr: PbrMaterial,
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    point_shadow_textures: texture_depth_cube,
+#else
+    point_shadow_textures: texture_depth_cube_array,
+#endif
+    point_shadow_textures_sampler: sampler_comparison,
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    directional_shadow_textures: texture_depth_2d,
+#else
+    directional_shadow_textures: texture_depth_2d_array,
+#endif
+    directional_shadow_textures_sampler: sampler_comparison,
     N: vec3<f32>,
     V: vec3<f32>,
+    mesh_is_shadow_receiver: bool
 ) -> vec4<f32> {
     var output_color: vec4<f32> = pbr.material.base_color;
 
@@ -488,27 +568,49 @@ fn pbr(
         view.inverse_view[3].z
     ), in.world_position);
     let is_orthographic = view.projection[3].w == 1.0;
-    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
-    let offset_and_count = unpack_offset_and_count(cluster_index);
+    let cluster_index = fragment_cluster_index(
+        lights.lights.cluster_factors,
+        lights.lights.cluster_dimensions,
+        in.frag_coord.xy,
+        view_z,
+        is_orthographic
+    );
+    let offset_and_count = unpack_offset_and_count(lights.cluster_offsets_and_counts, cluster_index);
+    var point_lights: array<PointLight, 256u> = lights.point_lights.data;
     for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
-        let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
+        let light_id = get_light_id(lights.cluster_light_index_lists, i);
+        let light = point_lights[light_id];
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
+        if ((light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u
+                && mesh_is_shadow_receiver) {
+            shadow = fetch_point_shadow(
+                light,
+                light_id,
+                in.world_position.xyz,
+                in.world_normal,
+                point_shadow_textures,
+                point_shadow_textures_sampler
+            );
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    let n_directional_lights = lights.n_directional_lights;
+    let n_directional_lights = lights.lights.n_directional_lights;
+    var directional_lights: array<DirectionalLight, 1u> = lights.lights.directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        let light = lights.directional_lights[i];
+        let light = directional_lights[i];
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+        if ((light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u
+                && mesh_is_shadow_receiver) {
+            shadow = fetch_directional_shadow(
+                light,
+                i,
+                in.world_position,
+                in.world_normal,
+                directional_shadow_textures,
+                directional_shadow_textures_sampler
+            );
         }
         let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
@@ -519,7 +621,7 @@ fn pbr(
 
     output_color = vec4<f32>(
         light_accum +
-            (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
+            (diffuse_ambient + specular_ambient) * lights.lights.ambient_color.rgb * occlusion +
             emissive.rgb * output_color.a,
         output_color.a);
 
@@ -527,12 +629,12 @@ fn pbr(
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
     // NOTE: This debug mode visualises the z-slices
     let cluster_overlay_alpha = 0.1;
-    var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
+    var z_slice: u32 = view_z_to_z_slice(lights.lights.cluster_factors.zw, view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
     if ((z_slice & 1u) == 1u) {
-        z_slice = z_slice + lights.cluster_dimensions.z / 2u;
+        z_slice = z_slice + lights.lights.cluster_dimensions.z / 2u;
     }
-    let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+    let slice_color = hsv2rgb(f32(z_slice) / f32(lights.lights.cluster_dimensions.z + 1u), 1.0, 0.5);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
         output_color.a

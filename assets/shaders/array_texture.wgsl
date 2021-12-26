@@ -1,9 +1,8 @@
 #import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_bindings
-// NOTE: Bindings must come before functions that use them!
 #import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
 
 [[group(1), binding(0)]]
 var my_array_texture: texture_2d_array<f32>;
@@ -24,7 +23,11 @@ struct VertexOutput {
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = mesh_model_position_to_clip(vec4<f32>(vertex.position, 1.0));
+    out.clip_position = mesh_model_position_to_clip(
+        mesh.model,
+        view.view_proj,
+        vec4<f32>(vertex.position, 1.0)
+    );
     out.position = out.clip_position;
     return out;
 }

@@ -33,12 +33,12 @@
 // The above integration needs to be approximated.
 
 #import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_bindings
 #import bevy_pbr::pbr_types
-#import bevy_pbr::pbr_bindings
 #import bevy_pbr::pbr_functions
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
+#import bevy_pbr::pbr_bindings
 
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
@@ -97,13 +97,21 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif
-#endif
+            normal_map_texture,
+            normal_map_sampler,
             in.uv,
+#endif
+#endif
+            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
 
-        let V = calculate_view(in.world_position);
+        let V = calculate_view(
+            view.projection,
+            view.view_proj,
+            view.world_position,
+            in.world_position.xyz
+        );
 
         pbr_material.material.reflectance = material.reflectance;
 
@@ -112,7 +120,25 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         pbr_in.world_position = in.world_position;
         pbr_in.world_normal = in.world_normal;
 
-        output_color = pbr(pbr_in, pbr_material, N, V);
+        var pbr_lights: PbrLights;
+        pbr_lights.lights = lights;
+        pbr_lights.point_lights = point_lights;
+        pbr_lights.cluster_light_index_lists = cluster_light_index_lists;
+        pbr_lights.cluster_offsets_and_counts = cluster_offsets_and_counts;
+
+        output_color = pbr(
+            view,
+            pbr_in,
+            pbr_lights,
+            pbr_material,
+            point_shadow_textures,
+            point_shadow_textures_sampler,
+            directional_shadow_textures,
+            directional_shadow_textures_sampler,
+            N,
+            V,
+            (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        );
     }
 
     return output_color;
