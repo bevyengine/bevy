@@ -198,7 +198,7 @@ pub mod prelude2d {
     #[cfg(feature = "bevy_core_pipeline")]
     pub use crate::core_pipeline::prelude::*;
     pub use crate::prelude::*;
-    #[cfg(feature = "bevy_render")]
+    #[cfg(feature = "bevy_sprite")]
     pub use crate::sprite::prelude::*;
 }
 
