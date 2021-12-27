@@ -5,7 +5,7 @@ use crate::{
         ShaderStages,
     },
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::trace;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
@@ -108,7 +108,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Subsequent draw calls will exhibit the behavior defined by the `pipeline`.
     pub fn set_render_pipeline(&mut self, pipeline: &'a RenderPipeline) {
-        debug!("set pipeline: {:?}", pipeline);
+        trace!("set pipeline: {:?}", pipeline);
         if self.state.is_pipeline_set(pipeline.id()) {
             return;
         }
@@ -128,15 +128,19 @@ impl<'a> TrackedRenderPass<'a> {
             .state
             .is_bind_group_set(index as usize, bind_group.id(), dynamic_uniform_indices)
         {
-            debug!(
+            trace!(
                 "set bind_group {} (already set): {:?} ({:?})",
-                index, bind_group, dynamic_uniform_indices
+                index,
+                bind_group,
+                dynamic_uniform_indices
             );
             return;
         } else {
-            debug!(
+            trace!(
                 "set bind_group {}: {:?} ({:?})",
-                index, bind_group, dynamic_uniform_indices
+                index,
+                bind_group,
+                dynamic_uniform_indices
             );
         }
         self.pass
@@ -158,7 +162,7 @@ impl<'a> TrackedRenderPass<'a> {
             .state
             .is_vertex_buffer_set(slot_index, buffer_slice.id(), offset)
         {
-            debug!(
+            trace!(
                 "set vertex buffer {} (already set): {:?} ({})",
                 slot_index,
                 buffer_slice.id(),
@@ -166,7 +170,7 @@ impl<'a> TrackedRenderPass<'a> {
             );
             return;
         } else {
-            debug!(
+            trace!(
                 "set vertex buffer {}: {:?} ({})",
                 slot_index,
                 buffer_slice.id(),
@@ -193,14 +197,14 @@ impl<'a> TrackedRenderPass<'a> {
             .state
             .is_index_buffer_set(buffer_slice.id(), offset, index_format)
         {
-            debug!(
+            trace!(
                 "set index buffer (already set): {:?} ({})",
                 buffer_slice.id(),
                 offset
             );
             return;
         } else {
-            debug!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
+            trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         }
         self.pass.set_index_buffer(*buffer_slice, index_format);
         self.state
@@ -211,7 +215,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        debug!("draw: {:?} {:?}", vertices, instances);
+        trace!("draw: {:?} {:?}", vertices, instances);
         self.pass.draw(vertices, instances);
     }
 
@@ -220,15 +224,17 @@ impl<'a> TrackedRenderPass<'a> {
     /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the
     /// active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
-        debug!(
+        trace!(
             "draw indexed: {:?} {} {:?}",
-            indices, base_vertex, instances
+            indices,
+            base_vertex,
+            instances
         );
         self.pass.draw_indexed(indices, base_vertex, instances);
     }
 
     pub fn set_stencil_reference(&mut self, reference: u32) {
-        debug!("set stencil reference: {}", reference);
+        trace!("set stencil reference: {}", reference);
 
         self.pass.set_stencil_reference(reference);
     }
@@ -237,7 +243,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Subsequent draw calls will discard any fragments that fall outside this region.
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
-        debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
+        trace!("set_scissor_rect: {} {} {} {}", x, y, width, height);
         self.pass.set_scissor_rect(x, y, width, height);
     }
 
@@ -245,7 +251,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Features::PUSH_CONSTANTS must be enabled on the device in order to call these functions.
     pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
-        debug!(
+        trace!(
             "set push constants: {:?} offset: {} data.len: {}",
             stages,
             offset,
@@ -266,9 +272,14 @@ impl<'a> TrackedRenderPass<'a> {
         min_depth: f32,
         max_depth: f32,
     ) {
-        debug!(
+        trace!(
             "set viewport: {} {} {} {} {} {}",
-            x, y, width, height, min_depth, max_depth
+            x,
+            y,
+            width,
+            height,
+            min_depth,
+            max_depth
         );
         self.pass
             .set_viewport(x, y, width, height, min_depth, max_depth)
@@ -278,7 +289,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// This is a GPU debugging feature. This has no effect on the rendering itself.
     pub fn insert_debug_marker(&mut self, label: &str) {
-        debug!("insert debug marker: {}", label);
+        trace!("insert debug marker: {}", label);
         self.pass.insert_debug_marker(label)
     }
 
@@ -303,7 +314,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
     /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn push_debug_group(&mut self, label: &str) {
-        debug!("push_debug_group marker: {}", label);
+        trace!("push_debug_group marker: {}", label);
         self.pass.push_debug_group(label)
     }
 
@@ -320,12 +331,12 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
     /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn pop_debug_group(&mut self) {
-        debug!("pop_debug_group");
+        trace!("pop_debug_group");
         self.pass.pop_debug_group()
     }
 
     pub fn set_blend_constant(&mut self, color: Color) {
-        debug!("set blend constant: {:?}", color);
+        trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color))
     }
 }
