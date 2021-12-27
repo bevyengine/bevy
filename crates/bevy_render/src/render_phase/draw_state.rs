@@ -288,7 +288,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// markers are grouped into this new group, until [`pop_debug_group`] is called.
     ///
     /// ```
-    /// # fn example(pass: bevy_render::render_phase::TrackedRenderPass<'static>) {
+    /// # fn example(mut pass: bevy_render::render_phase::TrackedRenderPass<'static>) {
     /// pass.push_debug_group("Render the car");
     /// // [setup pipeline etc...]
     /// pass.draw(0..64, 0..1);
