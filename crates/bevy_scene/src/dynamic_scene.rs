@@ -72,8 +72,8 @@ impl DynamicScene {
 
     /// Write the dynamic entities and their corresponding components to the given world.
     ///
-    /// This method will return an `SceneSpawnError` if either the type of a
-    /// component or the component itself hasn't been registered.
+    /// This method will return a `SceneSpawnError` if either a type is not registered
+    /// or doesn't reflect the `Component` trait.
     pub fn write_to_world(
         &self,
         world: &mut World,
