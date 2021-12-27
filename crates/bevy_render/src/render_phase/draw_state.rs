@@ -285,10 +285,23 @@ impl<'a> TrackedRenderPass<'a> {
     /// Start a new debug group.
     ///
     /// Push a new debug group over the internal stack. Subsequent render commands and debug
-    /// markers are grouped into this new group, until [`TrackedRenderPass::pop_debug_group`]
-    /// is called.
+    /// markers are grouped into this new group, until [`pop_debug_group`] is called.
+    ///
+    /// ```
+    /// # fn example(pass: TrackedRenderPass<'static>) {
+    /// pass.push_debug_group("Render the car");
+    /// // [setup pipeline etc...]
+    /// pass.draw(0..64, 0..1);
+    /// pass.pop_debug_group();
+    /// # }
+    /// ```
+    ///
+    /// Note that [`push_debug_group`] and [`pop_debug_group`] must always be called in pairs.
     ///
     /// This is a GPU debugging feature. This has no effect on the rendering itself.
+    ///
+    /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
+    /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn push_debug_group(&mut self, label: &str) {
         debug!("push_debug_group marker: {}", label);
         self.pass.push_debug_group(label)
@@ -300,7 +313,12 @@ impl<'a> TrackedRenderPass<'a> {
     /// this group, but in the previous one (if any) or the default top-level one
     /// if the debug group was the last one on the stack.
     ///
+    /// Note that [`push_debug_group`] and [`pop_debug_group`] must always be called in pairs.
+    ///
     /// This is a GPU debugging feature. This has no effect on the rendering itself.
+    ///
+    /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
+    /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn pop_debug_group(&mut self) {
         debug!("pop_debug_group");
         self.pass.pop_debug_group()
