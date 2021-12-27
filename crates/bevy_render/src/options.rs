@@ -31,19 +31,18 @@ impl Default for WgpuOptions {
 
         let priority = options_priority_from_env().unwrap_or(WgpuOptionsPriority::Functionality);
 
-        let limits =
-            if cfg!(feature = "webgl") || matches!(priority, WgpuOptionsPriority::WebGL2) {
-                wgpu::Limits::downlevel_webgl2_defaults()
-            } else {
-                #[allow(unused_mut)]
-                let mut limits = wgpu::Limits::default();
-                #[cfg(feature = "ci_limits")]
-                {
-                    limits.max_storage_textures_per_shader_stage = 4;
-                    limits.max_texture_dimension_3d = 1024;
-                }
-                limits
-            };
+        let limits = if cfg!(feature = "webgl") || matches!(priority, WgpuOptionsPriority::WebGL2) {
+            wgpu::Limits::downlevel_webgl2_defaults()
+        } else {
+            #[allow(unused_mut)]
+            let mut limits = wgpu::Limits::default();
+            #[cfg(feature = "ci_limits")]
+            {
+                limits.max_storage_textures_per_shader_stage = 4;
+                limits.max_texture_dimension_3d = 1024;
+            }
+            limits
+        };
 
         Self {
             device_label: Default::default(),
