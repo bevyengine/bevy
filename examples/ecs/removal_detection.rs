@@ -1,6 +1,6 @@
 //! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
 
-use bevy::prelude2d::*;
+use bevy::prelude_2d::*;
 
 fn main() {
     // Information regarding removed `Component`s is discarded at the end of each frame, so you need

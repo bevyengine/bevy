@@ -1,6 +1,6 @@
 //! Displays a single [`Sprite`], created from an image.
 
-use bevy::prelude2d::*;
+use bevy::prelude_2d::*;
 
 fn main() {
     App::new()

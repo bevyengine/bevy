@@ -7,7 +7,7 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, prelude2d::*, render::texture::ImageSampler, text::prelude::*};
+use bevy::{asset::LoadedFolder, prelude_2d::*, render::texture::ImageSampler, text::prelude::*};
 
 fn main() {
     App::new()

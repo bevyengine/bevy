@@ -1,6 +1,6 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::{core_pipeline::prelude::Camera3dBundle, prelude3d::*};
+use bevy::{core_pipeline::prelude::Camera3dBundle, prelude_3d::*};
 
 fn main() {
     App::new()
