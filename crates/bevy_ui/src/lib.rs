@@ -55,6 +55,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
+            .register_type::<Overflow>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
