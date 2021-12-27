@@ -1,7 +1,7 @@
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,
-    prelude3d::*,
+    prelude_3d::*,
     reflect::TypeUuid,
     render::{
         render_asset::{PrepareAssetError, RenderAsset},

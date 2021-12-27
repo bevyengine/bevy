@@ -1,7 +1,7 @@
 use bevy::{
     core::FixedTimestep,
     input::prelude::*,
-    prelude2d::*,
+    prelude_2d::*,
     sprite::collide_aabb::{collide, Collision},
     text::prelude::*,
     ui::prelude::*,

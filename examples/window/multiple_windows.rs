@@ -1,6 +1,6 @@
 use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
-    prelude3d::*,
+    prelude_3d::*,
     render::{
         camera::{ActiveCameras, ExtractedCameraNames},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},

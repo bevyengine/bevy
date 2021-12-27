@@ -1,4 +1,4 @@
-use bevy::prelude3d::*;
+use bevy::prelude_3d::*;
 
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants

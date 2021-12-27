@@ -1,5 +1,5 @@
 use bevy::scene::prelude::*;
-use bevy::{prelude3d::*, scene::InstanceId};
+use bevy::{prelude_3d::*, scene::InstanceId};
 
 fn main() {
     App::new()

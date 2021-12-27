@@ -1,4 +1,4 @@
-use bevy::{core::FixedTimestep, prelude3d::*};
+use bevy::{core::FixedTimestep, prelude_3d::*};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]

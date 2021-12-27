@@ -2,7 +2,7 @@ use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     input::prelude::*,
-    prelude2d::*,
+    prelude_2d::*,
     text::prelude::*,
     ui::prelude::*,
 };

@@ -1,5 +1,5 @@
 use bevy::{
-    core::FixedTimestep, ecs::schedule::SystemSet, input::prelude::*, prelude3d::*,
+    core::FixedTimestep, ecs::schedule::SystemSet, input::prelude::*, prelude_3d::*,
     render::camera::CameraPlugin, scene::prelude::*, text::prelude::*, ui::prelude::*,
 };
 

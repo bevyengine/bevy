@@ -4,7 +4,7 @@ use bevy::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
-    prelude3d::*,
+    prelude_3d::*,
     render::{
         render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},

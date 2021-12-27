@@ -1,4 +1,4 @@
-use bevy::prelude3d::*;
+use bevy::prelude_3d::*;
 use bevy::scene::prelude::*;
 
 /// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your

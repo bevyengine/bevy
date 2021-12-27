@@ -1,4 +1,4 @@
-use bevy::{input::prelude::*, prelude2d::*, text::prelude::*, ui::prelude::*};
+use bevy::{input::prelude::*, prelude_2d::*, text::prelude::*, ui::prelude::*};
 
 /// This example illustrates how to use States to control transitioning from a Menu state to an
 /// InGame state.

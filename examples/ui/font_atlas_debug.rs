@@ -1,6 +1,6 @@
 use bevy::text::prelude::*;
 use bevy::ui::prelude::*;
-use bevy::{prelude2d::*, text::FontAtlasSet};
+use bevy::{prelude_2d::*, text::FontAtlasSet};
 
 // TODO: This is now broken. See #1243
 /// This example illustrates how FontAtlases are populated. Bevy uses FontAtlases under the hood to

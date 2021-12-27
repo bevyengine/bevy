@@ -1,5 +1,5 @@
 use bevy::{
-    audio::prelude::*, input::prelude::*, input::touch::TouchPhase, prelude3d::*,
+    audio::prelude::*, input::prelude::*, input::touch::TouchPhase, prelude_3d::*,
     window::WindowMode,
 };
 

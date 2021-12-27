@@ -1,7 +1,7 @@
 use bevy::{
     input::prelude::*,
     pbr::{NotShadowCaster, NotShadowReceiver},
-    prelude3d::*,
+    prelude_3d::*,
 };
 
 fn main() {

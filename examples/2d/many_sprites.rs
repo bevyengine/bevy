@@ -1,7 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
-    prelude2d::*,
+    prelude_2d::*,
     render::camera::Camera,
 };
 

@@ -1,4 +1,4 @@
-use bevy::{prelude2d::*, text::prelude::*, ui::prelude::*, utils::HashSet};
+use bevy::{prelude_2d::*, text::prelude::*, ui::prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,

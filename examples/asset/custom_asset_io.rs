@@ -1,6 +1,6 @@
 use bevy::{
     asset::{AssetIo, AssetIoError},
-    prelude2d::*,
+    prelude_2d::*,
     utils::BoxedFuture,
 };
 use std::path::{Path, PathBuf};

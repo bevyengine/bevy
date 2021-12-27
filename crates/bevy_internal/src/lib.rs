@@ -151,7 +151,7 @@ pub mod prelude {
     pub use bevy_derive::bevy_main;
 }
 
-pub mod prelude2d {
+pub mod prelude_2d {
     pub use crate::prelude::*;
 
     #[cfg(feature = "bevy_core_pipeline")]
@@ -160,7 +160,7 @@ pub mod prelude2d {
     pub use crate::sprite::prelude::*;
 }
 
-pub mod prelude3d {
+pub mod prelude_3d {
     pub use crate::prelude::*;
 
     #[cfg(feature = "bevy_pbr")]

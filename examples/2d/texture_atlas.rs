@@ -1,4 +1,4 @@
-use bevy::{asset::LoadState, prelude2d::*};
+use bevy::{asset::LoadState, prelude_2d::*};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing
 /// individual sprites

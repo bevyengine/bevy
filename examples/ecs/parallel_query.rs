@@ -1,4 +1,4 @@
-use bevy::{prelude2d::*, tasks::prelude::*};
+use bevy::{prelude_2d::*, tasks::prelude::*};
 use rand::random;
 
 #[derive(Component)]

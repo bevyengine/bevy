@@ -1,4 +1,4 @@
-use bevy::prelude3d::*;
+use bevy::prelude_3d::*;
 use bevy::scene::prelude::*;
 
 fn main() {
