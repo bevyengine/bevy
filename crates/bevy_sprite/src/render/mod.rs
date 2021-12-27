@@ -166,9 +166,16 @@ pub struct ExtractedSprite {
     pub flip_y: bool,
 }
 
+pub enum Extracted2dItem {
+    // Sprites have their full data stored here so they can be batched
+    Sprite(ExtractedSprite),
+    // Other 2d items should have their z coordinate stored here to break sprite batches
+    Other { z: f32 },
+}
+
 #[derive(Default)]
-pub struct ExtractedSprites {
-    pub sprites: Vec<ExtractedSprite>,
+pub struct Extracted2dItems {
+    pub items: Vec<Extracted2dItem>,
 }
 
 #[derive(Default)]
@@ -219,8 +226,8 @@ pub fn extract_sprites(
         &Handle<TextureAtlas>,
     )>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
-    extracted_sprites.sprites.clear();
+    let mut extracted_sprites = render_world.get_resource_mut::<Extracted2dItems>().unwrap();
+    extracted_sprites.items.clear();
     for (computed_visibility, sprite, transform, handle) in sprite_query.iter() {
         if !computed_visibility.is_visible {
             continue;
@@ -228,20 +235,22 @@ pub fn extract_sprites(
         if let Some(image) = images.get(handle) {
             let size = image.texture_descriptor.size;
 
-            extracted_sprites.sprites.push(ExtractedSprite {
-                atlas_size: None,
-                color: sprite.color,
-                transform: transform.compute_matrix(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: sprite
-                        .custom_size
-                        .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
-                },
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                handle: handle.clone_weak(),
-            });
+            extracted_sprites
+                .items
+                .push(Extracted2dItem::Sprite(ExtractedSprite {
+                    atlas_size: None,
+                    color: sprite.color,
+                    transform: transform.compute_matrix(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: sprite
+                            .custom_size
+                            .unwrap_or_else(|| Vec2::new(size.width as f32, size.height as f32)),
+                    },
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    handle: handle.clone_weak(),
+                }));
         };
     }
     for (computed_visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
@@ -251,15 +260,17 @@ pub fn extract_sprites(
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             if images.contains(&texture_atlas.texture) {
                 let rect = texture_atlas.textures[atlas_sprite.index as usize];
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    atlas_size: Some(texture_atlas.size),
-                    color: atlas_sprite.color,
-                    transform: transform.compute_matrix(),
-                    rect,
-                    flip_x: atlas_sprite.flip_x,
-                    flip_y: atlas_sprite.flip_y,
-                    handle: texture_atlas.texture.clone_weak(),
-                });
+                extracted_sprites
+                    .items
+                    .push(Extracted2dItem::Sprite(ExtractedSprite {
+                        atlas_size: Some(texture_atlas.size),
+                        color: atlas_sprite.color,
+                        transform: transform.compute_matrix(),
+                        rect,
+                        flip_x: atlas_sprite.flip_x,
+                        flip_y: atlas_sprite.flip_y,
+                        handle: texture_atlas.texture.clone_weak(),
+                    }));
             }
         }
     }
@@ -318,17 +329,35 @@ pub fn prepare_sprites(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_sprites: ResMut<Extracted2dItems>,
 ) {
     sprite_meta.vertices.clear();
     sprite_meta.colored_vertices.clear();
 
-    // sort first by z and then by handle. this ensures that, when possible, batches span multiple z layers
-    // batches won't span z-layers if there is another batch between them
-    extracted_sprites.sprites.sort_by(|a, b| {
-        match FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])) {
-            Ordering::Equal => a.handle.cmp(&b.handle),
-            other => other,
+    // `Extracted2dItem::Sprite`s are sorted first by z and then by handle. this ensures that, when possible, batches span multiple z layers
+    // batches won't span z-layers if there is another batch or an `Extracted2dItem::Other` between them
+    extracted_sprites.items.sort_by(|a, b| match (a, b) {
+        (Extracted2dItem::Sprite(a), Extracted2dItem::Sprite(b)) => {
+            match FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])) {
+                Ordering::Equal => a.handle.cmp(&b.handle),
+                other => other,
+            }
+        }
+        // Group sprites of same depth before other items of same depth to increase batching potential
+        (Extracted2dItem::Sprite(a), Extracted2dItem::Other { z: b }) => {
+            match FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(*b)) {
+                Ordering::Equal => Ordering::Less,
+                other => other,
+            }
+        }
+        (Extracted2dItem::Other { z: b }, Extracted2dItem::Sprite(a)) => {
+            match FloatOrd(*b).cmp(&FloatOrd(a.transform.w_axis[2])) {
+                Ordering::Equal => Ordering::Greater,
+                other => other,
+            }
+        }
+        (Extracted2dItem::Other { z: a }, Extracted2dItem::Other { z: b }) => {
+            FloatOrd(*a).cmp(&FloatOrd(*b))
         }
     });
 
@@ -339,101 +368,120 @@ pub fn prepare_sprites(
     let mut current_batch_handle: Option<Handle<Image>> = None;
     let mut current_batch_colored = false;
     let mut last_z = 0.0;
-    for extracted_sprite in extracted_sprites.sprites.iter() {
-        let colored = extracted_sprite.color != Color::WHITE;
-        if let Some(current_batch_handle) = &current_batch_handle {
-            if *current_batch_handle != extracted_sprite.handle || current_batch_colored != colored
-            {
+    let mut break_batch = false;
+    for extracted_item in extracted_sprites.items.iter() {
+        match extracted_item {
+            Extracted2dItem::Sprite(extracted_sprite) => {
+                let colored = extracted_sprite.color != Color::WHITE;
+                if let Some(current_batch_handle) = &current_batch_handle {
+                    if *current_batch_handle != extracted_sprite.handle
+                        || current_batch_colored != colored
+                        || break_batch
+                    {
+                        break_batch = false;
+                        if current_batch_colored {
+                            commands.spawn_bundle((SpriteBatch {
+                                range: colored_start..colored_end,
+                                handle: current_batch_handle.clone_weak(),
+                                z: last_z,
+                                colored: true,
+                            },));
+                            colored_start = colored_end;
+                        } else {
+                            commands.spawn_bundle((SpriteBatch {
+                                range: start..end,
+                                handle: current_batch_handle.clone_weak(),
+                                z: last_z,
+                                colored: false,
+                            },));
+                            start = end;
+                        }
+                    }
+                }
+                current_batch_handle = Some(extracted_sprite.handle.clone_weak());
+                current_batch_colored = colored;
+                let sprite_rect = extracted_sprite.rect;
+
+                // Specify the corners of the sprite
+                let mut bottom_left = Vec2::new(sprite_rect.min.x, sprite_rect.max.y);
+                let mut top_left = sprite_rect.min;
+                let mut top_right = Vec2::new(sprite_rect.max.x, sprite_rect.min.y);
+                let mut bottom_right = sprite_rect.max;
+
+                if extracted_sprite.flip_x {
+                    bottom_left.x = sprite_rect.max.x;
+                    top_left.x = sprite_rect.max.x;
+                    bottom_right.x = sprite_rect.min.x;
+                    top_right.x = sprite_rect.min.x;
+                }
+
+                if extracted_sprite.flip_y {
+                    bottom_left.y = sprite_rect.min.y;
+                    bottom_right.y = sprite_rect.min.y;
+                    top_left.y = sprite_rect.max.y;
+                    top_right.y = sprite_rect.max.y;
+                }
+
+                let atlas_extent = extracted_sprite.atlas_size.unwrap_or(sprite_rect.max);
+                bottom_left /= atlas_extent;
+                bottom_right /= atlas_extent;
+                top_left /= atlas_extent;
+                top_right /= atlas_extent;
+
+                let uvs: [[f32; 2]; 4] = [
+                    bottom_left.into(),
+                    bottom_right.into(),
+                    top_right.into(),
+                    top_left.into(),
+                ];
+
+                let rect_size = extracted_sprite.rect.size().extend(1.0);
                 if current_batch_colored {
-                    commands.spawn_bundle((SpriteBatch {
-                        range: colored_start..colored_end,
-                        handle: current_batch_handle.clone_weak(),
-                        z: last_z,
-                        colored: true,
-                    },));
-                    colored_start = colored_end;
+                    let color = extracted_sprite.color.as_linear_rgba_f32();
+                    // encode color as a single u32 to save space
+                    let color = (color[0] * 255.0) as u32
+                        | ((color[1] * 255.0) as u32) << 8
+                        | ((color[2] * 255.0) as u32) << 16
+                        | ((color[3] * 255.0) as u32) << 24;
+                    for index in QUAD_INDICES.iter() {
+                        let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
+                        final_position =
+                            (extracted_sprite.transform * final_position.extend(1.0)).xyz();
+                        sprite_meta.colored_vertices.push(ColoredSpriteVertex {
+                            position: final_position.into(),
+                            uv: uvs[*index],
+                            color,
+                        });
+                    }
                 } else {
-                    commands.spawn_bundle((SpriteBatch {
-                        range: start..end,
-                        handle: current_batch_handle.clone_weak(),
-                        z: last_z,
-                        colored: false,
-                    },));
-                    start = end;
+                    for index in QUAD_INDICES.iter() {
+                        let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
+                        final_position =
+                            (extracted_sprite.transform * final_position.extend(1.0)).xyz();
+                        sprite_meta.vertices.push(SpriteVertex {
+                            position: final_position.into(),
+                            uv: uvs[*index],
+                        });
+                    }
+                }
+
+                last_z = extracted_sprite.transform.w_axis[2];
+                if current_batch_colored {
+                    colored_end += QUAD_INDICES.len() as u32;
+                } else {
+                    end += QUAD_INDICES.len() as u32;
                 }
             }
-        }
-        current_batch_handle = Some(extracted_sprite.handle.clone_weak());
-        current_batch_colored = colored;
-        let sprite_rect = extracted_sprite.rect;
-
-        // Specify the corners of the sprite
-        let mut bottom_left = Vec2::new(sprite_rect.min.x, sprite_rect.max.y);
-        let mut top_left = sprite_rect.min;
-        let mut top_right = Vec2::new(sprite_rect.max.x, sprite_rect.min.y);
-        let mut bottom_right = sprite_rect.max;
-
-        if extracted_sprite.flip_x {
-            bottom_left.x = sprite_rect.max.x;
-            top_left.x = sprite_rect.max.x;
-            bottom_right.x = sprite_rect.min.x;
-            top_right.x = sprite_rect.min.x;
-        }
-
-        if extracted_sprite.flip_y {
-            bottom_left.y = sprite_rect.min.y;
-            bottom_right.y = sprite_rect.min.y;
-            top_left.y = sprite_rect.max.y;
-            top_right.y = sprite_rect.max.y;
-        }
-
-        let atlas_extent = extracted_sprite.atlas_size.unwrap_or(sprite_rect.max);
-        bottom_left /= atlas_extent;
-        bottom_right /= atlas_extent;
-        top_left /= atlas_extent;
-        top_right /= atlas_extent;
-
-        let uvs: [[f32; 2]; 4] = [
-            bottom_left.into(),
-            bottom_right.into(),
-            top_right.into(),
-            top_left.into(),
-        ];
-
-        let rect_size = extracted_sprite.rect.size().extend(1.0);
-        if current_batch_colored {
-            let color = extracted_sprite.color.as_linear_rgba_f32();
-            // encode color as a single u32 to save space
-            let color = (color[0] * 255.0) as u32
-                | ((color[1] * 255.0) as u32) << 8
-                | ((color[2] * 255.0) as u32) << 16
-                | ((color[3] * 255.0) as u32) << 24;
-            for index in QUAD_INDICES.iter() {
-                let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
-                final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
-                sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                    position: final_position.into(),
-                    uv: uvs[*index],
-                    color,
-                });
+            Extracted2dItem::Other { z: _ } => {
+                if current_batch_colored {
+                    if colored_start != colored_end {
+                        break_batch = true;
+                    }
+                } else if start != end {
+                    break_batch = true;
+                }
             }
-        } else {
-            for index in QUAD_INDICES.iter() {
-                let mut final_position = QUAD_VERTEX_POSITIONS[*index] * rect_size;
-                final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
-                sprite_meta.vertices.push(SpriteVertex {
-                    position: final_position.into(),
-                    uv: uvs[*index],
-                });
-            }
-        }
-
-        last_z = extracted_sprite.transform.w_axis[2];
-        if current_batch_colored {
-            colored_end += QUAD_INDICES.len() as u32;
-        } else {
-            end += QUAD_INDICES.len() as u32;
-        }
+        };
     }
 
     // if start != end, there is one last batch to process

@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Size, Vec3};
 use bevy_render::{texture::Image, RenderWorld};
-use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{Extracted2dItem, Extracted2dItems, ExtractedSprite, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
 
@@ -46,7 +46,7 @@ pub fn extract_text2d_sprite(
     windows: Res<Windows>,
     text2d_query: Query<(Entity, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
+    let mut extracted_sprites = render_world.get_resource_mut::<Extracted2dItems>().unwrap();
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32
     } else {
@@ -88,15 +88,17 @@ pub fn extract_text2d_sprite(
                             alignment_offset * scale_factor + text_glyph.position.extend(0.),
                         );
 
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    transform,
-                    color,
-                    rect,
-                    handle,
-                    atlas_size,
-                    flip_x: false,
-                    flip_y: false,
-                });
+                extracted_sprites
+                    .items
+                    .push(Extracted2dItem::Sprite(ExtractedSprite {
+                        transform,
+                        color,
+                        rect,
+                        handle,
+                        atlas_size,
+                        flip_x: false,
+                        flip_y: false,
+                    }));
             }
         }
     }
