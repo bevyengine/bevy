@@ -8,34 +8,46 @@ use bevy_ecs::{
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
+/// A collection of serializable dynamic entities, each with its own run-time defined set of components.
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
-    pub entities: Vec<Entity>,
+    pub entities: Vec<DynamicEntity>,
 }
 
-pub struct Entity {
+/// A reflection-powered serializable representation of an entity and its components.
+pub struct DynamicEntity {
+    /// The transiently unique identifier of a corresponding `Entity`.
     pub entity: u32,
+    /// A vector of boxed components that belong to the given entity and
+    /// implement the `Reflect` trait.
     pub components: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicScene {
+    /// Create a new dynamic scene from a given scene.
     pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
         Self::from_world(&scene.world, type_registry)
     }
 
+    /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
+
         for archetype in world.archetypes().iter() {
             let entities_offset = scene.entities.len();
+
+            // Create a new dynamic entity for each entity of the given archetype
+            // and insert it into the dynamic scene.
             for entity in archetype.entities() {
-                scene.entities.push(Entity {
+                scene.entities.push(DynamicEntity {
                     entity: entity.id(),
                     components: Vec::new(),
                 });
             }
 
+            // Add each reflection-powered component to the entity it belongs to.
             for component_id in archetype.components() {
                 let reflect_component = world
                     .components()
@@ -58,6 +70,10 @@ impl DynamicScene {
         scene
     }
 
+    /// Write the dynamic entities and their corresponding components to the given world.
+    ///
+    /// This method will return a `SceneSpawnError` if either a type is not registered
+    /// or doesn't reflect the `Component` trait.
     pub fn write_to_world(
         &self,
         world: &mut World,
@@ -65,10 +81,16 @@ impl DynamicScene {
     ) -> Result<(), SceneSpawnError> {
         let registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
         let type_registry = registry.read();
+
         for scene_entity in self.entities.iter() {
+            // Fetch the entity with the given entity id from the `entity_map`
+            // or spawn a new entity with a transiently unique id if there is
+            // no corresponding entry.
             let entity = *entity_map
                 .entry(bevy_ecs::entity::Entity::new(scene_entity.entity))
                 .or_insert_with(|| world.spawn().id());
+
+            // Apply/ add each component to the given entity.
             for component in scene_entity.components.iter() {
                 let registration = type_registry
                     .get_with_name(component.type_name())
@@ -81,6 +103,10 @@ impl DynamicScene {
                             type_name: component.type_name().to_string(),
                         }
                     })?;
+
+                // If the entity already has the given component attached,
+                // just apply the (possibly) new value, otherwise add the
+                // component to the entity.
                 if world
                     .entity(entity)
                     .contains_type_id(registration.type_id())
@@ -104,11 +130,13 @@ impl DynamicScene {
     }
 
     // TODO: move to AssetSaver when it is implemented
+    /// Serialize this dynamic scene into rust object notation (ron).
     pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
 
+/// Serialize a given Rust data structure into rust object notation (ron).
 pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,
