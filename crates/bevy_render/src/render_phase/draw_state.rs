@@ -284,8 +284,8 @@ impl<'a> TrackedRenderPass<'a> {
 
     /// Start a new debug group.
     ///
-    /// Push a new debug group over the internal stack. Subsequent render commands
-    /// and debug markers are grouped into this new group, until [`pop_debug_group`]
+    /// Push a new debug group over the internal stack. Subsequent render commands and debug
+    /// markers are grouped into this new group, until [`TrackedRenderPass::pop_debug_group`]
     /// is called.
     ///
     /// This is a GPU debugging feature. This has no effect on the rendering itself.
