@@ -26,21 +26,11 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    ///
-    /// # Arguments
-    ///
-    /// * `scene` - The scene to construct the dynamic scene from.
-    /// * `type_registry` - A `TypeRegistryArc` reference.
     pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
         Self::from_world(&scene.world, type_registry)
     }
 
     /// Create a new dynamic scene from a given world.
-    ///
-    /// # Arguments
-    ///
-    /// * `world` - The world to construct the dynamic scene from.
-    /// * `type_registry` - A `TypeRegistryArc` reference.
     pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
@@ -82,14 +72,7 @@ impl DynamicScene {
 
     /// Write the dynamic entities and their corresponding components to the given world.
     ///
-    /// # Arguments
-    ///
-    /// * `world` - The world to write the entities and their components to.
-    /// * `entity_map` - `EntityMap`.
-    ///
-    /// # Errors
-    ///
-    /// This method will throw an `SceneSpawnError` if either the type of a
+    /// This method will return an `SceneSpawnError` if either the type of a
     /// component or the component itself hasn't been registered.
     pub fn write_to_world(
         &self,
@@ -154,11 +137,6 @@ impl DynamicScene {
 }
 
 /// Serialize a given Rust data structure into rust object notation (ron).
-///
-/// # Arguments
-///
-/// * `serialize` - An object that implements the `Serialize` trait,
-///                 e.g. `bevy::scene::serde::SceneSerializer`.
 pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,
