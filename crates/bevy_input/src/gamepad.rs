@@ -186,12 +186,16 @@ impl Default for AxisSettings {
 
 impl AxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = if new_value >= self.positive_low {
-            ((new_value - self.positive_low) / (self.positive_high - self.positive_low)).min(1.0)
-        } else if new_value <= self.negative_low {
-            ((new_value - self.negative_low) / (self.negative_high - self.negative_low)).max(-1.0)
-        } else {
+        let new_value = if new_value <= self.positive_low && new_value >= self.negative_low {
             0.0
+        } else if new_value >= self.positive_high {
+            1.0
+        } else if new_value <= self.negative_high {
+            -1.0
+        } else if new_value > self.positive_low {
+            (new_value - self.positive_low) / (self.positive_high - self.positive_low)
+        } else {
+            (new_value - self.negative_low) / (self.negative_high - self.negative_low)
         };
 
         if let Some(old_value) = old_value {
@@ -223,10 +227,12 @@ impl Default for ButtonAxisSettings {
 
 impl ButtonAxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = if new_value >= self.low {
-            ((new_value - self.low) / (self.high - self.low)).min(1.0)
-        } else {
+        let new_value = if new_value <= self.low {
             0.0
+        } else if new_value >= self.high {
+            1.0
+        } else {
+            (new_value - self.low) / (self.high - self.low)
         };
 
         if let Some(old_value) = old_value {
