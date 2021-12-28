@@ -107,7 +107,7 @@ impl TextureAtlas {
                 sprites.push(Rect {
                     min: rect_min,
                     max: Vec2::new(rect_min.x + tile_size.x, rect_min.y + tile_size.y),
-                })
+                });
             }
         }
 

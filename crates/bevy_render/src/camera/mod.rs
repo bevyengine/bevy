@@ -105,5 +105,5 @@ fn extract_cameras(
         }
     }
 
-    commands.insert_resource(ExtractedCameraNames { entities })
+    commands.insert_resource(ExtractedCameraNames { entities });
 }

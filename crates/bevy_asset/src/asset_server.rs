@@ -674,7 +674,7 @@ mod test {
                     extensions == vec!["v1.2.3.pong", "2.3.pong", "3.pong", "pong"],
                 _ => false,
             }
-        )
+        );
     }
 
     #[test]

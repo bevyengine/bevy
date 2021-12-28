@@ -224,7 +224,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
                 if let Some(v) = Map::get_mut(self, key) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {
@@ -371,6 +371,6 @@ mod tests {
 
     #[test]
     fn can_serialize_duration() {
-        assert!(std::time::Duration::ZERO.serializable().is_some())
+        assert!(std::time::Duration::ZERO.serializable().is_some());
     }
 }

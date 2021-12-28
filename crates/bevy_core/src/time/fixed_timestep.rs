@@ -198,7 +198,7 @@ impl System for FixedTimestep {
     }
 
     fn apply_buffers(&mut self, world: &mut World) {
-        self.internal_system.apply_buffers(world)
+        self.internal_system.apply_buffers(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

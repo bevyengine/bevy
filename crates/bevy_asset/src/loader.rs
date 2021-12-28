@@ -184,7 +184,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     id,
                     version,
                 }))
-                .unwrap()
+                .unwrap();
         } else {
             panic!(
                 "Failed to downcast asset to {}.",

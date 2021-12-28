@@ -254,7 +254,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
             panic!("&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>());
         }
-        access.add_read(self.component_id)
+        access.add_read(self.component_id);
     }
 
     fn update_archetype_component_access(
@@ -705,7 +705,7 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     ) {
         if self.state.matches_archetype(archetype) {
             self.state
-                .update_archetype_component_access(archetype, access)
+                .update_archetype_component_access(archetype, access);
         }
     }
 
@@ -868,7 +868,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
             panic!("ChangeTrackers<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>());
         }
-        access.add_read(self.component_id)
+        access.add_read(self.component_id);
     }
 
     fn update_archetype_component_access(

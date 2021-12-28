@@ -802,7 +802,7 @@ fn resolve_node_hierarchy(
 
             assert!(parent_children.remove(&index));
             if let Some((_, child_node)) = nodes.get(&index) {
-                parent_node.children.push(child_node.clone())
+                parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
                 empty_children.push_back(parent_index);

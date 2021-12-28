@@ -89,7 +89,7 @@ impl TextureAtlasBuilder {
                 texture.texture_descriptor.size.height,
                 1,
             ),
-        )
+        );
     }
 
     fn copy_texture_to_atlas(

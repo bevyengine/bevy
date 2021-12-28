@@ -19,7 +19,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(print_sprite_count.label("Tick"))
         .add_system(move_camera.after("Tick"))
-        .run()
+        .run();
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {

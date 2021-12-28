@@ -821,7 +821,7 @@ pub fn check_light_mesh_visibility(
                     } else {
                         computed_visibility.is_visible = true;
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity)
+                            visible_entities.entities.push(entity);
                         }
                     }
                 }

@@ -175,6 +175,6 @@ mod rendering_mask_tests {
             RenderLayers::from_layers(&[0, 1, 2]),
             <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
-        )
+        );
     }
 }
