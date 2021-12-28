@@ -172,6 +172,7 @@ fn prepare_view_uniforms(
         .write_buffer(&render_device, &render_queue);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_view_targets(
     mut commands: Commands,
     camera_names: Res<ExtractedCameraNames>,
