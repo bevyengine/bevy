@@ -2,7 +2,7 @@ use crate::{
     camera::CameraProjection, prelude::Image, render_asset::RenderAssets,
     render_resource::TextureView, view::ExtractedWindows,
 };
-use bevy_asset::{Assets, Handle, AssetEvent};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -15,10 +15,10 @@ use bevy_ecs::{
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
-use bevy_utils::HashSet;
 
 #[derive(Component, Default, Debug, Reflect)]
 #[reflect(Component)]
@@ -172,13 +172,16 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events.iter().filter_map(|event| {
-        if let AssetEvent::Modified { handle } = event {
-            Some(handle)
-        } else {
-            None
-        }
-    }).collect();
+    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
+        .iter()
+        .filter_map(|event| {
+            if let AssetEvent::Modified { handle } = event {
+                Some(handle)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let mut added_cameras = vec![];
     for entity in &mut queries.q1().iter() {
