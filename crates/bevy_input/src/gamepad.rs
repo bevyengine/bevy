@@ -9,6 +9,8 @@ use thiserror::Error;
 pub enum GamepadSettingsError {
     #[error("{0}")]
     InvalidAxisSetting(String),
+    #[error("{0}")]
+    InvalidButtonSetting(String),
 }
 
 type Result<T, E = GamepadSettingsError> = std::result::Result<T, E>;
@@ -141,26 +143,86 @@ impl GamepadSettings {
 
 #[derive(Debug, Clone)]
 pub struct ButtonSettings {
-    pub press: f32,
-    pub release: f32,
+    press_threshold: f32,
+    release_threshold: f32,
 }
 
 impl Default for ButtonSettings {
     fn default() -> Self {
         ButtonSettings {
-            press: 0.75,
-            release: 0.65,
+            press_threshold: 0.75,
+            release_threshold: 0.65,
         }
     }
 }
 
 impl ButtonSettings {
     fn is_pressed(&self, value: f32) -> bool {
-        value >= self.press
+        value >= self.press_threshold
     }
 
     fn is_released(&self, value: f32) -> bool {
-        value <= self.release
+        value <= self.release_threshold
+    }
+
+    /// Get the button input threshold above which the button is considered pressed
+    pub fn press_threshold(&self) -> f32 {
+        self.press_threshold
+    }
+
+    /// Try to set the button input threshold above which the button is considered pressed
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is outside the range [release_threshold, 1.0]
+    pub fn try_set_press_threshold(&mut self, value: f32) -> Result<()> {
+        if (self.release_threshold..=1.0).contains(&value) {
+            self.press_threshold = value;
+            Ok(())
+        } else {
+            Err(GamepadSettingsError::InvalidButtonSetting(
+                "press_threshold must be in the range [release_threshold, 1.0]".to_owned(),
+            ))
+        }
+    }
+
+    /// Try to set the button input threshold above which the button is considered pressed. If the
+    /// value passed is outside the range [release_threshold, 1.0], the value will not be changed.
+    ///
+    /// Returns the new value of press_threshold.
+    pub fn set_press_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_press_threshold(value).ok();
+        self.press_threshold
+    }
+
+    /// Get the button input threshold below which the button is considered released
+    pub fn release_threshold(&self) -> f32 {
+        self.release_threshold
+    }
+
+    /// Try to set the button input threshold below which the button is considered released
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is outside the range [0.0, press_threshold]
+    pub fn try_set_release_threshold(&mut self, value: f32) -> Result<()> {
+        if (0.0..=self.press_threshold).contains(&value) {
+            self.release_threshold = value;
+            Ok(())
+        } else {
+            Err(GamepadSettingsError::InvalidButtonSetting(
+                "release_threshold must be in the range [0.0, press_threshold]".to_owned(),
+            ))
+        }
+    }
+
+    /// Try to set the button input threshold below which the button is considered released. If the
+    /// value passed is outside the range [0.0, press_threshold], the value will not be changed.
+    ///
+    /// Returns the new value of release_threshold.
+    pub fn set_release_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_release_threshold(value).ok();
+        self.release_threshold
     }
 }
 
