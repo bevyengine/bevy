@@ -337,7 +337,7 @@ impl AxisSettings {
     ///
     /// If the value passed is not within [0.0, 2.0]
     pub fn try_set_threshold(&mut self, value: f32) -> Result<()> {
-        if value < 0.0 || value > 2.0 {
+        if !(0.0..=2.0).contains(&value) {
             Err(GamepadSettingsError::InvalidAxisSetting(
                 "threshold must be between 0.0 and 2.0, inclusive".to_owned(),
             ))
