@@ -43,7 +43,9 @@ use bevy_render::{
 /// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
 pub struct ClearColor {
+    /// The color used for any target not specified in `per_target`
     pub default_color: Color,
+    /// Map of colors to clear each given `RenderTarget`.
     pub per_target: HashMap<RenderTarget, Color>,
 }
 

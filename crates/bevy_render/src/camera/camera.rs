@@ -84,7 +84,8 @@ impl RenderTarget {
             }),
         }
     }
-    pub fn is_modified(
+    // Check if this render target is contained in the given changed windows or images.
+    fn is_changed(
         &self,
         changed_window_ids: &[WindowId],
         changed_image_handles: &HashSet<&Handle<Image>>,
@@ -190,7 +191,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
         if camera
             .target
-            .is_modified(&changed_window_ids, &changed_image_handles)
+            .is_changed(&changed_window_ids, &changed_image_handles)
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
