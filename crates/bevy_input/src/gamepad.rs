@@ -272,7 +272,7 @@ impl ButtonSettings {
 /// to `0.0`.
 /// Otherwise, values will not be rounded.
 ///
-/// The valid range is `[-1, 1]`.
+/// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to `-1.0`.
@@ -292,8 +292,8 @@ impl Default for AxisSettings {
         AxisSettings {
             livezone_upperbound: 0.95,
             deadzone_upperbound: 0.05,
-            livezone_lowerbound: -0.95,
             deadzone_lowerbound: -0.05,
+            livezone_lowerbound: -0.95,
             threshold: 0.01,
         }
     }
