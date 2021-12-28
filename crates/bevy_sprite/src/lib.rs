@@ -1,5 +1,6 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
+mod mesh2d;
 mod rect;
 mod render;
 mod sprite;
@@ -14,12 +15,13 @@ pub mod prelude {
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::Sprite,
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
-        TextureAtlasBuilder,
+        Mesh2dHandle, TextureAtlasBuilder,
     };
 }
 
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
+pub use mesh2d::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;
@@ -53,7 +55,9 @@ impl Plugin for SpritePlugin {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
-        app.add_asset::<TextureAtlas>().register_type::<Sprite>();
+        app.add_asset::<TextureAtlas>()
+            .register_type::<Sprite>()
+            .add_plugin(Mesh2dRenderPlugin);
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<ImageBindGroups>()

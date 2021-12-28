@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -484,7 +484,7 @@ pub fn queue_sprites(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     sprite_batches: Query<(Entity, &SpriteBatch)>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent2d>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -516,8 +516,13 @@ pub fn queue_sprites(
             &sprite_pipeline,
             SpritePipelineKey { colored: true },
         );
-        for mut transparent_phase in views.iter_mut() {
+        for (view, mut transparent_phase) in views.iter_mut() {
+            let inverse_view_matrix = view.transform.compute_matrix().inverse();
+            let inverse_view_row_2 = inverse_view_matrix.row(2);
             for (entity, batch) in sprite_batches.iter() {
+                // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                // gives the z component of translation of the mesh in view space
+                let batch_z = inverse_view_row_2.dot(Vec4::new(0., 0., batch.z, 1.));
                 image_bind_groups
                     .values
                     .entry(batch.handle.clone_weak())
@@ -546,7 +551,7 @@ pub fn queue_sprites(
                         pipeline
                     },
                     entity,
-                    sort_key: FloatOrd(batch.z),
+                    sort_key: FloatOrd(batch_z),
                 });
             }
         }
