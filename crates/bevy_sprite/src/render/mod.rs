@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -82,9 +82,29 @@ impl FromWorld for SpritePipeline {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SpritePipelineKey {
-    colored: bool,
+bitflags::bitflags! {
+    #[repr(transparent)]
+    // NOTE: Apparently quadro drivers support up to 64x MSAA.
+    // MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    pub struct SpritePipelineKey: u32 {
+        const NONE                        = 0;
+        const COLORED                     = (1 << 0);
+        const MSAA_RESERVED_BITS          = SpritePipelineKey::MSAA_MASK_BITS << SpritePipelineKey::MSAA_SHIFT_BITS;
+    }
+}
+
+impl SpritePipelineKey {
+    const MSAA_MASK_BITS: u32 = 0b111111;
+    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+
+    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        SpritePipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn msaa_samples(&self) -> u32 {
+        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
 }
 
 impl SpecializedPipeline for SpritePipeline {
@@ -108,7 +128,7 @@ impl SpecializedPipeline for SpritePipeline {
             ],
         };
         let mut shader_defs = Vec::new();
-        if key.colored {
+        if key.contains(SpritePipelineKey::COLORED) {
             shader_defs.push("COLORED".to_string());
             vertex_buffer_layout.attributes.push(VertexAttribute {
                 format: VertexFormat::Uint32,
@@ -147,7 +167,7 @@ impl SpecializedPipeline for SpritePipeline {
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: 1,
+                count: key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -529,6 +549,7 @@ pub fn queue_sprites(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
+    msaa: Res<Msaa>,
     sprite_batches: Query<(Entity, &SpriteBatch)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent2d>)>,
     events: Res<SpriteAssetEvents>,
@@ -552,15 +573,12 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
         let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
-        let pipeline = pipelines.specialize(
-            &mut pipeline_cache,
-            &sprite_pipeline,
-            SpritePipelineKey { colored: false },
-        );
+        let key = SpritePipelineKey::from_msaa_samples(msaa.samples);
+        let pipeline = pipelines.specialize(&mut pipeline_cache, &sprite_pipeline, key);
         let colored_pipeline = pipelines.specialize(
             &mut pipeline_cache,
             &sprite_pipeline,
-            SpritePipelineKey { colored: true },
+            key | SpritePipelineKey::COLORED,
         );
         for (view, mut transparent_phase) in views.iter_mut() {
             let inverse_view_matrix = view.transform.compute_matrix().inverse();
