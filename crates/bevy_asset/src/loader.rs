@@ -134,7 +134,7 @@ impl<'a> LoadContext<'a> {
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
         let mut asset_metas = Vec::new();
-        for (label, asset) in self.labeled_assets.iter() {
+        for (label, asset) in &self.labeled_assets {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),

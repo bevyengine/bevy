@@ -163,7 +163,7 @@ impl From<Quad> for Mesh {
         let mut positions = Vec::<[f32; 3]>::new();
         let mut normals = Vec::<[f32; 3]>::new();
         let mut uvs = Vec::<[f32; 2]>::new();
-        for (position, normal, uv) in vertices.iter() {
+        for (position, normal, uv) in &vertices {
             positions.push(*position);
             normals.push(*normal);
             uvs.push(*uv);
@@ -207,7 +207,7 @@ impl From<Plane> for Mesh {
         let mut positions = Vec::new();
         let mut normals = Vec::new();
         let mut uvs = Vec::new();
-        for (position, normal, uv) in vertices.iter() {
+        for (position, normal, uv) in &vertices {
             positions.push(*position);
             normals.push(*normal);
             uvs.push(*uv);

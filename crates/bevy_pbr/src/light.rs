@@ -604,7 +604,7 @@ pub fn assign_lights_to_clusters(
             }
         }
 
-        for cluster_lights in clusters_lights.iter_mut() {
+        for cluster_lights in &mut clusters_lights {
             cluster_lights.entities.shrink_to_fit();
         }
 

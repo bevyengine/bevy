@@ -775,7 +775,7 @@ fn resolve_node_hierarchy(
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
-            for child in children.iter() {
+            for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
                 } else if !has_errored {
