@@ -64,7 +64,6 @@ wgpu_trace = ["bevy_internal/wgpu_trace"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
-dds = ["bevy_internal/dds"]
 tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]

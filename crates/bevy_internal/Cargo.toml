@@ -19,7 +19,6 @@ debug_asset_server = ["bevy_asset/debug_asset_server"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
 png = ["bevy_render/png"]
-dds = ["bevy_render/dds"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]

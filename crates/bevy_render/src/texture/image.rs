@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
@@ -9,6 +11,7 @@ use bevy_asset::HandleUntyped;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{Size, Vec2};
 use bevy_reflect::TypeUuid;
+use ddsfile::{D3DFormat, Dds, DxgiFormat};
 use thiserror::Error;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
@@ -220,8 +223,225 @@ impl Image {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-        Ok(image_to_texture(dyn_img))
+        match format {
+            image::ImageFormat::Dds => {
+                let mut buffer = buffer.to_vec();
+                Ok(dds_buffer_to_image(buffer.as_mut_slice()))
+            }
+            _ => {
+                let dyn_img = image::load_from_memory_with_format(buffer, format)?;
+                Ok(image_to_texture(dyn_img))
+            }
+        }
+    }
+
+    /// Whether the texture format is compressed or uncompressed
+    pub fn is_compressed(&self) -> bool {
+        let format_description = self.texture_descriptor.format.describe();
+        format_description
+            .required_features
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            || format_description
+                .required_features
+                .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+            || format_description
+                .required_features
+                .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
+    }
+}
+
+fn dds_buffer_to_image(buffer: &mut [u8]) -> Image {
+    let mut cursor = Cursor::new(buffer);
+    let dds = Dds::read(&mut cursor).expect("Failed to parse DDS file");
+    let mut image = Image::default();
+    image.texture_descriptor.size = Extent3d {
+        width: dds.get_width(),
+        height: dds.get_height(),
+        depth_or_array_layers: if dds.get_num_array_layers() > 1 {
+            dds.get_num_array_layers()
+        } else {
+            dds.get_depth()
+        },
+    };
+    image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
+    image.texture_descriptor.dimension = if dds.get_depth() > 1 {
+        TextureDimension::D3
+    } else if dds.get_height() > 1 {
+        TextureDimension::D2
+    } else {
+        TextureDimension::D1
+    };
+    image.texture_descriptor.format = dds_format_to_texture_format(&dds);
+    image.data = dds.data;
+    image
+}
+
+fn dds_format_to_texture_format(dds: &Dds) -> TextureFormat {
+    if let Some(d3d_format) = dds.get_d3d_format() {
+        match d3d_format {
+            D3DFormat::A8B8G8R8 => todo!(),
+            D3DFormat::G16R16 => todo!(),
+            D3DFormat::A2B10G10R10 => todo!(),
+            D3DFormat::A1R5G5B5 => todo!(),
+            D3DFormat::R5G6B5 => todo!(),
+            D3DFormat::A8 => todo!(),
+            D3DFormat::A8R8G8B8 => todo!(),
+            D3DFormat::X8R8G8B8 => todo!(),
+            D3DFormat::X8B8G8R8 => todo!(),
+            D3DFormat::A2R10G10B10 => todo!(),
+            D3DFormat::R8G8B8 => todo!(),
+            D3DFormat::X1R5G5B5 => todo!(),
+            D3DFormat::A4R4G4B4 => todo!(),
+            D3DFormat::X4R4G4B4 => todo!(),
+            D3DFormat::A8R3G3B2 => todo!(),
+            D3DFormat::A8L8 => todo!(),
+            D3DFormat::L16 => todo!(),
+            D3DFormat::L8 => todo!(),
+            D3DFormat::A4L4 => todo!(),
+            D3DFormat::DXT1 => TextureFormat::Bc1RgbaUnormSrgb,
+            D3DFormat::DXT3 => todo!(),
+            D3DFormat::DXT5 => todo!(),
+            D3DFormat::R8G8_B8G8 => todo!(),
+            D3DFormat::G8R8_G8B8 => todo!(),
+            D3DFormat::A16B16G16R16 => todo!(),
+            D3DFormat::Q16W16V16U16 => todo!(),
+            D3DFormat::R16F => todo!(),
+            D3DFormat::G16R16F => todo!(),
+            D3DFormat::A16B16G16R16F => todo!(),
+            D3DFormat::R32F => todo!(),
+            D3DFormat::G32R32F => todo!(),
+            D3DFormat::A32B32G32R32F => todo!(),
+            D3DFormat::DXT2 => todo!(),
+            D3DFormat::DXT4 => todo!(),
+            D3DFormat::UYVY => todo!(),
+            D3DFormat::YUY2 => todo!(),
+            D3DFormat::CXV8U8 => todo!(),
+        }
+    } else if let Some(dxgi_format) = dds.get_dxgi_format() {
+        match dxgi_format {
+            DxgiFormat::Unknown => panic!("Unknown DDS DxgiFormat"),
+            DxgiFormat::R32G32B32A32_Typeless => todo!(),
+            DxgiFormat::R32G32B32A32_Float => todo!(),
+            DxgiFormat::R32G32B32A32_UInt => todo!(),
+            DxgiFormat::R32G32B32A32_SInt => todo!(),
+            DxgiFormat::R32G32B32_Typeless => todo!(),
+            DxgiFormat::R32G32B32_Float => todo!(),
+            DxgiFormat::R32G32B32_UInt => todo!(),
+            DxgiFormat::R32G32B32_SInt => todo!(),
+            DxgiFormat::R16G16B16A16_Typeless => todo!(),
+            DxgiFormat::R16G16B16A16_Float => todo!(),
+            DxgiFormat::R16G16B16A16_UNorm => todo!(),
+            DxgiFormat::R16G16B16A16_UInt => todo!(),
+            DxgiFormat::R16G16B16A16_SNorm => todo!(),
+            DxgiFormat::R16G16B16A16_SInt => todo!(),
+            DxgiFormat::R32G32_Typeless => todo!(),
+            DxgiFormat::R32G32_Float => todo!(),
+            DxgiFormat::R32G32_UInt => todo!(),
+            DxgiFormat::R32G32_SInt => todo!(),
+            DxgiFormat::R32G8X24_Typeless => todo!(),
+            DxgiFormat::D32_Float_S8X24_UInt => todo!(),
+            DxgiFormat::R32_Float_X8X24_Typeless => todo!(),
+            DxgiFormat::X32_Typeless_G8X24_UInt => todo!(),
+            DxgiFormat::R10G10B10A2_Typeless => todo!(),
+            DxgiFormat::R10G10B10A2_UNorm => todo!(),
+            DxgiFormat::R10G10B10A2_UInt => todo!(),
+            DxgiFormat::R11G11B10_Float => todo!(),
+            DxgiFormat::R8G8B8A8_Typeless => todo!(),
+            DxgiFormat::R8G8B8A8_UNorm => todo!(),
+            DxgiFormat::R8G8B8A8_UNorm_sRGB => todo!(),
+            DxgiFormat::R8G8B8A8_UInt => todo!(),
+            DxgiFormat::R8G8B8A8_SNorm => todo!(),
+            DxgiFormat::R8G8B8A8_SInt => todo!(),
+            DxgiFormat::R16G16_Typeless => todo!(),
+            DxgiFormat::R16G16_Float => todo!(),
+            DxgiFormat::R16G16_UNorm => todo!(),
+            DxgiFormat::R16G16_UInt => todo!(),
+            DxgiFormat::R16G16_SNorm => todo!(),
+            DxgiFormat::R16G16_SInt => todo!(),
+            DxgiFormat::R32_Typeless => todo!(),
+            DxgiFormat::D32_Float => todo!(),
+            DxgiFormat::R32_Float => todo!(),
+            DxgiFormat::R32_UInt => todo!(),
+            DxgiFormat::R32_SInt => todo!(),
+            DxgiFormat::R24G8_Typeless => todo!(),
+            DxgiFormat::D24_UNorm_S8_UInt => todo!(),
+            DxgiFormat::R24_UNorm_X8_Typeless => todo!(),
+            DxgiFormat::X24_Typeless_G8_UInt => todo!(),
+            DxgiFormat::R8G8_Typeless => todo!(),
+            DxgiFormat::R8G8_UNorm => todo!(),
+            DxgiFormat::R8G8_UInt => todo!(),
+            DxgiFormat::R8G8_SNorm => todo!(),
+            DxgiFormat::R8G8_SInt => todo!(),
+            DxgiFormat::R16_Typeless => todo!(),
+            DxgiFormat::R16_Float => todo!(),
+            DxgiFormat::D16_UNorm => todo!(),
+            DxgiFormat::R16_UNorm => todo!(),
+            DxgiFormat::R16_UInt => todo!(),
+            DxgiFormat::R16_SNorm => todo!(),
+            DxgiFormat::R16_SInt => todo!(),
+            DxgiFormat::R8_Typeless => todo!(),
+            DxgiFormat::R8_UNorm => todo!(),
+            DxgiFormat::R8_UInt => todo!(),
+            DxgiFormat::R8_SNorm => todo!(),
+            DxgiFormat::R8_SInt => todo!(),
+            DxgiFormat::A8_UNorm => todo!(),
+            DxgiFormat::R1_UNorm => todo!(),
+            DxgiFormat::R9G9B9E5_SharedExp => todo!(),
+            DxgiFormat::R8G8_B8G8_UNorm => todo!(),
+            DxgiFormat::G8R8_G8B8_UNorm => todo!(),
+            DxgiFormat::BC1_Typeless => todo!(),
+            DxgiFormat::BC1_UNorm => todo!(),
+            DxgiFormat::BC1_UNorm_sRGB => todo!(),
+            DxgiFormat::BC2_Typeless => todo!(),
+            DxgiFormat::BC2_UNorm => todo!(),
+            DxgiFormat::BC2_UNorm_sRGB => todo!(),
+            DxgiFormat::BC3_Typeless => todo!(),
+            DxgiFormat::BC3_UNorm => todo!(),
+            DxgiFormat::BC3_UNorm_sRGB => todo!(),
+            DxgiFormat::BC4_Typeless => todo!(),
+            DxgiFormat::BC4_UNorm => todo!(),
+            DxgiFormat::BC4_SNorm => todo!(),
+            DxgiFormat::BC5_Typeless => todo!(),
+            DxgiFormat::BC5_UNorm => TextureFormat::Bc5RgUnorm,
+            DxgiFormat::BC5_SNorm => todo!(),
+            DxgiFormat::B5G6R5_UNorm => todo!(),
+            DxgiFormat::B5G5R5A1_UNorm => todo!(),
+            DxgiFormat::B8G8R8A8_UNorm => todo!(),
+            DxgiFormat::B8G8R8X8_UNorm => todo!(),
+            DxgiFormat::R10G10B10_XR_Bias_A2_UNorm => todo!(),
+            DxgiFormat::B8G8R8A8_Typeless => todo!(),
+            DxgiFormat::B8G8R8A8_UNorm_sRGB => todo!(),
+            DxgiFormat::B8G8R8X8_Typeless => todo!(),
+            DxgiFormat::B8G8R8X8_UNorm_sRGB => todo!(),
+            DxgiFormat::BC6H_Typeless => todo!(),
+            DxgiFormat::BC6H_UF16 => todo!(),
+            DxgiFormat::BC6H_SF16 => todo!(),
+            DxgiFormat::BC7_Typeless => todo!(),
+            DxgiFormat::BC7_UNorm => todo!(),
+            DxgiFormat::BC7_UNorm_sRGB => todo!(),
+            DxgiFormat::AYUV => todo!(),
+            DxgiFormat::Y410 => todo!(),
+            DxgiFormat::Y416 => todo!(),
+            DxgiFormat::NV12 => todo!(),
+            DxgiFormat::P010 => todo!(),
+            DxgiFormat::P016 => todo!(),
+            DxgiFormat::Format_420_Opaque => todo!(),
+            DxgiFormat::YUY2 => todo!(),
+            DxgiFormat::Y210 => todo!(),
+            DxgiFormat::Y216 => todo!(),
+            DxgiFormat::NV11 => todo!(),
+            DxgiFormat::AI44 => todo!(),
+            DxgiFormat::IA44 => todo!(),
+            DxgiFormat::P8 => todo!(),
+            DxgiFormat::A8P8 => todo!(),
+            DxgiFormat::B4G4R4A4_UNorm => todo!(),
+            DxgiFormat::P208 => todo!(),
+            DxgiFormat::V208 => todo!(),
+            DxgiFormat::V408 => todo!(),
+            DxgiFormat::Force_UInt => todo!(),
+        }
+    } else {
+        panic!("Invalid dds format?")
     }
 }
 
@@ -406,40 +626,48 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = render_device.create_sampler(&image.sampler_descriptor);
-
-        let format_size = image.texture_descriptor.format.pixel_size();
-        render_queue.write_texture(
-            ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &image.data,
-            ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(
-                    std::num::NonZeroU32::new(
-                        image.texture_descriptor.size.width * format_size as u32,
-                    )
-                    .unwrap(),
-                ),
-                rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                    std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                } else {
-                    None
+        let texture = if image.is_compressed() {
+            render_device.create_texture_with_data(
+                render_queue,
+                &image.texture_descriptor,
+                &image.data,
+            )
+        } else {
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let format_size = image.texture_descriptor.format.pixel_size();
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
                 },
-            },
-            image.texture_descriptor.size,
-        );
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
+                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                    } else {
+                        None
+                    },
+                },
+                image.texture_descriptor.size,
+            );
+            texture
+        };
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
         let size = Size::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
+        let sampler = render_device.create_sampler(&image.sampler_descriptor);
         Ok(GpuImage {
             texture,
             texture_view,
