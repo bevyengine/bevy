@@ -12,6 +12,10 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     RetryNextUpdate(E),
 }
 
+pub enum ExtractAssetError {
+    RetryNextUpdate,
+}
+
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`RenderStage::Extract`](crate::RenderStage::Extract) step the asset is transferred
@@ -36,7 +40,7 @@ pub trait RenderAsset: Asset {
     fn extract_asset(
         &self,
         param: &mut SystemParamItem<Self::ExtractParam>,
-    ) -> Self::ExtractedAsset;
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError>;
     /// Prepares the `extracted asset` for the GPU by transforming it into
     /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
@@ -96,6 +100,7 @@ pub type ExtractAssetParams<R> = (
     SCommands,
     EventReader<'static, 'static, AssetEvent<R>>,
     SRes<Assets<R>>,
+    Local<'static, Vec<Handle<R>>>,
     <R as RenderAsset>::ExtractParam,
 );
 
@@ -106,7 +111,11 @@ pub struct ExtractAssetSystem<R: RenderAsset>(PhantomData<R>);
 impl<R: RenderAsset> RunSystem for ExtractAssetSystem<R> {
     type Param = ExtractAssetParams<R>;
 
-    fn run((mut commands, mut events, assets, mut param): SystemParamItem<Self::Param>) {
+    fn run(
+        (mut commands, mut events, assets, mut extract_next_frame, mut param): SystemParamItem<
+            Self::Param,
+        >,
+    ) {
         let mut changed_assets = HashSet::default();
         let mut removed = Vec::new();
         for event in events.iter() {
@@ -124,10 +133,19 @@ impl<R: RenderAsset> RunSystem for ExtractAssetSystem<R> {
             }
         }
 
+        let previous_frame_failures = extract_next_frame.drain(..).collect::<Vec<_>>();
+        for handle in previous_frame_failures.iter() {
+            changed_assets.insert(handle);
+        }
+
         let mut extracted_assets = Vec::new();
         for handle in changed_assets.drain() {
             if let Some(asset) = assets.get(handle) {
-                extracted_assets.push((handle.clone_weak(), asset.extract_asset(&mut param)));
+                if let Ok(extracted_asset) = asset.extract_asset(&mut param) {
+                    extracted_assets.push((handle.clone_weak(), extracted_asset));
+                } else {
+                    extract_next_frame.push(handle.clone_weak());
+                }
             }
         }
 

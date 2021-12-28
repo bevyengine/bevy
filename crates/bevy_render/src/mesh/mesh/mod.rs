@@ -2,7 +2,7 @@ mod conversions;
 
 use crate::{
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
     render_resource::Buffer,
     renderer::RenderDevice,
 };
@@ -617,8 +617,11 @@ impl RenderAsset for Mesh {
     type PrepareParam = SRes<RenderDevice>;
 
     /// Clones the mesh.
-    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError> {
+        Ok(self.clone())
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].

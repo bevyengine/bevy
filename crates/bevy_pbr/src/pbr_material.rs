@@ -6,7 +6,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     prelude::Shader,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
         std140::{AsStd140, Std140},
         *,
@@ -165,8 +165,11 @@ impl RenderAsset for StandardMaterial {
         SRes<RenderAssets<Image>>,
     );
 
-    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError> {
+        Ok(self.clone())
     }
 
     fn prepare_asset(

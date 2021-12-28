@@ -1,6 +1,6 @@
 use super::image_texture_conversion::image_to_texture;
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -388,8 +388,11 @@ impl RenderAsset for Image {
     type PrepareParam = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     /// Clones the Image.
-    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError> {
+        Ok(self.clone())
     }
 
     /// Converts the extracted image into a [`GpuImage`].

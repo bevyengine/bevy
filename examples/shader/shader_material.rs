@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        render_asset::{PrepareAssetError, RenderAsset},
+        render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
         render_resource::{
             std140::{AsStd140, Std140},
             *,
@@ -63,8 +63,11 @@ impl RenderAsset for CustomMaterial {
     type ExtractParam = ();
     type PrepareParam = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
 
-    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError> {
+        Ok(self.clone())
     }
 
     fn prepare_asset(
