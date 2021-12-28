@@ -15,7 +15,7 @@ pub mod prelude {
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::Sprite,
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
-        Mesh2dHandle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
 
@@ -57,7 +57,8 @@ impl Plugin for SpritePlugin {
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
-            .add_plugin(Mesh2dRenderPlugin);
+            .add_plugin(Mesh2dRenderPlugin)
+            .add_plugin(ColorMaterialPlugin);
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<ImageBindGroups>()

@@ -1,7 +1,5 @@
 use bevy_app::Plugin;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_core::FloatOrd;
-use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -12,17 +10,11 @@ use bevy_render::{
     mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
-    },
+    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{
-        ComputedVisibility, ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VisibleEntities,
-    },
+    view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -69,11 +61,12 @@ impl Plugin for Mesh2dRenderPlugin {
         app.sub_app_mut(RenderApp)
             .init_resource::<Mesh2dPipeline>()
             .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
-            .add_render_command::<Transparent2d, DrawMesh2dTest>()
+            // .add_render_command::<Transparent2d, DrawMesh2dTest>()
             .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
             .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh2d_test);
+            // .add_system_to_stage(RenderStage::Queue, queue_mesh2d_test)
+            ;
     }
 }
 
@@ -511,70 +504,6 @@ impl EntityRenderCommand for DrawMesh2d {
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure
-        }
-    }
-}
-
-// FIXME: to remove, this is for testing without materials
-type DrawMesh2dTest = (
-    SetItemPipeline,
-    SetMesh2dViewBindGroup<0>,
-    SetMesh2dBindGroup<1>,
-    DrawMesh2d,
-);
-
-#[allow(clippy::too_many_arguments)]
-pub fn queue_mesh2d_test(
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
-    mesh2d_pipeline: Res<Mesh2dPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<Mesh2dPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    meshes: Query<(&Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(
-        &ExtractedView,
-        &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
-    )>,
-) {
-    for (view, visible_entities, mut transparent_phase) in views.iter_mut() {
-        let draw_transparent_mesh2d = transparent_draw_functions
-            .read()
-            .get_id::<DrawMesh2dTest>()
-            .unwrap();
-
-        let inverse_view_matrix = view.transform.compute_matrix().inverse();
-        let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
-
-        for visible_entity in &visible_entities.entities {
-            if let Ok((mesh_handle, mesh_uniform)) = meshes.get(*visible_entity) {
-                let mut mesh_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(&mesh_handle.0) {
-                    if mesh.has_tangents {
-                        mesh_key |= Mesh2dPipelineKey::VERTEX_TANGENTS;
-                    }
-                    mesh_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                }
-
-                let pipeline_id =
-                    pipelines.specialize(&mut pipeline_cache, &mesh2d_pipeline, mesh_key);
-
-                // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                // gives the z component of translation of the mesh in view space
-                let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
-                transparent_phase.add(Transparent2d {
-                    entity: *visible_entity,
-                    draw_function: draw_transparent_mesh2d,
-                    pipeline: pipeline_id,
-                    // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                    // lowest sort key and getting closer should increase. As we have
-                    // -z in front of the camera, the largest distance is -far with values increasing toward the
-                    // camera. As such we can just use mesh_z as the distance
-                    sort_key: FloatOrd(mesh_z),
-                });
-            }
         }
     }
 }

@@ -23,7 +23,7 @@ struct VertexOutput {
 [[group(0), binding(0)]]
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+[[group(2), binding(0)]]
 var<uniform> mesh: Mesh2d;
 
 [[stage(vertex)]]
