@@ -20,8 +20,8 @@ pub struct Sprite {
     pub anchor: Anchor,
 }
 
-/// How a sprite is positionned relative to it's [`Transform`](bevy_transform::Transform). It
-/// defaults to `Anchor::Center`.
+/// How a sprite is positionned relative to it's [`Transform`](bevy_transform::components::Transform).
+/// It defaults to `Anchor::Center`.
 #[derive(Debug, Clone, Reflect)]
 pub enum Anchor {
     Center,
