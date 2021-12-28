@@ -107,7 +107,7 @@ impl<M: Material2d> SpecializedMaterial2d for M {
     }
 }
 
-/// Materials are used alongside [`Material2dPlugin`] and [`Material2dMeshBundle`](crate::Material2dMeshBundle)
+/// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`](crate::MaterialMesh2dBundle)
 /// to spawn entities that are rendered with a specific [`SpecializedMaterial2d`] type. They serve as an easy to use high level
 /// way to render [`Mesh2dHandle`] entities with custom shader logic. [`SpecializedMaterial2d`s](SpecializedMaterial2d) use their [`SpecializedMaterial2d::Key`]
 /// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material2d`] trait
