@@ -897,24 +897,21 @@ impl World {
                     };
                 }
                 AllocAtWithoutReplacement::DidNotExist => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Spawn(ref mut spawner) => {
-                            // SAFE: `entity` is allocated (but non existent), bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                        }
-                        _ => {
-                            let mut spawner = bundle_info.get_bundle_spawner(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &mut self.components,
-                                &mut self.storages,
-                                change_tick,
-                            );
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                            spawn_or_insert = SpawnOrInsert::Spawn(spawner);
-                        }
-                    };
+                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
+                        // SAFE: `entity` is allocated (but non existent), bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                    } else {
+                        let mut spawner = bundle_info.get_bundle_spawner(
+                            &mut self.entities,
+                            &mut self.archetypes,
+                            &mut self.components,
+                            &mut self.storages,
+                            change_tick,
+                        );
+                        // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
+                    }
                 }
                 AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
                     invalid_entities.push(entity);
