@@ -2,7 +2,7 @@ use crate::{
     camera::CameraProjection, prelude::Image, render_asset::RenderAssets,
     render_resource::TextureView, view::ExtractedWindows,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Handle, AssetEvent};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -18,6 +18,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
+use bevy_utils::HashSet;
 
 #[derive(Component, Default, Debug, Reflect)]
 #[reflect(Component)]
@@ -83,6 +84,16 @@ impl RenderTarget {
             }),
         }
     }
+    pub fn is_modified(
+        &self,
+        changed_window_ids: &[WindowId],
+        changed_image_handles: &HashSet<&Handle<Image>>,
+    ) -> bool {
+        match self {
+            RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
+            RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -101,13 +112,6 @@ impl Default for DepthCalculation {
 }
 
 impl Camera {
-    pub fn get_window(&self) -> Option<WindowId> {
-        if let RenderTarget::Window(window) = self.target {
-            Some(window)
-        } else {
-            None
-        }
-    }
     /// Given a position in world space, use the camera to compute the screen space coordinates.
     pub fn world_to_screen(
         &self,
@@ -139,6 +143,7 @@ impl Camera {
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
+    mut image_asset_events: EventReader<AssetEvent<Image>>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
     mut queries: QuerySet<(
@@ -167,15 +172,22 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
+    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events.iter().filter_map(|event| {
+        if let AssetEvent::Modified { handle } = event {
+            Some(handle)
+        } else {
+            None
+        }
+    }).collect();
+
     let mut added_cameras = vec![];
     for entity in &mut queries.q1().iter() {
         added_cameras.push(entity);
     }
     for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
         if camera
-            .get_window()
-            .map(|window_id| changed_window_ids.contains(&window_id))
-            .unwrap_or(false)
+            .target
+            .is_modified(&changed_window_ids, &changed_image_handles)
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
