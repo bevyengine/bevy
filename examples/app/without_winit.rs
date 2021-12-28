@@ -1,9 +1,10 @@
+use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use bevy::winit::WinitPlugin;
 
 fn main() {
     App::new()
-        .add_plugins_with(DefaultPlugins, |group| group.disable::<WinitPlugin>())
+        .add_plugins_with(DefaultPlugins, PluginGroupBuilder::disable::<WinitPlugin>)
         .add_system(setup_system)
         .run();
 }

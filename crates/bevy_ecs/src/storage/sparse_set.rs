@@ -47,13 +47,13 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn contains(&self, index: I) -> bool {
         let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
+        self.values.get(index).map(Option::is_some).unwrap_or(false)
     }
 
     #[inline]
     pub fn get(&self, index: I) -> Option<&V> {
         let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.as_ref()).unwrap_or(None)
+        self.values.get(index).map(Option::as_ref).unwrap_or(None)
     }
 
     #[inline]
@@ -61,14 +61,14 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         let index = index.sparse_set_index();
         self.values
             .get_mut(index)
-            .map(|v| v.as_mut())
+            .map(Option::as_mut)
             .unwrap_or(None)
     }
 
     #[inline]
     pub fn remove(&mut self, index: I) -> Option<V> {
         let index = index.sparse_set_index();
-        self.values.get_mut(index).and_then(|value| value.take())
+        self.values.get_mut(index).and_then(Option::take)
     }
 
     #[inline]

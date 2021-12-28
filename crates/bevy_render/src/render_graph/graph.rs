@@ -143,7 +143,7 @@ impl RenderGraph {
     where
         T: Node,
     {
-        self.get_node_state(label).and_then(|n| n.node())
+        self.get_node_state(label).and_then(NodeState::node)
     }
 
     /// Retrieves the [`Node`] referenced by the `label` mutably.
@@ -154,7 +154,7 @@ impl RenderGraph {
     where
         T: Node,
     {
-        self.get_node_state_mut(label).and_then(|n| n.node_mut())
+        self.get_node_state_mut(label).and_then(NodeState::node_mut)
     }
 
     /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`

@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+use bevy_reflect::{Reflect, TypeRegistration, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
@@ -53,7 +53,7 @@ impl DynamicScene {
                     .components()
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
-                    .and_then(|registration| registration.data::<ReflectComponent>());
+                    .and_then(TypeRegistration::data::<ReflectComponent>);
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
                         if let Some(component) = reflect_component.reflect_component(world, *entity)

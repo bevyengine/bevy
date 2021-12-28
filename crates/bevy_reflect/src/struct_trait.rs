@@ -222,7 +222,7 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(|name| name.as_ref())
+        self.field_names.get(index).map(AsRef::as_ref)
     }
 
     #[inline]

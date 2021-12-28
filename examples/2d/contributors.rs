@@ -59,12 +59,8 @@ const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load contributors from the git history log or use default values from
     // the constant array. Contributors must be unique, so they are stored in a HashSet
-    let contribs = contributors().unwrap_or_else(|_| {
-        CONTRIBUTORS_LIST
-            .iter()
-            .map(|name| name.to_string())
-            .collect()
-    });
+    let contribs = contributors()
+        .unwrap_or_else(|_| CONTRIBUTORS_LIST.iter().map(ToString::to_string).collect());
 
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -328,7 +324,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
 
     let contributors = BufReader::new(stdout)
         .lines()
-        .filter_map(|x| x.ok())
+        .filter_map(Result::ok)
         .collect();
 
     Ok(contributors)

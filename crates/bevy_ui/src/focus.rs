@@ -10,7 +10,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
-use bevy_window::Windows;
+use bevy_window::{Window, Windows};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -72,14 +72,12 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = if let Some(cursor_position) = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position())
-    {
-        cursor_position
-    } else {
-        return;
-    };
+    let cursor_position =
+        if let Some(cursor_position) = windows.get_primary().and_then(Window::cursor_position) {
+            cursor_position
+        } else {
+            return;
+        };
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {

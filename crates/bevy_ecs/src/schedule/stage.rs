@@ -685,7 +685,7 @@ fn process_systems(
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut ambiguity_set_labels = HashMap::default();
-    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
+    for set in systems.iter().flat_map(SystemContainer::ambiguity_sets) {
         let len = ambiguity_set_labels.len();
         ambiguity_set_labels.entry(set).or_insert(len);
     }

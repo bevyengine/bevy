@@ -84,8 +84,7 @@ impl TypeRegistry {
     }
 
     pub fn get_type_data<T: TypeData>(&self, type_id: TypeId) -> Option<&T> {
-        self.get(type_id)
-            .and_then(|registration| registration.data::<T>())
+        self.get(type_id).and_then(TypeRegistration::data)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {

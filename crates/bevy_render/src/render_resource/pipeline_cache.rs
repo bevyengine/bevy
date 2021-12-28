@@ -101,7 +101,7 @@ impl ShaderCache {
             if let Some(data) = self.data.get_mut(&handle) {
                 data.processed_shaders.clear();
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
-                shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
+                shaders_to_clear.extend(data.dependents.iter().map(Handle::clone_weak));
             }
         }
 
@@ -168,11 +168,11 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
+        let key = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts.entry(key).or_insert_with(|| {
             let bind_group_layouts = bind_group_layouts
                 .iter()
-                .map(|l| l.value())
+                .map(BindGroupLayout::value)
                 .collect::<Vec<_>>();
             render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &bind_group_layouts,
