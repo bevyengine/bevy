@@ -12,9 +12,14 @@ use bevy_transform::components::{GlobalTransform, Transform};
 
 use super::CameraProjection;
 
-/// Component bundle for camera entities with perspective projection
+/// Component bundle for camera entities with perspective projection.
 ///
-/// Use this for 3D rendering.
+/// The perspective projection produces a realistic projection similar to how the eye perceives
+/// the physical reality around us. See the [Wikipedia article] for more details.
+///
+/// Use this for general 3D rendering.
+///
+/// [Wikipedia article]: https://en.wikipedia.org/wiki/3D_projection#Perspective_projection
 #[derive(Bundle)]
 pub struct PerspectiveCameraBundle {
     pub camera: Camera,
@@ -26,10 +31,36 @@ pub struct PerspectiveCameraBundle {
 }
 
 impl PerspectiveCameraBundle {
+    /// Create a perspective projection camera to render 3D content.
+    ///
+    /// The projection creates a camera space where X points to the right of the screen,
+    /// Y points to the top of the screen, and Z points out of the screen (backward),
+    /// forming a right-handed coordinate system. The center of the screen is at `X=0` and
+    /// `Y=0`.
+    ///
+    /// The camera is placed at the local origin `(0,0,0)` relative to any parent transform, or
+    /// to the world if the bundle is attached to an entity with no parent.
+    ///
+    /// The camera only renders 3D content. This currently means `PbrBundle` and any other render
+    /// item rendered in any of the `Opaque3d`, `AlphaMask3d`, or `Transparent3d` phases. This
+    /// means in particular that sprites are not rendered through this camera.
+    ///
+    /// The camera name is set to [`CameraPlugin::CAMERA_3D`], which marks the camera as active.
+    /// See [`ActiveCameras`] for details.
+    ///
+    /// [`ActiveCameras`]: super::ActiveCameras
     pub fn new_3d() -> Self {
         Default::default()
     }
 
+    /// Create a perspective projection camera with a specific name to render 3D content.
+    ///
+    /// This creates the same camera as [`new_3d()`], but overrides the camera name with the specified
+    /// name. Note that because the camera name is used to determine the content rendered, it's not
+    /// currently recommended to change the camera name. See [`ActiveCameras`] for details.
+    ///
+    /// [`new_3d()`]: PerspectiveCameraBundle::new_3d
+    /// [`ActiveCameras`]: super::ActiveCameras
     pub fn with_name(name: &str) -> Self {
         let perspective_projection = PerspectiveProjection::default();
         let view_projection = perspective_projection.get_projection_matrix();
@@ -61,9 +92,17 @@ impl Default for PerspectiveCameraBundle {
     }
 }
 
-/// Component bundle for camera entities with orthographic projection
+/// Component bundle for camera entities with orthographic projection.
 ///
-/// Use this for 2D games, isometric games, CAD-like 3D views.
+/// An orthographic projection flattens all planes parallel to the camera near and far planes,
+/// and produces projection lines parallel to each other and perpendicular to those planes,
+/// resulting in some non-realistic image similar to engineering drawings.  See the
+/// [Wikipedia article] for more details.
+///
+/// By nature, the orthographic projection is well suited to render several layers of 2D content
+/// over each other. Use this for 2D games, isometric games, or CAD-like 3D views.
+///
+/// [Wikipedia article]: https://en.wikipedia.org/wiki/Orthographic_projection
 #[derive(Bundle)]
 pub struct OrthographicCameraBundle {
     pub camera: Camera,
@@ -92,6 +131,15 @@ impl OrthographicCameraBundle {
     /// Its orthographic projection extends from `0.0` to `-1000.0` in camera view space,
     /// corresponding to `Z=+999.9` (closest to camera) to `Z=-0.1` (furthest away from
     /// camera) in world space.
+    ///
+    /// The camera only renders 2D content. This currently means `Sprite` and any other render
+    /// item rendered in the `Transparent2d` phase. This means in particular that 3D meshes are
+    /// not rendered through this camera.
+    ///
+    /// The camera name is set to [`CameraPlugin::CAMERA_2D`], which marks the camera as active.
+    /// See [`ActiveCameras`] for details.
+    ///
+    /// [`ActiveCameras`]: super::ActiveCameras
     pub fn new_2d() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
@@ -125,6 +173,26 @@ impl OrthographicCameraBundle {
         }
     }
 
+    /// Create an orthographic projection camera to render 3D content.
+    ///
+    /// The projection creates a camera space where X points to the right of the screen,
+    /// Y points to the top of the screen, and Z points out of the screen (backward),
+    /// forming a right-handed coordinate system. The center of the screen is at `X=0` and
+    /// `Y=0`.
+    ///
+    /// The default scaling mode is [`ScalingMode::FixedVertical`], resulting in a resolution
+    /// that keeps the vertical axis of constant size on the screen, and scales the horizontal
+    /// axis to fit the aspect ratio of the screen. This can be changed by changing the
+    /// [`OrthographicProjection::scaling_mode`] field.
+    ///
+    /// The camera only renders 3D content. This currently means `PbrBundle` and any other render
+    /// item rendered in any of the `Opaque3d`, `AlphaMask3d`, or `Transparent3d` phases. This
+    /// means in particular that sprites are not rendered through this camera.
+    ///
+    /// The camera name is set to [`CameraPlugin::CAMERA_3D`], which marks the camera as active.
+    /// See [`ActiveCameras`] for details.
+    ///
+    /// [`ActiveCameras`]: super::ActiveCameras
     pub fn new_3d() -> Self {
         let orthographic_projection = OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical,

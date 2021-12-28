@@ -24,7 +24,15 @@ use bevy_ecs::prelude::*;
 pub struct CameraPlugin;
 
 impl CameraPlugin {
+    /// Name identifying the active 2D camera, used to determine the view(s) to render this frame.
+    /// See [`ActiveCamera`] for details.
+    ///
+    /// [`ActiveCamera`]: crate::camera::ActiveCamera
     pub const CAMERA_2D: &'static str = "camera_2d";
+    /// Name identifying the active 3D camera, used to determine the view(s) to render this frame.
+    /// See [`ActiveCamera`] for details.
+    ///
+    /// [`ActiveCamera`]: crate::camera::ActiveCamera
     pub const CAMERA_3D: &'static str = "camera_3d";
 }
 
@@ -59,17 +67,39 @@ impl Plugin for CameraPlugin {
     }
 }
 
+/// Resouce containing the collection of extracted camera names and their entity.
+///
+/// The resource is populated each frame, and contains a map of the camera name and entity
+/// on which the source [`Camera`] is attached.
 #[derive(Default)]
 pub struct ExtractedCameraNames {
+    /// Map of a [`Camera::name`] to the [`Entity`] on which the [`Camera`] component is.
     pub entities: HashMap<String, Entity>,
 }
 
+/// Camera data extracted for rendering.
+///
+/// This component is created automatically during the [`RenderStage::Extract`] stage
+/// for each [`Camera`] component with an associated window, and for which a [`GlobalTransform`]
+/// and [`VisibleEntities`] components are present on the same [`Entity`] as the [`Camera`].
+/// The created component is attached to that same entity.
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
+    /// The [`Camera::window`] of the source [`Camera`] this data was extracted from.
     pub window_id: WindowId,
+    /// The [`Camera::name`] of the source [`Camera`] this data was extracted from.
     pub name: Option<String>,
 }
 
+/// System to extract cameras and views.
+///
+/// This system runs during the [`RenderStage::Extract`] stage to extract the cameras with
+/// an associated window, and create an [`ExtractedCamera`] and [`ExtractedView`] for each
+/// camera, to be consumed by later render stages. Only entities with a [`Camera`], a
+/// [`GlobalTransform`], and a [`VisibleEntities`] are considered.
+///
+/// The system also populates the [`ExtractedCameraNames`] collection with the names of the
+/// extracted cameras.
 fn extract_cameras(
     mut commands: Commands,
     active_cameras: Res<ActiveCameras>,
