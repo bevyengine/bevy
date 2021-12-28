@@ -17,7 +17,7 @@ pub struct Parent(pub Entity);
 // better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::new(u32::MAX))
+        Parent(Entity::from_raw(u32::MAX))
     }
 }
 
@@ -56,6 +56,6 @@ impl MapEntities for PreviousParent {
 // TODO: Better handle this case see `impl FromWorld for Parent`
 impl FromWorld for PreviousParent {
     fn from_world(_world: &mut World) -> Self {
-        PreviousParent(Entity::new(u32::MAX))
+        PreviousParent(Entity::from_raw(u32::MAX))
     }
 }
