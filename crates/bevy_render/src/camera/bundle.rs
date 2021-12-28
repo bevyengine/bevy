@@ -83,8 +83,8 @@ impl OrthographicCameraBundle {
     /// `Y=0`.
     ///
     /// The default scaling mode is [`ScalingMode::WindowSize`], resulting in a resolution
-    /// where 1 unit in X and Y in camera space corresponds to 1 pixel on the screen. That
-    /// is, for a screen of 1920 pixels in width, the X coordinates visible on screen go
+    /// where 1 unit in X and Y in camera space corresponds to 1 logical pixel on the screen.
+    /// That is, for a screen of 1920 pixels in width, the X coordinates visible on screen go
     /// from `X=-960` to `X=+960` in world space, left to right. This can be changed by changing
     /// the [`OrthographicProjection::scaling_mode`] field.
     ///
