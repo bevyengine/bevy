@@ -26,16 +26,22 @@ pub trait RenderAsset: Asset {
     type ExtractedAsset: Send + Sync + 'static;
     /// The GPU-representation of the the asset.
     type PreparedAsset: Send + Sync + 'static;
+    /// Specifies all ECS data required by [`RenderAsset::extract_asset`].
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
+    type ExtractParam: SystemParam;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
-    type Param: SystemParam;
-    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(&self) -> Self::ExtractedAsset;
+    type PrepareParam: SystemParam;
+    /// Converts the asset into a [`RenderAsset::ExtractedAsset`]. Therefore ECS data may be accessed via the `param`.
+    fn extract_asset(
+        &self,
+        param: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Self::ExtractedAsset;
     /// Prepares the `extracted asset` for the GPU by transforming it into
     /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
         extracted_asset: Self::ExtractedAsset,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
@@ -54,13 +60,14 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
+        let extract_asset_system = ExtractAssetSystem::<A>::system(&mut app.world);
         let render_app = app.sub_app_mut(RenderApp);
         let prepare_asset_system = PrepareAssetSystem::<A>::system(&mut render_app.world);
         render_app
             .init_resource::<ExtractedAssets<A>>()
             .init_resource::<RenderAssets<A>>()
             .init_resource::<PrepareNextFrameAssets<A>>()
-            .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
+            .add_system_to_stage(RenderStage::Extract, extract_asset_system)
             .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
     }
 }
@@ -84,41 +91,51 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 /// of [`RenderAssets`](RenderAsset) as long as they exist.
 pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
 
+/// Specifies all ECS data required by [`PrepareAssetSystem`].
+pub type ExtractAssetParams<R> = (
+    SCommands,
+    EventReader<'static, 'static, AssetEvent<R>>,
+    SRes<Assets<R>>,
+    <R as RenderAsset>::ExtractParam,
+);
+
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
-fn extract_render_asset<A: RenderAsset>(
-    mut commands: Commands,
-    mut events: EventReader<AssetEvent<A>>,
-    assets: Res<Assets<A>>,
-) {
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.iter() {
-        match event {
-            AssetEvent::Created { handle } => {
-                changed_assets.insert(handle);
-            }
-            AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle);
-            }
-            AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
+pub struct ExtractAssetSystem<R: RenderAsset>(PhantomData<R>);
+
+impl<R: RenderAsset> RunSystem for ExtractAssetSystem<R> {
+    type Param = ExtractAssetParams<R>;
+
+    fn run((mut commands, mut events, assets, mut param): SystemParamItem<Self::Param>) {
+        let mut changed_assets = HashSet::default();
+        let mut removed = Vec::new();
+        for event in events.iter() {
+            match event {
+                AssetEvent::Created { handle } => {
+                    changed_assets.insert(handle);
+                }
+                AssetEvent::Modified { handle } => {
+                    changed_assets.insert(handle);
+                }
+                AssetEvent::Removed { handle } => {
+                    changed_assets.remove(handle);
+                    removed.push(handle.clone_weak());
+                }
             }
         }
-    }
 
-    let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(handle) {
-            extracted_assets.push((handle.clone_weak(), asset.extract_asset()));
+        let mut extracted_assets = Vec::new();
+        for handle in changed_assets.drain() {
+            if let Some(asset) = assets.get(handle) {
+                extracted_assets.push((handle.clone_weak(), asset.extract_asset(&mut param)));
+            }
         }
-    }
 
-    commands.insert_resource(ExtractedAssets {
-        extracted: extracted_assets,
-        removed,
-    })
+        commands.insert_resource(ExtractedAssets {
+            extracted: extracted_assets,
+            removed,
+        })
+    }
 }
 
 /// Specifies all ECS data required by [`PrepareAssetSystem`].
@@ -126,7 +143,7 @@ pub type RenderAssetParams<R> = (
     SResMut<ExtractedAssets<R>>,
     SResMut<RenderAssets<R>>,
     SResMut<PrepareNextFrameAssets<R>>,
-    <R as RenderAsset>::Param,
+    <R as RenderAsset>::PrepareParam,
 );
 
 // TODO: consider storing inside system?

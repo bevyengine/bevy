@@ -158,19 +158,20 @@ pub struct GpuStandardMaterial {
 impl RenderAsset for StandardMaterial {
     type ExtractedAsset = StandardMaterial;
     type PreparedAsset = GpuStandardMaterial;
-    type Param = (
+    type ExtractParam = ();
+    type PrepareParam = (
         SRes<RenderDevice>,
         SRes<MaterialPipeline<StandardMaterial>>,
         SRes<RenderAssets<Image>>,
     );
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
+    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
         self.clone()
     }
 
     fn prepare_asset(
         material: Self::ExtractedAsset,
-        (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
+        (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let (base_color_texture_view, base_color_sampler) = if let Some(result) = pbr_pipeline
             .mesh_pipeline

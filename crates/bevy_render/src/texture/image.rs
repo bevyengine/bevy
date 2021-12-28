@@ -384,17 +384,18 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+    type ExtractParam = ();
+    type PrepareParam = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
+    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
         self.clone()
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue): &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = render_device.create_texture(&image.texture_descriptor);
         let sampler = render_device.create_sampler(&image.sampler_descriptor);

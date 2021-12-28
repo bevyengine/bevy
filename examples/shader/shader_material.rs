@@ -59,14 +59,17 @@ pub struct GpuCustomMaterial {
 impl RenderAsset for CustomMaterial {
     type ExtractedAsset = CustomMaterial;
     type PreparedAsset = GpuCustomMaterial;
-    type Param = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
-    fn extract_asset(&self) -> Self::ExtractedAsset {
+
+    type ExtractParam = ();
+    type PrepareParam = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
+
+    fn extract_asset(&self, _: &mut SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
         self.clone()
     }
 
     fn prepare_asset(
         extracted_asset: Self::ExtractedAsset,
-        (render_device, material_pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, material_pipeline): &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
