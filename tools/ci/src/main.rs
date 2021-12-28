@@ -13,7 +13,7 @@ fn main() {
 
     // See if clippy has any complaints.
     // - Type complexity must be ignored because we use huge templates for queries
-    cmd!("cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity")
+    cmd!("cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -W clippy::doc_markdown")
         .run()
         .expect("Please fix clippy errors in output above.");
 
