@@ -137,6 +137,7 @@ impl SystemStage {
         self.executor = executor;
     }
 
+    #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.add_system(system);
         self
@@ -251,6 +252,7 @@ impl SystemStage {
         &self.exclusive_before_commands
     }
 
+    #[must_use]
     pub fn with_system_set(mut self, system_set: SystemSet) -> Self {
         self.add_system_set(system_set);
         self
@@ -308,6 +310,7 @@ impl SystemStage {
         self
     }
 
+    #[must_use]
     pub fn with_run_criteria<Param, S: IntoSystem<(), ShouldRun, Param>>(
         mut self,
         system: S,
@@ -325,6 +328,7 @@ impl SystemStage {
         self
     }
 
+    #[must_use]
     pub fn with_system_run_criteria(mut self, run_criteria: RunCriteriaDescriptor) -> Self {
         self.add_system_run_criteria(run_criteria);
         self

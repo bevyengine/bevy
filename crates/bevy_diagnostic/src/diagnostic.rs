@@ -77,6 +77,7 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn with_suffix(mut self, suffix: impl Into<Cow<'static, str>>) -> Self {
         self.suffix = suffix.into();
         self

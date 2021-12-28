@@ -45,12 +45,14 @@ pub struct Schedule {
 
 impl Schedule {
     /// Similar to [`add_stage`](Self::add_stage), but it also returns itself.
+    #[must_use]
     pub fn with_stage<S: Stage>(mut self, label: impl StageLabel, stage: S) -> Self {
         self.add_stage(label, stage);
         self
     }
 
     /// Similar to [`add_stage_after`](Self::add_stage_after), but it also returns itself.
+    #[must_use]
     pub fn with_stage_after<S: Stage>(
         mut self,
         target: impl StageLabel,
@@ -62,6 +64,7 @@ impl Schedule {
     }
 
     /// Similar to [`add_stage_before`](Self::add_stage_before), but it also returns itself.
+    #[must_use]
     pub fn with_stage_before<S: Stage>(
         mut self,
         target: impl StageLabel,
@@ -72,12 +75,14 @@ impl Schedule {
         self
     }
 
+    #[must_use]
     pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
         self.set_run_criteria(system);
         self
     }
 
     /// Similar to [`add_system_to_stage`](Self::add_system_to_stage), but it also returns itself.
+    #[must_use]
     pub fn with_system_in_stage<Params>(
         mut self,
         stage_label: impl StageLabel,

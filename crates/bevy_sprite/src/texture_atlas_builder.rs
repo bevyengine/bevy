@@ -23,6 +23,7 @@ pub enum TextureAtlasBuilderError {
 }
 
 #[derive(Debug)]
+#[must_use]
 /// A builder which is used to create a texture atlas from many individual
 /// sprites.
 pub struct TextureAtlasBuilder {

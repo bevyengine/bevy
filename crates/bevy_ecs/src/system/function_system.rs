@@ -353,6 +353,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// system.initialize(world);
     /// system.run((), world);
     /// ```
+    #[must_use]
     pub fn config(
         mut self,
         f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),

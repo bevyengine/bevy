@@ -73,6 +73,7 @@ impl Shader {
         self.import_path = Some(ShaderImport::Custom(import_path.into()));
     }
 
+    #[must_use]
     pub fn with_import_path<P: Into<String>>(mut self, import_path: P) -> Self {
         self.set_import_path(import_path);
         self
