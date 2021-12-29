@@ -653,7 +653,7 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Addr
     }
 }
 
-/// Maps the primitive_topology form glTF to wgpu.
+/// Maps the `primitive_topology` form glTF to `wgpu`.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
