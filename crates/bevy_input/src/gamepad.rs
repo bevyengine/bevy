@@ -195,7 +195,7 @@ impl AxisSettings {
         } else if new_value > self.positive_low {
             (new_value - self.positive_low) / (self.positive_high - self.positive_low)
         } else {
-            (new_value - self.negative_low) / (self.negative_high - self.negative_low)
+            -1.0 * (new_value - self.negative_low) / (self.negative_high - self.negative_low)
         };
 
         if let Some(old_value) = old_value {
@@ -398,10 +398,10 @@ mod tests {
             (0.99, None, Some(1.0)),
             (0.96, None, Some(1.0)),
             (0.95, None, Some(1.0)),
-            (0.9499, None, Some(0.9499)),
-            (0.84, None, Some(0.84)),
-            (0.43, None, Some(0.43)),
-            (0.05001, None, Some(0.05001)),
+            (0.9499, None, Some(0.9998889)),
+            (0.84, None, Some(0.87777776)),
+            (0.43, None, Some(0.42222223)),
+            (0.05001, None, Some(0.000011109644)),
             (0.05, None, Some(0.0)),
             (0.04, None, Some(0.0)),
             (0.01, None, Some(0.0)),
@@ -417,12 +417,12 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter_with_old_value() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.43223223), Some(0.42222223)),
+            (0.43, Some(0.43222223), None),
+            (0.43, Some(0.42222223), None),
+            (0.43, Some(0.42121223), None),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
         ];
@@ -454,10 +454,10 @@ mod tests {
             (0.99, Some(1.0)),
             (0.96, Some(1.0)),
             (0.95, Some(1.0)),
-            (0.9499, Some(0.9499)),
-            (0.84, Some(0.84)),
-            (0.43, Some(0.43)),
-            (0.05001, Some(0.05001)),
+            (0.9499, Some(0.9998889)),
+            (0.84, Some(0.87777776)),
+            (0.43, Some(0.42222223)),
+            (0.05001, Some(0.000011109644)),
             (0.05, Some(0.0)),
             (0.04, Some(0.0)),
             (0.01, Some(0.0)),
@@ -466,10 +466,10 @@ mod tests {
             (-0.99, Some(-1.0)),
             (-0.96, Some(-1.0)),
             (-0.95, Some(-1.0)),
-            (-0.9499, Some(-0.9499)),
-            (-0.84, Some(-0.84)),
-            (-0.43, Some(-0.43)),
-            (-0.05001, Some(-0.05001)),
+            (-0.9499, Some(-0.9998889)),
+            (-0.84, Some(-0.87777776)),
+            (-0.43, Some(-0.42222223)),
+            (-0.05001, Some(-0.000011109644)),
             (-0.05, Some(0.0)),
             (-0.04, Some(0.0)),
             (-0.01, Some(0.0)),
@@ -484,21 +484,21 @@ mod tests {
     #[test]
     fn test_axis_settings_default_filter_with_old_values() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.43223223), Some(0.42222223)),
+            (0.43, Some(0.43222223), None),
+            (0.43, Some(0.42222223), None),
+            (0.43, Some(0.42121223), None),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
-            (-0.43, Some(-0.44001), Some(-0.43)),
-            (-0.43, Some(-0.44), None),
-            (-0.43, Some(-0.43), None),
-            (-0.43, Some(-0.41999), Some(-0.43)),
-            (-0.43, Some(-0.17), Some(-0.43)),
-            (-0.43, Some(-0.84), Some(-0.43)),
-            (-0.05, Some(-0.055), Some(0.0)),
+            (-0.43, Some(-0.43223223), Some(-0.42222223)),
+            (-0.43, Some(-0.43222223), None),
+            (-0.43, Some(-0.42222223), None),
+            (-0.43, Some(-0.42121223), None),
+            (-0.43, Some(-0.17), Some(-0.42222223)),
+            (-0.43, Some(-0.84), Some(-0.42222223)),
+            (-0.05, Some(-0.055), Some(-0.0)),
             (-0.95, Some(-0.945), Some(-1.0)),
         ];
 
