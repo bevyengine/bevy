@@ -17,7 +17,7 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
     bytes::derive_bytes(input)
 }
 
-/// Derives the ShaderDefs trait. Each field must implement ShaderDef or this will fail.
+/// Derives the [`ShaderDefs`] trait. Each field must implement [`ShaderDefs`] or this will fail.
 /// You can ignore fields using `#[shader_defs(ignore)]`.
 #[proc_macro_derive(ShaderDefs, attributes(shader_def))]
 pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
