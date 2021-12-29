@@ -23,9 +23,12 @@ pub unsafe trait Std140: Copy + Zeroable + Pod {
     /// See <https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159>
     /// (rule 4 and 9)
     const PAD_AT_END: bool = false;
-    /// Padded type (Std140Padded specialization)
+
+    /// Padded type ([`Std140Padded`] specialization)
     /// The usual implementation is
-    /// type Padded = Std140Padded<Self, {align_offset(size_of::<Self>(), max(16, ALIGNMENT))}>;
+    /// ```
+    /// type Padded = Std140Padded<Self, {align_offset(size_of::<Self>(), max(16, ALIGNMENT))}>`;
+    /// ```
     type Padded: Std140Convertible<Self>;
 
     /// Casts the type to a byte array. Implementors should not override this
@@ -39,11 +42,12 @@ pub unsafe trait Std140: Copy + Zeroable + Pod {
     }
 }
 
-/// Trait specifically for Std140::Padded, implements conversions between padded type and base type.
+/// Trait specifically for [`Std140::Padded`], implements conversions between padded type and base
+/// type.
 pub trait Std140Convertible<T: Std140>: Copy {
-    /// Convert from self to Std140
+    /// Convert from `Self` to [`Std140`]
     fn into_std140(self) -> T;
-    /// Convert from Std140 to self
+    /// Convert from [`Std140`] to `Self`
     fn from_std140(_: T) -> Self;
 }
 

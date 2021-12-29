@@ -23,9 +23,11 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     /// See <https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159>
     /// (rule 4 and 9)
     const PAD_AT_END: bool = false;
-    /// Padded type (Std430Padded specialization)
+    /// Padded type ([`Std430Padded`] specialization)
     /// The usual implementation is
+    /// ```
     /// type Padded = Std430Padded<Self, {align_offset(size_of::<Self>(), ALIGNMENT)}>;
+    /// ```
     type Padded: Std430Convertible<Self>;
 
     /// Casts the type to a byte array. Implementors should not override this
@@ -39,7 +41,8 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     }
 }
 
-/// Trait specifically for Std430::Padded, implements conversions between padded type and base type.
+/// Trait specifically for [`Std430::Padded`], implements conversions between padded type and base
+/// type.
 pub trait Std430Convertible<T: Std430>: Copy {
     /// Convert from self to Std430
     fn into_std430(self) -> T;
