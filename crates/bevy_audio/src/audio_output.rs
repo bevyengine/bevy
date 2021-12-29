@@ -68,7 +68,7 @@ where
     }
 }
 
-/// Plays audio currently queued in the [Audio] resource through the [AudioOutput] resource
+/// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
 pub fn play_queued_audio_system<P: Asset>(world: &mut World)
 where
     P: Decodable,
