@@ -13,7 +13,7 @@ pub struct WgpuOptions {
 
 impl Default for WgpuOptions {
     fn default() -> Self {
-        let default_backends = if cfg!(target_arch = "wasm32") {
+        let default_backends = if cfg!(feature = "webgl") {
             Backends::GL
         } else {
             Backends::PRIMARY
@@ -21,7 +21,7 @@ impl Default for WgpuOptions {
 
         let backends = wgpu::util::backend_bits_from_env().unwrap_or(default_backends);
 
-        let limits = if cfg!(target_arch = "wasm32") {
+        let limits = if cfg!(feature = "webgl") {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
             #[allow(unused_mut)]
