@@ -10,7 +10,7 @@ use futures_lite::{future, pin};
 
 use crate::Task;
 
-/// Used to create a TaskPool
+/// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
@@ -24,7 +24,7 @@ pub struct TaskPoolBuilder {
 }
 
 impl TaskPoolBuilder {
-    /// Creates a new TaskPoolBuilder instance
+    /// Creates a new [`TaskPoolBuilder`] instance
     pub fn new() -> Self {
         Self::default()
     }
@@ -43,13 +43,13 @@ impl TaskPoolBuilder {
     }
 
     /// Override the name of the threads created for the pool. If set, threads will
-    /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
+    /// be named `<thread_name> (<thread_index>)`, i.e. `MyThreadPool (2)`
     pub fn thread_name(mut self, thread_name: String) -> Self {
         self.thread_name = Some(thread_name);
         self
     }
 
-    /// Creates a new ThreadPoolBuilder based on the current options.
+    /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
         TaskPool::new_internal(
             self.num_threads,
@@ -156,7 +156,7 @@ impl TaskPool {
         self.inner.threads.len()
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
