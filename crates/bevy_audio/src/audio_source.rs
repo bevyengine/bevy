@@ -17,7 +17,7 @@ impl AsRef<[u8]> for AudioSource {
     }
 }
 
-/// Loads mp3 files as [AudioSource] [Assets](bevy_asset::Assets)
+/// Loads mp3 files as [`AudioSource`] [`Assets`](bevy_asset::Assets)
 #[derive(Default)]
 pub struct Mp3Loader;
 
