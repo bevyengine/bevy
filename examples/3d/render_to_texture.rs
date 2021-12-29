@@ -186,6 +186,9 @@ fn setup(
     //        In a pass parameter
     //          note: command buffer = `<CommandBuffer-(0, 1, Metal)>`
     //        Attempted to use texture (5, 1, Metal) mips 0..1 layers 0..1 as a combination of COLOR_TARGET within a usage scope.
+    //
+    // This happens because the texture would be written and read in the same frame, which is not allowed.
+    // So either render layers must be used to avoid this, or the texture must be double buffered.
 
     let cube_size = 4.0;
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
