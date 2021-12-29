@@ -53,7 +53,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
     }
 }
 
-/// Controls whether an entity should rendered in wireframe-mode if the [WireframePlugin] is enabled
+/// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct Wireframe;
