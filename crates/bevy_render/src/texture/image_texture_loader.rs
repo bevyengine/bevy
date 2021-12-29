@@ -34,12 +34,13 @@ impl AssetLoader for ImageTextureLoader {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let dyn_img = Image::from_buffer(bytes, ImageType::Extension(ext)).map_err(|err| {
-                FileTextureError {
-                    error: err,
-                    path: format!("{}", load_context.path().display()),
-                }
-            })?;
+            let dyn_img =
+                Image::from_buffer(bytes, ImageType::Extension(ext), true).map_err(|err| {
+                    FileTextureError {
+                        error: err,
+                        path: format!("{}", load_context.path().display()),
+                    }
+                })?;
 
             load_context.set_default_asset(LoadedAsset::new(dyn_img));
             Ok(())

@@ -17,9 +17,7 @@ use bevy_render::{
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
-    render_resource::{
-        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
-    },
+    render_resource::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor},
     texture::{Image, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -337,12 +335,13 @@ async fn load_texture<'a>(
     linear_textures: &HashSet<usize>,
     load_context: &LoadContext<'a>,
 ) -> Result<(Image, String), GltfError> {
+    let is_srgb = !(linear_textures).contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset() as usize;
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Image::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            Image::from_buffer(buffer, ImageType::MimeType(mime_type), is_srgb)?
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -365,13 +364,11 @@ async fn load_texture<'a>(
             Image::from_buffer(
                 &bytes,
                 mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                is_srgb,
             )?
         }
     };
     texture.sampler_descriptor = texture_sampler(&gltf_texture);
-    if (linear_textures).contains(&gltf_texture.index()) {
-        texture.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-    }
 
     Ok((texture, texture_label(&gltf_texture)))
 }

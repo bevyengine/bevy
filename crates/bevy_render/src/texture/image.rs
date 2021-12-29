@@ -184,24 +184,33 @@ impl Image {
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
         super::image_texture_conversion::texture_to_image(self)
             .and_then(|img| match new_format {
-                TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
-                TextureFormat::Rg8Unorm => {
-                    Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
+                TextureFormat::R8Unorm => {
+                    Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
                 }
+                TextureFormat::Rg8Unorm => Some((
+                    image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()),
+                    false,
+                )),
                 TextureFormat::Rgba8UnormSrgb => {
-                    Some(image::DynamicImage::ImageRgba8(img.into_rgba8()))
+                    Some((image::DynamicImage::ImageRgba8(img.into_rgba8()), true))
                 }
                 TextureFormat::Bgra8UnormSrgb => {
-                    Some(image::DynamicImage::ImageBgra8(img.into_bgra8()))
+                    Some((image::DynamicImage::ImageBgra8(img.into_bgra8()), true))
                 }
                 _ => None,
             })
-            .map(super::image_texture_conversion::image_to_texture)
+            .map(|(dyn_img, is_srgb)| {
+                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
+    pub fn from_buffer(
+        buffer: &[u8],
+        image_type: ImageType,
+        is_srgb: bool,
+    ) -> Result<Image, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
                 "image/png" => Ok(image::ImageFormat::Png),
@@ -224,13 +233,10 @@ impl Image {
         // cases.
 
         match format {
-            image::ImageFormat::Dds => {
-                let mut buffer = buffer.to_vec();
-                Ok(dds_buffer_to_image(buffer.as_mut_slice()))
-            }
+            image::ImageFormat::Dds => Ok(dds_buffer_to_image(buffer, is_srgb)),
             _ => {
                 let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-                Ok(image_to_texture(dyn_img))
+                Ok(image_to_texture(dyn_img, is_srgb))
             }
         }
     }
@@ -250,7 +256,7 @@ impl Image {
     }
 }
 
-fn dds_buffer_to_image(buffer: &mut [u8]) -> Image {
+fn dds_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Image {
     let mut cursor = Cursor::new(buffer);
     let dds = Dds::read(&mut cursor).expect("Failed to parse DDS file");
     let mut image = Image::default();
@@ -264,16 +270,15 @@ fn dds_buffer_to_image(buffer: &mut [u8]) -> Image {
         },
     };
     image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
+    image.texture_descriptor.format = dds_format_to_texture_format(&dds, is_srgb)
+        .unwrap_or_else(|| panic!("Unsupported DDS format: {:?}", dds));
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
-    } else if dds.get_height() > 1 {
+    } else if image.is_compressed() || dds.get_height() > 1 {
         TextureDimension::D2
     } else {
         TextureDimension::D1
     };
-    image.texture_descriptor.format = dds_format_to_texture_format(&dds, true)
-        .unwrap_or_else(|| panic!("Unsupported DDS format: {:?}", dds));
-    dbg!(&image.texture_descriptor.format);
     image.data = dds.data;
     image
 }
@@ -782,7 +787,7 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = if image.is_compressed() {
+        let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
             render_device.create_texture_with_data(
                 render_queue,
                 &image.texture_descriptor,
