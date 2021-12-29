@@ -9,7 +9,7 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 pub use clear_pass::*;
 pub use clear_pass_driver::*;
@@ -53,7 +53,7 @@ impl ClearColor {
     pub fn from_default_color(default_color: Color) -> Self {
         Self {
             default_color,
-            per_target: HashMap::new(),
+            per_target: HashMap::default(),
         }
     }
     pub fn get(&self, target: &RenderTarget) -> &Color {

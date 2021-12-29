@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{ActiveCameras, Camera, CameraProjection, ExtractedCameraNames, RenderTarget},
+        camera::{ActiveCameras, Camera, ExtractedCameraNames, RenderTarget},
         render_graph::{NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         render_resource::{
@@ -163,25 +163,18 @@ fn setup(
     // First pass camera
     let render_target = RenderTarget::Image(image_handle);
     clear_color.insert(render_target.clone(), Color::WHITE);
-    let mut first_pass_camera = PerspectiveCameraBundle {
-        camera: Camera {
-            name: Some(FIRST_PASS_CAMERA.to_string()),
-            target: render_target,
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..Default::default()
-    };
     active_cameras.add(FIRST_PASS_CAMERA);
-
-    let camera_projection = &mut first_pass_camera.perspective_projection;
-    camera_projection.update(size.width as f32, size.height as f32);
-    first_pass_camera.camera.projection_matrix = camera_projection.get_projection_matrix();
-    first_pass_camera.camera.depth_calculation = camera_projection.depth_calculation();
-
     commands
-        .spawn_bundle(first_pass_camera)
+        .spawn_bundle(PerspectiveCameraBundle {
+            camera: Camera {
+                name: Some(FIRST_PASS_CAMERA.to_string()),
+                target: render_target,
+                ..Default::default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                .looking_at(Vec3::default(), Vec3::Y),
+            ..Default::default()
+        })
         .insert(first_pass_layer);
     // NOTE: omitting the RenderLayers component for this camera may cause a validation error:
     //
