@@ -195,6 +195,14 @@ impl Plugin for CorePipelinePlugin {
                 TonemappingNode::IN_VIEW,
             )
             .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                draw_2d_graph::node::MAIN_PASS,
+                MainPass2dNode::OUT_TEXTURE,
+                draw_2d_graph::node::TONEMAPPING,
+                TonemappingNode::IN_TEXTURE,
+            )
+            .unwrap();
 
         draw_2d_graph
             .add_node_edge(
@@ -208,6 +216,14 @@ impl Plugin for CorePipelinePlugin {
                 draw_2d_graph::input::VIEW_ENTITY,
                 draw_2d_graph::node::UPSCALING,
                 UpscalingNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                draw_2d_graph::node::TONEMAPPING,
+                TonemappingNode::OUT_TEXTURE,
+                draw_2d_graph::node::UPSCALING,
+                UpscalingNode::IN_TEXTURE,
             )
             .unwrap();
 
@@ -246,6 +262,14 @@ impl Plugin for CorePipelinePlugin {
                 TonemappingNode::IN_VIEW,
             )
             .unwrap();
+        draw_3d_graph
+            .add_slot_edge(
+                draw_3d_graph::node::MAIN_PASS,
+                MainPass3dNode::OUT_TEXTURE,
+                draw_3d_graph::node::TONEMAPPING,
+                TonemappingNode::IN_TEXTURE,
+            )
+            .unwrap();
 
         draw_3d_graph
             .add_node_edge(
@@ -259,6 +283,14 @@ impl Plugin for CorePipelinePlugin {
                 draw_3d_graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::UPSCALING,
                 UpscalingNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_3d_graph
+            .add_slot_edge(
+                draw_3d_graph::node::TONEMAPPING,
+                TonemappingNode::OUT_TEXTURE,
+                draw_3d_graph::node::UPSCALING,
+                UpscalingNode::IN_TEXTURE,
             )
             .unwrap();
 

@@ -7,7 +7,7 @@ use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::BevyDefault;
-use bevy_render::view::ViewTarget;
+use bevy_render::view::ExtractedView;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 use bevy_reflect::TypeUuid;
@@ -102,41 +102,19 @@ impl SpecializedPipeline for UpscalingPipeline {
 
 #[derive(Component)]
 pub struct UpscalingTarget {
-    pub ldr_texture_bind_group: BindGroup,
     pub pipeline: CachedPipelineId,
 }
 
 fn queue_upscaling_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mut render_pipeline_cache: ResMut<RenderPipelineCache>,
     mut pipelines: ResMut<SpecializedPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
-    view_targets: Query<(Entity, &ViewTarget)>,
+    view_targets: Query<Entity, With<ExtractedView>>,
 ) {
-    for (entity, target) in view_targets.iter() {
+    for entity in view_targets.iter() {
         let pipeline = pipelines.specialize(&mut render_pipeline_cache, &upscaling_pipeline, ());
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &upscaling_pipeline.ldr_texture_bind_group,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&target.ldr_texture),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&sampler),
-                },
-            ],
-        });
-
-        commands.entity(entity).insert(UpscalingTarget {
-            ldr_texture_bind_group: bind_group,
-            pipeline,
-        });
+        commands.entity(entity).insert(UpscalingTarget { pipeline });
     }
 }

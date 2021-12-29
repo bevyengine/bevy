@@ -1,33 +1,43 @@
+use std::sync::Mutex;
+
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineCache,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineCache, SamplerDescriptor,
+        TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 
-use super::UpscalingTarget;
+use super::{UpscalingPipeline, UpscalingTarget};
 
 pub struct UpscalingNode {
     query: QueryState<(&'static ViewTarget, &'static UpscalingTarget), With<ExtractedView>>,
+    cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
 impl UpscalingNode {
     pub const IN_VIEW: &'static str = "view";
+    pub const IN_TEXTURE: &'static str = "in_texture";
 
     pub fn new(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
+            cached_texture_bind_group: Mutex::new(None),
         }
     }
 }
 
 impl Node for UpscalingNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UpscalingNode::IN_VIEW, SlotType::Entity)]
+        vec![
+            SlotInfo::new(UpscalingNode::IN_TEXTURE, SlotType::TextureView),
+            SlotInfo::new(UpscalingNode::IN_VIEW, SlotType::Entity),
+        ]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -41,8 +51,41 @@ impl Node for UpscalingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let in_texture = graph.get_input_texture(Self::IN_TEXTURE)?;
 
         let render_pipeline_cache = world.get_resource::<RenderPipelineCache>().unwrap();
+        let upscaling_pipeline = world.get_resource::<UpscalingPipeline>().unwrap();
+
+        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
+        let bind_group = match &mut *cached_bind_group {
+            Some((id, bind_group)) if in_texture.id() == *id => bind_group,
+            cached_bind_group => {
+                let sampler = render_context
+                    .render_device
+                    .create_sampler(&SamplerDescriptor::default());
+
+                let bind_group =
+                    render_context
+                        .render_device
+                        .create_bind_group(&BindGroupDescriptor {
+                            label: None,
+                            layout: &upscaling_pipeline.ldr_texture_bind_group,
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: BindingResource::TextureView(in_texture),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::Sampler(&sampler),
+                                },
+                            ],
+                        });
+
+                let (_, bind_group) = cached_bind_group.insert((in_texture.id(), bind_group));
+                bind_group
+            }
+        };
 
         let (target, upscaling_target) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
@@ -72,7 +115,7 @@ impl Node for UpscalingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &upscaling_target.ldr_texture_bind_group, &[]);
+        render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
