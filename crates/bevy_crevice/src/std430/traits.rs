@@ -25,9 +25,7 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     const PAD_AT_END: bool = false;
     /// Padded type ([`Std430Padded`] specialization)
     /// The usual implementation is
-    /// ```
-    /// type Padded = Std430Padded<Self, {align_offset(size_of::<Self>(), ALIGNMENT)}>;
-    /// ```
+    /// `type Padded = Std430Padded<Self, {align_offset(size_of::<Self>(), ALIGNMENT)}>;`
     type Padded: Std430Convertible<Self>;
 
     /// Casts the type to a byte array. Implementors should not override this

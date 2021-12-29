@@ -26,9 +26,7 @@ pub unsafe trait Std140: Copy + Zeroable + Pod {
 
     /// Padded type ([`Std140Padded`] specialization)
     /// The usual implementation is
-    /// ```
-    /// type Padded = Std140Padded<Self, {align_offset(size_of::<Self>(), max(16, ALIGNMENT))}>`;
-    /// ```
+    /// `type Padded = Std140Padded<Self, {align_offset(size_of::<Self>(), max(16, ALIGNMENT))}>;`
     type Padded: Std140Convertible<Self>;
 
     /// Casts the type to a byte array. Implementors should not override this
