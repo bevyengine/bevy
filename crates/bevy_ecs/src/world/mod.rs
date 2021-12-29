@@ -163,7 +163,7 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves a [WorldCell], which safely enables multiple mutable World accesses at the same
+    /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
     /// time, provided those accesses do not conflict with each other.
     #[inline]
     pub fn cell(&mut self) -> WorldCell<'_> {
@@ -174,8 +174,8 @@ impl World {
         self.components.init_component::<T>(&mut self.storages)
     }
 
-    /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [World::get_entity] if you want
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
@@ -202,8 +202,8 @@ impl World {
             .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
-    /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [World::get_entity_mut] if you want
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
@@ -230,8 +230,8 @@ impl World {
             .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
-    /// Returns an [EntityMut] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [None] if the `entity` exists with a different generation.
+    /// Returns an [`EntityMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [`None`] if the `entity` exists with a different generation.
     ///
     /// # Note
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
@@ -253,9 +253,9 @@ impl World {
         }
     }
 
-    /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
-    /// Returns [None] if the `entity` does not exist. Use [World::entity] if you don't want
-    /// to unwrap the [EntityRef] yourself.
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity`] if you don't want
+    /// to unwrap the [`EntityRef`] yourself.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -281,9 +281,9 @@ impl World {
         Some(EntityRef::new(self, entity, location))
     }
 
-    /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
-    /// Returns [None] if the `entity` does not exist. Use [World::entity_mut] if you don't want
-    /// to unwrap the [EntityMut] yourself.
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity_mut`] if you don't want
+    /// to unwrap the [`EntityMut`] yourself.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -310,7 +310,7 @@ impl World {
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
-    /// Spawns a new [Entity] and returns a corresponding [EntityMut], which can be used
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
     /// ```
@@ -474,8 +474,8 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState].
+    /// Returns [`QueryState`] for the given [`WorldQuery`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
     ///
@@ -541,8 +541,8 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState].
+    /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
     ///
@@ -569,7 +569,7 @@ impl World {
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
-    /// since the last call to [World::clear_trackers].
+    /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
             self.removed_with_id(component_id)
@@ -579,7 +579,7 @@ impl World {
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
-    /// since the last call to [World::clear_trackers].
+    /// since the last call to [`World::clear_trackers`].
     pub fn removed_with_id(
         &self,
         component_id: ComponentId,

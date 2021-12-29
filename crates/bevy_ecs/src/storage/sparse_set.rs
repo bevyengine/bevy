@@ -397,9 +397,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
-/// A collection of [ComponentSparseSet] storages, indexed by [ComponentId]
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
 ///
-/// Can be accessed via [Storages](crate::storage::Storages)
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,

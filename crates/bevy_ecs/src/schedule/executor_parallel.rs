@@ -154,8 +154,8 @@ impl ParallelSystemExecutor for ParallelExecutor {
 }
 
 impl ParallelExecutor {
-    /// Calls system.new_archetype() for each archetype added since the last call to
-    /// [update_archetypes] and updates cached archetype_component_access.
+    /// Calls `system.new_archetype()` for each archetype added since the last call to
+    /// `update_archetypes` and updates cached `archetype_component_access`.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
         #[cfg(feature = "trace")]
         let span = bevy_utils::tracing::info_span!("update_archetypes");
