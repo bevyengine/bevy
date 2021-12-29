@@ -155,7 +155,7 @@ pub struct AssetResult<T> {
     pub version: usize,
 }
 
-/// A channel to send and receive [AssetResult]s
+/// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
 pub struct AssetLifecycleChannel<T> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
@@ -203,7 +203,7 @@ impl<T> Default for AssetLifecycleChannel<T> {
     }
 }
 
-/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
+/// Updates the [`Assets`] collection according to the changes queued up by [`AssetServer`].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     assets: ResMut<Assets<T>>,
