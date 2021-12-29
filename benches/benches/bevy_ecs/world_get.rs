@@ -37,7 +37,7 @@ fn world_entity(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for i in 0..entity_count {
-                    let entity = Entity::new(i);
+                    let entity = Entity::from_raw(i);
                     black_box(world.entity(entity));
                 }
             });
@@ -58,7 +58,7 @@ fn world_get(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for i in 0..entity_count {
-                    let entity = Entity::new(i);
+                    let entity = Entity::from_raw(i);
                     assert!(world.get::<Table>(entity).is_some());
                 }
             });
@@ -68,7 +68,7 @@ fn world_get(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for i in 0..entity_count {
-                    let entity = Entity::new(i);
+                    let entity = Entity::from_raw(i);
                     assert!(world.get::<Sparse>(entity).is_some());
                 }
             });
@@ -90,7 +90,7 @@ fn world_query_get(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for i in 0..entity_count {
-                    let entity = Entity::new(i);
+                    let entity = Entity::from_raw(i);
                     assert!(query.get(&world, entity).is_ok());
                 }
             });
@@ -101,7 +101,7 @@ fn world_query_get(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for i in 0..entity_count {
-                    let entity = Entity::new(i);
+                    let entity = Entity::from_raw(i);
                     assert!(query.get(&world, entity).is_ok());
                 }
             });
