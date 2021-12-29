@@ -10,7 +10,7 @@ use rand::Rng;
 const CAMERA_SPEED: f32 = 1000.0;
 
 /// This example is for performance testing purposes.
-/// See https://github.com/bevyengine/bevy/pull/1492
+/// See <https://github.com/bevyengine/bevy/pull/1492>
 fn main() {
     App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
