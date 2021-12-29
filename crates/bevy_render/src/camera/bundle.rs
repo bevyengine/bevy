@@ -89,7 +89,7 @@ impl OrthographicCameraBundle {
     /// the [`OrthographicProjection::scaling_mode`] field.
     ///
     /// The camera is placed at `Z=+1000-0.1`, looking toward the world origin `(0,0,0)`.
-    /// Its orthographic projection extends from `0.0` to `1000.0` in camera view space,
+    /// Its orthographic projection extends from `0.0` to `-1000.0` in camera view space,
     /// corresponding to `Z=+999.9` (closest to camera) to `Z=-0.1` (furthest away from
     /// camera) in world space.
     pub fn new_2d() -> Self {
