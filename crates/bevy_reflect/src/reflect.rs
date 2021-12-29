@@ -47,6 +47,11 @@ pub unsafe trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable>;
 }
 
+pub trait FromReflect: Reflect + Sized {
+    /// Creates a clone of a reflected value, converting it to a concrete type if it was a dynamic types (e.g. [`DynamicStruct`](crate::DynamicStruct))
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+}
+
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Reflect({})", self.type_name())

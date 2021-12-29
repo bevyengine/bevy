@@ -1,17 +1,14 @@
 use bevy::{
+    pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
-    wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions},
+    render::{options::WgpuOptions, render_resource::WgpuFeatures},
 };
 
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WgpuOptions {
-            features: WgpuFeatures {
-                // The Wireframe requires NonFillPolygonMode feature
-                features: vec![WgpuFeature::PolygonModeLine],
-            },
+            features: WgpuFeatures::POLYGON_MODE_LINE,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)

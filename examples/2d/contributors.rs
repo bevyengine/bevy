@@ -56,11 +56,7 @@ const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
 const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 
-fn setup_contributor_selection(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load contributors from the git history log or use default values from
     // the constant array. Contributors must be unique, so they are stored in a HashSet
     let contribs = contributors().unwrap_or_else(|_| {
@@ -101,15 +97,12 @@ fn setup_contributor_selection(
             ))
             .insert_bundle(SpriteBundle {
                 sprite: Sprite {
-                    size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
-                    resize_mode: SpriteResizeMode::Manual,
+                    custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     flip_x: flipped,
                     ..Default::default()
                 },
-                material: materials.add(ColorMaterial {
-                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
-                    texture: Some(texture_handle.clone()),
-                }),
+                texture: texture_handle.clone(),
                 transform,
                 ..Default::default()
             })
@@ -164,11 +157,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
-    mut materials: ResMut<Assets<ColorMaterial>>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
     mut timer_query: Query<&mut Timer, With<SelectTimer>>,
-    mut query: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
+    mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
     let mut timer_fired = false;
@@ -194,28 +186,16 @@ fn select_system(
 
     {
         let (_, entity) = &contributor_selection.order[prev];
-        if let Ok((contributor, handle, mut transform)) = query.get_mut(*entity) {
-            deselect(
-                &mut *materials,
-                handle.clone(),
-                contributor,
-                &mut *transform,
-            );
+        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+            deselect(&mut sprite, contributor, &mut *transform);
         }
     }
 
     let (name, entity) = &contributor_selection.order[contributor_selection.idx];
 
-    if let Ok((contributor, handle, mut transform)) = query.get_mut(*entity) {
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
         if let Some(mut text) = text_query.iter_mut().next() {
-            select(
-                &mut *materials,
-                handle,
-                contributor,
-                &mut *transform,
-                &mut *text,
-                name,
-            );
+            select(&mut sprite, contributor, &mut *transform, &mut *text, name);
         }
     }
 }
@@ -223,15 +203,13 @@ fn select_system(
 /// Change the modulate color to the "selected" colour,
 /// bring the object to the front and display the name.
 fn select(
-    materials: &mut Assets<ColorMaterial>,
-    material_handle: &Handle<ColorMaterial>,
+    sprite: &mut Sprite,
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
     name: &str,
-) -> Option<()> {
-    let material = materials.get_mut(material_handle)?;
-    material.color = Color::hsla(
+) {
+    sprite.color = Color::hsla(
         contributor.hue,
         SATURATION_SELECTED,
         LIGHTNESS_SELECTED,
@@ -242,21 +220,13 @@ fn select(
 
     text.sections[0].value = "Contributor: ".to_string();
     text.sections[1].value = name.to_string();
-    text.sections[1].style.color = material.color;
-
-    Some(())
+    text.sections[1].style.color = sprite.color;
 }
 
 /// Change the modulate color to the "deselected" colour and push
 /// the object to the back.
-fn deselect(
-    materials: &mut Assets<ColorMaterial>,
-    material_handle: Handle<ColorMaterial>,
-    contributor: &Contributor,
-    transform: &mut Transform,
-) -> Option<()> {
-    let material = materials.get_mut(material_handle)?;
-    material.color = Color::hsla(
+fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
+    sprite.color = Color::hsla(
         contributor.hue,
         SATURATION_DESELECTED,
         LIGHTNESS_DESELECTED,
@@ -264,8 +234,6 @@ fn deselect(
     );
 
     transform.translation.z = 0.0;
-
-    Some(())
 }
 
 /// Applies gravity to all entities with velocity

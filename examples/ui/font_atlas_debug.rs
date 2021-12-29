@@ -1,8 +1,8 @@
 use bevy::{prelude::*, text::FontAtlasSet};
 
 // TODO: This is now broken. See #1243
-/// This example illustrates how FontAtlases are populated. Bevy uses FontAtlases under the hood to
-/// optimize text rendering.
+/// This example illustrates how `FontAtlas`'s are populated. Bevy uses `FontAtlas`'s under the hood
+/// to optimize text rendering.
 fn main() {
     App::new()
         .init_resource::<State>()
@@ -33,7 +33,6 @@ impl Default for State {
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
@@ -48,7 +47,7 @@ fn atlas_render_system(
                 .unwrap();
             state.atlas_count += 1;
             commands.spawn_bundle(ImageBundle {
-                material: materials.add(texture_atlas.texture.clone().into()),
+                image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: Rect {

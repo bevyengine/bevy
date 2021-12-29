@@ -3,14 +3,14 @@ use crate::TaskPool;
 mod adapters;
 pub use adapters::*;
 
-/// ParallelIterator closely emulates the std::iter::Iterator
-/// interface. However, it uses bevy_task to compute batches in parallel.
+/// [`ParallelIterator`] closely emulates the `std::iter::Iterator`
+/// interface. However, it uses `bevy_task` to compute batches in parallel.
 ///
-/// Note that the overhead of ParallelIterator is high relative to some
+/// Note that the overhead of [`ParallelIterator`] is high relative to some
 /// workloads. In particular, if the batch size is too small or task being
-/// run in parallel is inexpensive, *a ParallelIterator could take longer
-/// than a normal Iterator*. Therefore, you should profile your code before
-/// using ParallelIterator.
+/// run in parallel is inexpensive, *a [`ParallelIterator`] could take longer
+/// than a normal [`Iterator`]*. Therefore, you should profile your code before
+/// using [`ParallelIterator`].
 pub trait ParallelIterator<B>
 where
     B: Iterator<Item = Self::Item> + Send,
@@ -21,7 +21,7 @@ where
     /// Returns the next batch of items for processing.
     ///
     /// Each batch is an iterator with items of the same type as the
-    /// ParallelIterator. Returns `None` when there are no batches left.
+    /// [`ParallelIterator`]. Returns `None` when there are no batches left.
     fn next_batch(&mut self) -> Option<B>;
 
     /// Returns the bounds on the remaining number of items in the

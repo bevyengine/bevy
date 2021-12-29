@@ -410,6 +410,9 @@ impl Table {
     }
 }
 
+/// A collection of [Table] storages, indexed by [TableId]
+///
+/// Can be accessed via [Storages](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
     table_ids: HashMap<u64, TableId>,

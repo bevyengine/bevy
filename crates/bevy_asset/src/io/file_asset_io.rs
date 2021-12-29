@@ -84,10 +84,10 @@ impl AssetIo for FileAssetIo {
         )))
     }
 
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            let path = self.root_path.join(path);
+            let path = self.root_path.join(_path);
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
                 watcher
