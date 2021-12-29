@@ -49,12 +49,7 @@ pub struct Msaa {
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self {
-            #[cfg(feature = "webgl")]
-            samples: 1,
-            #[cfg(not(feature = "webgl"))]
-            samples: 4,
-        }
+        Self { samples: 4 }
     }
 }
 
