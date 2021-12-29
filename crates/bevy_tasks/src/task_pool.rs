@@ -49,7 +49,7 @@ impl TaskPoolBuilder {
         self
     }
 
-    /// Creates a new [`ThreadPoolBuilder`] based on the current options.
+    /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
         TaskPool::new_internal(
             self.num_threads,
