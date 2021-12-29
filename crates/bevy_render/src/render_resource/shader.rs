@@ -5,6 +5,7 @@ use naga::back::wgsl::WriterFlags;
 use naga::{valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use wgpu::util::make_spirv;
 use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
@@ -172,11 +173,8 @@ impl ProcessedShader {
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
-                ProcessedShader::SpirV(_) => {
-                    // TODO: we can probably just transmute the u8 array to u32?
-                    let reflection = self.reflect()?;
-                    let spirv = reflection.get_spirv()?;
-                    ShaderSource::SpirV(Cow::Owned(spirv))
+                ProcessedShader::SpirV(source) => {
+                    make_spirv(source)
                 }
             },
         })
