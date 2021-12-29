@@ -23,6 +23,7 @@ dds = ["bevy_render/dds"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
+spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough" ]
 
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_audio/flac"]

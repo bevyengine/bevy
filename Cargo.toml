@@ -42,6 +42,8 @@ render = [
   "bevy_internal/bevy_ui",
 ]
 
+spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough" ]
+
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]

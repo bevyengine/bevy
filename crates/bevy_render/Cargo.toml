@@ -19,6 +19,7 @@ trace = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
+spirv_shader_passthrough = []
 
 [dependencies]
 # bevy
