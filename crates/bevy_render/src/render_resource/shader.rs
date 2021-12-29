@@ -5,11 +5,11 @@ use naga::back::wgsl::WriterFlags;
 use naga::{valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use wgpu::util::make_spirv;
 use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
+use wgpu::util::make_spirv;
 use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -173,9 +173,7 @@ impl ProcessedShader {
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
-                ProcessedShader::SpirV(source) => {
-                    make_spirv(source)
-                }
+                ProcessedShader::SpirV(source) => make_spirv(source),
             },
         })
     }
