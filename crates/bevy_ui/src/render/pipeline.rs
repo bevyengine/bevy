@@ -1,9 +1,10 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::{std140::AsStd140, *},
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::ViewUniform,
 };
-
-use crevice::std140::AsStd140;
 
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
@@ -44,10 +45,7 @@ impl FromWorld for UiPipeline {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -114,8 +112,8 @@ impl SpecializedPipeline for UiPipeline {
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,

@@ -10,14 +10,25 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
 /// A unique, stable asset id
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    Reflect,
+    FromReflect,
 )]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
@@ -83,7 +94,7 @@ impl HandleId {
 /// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
 /// collisions no longer being detected for that entity.
 ///
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Handle<T>
 where
@@ -101,6 +112,13 @@ where
 enum HandleType {
     Weak,
     Strong(Sender<RefChange>),
+}
+
+// FIXME: This only is needed because `Handle`'s field `handle_type` is currently ignored for reflection
+impl Default for HandleType {
+    fn default() -> Self {
+        Self::Weak
+    }
 }
 
 impl Debug for HandleType {

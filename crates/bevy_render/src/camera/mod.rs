@@ -53,7 +53,7 @@ impl Plugin for CameraPlugin {
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<PerspectiveProjection>,
             );
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<ExtractedCameraNames>()
             .add_system_to_stage(RenderStage::Extract, extract_cameras);
     }
@@ -82,8 +82,8 @@ fn extract_cameras(
         if let Some((entity, camera, transform, visible_entities)) =
             camera.entity.and_then(|e| query.get(e).ok())
         {
-            entities.insert(name.clone(), entity);
             if let Some(window) = windows.get(camera.window) {
+                entities.insert(name.clone(), entity);
                 commands.get_or_spawn(entity).insert_bundle((
                     ExtractedCamera {
                         window_id: camera.window,

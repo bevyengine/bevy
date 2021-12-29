@@ -11,22 +11,17 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -58,7 +53,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<MeshPipeline>()
             .add_system_to_stage(RenderStage::Extract, extract_meshes)
             .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
@@ -202,7 +197,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::CubeArray,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
                 },
@@ -210,10 +208,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 3,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // Directional Shadow Texture Array
@@ -223,7 +218,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
+                        #[cfg(not(feature = "webgl"))]
                         view_dimension: TextureViewDimension::D2Array,
+                        #[cfg(feature = "webgl")]
+                        view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
                 },
@@ -231,10 +229,7 @@ impl FromWorld for MeshPipeline {
                 BindGroupLayoutEntry {
                     binding: 5,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: true,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Comparison),
                     count: None,
                 },
                 // PointLights
@@ -245,7 +240,7 @@ impl FromWorld for MeshPipeline {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         // NOTE: Static size for uniform buffers. GpuPointLight has a padded
-                        // size of 128 bytes, so 16384 / 128 = 128 point lights max
+                        // size of 64 bytes, so 16384 / 64 = 256 point lights max
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
@@ -257,8 +252,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        // NOTE: With 128 point lights max, indices need 7 bits. Use u8 for
-                        // convenience.
+                        // NOTE: With 256 point lights max, indices need 8 bits so use u8
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
@@ -270,10 +264,10 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        // NOTE: The offset needs to address 16384 indices, which needs 21 bits.
-                        // The count can be at most all 128 lights so 7 bits.
+                        // NOTE: The offset needs to address 16384 indices, which needs 14 bits.
+                        // The count can be at most all 256 lights so 8 bits.
                         // Pack the offset into the upper 24 bits and the count into the
-                        // lower 8 bits for convenience.
+                        // lower 8 bits.
                         min_binding_size: BufferSize::new(16384),
                     },
                     count: None,
@@ -313,7 +307,7 @@ impl FromWorld for MeshPipeline {
                     texture: &texture,
                     mip_level: 0,
                     origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
+                    aspect: TextureAspect::All,
                 },
                 &image.data,
                 ImageDataLayout {
@@ -371,12 +365,15 @@ bitflags::bitflags! {
         const VERTEX_TANGENTS             = (1 << 0);
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111111;
     const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
@@ -385,6 +382,26 @@ impl MeshPipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits =
+            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
     }
 }
 
@@ -469,6 +486,9 @@ impl SpecializedPipeline for MeshPipeline {
             depth_write_enabled = true;
         }
 
+        #[cfg(feature = "webgl")]
+        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -494,10 +514,10 @@ impl SpecializedPipeline for MeshPipeline {
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
-                topology: PrimitiveTopology::TriangleList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -564,14 +584,14 @@ pub fn queue_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    mut views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter_mut() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -695,13 +715,19 @@ impl EntityRenderCommand for DrawMesh {
         let mesh_handle = mesh_query.get(item).unwrap();
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            if let Some(index_info) = &gpu_mesh.index_info {
-                pass.set_index_buffer(index_info.buffer.slice(..), 0, index_info.index_format);
-                pass.draw_indexed(0..index_info.count, 0, 0..1);
-            } else {
-                panic!("non-indexed drawing not supported yet")
+            match &gpu_mesh.buffer_info {
+                GpuBufferInfo::Indexed {
+                    buffer,
+                    index_format,
+                    count,
+                } => {
+                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                    pass.draw_indexed(0..*count, 0, 0..1);
+                }
+                GpuBufferInfo::NonIndexed { vertex_count } => {
+                    pass.draw(0..*vertex_count, 0..1);
+                }
             }
-
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure

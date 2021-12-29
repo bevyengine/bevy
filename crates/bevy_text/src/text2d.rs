@@ -44,7 +44,7 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    mut text2d_query: Query<(Entity, &Text, &GlobalTransform, &Text2dSize)>,
+    text2d_query: Query<(Entity, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     let scale_factor = if let Some(window) = windows.get_primary() {
@@ -53,7 +53,7 @@ pub fn extract_text2d_sprite(
         1.
     };
 
-    for (entity, text, transform, calculated_size) in text2d_query.iter_mut() {
+    for (entity, text, transform, calculated_size) in text2d_query.iter() {
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {

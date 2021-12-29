@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -22,14 +22,13 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::warn, HashMap};
-use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -142,6 +141,9 @@ pub struct GpuLights {
 pub const MAX_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 // point light shadow maps for now
+#[cfg(feature = "webgl")]
+pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
+#[cfg(not(feature = "webgl"))]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
@@ -293,8 +295,8 @@ impl SpecializedPipeline for ShadowPipeline {
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
+                unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
@@ -540,6 +542,22 @@ pub enum LightEntity {
         face_index: usize,
     },
 }
+pub fn calculate_cluster_factors(
+    near: f32,
+    far: f32,
+    z_slices: f32,
+    is_orthographic: bool,
+) -> Vec2 {
+    if is_orthographic {
+        Vec2::new(-near, z_slices / (-far - -near))
+    } else {
+        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        Vec2::new(
+            z_slices_of_ln_zfar_over_znear,
+            near.ln() * z_slices_of_ln_zfar_over_znear,
+        )
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
@@ -571,14 +589,30 @@ pub fn prepare_lights(
 
     global_light_meta.gpu_point_lights.clear();
     global_light_meta.entity_to_index.clear();
-    let n_point_lights = point_lights.iter().count();
-    if global_light_meta.entity_to_index.capacity() < n_point_lights {
-        global_light_meta.entity_to_index.reserve(n_point_lights);
+
+    let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
+
+    // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
+    // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
+    point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+        light_1
+            .shadows_enabled
+            .cmp(&light_2.shadows_enabled)
+            .reverse()
+            .then_with(|| entity_1.cmp(entity_2))
+    });
+
+    if global_light_meta.entity_to_index.capacity() < point_lights.len() {
+        global_light_meta
+            .entity_to_index
+            .reserve(point_lights.len());
     }
+
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, (entity, light)) in point_lights.iter().enumerate() {
+    for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
-        if light.shadows_enabled {
+        // Lights are sorted, shadow enabled lights are first
+        if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
         gpu_point_lights[index] = GpuPointLight {
@@ -644,8 +678,14 @@ pub fn prepare_lights(
         );
         let mut view_lights = Vec::new();
 
-        let z_times_ln_far_over_near =
-            clusters.axis_slices.z as f32 / (extracted_view.far / extracted_view.near).ln();
+        let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
+        let cluster_factors_zw = calculate_cluster_factors(
+            extracted_view.near,
+            extracted_view.far,
+            clusters.axis_slices.z as f32,
+            is_orthographic,
+        );
+
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
@@ -653,71 +693,71 @@ pub fn prepare_lights(
             cluster_factors: Vec4::new(
                 clusters.axis_slices.x as f32 / extracted_view.width as f32,
                 clusters.axis_slices.y as f32 / extracted_view.height as f32,
-                z_times_ln_far_over_near,
-                extracted_view.near.ln() * z_times_ln_far_over_near,
+                cluster_factors_zw.x,
+                cluster_factors_zw.y,
             ),
             cluster_dimensions: clusters.axis_slices.extend(0),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        let mut point_light_count = 0;
-        for (light_entity, light) in point_lights.iter() {
-            if point_light_count < MAX_POINT_LIGHT_SHADOW_MAPS && light.shadows_enabled {
-                point_light_count += 1;
-                let light_index = *global_light_meta
-                    .entity_to_index
-                    .get(&light_entity)
-                    .unwrap();
-                // ignore scale because we don't want to effectively scale light radius and range
-                // by applying those as a view transform to shadow map rendering of objects
-                // and ignore rotation because we want the shadow map projections to align with the axes
-                let view_translation =
-                    GlobalTransform::from_translation(light.transform.translation);
+        for &(light_entity, light) in point_lights
+            .iter()
+            // Lights are sorted, shadow enabled lights are first
+            .take(MAX_POINT_LIGHT_SHADOW_MAPS)
+            .filter(|(_, light)| light.shadows_enabled)
+        {
+            let light_index = *global_light_meta
+                .entity_to_index
+                .get(&light_entity)
+                .unwrap();
+            // ignore scale because we don't want to effectively scale light radius and range
+            // by applying those as a view transform to shadow map rendering of objects
+            // and ignore rotation because we want the shadow map projections to align with the axes
+            let view_translation = GlobalTransform::from_translation(light.transform.translation);
 
-                for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
-                    let depth_texture_view =
-                        point_light_depth_texture
-                            .texture
-                            .create_view(&TextureViewDescriptor {
-                                label: Some("point_light_shadow_map_texture_view"),
-                                format: None,
-                                dimension: Some(TextureViewDimension::D2),
-                                aspect: TextureAspect::All,
-                                base_mip_level: 0,
-                                mip_level_count: None,
-                                base_array_layer: (light_index * 6 + face_index) as u32,
-                                array_layer_count: NonZeroU32::new(1),
-                            });
+            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
+                let depth_texture_view =
+                    point_light_depth_texture
+                        .texture
+                        .create_view(&TextureViewDescriptor {
+                            label: Some("point_light_shadow_map_texture_view"),
+                            format: None,
+                            dimension: Some(TextureViewDimension::D2),
+                            aspect: TextureAspect::All,
+                            base_mip_level: 0,
+                            mip_level_count: None,
+                            base_array_layer: (light_index * 6 + face_index) as u32,
+                            array_layer_count: NonZeroU32::new(1),
+                        });
 
-                    let view_light_entity = commands
-                        .spawn()
-                        .insert_bundle((
-                            ShadowView {
-                                depth_texture_view,
-                                pass_name: format!(
-                                    "shadow pass point light {} {}",
-                                    light_index,
-                                    face_index_to_name(face_index)
-                                ),
-                            },
-                            ExtractedView {
-                                width: point_light_shadow_map.size as u32,
-                                height: point_light_shadow_map.size as u32,
-                                transform: view_translation * *view_rotation,
-                                projection: cube_face_projection,
-                                near: POINT_LIGHT_NEAR_Z,
-                                far: light.range,
-                            },
-                            RenderPhase::<Shadow>::default(),
-                            LightEntity::Point {
-                                light_entity,
-                                face_index,
-                            },
-                        ))
-                        .id();
-                    view_lights.push(view_light_entity);
-                }
+                let view_light_entity = commands
+                    .spawn()
+                    .insert_bundle((
+                        ShadowView {
+                            depth_texture_view,
+                            pass_name: format!(
+                                "shadow pass point light {} {}",
+                                light_index,
+                                face_index_to_name(face_index)
+                            ),
+                        },
+                        ExtractedView {
+                            width: point_light_shadow_map.size as u32,
+                            height: point_light_shadow_map.size as u32,
+                            transform: view_translation * *view_rotation,
+                            projection: cube_face_projection,
+                            near: POINT_LIGHT_NEAR_Z,
+                            far: light.range,
+                        },
+                        RenderPhase::<Shadow>::default(),
+                        LightEntity::Point {
+                            light_entity,
+                            face_index,
+                        },
+                    ))
+                    .id();
+                view_lights.push(view_light_entity);
             }
         }
 
@@ -808,7 +848,10 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
+                    #[cfg(not(feature = "webgl"))]
                     dimension: Some(TextureViewDimension::CubeArray),
+                    #[cfg(feature = "webgl")]
+                    dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
                     mip_level_count: None,
@@ -820,7 +863,10 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
+                #[cfg(not(feature = "webgl"))]
                 dimension: Some(TextureViewDimension::D2Array),
+                #[cfg(feature = "webgl")]
+                dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -855,15 +901,16 @@ const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit say 128 point lights in one uniform
-// buffer, which means the count can be at most 128 so it
-// needs 7 bits, use 8 for convenience.
+// that means we can fit say 256 point lights in one uniform
+// buffer, which means the count can be at most 256 so it
+// needs 8 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
-// 16384 values. lod2(16384) = 21 bits.
+// 16384 values. log2(16384) = 14 bits.
 // This means we can pack the offset into the upper 24 bits of a u32
 // and the count into the lower 8 bits.
-// FIXME: Probably there are endianness concerns here????!!!!!
+// NOTE: This assumes CPU and GPU endianness are the same which is true
+// for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
         | (count as u32 & CLUSTER_COUNT_MASK)

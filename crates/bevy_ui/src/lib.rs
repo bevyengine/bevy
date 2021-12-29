@@ -26,7 +26,7 @@ use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::{Rect, Size};
 use bevy_transform::TransformSystem;
-use update::ui_z_system;
+use update::{ui_z_system, update_clipping_system};
 
 #[derive(Default)]
 pub struct UiPlugin;
@@ -55,6 +55,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
+            .register_type::<Overflow>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
@@ -89,6 +90,10 @@ impl Plugin for UiPlugin {
                 ui_z_system
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_clipping_system.after(TransformSystem::TransformPropagate),
             );
 
         crate::render::build_ui_render(app);

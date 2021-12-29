@@ -54,7 +54,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
         let prepare_asset_system = PrepareAssetSystem::<A>::system(&mut render_app.world);
         render_app
             .init_resource::<ExtractedAssets<A>>()

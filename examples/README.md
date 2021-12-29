@@ -84,6 +84,7 @@ Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`rect` | [`2d/rect.rs`](./2d/rect.rs) | Renders a rectangle
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
@@ -122,6 +123,7 @@ Example | File | Description
 `plugin_group` | [`app/plugin_group.rs`](./app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 `return_after_run` | [`app/return_after_run.rs`](./app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 `thread_pool_resources` | [`app/thread_pool_resources.rs`](./app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+`without_winit` | [`app/without_winit.rs`](./app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ## Assets
 
@@ -241,6 +243,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings

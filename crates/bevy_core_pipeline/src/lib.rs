@@ -33,8 +33,6 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-use crate::clear_pass::ClearPassNode;
-
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
@@ -90,7 +88,7 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>();
 
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Opaque3d>>()
