@@ -701,15 +701,12 @@ mod test {
 
         stage.add_system_set(State::<MyState>::get_driver());
 
-        stage.add_system_set(
-            SystemSet::on_in_stack_update(MyState::S1).with_system(
-                (|mut r: ResMut<u32>, mut s: ResMut<State<MyState>>| {
-                    *r += 1;
-                    s.push(MyState::S2).ok();
-                })
-                .system(),
-            ),
-        );
+        stage.add_system_set(SystemSet::on_in_stack_update(MyState::S1).with_system(
+            |mut counter: ResMut<u32>, mut state: ResMut<State<MyState>>| {
+                *counter += 1;
+                state.push(MyState::S2).ok();
+            },
+        ));
         stage.run(&mut world);
         stage.run(&mut world);
         // This is 3 even though we run twice, because the first actually does two so MyState::S2 is also updated.
