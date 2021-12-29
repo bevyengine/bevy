@@ -35,7 +35,7 @@ impl RenderDevice {
         self.device.limits()
     }
 
-    /// Creates a [ShaderModule](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
         self.device.create_shader_module(desc)

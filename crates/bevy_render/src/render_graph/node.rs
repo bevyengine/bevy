@@ -33,7 +33,7 @@ impl NodeId {
 ///
 /// Nodes are the fundamental part of the graph and used to extend its functionality, by
 /// generating draw calls and/or running subgraphs.
-/// They are added via the render_graph::add_node(my_node) methode.
+/// They are added via the `render_graph::add_node(my_node)` method.
 ///
 /// To determine their position in the graph and ensure that all required dependencies (inputs)
 /// are already executed, [`Edges`](Edge) are used.
