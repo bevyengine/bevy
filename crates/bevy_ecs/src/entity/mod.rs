@@ -78,25 +78,26 @@ impl Entity {
     /// Initializing a collection (e.g. `array` or `Vec`) with a known size:
     ///
     /// ```no_run
-    /// # use bevy::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// // Create a new array of size 10 and initialize it with (invalid) entities.
     /// let mut entities: [Entity; 10] = [Entity::from_raw(0); 10];
     ///
     /// // ... replace the entities with valid ones.
     /// ```
     ///
-    /// Deriving `Reflect` for a component that has an `Entity` field.
+    /// Deriving `Reflect` for a component that has an `Entity` field:
     ///
     /// ```no_run
-    /// # use bevy::prelude::*;
-    /// #[derive(Reflect)]
+    /// # use bevy_ecs::{prelude::*, component::*};
+    /// # use bevy_reflect::Reflect;
+    /// #[derive(Reflect, Component)]
     /// #[reflect(Component)]
     /// pub struct MyStruct {
     ///     pub entity: Entity,
     /// }
     ///
     /// impl FromWorld for MyStruct {
-    ///     fn from_world(_world: &mut bevy::prelude::World) -> Self {
+    ///     fn from_world(_world: &mut World) -> Self {
     ///         Self {
     ///             entity: Entity::from_raw(u32::MAX),
     ///         }
