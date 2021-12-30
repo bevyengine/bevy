@@ -200,7 +200,7 @@ impl ComponentDescriptor {
     pub fn new_resource<T: Resource>() -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
-            // NOTE: `SparseStorage` may actually be a more
+            // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
             is_send_and_sync: true,
