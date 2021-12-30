@@ -9,8 +9,7 @@ use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
-use wgpu::util::make_spirv;
-use wgpu::{ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
