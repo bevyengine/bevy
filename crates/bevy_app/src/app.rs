@@ -512,7 +512,7 @@ impl App {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
 
-    /// Adds a new [State] with the given `initial` value.
+    /// Adds a new [`State`] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
     /// your state in more than one stage, consider manually adding [`State::get_driver`] to the
