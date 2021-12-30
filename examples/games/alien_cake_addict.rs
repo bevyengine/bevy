@@ -339,7 +339,6 @@ fn spawn_bonus(
                     transform: Transform::from_xyz(0.0, 2.0, 0.0),
                     ..default()
                 });
-                children.spawn_scene(game.bonus.handle.clone());
             })
             .id(),
     );
