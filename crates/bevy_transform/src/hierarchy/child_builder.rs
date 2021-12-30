@@ -8,6 +8,28 @@ use bevy_ecs::{
 use smallvec::SmallVec;
 
 #[derive(Debug)]
+pub struct AddChild {
+    pub parent: Entity,
+    pub child: Entity,
+}
+
+impl Command for AddChild {
+    fn write(self, world: &mut World) {
+        world
+            .entity_mut(self.child)
+            // FIXME: don't erase the previous parent (see #1545)
+            .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
+        if let Some(mut children) = world.get_mut::<Children>(self.parent) {
+            children.0.push(self.child);
+        } else {
+            world
+                .entity_mut(self.parent)
+                .insert(Children(smallvec::smallvec![self.child]));
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct InsertChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -40,11 +62,6 @@ pub struct PushChildren {
     children: SmallVec<[Entity; 8]>,
 }
 
-pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
-    push_children: PushChildren,
-}
-
 impl Command for PushChildren {
     fn write(self, world: &mut World) {
         for child in self.children.iter() {
@@ -69,6 +86,46 @@ impl Command for PushChildren {
             }
         }
     }
+}
+
+pub struct RemoveChildren {
+    parent: Entity,
+    children: SmallVec<[Entity; 8]>,
+}
+
+fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
+    for child in children.iter() {
+        let mut child = world.entity_mut(*child);
+        let mut remove_parent = false;
+        if let Some(child_parent) = child.get_mut::<Parent>() {
+            if child_parent.0 == parent {
+                remove_parent = true;
+            }
+        }
+        if remove_parent {
+            if let Some(parent) = child.remove::<Parent>() {
+                child.insert(PreviousParent(parent.0));
+            }
+        }
+    }
+    // Remove the children from the parents.
+    if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+        parent_children
+            .0
+            .retain(|parent_child| !children.contains(parent_child));
+    }
+}
+
+impl Command for RemoveChildren {
+    fn write(self, world: &mut World) {
+        // Remove any matching Parent components from the children
+        remove_children(self.parent, &self.children, world);
+    }
+}
+
+pub struct ChildBuilder<'w, 's, 'a> {
+    commands: &'a mut Commands<'w, 's>,
+    push_children: PushChildren,
 }
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
@@ -98,6 +155,8 @@ pub trait BuildChildren {
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
+    fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -135,6 +194,21 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
             index,
             parent,
         });
+        self
+    }
+
+    fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(RemoveChildren {
+            children: SmallVec::from(children),
+            parent,
+        });
+        self
+    }
+
+    fn add_child(&mut self, child: Entity) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(AddChild { child, parent });
         self
     }
 }
@@ -196,6 +270,7 @@ pub trait BuildWorldChildren {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
+    fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
 }
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
@@ -260,6 +335,33 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         }
         self
     }
+
+    fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        // SAFE: This doesn't change the parent's location
+        let world = unsafe { self.world_mut() };
+        for child in children.iter() {
+            let mut child = world.entity_mut(*child);
+            let mut remove_parent = false;
+            if let Some(child_parent) = child.get_mut::<Parent>() {
+                if child_parent.0 == parent {
+                    remove_parent = true;
+                }
+            }
+            if remove_parent {
+                if let Some(parent) = child.remove::<Parent>() {
+                    child.insert(PreviousParent(parent.0));
+                }
+            }
+        }
+        // Remove the children from the parents.
+        if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+            parent_children
+                .0
+                .retain(|parent_child| !children.contains(parent_child));
+        }
+        self
+    }
 }
 
 impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
@@ -319,6 +421,15 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         }
         self
     }
+
+    fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self
+            .current_entity
+            .expect("Cannot remove children without a parent. Try creating an entity first.");
+
+        remove_children(parent, children, self.world);
+        self
+    }
 }
 
 #[cfg(test)]
@@ -369,7 +480,7 @@ mod tests {
     }
 
     #[test]
-    fn push_and_insert_children_commands() {
+    fn push_and_insert_and_remove_children_commands() {
         let mut world = World::default();
 
         let entities = world
@@ -427,10 +538,33 @@ mod tests {
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(parent)
         );
+
+        let remove_children = [child1, child4];
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent).remove_children(&remove_children);
+        }
+        queue.apply(&mut world);
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child3, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert!(world.get::<Parent>(child1).is_none());
+        assert!(world.get::<Parent>(child4).is_none());
+        assert_eq!(
+            *world.get::<PreviousParent>(child1).unwrap(),
+            PreviousParent(parent)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child4).unwrap(),
+            PreviousParent(parent)
+        );
     }
 
     #[test]
-    fn push_and_insert_children_world() {
+    fn push_and_insert_and_remove_children_world() {
         let mut world = World::default();
 
         let entities = world
@@ -472,6 +606,24 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(
             *world.get::<PreviousParent>(child3).unwrap(),
+            PreviousParent(parent)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child4).unwrap(),
+            PreviousParent(parent)
+        );
+
+        let remove_children = [child1, child4];
+        world.entity_mut(parent).remove_children(&remove_children);
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child3, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert!(world.get::<Parent>(child1).is_none());
+        assert!(world.get::<Parent>(child4).is_none());
+        assert_eq!(
+            *world.get::<PreviousParent>(child1).unwrap(),
             PreviousParent(parent)
         );
         assert_eq!(

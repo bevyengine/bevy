@@ -478,7 +478,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 // redundant copies
                 let move_result = self
                     .table
-                    .move_to_superset_unchecked(result.table_row, &mut *new_table);
+                    .move_to_superset_unchecked(result.table_row, *new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 self.entities.meta[entity.id as usize].location = new_location;
 

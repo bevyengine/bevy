@@ -6,6 +6,8 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
@@ -119,7 +121,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .clone();
         compute_pool.scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            scope.spawn(async {
+            let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
                     self.process_queued_systems().await;
@@ -141,7 +143,12 @@ impl ParallelSystemExecutor for ParallelExecutor {
                     }
                     self.update_counters_and_queue_systems();
                 }
-            });
+            };
+            #[cfg(feature = "trace")]
+            let span = bevy_utils::tracing::info_span!("parallel executor");
+            #[cfg(feature = "trace")]
+            let parallel_executor = parallel_executor.instrument(span);
+            scope.spawn(parallel_executor);
         });
     }
 }
@@ -150,6 +157,10 @@ impl ParallelExecutor {
     /// Calls system.new_archetype() for each archetype added since the last call to
     /// [update_archetypes] and updates cached archetype_component_access.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
+        #[cfg(feature = "trace")]
+        let span = bevy_utils::tracing::info_span!("update_archetypes");
+        #[cfg(feature = "trace")]
+        let _guard = span.enter();
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -171,19 +182,28 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope [ParallelSystemContainer],
+        systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {
+        #[cfg(feature = "trace")]
+        let span = bevy_utils::tracing::info_span!("prepare_systems");
+        #[cfg(feature = "trace")]
+        let _guard = span.enter();
         self.should_run.clear();
-        for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
+        for (index, (system_data, system)) in
+            self.system_metadata.iter_mut().zip(systems).enumerate()
+        {
             // Spawn the system task.
-            if systems[index].should_run() {
+            if system.should_run() {
                 self.should_run.set(index, true);
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
-                let system = unsafe { systems[index].system_mut_unsafe() };
+                let system = system.system_mut();
                 #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
                 let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
+                #[cfg(feature = "trace")]
+                let overhead_span =
+                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
                 let task = async move {
                     start_receiver
                         .recv()
@@ -199,6 +219,9 @@ impl ParallelExecutor {
                         .await
                         .unwrap_or_else(|error| unreachable!(error));
                 };
+
+                #[cfg(feature = "trace")]
+                let task = task.instrument(overhead_span);
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {

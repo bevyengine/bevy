@@ -1,11 +1,11 @@
 use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
 
-/// A [SystemLabel] can be applied as a label to systems and system sets,
+/// A [`SystemLabel`] can be applied as a label to systems and system sets,
 /// which can then be referred to from other systems.
 /// This is useful in case a user wants to e.g. run _before_ or _after_
 /// some label.
 /// `Clone`, `Hash`, `Debug`, `PartialEq`, `Eq`, are all required to derive
-/// [SystemLabel].
+/// [`SystemLabel`].
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 struct Physics;
 
@@ -16,7 +16,7 @@ struct PostPhysics;
 #[derive(Default)]
 struct Done(bool);
 
-/// This is used to show that within a [SystemSet], individual systems can also
+/// This is used to show that within a [`SystemSet`], individual systems can also
 /// be labelled, allowing further fine tuning of run ordering.
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub enum PhysicsSystem {
@@ -36,9 +36,9 @@ pub enum PhysicsSystem {
 ///     \--> exit
 /// ```
 ///
-/// The `Physics` label represents a [SystemSet] containing two systems.
+/// The `Physics` label represents a [`SystemSet`] containing two systems.
 /// This set's criteria is to stop after a second has elapsed.
-/// The two systems (update_velocity, movement) runs in a specified order.
+/// The two systems (`update_velocity`, `movement`) run in a specified order.
 ///
 /// Another label `PostPhysics` uses run criteria to only run after `Physics` has finished.
 /// This set's criteria is to run only when _not done_, as specified via a resource.
@@ -128,7 +128,7 @@ fn is_done(done: Res<Done>) -> ShouldRun {
     }
 }
 
-/// Used with [RunCritera::pipe], inverts the result of the
+/// Used with [`RunCritera::pipe`], inverts the result of the
 /// passed system.
 fn inverse(input: In<ShouldRun>) -> ShouldRun {
     match input.0 {

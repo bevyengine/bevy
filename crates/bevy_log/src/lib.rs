@@ -13,6 +13,7 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{App, Plugin};
+use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
@@ -45,6 +46,8 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
 /// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+/// If you define the `RUST_LOG` environment variable, the [`LogSettings`] resource
+/// will be ignored.
 ///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
@@ -61,7 +64,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 #[derive(Default)]
 pub struct LogPlugin;
 
-/// LogPlugin settings
+/// `LogPlugin` settings
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
@@ -86,7 +89,7 @@ impl Plugin for LogPlugin {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
-
+        LogTracer::init().unwrap();
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
