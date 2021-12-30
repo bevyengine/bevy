@@ -182,6 +182,10 @@ name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
 [[example]]
+name = "spherical_area_lights"
+path = "examples/3d/spherical_area_lights.rs"
+
+[[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
 
