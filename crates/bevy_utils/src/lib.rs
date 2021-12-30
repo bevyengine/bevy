@@ -32,10 +32,10 @@ impl std::hash::BuildHasher for FixedState {
     }
 }
 
-/// A [`HashMap`][std::collections::HashMap] implementing [aHash][aHash], a high
+/// A [`HashMap`][std::collections::HashMap] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// AHash is designed for performance and is NOT cryptographically secure.
+/// `aHash` is designed for performance and is NOT cryptographically secure.
 ///
 /// # Construction
 ///
@@ -68,7 +68,7 @@ impl std::hash::BuildHasher for FixedState {
 /// # }
 /// ```
 ///
-/// [aHash]: https://github.com/tkaitchuck/aHash
+/// [`aHash`]: https://github.com/tkaitchuck/aHash
 pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
 
 pub trait AHashExt {
@@ -76,7 +76,7 @@ pub trait AHashExt {
 }
 
 impl<K, V> AHashExt for HashMap<K, V> {
-    /// Creates an empty `HashMap` with the specified capacity with AHash.
+    /// Creates an empty `HashMap` with the specified capacity with aHash.
     ///
     /// The hash map will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash map will not allocate.
@@ -94,17 +94,17 @@ impl<K, V> AHashExt for HashMap<K, V> {
     }
 }
 
-/// A stable std hash map implementing AHash, a high speed keyed hashing algorithm
+/// A stable std hash map implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashMap`] this has an iteration order that only depends on the order
 /// of insertions and deletions and not a random source.
 ///
-/// AHash is designed for performance and is NOT cryptographically secure.
+/// `aHash` is designed for performance and is NOT cryptographically secure.
 pub type StableHashMap<K, V> = std::collections::HashMap<K, V, FixedState>;
 
 impl<K, V> AHashExt for StableHashMap<K, V> {
-    /// Creates an empty `StableHashMap` with the specified capacity with AHash.
+    /// Creates an empty `StableHashMap` with the specified capacity with `aHash`.
     ///
     /// The hash map will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash map will not allocate.
@@ -122,10 +122,10 @@ impl<K, V> AHashExt for StableHashMap<K, V> {
     }
 }
 
-/// A [`HashSet`][std::collections::HashSet] implementing [aHash][aHash], a high
+/// A [`HashSet`][std::collections::HashSet] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// AHash is designed for performance and is NOT cryptographically secure.
+/// `aHash` is designed for performance and is NOT cryptographically secure.
 ///
 /// # Construction
 ///
@@ -158,11 +158,11 @@ impl<K, V> AHashExt for StableHashMap<K, V> {
 /// # }
 /// ```
 ///
-/// [aHash]: https://github.com/tkaitchuck/aHash
+/// [`aHash`]: https://github.com/tkaitchuck/aHash
 pub type HashSet<K> = std::collections::HashSet<K, RandomState>;
 
 impl<K> AHashExt for HashSet<K> {
-    /// Creates an empty `HashSet` with the specified capacity with AHash.
+    /// Creates an empty `HashSet` with the specified capacity with aHash.
     ///
     /// The hash set will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash set will not allocate.
@@ -180,17 +180,17 @@ impl<K> AHashExt for HashSet<K> {
     }
 }
 
-/// A stable std hash set implementing AHash, a high speed keyed hashing algorithm
+/// A stable std hash set implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashSet`] this has an iteration order that only depends on the order
 /// of insertions and deletions and not a random source.
 ///
-/// AHash is designed for performance and is NOT cryptographically secure.
+/// `aHash` is designed for performance and is NOT cryptographically secure.
 pub type StableHashSet<K> = std::collections::HashSet<K, FixedState>;
 
 impl<K> AHashExt for StableHashSet<K> {
-    /// Creates an empty `StableHashSet` with the specified capacity with AHash.
+    /// Creates an empty `StableHashSet` with the specified capacity with `aHash`.
     ///
     /// The hash set will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash set will not allocate.
