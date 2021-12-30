@@ -201,7 +201,7 @@ impl ComponentDescriptor {
         Self {
             name: std::any::type_name::<T>().to_string(),
             // NOTE: `SparseStorage` may actually be a more
-            // resonable choice as `storage_type` for resources.
+            // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
