@@ -9,7 +9,7 @@ use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
-use wgpu::{ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -172,12 +172,7 @@ impl ProcessedShader {
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
-                ProcessedShader::SpirV(_) => {
-                    // TODO: we can probably just transmute the u8 array to u32?
-                    let reflection = self.reflect()?;
-                    let spirv = reflection.get_spirv()?;
-                    ShaderSource::SpirV(Cow::Owned(spirv))
-                }
+                ProcessedShader::SpirV(source) => make_spirv(source),
             },
         })
     }
