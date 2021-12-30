@@ -75,7 +75,10 @@ impl Node for MainPass2dNode {
         }
 
         graph
-            .set_output(MainPass2dNode::OUT_TEXTURE, target.hdr_texture.clone())
+            .set_output(
+                MainPass2dNode::OUT_TEXTURE,
+                target.main_texture.texture().clone(),
+            )
             .unwrap();
 
         Ok(())

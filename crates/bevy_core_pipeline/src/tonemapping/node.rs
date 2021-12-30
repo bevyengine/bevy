@@ -10,7 +10,7 @@ use bevy_render::{
         TextureViewId,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewTarget},
+    view::{ExtractedView, ViewMainTexture, ViewTarget},
 };
 
 use super::{TonemappingPipeline, TonemappingTarget};
@@ -64,6 +64,31 @@ impl Node for TonemappingNode {
         let render_pipeline_cache = world.get_resource::<RenderPipelineCache>().unwrap();
         let tonemapping_pipeline = world.get_resource::<TonemappingPipeline>().unwrap();
 
+        let (target, tonemapping_target) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => return Ok(()),
+        };
+
+        let pipeline = match render_pipeline_cache.get(tonemapping_target.pipeline) {
+            Some(pipeline) => pipeline,
+            None => return Ok(()),
+        };
+
+        let ldr_texture = match &target.main_texture {
+            ViewMainTexture::Hdr { ldr_texture, .. } => ldr_texture,
+            ViewMainTexture::Sdr { .. } => {
+                // non-hdr does tone mapping in the main pass node
+                let in_texture = in_texture.clone();
+                graph
+                    .set_output(
+                        TonemappingNode::OUT_TEXTURE,
+                        SlotValue::TextureView(in_texture),
+                    )
+                    .unwrap();
+                return Ok(());
+            }
+        };
+
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if in_texture.id() == *id => bind_group,
@@ -95,20 +120,10 @@ impl Node for TonemappingNode {
             }
         };
 
-        let (target, tonemapping_target) = match self.query.get_manual(world, view_entity) {
-            Ok(query) => query,
-            Err(_) => return Ok(()),
-        };
-
-        let pipeline = match render_pipeline_cache.get(tonemapping_target.pipeline) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
-        };
-
         let pass_descriptor = RenderPassDescriptor {
             label: Some("tonemapping_pass"),
             color_attachments: &[RenderPassColorAttachment {
-                view: &target.ldr_texture,
+                view: ldr_texture,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
@@ -129,7 +144,7 @@ impl Node for TonemappingNode {
         graph
             .set_output(
                 TonemappingNode::OUT_TEXTURE,
-                SlotValue::TextureView(target.ldr_texture.clone()),
+                SlotValue::TextureView(ldr_texture.clone()),
             )
             .unwrap();
 

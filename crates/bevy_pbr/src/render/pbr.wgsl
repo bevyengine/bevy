@@ -35,6 +35,10 @@
 #import bevy_pbr::mesh_view_bind_group
 #import bevy_pbr::mesh_struct
 
+#ifdef TONEMAPPING_IN_PBR_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
 [[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
 
@@ -156,8 +160,7 @@ fn fresnel(f0: vec3<f32>, LoH: f32) -> vec3<f32> {
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
-fn specular(f0: vec3<f32>, roughness: f32, h: vec3<f32>, NoV: f32, NoL: f32,
-              NoH: f32, LoH: f32, specularIntensity: f32) -> vec3<f32> {
+fn specular(f0: vec3<f32>, roughness: f32, h: vec3<f32>, NoV: f32, NoL: f32, NoH: f32, LoH: f32, specularIntensity: f32) -> vec3<f32> {
     let D = D_GGX(roughness, NoH, h);
     let V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     let F = fresnel(f0, LoH);
@@ -254,8 +257,15 @@ fn get_light_id(index: u32) -> u32 {
 }
 
 fn point_light(
-    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    world_position: vec3<f32>,
+    light: PointLight,
+    roughness: f32,
+    NdotV: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    diffuseColor: vec3<f32>,
 ) -> vec3<f32> {
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
@@ -611,6 +621,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         );
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     }
+
+    #ifdef TONEMAPPING_IN_PBR_SHADER
+    output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
+    #endif
 
     return output_color;
 }

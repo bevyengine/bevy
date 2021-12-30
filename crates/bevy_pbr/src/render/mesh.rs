@@ -368,6 +368,7 @@ bitflags::bitflags! {
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
+        const HDR                         = (1 << 2);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -382,6 +383,14 @@ impl MeshPipelineKey {
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         MeshPipelineKey::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            MeshPipelineKey::HDR
+        } else {
+            MeshPipelineKey::NONE
+        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -450,6 +459,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
+        if !key.contains(MeshPipelineKey::HDR) {
+            shader_defs.push("TONEMAPPING_IN_PBR_SHADER".to_string());
+        }
+
+        let format = match key.contains(MeshPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -462,7 +480,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 }],

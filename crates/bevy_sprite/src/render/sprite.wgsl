@@ -1,3 +1,7 @@
+#ifdef TONEMAPPING_IN_SPRITE_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
 struct View {
     view_proj: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -41,5 +45,10 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 #ifdef COLORED
     color = in.color * color;
 #endif
+
+#ifdef TONEMAPPING_IN_SPRITE_SHADER
+    color = vec4<f32>(reinhard_luminance(color.rgb), color.a);
+#endif
+
     return color;
 }

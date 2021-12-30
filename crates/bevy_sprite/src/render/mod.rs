@@ -22,8 +22,11 @@ use bevy_render::{
     },
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
+    texture::BevyDefault,
     texture::Image,
-    view::{Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{
+        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility,
+    },
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -91,6 +94,7 @@ bitflags::bitflags! {
     pub struct SpritePipelineKey: u32 {
         const NONE                        = 0;
         const COLORED                     = (1 << 0);
+        const HDR      = (1 << 1);
         const MSAA_RESERVED_BITS          = SpritePipelineKey::MSAA_MASK_BITS << SpritePipelineKey::MSAA_SHIFT_BITS;
     }
 }
@@ -106,6 +110,22 @@ impl SpritePipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+
+    pub fn from_colored(colored: bool) -> Self {
+        if colored {
+            SpritePipelineKey::COLORED
+        } else {
+            SpritePipelineKey::NONE
+        }
+    }
+
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            SpritePipelineKey::HDR
+        } else {
+            SpritePipelineKey::NONE
+        }
     }
 }
 
@@ -133,6 +153,15 @@ impl SpecializedPipeline for SpritePipeline {
             shader_defs.push("COLORED".to_string());
         }
 
+        if key.contains(SpritePipelineKey::HDR) {
+            shader_defs.push("TONEMAPPING_IN_SPRITE_SHADER".to_string());
+        }
+
+        let format = match key.contains(SpritePipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
@@ -145,7 +174,7 @@ impl SpecializedPipeline for SpritePipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 }],
@@ -344,7 +373,7 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -355,6 +384,8 @@ pub fn queue_sprites(
             AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
         };
     }
+
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;
@@ -373,20 +404,28 @@ pub fn queue_sprites(
         }));
 
         let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
-        let key = SpritePipelineKey::from_msaa_samples(msaa.samples);
-        let pipeline = pipelines.specialize(&mut pipeline_cache, &sprite_pipeline, key);
-        let colored_pipeline = pipelines.specialize(
-            &mut pipeline_cache,
-            &sprite_pipeline,
-            key | SpritePipelineKey::COLORED,
-        );
 
         // Vertex buffer indices
         let mut index = 0;
         let mut colored_index = 0;
 
         // FIXME: VisibleEntities is ignored
-        for mut transparent_phase in views.iter_mut() {
+        for (mut transparent_phase, view) in views.iter_mut() {
+            let pipeline = pipelines.specialize(
+                &mut pipeline_cache,
+                &sprite_pipeline,
+                SpritePipelineKey::from_colored(false)
+                    | SpritePipelineKey::from_hdr(view.hdr)
+                    | msaa_key,
+            );
+            let colored_pipeline = pipelines.specialize(
+                &mut pipeline_cache,
+                &sprite_pipeline,
+                SpritePipelineKey::from_colored(true)
+                    | SpritePipelineKey::from_hdr(view.hdr)
+                    | msaa_key,
+            );
+
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
 

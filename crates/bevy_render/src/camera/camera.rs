@@ -37,6 +37,7 @@ pub struct Camera {
     pub depth_calculation: DepthCalculation,
     pub near: f32,
     pub far: f32,
+    pub hdr: bool,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
@@ -307,6 +308,7 @@ pub fn extract_cameras<M: Component + Default>(
                         height: size.y.max(1),
                         near: camera.near,
                         far: camera.far,
+                        hdr: camera.hdr,
                     },
                     visible_entities.clone(),
                     M::default(),

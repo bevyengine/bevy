@@ -55,6 +55,7 @@ impl<M: Component + Default> PerspectiveCameraBundle<M> {
             camera: Camera {
                 near: perspective_projection.near,
                 far: perspective_projection.far,
+                hdr: true,
                 ..Default::default()
             },
             perspective_projection,
@@ -99,6 +100,7 @@ impl OrthographicCameraBundle<Camera3d> {
             camera: Camera {
                 near: orthographic_projection.near,
                 far: orthographic_projection.far,
+                hdr: true,
                 ..Default::default()
             },
             orthographic_projection,
@@ -151,6 +153,7 @@ impl OrthographicCameraBundle<Camera2d> {
             camera: Camera {
                 near: orthographic_projection.near,
                 far: orthographic_projection.far,
+                hdr: false,
                 ..Default::default()
             },
             orthographic_projection,

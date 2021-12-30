@@ -82,6 +82,7 @@ pub struct ExtractedView {
     pub height: u32,
     pub near: f32,
     pub far: f32,
+    pub hdr: bool,
 }
 
 #[derive(Clone, AsStd140)]
@@ -107,12 +108,31 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
+pub enum ViewMainTexture {
+    Hdr {
+        hdr_texture: TextureView,
+        sampled_hdr_texture: Option<TextureView>,
+
+        ldr_texture: TextureView,
+    },
+    Sdr {
+        texture: TextureView,
+        sampled_texture: Option<TextureView>,
+    },
+}
+
+impl ViewMainTexture {
+    pub fn texture(&self) -> &TextureView {
+        match self {
+            ViewMainTexture::Hdr { hdr_texture, .. } => hdr_texture,
+            ViewMainTexture::Sdr { texture, .. } => texture,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct ViewTarget {
-    pub hdr_texture: TextureView,
-    pub sampled_hdr_texture: Option<TextureView>,
-
-    pub ldr_texture: TextureView,
+    pub main_texture: ViewMainTexture,
     pub out_texture: TextureView,
 }
 
@@ -125,6 +145,7 @@ impl ViewTarget {
         msaa: &Msaa,
         size: UVec2,
         out_texture: TextureView,
+        hdr: bool,
     ) -> ViewTarget {
         let size = Extent3d {
             width: size.x,
@@ -132,66 +153,93 @@ impl ViewTarget {
             depth_or_array_layers: 1,
         };
 
-        let hdr_texture = texture_cache.get(
+        let main_texture_format = match hdr {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
+        let main_texture = texture_cache.get(
             render_device,
             TextureDescriptor {
-                label: Some("hdr_texture"),
+                label: Some("main_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: ViewTarget::TEXTURE_FORMAT_HDR,
+                format: main_texture_format,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             },
         );
 
-        let sampled_hdr_texture = (msaa.samples > 1).then(|| {
+        let sampled_main_texture = (msaa.samples > 1).then(|| {
             texture_cache
                 .get(
                     render_device,
                     TextureDescriptor {
-                        label: Some("hdr_texture_sampled"),
+                        label: Some("main_texture_sampled"),
                         size,
                         mip_level_count: 1,
                         sample_count: msaa.samples,
                         dimension: TextureDimension::D2,
-                        format: ViewTarget::TEXTURE_FORMAT_HDR,
+                        format: main_texture_format,
                         usage: TextureUsages::RENDER_ATTACHMENT,
                     },
                 )
                 .default_view
         });
 
-        let ldr_texture = texture_cache.get(
-            render_device,
-            TextureDescriptor {
-                label: Some("ldr_texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::bevy_default(),
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            },
-        );
+        let main_texture = if hdr {
+            let ldr_texture = texture_cache.get(
+                render_device,
+                TextureDescriptor {
+                    label: Some("ldr_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::bevy_default(),
+                    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                },
+            );
+
+            ViewMainTexture::Hdr {
+                hdr_texture: main_texture.default_view,
+                sampled_hdr_texture: sampled_main_texture,
+                ldr_texture: ldr_texture.default_view,
+            }
+        } else {
+            ViewMainTexture::Sdr {
+                texture: main_texture.default_view,
+                sampled_texture: sampled_main_texture,
+            }
+        };
 
         ViewTarget {
-            hdr_texture: hdr_texture.default_view,
-            sampled_hdr_texture,
-            ldr_texture: ldr_texture.default_view,
+            main_texture,
             out_texture,
         }
     }
 
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        match &self.sampled_hdr_texture {
+        let (target, sampled) = match &self.main_texture {
+            ViewMainTexture::Hdr {
+                hdr_texture,
+                sampled_hdr_texture,
+                ..
+            } => (hdr_texture, sampled_hdr_texture),
+            ViewMainTexture::Sdr {
+                texture,
+                sampled_texture,
+            } => (texture, sampled_texture),
+        };
+        match sampled {
             Some(sampled_target) => RenderPassColorAttachment {
                 view: sampled_target,
-                resolve_target: Some(&self.hdr_texture),
+                resolve_target: Some(target),
                 ops,
             },
             None => RenderPassColorAttachment {
-                view: &self.hdr_texture,
+                view: target,
                 resolve_target: None,
                 ops,
             },
@@ -247,9 +295,9 @@ fn prepare_view_targets(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(Entity, &ExtractedCamera)>,
+    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {
-    for (entity, camera) in cameras.iter() {
+    for (entity, camera, view) in cameras.iter() {
         if let Some(size) = camera.physical_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let view_target = ViewTarget::new(
@@ -258,6 +306,7 @@ fn prepare_view_targets(
                     &*msaa,
                     size,
                     texture_view.clone(),
+                    view.hdr,
                 );
 
                 /*let sampled_target = if msaa.samples > 1 {
