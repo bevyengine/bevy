@@ -110,9 +110,7 @@ impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         let mut options = app
-            .world
-            .get_resource::<options::WgpuOptions>()
-            .cloned()
+            .consume_initialization_resource::<options::WgpuOptions>()
             .unwrap_or_default();
 
         app.add_asset::<Shader>()
