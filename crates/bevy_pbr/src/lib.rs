@@ -68,7 +68,10 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl(include_str!("render/depth.wgsl")),
         );
 
-        app.add_plugin(MeshRenderPlugin)
+        app.register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<PointLight>()
+            .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .add_plugin(ExtractComponentPlugin::<Handle<StandardMaterial>>::default())
             .init_resource::<AmbientLight>()
