@@ -62,6 +62,7 @@ fn bench_for_each(c: &mut Criterion) {
 
     let mut v = (0..10000).collect::<Vec<usize>>();
     c.bench_function("for_each_iter", |b| {
+        #[allow(clippy::needless_for_each)]
         b.iter(|| {
             v.iter_mut().for_each(|x| {
                 busy_work(10000);
