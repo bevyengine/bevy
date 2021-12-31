@@ -105,7 +105,7 @@ fn insert_commands(criterion: &mut Criterion) {
 
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
-            for entity in entities.iter() {
+            for entity in &entities {
                 commands
                     .entity(*entity)
                     .insert_bundle((Matrix::default(), Vec3::default()));
@@ -125,7 +125,7 @@ fn insert_commands(criterion: &mut Criterion) {
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
             let mut values = Vec::with_capacity(entity_count);
-            for entity in entities.iter() {
+            for entity in &entities {
                 values.push((*entity, (Matrix::default(), Vec3::default())));
             }
             commands.insert_or_spawn_batch(values);
