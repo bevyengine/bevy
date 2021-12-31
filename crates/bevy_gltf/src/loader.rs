@@ -585,7 +585,7 @@ fn load_node(
                 gltf::khr_lights_punctual::Kind::Spot {
                     inner_cone_angle: _inner_cone_angle,
                     outer_cone_angle: _outer_cone_angle,
-                } => todo!(),
+                } => warn!("Spot lights are not yet supported."),
             }
         }
 
