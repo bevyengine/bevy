@@ -32,7 +32,7 @@ fn bench_overhead(c: &mut Criterion) {
     c.bench_function("overhead_iter", |b| {
         b.iter(|| {
             v.iter_mut().for_each(noop);
-        })
+        });
     });
 
     let mut v = (0..10000).collect::<Vec<usize>>();
@@ -45,7 +45,7 @@ fn bench_overhead(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     ParChunksMut(v.chunks_mut(100)).for_each(&pool, noop);
-                })
+                });
             },
         );
     }
@@ -67,7 +67,7 @@ fn bench_for_each(c: &mut Criterion) {
                 busy_work(10000);
                 *x *= *x;
             });
-        })
+        });
     });
 
     let mut v = (0..10000).collect::<Vec<usize>>();
@@ -83,7 +83,7 @@ fn bench_for_each(c: &mut Criterion) {
                         busy_work(10000);
                         *x *= *x;
                     });
-                })
+                });
             },
         );
     }
@@ -113,7 +113,7 @@ fn bench_many_maps(c: &mut Criterion) {
                 .map(|x| busy_doubles(x, 1000))
                 .map(|x| busy_doubles(x, 1000))
                 .for_each(drop);
-        })
+        });
     });
 
     let v = (0..10000).collect::<Vec<usize>>();
@@ -137,7 +137,7 @@ fn bench_many_maps(c: &mut Criterion) {
                         .map(|x| busy_doubles(x, 1000))
                         .map(|x| busy_doubles(x, 1000))
                         .for_each(&pool, drop);
-                })
+                });
             },
         );
     }
