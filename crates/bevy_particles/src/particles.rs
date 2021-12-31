@@ -78,7 +78,7 @@ impl Particles {
     ///
     /// # Panics
     /// Panics if the provided index is out of bounds.
-    pub fn get<'a>(&'a self, idx: usize) -> Particle<'a> {
+    pub fn get(&self, idx: usize) -> Particle<'_> {
         Particle {
             position: &self.positions[idx],
             velocity: &self.velocities[idx],
@@ -92,7 +92,7 @@ impl Particles {
     ///
     /// # Panics
     /// Panics if the provided index is out of bounds.
-    pub fn get_mut<'a>(&'a mut self, idx: usize) -> ParticleMut<'a> {
+    pub fn get_mut(&mut self, idx: usize) -> ParticleMut<'_> {
         ParticleMut {
             position: &mut self.positions[idx],
             size: &mut self.sizes[idx],
@@ -112,12 +112,11 @@ impl Particles {
     /// Spawns a batch of particles with the given parameters.
     #[inline(always)]
     pub fn spawn_batch(&mut self, batch: &[ParticleParams]) {
-        let iterator = batch.into_iter();
         let new_len = self.len() + batch.len();
         self.reserve(new_len);
         unsafe {
             let len = self.len();
-            for (idx, param) in iterator.enumerate() {
+            for (idx, param) in batch.iter().enumerate() {
                 self.spawn_unchecked(len + idx, param);
             }
             self.flush(new_len);
@@ -148,18 +147,22 @@ impl Particles {
         self.expirations.extend(batch.expirations);
     }
 
-    pub fn iter<'a>(&'a self) -> ParticleIter<'a> {
+    pub fn iter(&self) -> ParticleIter<'_> {
         ParticleIter {
             idx: 0,
             particles: self,
         }
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> ParticleIterMut<'a> {
+    pub fn iter_mut(&mut self) -> ParticleIterMut<'_> {
         ParticleIterMut {
             idx: 0,
             particles: self,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn len(&self) -> usize {
@@ -192,7 +195,7 @@ impl Particles {
     }
 
     pub fn compute_aabb(&self) -> Option<Aabb> {
-        if self.len() <= 0 {
+        if self.is_empty() {
             return None;
         }
 
@@ -220,7 +223,7 @@ impl Particles {
     pub fn advance_particles(&mut self, delta_time: f32) {
         self.lifetime += delta_time;
 
-        if self.len() <= 0 {
+        if self.is_empty() {
             return;
         }
 

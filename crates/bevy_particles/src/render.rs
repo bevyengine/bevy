@@ -330,7 +330,7 @@ fn extract_particles(
         if !visible.is_visible {
             continue;
         }
-        if let Some(ref material) = materials.get(material_handle) {
+        if let Some(material) = materials.get(material_handle) {
             if let Some(ref image) = material.base_color_texture {
                 if !images.contains(image) {
                     continue;
@@ -444,7 +444,7 @@ fn prepare_particles(
         .write_buffer(&render_device, &render_queue);
 }
 
-fn batch_copy<T: Pod>(src: &Vec<T>, dst: &mut BufferVec<T>) {
+fn batch_copy<T: Pod>(src: &[T], dst: &mut BufferVec<T>) {
     for item in src.iter() {
         dst.push(*item);
     }
@@ -514,7 +514,7 @@ fn queue_particles(
                     binding: 0,
                     resource: view_bindings,
                 }],
-                label: Some("particle_view_bind_group".into()),
+                label: Some("particle_view_bind_group"),
                 layout: &particle_pipeline.view_layout,
             })
         });
@@ -537,7 +537,7 @@ fn queue_particles(
                     resource: bind_buffer(&particle_meta.colors, particle_meta.total_count),
                 },
             ],
-            label: Some("particle_particle_bind_group".into()),
+            label: Some("particle_particle_bind_group"),
             layout: &particle_pipeline.particle_layout,
         }));
 
@@ -566,14 +566,14 @@ fn queue_particles(
                             },
                             BindGroupEntry {
                                 binding: 1,
-                                resource: BindingResource::TextureView(&base_color_texture_view),
+                                resource: BindingResource::TextureView(base_color_texture_view),
                             },
                             BindGroupEntry {
                                 binding: 2,
-                                resource: BindingResource::Sampler(&base_color_sampler),
+                                resource: BindingResource::Sampler(base_color_sampler),
                             },
                         ],
-                        label: Some("particle_material_bind_group".into()),
+                        label: Some("particle_material_bind_group"),
                         layout: &particle_pipeline.material_layout,
                     }),
                 );

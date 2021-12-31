@@ -22,27 +22,10 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Default, Debug, Clone, TypeUuid)]
 #[uuid = "0078f73d-8715-427e-aa65-dc8e1f485d3d"]
 pub struct ParticleMaterial {
     pub base_color_texture: Option<Handle<Image>>,
-}
-
-impl Default for ParticleMaterial {
-    fn default() -> Self {
-        Self {
-            base_color_texture: None,
-        }
-    }
-}
-
-impl From<Handle<Image>> for ParticleMaterial {
-    fn from(value: Handle<Image>) -> Self {
-        Self {
-            base_color_texture: Some(value),
-            ..Default::default()
-        }
-    }
 }
 
 pub(crate) struct ParticleMaterialPlugin;

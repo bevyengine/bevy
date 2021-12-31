@@ -47,6 +47,7 @@ git checkout v0.4.0
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Input](#input)
+  - [Particle Systems](#particle-systems)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -179,6 +180,12 @@ Example | File | Description
 --- | --- | ---
 `alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
+
+## Particle Systems
+
+Example | File | Description
+--- | --- | ---
+`particles-fireball` | [`particles/fireball.rs`](./particles/fireball.rs) | Basic fireball particle system.
 
 ## Input
 
