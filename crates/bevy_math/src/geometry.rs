@@ -2,15 +2,45 @@ use bevy_reflect::Reflect;
 use glam::Vec2;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-/// A two dimensional "size" as defined by a width and height
+/// A 2-dimensional area defined by a width and height.
+///
+/// It is commonly used to define the size of a text or UI element.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_math::Size;
+/// #
+/// let size = Size::<f32> {
+///     width: 1.0,
+///     height: 2.0,
+/// };
+///
+/// assert_eq!(size.width, 1.0);
+/// assert_eq!(size.height, 2.0);
+/// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size<T: Reflect + PartialEq = f32> {
+    /// The width of the 2-dimensional area.
     pub width: T,
+    /// The height of the 2-dimensional area.
     pub height: T,
 }
 
 impl<T: Reflect + PartialEq> Size<T> {
+    /// Creates a new [`Size`] from a width and a height.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_math::Size;
+    /// #
+    /// let size = Size::new(1.0, 2.0);
+    ///
+    /// assert_eq!(size.width, 1.0);
+    /// assert_eq!(size.height, 2.0);
+    /// ```
     pub fn new(width: T, height: T) -> Self {
         Size { width, height }
     }
@@ -25,17 +55,55 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
     }
 }
 
-/// A rect, as defined by its "side" locations
+/// A rectangle defined by its side locations.
+///
+/// It is commonly used to define positions, margins, paddings and borders.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_math::Rect;
+/// #
+/// let rect = Rect::<f32> {
+///     left: 1.0,
+///     right: 2.0,
+///     top: 3.0,
+///     bottom: 4.0,
+/// };
+///
+/// assert_eq!(rect.left, 1.0);
+/// assert_eq!(rect.right, 2.0);
+/// assert_eq!(rect.top, 3.0);
+/// assert_eq!(rect.bottom, 4.0);
+/// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Rect<T: Reflect + PartialEq> {
+    /// The left side of the rectangle.
     pub left: T,
+    /// The right side of the rectangle.
     pub right: T,
+    /// The top side of the rectangle.
     pub top: T,
+    /// The bottom side of the rectangle.
     pub bottom: T,
 }
 
 impl<T: Reflect + PartialEq> Rect<T> {
+    /// Creates a new [`Rect`] from a single value.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_math::Rect;
+    /// #
+    /// let rect = Rect::<f32>::all(1.0);
+    ///
+    /// assert_eq!(rect.left, 1.0);
+    /// assert_eq!(rect.right, 1.0);
+    /// assert_eq!(rect.top, 1.0);
+    /// assert_eq!(rect.bottom, 1.0);
+    /// ```
     pub fn all(value: T) -> Self
     where
         T: Clone,

@@ -1,3 +1,15 @@
+#![warn(missing_docs)]
+
+//! Provides math types and functionalities for the bevy game engine.
+//!
+//! The commonly used types are vectors, rectangles and sizes.
+//!
+//! # Example
+//!
+//! ```rust
+//! use bevy_math::prelude::*;
+//! ```
+
 mod face_toward;
 mod geometry;
 
@@ -5,6 +17,13 @@ pub use face_toward::*;
 pub use geometry::*;
 pub use glam::*;
 
+/// The bevy_math prelude.
+///
+/// # Example
+///
+/// ```rust
+/// use bevy_math::prelude::*;
+/// ```
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
