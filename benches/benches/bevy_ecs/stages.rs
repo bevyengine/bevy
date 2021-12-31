@@ -27,11 +27,13 @@ struct E(f32);
 const ENTITY_BUNCH: usize = 5000;
 
 fn empty_systems(criterion: &mut Criterion) {
+    fn empty() {}
+
     let mut world = World::new();
     let mut group = criterion.benchmark_group("empty_systems");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
-    fn empty() {}
+
     for amount in 0..5 {
         let mut stage = SystemStage::parallel();
         for _ in 0..amount {
