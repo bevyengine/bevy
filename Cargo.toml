@@ -34,6 +34,7 @@ dynamic = ["bevy_dylib"]
 # Rendering support
 render = [
   "bevy_internal/bevy_core_pipeline",
+  "bevy_internal/bevy_particles",
   "bevy_internal/bevy_pbr",
   "bevy_internal/bevy_gltf",
   "bevy_internal/bevy_render",
@@ -45,6 +46,11 @@ render = [
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_particles = ["bevy_internal/bevy_particles"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
@@ -243,6 +249,11 @@ path = "examples/app/thread_pool_resources.rs"
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
+
+# Particle Systems
+[[example]]
+name = "particles-fireball"
+path = "examples/particles/fireball.rs"
 
 # Assets
 [[example]]

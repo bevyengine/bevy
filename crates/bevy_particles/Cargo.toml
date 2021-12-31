@@ -1,0 +1,27 @@
+[package]
+name = "bevy_particles"
+version = "0.5.0"
+edition = "2021"
+description = "Adds particle systems to Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+wgpu = "0.12"
+bytemuck = { version = "1.7.0", features = ["derive"] }
+bitflags = "1.2"
+
+bevy_app = { path = "../bevy_app" }
+bevy_asset = { path = "../bevy_asset" }
+bevy_crevice = { path = "../bevy_crevice" }
+bevy_core = { path = "../bevy_core" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline" }
+bevy_ecs = { path = "../bevy_ecs" }
+bevy_math = { path = "../bevy_math" }
+bevy_reflect = { path = "../bevy_reflect" }
+bevy_render = { path = "../bevy_render" }
+bevy_tasks = { path = "../bevy_tasks" }
+bevy_transform = { path = "../bevy_transform" }

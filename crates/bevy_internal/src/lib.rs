@@ -104,6 +104,12 @@ pub mod gltf {
     pub use bevy_gltf::*;
 }
 
+#[cfg(feature = "bevy_particles")]
+pub mod particles {
+    //! Particle systems.
+    pub use bevy_particles::*;
+}
+
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.

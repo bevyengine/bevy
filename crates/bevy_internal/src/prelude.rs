@@ -42,3 +42,7 @@ pub use crate::dynamic_plugin::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_particles")]
+pub use crate::particles::prelude::*;

@@ -62,6 +62,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_gilrs")]
         group.add(bevy_gilrs::GilrsPlugin::default());
+
+        #[cfg(feature = "bevy_particles")]
+        group.add(bevy_particles::ParticlePlugin::default());
     }
 }
 
