@@ -95,7 +95,7 @@ fn insert_commands(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     let entity_count = 10_000;
-    group.bench_function(format!("insert"), |bencher| {
+    group.bench_function("insert", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
@@ -114,7 +114,7 @@ fn insert_commands(criterion: &mut Criterion) {
             command_queue.apply(&mut world);
         });
     });
-    group.bench_function(format!("insert_batch"), |bencher| {
+    group.bench_function("insert_batch", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
