@@ -9,7 +9,7 @@ where
     type Item = &'a T;
 
     fn next_batch(&mut self) -> Option<std::slice::Iter<'a, T>> {
-        self.0.next().map(|s| s.iter())
+        self.0.next().map(<[T]>::iter)
     }
 }
 
@@ -21,7 +21,7 @@ where
     type Item = &'a mut T;
 
     fn next_batch(&mut self) -> Option<std::slice::IterMut<'a, T>> {
-        self.0.next().map(|s| s.iter_mut())
+        self.0.next().map(<[T]>::iter_mut)
     }
 }
 
