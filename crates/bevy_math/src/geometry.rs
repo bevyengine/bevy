@@ -59,7 +59,15 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 ///
 /// It is commonly used to define positions, margins, paddings and borders.
 ///
+/// The values supplied define the distances from the nominal center of the
+/// rectangle to the edge. If any of the values supplied are negative the
+/// nominal center wouldn't be inside of the rectangle.
+///
 /// # Example
+///
+/// In the following example the rectangle has a left value of 1.0 and a right
+/// value of 2.0, which means that the width of the rectangle is 3.0. The actual
+/// center of this rectangle is offset by 0.5 to the right of the nominal center.
 ///
 /// ```rust
 /// # use bevy_math::Rect;
@@ -90,7 +98,7 @@ pub struct Rect<T: Reflect + PartialEq> {
 }
 
 impl<T: Reflect + PartialEq> Rect<T> {
-    /// Creates a new [`Rect`] from a single value.
+    /// Creates a new [`Rect`] where all sides are equidistant from the center.
     ///
     /// # Example
     ///
@@ -104,15 +112,15 @@ impl<T: Reflect + PartialEq> Rect<T> {
     /// assert_eq!(rect.top, 1.0);
     /// assert_eq!(rect.bottom, 1.0);
     /// ```
-    pub fn all(value: T) -> Self
+    pub fn all(distance_from_center: T) -> Self
     where
         T: Clone,
     {
         Rect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
-            bottom: value,
+            left: distance_from_center.clone(),
+            right: distance_from_center.clone(),
+            top: distance_from_center.clone(),
+            bottom: distance_from_center,
         }
     }
 }

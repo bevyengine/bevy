@@ -1,6 +1,6 @@
 use crate::{Mat4, Vec3};
 
-/// Implements a function to generate a translation / rotation matrix that faces a given target.
+/// Implements a function that generates a translation / rotation matrix that faces a given target.
 ///
 /// # Example
 ///
