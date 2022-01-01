@@ -259,7 +259,7 @@ impl Default for TaskPool {
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///
-/// For more information, see `TaskPool::scope` for usage.
+/// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
@@ -275,7 +275,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
     /// instead.
     ///
-    /// For more information, see [`TaskPool::scope`] for usage.
+    /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         let task = self.executor.spawn(f);
         self.spawned.push(task);
@@ -286,7 +286,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
     /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
     ///
-    /// For more information, see [`TaskPool::scope`] for usage.
+    /// For more information, see [`TaskPool::scope`].
     pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let task = self.local_executor.spawn(f);
         self.spawned.push(task);
