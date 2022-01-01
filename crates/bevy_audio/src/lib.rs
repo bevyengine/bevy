@@ -1,6 +1,6 @@
 //! Audio support for the game engine Bevy
 //!
-//! ```edition2021
+//! ```
 //! # use bevy_ecs::{system::Res, event::EventWriter};
 //! # use bevy_audio::{Audio, AudioPlugin};
 //! # use bevy_asset::{AssetPlugin, AssetServer};

@@ -5,7 +5,7 @@ use std::{collections::VecDeque, fmt};
 
 /// Use this resource to play audio
 ///
-/// ``` edition2021
+/// ```
 /// # use bevy_ecs::system::Res;
 /// # use bevy_asset::AssetServer;
 /// # use bevy_audio::Audio;
@@ -49,7 +49,7 @@ where
 {
     /// Play audio from a [`Handle`] to the audio source
     ///
-    /// ``` edition2021
+    /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
     /// # use bevy_audio::Audio;
