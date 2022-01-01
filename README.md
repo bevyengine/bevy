@@ -33,7 +33,8 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 * **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
-* **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: Tutorials, documentation, and examples made by the Bevy community.
+* **[Official Examples](https://github.com/bevyengine/bevy/tree/latest/examples):** Bevy's dedicated, runnable examples, which are great for digging into specific concepts.
+* **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: More tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
 
