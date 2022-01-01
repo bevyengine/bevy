@@ -1,7 +1,5 @@
 #![warn(missing_docs)]
-//! This module contains plugins for quickly setting up a Bevy app, as well as publicizing of the subcrates Bevy contains
-//!
-//! This module is separated into its own crate to enable simple dynamic linking for Bevy
+//! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
 pub mod prelude;
