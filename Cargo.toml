@@ -169,6 +169,10 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
+name = "debug_gltf"
+path = "examples/3d/debug_gltf.rs"
+
+[[example]]
 name = "many_cubes"
 path = "examples/3d/many_cubes.rs"
 
