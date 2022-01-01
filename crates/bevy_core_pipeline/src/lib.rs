@@ -327,7 +327,10 @@ impl CachedPipelinePhaseItem for Transparent3d {
     }
 }
 
-pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
+pub fn extract_clear_color(
+    clear_color: Res<ClearColor>,
+    mut render_world: NonSendMut<RenderWorld>,
+) {
     // If the clear color has changed
     if clear_color.is_changed() {
         // Update the clear color resource in the render world

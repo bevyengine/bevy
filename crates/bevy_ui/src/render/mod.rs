@@ -136,7 +136,7 @@ pub struct ExtractedUiNodes {
 }
 
 pub fn extract_uinodes(
-    mut render_world: ResMut<RenderWorld>,
+    mut render_world: NonSendMut<RenderWorld>,
     images: Res<Assets<Image>>,
     uinode_query: Query<(
         &Node,
@@ -173,7 +173,7 @@ pub fn extract_uinodes(
 }
 
 pub fn extract_text_uinodes(
-    mut render_world: ResMut<RenderWorld>,
+    mut render_world: NonSendMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,

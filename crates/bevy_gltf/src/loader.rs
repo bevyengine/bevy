@@ -302,8 +302,12 @@ async fn load_gltf<'a, 'b>(
         if let Some(Err(err)) = err {
             return Err(err);
         }
-        let scene_handle = load_context
-            .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
+        let scene_handle = load_context.set_labeled_asset(
+            &scene_label(&scene),
+            LoadedAsset::new(Scene {
+                turtle: world.turtle(),
+            }),
+        );
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());

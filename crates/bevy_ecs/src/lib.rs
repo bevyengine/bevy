@@ -1194,18 +1194,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn non_send_resource_panic() {
-        let mut world = World::default();
-        world.insert_non_send(0i32);
-        std::thread::spawn(move || {
-            let _ = world.get_non_send_resource_mut::<i32>();
-        })
-        .join()
-        .unwrap();
-    }
-
-    #[test]
     fn trackers_query() {
         let mut world = World::default();
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();

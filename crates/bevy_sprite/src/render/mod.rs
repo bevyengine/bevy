@@ -204,7 +204,7 @@ pub struct SpriteAssetEvents {
 }
 
 pub fn extract_sprite_events(
-    mut render_world: ResMut<RenderWorld>,
+    mut render_world: NonSendMut<RenderWorld>,
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
     let mut events = render_world
@@ -230,7 +230,7 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut render_world: ResMut<RenderWorld>,
+    mut render_world: NonSendMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
     atlas_query: Query<(

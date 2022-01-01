@@ -3,7 +3,7 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     query::{Changed, QueryState, With},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    system::{Local, NonSendMut, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
@@ -42,7 +42,7 @@ impl Default for Text2dBundle {
 }
 
 pub fn extract_text2d_sprite(
-    mut render_world: ResMut<RenderWorld>,
+    mut render_world: NonSendMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,

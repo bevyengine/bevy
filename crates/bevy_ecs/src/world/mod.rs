@@ -1142,6 +1142,17 @@ impl World {
         self.archetypes.clear_entities();
         self.entities.clear();
     }
+
+    pub fn turtle(self) -> Turtle {
+        let non_send = self.components().non_send_components().collect::<Vec<_>>();
+        for id in non_send {
+            assert!(
+                self.get_populated_resource_column(id).is_some(),
+                "Tried to create a Turtle from a World containing a !Send resource"
+            );
+        }
+        Turtle { world: self }
+    }
 }
 
 impl fmt::Debug for World {
@@ -1159,8 +1170,34 @@ impl fmt::Debug for World {
     }
 }
 
-unsafe impl Send for World {}
 unsafe impl Sync for World {}
+
+/// A world which does not contain any [`!Send`] resources, and therefore
+/// can be safely sent between threads
+///
+/// [`!Send`]: Send
+#[derive(Debug)]
+pub struct Turtle {
+    world: World,
+}
+
+unsafe impl Send for Turtle {}
+
+impl Turtle {
+    pub fn world(self) -> World {
+        self.world
+    }
+
+    pub fn world_ref(&self) -> &World {
+        &self.world
+    }
+}
+
+impl Into<World> for Turtle {
+    fn into(self) -> World {
+        self.world()
+    }
+}
 
 /// Creates `Self` using data from the given [World]
 pub trait FromWorld {

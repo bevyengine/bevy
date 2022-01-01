@@ -144,7 +144,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(options.clone())
-                .init_resource::<ScratchRenderWorld>()
+                .init_non_send_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
             let render_pipeline_cache = RenderPipelineCache::new(device.clone());
@@ -303,16 +303,16 @@ fn extract(app_world: &mut World, render_app: &mut App) {
         .unwrap();
 
     // temporarily add the render world to the app world as a resource
-    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
+    let scratch_world = app_world.remove_non_send::<ScratchRenderWorld>().unwrap();
     let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
-    app_world.insert_resource(RenderWorld(render_world));
+    app_world.insert_non_send(RenderWorld(render_world));
 
     extract.run(app_world);
 
     // add the render world back to the render app
-    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
+    let render_world = app_world.remove_non_send::<RenderWorld>().unwrap();
     let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
-    app_world.insert_resource(ScratchRenderWorld(scratch_world));
+    app_world.insert_non_send(ScratchRenderWorld(scratch_world));
 
     extract.apply_buffers(&mut render_app.world);
 }

@@ -154,15 +154,15 @@ impl SceneSpawner {
                         handle: scene_handle.clone(),
                     })?;
 
-            for archetype in scene.world.archetypes().iter() {
+            let scene_world = scene.turtle.world_ref();
+            for archetype in scene_world.archetypes().iter() {
                 for scene_entity in archetype.entities() {
                     let entity = *instance_info
                         .entity_map
                         .entry(*scene_entity)
                         .or_insert_with(|| world.spawn().id());
                     for component_id in archetype.components() {
-                        let component_info = scene
-                            .world
+                        let component_info = scene_world
                             .components()
                             .get_info(component_id)
                             .expect("component_ids in archetypes should have ComponentInfo");
@@ -180,7 +180,7 @@ impl SceneSpawner {
                                 })
                             })?;
                         reflect_component.copy_component(
-                            &scene.world,
+                            &scene_world,
                             world,
                             *scene_entity,
                             entity,

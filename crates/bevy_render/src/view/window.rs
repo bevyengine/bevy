@@ -67,7 +67,7 @@ impl DerefMut for ExtractedWindows {
     }
 }
 
-fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>) {
+fn extract_windows(mut render_world: NonSendMut<RenderWorld>, windows: Res<Windows>) {
     let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
         let (new_width, new_height) = (

@@ -347,6 +347,13 @@ impl Components {
 
         ComponentId(*index)
     }
+
+    pub(crate) fn non_send_components(&'_ self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|x| !x.is_send_and_sync())
+            .map(|x| x.id())
+    }
 }
 
 #[derive(Clone, Debug)]
