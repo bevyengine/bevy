@@ -284,9 +284,11 @@ async fn load_gltf<'a, 'b>(
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();
+    let mut scene_to_nodes = HashMap::default();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
+        let mut nodes_per_scene = vec![];
         world
             .spawn()
             .insert_bundle((Transform::identity(), GlobalTransform::identity()))
@@ -297,6 +299,7 @@ async fn load_gltf<'a, 'b>(
                         err = Some(result);
                         return;
                     }
+                    nodes_per_scene.push(nodes[node.index()].clone());
                 }
             });
         if let Some(Err(err)) = err {
@@ -308,7 +311,8 @@ async fn load_gltf<'a, 'b>(
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
         }
-        scenes.push(scene_handle);
+        scenes.push(scene_handle.clone());
+        scene_to_nodes.insert(scene_handle, nodes_per_scene);
     }
 
     load_context.set_default_asset(LoadedAsset::new(Gltf {
@@ -324,6 +328,7 @@ async fn load_gltf<'a, 'b>(
         named_materials,
         nodes,
         named_nodes,
+        scene_to_nodes,
     }));
 
     Ok(())
