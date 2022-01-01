@@ -42,7 +42,7 @@ Before contributing or participating in discussions with the community, you shou
 
 * **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
-* **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
+* **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions):** The best place for questions about Bevy, answered right here!
 * **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
 
 If you'd like to help build Bevy, check out the **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
