@@ -13,12 +13,9 @@ pub use adapters::*;
 /// using [`ParallelIterator`].
 pub trait ParallelIterator<B>
 where
-    B: Iterator<Item = Self::Item> + Send,
+    B: Iterator + Send,
     Self: Sized + Send,
 {
-    /// The type of item that is being iterated over.
-    type Item;
-
     /// Returns the next batch of items for processing.
     ///
     /// Each batch is an iterator with items of the same type as the
@@ -49,7 +46,7 @@ where
     /// Consumes the parallel iterator and returns the last item.
     ///
     /// See [`Iterator::last()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.last)
-    fn last(mut self, _pool: &TaskPool) -> Option<Self::Item> {
+    fn last(mut self, _pool: &TaskPool) -> Option<B::Item> {
         let mut last_item = None;
         while let Some(batch) = self.next_batch() {
             last_item = batch.last();
@@ -61,7 +58,7 @@ where
     ///
     /// See [`Iterator::nth()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.nth)
     // TODO: Optimize with size_hint on each batch
-    fn nth(mut self, _pool: &TaskPool, n: usize) -> Option<Self::Item> {
+    fn nth(mut self, _pool: &TaskPool, n: usize) -> Option<B::Item> {
         let mut i = 0;
         while let Some(batch) = self.next_batch() {
             for item in batch {
@@ -81,7 +78,7 @@ where
     // TODO: Use IntoParallelIterator for U
     fn chain<U>(self, other: U) -> Chain<Self, U>
     where
-        U: ParallelIterator<B, Item = Self::Item>,
+        U: ParallelIterator<B>,
     {
         Chain {
             left: self,
@@ -96,7 +93,7 @@ where
     /// See [`Iterator::map()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.map)
     fn map<T, F>(self, f: F) -> Map<Self, F>
     where
-        F: FnMut(Self::Item) -> T + Send + Clone,
+        F: FnMut(B::Item) -> T + Send + Clone,
     {
         Map { iter: self, f }
     }
@@ -106,7 +103,7 @@ where
     /// See [`Iterator::for_each()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.for_each)
     fn for_each<F>(mut self, pool: &TaskPool, f: F)
     where
-        F: FnMut(Self::Item) + Send + Clone + Sync,
+        F: FnMut(B::Item) + Send + Clone + Sync,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -124,7 +121,7 @@ where
     /// See [`Iterator::filter()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.filter)
     fn filter<F>(self, predicate: F) -> Filter<Self, F>
     where
-        F: FnMut(&Self::Item) -> bool,
+        F: FnMut(&B::Item) -> bool,
     {
         Filter {
             iter: self,
@@ -137,7 +134,7 @@ where
     /// See [`Iterator::filter_map()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.filter_map)
     fn filter_map<R, F>(self, f: F) -> FilterMap<Self, F>
     where
-        F: FnMut(Self::Item) -> Option<R>,
+        F: FnMut(B::Item) -> Option<R>,
     {
         FilterMap { iter: self, f }
     }
@@ -148,7 +145,7 @@ where
     /// See [`Iterator::flat_map()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.flat_map)
     fn flat_map<U, F>(self, f: F) -> FlatMap<Self, F>
     where
-        F: FnMut(Self::Item) -> U,
+        F: FnMut(B::Item) -> U,
         U: IntoIterator,
     {
         FlatMap { iter: self, f }
@@ -159,7 +156,7 @@ where
     /// See [`Iterator::flatten()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.flatten)
     fn flatten(self) -> Flatten<Self>
     where
-        Self::Item: IntoIterator,
+        B::Item: IntoIterator,
     {
         Flatten { iter: self }
     }
@@ -177,7 +174,7 @@ where
     /// See [`Iterator::inspect()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.inspect)
     fn inspect<F>(self, f: F) -> Inspect<Self, F>
     where
-        F: FnMut(&Self::Item),
+        F: FnMut(&B::Item),
     {
         Inspect { iter: self, f }
     }
@@ -195,8 +192,8 @@ where
     // TODO: Investigate optimizations for less copying
     fn collect<C>(mut self, pool: &TaskPool) -> C
     where
-        C: std::iter::FromIterator<Self::Item>,
-        Self::Item: Send + 'static,
+        C: std::iter::FromIterator<B::Item>,
+        B::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -214,9 +211,9 @@ where
     // TODO: Investigate optimizations for less copying
     fn partition<C, F>(mut self, pool: &TaskPool, f: F) -> (C, C)
     where
-        C: Default + Extend<Self::Item> + Send,
-        F: FnMut(&Self::Item) -> bool + Send + Sync + Clone,
-        Self::Item: Send + 'static,
+        C: Default + Extend<B::Item> + Send,
+        F: FnMut(&B::Item) -> bool + Send + Sync + Clone,
+        B::Item: Send + 'static,
     {
         let (mut a, mut b) = <(C, C)>::default();
         pool.scope(|s| {
@@ -242,7 +239,7 @@ where
     /// See [`Iterator::fold()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.fold)
     fn fold<C, F, D>(mut self, pool: &TaskPool, init: C, f: F) -> Vec<C>
     where
-        F: FnMut(C, Self::Item) -> C + Send + Sync + Clone,
+        F: FnMut(C, B::Item) -> C + Send + Sync + Clone,
         C: Clone + Send + Sync + 'static,
     {
         pool.scope(|s| {
@@ -261,7 +258,7 @@ where
     /// See [`Iterator::all()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.all)
     fn all<F>(mut self, pool: &TaskPool, f: F) -> bool
     where
-        F: FnMut(Self::Item) -> bool + Send + Sync + Clone,
+        F: FnMut(B::Item) -> bool + Send + Sync + Clone,
     {
         pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
@@ -280,7 +277,7 @@ where
     /// See [`Iterator::any()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.any)
     fn any<F>(mut self, pool: &TaskPool, f: F) -> bool
     where
-        F: FnMut(Self::Item) -> bool + Send + Sync + Clone,
+        F: FnMut(B::Item) -> bool + Send + Sync + Clone,
     {
         pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
@@ -300,7 +297,7 @@ where
     // TODO: Investigate optimizations for less copying
     fn position<F>(mut self, pool: &TaskPool, f: F) -> Option<usize>
     where
-        F: FnMut(Self::Item) -> bool + Send + Sync + Clone,
+        F: FnMut(B::Item) -> bool + Send + Sync + Clone,
     {
         let poses = pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -331,9 +328,9 @@ where
     /// Returns the maximum item of a parallel iterator.
     ///
     /// See [`Iterator::max()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max)
-    fn max(mut self, pool: &TaskPool) -> Option<Self::Item>
+    fn max(mut self, pool: &TaskPool) -> Option<B::Item>
     where
-        Self::Item: Ord + Send + 'static,
+        B::Item: Ord + Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -348,9 +345,9 @@ where
     /// Returns the minimum item of a parallel iterator.
     ///
     /// See [`Iterator::min()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min)
-    fn min(mut self, pool: &TaskPool) -> Option<Self::Item>
+    fn min(mut self, pool: &TaskPool) -> Option<B::Item>
     where
-        Self::Item: Ord + Send + 'static,
+        B::Item: Ord + Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -365,11 +362,11 @@ where
     /// Returns the item that gives the maximum value from the specified function.
     ///
     /// See [`Iterator::max_by_key()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max_by_key)
-    fn max_by_key<R, F>(mut self, pool: &TaskPool, f: F) -> Option<Self::Item>
+    fn max_by_key<R, F>(mut self, pool: &TaskPool, f: F) -> Option<B::Item>
     where
         R: Ord,
-        F: FnMut(&Self::Item) -> R + Send + Sync + Clone,
-        Self::Item: Send + 'static,
+        F: FnMut(&B::Item) -> R + Send + Sync + Clone,
+        B::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -386,10 +383,10 @@ where
     /// function.
     ///
     /// See [`Iterator::max_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max_by)
-    fn max_by<F>(mut self, pool: &TaskPool, f: F) -> Option<Self::Item>
+    fn max_by<F>(mut self, pool: &TaskPool, f: F) -> Option<B::Item>
     where
-        F: FnMut(&Self::Item, &Self::Item) -> std::cmp::Ordering + Send + Sync + Clone,
-        Self::Item: Send + 'static,
+        F: FnMut(&B::Item, &B::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        B::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -405,11 +402,11 @@ where
     /// Returns the item that gives the minimum value from the specified function.
     ///
     /// See [`Iterator::min_by_key()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min_by_key)
-    fn min_by_key<R, F>(mut self, pool: &TaskPool, f: F) -> Option<Self::Item>
+    fn min_by_key<R, F>(mut self, pool: &TaskPool, f: F) -> Option<B::Item>
     where
         R: Ord,
-        F: FnMut(&Self::Item) -> R + Send + Sync + Clone,
-        Self::Item: Send + 'static,
+        F: FnMut(&B::Item) -> R + Send + Sync + Clone,
+        B::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -426,10 +423,10 @@ where
     /// function.
     ///
     /// See [`Iterator::min_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min_by)
-    fn min_by<F>(mut self, pool: &TaskPool, f: F) -> Option<Self::Item>
+    fn min_by<F>(mut self, pool: &TaskPool, f: F) -> Option<B::Item>
     where
-        F: FnMut(&Self::Item, &Self::Item) -> std::cmp::Ordering + Send + Sync + Clone,
-        Self::Item: Send + 'static,
+        F: FnMut(&B::Item, &B::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        B::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -447,7 +444,7 @@ where
     /// See [`Iterator::copied()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.copied)
     fn copied<'a, T>(self) -> Copied<Self>
     where
-        Self: ParallelIterator<B, Item = &'a T>,
+        Self: ParallelIterator<B>,
         T: 'a + Copy,
     {
         Copied { iter: self }
@@ -458,7 +455,7 @@ where
     /// See [`Iterator::cloned()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.cloned)
     fn cloned<'a, T>(self) -> Cloned<Self>
     where
-        Self: ParallelIterator<B, Item = &'a T>,
+        Self: ParallelIterator<B>,
         T: 'a + Copy,
     {
         Cloned { iter: self }
@@ -482,7 +479,7 @@ where
     /// See [`Iterator::sum()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.sum)
     fn sum<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Sum<Self::Item> + Send + 'static,
+        S: std::iter::Sum<B::Item> + Send + 'static,
         R: std::iter::Sum<S>,
     {
         pool.scope(|s| {
@@ -499,7 +496,7 @@ where
     /// See [`Iterator::product()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.product)
     fn product<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Product<Self::Item> + Send + 'static,
+        S: std::iter::Product<B::Item> + Send + 'static,
         R: std::iter::Product<S>,
     {
         pool.scope(|s| {

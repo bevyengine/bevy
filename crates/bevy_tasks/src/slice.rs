@@ -2,9 +2,11 @@ use super::TaskPool;
 
 /// Provides functions for mapping read-only slices across a provided `TaskPool`.
 pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
-    /// Splits the slice into chunks of size `chunks_size` or less and queues up one task
-    /// per chunk on the provided `task_pool` and returns a mapped `Vec` of the collected
-    /// results.
+    /// Splits the slice in chunks of size `chunks_size` or less and maps the chunks
+    /// in parallel across the provided `task_pool`. One task is spawned in the task pool
+    /// for every chunk.
+    ///
+    /// Returns a `Vec` of the mapped results.
     ///
     /// # Example
     ///
@@ -42,12 +44,13 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         })
     }
 
-    /// Splits the slice into a maximum of `self.len() / max_tasks` chunks of approximately
-    /// equal size and queues one task per chunk on the provided `task_pool` and returns a
-    /// mapped `Vec` of the collected results.
+    /// Splits the slice into a maximum of `max_tasks` chunks, and maps the chunks in parallel
+    /// across the provided `task_pool`. One task is spawned in the task pool for every chunk.
     ///
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
+    ///
+    /// Returns a `Vec` of the mapped results.
     ///
     /// # Example
     ///
@@ -93,9 +96,11 @@ impl<S, T: Sync> ParallelSlice<T> for S where S: AsRef<[T]> {}
 
 /// Provides functions for mapping mutable slices across a provided `TaskPool`.
 pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
-    /// Splits the slice into chunks of size `chunks_size` or less and queues up one task
-    /// per chunk on the provided `task_pool` and returns a mapped `Vec` of the collected
-    /// results.
+    /// Splits the slice in chunks of size `chunks_size` or less and maps the chunks
+    /// in parallel across the provided `task_pool`. One task is spawned in the task pool
+    /// for every chunk.
+    ///
+    /// Returns a `Vec` of the mapped results.
     ///
     /// # Example
     ///
@@ -136,12 +141,13 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         })
     }
 
-    /// Splits the slice into a maximum of `self.len() / max_tasks` chunks of approximately
-    /// equal size and queues one task per chunk on the provided `task_pool` and returns a
-    /// mapped `Vec` of the collected results.
+    /// Splits the slice into a maximum of `max_tasks` chunks, and maps the chunks in parallel
+    /// across the provided `task_pool`. One task is spawned in the task pool for every chunk.
     ///
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
+    ///
+    /// Returns a `Vec` of the mapped results.
     ///
     /// # Example
     ///
