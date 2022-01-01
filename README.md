@@ -33,17 +33,17 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 * **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
-* **[Community-Made Learning Resources](https://github.com/bevyengine/awesome-bevy#learning)**: Tutorials, documentation, and examples made by the Bevy community.
+* **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: Tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
 
 Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and
-**[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**
+**[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
 
 * **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
 * **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
-* **[Awesome Bevy](https://github.com/bevyengine/awesome-bevy):** A collection of awesome Bevy projects.
+* **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
 
 ## Getting Started
 
