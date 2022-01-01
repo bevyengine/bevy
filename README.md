@@ -38,8 +38,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Community
 
-Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and
-**[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
 
 * **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
