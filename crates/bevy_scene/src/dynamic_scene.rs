@@ -27,7 +27,7 @@ pub struct DynamicEntity {
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
     pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
-        Self::from_world(&scene.turtle.world_ref(), type_registry)
+        Self::from_world(scene.turtle.world_ref(), type_registry)
     }
 
     /// Create a new dynamic scene from a given world.
