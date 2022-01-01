@@ -8,7 +8,7 @@ use std::{io::Cursor, sync::Arc};
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    pub bytes: Arc<[u8]>,
+    bytes: Arc<[u8]>,
 }
 
 impl AsRef<[u8]> for AudioSource {
@@ -17,11 +17,18 @@ impl AsRef<[u8]> for AudioSource {
     }
 }
 
-/// Loads mp3 files as [`AudioSource`] [`Assets`](bevy_asset::Assets)
+/// Loads files as [`AudioSource`] [`Assets`](bevy_asset::Assets)
+///
+/// This asset loader supports different audio formats based on the enable Bevy features.
+/// The feature `bevy/vorbis` enables loading from `.ogg` files and is enabled by default.
+/// Other file endings can be loaded from with additional features:
+/// `.mp3` with `bevy/mp3`
+/// `.flac` with `bevy/flac`
+/// `.wav` with `bevy/wav`
 #[derive(Default)]
-pub struct Mp3Loader;
+pub struct AudioLoader;
 
-impl AssetLoader for Mp3Loader {
+impl AssetLoader for AudioLoader {
     fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
         load_context.set_default_asset(LoadedAsset::new(AudioSource {
             bytes: bytes.into(),
@@ -43,9 +50,12 @@ impl AssetLoader for Mp3Loader {
     }
 }
 
+/// Mark a type as decodable
 pub trait Decodable: Send + Sync + 'static {
+    /// The decoder that can decode the implemeting type
     type Decoder;
 
+    /// Build and return a [`Self::Decoder`] for the implementing type
     fn decoder(&self) -> Self::Decoder;
 }
 
