@@ -38,12 +38,17 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Community
 
-Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md).
 
 * **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
 * **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
 * **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
+
+If you'd like to help build Bevy, check out the **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
+For simple problems, feel free to open an issue or PR and tackle it yourself!
+
+For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
 
 ## Getting Started
 
