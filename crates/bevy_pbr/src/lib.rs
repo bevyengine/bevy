@@ -19,7 +19,10 @@ pub mod prelude {
     pub use crate::{
         alpha::AlphaMode,
         bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
-        light::{AmbientLight, DirectionalLight, PointLight},
+        light::{
+            AmbientLight, DirectionalLight, DirectionalLightConfig, PointLight, PointLightConfig,
+            PointLightRange,
+        },
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -73,8 +76,8 @@ impl Plugin for PbrPlugin {
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
-            .init_resource::<DirectionalLightShadowMap>()
-            .init_resource::<PointLightShadowMap>()
+            .init_resource::<DirectionalLightConfig>()
+            .init_resource::<PointLightConfig>()
             .init_resource::<AmbientLight>()
             .init_resource::<VisiblePointLights>()
             .add_system_to_stage(
@@ -91,6 +94,12 @@ impl Plugin for PbrPlugin {
                 update_clusters
                     .label(SimulationLightSystems::UpdateClusters)
                     .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_point_light_ranges
+                    .label(SimulationLightSystems::UpdatePointLightRanges)
+                    .before(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

@@ -57,7 +57,7 @@ fn setup(
         transform: Transform::from_translation(Vec3::new(50.0, 50.0, 50.0)),
         point_light: PointLight {
             intensity: 600000.,
-            range: 100.,
+            range: PointLightRange::Manual(100.),
             ..Default::default()
         },
         ..Default::default()

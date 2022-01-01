@@ -79,7 +79,7 @@ fn setup(
         transform: Transform::from_xyz(5.0, 5.0, 0.0),
         point_light: PointLight {
             intensity: 0.0,
-            range: spawn_plane_depth,
+            range: PointLightRange::Manual(spawn_plane_depth),
             color: Color::WHITE,
             shadows_enabled: true,
             ..Default::default()

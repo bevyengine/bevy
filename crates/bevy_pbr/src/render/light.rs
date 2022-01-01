@@ -1,6 +1,6 @@
 use crate::{
-    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
-    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
+    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightConfig,
+    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightConfig, SetMeshBindGroup,
     VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
@@ -58,7 +58,7 @@ pub struct ExtractedPointLight {
     shadow_normal_bias: f32,
 }
 
-pub type ExtractedPointLightShadowMap = PointLightShadowMap;
+pub type ExtractedPointLightConfig = PointLightConfig;
 
 #[derive(Component)]
 pub struct ExtractedDirectionalLight {
@@ -73,7 +73,7 @@ pub struct ExtractedDirectionalLight {
     far: f32,
 }
 
-pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
+pub type ExtractedDirectionalLightConfig = DirectionalLightConfig;
 
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, Default, Debug)]
@@ -348,8 +348,8 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
-    point_light_shadow_map: Res<PointLightShadowMap>,
-    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
+    point_light_config: Res<PointLightConfig>,
+    directional_light_config: Res<DirectionalLightConfig>,
     global_point_lights: Res<VisiblePointLights>,
     // visible_point_lights: Query<&VisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
@@ -364,10 +364,10 @@ pub fn extract_lights(
         color: ambient_light.color,
         brightness: ambient_light.brightness,
     });
-    commands.insert_resource::<ExtractedPointLightShadowMap>(point_light_shadow_map.clone());
-    commands.insert_resource::<ExtractedDirectionalLightShadowMap>(
-        directional_light_shadow_map.clone(),
-    );
+    if point_light_config.is_added() || point_light_config.is_changed() {
+        commands.insert_resource::<ExtractedPointLightConfig>(point_light_config.clone());
+    }
+    commands.insert_resource::<ExtractedDirectionalLightConfig>(directional_light_config.clone());
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -375,7 +375,7 @@ pub fn extract_lights(
     // point_light_texel_size = 2.0 / cube face width in texels
     // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
-    let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
+    let point_light_texel_size = 2.0 / point_light_config.shadow_map_size as f32;
 
     for entity in global_point_lights.iter().copied() {
         if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
@@ -389,7 +389,7 @@ pub fn extract_lights(
                     // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
                     // for details.
                     intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-                    range: point_light.range,
+                    range: point_light.range().unwrap(),
                     radius: point_light.radius,
                     transform: *transform,
                     shadows_enabled: point_light.shadows_enabled,
@@ -416,7 +416,7 @@ pub fn extract_lights(
                     - directional_light.shadow_projection.bottom,
             );
         let directional_light_texel_size =
-            largest_dimension / directional_light_shadow_map.size as f32;
+            largest_dimension / directional_light_config.shadow_map_size as f32;
         let render_visible_entities = std::mem::take(visible_entities.into_inner());
         commands.get_or_spawn(entity).insert_bundle((
             ExtractedDirectionalLight {
@@ -572,8 +572,8 @@ pub fn prepare_lights(
         With<RenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<ExtractedAmbientLight>,
-    point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
-    directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
+    point_light_config: Res<ExtractedPointLightConfig>,
+    directional_light_config: Res<ExtractedDirectionalLightConfig>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
@@ -648,8 +648,8 @@ pub fn prepare_lights(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
-                    width: point_light_shadow_map.size as u32,
-                    height: point_light_shadow_map.size as u32,
+                    width: point_light_config.shadow_map_size as u32,
+                    height: point_light_config.shadow_map_size as u32,
                     depth_or_array_layers: POINT_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,
@@ -664,8 +664,8 @@ pub fn prepare_lights(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
-                    width: directional_light_shadow_map.size as u32,
-                    height: directional_light_shadow_map.size as u32,
+                    width: directional_light_config.shadow_map_size as u32,
+                    height: directional_light_config.shadow_map_size as u32,
                     depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,
@@ -743,8 +743,8 @@ pub fn prepare_lights(
                             ),
                         },
                         ExtractedView {
-                            width: point_light_shadow_map.size as u32,
-                            height: point_light_shadow_map.size as u32,
+                            width: point_light_config.shadow_map_size as u32,
+                            height: point_light_config.shadow_map_size as u32,
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
                             near: POINT_LIGHT_NEAR_Z,
@@ -828,8 +828,8 @@ pub fn prepare_lights(
                             pass_name: format!("shadow pass directional light {}", i),
                         },
                         ExtractedView {
-                            width: directional_light_shadow_map.size as u32,
-                            height: directional_light_shadow_map.size as u32,
+                            width: directional_light_config.shadow_map_size as u32,
+                            height: directional_light_config.shadow_map_size as u32,
                             transform: GlobalTransform::from_matrix(view.inverse()),
                             projection,
                             near: light.near,
@@ -1007,7 +1007,12 @@ pub fn prepare_clusters(
                                 if view_clusters_bindings.n_indices()
                                     >= ViewClusterBindings::MAX_INDICES
                                 {
-                                    warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                                    warn!(
+                                        "Cluster light index lists is full! The PointLights in the view are \
+                                        affecting too many clusters. If using automatic point light ranges, \
+                                        try increasing the PointLightConfig minimum_illuminance value until \
+                                        the warning stops. This will reduce the range of all such point lights."
+                                    );
                                     indices_full = true;
                                     break;
                                 }

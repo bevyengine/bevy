@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         point_light: PointLight {
             intensity: 3000.0,
             shadows_enabled: true,
-            range: 30.0,
+            range: PointLightRange::Manual(30.0),
             ..Default::default()
         },
         ..Default::default()
@@ -340,7 +340,7 @@ fn spawn_bonus(
                     point_light: PointLight {
                         color: Color::rgb(1.0, 1.0, 0.0),
                         intensity: 1000.0,
-                        range: 10.0,
+                        range: PointLightRange::Manual(10.0),
                         ..Default::default()
                     },
                     transform: Transform::from_xyz(0.0, 2.0, 0.0),

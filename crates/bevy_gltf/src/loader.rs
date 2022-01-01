@@ -8,7 +8,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    StandardMaterial,
+    PointLightRange, StandardMaterial,
 };
 use bevy_render::{
     camera::{
@@ -568,15 +568,18 @@ fn load_node(
                     });
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
+                    // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                    // candela (lm/sr) which is luminous intensity and we need luminous power.
+                    // For a point light, luminous power = 4 * pi * luminous intensity
+                    let luminous_power = light.intensity() * std::f32::consts::PI * 4.0;
                     parent.spawn_bundle(PointLightBundle {
                         point_light: PointLight {
                             color: Color::from(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a point light, luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
-                            range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
+                            intensity: luminous_power,
+                            range: match light.range() {
+                                Some(range) => PointLightRange::Manual(range),
+                                None => PointLightRange::default(),
+                            },
                             ..Default::default()
                         },
                         ..Default::default()

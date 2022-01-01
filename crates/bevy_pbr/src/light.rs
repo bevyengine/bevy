@@ -38,8 +38,13 @@ use crate::{
 #[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
+    /// Luminous power in lumens
+    /// (= 4 * pi * luminous intensity in lumens / steradian, for a point light)
     pub intensity: f32,
-    pub range: f32,
+    /// The distance from the light at which the intensity becomes 0
+    pub range: PointLightRange,
+    /// The radius of the light source itself. 0.0 means this is a point light. > 0.0 means this is a
+    /// spherical light where the light source itself has a size and is not just a point.
     pub radius: f32,
     pub shadows_enabled: bool,
     pub shadow_depth_bias: f32,
@@ -51,11 +56,13 @@ pub struct PointLight {
 
 impl Default for PointLight {
     fn default() -> Self {
+        // Luminous power in lumens. 800 lumens is roughly a 60W non-halogen incandescent
+        // bulb
+        let luminous_power = 800.0;
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            /// Luminous power in lumens
-            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
-            range: 20.0,
+            intensity: luminous_power,
+            range: PointLightRange::Automatic,
             radius: 0.0,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
@@ -67,16 +74,91 @@ impl Default for PointLight {
 impl PointLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+
+    /// Get the effective range of the point light
+    pub fn range(&self) -> Option<f32> {
+        match self.range {
+            PointLightRange::Automatic => None,
+            PointLightRange::CachedAutomatic(range) => Some(range),
+            PointLightRange::Manual(range) => Some(range),
+        }
+    }
+
+    // Update the effective range of the point light
+    fn update_range(&mut self, config: &PointLightConfig, config_changed: bool) {
+        match self.range {
+            PointLightRange::Automatic | PointLightRange::CachedAutomatic(_) if config_changed => {
+                self.range = PointLightRange::CachedAutomatic(Self::calculate_range(
+                    self.intensity,
+                    config.minimum_illuminance,
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    /// Calculate the range of a point light based on `luminous_power` (lumens)
+    /// and minimum illuminance (lumens / meter^2) using the inverse square
+    /// falloff equation as per:
+    /// https://google.github.io/filament/Filament.html#lighting/directlighting/punctuallights/attenuationfunction
+    pub fn calculate_range(luminous_power: f32, minimum_illuminance: f32) -> f32 {
+        let luminous_intensity = luminous_power / (4.0 * std::f32::consts::PI);
+        // NOTE: This is from solving the light falloff equation for the range. The equation
+        // is used in pbr.wgsl which is from the filament documentation
+        (luminous_intensity / minimum_illuminance).sqrt()
+    }
 }
 
-#[derive(Clone, Debug)]
-pub struct PointLightShadowMap {
-    pub size: usize,
+/// Effective range of a point light
+#[derive(Clone, Copy, Debug, Reflect)]
+pub enum PointLightRange {
+    /// Calculate the effective range based on the `PointLightConfig` minimum illuminance
+    Automatic,
+    /// The cached, automatically-calculated effective range
+    CachedAutomatic(f32),
+    /// A manually specified range
+    Manual(f32),
 }
 
-impl Default for PointLightShadowMap {
+impl Default for PointLightRange {
     fn default() -> Self {
-        Self { size: 1024 }
+        Self::Automatic
+    }
+}
+
+// NOTE: Must be run before assign lights to clusters as it updates the point light ranges!
+pub fn update_point_light_ranges(
+    point_light_config: Res<PointLightConfig>,
+    mut point_lights: Query<&mut PointLight>,
+) {
+    let config_changed = point_light_config.is_added() || point_light_config.is_changed();
+    let point_light_config = point_light_config.into_inner();
+    for mut point_light in point_lights.iter_mut() {
+        point_light.update_range(point_light_config, config_changed);
+    }
+}
+
+/// Global configuration for point lights
+#[derive(Clone, Debug)]
+pub struct PointLightConfig {
+    /// Illuminance (in lumens / meter^2) threshold used to calculate the effective
+    /// range of a `PointLight` based on its luminous power (in lumens).
+    pub minimum_illuminance: f32,
+    /// Width and height of each point light shadow map
+    pub shadow_map_size: usize,
+}
+
+impl Default for PointLightConfig {
+    fn default() -> Self {
+        Self {
+            // NOTE: This was empirically evaluated by removing the attenuation factor
+            // from the pbr.wgsl intensity falloff calculation resulting in only an
+            // inverse square falloff with distance. A range of dim and bright light
+            // sources were tested to find a safe minimum illuminance value that
+            // produced ranges working for all reasonable intensities.
+            minimum_illuminance: 0.1,
+            shadow_map_size: 1024,
+        }
     }
 }
 
@@ -147,17 +229,23 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
+/// Global configuration for directional lights
 #[derive(Clone, Debug)]
-pub struct DirectionalLightShadowMap {
-    pub size: usize,
+pub struct DirectionalLightConfig {
+    /// Width and height of each directional light shadow map
+    pub shadow_map_size: usize,
 }
 
-impl Default for DirectionalLightShadowMap {
+impl Default for DirectionalLightConfig {
     fn default() -> Self {
         #[cfg(feature = "webgl")]
-        return Self { size: 2048 };
+        return Self {
+            shadow_map_size: 2048,
+        };
         #[cfg(not(feature = "webgl"))]
-        return Self { size: 4096 };
+        return Self {
+            shadow_map_size: 4096,
+        };
     }
 }
 
@@ -187,6 +275,7 @@ pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SimulationLightSystems {
+    UpdatePointLightRanges,
     AddClusters,
     UpdateClusters,
     AssignLightsToClusters,
@@ -487,7 +576,7 @@ pub fn assign_lights_to_clusters(
         for (light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
                 center: light_transform.translation,
-                radius: light.range,
+                radius: light.range().unwrap(),
             };
 
             // Check if the light is within the view frustum
@@ -657,7 +746,7 @@ pub fn update_point_light_frusta(
                 &view_projection,
                 &transform.translation,
                 &view_backward,
-                point_light.range,
+                point_light.range().unwrap(),
             );
         }
     }
@@ -761,7 +850,7 @@ pub fn check_light_mesh_visibility(
                 let view_mask = maybe_view_mask.copied().unwrap_or_default();
                 let light_sphere = Sphere {
                     center: transform.translation,
-                    radius: point_light.range,
+                    radius: point_light.range().unwrap(),
                 };
 
                 for (

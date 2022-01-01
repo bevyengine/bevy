@@ -89,9 +89,9 @@ fn saturate(value: f32) -> f32 {
 }
 
 // distanceAttenuation is simply the square falloff of light intensity
-// combined with a smooth attenuation at the edge of the light radius
+// combined with a smooth attenuation at the edge of the light range
 //
-// light radius is a non-physical construct for efficiency purposes,
+// light range is a non-physical construct for efficiency purposes,
 // because otherwise every light affects every fragment in the scene
 fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
     let factor = distanceSquare * inverseRangeSquared;
