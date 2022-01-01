@@ -142,6 +142,7 @@ pub mod winit {
 
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
+    //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
 
