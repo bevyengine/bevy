@@ -7,7 +7,8 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
-/// Holds a reference to the parent entity of this entity, should only be present on entities that actually have a parent entity
+/// Holds a reference to the parent entity of this entity.
+/// This component should only be present on entities that actually have a parent entity.
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub Entity);
