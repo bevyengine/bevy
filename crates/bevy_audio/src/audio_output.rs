@@ -40,8 +40,6 @@ where
 impl<Source> AudioOutput<Source>
 where
     Source: Asset + Decodable,
-    <Source as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<Source as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     fn play_source(&self, audio_source: &Source) {
         if let Some(stream_handle) = &self.stream_handle {
@@ -72,8 +70,6 @@ where
 pub fn play_queued_audio_system<Source: Asset>(world: &mut World)
 where
     Source: Decodable,
-    <Source as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<Source as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     let world = world.cell();
     let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();

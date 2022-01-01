@@ -50,10 +50,12 @@ impl AssetLoader for AudioLoader {
     }
 }
 
-/// Mark a type as decodable
+/// A type implementing this trait can be decoded as a rodio source
 pub trait Decodable: Send + Sync + 'static {
     /// The decoder that can decode the implemeting type
-    type Decoder;
+    type Decoder: rodio::Source + Send + Sync + Iterator<Item = Self::DecoderItem>;
+    /// A single value given by the decoder
+    type DecoderItem: rodio::Sample + Send + Sync;
 
     /// Build and return a [`Self::Decoder`] for the implementing type
     fn decoder(&self) -> Self::Decoder;
@@ -61,6 +63,7 @@ pub trait Decodable: Send + Sync + 'static {
 
 impl Decodable for AudioSource {
     type Decoder = rodio::Decoder<Cursor<AudioSource>>;
+    type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
 
     fn decoder(&self) -> Self::Decoder {
         rodio::Decoder::new(Cursor::new(self.clone())).unwrap()

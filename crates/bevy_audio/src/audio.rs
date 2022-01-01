@@ -44,8 +44,6 @@ where
 impl<Source> Audio<Source>
 where
     Source: Asset + Decodable,
-    <Source as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<Source as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     /// Play audio from a [`Handle`] to the audio source
     ///
