@@ -16,6 +16,7 @@ where
     B: Iterator<Item = Self::Item> + Send,
     Self: Sized + Send,
 {
+    /// The type of item that is being iterated over.
     type Item;
 
     /// Returns the next batch of items for processing.

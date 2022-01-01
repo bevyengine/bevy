@@ -236,6 +236,11 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
+    /// Spawns a static future on the thread-local async executor for the current thread. The task
+    /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
+    /// It can also be cancelled and "detached" allowing it to continue running without having
+    /// to be polled by the end-user. Users should generally prefer to use `spawn` instead, unless
+    /// the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
@@ -250,6 +255,9 @@ impl Default for TaskPool {
     }
 }
 
+/// A `TaskPool` scope for running one or more non-`'static` futures.
+///
+/// For more information, see `TaskPool::scope` for usage.
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
@@ -258,11 +266,22 @@ pub struct Scope<'scope, T> {
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
+    /// Spawns a scoped future onto the thread pool. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// `TaskPool::scope`'s return value.
+    ///
+    /// For more information, see `TaskPool::scope` for usage.
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         let task = self.executor.spawn(f);
         self.spawned.push(task);
     }
 
+    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// `TaskPool::scope`'s return value.  Users should generally prefer to use `spawn` instead, unless
+    /// the provided future is not `Send`.
+    ///
+    /// For more information, see `TaskPool::scope` for usage.
     pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let task = self.local_executor.spawn(f);
         self.spawned.push(task);
