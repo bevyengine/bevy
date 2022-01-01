@@ -494,11 +494,12 @@ pub fn queue_sprites(
                     quad_size = custom_size;
                 }
 
-                // Apply size and global transform 
+                // Apply size and global transform
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
-                    .transform
-                    .mul_vec3((quad_pos * quad_size).extend(0.)).into()
+                        .transform
+                        .mul_vec3((quad_pos * quad_size).extend(0.))
+                        .into()
                 });
 
                 // These items will be sorted by depth with other phase items
