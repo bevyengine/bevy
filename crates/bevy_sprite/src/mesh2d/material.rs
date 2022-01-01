@@ -24,7 +24,7 @@ use bevy_render::{
         SpecializedPipeline, SpecializedPipelines,
     },
     renderer::RenderDevice,
-    view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
+    view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -265,20 +265,17 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
     material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(
-        &ExtractedView,
-        &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
-    )>,
+    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
-    for (view, visible_entities, mut transparent_phase) in views.iter_mut() {
+    if material2d_meshes.is_empty() {
+        return;
+    }
+    for (visible_entities, mut transparent_phase) in views.iter_mut() {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()
             .unwrap();
 
-        let inverse_view_matrix = view.transform.compute_matrix().inverse();
-        let inverse_view_row_2 = inverse_view_matrix.row(2);
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
@@ -302,9 +299,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                         (mesh2d_key, specialized_key),
                     );
 
-                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                    // gives the z component of translation of the mesh in view space
-                    let mesh_z = inverse_view_row_2.dot(mesh2d_uniform.transform.col(3));
+                    let mesh_z = mesh2d_uniform.transform.w_axis.z;
                     transparent_phase.add(Transparent2d {
                         entity: *visible_entity,
                         draw_function: draw_transparent_pbr,
@@ -314,6 +309,8 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                         // -z in front of the camera, the largest distance is -far with values increasing toward the
                         // camera. As such we can just use mesh_z as the distance
                         sort_key: FloatOrd(mesh_z),
+                        // This material is not batched
+                        batch_range: None,
                     });
                 }
             }

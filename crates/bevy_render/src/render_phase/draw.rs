@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_utils::HashMap;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{any::TypeId, fmt::Debug, hash::Hash};
+use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 
 /// A draw function which is used to draw a specific [`PhaseItem`].
 ///
@@ -164,6 +164,40 @@ pub trait EntityPhaseItem: PhaseItem {
 
 pub trait CachedPipelinePhaseItem: PhaseItem {
     fn cached_pipeline(&self) -> CachedPipelineId;
+}
+
+pub trait BatchedPhaseItem: EntityPhaseItem {
+    /// Range in the index buffer of this item
+    fn batch_range(&self) -> &Option<Range<u32>>;
+
+    /// Range in the index buffer of this item
+    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>>;
+
+    /// Batches another item within this item if they are compatible.
+    /// Items can be batched together if they have the same entity, and consecutive ranges.
+    /// If batching is successful, the `other` item should be discarded from the render pass.
+    #[inline]
+    fn add_to_batch(&mut self, other: &Self) -> BatchResult {
+        let self_entity = self.entity();
+        if let (Some(self_batch_range), Some(other_batch_range)) = (
+            self.batch_range_mut().as_mut(),
+            other.batch_range().as_ref(),
+        ) {
+            if self_entity == other.entity() && self_batch_range.end == other_batch_range.start {
+                // If the items are compatible, join their range into `self`
+                self_batch_range.end = other_batch_range.end;
+                return BatchResult::Success;
+            }
+        }
+        BatchResult::IncompatibleItems
+    }
+}
+
+pub enum BatchResult {
+    /// The `other` item was batched into `self`
+    Success,
+    /// `self` and `other` cannot be batched together
+    IncompatibleItems,
 }
 
 impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {

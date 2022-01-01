@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::{GpuBufferInfo, Mesh},
@@ -15,11 +15,9 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-    RenderApp, RenderStage, RenderWorld,
+    RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-
-use crate::{Extracted2dItem, Extracted2dItems, SpriteSystem};
 
 #[derive(Default, Clone, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
@@ -63,10 +61,7 @@ impl Plugin for Mesh2dRenderPlugin {
         app.sub_app_mut(RenderApp)
             .init_resource::<Mesh2dPipeline>()
             .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
-            .add_system_to_stage(
-                RenderStage::Extract,
-                extract_mesh2d.after(SpriteSystem::ExtractSprites),
-            )
+            .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
             .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
     }
@@ -90,19 +85,16 @@ bitflags::bitflags! {
 }
 
 pub fn extract_mesh2d(
-    mut render_world: ResMut<RenderWorld>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<Extracted2dItems>().unwrap();
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, transform, handle) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
         let transform = transform.compute_matrix();
-        let z = transform.col(3).z;
         values.push((
             entity,
             (
@@ -114,9 +106,6 @@ pub fn extract_mesh2d(
                 },
             ),
         ));
-        // Break sprite batches
-        // FIXME: this doesn't account for camera position
-        extracted_sprites.items.push(Extracted2dItem::Other { z });
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -202,6 +191,10 @@ impl FromWorld for Mesh2dPipeline {
                 texture,
                 texture_view,
                 sampler,
+                size: Size::new(
+                    image.texture_descriptor.size.width as f32,
+                    image.texture_descriptor.size.height as f32,
+                ),
             }
         };
         Mesh2dPipeline {

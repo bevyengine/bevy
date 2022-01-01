@@ -48,7 +48,6 @@ pub const SPRITE_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SpriteSystem {
     ExtractSprites,
-    PrepareSprites,
 }
 
 impl Plugin for SpritePlugin {
@@ -66,7 +65,7 @@ impl Plugin for SpritePlugin {
             .init_resource::<SpritePipeline>()
             .init_resource::<SpecializedPipelines<SpritePipeline>>()
             .init_resource::<SpriteMeta>()
-            .init_resource::<Extracted2dItems>()
+            .init_resource::<ExtractedSprites>()
             .init_resource::<SpriteAssetEvents>()
             .add_render_command::<Transparent2d, DrawSprite>()
             .add_system_to_stage(
@@ -74,10 +73,6 @@ impl Plugin for SpritePlugin {
                 render::extract_sprites.label(SpriteSystem::ExtractSprites),
             )
             .add_system_to_stage(RenderStage::Extract, render::extract_sprite_events)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                render::prepare_sprites.label(SpriteSystem::PrepareSprites),
-            )
             .add_system_to_stage(RenderStage::Queue, queue_sprites);
     }
 }
