@@ -259,7 +259,7 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Spawns an entity with no components and inserts in into the children defined by the WorldChildBuilder (adding the Parent component to it)
+    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the WorldChildBuilder which adds the [`Parent`] component to it.
     pub fn spawn(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self
