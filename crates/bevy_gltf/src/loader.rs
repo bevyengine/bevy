@@ -288,7 +288,7 @@ async fn load_gltf<'a, 'b>(
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let mut nodes_per_scene = vec![];
+        let mut nodes_per_scene = Vec::with_capacity(scene.nodes().count());
         world
             .spawn()
             .insert_bundle((Transform::identity(), GlobalTransform::identity()))
