@@ -143,7 +143,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
         e
     }
 
-    /// Spawns an entity with no components and inserts in into the children defined by the ChildBuilder (adding the Parent component to it)
+    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the ChildBuilder which adds the [`Parent`] component to it.
     pub fn spawn(&mut self) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn();
         self.push_children.children.push(e.id());
