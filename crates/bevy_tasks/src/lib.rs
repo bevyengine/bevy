@@ -80,7 +80,7 @@ pub fn logical_core_count() -> usize {
 ///
 /// Physical count is supported only on Linux, mac OS and Windows platforms.
 /// On other platforms, or if the physical count fails on supported platforms,
-/// this function returns the same as [`get()`], which is the number of logical
+/// this function returns the same as [`logical_core_count()`], which is the number of logical
 /// CPUS.
 ///
 /// # Examples

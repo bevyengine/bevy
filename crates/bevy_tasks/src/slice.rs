@@ -26,8 +26,8 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     ///
     /// # See Also
     ///
-    /// `ParallelSliceMut::par_chunk_map_mut` for mapping mutable slices.
-    /// `ParallelSlice::par_splat_map` for mapping when a specific chunk size is unknown.
+    /// [`ParallelSliceMut::par_chunk_map_mut`] for mapping mutable slices.
+    /// [`ParallelSlice::par_splat_map`] for mapping when a specific chunk size is unknown.
     fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
@@ -69,8 +69,8 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     ///
     /// # See Also
     ///
-    /// `ParallelSliceMut::par_splat_map` for mapping mutable slices.
-    /// `ParallelSlice::par_chunk_map` for mapping when a specific chunk size is desirable.
+    /// [`ParallelSliceMut::par_splat_map_mut`] for mapping mutable slices.
+    /// [`ParallelSlice::par_chunk_map`] for mapping when a specific chunk size is desirable.
     fn par_splat_map<F, R>(&self, task_pool: &TaskPool, max_tasks: Option<usize>, f: F) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
@@ -120,8 +120,8 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     ///
     /// # See Also
     ///
-    /// `ParallelSlice::par_chunk_map` for mapping immutable slices.
-    /// `ParallelSliceMut::par_splat_map` for mapping when a specific chunk size is unknown.
+    /// [`ParallelSlice::par_chunk_map`] for mapping immutable slices.
+    /// [`ParallelSliceMut::par_splat_map_mut`] for mapping when a specific chunk size is unknown.
     fn par_chunk_map_mut<F, R>(&mut self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(&mut [T]) -> R + Send + Sync,
@@ -166,8 +166,8 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     ///
     /// # See Also
     ///
-    /// `ParallelSlice::par_splat_map` for mapping immutable slices.
-    /// `ParallelSliceMut::par_chunk_map` for mapping when a specific chunk size is desirable.
+    /// [`ParallelSlice::par_splat_map`] for mapping immutable slices.
+    /// [`ParallelSliceMut::par_chunk_map_mut`] for mapping when a specific chunk size is desirable.
     fn par_splat_map_mut<F, R>(
         &mut self,
         task_pool: &TaskPool,
