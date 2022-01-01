@@ -38,7 +38,6 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
-    render_component::ExtractComponentPlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
@@ -70,7 +69,6 @@ impl Plugin for PbrPlugin {
 
         app.add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
-            .add_plugin(ExtractComponentPlugin::<Handle<StandardMaterial>>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
