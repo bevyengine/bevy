@@ -27,7 +27,6 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 ## About
 
 * **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
-* **[Roadmap](https://github.com/bevyengine/bevy/projects/1):** The Bevy team's development plan.
 * **[Introducing Bevy](https://bevyengine.org/news/introducing-bevy/)**: A blog post covering some of Bevy's features
 
 ## Docs
@@ -63,16 +62,6 @@ cargo run --example breakout
 ### Fast Compiles
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
-
-## Focus Areas
-
-Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas, and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
-
-### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
-
-### [PBR / Clustered Forward Rendering](https://github.com/bevyengine/bevy/issues/179)
-
-### [Scenes](https://github.com/bevyengine/bevy/issues/255)
 
 ## Libraries Used
 
