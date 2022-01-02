@@ -123,7 +123,7 @@ impl FromWorld for ColoredMesh2dPipeline {
     }
 }
 
-// We implement `SpecializedPipeline` tp customize the default rendering from `Mesh2dPipeline`
+// We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
 impl SpecializedPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
