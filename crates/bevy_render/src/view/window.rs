@@ -44,6 +44,7 @@ pub struct ExtractedWindow {
     pub vsync: bool,
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
+    pub scale_factor: f64,
 }
 
 #[derive(Default)]
@@ -84,6 +85,7 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
                     vsync: window.vsync(),
                     swap_chain_texture: None,
                     size_changed: false,
+                    scale_factor: window.scale_factor(),
                 });
 
         // NOTE: Drop the swap chain frame here

@@ -23,14 +23,14 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ViewUniforms, Visibility},
+    view::{ExtractedWindows, ViewUniforms, Visibility},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use bevy_window::Windows;
+use bevy_window::{WindowId, Windows};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -276,8 +276,15 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    extracted_windows: Res<ExtractedWindows>,
 ) {
     ui_meta.vertices.clear();
+
+    let scale_factor = if let Some(extracted_window) = extracted_windows.get(&WindowId::primary()) {
+        extracted_window.scale_factor as f32
+    } else {
+        return;
+    };
 
     // sort by increasing z for correct transparency
     extracted_uinodes
@@ -341,30 +348,35 @@ pub fn prepare_uinodes(
         ];
 
         // Cull nodes that are completely clipped
-        if positions_diff[0].x - positions_diff[1].x >= rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= rect_size.y
+        if positions_clipped[0].x >= positions_clipped[1].x
+            || positions_clipped[1].y >= positions_clipped[2].y
         {
             continue;
         }
 
         // Clip UVs (Note: y is reversed in UV space)
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+        let uv_scale = if extracted_uinode.atlas_size.is_some() {
+            scale_factor
+        } else {
+            1.0
+        };
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
+                uinode_rect.min.x + positions_diff[0].x * uv_scale,
+                uinode_rect.max.y - positions_diff[0].y * uv_scale,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.max.x + positions_diff[1].x * uv_scale,
+                uinode_rect.max.y - positions_diff[1].y * uv_scale,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.min.y - positions_diff[2].y,
+                uinode_rect.max.x + positions_diff[2].x * uv_scale,
+                uinode_rect.min.y - positions_diff[2].y * uv_scale,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.min.x + positions_diff[3].x * uv_scale,
+                uinode_rect.min.y - positions_diff[3].y * uv_scale,
             ),
         ]
         .map(|pos| pos / atlas_extent);
