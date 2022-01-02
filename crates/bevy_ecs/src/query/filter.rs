@@ -577,7 +577,7 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
-                        let ticks = (&*self.sparse_set).get_ticks(entity).cloned().unwrap();
+                        let ticks = (&*(&*self.sparse_set).get_ticks_ptr(entity).unwrap()).clone();
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

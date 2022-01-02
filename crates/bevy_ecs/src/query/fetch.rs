@@ -998,9 +998,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: unsafe {
-                        (&*(&*self.sparse_set).get_ticks_ptr(entity).unwrap()).clone()
-                    },
+                    component_ticks: (&*(&*self.sparse_set).get_ticks_ptr(entity).unwrap()).clone(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
