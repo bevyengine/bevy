@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(animate_translation)
@@ -10,8 +10,11 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct AnimateTranslation;
+#[derive(Component)]
 struct AnimateRotation;
+#[derive(Component)]
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

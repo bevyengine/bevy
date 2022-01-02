@@ -27,7 +27,7 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
-/// A timeline of [DiagnosticMeasurement]s of a specific type.
+/// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
 pub struct Diagnostic {
@@ -118,6 +118,14 @@ impl Diagnostic {
 
     pub fn get_max_history_length(&self) -> usize {
         self.max_history_length
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &f64> {
+        self.history.iter().map(|x| &x.value)
+    }
+
+    pub fn measurements(&self) -> impl Iterator<Item = &DiagnosticMeasurement> {
+        self.history.iter()
     }
 }
 

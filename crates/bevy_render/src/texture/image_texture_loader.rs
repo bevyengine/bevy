@@ -1,27 +1,15 @@
-use super::texture::{ImageType, Texture, TextureError};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
 use thiserror::Error;
 
+use crate::texture::{Image, ImageType, TextureError};
+
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-const FILE_EXTENSIONS: &[&str] = &[
-    #[cfg(feature = "png")]
-    "png",
-    #[cfg(feature = "dds")]
-    "dds",
-    #[cfg(feature = "tga")]
-    "tga",
-    #[cfg(feature = "jpeg")]
-    "jpg",
-    #[cfg(feature = "jpeg")]
-    "jpeg",
-    #[cfg(feature = "bmp")]
-    "bmp",
-];
+const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg", "bmp"];
 
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
@@ -33,13 +21,12 @@ impl AssetLoader for ImageTextureLoader {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let dyn_img =
-                Texture::from_buffer(bytes, ImageType::Extension(ext)).map_err(|err| {
-                    FileTextureError {
-                        error: err,
-                        path: format!("{}", load_context.path().display()),
-                    }
-                })?;
+            let dyn_img = Image::from_buffer(bytes, ImageType::Extension(ext)).map_err(|err| {
+                FileTextureError {
+                    error: err,
+                    path: format!("{}", load_context.path().display()),
+                }
+            })?;
 
             load_context.set_default_asset(LoadedAsset::new(dyn_img));
             Ok(())
@@ -51,7 +38,7 @@ impl AssetLoader for ImageTextureLoader {
     }
 }
 
-/// An error that occurs when loading a texture from a file
+/// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
 pub struct FileTextureError {
     error: TextureError,

@@ -45,7 +45,7 @@ where
 {
     fn play_source(&self, audio_source: &P) {
         if let Some(stream_handle) = &self.stream_handle {
-            let sink = Sink::try_new(&stream_handle).unwrap();
+            let sink = Sink::try_new(stream_handle).unwrap();
             sink.append(audio_source.decoder());
             sink.detach();
         }
@@ -68,7 +68,7 @@ where
     }
 }
 
-/// Plays audio currently queued in the [Audio] resource through the [AudioOutput] resource
+/// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
 pub fn play_queued_audio_system<P: Asset>(world: &mut World)
 where
     P: Decodable,

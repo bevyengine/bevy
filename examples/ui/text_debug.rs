@@ -5,18 +5,19 @@ use bevy::{
 
 /// This example is for debugging text layout
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             vsync: false,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system.system())
-        .add_system(change_text_system.system())
+        .add_startup_system(infotext_system)
+        .add_system(change_text_system)
         .run();
 }
 
+#[derive(Component)]
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {

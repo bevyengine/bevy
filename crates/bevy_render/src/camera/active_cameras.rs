@@ -1,5 +1,3 @@
-use crate::renderer::RenderResourceBindings;
-
 use super::Camera;
 use bevy_ecs::{
     entity::Entity,
@@ -11,7 +9,6 @@ use bevy_utils::HashMap;
 pub struct ActiveCamera {
     pub name: String,
     pub entity: Option<Entity>,
-    pub bindings: RenderResourceBindings,
 }
 
 #[derive(Debug, Default)]

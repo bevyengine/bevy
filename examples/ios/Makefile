@@ -12,7 +12,7 @@ boot-sim:
 	xcrun simctl boot $(DEVICE) || true
 
 install: xcodebuild-simulator boot-sim
-	 xcrun simctl install $(DEVICE) build/Build/Products/Debug-iphonesimulator/bevy_ios_example.app
+	xcrun simctl install $(DEVICE) build/Build/Products/Debug-iphonesimulator/bevy_ios_example.app
 
 xcodebuild-simulator:
 	IOS_TARGETS=x86_64-apple-ios xcodebuild -scheme bevy_ios_example -configuration Debug -derivedDataPath build -destination "id=$(DEVICE)"

@@ -32,7 +32,7 @@ pub enum AssetIoError {
     PathWatchError(PathBuf),
 }
 
-/// Handles load requests from an AssetServer
+/// Handles load requests from an `AssetServer`
 pub trait AssetIo: Downcast + Send + Sync + 'static {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>>;
     fn read_directory(

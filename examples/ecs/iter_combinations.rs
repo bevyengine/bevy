@@ -7,17 +7,17 @@ struct FixedUpdateStage;
 const DELTA_TIME: f64 = 0.01;
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(generate_bodies.system())
+        .add_startup_system(generate_bodies)
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies.system())
-                .with_system(integrate.system()),
+                .with_system(interact_bodies)
+                .with_system(integrate),
         )
         .run();
 }
@@ -26,11 +26,11 @@ const GRAVITY_CONSTANT: f32 = 0.001;
 const SOFTENING: f32 = 0.01;
 const NUM_BODIES: usize = 100;
 
-#[derive(Default)]
+#[derive(Component, Default)]
 struct Mass(f32);
-#[derive(Default)]
+#[derive(Component, Default)]
 struct Acceleration(Vec3);
-#[derive(Default)]
+#[derive(Component, Default)]
 struct LastPos(Vec3);
 
 #[derive(Bundle, Default)]

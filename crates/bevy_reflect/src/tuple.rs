@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
 
 pub trait Tuple: Reflect {
     fn field(&self, index: usize) -> Option<&dyn Reflect>;
@@ -327,6 +327,23 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+        }
+
+        impl<$($name: FromReflect),*> FromReflect for ($($name,)*)
+        {
+            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+                if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
+                    Some(
+                        (
+                            $(
+                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                            )*
+                        )
+                    )
+                } else {
+                    None
+                }
             }
         }
     }

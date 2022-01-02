@@ -1,15 +1,21 @@
-use crate::Node;
+use crate::{CalculatedClip, Node};
 use bevy_core::FloatOrd;
 use bevy_ecs::{
     entity::Entity,
+    prelude::Component,
+    reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
+use bevy_math::Vec2;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     Clicked,
     Hovered,
@@ -22,7 +28,8 @@ impl Default for Interaction {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     Block,
     Pass,
@@ -51,6 +58,7 @@ pub fn ui_focus_system(
         &GlobalTransform,
         Option<&mut Interaction>,
         Option<&FocusPolicy>,
+        Option<&CalculatedClip>,
     )>,
 ) {
     let cursor_position = if let Some(cursor_position) = windows
@@ -72,7 +80,8 @@ pub fn ui_focus_system(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
     if mouse_released {
-        for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
+        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
+            node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
@@ -88,12 +97,16 @@ pub fn ui_focus_system(
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
         .filter_map(
-            |(entity, node, global_transform, interaction, focus_policy)| {
+            |(entity, node, global_transform, interaction, focus_policy, clip)| {
                 let position = global_transform.translation;
                 let ui_position = position.truncate();
                 let extents = node.size / 2.0;
-                let min = ui_position - extents;
-                let max = ui_position + extents;
+                let mut min = ui_position - extents;
+                let mut max = ui_position + extents;
+                if let Some(clip) = clip {
+                    min = Vec2::max(min, clip.clip.min);
+                    max = Vec2::min(max, clip.clip.max);
+                }
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 if (min.x..max.x).contains(&cursor_position.x)

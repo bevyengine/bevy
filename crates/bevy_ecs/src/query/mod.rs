@@ -12,15 +12,16 @@ pub use state::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        component::{ComponentDescriptor, StorageType},
-        world::World,
-    };
+    use crate::{self as bevy_ecs, component::Component, world::World};
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq)]
     struct A(usize);
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq)]
     struct B(usize);
+
+    #[derive(Component, Debug, Eq, PartialEq)]
+    #[component(storage = "SparseSet")]
+    struct Sparse(usize);
 
     #[test]
     fn query() {
@@ -139,13 +140,10 @@ mod tests {
     #[test]
     fn query_iter_combinations_sparse() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet))
-            .unwrap();
 
-        world.spawn_batch((1..=4).map(|i| (A(i),)));
+        world.spawn_batch((1..=4).map(|i| (Sparse(i),)));
 
-        let mut query = world.query::<&mut A>();
+        let mut query = world.query::<&mut Sparse>();
         let mut combinations = query.iter_combinations_mut(&mut world);
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
@@ -153,15 +151,15 @@ mod tests {
             c.0 += 1000;
         }
 
-        let mut query = world.query::<&A>();
-        let values: Vec<[&A; 3]> = query.iter_combinations(&world).collect();
+        let mut query = world.query::<&Sparse>();
+        let values: Vec<[&Sparse; 3]> = query.iter_combinations(&world).collect();
         assert_eq!(
             values,
             vec![
-                [&A(31), &A(212), &A(1203)],
-                [&A(31), &A(212), &A(3004)],
-                [&A(31), &A(1203), &A(3004)],
-                [&A(212), &A(1203), &A(3004)]
+                [&Sparse(31), &Sparse(212), &Sparse(1203)],
+                [&Sparse(31), &Sparse(212), &Sparse(3004)],
+                [&Sparse(31), &Sparse(1203), &Sparse(3004)],
+                [&Sparse(212), &Sparse(1203), &Sparse(3004)]
             ]
         );
     }
@@ -169,17 +167,17 @@ mod tests {
     #[test]
     fn multi_storage_query() {
         let mut world = World::new();
-        world
-            .register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet))
-            .unwrap();
 
-        world.spawn().insert_bundle((A(1), B(2)));
-        world.spawn().insert_bundle((A(2),));
+        world.spawn().insert_bundle((Sparse(1), B(2)));
+        world.spawn().insert_bundle((Sparse(2),));
 
-        let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
-        assert_eq!(values, vec![&A(1), &A(2)]);
+        let values = world
+            .query::<&Sparse>()
+            .iter(&world)
+            .collect::<Vec<&Sparse>>();
+        assert_eq!(values, vec![&Sparse(1), &Sparse(2)]);
 
-        for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
+        for (_a, mut b) in world.query::<(&Sparse, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
         }
 

@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
@@ -6,7 +7,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub Entity);
 
@@ -16,7 +17,7 @@ pub struct Parent(pub Entity);
 // better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::new(u32::MAX))
+        Parent(Entity::from_raw(u32::MAX))
     }
 }
 
@@ -41,7 +42,7 @@ impl DerefMut for Parent {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct PreviousParent(pub(crate) Entity);
 
@@ -52,9 +53,9 @@ impl MapEntities for PreviousParent {
     }
 }
 
-// TODO: Better handle this case see `impl FromResources for Parent`
+// TODO: Better handle this case see `impl FromWorld for Parent`
 impl FromWorld for PreviousParent {
     fn from_world(_world: &mut World) -> Self {
-        PreviousParent(Entity::new(u32::MAX))
+        PreviousParent(Entity::from_raw(u32::MAX))
     }
 }

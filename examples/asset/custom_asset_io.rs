@@ -46,11 +46,11 @@ impl AssetIo for CustomAssetIo {
 struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = app
-            .world()
+            .world
             .get_resource::<bevy::tasks::IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
@@ -74,7 +74,7 @@ impl Plugin for CustomAssetIoPlugin {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins_with(DefaultPlugins, |group| {
             // the custom asset io plugin must be inserted in-between the
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
@@ -85,19 +85,14 @@ fn main() {
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture_handle = asset_server.load("branding/icon.png");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(texture_handle.into()),
+        texture: asset_server.load("branding/icon.png"),
         ..Default::default()
     });
 }

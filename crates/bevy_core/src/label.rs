@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     query::Changed,
     reflect::ReflectComponent,
@@ -13,7 +14,7 @@ use std::{
 };
 
 /// A collection of labels
-#[derive(Default, Reflect)]
+#[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct Labels {
     labels: HashSet<Cow<'static, str>>,
@@ -107,7 +108,7 @@ pub(crate) fn entity_labels_system(
             }
         }
 
-        for added_label in labels.labels.difference(&current_labels) {
+        for added_label in labels.labels.difference(current_labels) {
             entity_labels
                 .label_entities
                 .entry(added_label.clone())
@@ -123,7 +124,6 @@ pub(crate) fn entity_labels_system(
 mod tests {
     use bevy_ecs::{
         schedule::{Schedule, Stage, SystemStage},
-        system::IntoSystem,
         world::World,
     };
 
@@ -134,7 +134,7 @@ mod tests {
         world.insert_resource(EntityLabels::default());
         let mut schedule = Schedule::default();
         schedule.add_stage("test", SystemStage::single_threaded());
-        schedule.add_system_to_stage("test", entity_labels_system.system());
+        schedule.add_system_to_stage("test", entity_labels_system);
         (world, schedule)
     }
 
