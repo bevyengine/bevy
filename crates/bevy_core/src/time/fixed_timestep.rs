@@ -65,7 +65,8 @@ impl FixedTimesteps {
 /// between each execution.
 ///
 /// When using this run criteria, it is advised not to rely on [`Time::delta`] or any of it's
-/// variants for game simulation.
+/// variants for game simulation, but rather use the constant time delta used to initialize the
+/// [`FixedTimestep`] instead.
 ///
 /// For more fine tuned information about the execution status of a given fixed timestep,
 /// use the [`FixedTimesteps`] resource.
