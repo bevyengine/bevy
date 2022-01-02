@@ -43,7 +43,7 @@ impl DerefMut for Parent {
     }
 }
 
-/// Component that holds the parent this entity had previously
+/// Component that holds the [`Parent`] this entity had previously
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct PreviousParent(pub(crate) Entity);

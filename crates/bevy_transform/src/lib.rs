@@ -18,16 +18,16 @@ use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
-/// The base plugin for handling Transform components
+/// The base plugin for handling [`Transform`] components
 #[derive(Default)]
 pub struct TransformPlugin;
 
 /// Label enum for the types of systems relating to transform
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to childrens' global transform
+    /// Propagates changes in transform to childrens' [`GlobalTransform`]
     TransformPropagate,
-    /// Updates parents when changes in the hierarchy occur
+    /// Updates [`Parent`] when changes in the hierarchy occur
     ParentUpdate,
 }
 

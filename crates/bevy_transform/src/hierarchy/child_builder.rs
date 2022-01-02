@@ -136,26 +136,26 @@ pub struct ChildBuilder<'w, 's, 'a> {
 }
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the ChildBuilder
+    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn_bundle(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
-    /// Spawns an entity with no components and inserts in into the children defined by the ChildBuilder (adding the Parent component to it)
+    /// Spawns an entity with no components and inserts in into the children defined by the [`ChildBuilder`] (adding the [`Parent`] component to it)
     pub fn spawn(&mut self) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn();
         self.push_children.children.push(e.id());
         e
     }
 
-    /// Returns the parent entity of this ChildBuilder
+    /// Returns the parent entity of this [`ChildBuilder`]
     pub fn parent_entity(&self) -> Entity {
         self.push_children.parent
     }
 
-    /// Adds a command to this ChildBuilder
+    /// Adds a command to this [`ChildBuilder`]
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
@@ -164,7 +164,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait defining how to build children
 pub trait BuildChildren {
-    /// Creates a ChildBuilder with the given children built in the given closure
+    /// Creates a [`ChildBuilder`] with the given children built in the given closure
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
@@ -230,7 +230,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     }
 }
 
-/// Struct for adding children to an entity directly through the World for use in exclusive systems
+/// Struct for adding children to an entity directly through the [`World`] for use in exclusive systems
 #[derive(Debug)]
 pub struct WorldChildBuilder<'w> {
     world: &'w mut World,
@@ -239,7 +239,7 @@ pub struct WorldChildBuilder<'w> {
 }
 
 impl<'w> WorldChildBuilder<'w> {
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the WorldChildBuilder
+    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self
@@ -259,7 +259,7 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Spawns an entity with no components and inserts in into the children defined by the WorldChildBuilder (adding the Parent component to it)
+    /// Spawns an entity with no components and inserts in into the children defined by the [`WorldChildBuilder`] (adding the [`Parent`] component to it)
     pub fn spawn(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self
@@ -278,7 +278,7 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Returns the parent entity of this WorldChildBuilder
+    /// Returns the parent entity of this [`WorldChildBuilder`]
     pub fn parent_entity(&self) -> Entity {
         self.parent_entities
             .last()
@@ -287,9 +287,9 @@ impl<'w> WorldChildBuilder<'w> {
     }
 }
 
-/// Trait that defines adding children to an entity directly through the World
+/// Trait that defines adding children to an entity directly through the [`World`]
 pub trait BuildWorldChildren {
-    /// Creates a WorldChildBuilder with the given children built in the given closure
+    /// Creates a [`WorldChildBuilder`] with the given children built in the given closure
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
