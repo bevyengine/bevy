@@ -20,7 +20,7 @@ pub struct Sprite {
     pub anchor: Anchor,
 }
 
-/// How a sprite is positionned relative to it's [`Transform`](bevy_transform::components::Transform).
+/// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
 #[derive(Debug, Clone, Reflect)]
 #[doc(alias = "pivot")]
