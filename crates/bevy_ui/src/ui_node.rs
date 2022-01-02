@@ -93,7 +93,7 @@ pub struct Style {
     pub padding: Rect<Val>,
     /// The border of the node
     pub border: Rect<Val>,
-    /// Shorthand property for flex_direction and flex_wrap
+    /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
     pub flex_shrink: f32,
@@ -237,7 +237,7 @@ impl Default for Direction {
 pub enum Display {
     /// Use flexbox
     Flex,
-    /// Use no layout
+    /// Use no layout, don't render this node and its children
     None,
 }
 
@@ -253,11 +253,11 @@ impl Default for Display {
 pub enum FlexDirection {
     /// Same way as text direction along the main axis
     Row,
-    /// Same way as text direction along the cross axis
+    /// Flex from bottom to top
     Column,
     /// Opposite way as text direction along the main axis
     RowReverse,
-    /// Opposite way as text direction along the cross axis
+    /// Flex from top to bottom
     ColumnReverse,
 }
 
