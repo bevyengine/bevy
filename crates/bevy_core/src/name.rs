@@ -8,6 +8,11 @@ use std::{
 };
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
+/// The hash is eagerly re-computed upon each update to the name.
+///
+/// [`Name`] should not be treated as a globally unique identifier for entities,
+/// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
+/// used instead as the default unique identifier.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Name {
@@ -22,6 +27,9 @@ impl Default for Name {
 }
 
 impl Name {
+    /// Creates a new [`Name`] from any string-like type.
+    ///
+    /// The internal hash will be computed immediately.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
         let mut name = Name { name, hash: 0 };
@@ -29,17 +37,25 @@ impl Name {
         name
     }
 
+    /// Sets the entity's name.
+    ///
+    /// The internal hash will be re-computed.
     #[inline(always)]
     pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
         *self = Name::new(name);
     }
 
+    /// Updates the name of the entity in place.
+    ///
+    /// This will allocate a new string if the name was previously
+    /// created from a borrow.
     #[inline(always)]
     pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
         f(self.name.to_mut());
         self.update_hash();
     }
 
+    /// Gets the name of the entity as a `&str`.
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         &self.name
