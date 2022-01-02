@@ -183,10 +183,10 @@ impl ComponentSparseSet {
     }
 
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<&ComponentTicks> {
+    pub fn get_ticks_ptr(&self, entity: Entity) -> Option<*mut ComponentTicks> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(&*self.ticks.get_unchecked(dense_index).get()) }
+        unsafe { Some(self.ticks.get_unchecked(dense_index).get()) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if

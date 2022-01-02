@@ -71,15 +71,10 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<&'w ComponentTicks> {
-        // SAFE: entity location is valid and returned component is of type T
+        // SAFE: entity location is valid
         unsafe {
-            get_component_and_ticks_with_type(
-                self.world,
-                TypeId::of::<T>(),
-                self.entity,
-                self.location,
-            )
-            .map(|(_, ticks)| &*ticks)
+            get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+                .map(|ticks| &*ticks)
         }
     }
 
@@ -552,6 +547,31 @@ unsafe fn get_component_and_ticks(
     }
 }
 
+#[inline]
+unsafe fn get_ticks(
+    world: &World,
+    component_id: ComponentId,
+    entity: Entity,
+    location: EntityLocation,
+) -> Option<*mut ComponentTicks> {
+    let archetype = &world.archetypes[location.archetype_id];
+    let component_info = world.components.get_info_unchecked(component_id);
+    match component_info.storage_type() {
+        StorageType::Table => {
+            let table = &world.storages.tables[archetype.table_id()];
+            let components = table.get_column(component_id)?;
+            let table_row = archetype.entity_table_row(location.index);
+            // SAFE: archetypes only store valid table_rows and the stored component type is T
+            Some(components.get_ticks_mut_ptr_unchecked(table_row))
+        }
+        StorageType::SparseSet => world
+            .storages
+            .sparse_sets
+            .get(component_id)
+            .and_then(|sparse_set| sparse_set.get_ticks_ptr(entity)),
+    }
+}
+
 // TODO: move to Storages?
 /// Moves component data out of storage.
 ///
@@ -616,6 +636,18 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
 ) -> Option<(*mut u8, *mut ComponentTicks)> {
     let component_id = world.components.get_id(type_id)?;
     get_component_and_ticks(world, component_id, entity, location)
+}
+
+/// # Safety
+/// `entity_location` must be within bounds of an archetype that exists.
+pub(crate) unsafe fn get_ticks_with_type(
+    world: &World,
+    type_id: TypeId,
+    entity: Entity,
+    location: EntityLocation,
+) -> Option<*mut ComponentTicks> {
+    let component_id = world.components.get_id(type_id)?;
+    get_ticks(world, component_id, entity, location)
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
