@@ -29,7 +29,7 @@ Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to
 ## Fedora
 
 ```bash
-sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel rust-libudev-devel
+sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
 ```
 
 If there are errors with linking during the build process such as:
