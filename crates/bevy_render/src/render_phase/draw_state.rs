@@ -117,8 +117,7 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Sets the active [`BindGroup`] for a given bind group index. The bind group layout in the
-    /// active pipeline when any `draw()` function is called must match the layout
-    /// of this `bind group`.
+    /// active pipeline when any `draw()` function is called must match the layout of this `bind group`.
     pub fn set_bind_group(
         &mut self,
         index: usize,
@@ -149,19 +148,19 @@ impl<'a> TrackedRenderPass<'a> {
     /// Assign a vertex buffer to a slot.
     ///
     /// Subsequent calls to [`TrackedRenderPass::draw`] and [`TrackedRenderPass::draw_indexed`]
-    /// will use the `buffer` as one of the source vertex buffers.
+    /// will use the buffer referenced by `buffer_slice` as one of the source vertex buffer(s).
     ///
-    /// The `slot` refers to the index of the matching descriptor in
+    /// The `slot_index` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
-    pub fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice<'a>) {
+    pub fn set_vertex_buffer(&mut self, slot_index: usize, buffer_slice: BufferSlice<'a>) {
         let offset = buffer_slice.offset();
         if self
             .state
-            .is_vertex_buffer_set(index, buffer_slice.id(), offset)
+            .is_vertex_buffer_set(slot_index, buffer_slice.id(), offset)
         {
             debug!(
                 "set vertex buffer {} (already set): {:?} ({})",
-                index,
+                slot_index,
                 buffer_slice.id(),
                 offset
             );
@@ -169,20 +168,21 @@ impl<'a> TrackedRenderPass<'a> {
         } else {
             debug!(
                 "set vertex buffer {}: {:?} ({})",
-                index,
+                slot_index,
                 buffer_slice.id(),
                 offset
             );
         }
-        self.pass.set_vertex_buffer(index as u32, *buffer_slice);
+        self.pass
+            .set_vertex_buffer(slot_index as u32, *buffer_slice);
         self.state
-            .set_vertex_buffer(index, buffer_slice.id(), offset);
+            .set_vertex_buffer(slot_index, buffer_slice.id(), offset);
     }
 
     /// Sets the active index buffer.
     ///
-    /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the `buffer` as
-    /// the source index buffer.
+    /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the buffer referenced by
+    /// `buffer_slice` as the source index buffer.
     pub fn set_index_buffer(
         &mut self,
         buffer_slice: BufferSlice<'a>,
@@ -209,7 +209,7 @@ impl<'a> TrackedRenderPass<'a> {
 
     /// Draws primitives from the active vertex buffer(s).
     ///
-    /// The active vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
+    /// The active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
         debug!("draw: {:?} {:?}", vertices, instances);
         self.pass.draw(vertices, instances);
@@ -218,7 +218,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Draws indexed primitives using the active index buffer and the active vertex buffer(s).
     ///
     /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the
-    /// active vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
+    /// active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         debug!(
             "draw indexed: {:?} {} {:?}",
@@ -234,6 +234,7 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Sets the scissor region.
+    ///
     /// Subsequent draw calls will discard any fragments that fall outside this region.
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
         debug!("set_scissor_rect: {} {} {} {}", x, y, width, height);
@@ -253,6 +254,9 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.set_push_constants(stages, offset, data)
     }
 
+    /// Set the rendering viewport.
+    ///
+    /// Subsequent draw calls will be projected into that viewport.
     pub fn set_viewport(
         &mut self,
         x: f32,
@@ -270,16 +274,51 @@ impl<'a> TrackedRenderPass<'a> {
             .set_viewport(x, y, width, height, min_depth, max_depth)
     }
 
+    /// Insert a single debug marker.
+    ///
+    /// This is a GPU debugging feature. This has no effect on the rendering itself.
     pub fn insert_debug_marker(&mut self, label: &str) {
         debug!("insert debug marker: {}", label);
         self.pass.insert_debug_marker(label)
     }
 
+    /// Start a new debug group.
+    ///
+    /// Push a new debug group over the internal stack. Subsequent render commands and debug
+    /// markers are grouped into this new group, until [`pop_debug_group`] is called.
+    ///
+    /// ```
+    /// # fn example(mut pass: bevy_render::render_phase::TrackedRenderPass<'static>) {
+    /// pass.push_debug_group("Render the car");
+    /// // [setup pipeline etc...]
+    /// pass.draw(0..64, 0..1);
+    /// pass.pop_debug_group();
+    /// # }
+    /// ```
+    ///
+    /// Note that [`push_debug_group`] and [`pop_debug_group`] must always be called in pairs.
+    ///
+    /// This is a GPU debugging feature. This has no effect on the rendering itself.
+    ///
+    /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
+    /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn push_debug_group(&mut self, label: &str) {
         debug!("push_debug_group marker: {}", label);
         self.pass.push_debug_group(label)
     }
 
+    /// End the current debug group.
+    ///
+    /// Subsequent render commands and debug markers are not grouped anymore in
+    /// this group, but in the previous one (if any) or the default top-level one
+    /// if the debug group was the last one on the stack.
+    ///
+    /// Note that [`push_debug_group`] and [`pop_debug_group`] must always be called in pairs.
+    ///
+    /// This is a GPU debugging feature. This has no effect on the rendering itself.
+    ///
+    /// [`push_debug_group`]: TrackedRenderPass::push_debug_group
+    /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn pop_debug_group(&mut self) {
         debug!("pop_debug_group");
         self.pass.pop_debug_group()
