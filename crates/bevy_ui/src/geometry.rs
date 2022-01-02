@@ -8,8 +8,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///
 /// # Example
 ///
-/// In this example an UI size gets created. It has a width of 100px and a height of 200px.
-///
 /// ```rust
 /// # use bevy_ui::{Size, Val};
 /// #
@@ -34,8 +32,6 @@ impl<T: Reflect + PartialEq> Size<T> {
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
-    ///
-    /// In this example an UI size gets created. It has a width of 100px and a height of 200px.
     ///
     /// ```rust
     /// # use bevy_ui::{Size, Val};
@@ -65,10 +61,10 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 ///
 /// ## Position
 ///
-/// A position is used to determine where to place an UI element.
+/// A position is used to determine where to place a UI element.
 ///
-/// In this example an UI position gets created. It has a left value of 100px and a top value of 50px.
-/// If positioned absolutely this would correspond to an UI element which is positioned 100px to the right
+/// In this example we are creating a UI position. It has a left value of 100px and a top value of 50px.
+/// If positioned absolutely this would correspond to a UI element which is positioned 100px to the right
 /// from the left side of the window and 50px down from the top side of the window.
 ///
 /// ```rust
@@ -90,7 +86,7 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
-/// In this example an UI margin gets created. It has a left value of 10px, a top value of 20px,
+/// In this example we are creating a UI margin. It has a left value of 10px, a top value of 20px,
 /// a right value of 30px and a bottom value of 40px. This would add a margin of 10px on the left,
 /// 20px on the top, 30px on the right and 40px on the bottom of the UI element.
 ///
@@ -114,7 +110,7 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 ///
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
-/// In this example an UI padding gets created. It has a left value of 10px, a top value of 20px,
+/// In this example we are creating a UI padding. It has a left value of 10px, a top value of 20px,
 /// a right value of 30px and a bottom value of 40px. This would add a padding of 10px on the left,
 /// 20px on the top, 30px on the right and 40px on the bottom of the UI element.
 ///
@@ -136,10 +132,10 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 ///
 /// ## Borders
 ///
-/// A border is used to define the width of the border of an UI element.
+/// A border is used to define the width of the border of a UI element.
 ///
-/// In this example an UI border gets created. It has a left value of 10px, a top value of 20px,
-/// a right value of 30px and a bottom value of 40px. This would create a border around an UI element
+/// In this example we are creating a UI border. It has a left value of 10px, a top value of 20px,
+/// a right value of 30px and a bottom value of 40px. This would create a border around a UI element
 /// that has a width of 10px on the left, 20px on the top, 30px on the right and 40px on the bottom.
 ///
 /// ```rust

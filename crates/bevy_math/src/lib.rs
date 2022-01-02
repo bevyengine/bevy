@@ -1,8 +1,9 @@
 #![warn(missing_docs)]
 
-//! Provides math types and functionalities for the bevy game engine.
+//! Provides math types and functionality for the Bevy game engine.
 //!
-//! The commonly used types are vectors and matrices.
+//! The commonly used types are vectors like [`Vec2`], [`Vec3`] and [`Vec4`] and
+//! matrices like [`Mat3`] and [`Mat4`].
 
 pub use glam::*;
 
