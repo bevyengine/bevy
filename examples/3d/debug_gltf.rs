@@ -57,12 +57,12 @@ pub fn spawn_gltf_objects(
     // if the GLTF has loaded, we can navigate its contents
     if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
         // Bevy allows you to easily spawn the entire scene.
-        // However since the Scene object here is a Bevy scene object
+        // However since the Scene object here is a Bevy `Scene` object
         // the mapping between Scene and GltfNodes is impossible to recover.
         let scene_handle: &Handle<Scene> = &gltf.scenes[0];
         commands.spawn_scene(scene_handle.clone());
         // You can get a Vec of all top-level GltfNodes used in this scene
-        // through the scene_to_nodes map. This also enables you to recurse through the
+        // through the `scene_to_nodes` map. This also enables you to recurse through the
         // hierarchy by yourself should you need to do that.
         let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
             .iter()
