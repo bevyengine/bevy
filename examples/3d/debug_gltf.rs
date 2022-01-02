@@ -15,7 +15,7 @@ fn main() {
         .run();
 }
 
-fn setup( mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let handle: Handle<Gltf> = assets.load("models/FlightHelmet/FlightHelmet.gltf");
     commands.insert_resource(handle);
     commands.insert_resource(false);
@@ -56,15 +56,23 @@ pub fn spawn_gltf_objects(
 
     // if the GLTF has loaded, we can navigate its contents
     if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
-        let scene_handle = &gltf.scenes[0];
+        // Bevy allows you to easily spawn the entire scene.
+        // However since the Scene object here is a Bevy scene object
+        // the mapping between Scene and GltfNodes is impossible to recover.
+        let scene_handle: &Handle<Scene> = &gltf.scenes[0];
         commands.spawn_scene(scene_handle.clone());
-        let nodes = gltf.scene_to_nodes[scene_handle]
+        // You can get a Vec of all top-level GltfNodes used in this scene
+        // through the scene_to_nodes map. This also enables you to recurse through the
+        // hierarchy by yourself should you need to do that.
+        let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
             .iter()
             .filter_map(|handle| assets_gltfnode.get(handle))
             .collect::<Vec<_>>();
 
-        info!("The following nodes are currently being displayed {:#?}", nodes);
+        info!(
+            "The following nodes are currently being displayed {:#?}",
+            nodes
+        );
         *done = true;
-
     }
 }
