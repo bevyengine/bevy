@@ -80,7 +80,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// This plugin should not be added multiple times in the same process. This plugin
 /// sets up global logging configuration for **all** Apps in a given process, and
-/// rerunning the same initializaiton multiple times will lead toa  panic.
+/// rerunning the same initialization multiple times will lead to a panic.
 #[derive(Default)]
 pub struct LogPlugin;
 
