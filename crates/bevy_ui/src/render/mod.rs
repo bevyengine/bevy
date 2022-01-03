@@ -283,7 +283,7 @@ pub fn prepare_uinodes(
     let scale_factor = if let Some(extracted_window) = extracted_windows.get(&WindowId::primary()) {
         extracted_window.scale_factor as f32
     } else {
-        return;
+        1.
     };
 
     // sort by increasing z for correct transparency
