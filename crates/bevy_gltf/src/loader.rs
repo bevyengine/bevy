@@ -6,7 +6,10 @@ use bevy_core::Name;
 use bevy_ecs::world::World;
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
-use bevy_pbr::{AlphaMode, PbrBundle, StandardMaterial};
+use bevy_pbr::{
+    AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
+    StandardMaterial,
+};
 use bevy_render::{
     camera::{
         Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -547,6 +550,42 @@ fn load_node(
                         Vec3::from_slice(&bounds.min),
                         Vec3::from_slice(&bounds.max),
                     ));
+            }
+        }
+
+        if let Some(light) = gltf_node.light() {
+            match light.kind() {
+                gltf::khr_lights_punctual::Kind::Directional => {
+                    parent.spawn_bundle(DirectionalLightBundle {
+                        directional_light: DirectionalLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for directional
+                            // lights in lux (lm/m^2) which is what we need.
+                            illuminance: light.intensity(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                }
+                gltf::khr_lights_punctual::Kind::Point => {
+                    parent.spawn_bundle(PointLightBundle {
+                        point_light: PointLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a point light, luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                }
+                gltf::khr_lights_punctual::Kind::Spot {
+                    inner_cone_angle: _inner_cone_angle,
+                    outer_cone_angle: _outer_cone_angle,
+                } => warn!("Spot lights are not yet supported."),
             }
         }
 

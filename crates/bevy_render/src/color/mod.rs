@@ -617,6 +617,12 @@ impl From<[f32; 4]> for Color {
     }
 }
 
+impl From<[f32; 3]> for Color {
+    fn from([r, g, b]: [f32; 3]) -> Self {
+        Color::rgb(r, g, b)
+    }
+}
+
 impl From<Color> for Vec4 {
     fn from(color: Color) -> Self {
         let color: [f32; 4] = color.into();

@@ -1,6 +1,7 @@
 use crate::{DirectionalLight, PointLight, SpecializedMaterial, StandardMaterial};
 use bevy_asset::Handle;
-use bevy_ecs::{bundle::Bundle, component::Component};
+use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CubemapFrusta, Frustum},
@@ -37,8 +38,10 @@ impl<M: SpecializedMaterial> Default for MaterialMeshBundle<M> {
     }
 }
 
-#[derive(Component, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct CubemapVisibleEntities {
+    #[reflect(ignore)]
     data: [VisibleEntities; 6],
 }
 

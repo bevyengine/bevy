@@ -33,7 +33,7 @@ use crate::{
     camera::CameraPlugin,
     color::Color,
     mesh::MeshPlugin,
-    primitives::Frustum,
+    primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
@@ -141,7 +141,8 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_resource::<ScratchRenderWorld>()
             .register_type::<Color>()
-            .register_type::<Frustum>();
+            .register_type::<Frustum>()
+            .register_type::<CubemapFrusta>();
         let render_pipeline_cache = RenderPipelineCache::new(device.clone());
         let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
