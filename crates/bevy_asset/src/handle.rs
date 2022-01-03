@@ -15,7 +15,7 @@ use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
-/// A unique, stable asset id
+/// An unique, stable asset id.
 #[derive(
     Debug,
     Clone,
@@ -32,7 +32,9 @@ use serde::{Deserialize, Serialize};
 )]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
+    /// A handle id of a loaded asset.
     Id(Uuid, u64),
+    /// A handle id of a pending asset.
     AssetPathId(AssetPathId),
 }
 
@@ -49,25 +51,28 @@ impl<'a> From<AssetPath<'a>> for HandleId {
 }
 
 impl HandleId {
+    /// Creates a random id for an Asset of type `T`.
     #[inline]
     pub fn random<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, rand::random())
     }
 
+    /// Creates the default id for an Asset of type `T`.
     #[inline]
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
     }
 
+    /// Creates an arbitrary asset id without an explicit type bound.
     #[inline]
     pub const fn new(type_uuid: Uuid, id: u64) -> Self {
         HandleId::Id(type_uuid, id)
     }
 }
 
-/// A handle into a specific Asset of type `T`
+/// A handle into a specific Asset of type `T`.
 ///
-/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
+/// Handles contain an unique id that corresponds to a specific asset in the [Assets](crate::Assets)
 /// collection.
 ///
 /// # Accessing the Asset
@@ -136,6 +141,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    /// Creates a weak handle into an Asset identified by `id`.
     #[inline]
     pub fn weak(id: HandleId) -> Self {
         Self {
@@ -145,7 +151,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
-    /// Get a copy of this handle as a Weak handle
+    /// Recasts this handle as a weak handle of an Asset `U`.
     pub fn as_weak<U: Asset>(&self) -> Handle<U> {
         Handle {
             id: self.id,
@@ -154,10 +160,12 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    /// Returns `true` if this is a weak handle.
     pub fn is_weak(&self) -> bool {
         matches!(self.handle_type, HandleType::Weak)
     }
 
+    /// Returns `true` if this is a strong handle.
     pub fn is_strong(&self) -> bool {
         matches!(self.handle_type, HandleType::Strong(_))
     }
@@ -174,12 +182,14 @@ impl<T: Asset> Handle<T> {
         self.handle_type = HandleType::Strong(sender);
     }
 
+    /// Creates a weak copy of this handle.
     #[inline]
     #[must_use]
     pub fn clone_weak(&self) -> Self {
         Self::weak(self.id)
     }
 
+    /// Creates an untyped copy of this handle.
     pub fn clone_untyped(&self) -> HandleUntyped {
         match &self.handle_type {
             HandleType::Strong(sender) => HandleUntyped::strong(self.id, sender.clone()),
@@ -187,6 +197,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    /// Creates a weak, untyped copy of this handle.
     pub fn clone_weak_untyped(&self) -> HandleUntyped {
         HandleUntyped::weak(self.id)
     }
@@ -289,7 +300,7 @@ impl<T: Asset> Clone for Handle<T> {
     }
 }
 
-/// A non-generic version of [Handle]
+/// A non-generic version of [`Handle`].
 ///
 /// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and
 /// `Handle<B>` in the same `HashSet<HandleUntyped>`.
@@ -297,11 +308,13 @@ impl<T: Asset> Clone for Handle<T> {
 /// To convert back to a typed handle, use the [typed](HandleUntyped::typed) method.
 #[derive(Debug)]
 pub struct HandleUntyped {
+    /// An unique identifier to an Asset.
     pub id: HandleId,
     handle_type: HandleType,
 }
 
 impl HandleUntyped {
+    /// Creates a weak untyped handle with an arbitrary id.
     pub const fn weak_from_u64(uuid: Uuid, id: u64) -> Self {
         Self {
             id: HandleId::new(uuid, id),
@@ -317,6 +330,7 @@ impl HandleUntyped {
         }
     }
 
+    /// Create a weak untyped into an Asset identified by `id`.
     pub fn weak(id: HandleId) -> Self {
         Self {
             id,
@@ -324,15 +338,18 @@ impl HandleUntyped {
         }
     }
 
+    /// Creates a weak copy of this handle.
     #[must_use]
     pub fn clone_weak(&self) -> Self {
         Self::weak(self.id)
     }
 
+    /// Returns `true` if this a weak handle.
     pub fn is_weak(&self) -> bool {
         matches!(self.handle_type, HandleType::Weak)
     }
 
+    /// Returns `true` if this is a strong handle.
     pub fn is_strong(&self) -> bool {
         matches!(self.handle_type, HandleType::Strong(_))
     }
@@ -345,9 +362,13 @@ impl HandleUntyped {
         self.clone_weak().typed()
     }
 
-    /// Convert this handle into a typed [Handle].
+    /// Converts this handle into a typed [`Handle`] of an Asset `T`.
     ///
     /// The new handle will maintain the Strong or Weak status of the current handle.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if type `T` doesn't match this handle's actual asset type.
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
             assert!(

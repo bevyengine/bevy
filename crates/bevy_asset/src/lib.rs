@@ -14,6 +14,7 @@ mod io;
 mod loader;
 mod path;
 
+/// The `bevy_asset` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
@@ -38,12 +39,16 @@ pub enum AssetStage {
     AssetEvents,
 }
 
-/// Adds support for Assets to an App. Assets are typed collections with change tracking, which are
-/// added as App Resources. Examples of assets: textures, sounds, 3d models, maps, scenes
+/// Adds support for Assets to an App.
+///
+/// Assets are typed collections with change tracking, which are added as App Resources. Examples of
+/// assets: textures, sounds, 3d models, maps, scenes
 #[derive(Default)]
 pub struct AssetPlugin;
 
+/// `AssetPlugin` settings
 pub struct AssetServerSettings {
+    /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,
     /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,
     /// and cannot be supported on the wasm32 arch nor android os.
@@ -59,7 +64,7 @@ impl Default for AssetServerSettings {
     }
 }
 
-/// Create an instance of the platform default `AssetIo`
+/// Creates an instance of the platform's default `AssetIo`.
 ///
 /// This is useful when providing a custom `AssetIo` instance that needs to
 /// delegate to the default `AssetIo` for the platform.
