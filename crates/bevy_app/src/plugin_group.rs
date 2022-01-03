@@ -8,9 +8,10 @@ pub trait PluginGroup {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_app::plugin_group::PluginGroupBuilder;
+    /// # use bevy_app::{PluginGroup,PluginGroupBuilder};
     /// # struct Plugin1;
     /// # struct Plugin2;
+    /// # struct MyPluginGroup;
     /// impl PluginGroup for MyPluginGroup{
     ///     fn build(&mut self, group: &mut PluginGroupBuilder){
     ///         group.add(Plugin1);
@@ -55,7 +56,7 @@ impl PluginGroupBuilder {
     /// From examples/asset/custom_asset_io.rs
     ///
     /// ```
-    /// # use bevy_internal::DefaultPlugins;
+    /// # struct DefaultPlugins;
     /// # struct CustomAssetIoPlugin;
     /// App::new()
     ///     .add_plugins_with(DefaultPlugins, |group| {
@@ -66,7 +67,7 @@ impl PluginGroupBuilder {
     ///         // doesn't create another instance of an asset server. In general,
     ///         // the AssetPlugin should still run so that other aspects of the
     ///         // asset system are initialized correctly.
-    ///         group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
+    ///         group.add_before::<bevy_asset::AssetPlugin, _>(CustomAssetIoPlugin)
     ///     })
     /// ```
     pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {

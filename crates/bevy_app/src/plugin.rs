@@ -10,12 +10,16 @@ pub trait Plugin: Any + Send + Sync {
     ///
     /// # Examples
     /// ```
+    /// # use bevy_app::App;
+    /// # struct MyPlugin;
     /// # struct MyPluginResource;
-    /// # fn my_plugin_system();
+    /// # fn my_plugin_system(){}
     ///
-    /// fn build(&self, app: &mut App){
-    ///     app.add_startup_system(my_plugin_system)
-    ///     app.init_resource(MyPluginResource);
+    /// impl Plugin for MyPlugin{
+    ///     fn build(&self, app: &mut App){
+    ///         app.add_startup_system(my_plugin_system);
+    ///         app.init_resource(MyPluginResource);
+    ///     }
     /// }
     /// ```
     fn build(&self, app: &mut App);
