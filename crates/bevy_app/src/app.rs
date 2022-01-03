@@ -14,7 +14,6 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-
 bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
@@ -42,12 +41,18 @@ bevy_utils::define_label!(AppLabel);
 /// }
 /// ```
 pub struct App {
+    /// Stores and exposes operations on [entities](bevy_ecs::world::Entity), [components](bevy_ecs::world::Component), resources,
+    /// and their associated metadata.
     pub world: World,
+    /// A [runner function](Self::set_runner) which is typically not configured manually,
+    /// but set by a Bevy integrated plugin.
     pub runner: Box<dyn Fn(App)>,
+    /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
+/// Each [`SubApp`] has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
@@ -73,10 +78,12 @@ impl Default for App {
 }
 
 impl App {
+    /// Creates a new [`App`].
     pub fn new() -> App {
         App::default()
     }
 
+    /// Creates a new empty [`App`].
     pub fn empty() -> App {
         Self {
             world: Default::default(),
@@ -837,6 +844,7 @@ impl App {
         self
     }
 
+    /// Inserts a "sub app" to this [App].
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,

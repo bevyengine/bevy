@@ -2,7 +2,17 @@ use crate::{App, Plugin};
 use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
+/// Combines multiple [`Plugin`]s into a single unit.
 pub trait PluginGroup {
+    /// Configures the [Plugin]s that are to be added.
+    ///
+    /// # Examples
+    /// ```
+    /// fn build(&mut self, group: &mut PluginGroupBuilder){
+    ///     group.add(Plugin1);
+    ///     group.add(Plugin2);
+    /// }
+    /// ```
     fn build(&mut self, group: &mut PluginGroupBuilder);
 }
 
@@ -11,6 +21,9 @@ struct PluginEntry {
     enabled: bool,
 }
 
+/// Facilitates the creation and configuration of a [`PluginGroup`].
+/// Provides a build ordering to ensure that [Plugin]s which produce/require a resource
+/// are built before/after dependent/depending [Plugin]s.
 #[derive(Default)]
 pub struct PluginGroupBuilder {
     plugins: HashMap<TypeId, PluginEntry>,
@@ -18,6 +31,7 @@ pub struct PluginGroupBuilder {
 }
 
 impl PluginGroupBuilder {
+    /// Appends a [`Plugin`] to the [`PluginGroupBuilder`].
     pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
         self.order.push(TypeId::of::<T>());
         self.plugins.insert(
@@ -30,6 +44,23 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Configures a [`Plugin`] to be built before another plugin.
+    ///
+    /// # Examples
+    /// From examples/asset/custom_asset_io.rs
+    /// ```
+    /// App::new()
+    ///     .add_plugins_with(DefaultPlugins, |group| {
+    ///         // the custom asset io plugin must be inserted in-between the
+    ///         // `CorePlugin' and `AssetPlugin`. It needs to be after the
+    ///         // CorePlugin, so that the IO task pool has already been constructed.
+    ///         // And it must be before the `AssetPlugin` so that the asset plugin
+    ///         // doesn't create another instance of an asset server. In general,
+    ///         // the AssetPlugin should still run so that other aspects of the
+    ///         // asset system are initialized correctly.
+    ///         group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
+    ///     })
+    /// ```
     pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self
             .order
@@ -54,6 +85,7 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Configures a [`Plugin`] to be built after another plugin.
     pub fn add_after<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self
             .order
@@ -78,6 +110,7 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Enables a [`Plugin`]
     pub fn enable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
@@ -87,6 +120,7 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Disables a [`Plugin`]
     pub fn disable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
@@ -96,6 +130,7 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [Plugin]s.
     pub fn finish(self, app: &mut App) {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {

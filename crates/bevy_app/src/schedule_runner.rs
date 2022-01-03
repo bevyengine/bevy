@@ -14,7 +14,12 @@ use wasm_bindgen::{prelude::*, JsCast};
 /// Determines the method used to run an [App]'s `Schedule`
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
-    Loop { wait: Option<Duration> },
+    /// Indicates that the [App]'s schedule should run repeatedly.
+    Loop {
+        /// Minimum duration to wait after a schedule has completed before repeating.
+        wait: Option<Duration>,
+    },
+    /// Indicates that the [App]'s schedule should run only once.
     Once,
 }
 
@@ -24,18 +29,23 @@ impl Default for RunMode {
     }
 }
 
+/// Configuration information for [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Default)]
 pub struct ScheduleRunnerSettings {
+    /// Determines whether the Schedule is run once or repeatedly.
     pub run_mode: RunMode,
 }
 
 impl ScheduleRunnerSettings {
+    /// Produces settings that tell the ScheduleRunner to run only once.
     pub fn run_once() -> Self {
         ScheduleRunnerSettings {
             run_mode: RunMode::Once,
         }
     }
 
+    /// Produces settings that tell the ScheduleRunner to wait for at least the provided `Duration`
+    /// before running again.
     pub fn run_loop(wait_duration: Duration) -> Self {
         ScheduleRunnerSettings {
             run_mode: RunMode::Loop {
