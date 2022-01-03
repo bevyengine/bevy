@@ -12,6 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(spawn_and_print_gltf_objects)
+        .add_system(assert_correctness)
         .run();
 }
 
@@ -21,7 +22,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // so being able to print the loaded structure is extra valuable
     let handle: Handle<Gltf> = assets.load("models/AlienCake/alien.glb");
     commands.insert_resource(handle);
-    commands.insert_resource(false);
+    commands.insert_resource((false, false));
 
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.5, 1.0, -2.0)
@@ -51,12 +52,12 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 pub fn spawn_and_print_gltf_objects(
     mut commands: Commands,
-    mut done: ResMut<bool>,
+    mut done: ResMut<(bool, bool)>,
     gltf_handle: Res<Handle<Gltf>>,
     assets_gltf: Res<Assets<Gltf>>,
     assets_gltfnode: Res<Assets<GltfNode>>,
 ) {
-    if *done {
+    if done.0 {
         return;
     }
 
@@ -79,48 +80,27 @@ pub fn spawn_and_print_gltf_objects(
             "The following nodes are currently being displayed {:#?}",
             nodes
         );
-        *done = true;
+        done.0 = true;
     }
 }
-
-#[cfg(test)]
-mod test {
-    use bevy::app::AppExit;
-    use bevy::{
-        gltf::{Gltf, GltfNode},
-        prelude::*,
-    };
-    #[test]
-    fn test_scene_to_nodes() {
-        App::new()
-            .add_plugins(DefaultPlugins)
-            .add_startup_system(setup)
-            .add_system(spawn_gltf_objects)
-            .run();
+pub fn assert_correctness(
+    mut done: ResMut<(bool, bool)>,
+    gltf_handle: Res<Handle<Gltf>>,
+    assets_gltf: Res<Assets<Gltf>>,
+    assets_gltfnode: Res<Assets<GltfNode>>,
+) {
+    if done.1 {
+        return;
     }
-
-    fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-        let handle: Handle<Gltf> = assets.load("models/FlightHelmet/FlightHelmet.gltf");
-        commands.insert_resource(handle);
-    }
-
-    pub fn spawn_gltf_objects(
-        gltf_handle: Res<Handle<Gltf>>,
-        assets_gltf: Res<Assets<Gltf>>,
-        assets_gltfnode: Res<Assets<GltfNode>>,
-        mut exit: EventWriter<AppExit>,
-    ) {
-        // if the GLTF has loaded, we can navigate its contents
-        if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
-            let scene_handle: &Handle<Scene> = &gltf.scenes[0];
-            let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
-                .iter()
-                .filter_map(|handle| assets_gltfnode.get(handle))
-                .collect::<Vec<_>>();
-            assert_eq!(nodes.len(), 6);
-            assert_eq!(nodes[0].children.len(), 0);
-            // If the asserts ran successfully, we can exit the app
-            exit.send(AppExit);
-        }
+    // if the GLTF has loaded, we can navigate its contents
+    if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
+        let scene_handle: &Handle<Scene> = &gltf.scenes[0];
+        let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
+            .iter()
+            .filter_map(|handle| assets_gltfnode.get(handle))
+            .collect::<Vec<_>>();
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].children[0].children.len(), 6);
+        done.1 = true;
     }
 }
