@@ -11,17 +11,21 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(spawn_gltf_objects)
+        .add_system(spawn_and_print_gltf_objects)
         .run();
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    let handle: Handle<Gltf> = assets.load("models/FlightHelmet/FlightHelmet.gltf");
+    // Gltf can be packed in a more compact format called glb.
+    // Unlike Gltf this format isn't human readable
+    // so being able to print the loaded structure is extra valuable
+    let handle: Handle<Gltf> = assets.load("models/AlienCake/alien.glb");
     commands.insert_resource(handle);
     commands.insert_resource(false);
 
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        transform: Transform::from_xyz(0.5, 1.0, -2.0)
+            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..Default::default()
     });
     const HALF_SIZE: f32 = 1.0;
@@ -39,11 +43,13 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             shadows_enabled: true,
             ..Default::default()
         },
+        transform: Transform::from_xyz(-0.7, 1.7, -2.0)
+            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..Default::default()
     });
 }
 
-pub fn spawn_gltf_objects(
+pub fn spawn_and_print_gltf_objects(
     mut commands: Commands,
     mut done: ResMut<bool>,
     gltf_handle: Res<Handle<Gltf>>,
