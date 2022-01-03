@@ -146,6 +146,57 @@ impl DivAssign<f32> for Size {
 /// assert_eq!(position.bottom, Val::Undefined);
 /// ```
 ///
+/// If you define opposite sides of the position, the size of the UI element will automatically be calculated
+/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Undefined`] as a
+/// width and height, the size would be determined by the window size and the values specified in the position.
+///
+/// In this example we are creating another UI position. It has a left value of 100px, a right value of 200px,
+/// a top value of 300px and a bottom value of 400px. If positioned absolutely this would correspond to a
+/// UI element that is positioned 100px to the right from the left side of the window and 300px down from
+/// the top side of the window.
+///
+/// ```rust
+/// # use bevy_ui::{UiRect, Val};
+/// #
+/// let position = UiRect {
+///     left: Val::Px(100.0),
+///     right: Val::Px(200.0),
+///     top: Val::Px(300.0),
+///     bottom: Val::Px(400.0),
+/// };
+///
+/// assert_eq!(position.left, Val::Px(100.0));
+/// assert_eq!(position.right, Val::Px(200.0));
+/// assert_eq!(position.top, Val::Px(300.0));
+/// assert_eq!(position.bottom, Val::Px(400.0));
+/// ```
+///
+/// The size of the UI element would now be determined by the window size and the position values.
+/// To determine the width of the UI element you have to take the width of the window and subtract it by the
+/// left and right values of the position. To determine the height of the UI element you have to take the height
+/// of the window and subtract it by the top and bottom values of the position.
+///
+/// If we had a window with a width and height of 1000px, the UI element would have a width of 700px and a height
+/// of 300px.
+///
+/// ```rust
+/// let window_size = 1000.0;
+/// let left = 100.0;
+/// let right = 200.0;
+/// let top = 300.0;
+/// let bottom = 400.0;
+///
+/// let ui_element_width = window_size - left - right;
+/// let ui_element_height = window_size - top - bottom;
+///
+/// assert_eq!(ui_element_width, 700.0);
+/// assert_eq!(ui_element_height, 300.0);
+/// ```
+///
+/// If you define a [`Size`] and also all four sides of the position, the top and left values of the position
+/// are used to determine where to place the UI element. The size will not be calculated using the bottom and
+/// right values of the position because the size of the UI element is already explicitly specified.
+///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
