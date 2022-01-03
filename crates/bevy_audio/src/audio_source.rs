@@ -8,7 +8,8 @@ use std::{io::Cursor, sync::Arc};
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    bytes: Arc<[u8]>,
+    /// Raw data of the audio source
+    pub bytes: Arc<[u8]>,
 }
 
 impl AsRef<[u8]> for AudioSource {
