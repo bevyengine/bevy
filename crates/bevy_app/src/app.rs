@@ -41,7 +41,7 @@ bevy_utils::define_label!(AppLabel);
 /// }
 /// ```
 pub struct App {
-    /// Stores and exposes operations on [entities](bevy_ecs::world::Entity), [components](bevy_ecs::world::Component), resources,
+    /// Stores and exposes operations on [entities](bevy_ecs::entity::Entity), [components](bevy_ecs::component::Component), resources,
     /// and their associated metadata.
     pub world: World,
     /// A [runner function](Self::set_runner) which is typically not configured manually,

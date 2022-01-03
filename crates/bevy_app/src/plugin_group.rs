@@ -8,9 +8,14 @@ pub trait PluginGroup {
     ///
     /// # Examples
     /// ```
-    /// fn build(&mut self, group: &mut PluginGroupBuilder){
-    ///     group.add(Plugin1);
-    ///     group.add(Plugin2);
+    /// # use bevy_app::plugin_group::PluginGroupBuilder;
+    /// # struct Plugin1;
+    /// # struct Plugin2;
+    /// impl PluginGroup for MyPluginGroup{
+    ///     fn build(&mut self, group: &mut PluginGroupBuilder){
+    ///         group.add(Plugin1);
+    ///         group.add(Plugin2);
+    ///     }
     /// }
     /// ```
     fn build(&mut self, group: &mut PluginGroupBuilder);
@@ -48,7 +53,10 @@ impl PluginGroupBuilder {
     ///
     /// # Examples
     /// From examples/asset/custom_asset_io.rs
+    ///
     /// ```
+    /// # use bevy_internal::DefaultPlugins;
+    /// # struct CustomAssetIoPlugin;
     /// App::new()
     ///     .add_plugins_with(DefaultPlugins, |group| {
     ///         // the custom asset io plugin must be inserted in-between the
