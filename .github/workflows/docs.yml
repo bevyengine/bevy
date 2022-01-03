@@ -7,6 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: --html-in-header header.html
 
 jobs:
   build-and-deploy:
@@ -21,6 +22,14 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+
+      #  This does the following:
+      #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
+      #   - Adds a meta tag that forces Google not to index any page on the site.
+      - name: Pre-docs-build
+        run: |
+          sed -i "s/icon.png/icon-docs-dev.png" src/lib.rs
+          echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
         run: cargo doc --all-features --no-deps -p bevy
