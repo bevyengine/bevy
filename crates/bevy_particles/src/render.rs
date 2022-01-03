@@ -4,7 +4,8 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::Transparent3d;
+use bevy_core::FloatOrd;
+use bevy_core_pipeline::{Transparent2d, Transparent3d};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemState},
@@ -57,13 +58,21 @@ impl Plugin for ParticleRenderPlugin {
             .init_resource::<MaterialBindGroups>()
             .init_resource::<SpecializedPipelines<ParticlePipeline>>();
 
-        let draw_particle = DrawParticle::new(&mut render_app.world);
+        let draw_2d = DrawParticle::new(&mut render_app.world);
+        render_app
+            .world
+            .get_resource::<DrawFunctions<Transparent2d>>()
+            .unwrap()
+            .write()
+            .add(draw_2d);
+
+        let draw_3d = DrawParticle::new(&mut render_app.world);
         render_app
             .world
             .get_resource::<DrawFunctions<Transparent3d>>()
             .unwrap()
             .write()
-            .add(draw_particle);
+            .add(draw_3d);
     }
 }
 
@@ -349,7 +358,6 @@ fn extract_particles(
 }
 
 struct ParticleMeta {
-    ranges: Vec<Range<u64>>,
     total_count: u64,
     view_bind_group: Option<BindGroup>,
     particle_bind_group: Option<BindGroup>,
@@ -362,7 +370,6 @@ struct ParticleMeta {
 impl Default for ParticleMeta {
     fn default() -> Self {
         ParticleMeta {
-            ranges: Vec::default(),
             total_count: 0,
             view_bind_group: None,
             particle_bind_group: None,
@@ -374,12 +381,61 @@ impl Default for ParticleMeta {
     }
 }
 
+fn build_material_bind_group(
+    current_batch_handle: Handle<ParticleMaterial>,
+    render_device: &RenderDevice,
+    particle_pipeline: &ParticlePipeline,
+    material_bind_groups: &mut MaterialBindGroups,
+    render_materials: &RenderAssets<ParticleMaterial>,
+    gpu_images: &RenderAssets<Image>,
+) {
+    let gpu_material = render_materials
+        .get(&current_batch_handle)
+        .expect("Failed to get ParticleMaterial PreparedAsset");
+
+    if !material_bind_groups.values.contains_key(&current_batch_handle) {
+        let (base_color_texture_view, base_color_sampler) = image_handle_to_view_sampler(
+            &particle_pipeline,
+            gpu_images,
+            &gpu_material.base_color_texture,
+        );
+
+        material_bind_groups.values.insert(
+            current_batch_handle.clone_weak(),
+            render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: gpu_material.buffer.as_entire_binding(),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::TextureView(base_color_texture_view),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::Sampler(base_color_sampler),
+                    },
+                ],
+                label: Some("particle_material_bind_group"),
+                layout: &particle_pipeline.material_layout,
+            }),
+        );
+    }
+
+}
+
 fn prepare_particles(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut commands: Commands,
     mut particle_meta: ResMut<ParticleMeta>,
     mut extracted_particles: ResMut<ExtractedParticles>,
+    mut material_bind_groups: ResMut<MaterialBindGroups>,
+    particle_pipeline: Res<ParticlePipeline>,
+    view_uniforms: Res<ViewUniforms>,
+    render_materials: Res<RenderAssets<ParticleMaterial>>,
+    gpu_images: Res<RenderAssets<Image>>,
 ) {
     particle_meta.positions.clear();
     particle_meta.sizes.clear();
@@ -395,14 +451,22 @@ fn prepare_particles(
     }
 
     particle_meta.total_count = total_count as u64;
-    particle_meta.ranges.clear();
-    if total_count == 0 {
+    if view_uniforms.uniforms.is_empty() || total_count == 0 {
         return;
     }
 
-    particle_meta.positions.reserve(total_count, &render_device);
-    particle_meta.sizes.reserve(total_count, &render_device);
-    particle_meta.colors.reserve(total_count, &render_device);
+    if let Some(view_bindings) = view_uniforms.uniforms.binding() {
+        particle_meta.view_bind_group.get_or_insert_with(|| {
+            render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: view_bindings,
+                }],
+                label: Some("particle_view_bind_group"),
+                layout: &particle_pipeline.view_layout,
+            })
+        });
+    }
 
     let mut start: u32 = 0;
     let mut end: u32 = 0;
@@ -418,6 +482,14 @@ fn prepare_particles(
                     range: start..end,
                     handle: current_batch_handle.clone_weak(),
                 },));
+                build_material_bind_group(
+                    current_batch_handle.clone_weak(), 
+                    &render_device, 
+                    &particle_pipeline, 
+                    &mut material_bind_groups, 
+                    &render_materials, 
+                    &gpu_images
+                );
             }
             start = end;
         }
@@ -430,6 +502,14 @@ fn prepare_particles(
                 range: start..end,
                 handle: current_batch_handle.clone_weak(),
             },));
+            build_material_bind_group(
+                current_batch_handle.clone_weak(), 
+                &render_device, 
+                &particle_pipeline, 
+                &mut material_bind_groups, 
+                &render_materials, 
+                &gpu_images
+            );
         }
     }
 
@@ -442,6 +522,28 @@ fn prepare_particles(
     particle_meta
         .colors
         .write_buffer(&render_device, &render_queue);
+
+    // TODO(james7132): Find a way to cache this.
+    particle_meta.particle_bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: bind_buffer(&particle_meta.positions, particle_meta.total_count),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: bind_buffer(&particle_meta.sizes, particle_meta.total_count),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: bind_buffer(&particle_meta.colors, particle_meta.total_count),
+                },
+            ],
+            label: Some("particle_particle_bind_group"),
+            layout: &particle_pipeline.particle_layout,
+        }));
+
 }
 
 fn batch_copy<T: Pod>(src: &[T], dst: &mut BufferVec<T>) {
@@ -490,105 +592,39 @@ struct MaterialBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 fn queue_particles(
-    draw_functions: Res<DrawFunctions<Transparent3d>>,
-    mut views: Query<&mut RenderPhase<Transparent3d>>,
-    render_device: Res<RenderDevice>,
-    mut material_bind_groups: ResMut<MaterialBindGroups>,
-    mut particle_meta: ResMut<ParticleMeta>,
-    view_uniforms: Res<ViewUniforms>,
-    particle_pipeline: Res<ParticlePipeline>,
+    draw_functions_2d: Res<DrawFunctions<Transparent2d>>,
+    draw_functions_3d: Res<DrawFunctions<Transparent2d>>,
+    mut views_2d: Query<&mut RenderPhase<Transparent2d>>,
+    mut views_3d: Query<&mut RenderPhase<Transparent3d>>,
     mut pipelines: ResMut<SpecializedPipelines<ParticlePipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
-    particle_batches: Query<(Entity, &ParticleBatch)>,
-    render_materials: Res<RenderAssets<ParticleMaterial>>,
-    gpu_images: Res<RenderAssets<Image>>,
+    particle_batches: Query<Entity, With<ParticleBatch>>,
+    particle_pipeline: Res<ParticlePipeline>,
 ) {
-    if view_uniforms.uniforms.is_empty() || particle_meta.total_count == 0 {
-        return;
-    }
-
-    if let Some(view_bindings) = view_uniforms.uniforms.binding() {
-        particle_meta.view_bind_group.get_or_insert_with(|| {
-            render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_bindings,
-                }],
-                label: Some("particle_view_bind_group"),
-                layout: &particle_pipeline.view_layout,
-            })
-        });
-    }
-
-    // TODO(james7132): Find a way to cache this.
-    particle_meta.particle_bind_group =
-        Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: bind_buffer(&particle_meta.positions, particle_meta.total_count),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: bind_buffer(&particle_meta.sizes, particle_meta.total_count),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: bind_buffer(&particle_meta.colors, particle_meta.total_count),
-                },
-            ],
-            label: Some("particle_particle_bind_group"),
-            layout: &particle_pipeline.particle_layout,
-        }));
-
-    // let particle_meta = &mut *particle_meta;
-    let draw_particle_function = draw_functions.read().get_id::<DrawParticle>().unwrap();
-    for mut transparent_phase in views.iter_mut() {
-        for (entity, batch) in particle_batches.iter() {
-            let gpu_material = render_materials
-                .get(&batch.handle)
-                .expect("Failed to get ParticleMaterial PreparedAsset");
-
-            if !material_bind_groups.values.contains_key(&batch.handle) {
-                let (base_color_texture_view, base_color_sampler) = image_handle_to_view_sampler(
-                    &particle_pipeline,
-                    &gpu_images,
-                    &gpu_material.base_color_texture,
-                );
-
-                material_bind_groups.values.insert(
-                    batch.handle.clone_weak(),
-                    render_device.create_bind_group(&BindGroupDescriptor {
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: gpu_material.buffer.as_entire_binding(),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::TextureView(base_color_texture_view),
-                            },
-                            BindGroupEntry {
-                                binding: 2,
-                                resource: BindingResource::Sampler(base_color_sampler),
-                            },
-                        ],
-                        label: Some("particle_material_bind_group"),
-                        layout: &particle_pipeline.material_layout,
-                    }),
-                );
-            }
-
-            transparent_phase.add(Transparent3d {
+    let draw_2d = draw_functions_2d.read().get_id::<DrawParticle>().unwrap();
+    let draw_3d = draw_functions_3d.read().get_id::<DrawParticle>().unwrap();
+    for entity in particle_batches.iter() {
+        let pipeline = pipelines.specialize(
+            &mut pipeline_cache,
+            &particle_pipeline,
+            ParticlePipelineKey,
+        );
+        for mut phase in views_2d.iter_mut() {
+            phase.add(Transparent2d {
+                // TODO(james7132): properly compute this
+                sort_key: FloatOrd(0.0),
+                pipeline,
+                entity,
+                draw_function: draw_2d,
+            });
+        }
+        for mut phase in views_3d.iter_mut() {
+            phase.add(Transparent3d {
                 // TODO(james7132): properly compute this
                 distance: 10.0,
-                pipeline: pipelines.specialize(
-                    &mut pipeline_cache,
-                    &particle_pipeline,
-                    ParticlePipelineKey,
-                ),
+                pipeline,
                 entity,
-                draw_function: draw_particle_function,
+                draw_function: draw_3d,
             });
         }
     }
@@ -610,24 +646,24 @@ impl DrawParticle {
             params: SystemState::new(world),
         }
     }
-}
 
-impl Draw<Transparent3d> for DrawParticle {
-    fn draw<'w>(
+    #[inline(always)]
+    fn draw_particles<'w>(
         &mut self,
         world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
         view: Entity,
-        item: &Transparent3d,
+        pass: &mut TrackedRenderPass<'w>,
+        entity: Entity,
+        pipeline: CachedPipelineId,
     ) {
         let (particle_meta, material_bind_groups, pipelines, views, batches) =
             self.params.get(world);
         let view_uniform = views.get(view).unwrap();
         let material_bind_groups = material_bind_groups.into_inner();
         let particle_meta = particle_meta.into_inner();
-        let batch = batches.get(item.entity).unwrap();
+        let batch = batches.get(entity).unwrap();
 
-        if let Some(pipeline) = pipelines.into_inner().get(item.pipeline) {
+        if let Some(pipeline) = pipelines.into_inner().get(pipeline) {
             let vertex_range = (batch.range.start * 6)..(batch.range.end * 6);
 
             pass.set_render_pipeline(pipeline);
@@ -644,5 +680,29 @@ impl Draw<Transparent3d> for DrawParticle {
             );
             pass.draw(vertex_range, 0..1);
         }
+    }
+}
+
+impl Draw<Transparent2d> for DrawParticle {
+    fn draw<'w>(
+        &mut self,
+        world: &'w World,
+        pass: &mut TrackedRenderPass<'w>,
+        view: Entity,
+        item: &Transparent2d,
+    ) {
+        self.draw_particles(world, view, pass, item.entity, item.pipeline);
+    }
+}
+
+impl Draw<Transparent3d> for DrawParticle {
+    fn draw<'w>(
+        &mut self,
+        world: &'w World,
+        pass: &mut TrackedRenderPass<'w>,
+        view: Entity,
+        item: &Transparent3d,
+    ) {
+        self.draw_particles(world, view, pass, item.entity, item.pipeline);
     }
 }
