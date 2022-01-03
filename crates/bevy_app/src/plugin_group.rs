@@ -5,20 +5,6 @@ use std::any::TypeId;
 /// Combines multiple [`Plugin`]s into a single unit.
 pub trait PluginGroup {
     /// Configures the [Plugin]s that are to be added.
-    ///
-    /// # Examples
-    /// ```
-    /// # use bevy_app::{PluginGroup,PluginGroupBuilder};
-    /// # struct Plugin1;
-    /// # struct Plugin2;
-    /// # struct MyPluginGroup;
-    /// impl PluginGroup for MyPluginGroup{
-    ///     fn build(&mut self, group: &mut PluginGroupBuilder){
-    ///         group.add(Plugin1);
-    ///         group.add(Plugin2);
-    ///     }
-    /// }
-    /// ```
     fn build(&mut self, group: &mut PluginGroupBuilder);
 }
 
@@ -51,25 +37,6 @@ impl PluginGroupBuilder {
     }
 
     /// Configures a [`Plugin`] to be built before another plugin.
-    ///
-    /// # Examples
-    /// From examples/asset/custom_asset_io.rs
-    ///
-    /// ```
-    /// # struct DefaultPlugins;
-    /// # struct CustomAssetIoPlugin;
-    /// App::new()
-    ///     .add_plugins_with(DefaultPlugins, |group| {
-    ///         // the custom asset io plugin must be inserted in-between the
-    ///         // `CorePlugin' and `AssetPlugin`. It needs to be after the
-    ///         // CorePlugin, so that the IO task pool has already been constructed.
-    ///         // And it must be before the `AssetPlugin` so that the asset plugin
-    ///         // doesn't create another instance of an asset server. In general,
-    ///         // the AssetPlugin should still run so that other aspects of the
-    ///         // asset system are initialized correctly.
-    ///         group.add_before::<bevy_asset::AssetPlugin, _>(CustomAssetIoPlugin)
-    ///     })
-    /// ```
     pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self
             .order
