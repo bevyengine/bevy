@@ -1,6 +1,6 @@
 //! Types for handling [`Bundle`]s.
 //!
-//! This module contains the `Bundle` trait and some other helper types.
+//! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
 
@@ -13,7 +13,7 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components.
+/// An ordered collection of [`Component`]s.
 ///
 /// Commonly used for spawning entities and adding and removing components in bulk. This
 /// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
@@ -76,22 +76,22 @@ use std::{any::TypeId, collections::HashMap};
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 ///   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Components`]
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
-    /// this bundle's Components
+    /// this bundle's [`Component`]s
     ///
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
-    /// Components
+    /// [`Component`]s
     unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
     where
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's [`Components`]. This will
-    /// `mem::forget` the bundle fields, so callers are responsible for dropping the fields if
-    /// that is desirable.
+    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
+    /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
+    /// if that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
 }
 
