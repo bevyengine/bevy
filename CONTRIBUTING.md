@@ -83,7 +83,7 @@ Check out the next section for details on how this plays out.
 
 Some Bevy Org members are also [Triage Team](https://github.com/orgs/bevyengine/teams/triage-team) members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Bevy Engine Org members can [automatically request membership](https://github.com/orgs/bevyengine/teams/triage-team/members). Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
 
-We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided they have two approvals.
+We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided these changes have at least two approvals. Same goes for @alice-i-cecile and doc related changes. If there is an emergency that needs a quick resolution and @cart is not around, both @mockersf and @alice-i-cecile are allowed to merge changes that resolve the emergency.
 
 ## How we work together
 
