@@ -586,11 +586,8 @@ fn queue_particles(
     let draw_2d = draw_functions_2d.read().get_id::<DrawParticle>().unwrap();
     let draw_3d = draw_functions_3d.read().get_id::<DrawParticle>().unwrap();
     for entity in particle_batches.iter() {
-        let pipeline = pipelines.specialize(
-            &mut pipeline_cache,
-            &particle_pipeline,
-            ParticlePipelineKey,
-        );
+        let pipeline =
+            pipelines.specialize(&mut pipeline_cache, &particle_pipeline, ParticlePipelineKey);
         for mut phase in views_2d.iter_mut() {
             phase.add(Transparent2d {
                 // TODO(james7132): properly compute this
