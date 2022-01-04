@@ -193,14 +193,28 @@ impl AxisSettings {
         } else if new_value <= self.negative_high {
             -1.0
         } else if new_value > self.positive_low {
-            (new_value - self.positive_low) / (self.positive_high - self.positive_low)
+            scale(new_value, self.positive_low, self.positive_high)
         } else {
-            -1.0 * (new_value - self.negative_low) / (self.negative_high - self.negative_low)
+            -1.0 * scale(new_value, self.negative_low, self.negative_high)
         };
 
         if let Some(old_value) = old_value {
-            if (new_value - old_value).abs() <= self.threshold {
-                return None;
+            if new_value >= 0.0 && old_value >= 0.0 {
+                if (unscale(new_value, self.positive_low, self.positive_high)
+                    - unscale(old_value, self.positive_low, self.positive_high))
+                .abs()
+                    <= self.threshold
+                {
+                    return None;
+                }
+            } else if new_value < 0.0 && old_value < 0.0 {
+                if (unscale(new_value, self.negative_low, self.negative_high)
+                    - unscale(old_value, self.negative_low, self.negative_high))
+                .abs()
+                    <= self.threshold
+                {
+                    return None;
+                }
             }
         }
 
@@ -232,17 +246,30 @@ impl ButtonAxisSettings {
         } else if new_value >= self.high {
             1.0
         } else {
-            (new_value - self.low) / (self.high - self.low)
+            scale(new_value, self.low, self.high)
         };
 
         if let Some(old_value) = old_value {
-            if (new_value - old_value).abs() <= self.threshold {
+            if (unscale(new_value, self.low, self.high) - unscale(old_value, self.low, self.high))
+                .abs()
+                <= self.threshold
+            {
                 return None;
             }
         }
 
         Some(new_value)
     }
+}
+
+fn scale(value: f32, low: f32, high: f32) -> f32 {
+    (value - low) / (high - low)
+}
+
+fn unscale(value: f32, low: f32, high: f32) -> f32 {
+    let new_value = value * (high - low) + low;
+    print!("new_value: {:?}", new_value);
+    return new_value;
 }
 
 /// Monitors gamepad connection and disconnection events, updating the [`Gamepads`] resource accordingly
@@ -417,10 +444,10 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter_with_old_value() {
         let cases = [
-            (0.43, Some(0.43223223), Some(0.42222223)),
-            (0.43, Some(0.43222223), None),
+            (0.43, Some(0.43334445), Some(0.42222223)),
+            (0.43, Some(0.43333333), None),
             (0.43, Some(0.42222223), None),
-            (0.43, Some(0.42121223), None),
+            (0.43, Some(0.4111), Some(0.42222223)),
             (0.43, Some(0.17), Some(0.42222223)),
             (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
@@ -484,21 +511,21 @@ mod tests {
     #[test]
     fn test_axis_settings_default_filter_with_old_values() {
         let cases = [
-            (0.43, Some(0.43223223), Some(0.42222223)),
-            (0.43, Some(0.43222223), None),
+            (0.43, Some(0.43334445), Some(0.42222223)),
+            (0.43, Some(0.43333333), None),
             (0.43, Some(0.42222223), None),
-            (0.43, Some(0.42121223), None),
+            (0.43, Some(0.4111), Some(0.42222223)),
             (0.43, Some(0.17), Some(0.42222223)),
             (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
-            (-0.43, Some(-0.43223223), Some(-0.42222223)),
-            (-0.43, Some(-0.43222223), None),
+            (-0.43, Some(-0.43334445), Some(-0.42222223)),
+            (-0.43, Some(-0.43333333), None),
             (-0.43, Some(-0.42222223), None),
-            (-0.43, Some(-0.42121223), None),
+            (-0.43, Some(-0.4111), Some(-0.42222223)),
             (-0.43, Some(-0.17), Some(-0.42222223)),
             (-0.43, Some(-0.84), Some(-0.42222223)),
-            (-0.05, Some(-0.055), Some(-0.0)),
+            (-0.05, Some(-0.055), Some(0.0)),
             (-0.95, Some(-0.945), Some(-1.0)),
         ];
 
