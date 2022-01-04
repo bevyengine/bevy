@@ -244,7 +244,11 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
         return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
+        return u32(clamp(
+            log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0,
+            0.0,
+            f32(lights.cluster_dimensions.z) - 1.0
+        ));
     }
 }
 

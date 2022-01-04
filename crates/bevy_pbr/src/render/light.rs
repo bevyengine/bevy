@@ -323,6 +323,8 @@ impl SpecializedPipeline for ShadowPipeline {
 
 #[derive(Component)]
 pub struct ExtractedClusterConfig {
+    /// Special near value for cluster calculations
+    near: f32,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -339,6 +341,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
                 data: clusters.lights.clone(),
             },
             ExtractedClusterConfig {
+                near: clusters.near,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -551,7 +554,7 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / (far / near).ln();
         Vec2::new(
             z_slices_of_ln_zfar_over_znear,
             near.ln() * z_slices_of_ln_zfar_over_znear,
@@ -680,7 +683,7 @@ pub fn prepare_lights(
 
         let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
-            extracted_view.near,
+            clusters.near,
             extracted_view.far,
             clusters.axis_slices.z as f32,
             is_orthographic,
