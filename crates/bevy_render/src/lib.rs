@@ -27,6 +27,7 @@ pub mod prelude {
     };
 }
 
+use bevy_utils::tracing::debug;
 pub use once_cell;
 
 use crate::{
@@ -107,7 +108,7 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
+        let mut options = app
             .world
             .get_resource::<options::WgpuOptions>()
             .cloned()
@@ -122,21 +123,21 @@ impl Plugin for RenderPlugin {
             });
             raw_handle
         };
+        let request_adapter_options = wgpu::RequestAdapterOptions {
+            power_preference: options.power_preference,
+            compatible_surface: surface.as_ref(),
+            ..Default::default()
+        };
         let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
             &instance,
-            &wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
-                compatible_surface: surface.as_ref(),
-                ..Default::default()
-            },
-            &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features: options.features,
-                limits: options.limits,
-            },
+            &mut options,
+            &request_adapter_options,
         ));
+        debug!("Configured wgpu adapter Limits: {:#?}", &options.limits);
+        debug!("Configured wgpu adapter Features: {:#?}", &options.features);
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
+            .insert_resource(options.clone())
             .add_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_resource::<ScratchRenderWorld>()
@@ -167,6 +168,7 @@ impl Plugin for RenderPlugin {
             .insert_resource(instance)
             .insert_resource(device)
             .insert_resource(queue)
+            .insert_resource(options)
             .insert_resource(render_pipeline_cache)
             .insert_resource(asset_server)
             .init_resource::<RenderGraph>();
