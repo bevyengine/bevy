@@ -45,15 +45,17 @@ render = [
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
-bevy_render = ["bevy_internal/bevy_render"]
-bevy_text = ["bevy_internal/bevy_text"]
-bevy_pbr = ["bevy_internal/bevy_pbr"]
-bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
+# Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
@@ -82,10 +84,10 @@ serialize = ["bevy_internal/serialize"]
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
+# Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
