@@ -159,7 +159,8 @@ impl ButtonSettings {
 /// Values that are lower than `negative_high` will be rounded to -1.0.
 /// Values that are higher than `positive_high` will be rounded to 1.0.
 /// Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
-/// Otherwise, values will not be rounded.
+/// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
+/// For example, a value that is one fourth of the way from positive_low to positive_high will be scaled to 0.25.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
