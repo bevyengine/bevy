@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor::from_default_color(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();
