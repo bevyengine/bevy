@@ -3,7 +3,10 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use std::num::NonZeroU64;
+use std::{
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+};
 use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
 
 pub struct UniformVec<T: AsStd140> {
@@ -11,7 +14,6 @@ pub struct UniformVec<T: AsStd140> {
     scratch: Vec<u8>,
     uniform_buffer: Option<Buffer>,
     capacity: usize,
-    item_size: usize,
 }
 
 impl<T: AsStd140> Default for UniformVec<T> {
@@ -21,13 +23,15 @@ impl<T: AsStd140> Default for UniformVec<T> {
             scratch: Vec::new(),
             uniform_buffer: None,
             capacity: 0,
-            item_size: (T::std140_size_static() + <T as AsStd140>::Output::ALIGNMENT - 1)
-                & !(<T as AsStd140>::Output::ALIGNMENT - 1),
         }
     }
 }
 
 impl<T: AsStd140> UniformVec<T> {
+    const ITEM_SIZE: usize =
+        (std::mem::size_of::<T::Output>() + <T as AsStd140>::Output::ALIGNMENT - 1)
+            & !(<T as AsStd140>::Output::ALIGNMENT - 1);
+
     #[inline]
     pub fn uniform_buffer(&self) -> Option<&Buffer> {
         self.uniform_buffer.as_ref()
@@ -38,18 +42,8 @@ impl<T: AsStd140> UniformVec<T> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.uniform_buffer()?,
             offset: 0,
-            size: Some(NonZeroU64::new(self.item_size as u64).unwrap()),
+            size: Some(NonZeroU64::new(Self::ITEM_SIZE as u64).unwrap()),
         }))
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
     }
 
     #[inline]
@@ -63,14 +57,23 @@ impl<T: AsStd140> UniformVec<T> {
         index
     }
 
-    pub fn get_mut(&mut self, index: usize) -> &mut T {
-        &mut self.values[index]
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve_buffer(self.values.len(), device);
+        if let Some(uniform_buffer) = &self.uniform_buffer {
+            let range = 0..Self::ITEM_SIZE * self.values.len();
+            let mut writer = std140::Writer::new(&mut self.scratch[range.clone()]);
+            writer.write(self.values.as_slice()).unwrap();
+            queue.write_buffer(uniform_buffer, 0, &self.scratch[range]);
+        }
     }
 
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) -> bool {
+    fn reserve_buffer(&mut self, capacity: usize, device: &RenderDevice) -> bool {
         if capacity > self.capacity {
             self.capacity = capacity;
-            let size = self.item_size * capacity;
+            let size = Self::ITEM_SIZE * capacity;
             self.scratch.resize(size, 0);
             self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
@@ -84,25 +87,21 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        if self.values.is_empty() {
-            return;
-        }
-        self.reserve(self.values.len(), device);
-        if let Some(uniform_buffer) = &self.uniform_buffer {
-            let range = 0..self.item_size * self.values.len();
-            let mut writer = std140::Writer::new(&mut self.scratch[range.clone()]);
-            writer.write(self.values.as_slice()).unwrap();
-            queue.write_buffer(uniform_buffer, 0, &self.scratch[range]);
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.values.clear();
-    }
-
     pub fn values(&self) -> &[T] {
         &self.values
+    }
+}
+
+impl<T: AsStd140> Deref for UniformVec<T> {
+    type Target = Vec<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.values
+    }
+}
+
+impl<T: AsStd140> DerefMut for UniformVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.values
     }
 }
 
@@ -146,12 +145,8 @@ impl<T: AsStd140> DynamicUniformVec<T> {
 
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
-        (self.uniform_vec.push(DynamicUniform(value)) * self.uniform_vec.item_size) as u32
-    }
-
-    #[inline]
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        self.uniform_vec.reserve(capacity, device);
+        (self.uniform_vec.push(DynamicUniform(value)) * UniformVec::<DynamicUniform<T>>::ITEM_SIZE)
+            as u32
     }
 
     #[inline]
