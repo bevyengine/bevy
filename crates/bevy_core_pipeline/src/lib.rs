@@ -176,7 +176,7 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
-    /// Range in the index buffer of this item
+    /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
 }
 

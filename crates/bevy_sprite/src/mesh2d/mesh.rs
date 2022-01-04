@@ -19,6 +19,9 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 
+/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
+///
+/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
 #[derive(Default, Clone, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
@@ -71,7 +74,6 @@ impl Plugin for Mesh2dRenderPlugin {
 pub struct Mesh2dUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
-    // FIXME: remove flags?
     pub flags: u32,
 }
 

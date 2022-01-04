@@ -66,9 +66,131 @@ pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase
     }
 }
 
-/// This batches the [`PhaseItem`]s of a [`RenderPhases`](RenderPhase).
+/// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
 pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
     for mut phase in render_phases.iter_mut() {
         phase.batch();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Range;
+
+    use bevy_ecs::entity::Entity;
+
+    use super::*;
+
+    #[test]
+    fn batching() {
+        #[derive(Debug, PartialEq)]
+        struct TestPhaseItem {
+            entity: Entity,
+            batch_range: Option<Range<u32>>,
+        }
+        impl PhaseItem for TestPhaseItem {
+            type SortKey = ();
+
+            fn sort_key(&self) -> Self::SortKey {}
+
+            fn draw_function(&self) -> DrawFunctionId {
+                unimplemented!();
+            }
+        }
+        impl EntityPhaseItem for TestPhaseItem {
+            fn entity(&self) -> bevy_ecs::entity::Entity {
+                self.entity
+            }
+        }
+        impl BatchedPhaseItem for TestPhaseItem {
+            fn batch_range(&self) -> &Option<std::ops::Range<u32>> {
+                &self.batch_range
+            }
+
+            fn batch_range_mut(&mut self) -> &mut Option<std::ops::Range<u32>> {
+                &mut self.batch_range
+            }
+        }
+        let mut render_phase = RenderPhase::<TestPhaseItem>::default();
+        let items = [
+            TestPhaseItem {
+                entity: Entity::from_raw(0),
+                batch_range: Some(0..5),
+            },
+            // This item should be batched
+            TestPhaseItem {
+                entity: Entity::from_raw(0),
+                batch_range: Some(5..10),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(0..5),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(0),
+                batch_range: Some(10..15),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(5..10),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: None,
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(10..15),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(20..25),
+            },
+            // This item should be batched
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(25..30),
+            },
+            // This item should be batched
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(30..35),
+            },
+        ];
+        for item in items {
+            render_phase.add(item);
+        }
+        render_phase.batch();
+        let items_batched = [
+            TestPhaseItem {
+                entity: Entity::from_raw(0),
+                batch_range: Some(0..10),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(0..5),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(0),
+                batch_range: Some(10..15),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(5..10),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: None,
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(10..15),
+            },
+            TestPhaseItem {
+                entity: Entity::from_raw(1),
+                batch_range: Some(20..35),
+            },
+        ];
+        assert_eq!(&*render_phase.items, items_batched);
     }
 }
