@@ -200,22 +200,20 @@ impl AxisSettings {
         };
 
         if let Some(old_value) = old_value {
-            if new_value >= 0.0 && old_value >= 0.0 {
-                if (unscale(new_value, self.positive_low, self.positive_high)
+            if (new_value >= 0.0
+                && old_value >= 0.0
+                && (unscale(new_value, self.positive_low, self.positive_high)
                     - unscale(old_value, self.positive_low, self.positive_high))
                 .abs()
-                    <= self.threshold
-                {
-                    return None;
-                }
-            } else if new_value < 0.0 && old_value < 0.0 {
-                if (unscale(new_value, self.negative_low, self.negative_high)
-                    - unscale(old_value, self.negative_low, self.negative_high))
-                .abs()
-                    <= self.threshold
-                {
-                    return None;
-                }
+                    <= self.threshold)
+                || (new_value < 0.0
+                    && old_value < 0.0
+                    && (unscale(new_value, self.negative_low, self.negative_high)
+                        - unscale(old_value, self.negative_low, self.negative_high))
+                    .abs()
+                        <= self.threshold)
+            {
+                return None;
             }
         }
 
@@ -268,9 +266,7 @@ fn scale(value: f32, low: f32, high: f32) -> f32 {
 }
 
 fn unscale(value: f32, low: f32, high: f32) -> f32 {
-    let new_value = value * (high - low) + low;
-    print!("new_value: {:?}", new_value);
-    return new_value;
+    value * (high - low) + low
 }
 
 /// Monitors gamepad connection and disconnection events, updating the [`Gamepads`] resource accordingly
