@@ -14,9 +14,10 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 
-/// Camera component defining what to render.
+/// The defining component for camera entities, storing information about how and what to render
+/// through this camera.
 ///
-/// The camera component is added to a world to define the properties of the viewpoint from
+/// The [`Camera`] component is added to an entity to define the properties of the viewpoint from
 /// which rendering occurs. It defines the position of the view to render, the projection method
 /// to transform the 3D objects into a 2D image, as well as the window into which that image
 /// is drawn.

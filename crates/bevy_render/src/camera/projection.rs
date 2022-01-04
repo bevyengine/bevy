@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Trait to control the projection matrix of a camera.
 ///
-/// Components implementing this trait are automatically polled for change, and used
+/// Components implementing this trait are automatically polled for changes, and used
 /// to recompute the camera projection matrix of the [`Camera`] component attached to
 /// the same entity as the component implementing this trait.
 ///
