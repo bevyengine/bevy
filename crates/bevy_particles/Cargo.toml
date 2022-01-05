@@ -24,3 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.5.0" }
 bevy_render = { path = "../bevy_render", version = "0.5.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.5.0" }
+
+[features]
+default = []
+webgl2 = []

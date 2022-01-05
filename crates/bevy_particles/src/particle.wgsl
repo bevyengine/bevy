@@ -6,6 +6,12 @@ struct View {
 [[group(0), binding(0)]]
 var<uniform> view: View;
 
+#ifdef WEBGL2
+[[group(1), binding(0)]]
+var base_color_texture: texture_2d<f32>;
+[[group(1), binding(1)]]
+var base_color_sampler: sampler;
+#else
 struct PositionBuffer { data: array<vec4<f32>>; };
 struct SizeBuffer { data: array<f32>; };
 struct ColorBuffer { data: array<vec4<f32>>; };
@@ -16,13 +22,21 @@ var<storage, read> positions: PositionBuffer;
 var<storage, read> sizes: SizeBuffer;
 [[group(1), binding(2)]]
 var<storage, read> colors:ColorBuffer;
+
 [[group(2), binding(0)]]
 var base_color_texture: texture_2d<f32>;
 [[group(2), binding(1)]]
 var base_color_sampler: sampler;
+#endif
+
 
 struct VertexInput {
   [[builtin(vertex_index)]] vertex_idx: u32;
+#ifdef WEBGL2
+  [[location(0)]] position: vec4<f32>;
+  [[location(1)]] size: f32;
+  [[location(2)]] color: vec4<f32>;
+#endif
 };
 
 struct VertexOutput {
@@ -54,9 +68,17 @@ fn vs_main(model: VertexInput) -> VertexOutput {
   let camera_up = 
     normalize(vec3<f32>(view.view_proj.x.y, view.view_proj.y.y, view.view_proj.z.y));
 
+#ifdef WEBGL2
+  let particle_position = model.position.xyz;
+  let theta = model.position.w;
+  let size = model.size;
+  let color = model.color;
+#else
   let particle_position = positions.data[particle_idx].xyz;
   let theta = positions.data[particle_idx].w;
   let size = sizes.data[particle_idx];
+  let color = colors.data[particle_idx];
+#endif
   let sin_cos = vec2<f32>(cos(theta), sin(theta));
   
   let rotation = mat2x2<f32>(
@@ -73,7 +95,7 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 
   var out: VertexOutput;
   out.position = view.view_proj * vec4<f32>(world_space, 1.0);
-  out.color = colors.data[particle_idx];
+  out.color = color;
   out.uv = uv;
   return out;
 }

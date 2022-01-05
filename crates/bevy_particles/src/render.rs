@@ -33,6 +33,7 @@ use wgpu::{
 
 pub const PARTICLE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3032357527543835453);
+const QUAD_VERTEX_COUNT: u32 = 6;
 
 pub(crate) struct ParticleRenderPlugin;
 
@@ -79,6 +80,7 @@ impl Plugin for ParticleRenderPlugin {
 
 struct ParticlePipeline {
     view_layout: BindGroupLayout,
+    #[cfg(not(feature = "webgl2"))]
     particle_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
 
@@ -104,6 +106,7 @@ impl FromWorld for ParticlePipeline {
             label: None,
         });
 
+        #[cfg(not(feature = "webgl2"))]
         let particle_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[
@@ -211,6 +214,7 @@ impl FromWorld for ParticlePipeline {
 
         Self {
             view_layout,
+            #[cfg(not(feature = "webgl2"))]
             particle_layout,
             material_layout,
 
@@ -223,16 +227,29 @@ impl SpecializedPipeline for ParticlePipeline {
     type Key = ParticleMaterialFlags;
 
     fn specialize(&self, flags: Self::Key) -> RenderPipelineDescriptor {
+        #[cfg(feature = "webgl2")]
+        let mut shader_defs = vec!["WEBGL2".into()];
+        #[cfg(not(feature = "webgl2"))]
         let mut shader_defs = Vec::new();
         if flags.contains(ParticleMaterialFlags::BASE_COLOR_TEXTURE) {
             shader_defs.push("BASE_COLOR_TEXTURE".into());
         }
+
+        #[cfg(feature = "webgl2")]
+        let vertex_buffers = vec![
+            vertex_buffer_layout::<Vec4>(0, VertexFormat::Float32x4), // Position
+            vertex_buffer_layout::<f32>(1, VertexFormat::Float32),    // Size
+            vertex_buffer_layout::<Vec4>(2, VertexFormat::Float32x4), // Color
+        ];
+        #[cfg(not(feature = "webgl2"))]
+        let vertex_buffers = Vec::new();
+
         RenderPipelineDescriptor {
             label: Some("particle_render_pipeline".into()),
             vertex: VertexState {
                 shader: PARTICLE_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vs_main".into(),
-                buffers: vec![],
+                buffers: vertex_buffers,
                 shader_defs: shader_defs.clone(),
             },
             fragment: Some(FragmentState {
@@ -274,6 +291,7 @@ impl SpecializedPipeline for ParticlePipeline {
             }),
             layout: Some(vec![
                 self.view_layout.clone(),
+                #[cfg(not(feature = "webgl2"))]
                 self.particle_layout.clone(),
                 self.material_layout.clone(),
             ]),
@@ -350,6 +368,7 @@ fn extract_particles(
 struct ParticleMeta {
     total_count: u64,
     view_bind_group: Option<BindGroup>,
+    #[cfg(not(feature = "webgl2"))]
     particle_bind_group: Option<BindGroup>,
 
     positions: BufferVec<Vec4>,
@@ -359,14 +378,28 @@ struct ParticleMeta {
 
 impl Default for ParticleMeta {
     fn default() -> Self {
-        ParticleMeta {
-            total_count: 0,
-            view_bind_group: None,
-            particle_bind_group: None,
+        #[cfg(feature = "webgl2")]
+        {
+            ParticleMeta {
+                total_count: 0,
+                view_bind_group: None,
 
-            positions: BufferVec::new(BufferUsages::STORAGE),
-            sizes: BufferVec::new(BufferUsages::STORAGE),
-            colors: BufferVec::new(BufferUsages::STORAGE),
+                positions: BufferVec::new(BufferUsages::VERTEX),
+                sizes: BufferVec::new(BufferUsages::VERTEX),
+                colors: BufferVec::new(BufferUsages::VERTEX),
+            }
+        }
+        #[cfg(not(feature = "webgl2"))]
+        {
+            ParticleMeta {
+                total_count: 0,
+                view_bind_group: None,
+                particle_bind_group: None,
+
+                positions: BufferVec::new(BufferUsages::STORAGE),
+                sizes: BufferVec::new(BufferUsages::STORAGE),
+                colors: BufferVec::new(BufferUsages::STORAGE),
+            }
         }
     }
 }
@@ -434,10 +467,33 @@ fn prepare_particles(
 
 fn batch_copy<T: Pod>(src: &[T], dst: &mut BufferVec<T>) {
     for item in src.iter() {
-        dst.push(*item);
+        #[cfg(not(feature = "webgl2"))]
+        {
+            dst.push(*item);
+        }
+        #[cfg(feature = "webgl2")]
+        {
+            for _ in 0..QUAD_VERTEX_COUNT {
+                dst.push(*item);
+            }
+        }
     }
 }
 
+#[cfg(feature = "webgl2")]
+fn vertex_buffer_layout<T: Pod>(shader_location: u32, format: VertexFormat) -> VertexBufferLayout {
+    VertexBufferLayout {
+        array_stride: std::mem::size_of::<T>() as u64,
+        step_mode: VertexStepMode::Vertex,
+        attributes: vec![VertexAttribute {
+            format,
+            offset: 0,
+            shader_location,
+        }],
+    }
+}
+
+#[cfg(not(feature = "webgl2"))]
 fn bind_buffer<T: Pod>(buffer: &BufferVec<T>, count: u64) -> BindingResource {
     BindingResource::Buffer(BufferBinding {
         buffer: buffer.buffer().expect("missing buffer"),
@@ -505,25 +561,28 @@ fn queue_particle_bind_groups(
     }
 
     // TODO(james7132): Find a way to cache this.
-    particle_meta.particle_bind_group =
-        Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: bind_buffer(&particle_meta.positions, particle_meta.total_count),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: bind_buffer(&particle_meta.sizes, particle_meta.total_count),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: bind_buffer(&particle_meta.colors, particle_meta.total_count),
-                },
-            ],
-            label: Some("particle_particle_bind_group"),
-            layout: &particle_pipeline.particle_layout,
-        }));
+    #[cfg(not(feature = "webgl2"))]
+    {
+        particle_meta.particle_bind_group =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: bind_buffer(&particle_meta.positions, particle_meta.total_count),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: bind_buffer(&particle_meta.sizes, particle_meta.total_count),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: bind_buffer(&particle_meta.colors, particle_meta.total_count),
+                    },
+                ],
+                label: Some("particle_particle_bind_group"),
+                layout: &particle_pipeline.particle_layout,
+            }));
+    }
 
     for batch in particle_batches.iter() {
         let gpu_material = render_materials
@@ -633,7 +692,8 @@ impl DrawParticle {
         let batch = batches.get(entity).unwrap();
 
         if let Some(pipeline) = pipelines.into_inner().get(pipeline) {
-            let vertex_range = (batch.range.start * 6)..(batch.range.end * 6);
+            let vertex_range =
+                (batch.range.start * QUAD_VERTEX_COUNT)..(batch.range.end * QUAD_VERTEX_COUNT);
 
             pass.set_render_pipeline(pipeline);
             pass.set_bind_group(
@@ -641,12 +701,26 @@ impl DrawParticle {
                 particle_meta.view_bind_group.as_ref().unwrap(),
                 &[view_uniform.offset],
             );
-            pass.set_bind_group(1, particle_meta.particle_bind_group.as_ref().unwrap(), &[]);
-            pass.set_bind_group(
-                2,
-                material_bind_groups.values.get(&batch.handle).unwrap(),
-                &[],
-            );
+            #[cfg(feature = "webgl2")]
+            {
+                pass.set_vertex_buffer(0, particle_meta.positions.buffer().unwrap().slice(..));
+                pass.set_vertex_buffer(1, particle_meta.sizes.buffer().unwrap().slice(..));
+                pass.set_vertex_buffer(2, particle_meta.colors.buffer().unwrap().slice(..));
+                pass.set_bind_group(
+                    1,
+                    material_bind_groups.values.get(&batch.handle).unwrap(),
+                    &[],
+                );
+            }
+            #[cfg(not(feature = "webgl2"))]
+            {
+                pass.set_bind_group(1, particle_meta.particle_bind_group.as_ref().unwrap(), &[]);
+                pass.set_bind_group(
+                    2,
+                    material_bind_groups.values.get(&batch.handle).unwrap(),
+                    &[],
+                );
+            }
             pass.draw(vertex_range, 0..1);
         }
     }
