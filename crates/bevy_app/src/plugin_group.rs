@@ -4,7 +4,7 @@ use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
 pub trait PluginGroup {
-    /// Configures the [Plugin]s that are to be added.
+    /// Configures the [`Plugin`]s that are to be added.
     fn build(&mut self, group: &mut PluginGroupBuilder);
 }
 
@@ -96,7 +96,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Disables a [`Plugin`]
+    /// Disables a [`Plugin`], preventing it from being add to the `App` with the rest of the [`PluginGroup`].
     pub fn disable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
