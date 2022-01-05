@@ -1,5 +1,5 @@
 use crate::{
-    material::{ParticleMaterial, ParticleMaterialUniformData},
+    material::{ParticleMaterial, ParticleMaterialFlags},
     particles::Particles,
 };
 use bevy_app::prelude::*;
@@ -16,7 +16,7 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms, VisibilitySystems},
@@ -146,21 +146,9 @@ impl FromWorld for ParticlePipeline {
         let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            ParticleMaterialUniformData::std140_size_static() as u64,
-                        ),
-                    },
-                    count: None,
-                },
                 // Base Color Texture
                 BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 0,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
@@ -171,7 +159,7 @@ impl FromWorld for ParticlePipeline {
                 },
                 // Base Color Texture Sampler
                 BindGroupLayoutEntry {
-                    binding: 2,
+                    binding: 1,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
@@ -231,24 +219,25 @@ impl FromWorld for ParticlePipeline {
     }
 }
 
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct ParticlePipelineKey;
-
 impl SpecializedPipeline for ParticlePipeline {
-    type Key = ParticlePipelineKey;
+    type Key = ParticleMaterialFlags;
 
-    fn specialize(&self, _: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, flags: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = Vec::new();
+        if flags.contains(ParticleMaterialFlags::BASE_COLOR_TEXTURE) {
+            shader_defs.push("BASE_COLOR_TEXTURE".into());
+        }
         RenderPipelineDescriptor {
             label: Some("particle_render_pipeline".into()),
             vertex: VertexState {
                 shader: PARTICLE_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vs_main".into(),
                 buffers: vec![],
-                shader_defs: vec![],
+                shader_defs: shader_defs.clone(),
             },
             fragment: Some(FragmentState {
                 shader: PARTICLE_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fs_main".into(),
                 targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
@@ -554,14 +543,10 @@ fn queue_particle_bind_groups(
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: gpu_material.buffer.as_entire_binding(),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
                             resource: BindingResource::TextureView(base_color_texture_view),
                         },
                         BindGroupEntry {
-                            binding: 2,
+                            binding: 1,
                             resource: BindingResource::Sampler(base_color_sampler),
                         },
                     ],
@@ -581,14 +566,18 @@ fn queue_particles(
     mut views_3d: Query<&mut RenderPhase<Transparent3d>>,
     mut pipelines: ResMut<SpecializedPipelines<ParticlePipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
-    particle_batches: Query<Entity, With<ParticleBatch>>,
+    particle_batches: Query<(Entity, &ParticleBatch)>,
     particle_pipeline: Res<ParticlePipeline>,
+    render_materials: Res<RenderAssets<ParticleMaterial>>,
 ) {
     let draw_2d = draw_functions_2d.read().get_id::<DrawParticle>().unwrap();
     let draw_3d = draw_functions_3d.read().get_id::<DrawParticle>().unwrap();
-    for entity in particle_batches.iter() {
+    for (entity, batch) in particle_batches.iter() {
+        let material = render_materials
+            .get(&batch.handle)
+            .expect("Failed to get ParticleMaterial PreparedAsset");
         let pipeline =
-            pipelines.specialize(&mut pipeline_cache, &particle_pipeline, ParticlePipelineKey);
+            pipelines.specialize(&mut pipeline_cache, &particle_pipeline, material.flags);
         for mut phase in views_2d.iter_mut() {
             phase.add(Transparent2d {
                 // TODO(james7132): properly compute this
