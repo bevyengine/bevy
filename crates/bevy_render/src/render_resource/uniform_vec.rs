@@ -60,7 +60,7 @@ impl<T: AsStd140> UniformVec<T> {
     ///
     /// Will return 0 if no buffer has been allocated yet.
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub fn buffer_capacity(&self) -> usize {
         self.capacity
     }
 
@@ -157,8 +157,8 @@ impl<T: AsStd140> DynamicUniformVec<T> {
 
     /// Gets the capacity of the underlying buffer, in bytes.
     #[inline]
-    pub fn capacity(&self) -> usize {
-        self.uniform_vec.capacity()
+    pub fn buffer_capacity(&self) -> usize {
+        self.uniform_vec.buffer_capacity()
     }
 
     #[inline]
