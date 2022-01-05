@@ -11,6 +11,8 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
+        .insert_resource(PrintDone::default())
+        .insert_resource(AssertDone::default())
         .add_system(spawn_and_print_gltf_objects)
         .add_system(assert_correctness)
         .run();
@@ -22,7 +24,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // so being able to print the loaded structure is extra valuable
     let handle: Handle<Gltf> = assets.load("models/AlienCake/alien.glb");
     commands.insert_resource(handle);
-    commands.insert_resource((false, false));
 
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.5, 1.0, -2.0)
@@ -50,9 +51,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-pub fn spawn_and_print_gltf_objects(
+fn spawn_and_print_gltf_objects(
     mut commands: Commands,
-    mut done: ResMut<(bool, bool)>,
+    mut done: ResMut<PrintDone>,
     gltf_handle: Res<Handle<Gltf>>,
     assets_gltf: Res<Assets<Gltf>>,
     assets_gltfnode: Res<Assets<GltfNode>>,
@@ -83,13 +84,13 @@ pub fn spawn_and_print_gltf_objects(
         done.0 = true;
     }
 }
-pub fn assert_correctness(
-    mut done: ResMut<(bool, bool)>,
+fn assert_correctness(
+    mut done: ResMut<AssertDone>,
     gltf_handle: Res<Handle<Gltf>>,
     assets_gltf: Res<Assets<Gltf>>,
     assets_gltfnode: Res<Assets<GltfNode>>,
 ) {
-    if done.1 {
+    if done.0 {
         return;
     }
     // if the GLTF has loaded, we can navigate its contents
@@ -101,6 +102,11 @@ pub fn assert_correctness(
             .collect::<Vec<_>>();
         assert_eq!(nodes.len(), 1);
         assert_eq!(nodes[0].children[0].children.len(), 6);
-        done.1 = true;
+        done.0 = true;
     }
 }
+#[derive(Default)]
+struct AssertDone(bool);
+
+#[derive(Default)]
+struct PrintDone(bool);
