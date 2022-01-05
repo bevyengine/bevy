@@ -487,6 +487,7 @@ struct MaterialBindGroups {
     values: HashMap<Handle<ParticleMaterial>, BindGroup>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn queue_particle_bind_groups(
     mut particle_meta: ResMut<ParticleMeta>,
     mut material_bind_groups: ResMut<MaterialBindGroups>,
