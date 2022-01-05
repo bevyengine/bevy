@@ -81,12 +81,15 @@ pub fn extract_text2d_sprite(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let transform =
-                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
-                        * Mat4::from_scale(transform.scale / scale_factor)
-                        * Mat4::from_translation(
-                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                        );
+                let transform = Transform::identity()
+                    .with_rotation(transform.rotation)
+                    .with_scale(transform.scale / scale_factor)
+                    .with_translation(
+                        transform.translation
+                            + alignment_offset * scale_factor
+                            + text_glyph.position.extend(0.),
+                    )
+                    .into();
 
                 extracted_sprites.sprites.push(ExtractedSprite {
                     transform,

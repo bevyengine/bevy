@@ -154,7 +154,7 @@ impl SpecializedPipeline for SpritePipeline {
 }
 
 pub struct ExtractedSprite {
-    pub transform: Mat4,
+    pub transform: GlobalTransform,
     pub color: u32,
     pub rect: Rect,
     pub handle: Handle<Image>,
@@ -228,7 +228,7 @@ pub fn extract_sprites(
             extracted_sprites.sprites.push(ExtractedSprite {
                 atlas_size: None,
                 color: sprite.color.as_linear_abgr_u32(),
-                transform: transform.compute_matrix(),
+                transform: transform.clone(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: sprite
@@ -251,7 +251,7 @@ pub fn extract_sprites(
                 extracted_sprites.sprites.push(ExtractedSprite {
                     atlas_size: Some(texture_atlas.size),
                     color: atlas_sprite.color.as_linear_abgr_u32(),
-                    transform: transform.compute_matrix(),
+                    transform: transform.clone(),
                     rect,
                     flip_x: atlas_sprite.flip_x,
                     flip_y: atlas_sprite.flip_y,
@@ -322,10 +322,12 @@ pub fn prepare_sprites(
 
     // sort first by z and then by handle. this ensures that, when possible, batches span multiple z layers
     // batches won't span z-layers if there is another batch between them
-    extracted_sprites.sprites.sort_by(|a, b| {
-        match FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])) {
-            Ordering::Equal => a.handle.cmp(&b.handle),
-            other => other,
+    extracted_sprites.sprites.sort_unstable_by(|a, b| {
+        let a_z = a.transform.translation.z;
+        let b_z = b.transform.translation.z;
+        match a_z.partial_cmp(&b_z) {
+            Some(Ordering::Equal) | None => a.handle.cmp(&b.handle),
+            Some(other) => other,
         }
     });
 
@@ -403,7 +405,8 @@ pub fn prepare_sprites(
         if current_batch_colored {
             for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
                 let mut final_position = *vertex_position * rect_size;
-                final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
+                let matrix = extracted_sprite.transform.compute_matrix();
+                final_position = (matrix * final_position.extend(1.0)).xyz();
                 sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                     position: final_position.into(),
                     uv: uvs[index],
@@ -413,7 +416,8 @@ pub fn prepare_sprites(
         } else {
             for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
                 let mut final_position = *vertex_position * rect_size;
-                final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
+                let matrix = extracted_sprite.transform.compute_matrix();
+                final_position = (matrix * final_position.extend(1.0)).xyz();
                 sprite_meta.vertices.push(SpriteVertex {
                     position: final_position.into(),
                     uv: uvs[index],
@@ -421,7 +425,7 @@ pub fn prepare_sprites(
             }
         }
 
-        last_z = extracted_sprite.transform.w_axis[2];
+        last_z = extracted_sprite.transform.translation.z;
         if current_batch_colored {
             colored_end += QUAD_VERTEX_POSITIONS.len() as u32;
         } else {
