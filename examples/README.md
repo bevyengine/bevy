@@ -216,7 +216,6 @@ Example | File | Description
 --- | --- | ---
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
-`custom_shader_manual` | [`shader/custom_shader_manual.rs`](./shader/custom_shader_manual.rs) | Example of a custom shader which doesn't use the `MaterialPlugin`
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
 `compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
