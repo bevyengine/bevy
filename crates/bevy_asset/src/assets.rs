@@ -272,25 +272,24 @@ pub trait AddAsset {
 impl AddAsset for App {
     /// Add an [`Asset`] to the [`App`].
     ///
-    /// Adding the same [`Asset`] several time is idempotent.
+    /// Adding the same [`Asset`] again after it has been added does nothing.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
     {
-        if !self.world.contains_resource::<Assets<T>>() {
-            let assets = {
-                let asset_server = self.world.get_resource::<AssetServer>().unwrap();
-                asset_server.register_asset_type::<T>()
-            };
-
-            self.insert_resource(assets)
-                .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
-                .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
-                .register_type::<Handle<T>>()
-                .add_event::<AssetEvent<T>>()
-        } else {
-            self
+        if self.world.contains_resource::<Assets<T>>() {
+            return self;
         }
+        let assets = {
+            let asset_server = self.world.get_resource::<AssetServer>().unwrap();
+            asset_server.register_asset_type::<T>()
+        };
+
+        self.insert_resource(assets)
+            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
+            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
+            .register_type::<Handle<T>>()
+            .add_event::<AssetEvent<T>>()
     }
 
     fn init_asset_loader<T>(&mut self) -> &mut Self
