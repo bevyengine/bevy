@@ -33,7 +33,7 @@ impl Default for RunMode {
 /// Configuration information for [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Default)]
 pub struct ScheduleRunnerSettings {
-    /// Determines whether the [`Schedule`] is run once or repeatedly.
+    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
 }
 
