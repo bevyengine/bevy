@@ -556,7 +556,7 @@ fn load_node(
         if let Some(light) = gltf_node.light() {
             match light.kind() {
                 gltf::khr_lights_punctual::Kind::Directional => {
-                    parent.spawn_bundle(DirectionalLightBundle {
+                    let mut entity = parent.spawn_bundle(DirectionalLightBundle {
                         directional_light: DirectionalLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for directional
@@ -566,9 +566,12 @@ fn load_node(
                         },
                         ..Default::default()
                     });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
-                    parent.spawn_bundle(PointLightBundle {
+                    let mut entity = parent.spawn_bundle(PointLightBundle {
                         point_light: PointLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
@@ -581,6 +584,9 @@ fn load_node(
                         },
                         ..Default::default()
                     });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
                     inner_cone_angle: _inner_cone_angle,
