@@ -11,9 +11,8 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemState},
 };
-use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{const_vec3, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
-    color::Color,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},

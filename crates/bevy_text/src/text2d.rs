@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::{Changed, QueryState, With},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
-use bevy_math::{Mat4, Size, Vec3};
+use bevy_math::{Size, Vec3};
 use bevy_render::{texture::Image, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
