@@ -11,9 +11,11 @@ use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
 
 /// A user-friendly wrapper around a [`Buffer`] that provides a `Vec`-like
 /// interface for constructing the buffer.
-/// 
-/// Intended strictly for use with uniform buffers. For other use cases, 
-/// see [`BufferVec`] instead.
+///
+/// Intended strictly for use with uniform buffers. For other use cases,
+/// see [`BufferVec`][buffervec] instead.
+///
+/// [buffervec]: crate::render_resource::BufferVec
 pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
     scratch: Vec<u8>,
