@@ -450,32 +450,71 @@ mod tests {
     }
 
     #[test]
-    fn remove_tracking() {
+    fn removal_tracking() {
         let mut world = World::new();
+
+        let entity_to_despawn = world.spawn().insert(W(1)).id();
+        let entity_to_remove_w_from = world.spawn().insert(W(2)).id();
+        let spurious_entity = world.spawn().id();
+
+        // Track which entities we want to operate on
         struct Despawned(Entity);
-        let a = world.spawn().insert_bundle((W("abc"), W(123))).id();
-        world.spawn().insert_bundle((W("abc"), W(123)));
-        world.insert_resource(false);
-        world.insert_resource(Despawned(a));
+        world.insert_resource(Despawned(entity_to_despawn));
+        struct Removed(Entity);
+        world.insert_resource(Removed(entity_to_remove_w_from));
 
-        world.entity_mut(a).despawn();
+        // Verify that all the systems actually ran
+        #[derive(Default)]
+        struct NSystems(usize);
+        world.insert_resource(NSystems::default());
 
-        fn validate_removed(
+        // First, check that removal detection is triggered if and only if we despawn an entity with the correct component
+        world.entity_mut(entity_to_despawn).despawn();
+        world.entity_mut(spurious_entity).despawn();
+
+        fn validate_despawn(
             removed_i32: RemovedComponents<W<i32>>,
             despawned: Res<Despawned>,
-            mut ran: ResMut<bool>,
+            mut n_systems: ResMut<NSystems>,
         ) {
             assert_eq!(
                 removed_i32.iter().collect::<Vec<_>>(),
                 &[despawned.0],
-                "despawning results in 'removed component' state"
+                "despawning causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
 
-            *ran = true;
+            n_systems.0 += 1;
         }
 
-        run_system(&mut world, validate_removed);
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        run_system(&mut world, validate_despawn);
+
+        // Reset the trackers to clear the buffer of removed components
+        // Ordinarily, this is done in a system added by MinimalPlugins
+        world.clear_trackers();
+
+        // Then, try removing a component
+        world.spawn().insert(W(3)).id();
+        world.spawn().insert(W(4)).id();
+        world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
+
+        fn validate_remove(
+            removed_i32: RemovedComponents<W<i32>>,
+            removed: Res<Removed>,
+            mut n_systems: ResMut<NSystems>,
+        ) {
+            assert_eq!(
+                removed_i32.iter().collect::<Vec<_>>(),
+                &[removed.0],
+                "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
+            );
+
+            n_systems.0 += 1;
+        }
+
+        run_system(&mut world, validate_remove);
+
+        // Verify that both systems actually ran
+        assert_eq!(world.get_resource::<NSystems>().unwrap().0, 2);
     }
 
     #[test]
