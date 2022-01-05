@@ -270,6 +270,9 @@ pub trait AddAsset {
 }
 
 impl AddAsset for App {
+    /// Add an [`Asset`] to the [`App`].
+    ///
+    /// Adding the same [`Asset`] several time is idempotent.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
