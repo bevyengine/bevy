@@ -22,13 +22,15 @@ impl ParticleModifier for ConstantForce {
     }
 }
 
-pub fn apply_particle_modifier<T: ParticleModifier>(
+pub(crate) fn apply_particle_modifier<T: ParticleModifier>(
     compute_task_pool: Res<ComputeTaskPool>,
     time: Res<Time>,
-    mut particles: Query<(&T, &mut Particles)>,
+    mut particles: Query<(&T, &mut Particles), Changed<Particles>>,
 ) {
     let delta_time = time.delta_seconds_f64() as f32;
     particles.par_for_each_mut(&compute_task_pool, 8, |(modifier, mut particles)| {
-        modifier.apply(&mut particles, delta_time);
+        if particles.state().is_playing() {
+            modifier.apply(&mut particles, delta_time);
+        }
     });
 }

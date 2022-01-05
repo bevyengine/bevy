@@ -152,6 +152,10 @@ pub fn emit_particles(
         &compute_task_pool,
         8,
         |(mut emitter, mut particles, transform)| {
+            if !particles.state().is_playing() {
+                return;
+            }
+
             let mut remaining = delta_time;
             let mut rng = rand::thread_rng();
             let mut total = 0;
