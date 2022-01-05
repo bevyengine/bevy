@@ -90,7 +90,7 @@ pub fn extract_text2d_sprite(
 
                 extracted_sprites.sprites.push(ExtractedSprite {
                     transform,
-                    color,
+                    color: color.as_linear_abgr_u32(),
                     rect,
                     handle,
                     atlas_size,

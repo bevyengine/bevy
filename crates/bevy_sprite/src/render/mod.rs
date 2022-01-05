@@ -155,7 +155,7 @@ impl SpecializedPipeline for SpritePipeline {
 
 pub struct ExtractedSprite {
     pub transform: Mat4,
-    pub color: Color,
+    pub color: u32,
     pub rect: Rect,
     pub handle: Handle<Image>,
     pub atlas_size: Option<Vec2>,
@@ -227,7 +227,7 @@ pub fn extract_sprites(
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 atlas_size: None,
-                color: sprite.color,
+                color: sprite.color.as_linear_abgr_u32(),
                 transform: transform.compute_matrix(),
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -250,7 +250,7 @@ pub fn extract_sprites(
                 let rect = texture_atlas.textures[atlas_sprite.index as usize];
                 extracted_sprites.sprites.push(ExtractedSprite {
                     atlas_size: Some(texture_atlas.size),
-                    color: atlas_sprite.color,
+                    color: atlas_sprite.color.as_linear_abgr_u32(),
                     transform: transform.compute_matrix(),
                     rect,
                     flip_x: atlas_sprite.flip_x,
@@ -337,7 +337,7 @@ pub fn prepare_sprites(
     let mut current_batch_colored = false;
     let mut last_z = 0.0;
     for extracted_sprite in extracted_sprites.sprites.iter() {
-        let colored = extracted_sprite.color != Color::WHITE;
+        let colored = extracted_sprite.color != 0xFFFFFFFF;
         if let Some(current_batch_handle) = &current_batch_handle {
             if *current_batch_handle != extracted_sprite.handle || current_batch_colored != colored
             {
@@ -401,19 +401,13 @@ pub fn prepare_sprites(
 
         let rect_size = extracted_sprite.rect.size().extend(1.0);
         if current_batch_colored {
-            let color = extracted_sprite.color.as_linear_rgba_f32();
-            // encode color as a single u32 to save space
-            let color = (color[0] * 255.0) as u32
-                | ((color[1] * 255.0) as u32) << 8
-                | ((color[2] * 255.0) as u32) << 16
-                | ((color[3] * 255.0) as u32) << 24;
             for (index, vertex_position) in QUAD_VERTEX_POSITIONS.iter().enumerate() {
                 let mut final_position = *vertex_position * rect_size;
                 final_position = (extracted_sprite.transform * final_position.extend(1.0)).xyz();
                 sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                     position: final_position.into(),
                     uv: uvs[index],
-                    color,
+                    color: extracted_sprite.color,
                 });
             }
         } else {
