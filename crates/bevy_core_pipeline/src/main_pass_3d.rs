@@ -139,7 +139,7 @@ impl Node for MainPass3dNode {
                     // transparent ones.
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),

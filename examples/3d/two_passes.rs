@@ -104,7 +104,7 @@ fn setup(
         ..Default::default()
     });
 
-    let split = 1.0;
+    let split = 2.0;
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
     let first_pass_layer = RenderLayers::layer(1);
@@ -158,7 +158,7 @@ fn setup(
             mesh: cube_handle,
             material: material_handle,
             transform: Transform {
-                translation: Vec3::new(split, 0.0, 1.5),
+                translation: Vec3::new(split, 0.0, -4.5),
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
