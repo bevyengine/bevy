@@ -323,9 +323,9 @@ pub fn prepare_sprites(
     // sort first by z and then by handle. this ensures that, when possible, batches span multiple z layers
     // batches won't span z-layers if there is another batch between them
     extracted_sprites.sprites.sort_by(|a, b| {
-        match FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])) {
-            Ordering::Equal => a.handle.cmp(&b.handle),
-            other => other,
+        match a.transform.w_axis[2].partial_cmp(&b.transform.w_axis[2]) {
+            Some(Ordering::Equal) | None => a.handle.cmp(&b.handle),
+            Some(other) => other,
         }
     });
 
