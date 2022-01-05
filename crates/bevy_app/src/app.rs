@@ -851,8 +851,8 @@ impl App {
     }
 
     /// Adds a "sub app" to this [`App`].
-   /// 
-   /// Sub apps are a largely experimental feature: each `SubApp` bas its own [`Schedule`] and [`World`].
+    ///
+    /// Sub apps are a largely experimental feature: each `SubApp` bas its own [`Schedule`] and [`World`].
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
