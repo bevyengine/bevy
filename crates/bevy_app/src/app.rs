@@ -21,7 +21,7 @@ bevy_utils::define_label!(AppLabel);
 ///
 /// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
 /// an ECS-based application. It also stores a pointer to a
-/// [runner function](App::set_runner), which by default executes the App schedule
+/// [runner function](Self::set_runner), which by default executes the App schedule
 /// once. Apps are constructed with the builder pattern.
 ///
 /// ## Example
@@ -41,11 +41,15 @@ bevy_utils::define_label!(AppLabel);
 /// }
 /// ```
 pub struct App {
-    /// Stores and exposes operations on [entities](bevy_ecs::entity::Entity), [components](bevy_ecs::component::Component), resources,
-    /// and their associated metadata.
+    /// The main ECS [`World`] of the [`App`].
+    /// This stores and provides access to all the main data of the application.
+    /// The systems of the [`App`] will run using this [`World`].
+    /// If additional separate [`World`]s and [`Schedule`]s are needed, you can use [`SubApp`]s.
     pub world: World,
-    /// A [runner function](Self::set_runner) which is typically not configured manually,
-    /// but set by a Bevy integrated plugin.
+    /// The [runner function](Self::set_runner) is primarily responsible for managing
+    /// the application's event loop and advancing the [`Schedule`].
+    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
+    /// See bevy_winit::WinitPlugin and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
@@ -78,12 +82,14 @@ impl Default for App {
 }
 
 impl App {
-    /// Creates a new [`App`].
+    /// Creates a new [`App`] with some default structure to enable core engine features.
+    /// This is the preferred constructor for most use cases.
     pub fn new() -> App {
         App::default()
     }
 
-    /// Creates a new empty [`App`].
+    /// Creates a new empty [`App`] with minimal default configuration.
+    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
             world: Default::default(),
