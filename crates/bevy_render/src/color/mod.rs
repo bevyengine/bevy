@@ -488,6 +488,7 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn as_linear_abgr_u32(self) -> u32 {
         let color = self.as_linear_rgba_f32();
         // encode color as a single u32 to save space
