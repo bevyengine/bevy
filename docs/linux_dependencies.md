@@ -55,6 +55,8 @@ sudo dnf install alsa-lib-devel.x86_64
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
 
+Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
+
 ## Void
 
 ```bash
