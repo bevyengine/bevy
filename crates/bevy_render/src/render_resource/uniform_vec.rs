@@ -9,6 +9,11 @@ use std::{
 };
 use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
 
+/// A user-friendly wrapper around a [`Buffer`] that provides a `Vec`-like
+/// interface for constructing the buffer.
+/// 
+/// Intended strictly for use with uniform buffers. For other use cases, 
+/// see [`BufferVec`] instead.
 pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
     scratch: Vec<u8>,
@@ -32,20 +37,26 @@ impl<T: AsStd140> UniformVec<T> {
         (std::mem::size_of::<T::Output>() + <T as AsStd140>::Output::ALIGNMENT - 1)
             & !(<T as AsStd140>::Output::ALIGNMENT - 1);
 
+    /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
-    pub fn uniform_buffer(&self) -> Option<&Buffer> {
+    pub fn buffer(&self) -> Option<&Buffer> {
         self.uniform_buffer.as_ref()
     }
 
+    /// Creates a binding for the underlying buffer.
+    /// Returns `None` if no buffer has been allocated.
     #[inline]
     pub fn binding(&self) -> Option<BindingResource> {
         Some(BindingResource::Buffer(BufferBinding {
-            buffer: self.uniform_buffer()?,
+            buffer: self.buffer()?,
             offset: 0,
             size: Some(NonZeroU64::new(Self::ITEM_SIZE as u64).unwrap()),
         }))
     }
 
+    /// Gets the capacity of the underlying buffer.
+    ///
+    /// Will return 0 if no buffer has been allocated yet.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
@@ -57,6 +68,11 @@ impl<T: AsStd140> UniformVec<T> {
         index
     }
 
+    /// Queues up a copy of the contents of the [`UniformVec`] into the underlying
+    /// buffer.
+    ///
+    /// If no buffer has been allocated yet or if the current size of the contents
+    /// exceeds the size of the underlying buffer, a new buffer will be allocated.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         if self.values.is_empty() {
             return;
@@ -86,10 +102,6 @@ impl<T: AsStd140> UniformVec<T> {
             false
         }
     }
-
-    pub fn values(&self) -> &[T] {
-        &self.values
-    }
 }
 
 impl<T: AsStd140> Deref for UniformVec<T> {
@@ -118,11 +130,14 @@ impl<T: AsStd140> Default for DynamicUniformVec<T> {
 }
 
 impl<T: AsStd140> DynamicUniformVec<T> {
+    /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
-    pub fn uniform_buffer(&self) -> Option<&Buffer> {
-        self.uniform_vec.uniform_buffer()
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.uniform_vec.buffer()
     }
 
+    /// Creates a binding for the underlying buffer.
+    /// Returns `None` if no buffer has been allocated.
     #[inline]
     pub fn binding(&self) -> Option<BindingResource> {
         self.uniform_vec.binding()
@@ -138,6 +153,7 @@ impl<T: AsStd140> DynamicUniformVec<T> {
         self.uniform_vec.is_empty()
     }
 
+    /// Gets the capacity of the underlying buffer, in bytes.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.uniform_vec.capacity()
@@ -149,6 +165,11 @@ impl<T: AsStd140> DynamicUniformVec<T> {
             as u32
     }
 
+    /// Queues up a copy of the contents of the [`UniformVec`] into the underlying
+    /// buffer.
+    ///
+    /// If no buffer has been allocated yet or if the current size of the contents
+    /// exceeds the size of the underlying buffer, a new buffer will be allocated.
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.uniform_vec.write_buffer(device, queue);
