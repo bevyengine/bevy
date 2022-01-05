@@ -3,6 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     prelude::{ComputedVisibility, Visibility},
     primitives::Aabb,
+    view::VisibilitySystems,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -31,6 +32,14 @@ impl Plugin for ParticlePlugin {
             .add_plugin(ParticleRenderPlugin)
             .add_system(particles::update_particles.label(ParticleUpdate))
             .add_system(emitter::emit_particles.after(ParticleUpdate))
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                particles::compute_particles_aabb.label(VisibilitySystems::CalculateBounds),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                particles::cull_particles.after(VisibilitySystems::CheckVisibility),
+            )
             .register_particle_modifier::<ConstantForce>();
     }
 }

@@ -1,7 +1,7 @@
 use bevy_core::Time;
 use bevy_ecs::prelude::*;
 use bevy_math::*;
-use bevy_render::{color::Color, primitives::Aabb};
+use bevy_render::{color::Color, primitives::Aabb, view::ComputedVisibility};
 use bevy_tasks::ComputeTaskPool;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -34,9 +34,43 @@ pub struct ParticleMut<'a> {
     // pub lifetime: &'a mut f32,
 }
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum ParticleSystemState {
+    Playing,
+    Paused,
+    Stopped,
+}
+
+impl ParticleSystemState {
+    #[inline(always)]
+    pub fn is_playing(&self) -> bool {
+        matches!(self, Self::Playing)
+    }
+
+    #[inline(always)]
+    pub fn is_paused(&self) -> bool {
+        matches!(self, Self::Playing)
+    }
+
+    #[inline(always)]
+    pub fn is_stopped(&self) -> bool {
+        matches!(self, Self::Playing)
+    }
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum ParticleSystemCullingMode {
+    Pause,
+    AlwaysSimulate,
+}
+
 #[derive(Component, Clone)]
 /// A container component for a batch of particles.
 pub struct Particles {
+    state: ParticleSystemState,
+    culling_mode: ParticleSystemCullingMode,
     pub(crate) lifetime: f32,
     // X, Y, Z - world coordinates
     // W - 1D rotation
@@ -62,6 +96,8 @@ impl Default for Particles {
 impl Particles {
     pub fn new(capacity: usize) -> Self {
         Self {
+            state: ParticleSystemState::Playing,
+            culling_mode: ParticleSystemCullingMode::Pause,
             lifetime: 0.0,
             positions: Vec::with_capacity(capacity),
             colors: Vec::with_capacity(capacity),
@@ -99,6 +135,22 @@ impl Particles {
             velocity: &mut self.velocities[idx],
             color: &mut self.colors[idx],
         }
+    }
+
+    pub fn state(&self) -> ParticleSystemState {
+        self.state
+    }
+
+    pub fn set_state(&mut self, state: ParticleSystemState) {
+        self.state = state;
+    }
+
+    pub fn culling_mode(&self) -> ParticleSystemCullingMode {
+        self.culling_mode
+    }
+
+    pub fn set_culling_mode(&mut self, culling_mode: ParticleSystemCullingMode) {
+        self.culling_mode = culling_mode;
     }
 
     /// Spawns a single particle with the given parameters.
@@ -161,14 +213,17 @@ impl Particles {
         }
     }
 
+    #[inline(always)]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.positions.is_empty()
     }
 
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.positions.len()
     }
 
+    #[inline(always)]
     pub fn capacity(&self) -> usize {
         self.positions.capacity()
     }
@@ -221,12 +276,11 @@ impl Particles {
 
     #[inline(always)]
     pub fn advance_particles(&mut self, delta_time: f32) {
-        self.lifetime += delta_time;
-
-        if self.is_empty() {
+        if self.is_empty() || !self.state.is_playing() {
             return;
         }
 
+        self.lifetime += delta_time;
         let delta_time = Vec4::splat(delta_time);
         let mut last = self.len() - 1;
         let mut idx = 0;
@@ -277,6 +331,21 @@ impl Particles {
         self.starts.set_len(len);
         self.expirations.set_len(len);
     }
+
+    fn on_visibility_change(&mut self, is_visible: bool) {
+        match self.culling_mode {
+            ParticleSystemCullingMode::Pause => {
+                if is_visible {
+                    self.set_state(ParticleSystemState::Playing);
+                } else {
+                    self.set_state(ParticleSystemState::Paused);
+                }
+            }
+            ParticleSystemCullingMode::AlwaysSimulate => {
+                // Always simulate, ignore visibility changes.
+            }
+        }
+    }
 }
 
 /// An iterator of read-only particles.
@@ -325,7 +394,7 @@ impl<'a> Iterator for ParticleIterMut<'a> {
     }
 }
 
-pub fn update_particles(
+pub(crate) fn update_particles(
     time: Res<Time>,
     compute_task_pool: Res<ComputeTaskPool>,
     mut particles: Query<&mut Particles>,
@@ -333,5 +402,24 @@ pub fn update_particles(
     let delta_time = time.delta_seconds_f64() as f32;
     particles.par_for_each_mut(&compute_task_pool, 8, |mut particles| {
         particles.advance_particles(delta_time);
+    });
+}
+
+pub(crate) fn compute_particles_aabb(
+    compute_task_pool: Res<ComputeTaskPool>,
+    mut query: Query<(&mut Aabb, &Particles), Changed<Particles>>,
+) {
+    query.par_for_each_mut(&compute_task_pool, 8, |(mut aabb, particles)| {
+        if let Some(bounding_box) = particles.compute_aabb() {
+            *aabb = bounding_box;
+        }
+    });
+}
+
+pub(crate) fn cull_particles(
+    mut particles: Query<(&ComputedVisibility, &mut Particles), Changed<ComputedVisibility>>,
+) {
+    particles.for_each_mut(|(visiblity, mut particles)| {
+        particles.on_visibility_change(visiblity.is_visible);
     });
 }
