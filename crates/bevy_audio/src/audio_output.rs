@@ -6,18 +6,18 @@ use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::marker::PhantomData;
 
 /// Used internally to play audio on the current "audio device"
-pub struct AudioOutput<P = AudioSource>
+pub struct AudioOutput<Source = AudioSource>
 where
-    P: Decodable,
+    Source: Decodable,
 {
     _stream: Option<OutputStream>,
     stream_handle: Option<OutputStreamHandle>,
-    phantom: PhantomData<P>,
+    phantom: PhantomData<Source>,
 }
 
-impl<P> Default for AudioOutput<P>
+impl<Source> Default for AudioOutput<Source>
 where
-    P: Decodable,
+    Source: Decodable,
 {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
@@ -37,13 +37,11 @@ where
     }
 }
 
-impl<P> AudioOutput<P>
+impl<Source> AudioOutput<Source>
 where
-    P: Asset + Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+    Source: Asset + Decodable,
 {
-    fn play_source(&self, audio_source: &P) {
+    fn play_source(&self, audio_source: &Source) {
         if let Some(stream_handle) = &self.stream_handle {
             let sink = Sink::try_new(stream_handle).unwrap();
             sink.append(audio_source.decoder());
@@ -51,7 +49,7 @@ where
         }
     }
 
-    fn try_play_queued(&self, audio_sources: &Assets<P>, audio: &mut Audio<P>) {
+    fn try_play_queued(&self, audio_sources: &Assets<Source>, audio: &mut Audio<Source>) {
         let mut queue = audio.queue.write();
         let len = queue.len();
         let mut i = 0;
@@ -69,17 +67,15 @@ where
 }
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
-pub fn play_queued_audio_system<P: Asset>(world: &mut World)
+pub fn play_queued_audio_system<Source: Asset>(world: &mut World)
 where
-    P: Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+    Source: Decodable,
 {
     let world = world.cell();
-    let audio_output = world.get_non_send::<AudioOutput<P>>().unwrap();
-    let mut audio = world.get_resource_mut::<Audio<P>>().unwrap();
+    let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();
+    let mut audio = world.get_resource_mut::<Audio<Source>>().unwrap();
 
-    if let Some(audio_sources) = world.get_resource::<Assets<P>>() {
+    if let Some(audio_sources) = world.get_resource::<Assets<Source>>() {
         audio_output.try_play_queued(&*audio_sources, &mut *audio);
     };
 }
