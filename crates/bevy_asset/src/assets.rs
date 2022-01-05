@@ -309,3 +309,19 @@ impl AddAsset for App {
         self
     }
 }
+
+#[test]
+fn asset_overwriting() {
+    #[derive(bevy_reflect::TypeUuid)]
+    #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
+    struct MyAsset;
+    let mut app = App::new();
+    app.add_plugin(bevy_core::CorePlugin)
+        .add_plugin(crate::AssetPlugin);
+    app.add_asset::<MyAsset>();
+    let mut assets_before = app.world.get_resource_mut::<Assets<MyAsset>>().unwrap();
+    let handle = assets_before.add(MyAsset);
+    app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
+    let assets_after = app.world.get_resource_mut::<Assets<MyAsset>>().unwrap();
+    assert!(assets_after.get(handle).is_some())
+}
