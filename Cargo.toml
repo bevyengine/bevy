@@ -102,6 +102,7 @@ anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
+bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 
@@ -417,6 +418,22 @@ path = "examples/shader/shader_defs.rs"
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_glsl"
+path = "examples/shader/shader_material_glsl.rs"
+
+[[example]]
+name = "shader_instancing"
+path = "examples/shader/shader_instancing.rs"
+
+[[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
+[[example]]
+name = "compute_shader_game_of_life"
+path = "examples/shader/compute_shader_game_of_life.rs"
 
 # Tools
 [[example]]
