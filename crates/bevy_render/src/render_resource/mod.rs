@@ -30,7 +30,7 @@ pub use wgpu::{
     DepthBiasState, DepthStencilState, Extent3d, Face, Features as WgpuFeatures, FilterMode,
     FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
     ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
-    Limits as WgpuLimits, LoadOp, MultisampleState, Operations, Origin3d, PipelineLayout,
+    Limits as WgpuLimits, LoadOp, MapMode, MultisampleState, Operations, Origin3d, PipelineLayout,
     PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
