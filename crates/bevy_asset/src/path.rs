@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Represents a path ti an asset in the file system.
+/// Represents a path to an asset in the file system.
 #[derive(Debug, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,

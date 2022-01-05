@@ -46,7 +46,7 @@ pub enum AssetStage {
 #[derive(Default)]
 pub struct AssetPlugin;
 
-/// `AssetPlugin` settings
+/// [`AssetServer`] settings
 pub struct AssetServerSettings {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,
