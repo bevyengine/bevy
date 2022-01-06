@@ -344,7 +344,7 @@ impl AssetServer {
         // TODO: queue free old assets
         source_info.asset_types.clear();
 
-        source_info.meta = Some(load_context.get_asset_metas());
+        source_info.meta = Some(load_context.generate_asset_metas());
 
         // load asset dependencies and prepare asset type hashmap
         for (label, loaded_asset) in &mut load_context.labeled_assets {
