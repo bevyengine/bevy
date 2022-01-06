@@ -1,353 +1,314 @@
+mod command;
+mod query;
+mod resource;
+
+use bevy_utils::HashSet;
+
 use crate::{
-    archetype::ArchetypeComponentId,
-    storage::SparseSet,
-    system::Resource,
-    world::{Mut, World},
+    component::{Component, ComponentId},
+    prelude::Entity,
+    query::FilteredAccess,
+    system::{Command, Despawn, Remove},
+    world::{append_list::AppendList, world_cell::command::CellInsert, World},
 };
 use std::{
     any::TypeId,
     cell::RefCell,
-    ops::{Deref, DerefMut},
+    collections::{hash_map::Entry::Occupied, HashMap},
     rc::Rc,
 };
+
+use self::command::CellEntityCommands;
+pub use self::query::{CellQuery, QueryToken};
+use self::query::{FetchRefs, QueryCacheEntry};
+use self::resource::ArchetypeComponentAccess;
 
 /// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
 /// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
 pub struct WorldCell<'w> {
     pub(crate) world: &'w mut World,
-    pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
+    pub(crate) state: WorldCellState,
 }
 
-pub(crate) struct ArchetypeComponentAccess {
-    access: SparseSet<ArchetypeComponentId, usize>,
+pub(crate) struct WorldCellState {
+    resource_access: RefCell<ArchetypeComponentAccess>,
+    query_cache: HashMap<TypeId, Rc<QueryCacheEntry>, fxhash::FxBuildHasher>,
+    command_queue: CellCommandQueue,
+    current_query_refs: FetchRefs,
 }
 
-impl Default for ArchetypeComponentAccess {
-    fn default() -> Self {
+impl WorldCellState {
+    // cannot be const because of hashmap, but should still be optimized out
+    #[inline]
+    pub fn new() -> Self {
         Self {
-            access: SparseSet::new(),
+            resource_access: RefCell::new(ArchetypeComponentAccess::new()),
+            // component_access: RefCell::new(ComponentAccess::new()),
+            query_cache: HashMap::default(),
+            command_queue: Default::default(),
+            current_query_refs: Default::default(),
         }
     }
 }
 
-const UNIQUE_ACCESS: usize = 0;
-const BASE_ACCESS: usize = 1;
-impl ArchetypeComponentAccess {
-    const fn new() -> Self {
-        Self {
-            access: SparseSet::new(),
+#[derive(Default)]
+pub struct WorldOverlay {
+    touched_entities: HashSet<Entity>,
+    inserted: HashMap<Entity, Vec<(ComponentId, usize)>>,
+    removed: HashMap<Entity, Vec<ComponentId>>,
+    despawned_entities: HashSet<Entity>,
+}
+
+impl WorldOverlay {
+    fn potential_new_entities(&mut self, access: &FilteredAccess<ComponentId>) -> HashSet<Entity> {
+        let mut potential_new_entities = HashSet::default();
+        for (entity, components) in &self.inserted {
+            for (id, _) in components {
+                if access.with().contains(id.index())
+                    || access.access().has_read(*id)
+                    || access.access().has_write(*id)
+                {
+                    potential_new_entities.insert(*entity);
+                    break;
+                }
+            }
+        }
+        for (entity, components) in &self.removed {
+            for id in components {
+                if access.without().contains(id.index()) {
+                    potential_new_entities.insert(*entity);
+                    break;
+                }
+            }
+        }
+        potential_new_entities
+    }
+}
+
+pub trait CellCommand: Command {
+    fn apply_overlay(
+        &self,
+        self_index: usize,
+        overlay: &mut WorldOverlay,
+        world: &World,
+        access: &FilteredAccess<ComponentId>,
+    );
+}
+
+impl<T: Component> CellCommand for CellInsert<T> {
+    fn apply_overlay(
+        &self,
+        self_index: usize,
+        overlay: &mut WorldOverlay,
+        world: &World,
+        access: &FilteredAccess<ComponentId>,
+    ) {
+        if let Some(id) = world.components().get_id(TypeId::of::<T>()) {
+            if access.with().contains(id.index())
+                || access.without().contains(id.index())
+                || access.access().has_read(id)
+                || access.access().has_write(id)
+            {
+                overlay.touched_entities.insert(self.entity);
+                if let Occupied(mut entry) = overlay.removed.entry(self.entity) {
+                    let v = entry.get_mut();
+                    v.retain(|c_id| *c_id != id);
+                    if v.is_empty() {
+                        entry.remove();
+                    }
+                }
+                overlay
+                    .inserted
+                    .entry(self.entity)
+                    .and_modify(|v| match v.iter_mut().find(|(c_id, _)| *c_id == id) {
+                        Some((_, overlay)) => *overlay = self_index,
+                        None => v.push((id, self_index)),
+                    })
+                    .or_insert_with(|| vec![(id, self_index)]);
+            }
         }
     }
+}
 
-    fn read(&mut self, id: ArchetypeComponentId) -> bool {
-        let id_access = self.access.get_or_insert_with(id, || BASE_ACCESS);
-        if *id_access == UNIQUE_ACCESS {
-            false
-        } else {
-            *id_access += 1;
-            true
+impl<T: Component> CellCommand for Remove<T> {
+    fn apply_overlay(
+        &self,
+        _self_index: usize,
+        overlay: &mut WorldOverlay,
+        world: &World,
+        access: &FilteredAccess<ComponentId>,
+    ) {
+        if let Some(id) = world.components().get_id(TypeId::of::<T>()) {
+            if access.with().contains(id.index())
+                || access.without().contains(id.index())
+                || access.access().has_read(id)
+                || access.access().has_write(id)
+            {
+                overlay.touched_entities.insert(self.entity);
+                if let Occupied(mut entry) = overlay.inserted.entry(self.entity) {
+                    let v = entry.get_mut();
+                    v.retain(|(c_id, _)| *c_id != id);
+                    if v.is_empty() {
+                        entry.remove();
+                    }
+                }
+                overlay
+                    .removed
+                    .entry(self.entity)
+                    .and_modify(|v| {
+                        if !v.contains(&id) {
+                            v.push(id);
+                        }
+                    })
+                    .or_insert_with(|| vec![id]);
+            }
         }
     }
+}
 
-    fn drop_read(&mut self, id: ArchetypeComponentId) {
-        let id_access = self.access.get_or_insert_with(id, || BASE_ACCESS);
-        *id_access -= 1;
+impl CellCommand for Despawn {
+    fn apply_overlay(
+        &self,
+        _self_index: usize,
+        overlay: &mut WorldOverlay,
+        _world: &World,
+        _access: &FilteredAccess<ComponentId>,
+    ) {
+        overlay.touched_entities.insert(self.entity);
+        overlay.despawned_entities.insert(self.entity);
+        overlay.inserted.remove(&self.entity);
+        overlay.removed.remove(&self.entity);
     }
+}
 
-    fn write(&mut self, id: ArchetypeComponentId) -> bool {
-        let id_access = self.access.get_or_insert_with(id, || BASE_ACCESS);
-        if *id_access == BASE_ACCESS {
-            *id_access = UNIQUE_ACCESS;
-            true
-        } else {
-            false
+struct CellCommandMeta {
+    ptr: *mut u8,
+    write: unsafe fn(value: *mut u8, world: &mut World),
+    apply_overlay: unsafe fn(
+        value: *const u8,
+        self_index: usize,
+        overlay: &mut WorldOverlay,
+        world: &World,
+        access: &FilteredAccess<ComponentId>,
+    ),
+}
+
+/// A queue of [`CellCommand`]s
+//
+// NOTE: See [`CommandQueue`] as an analog for normal commands.
+#[derive(Default)]
+pub struct CellCommandQueue {
+    bump: bumpalo::Bump,
+    metas: AppendList<CellCommandMeta>,
+}
+
+// SAFE: All commands [`Command`] implement [`Send`]
+unsafe impl Send for CellCommandQueue {}
+
+// SAFE: `&CommandQueue` never gives access to the inner commands.
+unsafe impl Sync for CellCommandQueue {}
+
+impl CellCommandQueue {
+    /// Push a [`Command`] onto the queue.
+    #[inline]
+    pub fn push<C>(&self, command: C)
+    where
+        C: CellCommand,
+    {
+        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
+        /// accesses are safe.
+        unsafe fn write_command<T: CellCommand>(command: *mut u8, world: &mut World) {
+            let command = command.cast::<T>().read_unaligned();
+            command.write(world);
         }
+
+        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
+        /// accesses are safe.
+        unsafe fn apply_overlay_command<T: CellCommand>(
+            command: *const u8,
+            self_index: usize,
+            overlay: &mut WorldOverlay,
+            world: &World,
+            access: &FilteredAccess<ComponentId>,
+        ) {
+            let command = command.cast::<T>().as_ref().unwrap();
+            command.apply_overlay(self_index, overlay, world, access);
+        }
+
+        let command = self.bump.alloc(command);
+        self.metas.push(CellCommandMeta {
+            ptr: command as *mut C as *mut u8,
+            write: write_command::<C>,
+            apply_overlay: apply_overlay_command::<C>,
+        });
     }
 
-    fn drop_write(&mut self, id: ArchetypeComponentId) {
-        let id_access = self.access.get_or_insert_with(id, || BASE_ACCESS);
-        *id_access = BASE_ACCESS;
+    /// SAFETY: must know that nth command is of type C
+    pub(crate) unsafe fn get_nth<C: Command>(&self, index: usize) -> &C {
+        let meta = &self.metas[index];
+        meta.ptr.cast::<C>().as_ref().unwrap()
+    }
+
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
+    #[inline]
+    pub fn apply(&mut self, world: &mut World) {
+        // flush the previously queued entities
+        world.flush();
+
+        // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
+        // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
+        // unnecessary allocations.
+
+        for meta in self.metas.drain() {
+            // SAFE: The implementation of `write_command` is safe for the according Command type.
+            // The bytes are safely cast to their original type, safely read, and then dropped.
+            unsafe {
+                (meta.write)(meta.ptr, world);
+            }
+        }
+        self.bump.reset();
+    }
+
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
+    #[inline]
+    pub fn apply_overlay(
+        &self,
+        overlay: &mut WorldOverlay,
+        world: &World,
+        access: &FilteredAccess<ComponentId>,
+    ) {
+        for (index, meta) in self.metas.iter().enumerate() {
+            // SAFE: The implementation of `apply_overlay_command` is safe for the according Command type.
+            // The bytes are safely cast to their original type and safely dereferenced.
+            unsafe {
+                (meta.apply_overlay)(meta.ptr, index, overlay, world, access);
+            }
+        }
     }
 }
 
 impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
-        let mut access = self.access.borrow_mut();
-        // give world ArchetypeComponentAccess back to reuse allocations
-        let _ = std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
-    }
-}
+        self.maintain();
 
-pub struct WorldBorrow<'w, T> {
-    value: &'w T,
-    archetype_component_id: ArchetypeComponentId,
-    access: Rc<RefCell<ArchetypeComponentAccess>>,
-}
-
-impl<'w, T> WorldBorrow<'w, T> {
-    fn new(
-        value: &'w T,
-        archetype_component_id: ArchetypeComponentId,
-        access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
-        if !access.borrow_mut().read(archetype_component_id) {
-            panic!(
-                "Attempted to immutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
-        Self {
-            value,
-            archetype_component_id,
-            access,
-        }
-    }
-}
-
-impl<'w, T> Deref for WorldBorrow<'w, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'w, T> Drop for WorldBorrow<'w, T> {
-    fn drop(&mut self) {
-        let mut access = self.access.borrow_mut();
-        access.drop_read(self.archetype_component_id);
-    }
-}
-
-pub struct WorldBorrowMut<'w, T> {
-    value: Mut<'w, T>,
-    archetype_component_id: ArchetypeComponentId,
-    access: Rc<RefCell<ArchetypeComponentAccess>>,
-}
-
-impl<'w, T> WorldBorrowMut<'w, T> {
-    fn new(
-        value: Mut<'w, T>,
-        archetype_component_id: ArchetypeComponentId,
-        access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
-        if !access.borrow_mut().write(archetype_component_id) {
-            panic!(
-                "Attempted to mutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
-        Self {
-            value,
-            archetype_component_id,
-            access,
-        }
-    }
-}
-
-impl<'w, T> Deref for WorldBorrowMut<'w, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.value.deref()
-    }
-}
-
-impl<'w, T> DerefMut for WorldBorrowMut<'w, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.value
-    }
-}
-
-impl<'w, T> Drop for WorldBorrowMut<'w, T> {
-    fn drop(&mut self) {
-        let mut access = self.access.borrow_mut();
-        access.drop_write(self.archetype_component_id);
+        // give world WorldCellState back to reuse allocations
+        let _ = std::mem::swap(&mut self.world.world_cell_state, &mut self.state);
     }
 }
 
 impl<'w> WorldCell<'w> {
     pub(crate) fn new(world: &'w mut World) -> Self {
-        // this is cheap because ArchetypeComponentAccess::new() is const / allocation free
-        let access = std::mem::replace(
-            &mut world.archetype_component_access,
-            ArchetypeComponentAccess::new(),
-        );
-        // world's ArchetypeComponentAccess is recycled to cut down on allocations
-        Self {
-            world,
-            access: Rc::new(RefCell::new(access)),
-        }
+        // this is cheap because WorldCellState::new() is const / allocation free
+        let state = std::mem::replace(&mut world.world_cell_state, WorldCellState::new());
+        // world's WorldCellState is recycled to cut down on allocations
+        Self { world, state }
     }
 
-    pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
-            unsafe { self.world.get_resource_with_id(component_id)? },
-            archetype_component_id,
-            self.access.clone(),
-        ))
-    }
-
-    pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_resource_unchecked_mut_with_id(component_id)?
-            },
-            archetype_component_id,
-            self.access.clone(),
-        ))
-    }
-
-    pub fn get_non_send<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
-            unsafe { self.world.get_non_send_with_id(component_id)? },
-            archetype_component_id,
-            self.access.clone(),
-        ))
-    }
-
-    pub fn get_non_send_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_non_send_unchecked_mut_with_id(component_id)?
-            },
-            archetype_component_id,
-            self.access.clone(),
-        ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::BASE_ACCESS;
-    use crate::{archetype::ArchetypeId, world::World};
-    use std::any::TypeId;
-
-    #[test]
-    fn world_cell() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        world.insert_resource(1u64);
-        let cell = world.cell();
-        {
-            let mut a = cell.get_resource_mut::<u32>().unwrap();
-            assert_eq!(1, *a);
-            *a = 2;
-        }
-        {
-            let a = cell.get_resource::<u32>().unwrap();
-            assert_eq!(2, *a, "ensure access is dropped");
-
-            let b = cell.get_resource::<u32>().unwrap();
-            assert_eq!(
-                2, *b,
-                "ensure multiple immutable accesses can occur at the same time"
-            );
-        }
-        {
-            let a = cell.get_resource_mut::<u32>().unwrap();
-            assert_eq!(
-                2, *a,
-                "ensure both immutable accesses are dropped, enabling a new mutable access"
-            );
-
-            let b = cell.get_resource::<u64>().unwrap();
-            assert_eq!(
-                1, *b,
-                "ensure multiple non-conflicting mutable accesses can occur at the same time"
-            );
-        }
-    }
-
-    #[test]
-    fn world_access_reused() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        {
-            let cell = world.cell();
-            {
-                let mut a = cell.get_resource_mut::<u32>().unwrap();
-                assert_eq!(1, *a);
-                *a = 2;
-            }
-        }
-
-        let u32_component_id = world
-            .components
-            .get_resource_id(TypeId::of::<u32>())
-            .unwrap();
-        let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
-        let u32_archetype_component_id = resource_archetype
-            .get_archetype_component_id(u32_component_id)
-            .unwrap();
-        assert_eq!(world.archetype_component_access.access.len(), 1);
-        assert_eq!(
-            world
-                .archetype_component_access
-                .access
-                .get(u32_archetype_component_id),
-            Some(&BASE_ACCESS),
-            "reused access count is 'base'"
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn world_cell_double_mut() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        let cell = world.cell();
-        let _value_a = cell.get_resource_mut::<u32>().unwrap();
-        let _value_b = cell.get_resource_mut::<u32>().unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn world_cell_ref_and_mut() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        let cell = world.cell();
-        let _value_a = cell.get_resource::<u32>().unwrap();
-        let _value_b = cell.get_resource_mut::<u32>().unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn world_cell_mut_and_ref() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        let cell = world.cell();
-        let _value_a = cell.get_resource_mut::<u32>().unwrap();
-        let _value_b = cell.get_resource::<u32>().unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn world_cell_ref_and_ref() {
-        let mut world = World::default();
-        world.insert_resource(1u32);
-        let cell = world.cell();
-        let _value_a = cell.get_resource_mut::<u32>().unwrap();
-        let _value_b = cell.get_resource::<u32>().unwrap();
+    pub fn spawn(&self) -> CellEntityCommands<'_> {
+        self.entity(self.world.entities.reserve_entity())
     }
 }
