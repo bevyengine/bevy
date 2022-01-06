@@ -127,14 +127,19 @@ fn generate_bodies(
             mass: Mass(500.0),
             ..Default::default()
         })
-        .insert(PointLight {
-            color: Color::WHITE,
-            intensity: 400.,
-            range: 100.,
-            radius: star_radius,
-            ..Default::default()
-        })
-        .insert(Star);
+        .insert(Star)
+        .with_children(|p| {
+            p.spawn_bundle(PointLightBundle {
+                point_light: PointLight {
+                    color: Color::WHITE,
+                    intensity: 400.0,
+                    range: 100.0,
+                    radius: star_radius,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+        });
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
