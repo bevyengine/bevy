@@ -254,6 +254,7 @@ async fn load_gltf<'a, 'b>(
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         }
     } else {
+        #[cfg(not(target_arch = "wasm32"))]
         load_context
             .task_pool()
             .scope(|scope| {
