@@ -109,10 +109,10 @@ enum State {
 ///
 /// [`Events`] is implemented using a variation of a double buffer strategy.
 /// Each call to [`update`](Events::update) swaps buffers and clears out the oldest one.
-/// [`EventReader`]s will read events from both buffers.
-/// [`EventReader`]s that read at least once per update will never drop events.
-/// [`EventReader`]s that read once within two updates might still receive some events.
-/// [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
+/// - [`EventReader`]s will read events from both buffers.
+/// - [`EventReader`]s that read at least once per update will never drop events.
+/// - [`EventReader`]s that read once within two updates might still receive some events
+/// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
 /// before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
