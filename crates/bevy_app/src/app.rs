@@ -90,6 +90,7 @@ impl App {
     }
 
     /// Creates a new empty [`App`] with minimal default configuration.
+    ///
     /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
