@@ -74,12 +74,12 @@ fn create_white_pieces (
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let king_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh0/Primitive0");
-    let queen_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh1/Primitive0");
-    let bishop_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh2/Primitive0");
-    let knight_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh3/Primitive0");
-    let rook_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh4/Primitive0");
-    let pawn_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh5/Primitive0");
+    let king_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh0/Primitive0");
+    let queen_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh1/Primitive0");
+    let bishop_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh2/Primitive0");
+    let knight_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh3/Primitive0");
+    let rook_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh4/Primitive0");
+    let pawn_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh5/Primitive0");
     let white_material = materials.add(Color::rgb(1.0, 0.8, 0.8).into());
     
 
@@ -255,12 +255,12 @@ fn create_black_pieces (
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let king_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh0/Primitive0");
-    let queen_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh1/Primitive0");
-    let bishop_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh2/Primitive0");
-    let knight_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh3/Primitive0");
-    let rook_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh4/Primitive0");
-    let pawn_handle: Handle<Mesh> = asset_server.load("models/all.glb#Mesh5/Primitive0");
+    let king_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh0/Primitive0");
+    let queen_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh1/Primitive0");
+    let bishop_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh2/Primitive0");
+    let knight_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh3/Primitive0");
+    let rook_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh4/Primitive0");
+    let pawn_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh5/Primitive0");
     let black_material = materials.add(Color::rgb(0.0, 0.2, 0.2).into());
 
     let king_identity = commands.spawn_bundle(PbrBundle {
