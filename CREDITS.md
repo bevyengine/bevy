@@ -11,6 +11,7 @@
 
 * game engines: amethyst, coffee
 * ecs: legion, shipyard, yaks
+* [Chess Example](https://caballerocoll.com/blog/bevy-chess-tutorial/)
 
 ## Assets
 
