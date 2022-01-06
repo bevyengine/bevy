@@ -25,12 +25,6 @@ pub struct CreateWindow {
 #[derive(Debug, Clone)]
 pub struct RequestRedraw;
 
-/// An event that indicates a window should be closed.
-#[derive(Debug, Clone)]
-pub struct CloseWindow {
-    pub id: WindowId,
-}
-
 /// An event that is sent whenever a new window is created.
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
@@ -39,8 +33,23 @@ pub struct WindowCreated {
 
 /// An event that is sent whenever a close was requested for a window. For example: when the "close"
 /// button is pressed on a window.
+///
+/// By default, these events are handled by closing the corresponding [`crate::Window`].
+/// To disable this behaviour, set `close_when_requested` on the [`crate::WindowPlugin`] to `false`
 #[derive(Debug, Clone)]
 pub struct WindowCloseRequested {
+    pub id: WindowId,
+}
+
+/// An event that is sent whenever a window is closed.
+/// This will only be sent in response to the [`Window::close`] method.
+///
+/// By default, when no windows are open, the app will close.
+/// To disable this behaviour, set `exit_on_all_closed` on the [`crate::WindowPlugin`] to `false`
+///
+/// [`Window::close`]: crate::Window::close
+#[derive(Debug, Clone)]
+pub struct WindowClosed {
     pub id: WindowId,
 }
 
