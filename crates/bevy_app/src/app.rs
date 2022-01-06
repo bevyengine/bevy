@@ -45,7 +45,7 @@ pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
     /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]s and [`Schedule`]s are needed, you can use `sub_app`s.
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use `sub_app`s.
     pub world: World,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
