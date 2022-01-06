@@ -70,10 +70,9 @@ impl HandleId {
     }
 }
 
-/// A handle into a specific Asset of type `T`.
+/// A handle into a specific [`Asset`] of type `T`.
 ///
-/// Handles contain an unique id that corresponds to a specific asset in the [Assets](crate::Assets)
-/// collection.
+/// Handles contain a unique id that corresponds to a specific asset in the [`Assets`] collection.
 ///
 /// # Accessing the Asset
 ///
@@ -362,7 +361,7 @@ impl HandleUntyped {
         self.clone_weak().typed()
     }
 
-    /// Converts this handle into a typed [`Handle`] of an Asset `T`.
+    /// Converts this handle into a typed [`Handle`] of an [`Asset`] `T`.
     ///
     /// The new handle will maintain the Strong or Weak status of the current handle.
     ///

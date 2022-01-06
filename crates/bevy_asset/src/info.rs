@@ -34,7 +34,7 @@ pub struct SourceInfo {
     pub load_state: LoadState,
     /// A collection to track which assets were sent to their asset storages.
     pub committed_assets: HashSet<LabelId>,
-    /// Current versison of the source.
+    /// Current version of the source.
     pub version: usize,
 }
 
