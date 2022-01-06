@@ -27,6 +27,7 @@ pub struct Camera {
     pub name: Option<String>,
     #[reflect(ignore)]
     pub target: RenderTarget,
+    pub render_on_top: bool,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
     pub near: f32,

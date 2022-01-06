@@ -403,6 +403,7 @@ pub fn prepare_core_views_system(
 ) {
     let mut textures = HashMap::default();
     for (entity, view, camera) in views_3d.iter() {
+        let mut render_on_top = false;
         let mut get_cached_texture = || {
             texture_cache.get(
                 &render_device,
@@ -423,6 +424,7 @@ pub fn prepare_core_views_system(
             )
         };
         let cached_texture = if let Some(camera) = camera {
+            render_on_top = camera.render_on_top;
             textures
                 .entry(camera.target.clone())
                 .or_insert_with(get_cached_texture)
@@ -433,6 +435,7 @@ pub fn prepare_core_views_system(
         commands.entity(entity).insert(ViewDepthTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
+            render_on_top,
         });
     }
 }

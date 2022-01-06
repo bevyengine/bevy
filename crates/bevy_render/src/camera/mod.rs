@@ -74,6 +74,7 @@ pub struct ExtractedCamera {
     pub target: RenderTarget,
     pub name: Option<String>,
     pub physical_size: Option<UVec2>,
+    pub render_on_top: bool,
 }
 
 fn extract_cameras(
@@ -96,6 +97,7 @@ fn extract_cameras(
                         target: camera.target.clone(),
                         name: camera.name.clone(),
                         physical_size: camera.target.get_physical_size(&windows, &images),
+                        render_on_top: camera.render_on_top,
                     },
                     ExtractedView {
                         projection: camera.projection_matrix,

@@ -68,7 +68,11 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        load: LoadOp::Load,
+                        load: if depth.render_on_top {
+                            LoadOp::Clear(0.0)
+                        } else {
+                            LoadOp::Load
+                        },
                         store: true,
                     }),
                     stencil_ops: None,
