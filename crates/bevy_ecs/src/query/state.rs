@@ -391,7 +391,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's, QF: Fetch<'w, 's, State = Q::State>>(
         &'s self,
@@ -411,7 +411,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     #[inline]
     pub(crate) unsafe fn iter_combinations_unchecked_manual<
         'w,
@@ -450,7 +450,7 @@ where
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter_mut() method, but cannot be chained like a normal [`Iterator`].
+    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
         &'s mut self,
@@ -590,7 +590,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     pub(crate) unsafe fn for_each_unchecked_manual<
         'w,
         's,
@@ -650,7 +650,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         's,

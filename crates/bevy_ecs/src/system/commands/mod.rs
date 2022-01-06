@@ -88,13 +88,14 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [None] if the `entity` exists with a different generation.
+    /// Returns an [`EntityCommands`] for the given `entity` (if it exists) or spawns one if it
+    /// doesn't exist. This will return [`None`] if the `entity` exists with a different generation.
     ///
     /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
+    /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
+    /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
+    /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         self.add(GetOrSpawn { entity });
         EntityCommands {
@@ -103,8 +104,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
-    /// this [Command] is applied.
+    /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
+    /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
         self.queue.push(Spawn { bundle })
     }

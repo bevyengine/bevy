@@ -55,9 +55,9 @@ pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamF
 /// # Safety
 ///
 /// It is the implementor's responsibility to ensure `system_meta` is populated with the _exact_
-/// [`World`] access used by the `SystemParamState` (and associated [`SystemParamFetch`]).
+/// [`World`] access used by the [`SystemParamState`] (and associated [`SystemParamFetch`]).
 /// Additionally, it is the implementor's responsibility to ensure there is no
-/// conflicting access across all SystemParams.
+/// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     /// Values of this type can be used to adjust the behavior of the
     /// system parameter. For instance, this can be used to pass
@@ -1213,7 +1213,7 @@ macro_rules! impl_system_param_tuple {
             }
         }
 
-        /// SAFE: implementors of each SystemParamState in the tuple have validated their impls
+        /// SAFE: implementors of each `SystemParamState` in the tuple have validated their impls
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
             type Config = ($(<$param as SystemParamState>::Config,)*);
