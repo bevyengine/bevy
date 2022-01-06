@@ -132,6 +132,7 @@ fn generate_bodies(
             intensity: 400.,
             range: 100.,
             radius: star_radius,
+            ..Default::default()
         })
         .insert(Star);
     commands.spawn_bundle(PerspectiveCameraBundle {
