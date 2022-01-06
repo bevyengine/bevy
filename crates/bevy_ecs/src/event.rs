@@ -107,22 +107,21 @@ enum State {
 ///
 /// # Details
 ///
-/// [Events] is implemented using a variation of a double buffer strategy.
-/// Each call to [Events::update] swaps buffers and clears out the oldest one.
-/// [EventReader]s will read events from both buffers.
-/// [EventReader]s that read at least once per update will never drop events.
-/// [EventReader]s that read once within two updates might still receive some events.
-/// [EventReader]s that read after two updates are guaranteed to drop all events that occurred
+/// [`Events`] is implemented using a variation of a double buffer strategy.
+/// Each call to [`update`](Events::update) swaps buffers and clears out the oldest one.
+/// [`EventReader`]s will read events from both buffers.
+/// [`EventReader`]s that read at least once per update will never drop events.
+/// [`EventReader`]s that read once within two updates might still receive some events.
+/// [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
 /// before those updates.
 ///
-/// The buffers in [`Events`] will grow indefinitely if [`Events::update`] is never called.
+/// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
-/// An alternative call pattern would be to call [`Events::update`] manually across frames to
-/// control when events are cleared.
+/// An alternative call pattern would be to call [`update`](Events::update)
+/// manually across frames to control when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`App::add_event`].
-///
-/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
+/// but can be done by adding your event as a resource instead of using
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
