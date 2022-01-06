@@ -3,7 +3,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```
 //! use bevy_render::mesh::VertexAttributeValues;
 //!
 //! // creating std::vec::Vec
