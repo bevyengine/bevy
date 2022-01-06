@@ -21,8 +21,7 @@ fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }
 
-/// Defines how min_size, size, and max_size affects the bounds of a text
-/// block.
+/// Defines how `min_size`, `size`, and `max_size` affects the bounds of a text block.
 pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
@@ -34,8 +33,8 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     }
 }
 
-/// Computes the size of a text block and updates the TextGlyphs with the
-/// new computed glyphs from the layout
+/// Computes the size of a text block and updates the `TextGlyphs` with the new computed glyphs
+/// from the layout
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,

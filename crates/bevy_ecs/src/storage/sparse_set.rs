@@ -448,11 +448,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::new(0);
-        let e1 = Entity::new(1);
-        let e2 = Entity::new(2);
-        let e3 = Entity::new(3);
-        let e4 = Entity::new(4);
+        let e0 = Entity::from_raw(0);
+        let e1 = Entity::from_raw(1);
+        let e2 = Entity::from_raw(2);
+        let e3 = Entity::from_raw(3);
+        let e4 = Entity::from_raw(4);
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));

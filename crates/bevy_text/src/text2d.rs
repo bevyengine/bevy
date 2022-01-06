@@ -107,7 +107,7 @@ pub struct QueuedText2d {
     entities: Vec<Entity>,
 }
 
-/// Updates the TextGlyphs with the new computed glyphs from the layout
+/// Updates the `TextGlyphs` with the new computed glyphs from the layout
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,

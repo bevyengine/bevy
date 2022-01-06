@@ -250,7 +250,7 @@ fn get_or_spawn(criterion: &mut Criterion) {
             let mut commands = Commands::new(&mut command_queue, &world);
             for i in 0..10_000 {
                 commands
-                    .get_or_spawn(Entity::new(i))
+                    .get_or_spawn(Entity::from_raw(i))
                     .insert_bundle((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);
@@ -265,7 +265,7 @@ fn get_or_spawn(criterion: &mut Criterion) {
             let mut commands = Commands::new(&mut command_queue, &world);
             let mut values = Vec::with_capacity(10_000);
             for i in 0..10_000 {
-                values.push((Entity::new(i), (Matrix::default(), Vec3::default())));
+                values.push((Entity::from_raw(i), (Matrix::default(), Vec3::default())));
             }
             commands.insert_or_spawn_batch(values);
             command_queue.apply(&mut world);

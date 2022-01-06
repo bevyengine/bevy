@@ -87,7 +87,7 @@ impl DynamicScene {
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
             let entity = *entity_map
-                .entry(bevy_ecs::entity::Entity::new(scene_entity.entity))
+                .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
                 .or_insert_with(|| world.spawn().id());
 
             // Apply/ add each component to the given entity.

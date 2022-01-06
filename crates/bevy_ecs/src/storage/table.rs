@@ -540,7 +540,7 @@ mod tests {
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
-        let entities = (0..200).map(Entity::new).collect::<Vec<_>>();
+        let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in entities.iter() {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {

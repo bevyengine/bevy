@@ -105,6 +105,7 @@ Example | File | Description
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
+`spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
@@ -214,6 +215,10 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
+`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
+`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
+`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
 ## Tests
