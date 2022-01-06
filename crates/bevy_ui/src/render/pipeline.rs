@@ -1,9 +1,10 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::{std140::AsStd140, *},
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::ViewUniform,
 };
-
-use crevice::std140::AsStd140;
 
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,

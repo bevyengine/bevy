@@ -6,12 +6,13 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
+    options::{WgpuOptions, WgpuOptionsPriority},
     render_graph::RenderGraph,
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -64,8 +65,8 @@ pub type RenderInstance = Instance;
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
+    options: &mut WgpuOptions,
     request_adapter_options: &RequestAdapterOptions<'_>,
-    device_descriptor: &DeviceDescriptor<'_>,
 ) -> (RenderDevice, RenderQueue) {
     let adapter = instance
         .request_adapter(request_adapter_options)
@@ -84,8 +85,21 @@ pub async fn initialize_renderer(
     #[cfg(not(feature = "wgpu_trace"))]
     let trace_path = None;
 
+    if matches!(options.priority, WgpuOptionsPriority::Functionality) {
+        options.features =
+            adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        options.limits = adapter.limits();
+    }
+
     let (device, queue) = adapter
-        .request_device(device_descriptor, trace_path)
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                features: options.features,
+                limits: options.limits.clone(),
+            },
+            trace_path,
+        )
         .await
         .unwrap();
     let device = Arc::new(device);

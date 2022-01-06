@@ -763,6 +763,18 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 
 /// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
 ///
+/// Note that this does not allow you to see which data existed before removal.
+/// If you need this, you will need to track the component data value on your own,
+/// using a regularly scheduled system that requests `Query<(Entity, &T), Changed<T>>`
+/// and stores the data somewhere safe to later cross-reference.
+///
+/// If you are using `bevy_ecs` as a standalone crate,
+/// note that the `RemovedComponents` list will not be automatically cleared for you,
+/// and will need to be manually flushed using [`World::clear_trackers`]
+///
+/// For users of `bevy` itself, this is automatically done in a system added by `MinimalPlugins`
+/// or `DefaultPlugins` at the end of each pass of the game loop.
+///
 /// # Examples
 ///
 /// Basic usage:
@@ -1456,7 +1468,7 @@ macro_rules! impl_system_param_tuple {
             }
         }
 
-        /// SAFE: implementors of each SystemParamState in the tuple have validated their impls
+        /// SAFE: implementors of each `SystemParamState` in the tuple have validated their impls
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
             type Config = ($(<$param as SystemParamState>::Config,)*);

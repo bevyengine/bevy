@@ -41,8 +41,8 @@ impl ParallelSystemExecutor for SingleThreadedExecutor {
 }
 
 impl SingleThreadedExecutor {
-    /// Calls system.new_archetype() for each archetype added since the last call to
-    /// [update_archetypes] and updates cached archetype_component_access.
+    /// Calls `system.new_archetype()` for each archetype added since the last call to
+    /// `update_archetypes` and updates cached `archetype_component_access`.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();

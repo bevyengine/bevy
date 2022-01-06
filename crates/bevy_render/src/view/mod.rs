@@ -10,7 +10,7 @@ pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, ExtractedCameraNames},
-    render_resource::{DynamicUniformVec, Texture, TextureView},
+    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
@@ -19,7 +19,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::GlobalTransform;
-use crevice::std140::AsStd140;
 
 pub struct ViewPlugin;
 
@@ -27,7 +26,7 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<ViewUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_msaa)
             .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
@@ -50,12 +49,7 @@ pub struct Msaa {
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self {
-            #[cfg(feature = "webgl")]
-            samples: 1,
-            #[cfg(not(feature = "webgl"))]
-            samples: 4,
-        }
+        Self { samples: 4 }
     }
 }
 

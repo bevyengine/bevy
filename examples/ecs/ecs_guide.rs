@@ -25,10 +25,10 @@ use rand::random;
 /// }
 
 /// Resource: a shared global piece of data
-///     Examples: asset_storage, events, system state
+///     Examples: asset storage, events, system state
 ///
 /// System: runs logic on entities, components, and resources
-///     Examples: move_system, damage_system
+///     Examples: move system, damage system
 ///
 /// Now that you know a little bit about ECS, lets look at some Bevy code!
 /// We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.

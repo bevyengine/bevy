@@ -18,7 +18,7 @@ fn main() {
         .add_startup_system(setup)
         .add_startup_system(create_new_window);
 
-    let render_app = app.sub_app(RenderApp);
+    let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
     let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);

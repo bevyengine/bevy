@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::AppExit;
 use bevy_ecs::prelude::{EventReader, EventWriter};
 
-/// Sends the AppExit event whenever the "esc" key is pressed.
+/// Sends the `AppExit` event whenever the "esc" key is pressed.
 pub fn exit_on_esc_system(
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut app_exit_events: EventWriter<AppExit>,

@@ -25,6 +25,7 @@ webgl = ["wgpu/webgl"]
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
 bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_crevice = { path = "../bevy_crevice", version = "0.5.0", features = ["glam"] }
 bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
 bevy_math = { path = "../bevy_math", version = "0.5.0" }
@@ -52,4 +53,3 @@ hex = "0.4.2"
 hexasphere = "6.0.0"
 parking_lot = "0.11.0"
 regex = "1.5"
-crevice = { path = "../crevice", version = "0.8.0", features = ["glam"] }

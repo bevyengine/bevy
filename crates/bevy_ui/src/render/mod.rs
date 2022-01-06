@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::ViewUniforms,
+    view::{ViewUniforms, Visibility},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -66,7 +66,7 @@ pub fn build_ui_render(app: &mut App) {
     let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
     active_cameras.add(CAMERA_UI);
 
-    let render_app = app.sub_app(RenderApp);
+    let render_app = app.sub_app_mut(RenderApp);
     render_app
         .init_resource::<UiPipeline>()
         .init_resource::<SpecializedPipelines<UiPipeline>>()
@@ -139,12 +139,16 @@ pub fn extract_uinodes(
         &GlobalTransform,
         &UiColor,
         &UiImage,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(image.clone_weak()) {
@@ -174,6 +178,7 @@ pub fn extract_text_uinodes(
         &Node,
         &GlobalTransform,
         &Text,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
@@ -185,7 +190,10 @@ pub fn extract_text_uinodes(
         1.
     };
 
-    for (entity, uinode, transform, text, clip) in uinode_query.iter() {
+    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
         if uinode.size == Vec2::ZERO {
             continue;
@@ -408,7 +416,7 @@ pub fn queue_uinodes(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    mut ui_batches: Query<(Entity, &UiBatch)>,
+    ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<&mut RenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -433,7 +441,7 @@ pub fn queue_uinodes(
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
         for mut transparent_phase in views.iter_mut() {
-            for (entity, batch) in ui_batches.iter_mut() {
+            for (entity, batch) in ui_batches.iter() {
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())

@@ -591,18 +591,23 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
-    pub index_info: Option<GpuIndexInfo>,
+    pub buffer_info: GpuBufferInfo,
     pub has_tangents: bool,
     pub primitive_topology: PrimitiveTopology,
 }
 
-/// The index info of a [`GpuMesh`].
+/// The index/vertex buffer info of a [`GpuMesh`].
 #[derive(Debug, Clone)]
-pub struct GpuIndexInfo {
-    /// Contains all index data of a mesh.
-    pub buffer: Buffer,
-    pub count: u32,
-    pub index_format: IndexFormat,
+pub enum GpuBufferInfo {
+    Indexed {
+        /// Contains all index data of a mesh.
+        buffer: Buffer,
+        count: u32,
+        index_format: IndexFormat,
+    },
+    NonIndexed {
+        vertex_count: u32,
+    },
 }
 
 impl RenderAsset for Mesh {
@@ -627,19 +632,24 @@ impl RenderAsset for Mesh {
             contents: &vertex_buffer_data,
         });
 
-        let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
-            buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                usage: BufferUsages::INDEX,
-                contents: data,
-                label: Some("Mesh Index Buffer"),
-            }),
-            count: mesh.indices().unwrap().len() as u32,
-            index_format: mesh.indices().unwrap().into(),
-        });
+        let buffer_info = mesh.get_index_buffer_bytes().map_or(
+            GpuBufferInfo::NonIndexed {
+                vertex_count: mesh.count_vertices() as u32,
+            },
+            |data| GpuBufferInfo::Indexed {
+                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                    usage: BufferUsages::INDEX,
+                    contents: data,
+                    label: Some("Mesh Index Buffer"),
+                }),
+                count: mesh.indices().unwrap().len() as u32,
+                index_format: mesh.indices().unwrap().into(),
+            },
+        );
 
         Ok(GpuMesh {
             vertex_buffer,
-            index_info,
+            buffer_info,
             has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),
         })

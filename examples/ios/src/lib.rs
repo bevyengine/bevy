@@ -91,6 +91,6 @@ fn setup_scene(
 }
 
 fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.mp3");
+    let music = asset_server.load("sounds/Windless Slopes.ogg");
     audio.play(music);
 }

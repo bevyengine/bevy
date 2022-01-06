@@ -211,7 +211,7 @@ use thiserror::Error;
 /// # struct ComponentA;
 /// # #[derive(Component)]
 /// # struct ComponentB;
-/// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
+/// fn immutable_query_system(query: Query<(&ComponentA, &ComponentB)>) {
 ///     for (a, b) in query.iter() {
 ///         // Here, `a` and `b` are normal references to components, relatively of
 ///         // `&ComponentA` and `&ComponentB` types.

@@ -1,4 +1,3 @@
-mod anchors;
 mod flex;
 mod focus;
 mod margins;
@@ -9,7 +8,6 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-pub use anchors::*;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
@@ -18,7 +16,7 @@ pub use ui_node::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins};
+    pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;
@@ -55,6 +53,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
+            .register_type::<Overflow>()
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()

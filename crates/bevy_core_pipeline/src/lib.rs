@@ -88,7 +88,7 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>();
 
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Opaque3d>>()

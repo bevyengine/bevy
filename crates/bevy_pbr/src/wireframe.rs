@@ -5,6 +5,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::render_resource::PolygonMode;
 use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
@@ -13,7 +14,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
-use wgpu::PolygonMode;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
@@ -31,7 +31,7 @@ impl Plugin for WireframePlugin {
 
         app.init_resource::<WireframeConfig>();
 
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Opaque3d, DrawWireframes>()
             .init_resource::<WireframePipeline>()
             .init_resource::<SpecializedPipelines<WireframePipeline>>()
@@ -53,7 +53,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
     }
 }
 
-/// Controls whether an entity should rendered in wireframe-mode if the [WireframePlugin] is enabled
+/// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct Wireframe;

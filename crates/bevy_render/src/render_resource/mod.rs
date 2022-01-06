@@ -24,13 +24,13 @@ pub use uniform_vec::*;
 pub use wgpu::{
     util::BufferInitDescriptor, AddressMode, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
-    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBindingType, BufferSize,
-    BufferUsages, ColorTargetState, ColorWrites, CommandEncoder, CommandEncoderDescriptor,
-    CompareFunction, ComputePassDescriptor, ComputePipelineDescriptor, DepthBiasState,
-    DepthStencilState, Extent3d, Face, Features as WgpuFeatures, FilterMode,
+    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding, BufferBindingType,
+    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder,
+    CommandEncoderDescriptor, CompareFunction, ComputePassDescriptor, ComputePipelineDescriptor,
+    DepthBiasState, DepthStencilState, Extent3d, Face, Features as WgpuFeatures, FilterMode,
     FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
     ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
-    Limits as WgpuLimits, LoadOp, MultisampleState, Operations, Origin3d, PipelineLayout,
+    Limits as WgpuLimits, LoadOp, MapMode, MultisampleState, Operations, Origin3d, PipelineLayout,
     PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
@@ -40,3 +40,5 @@ pub use wgpu::{
     TextureViewDimension, VertexAttribute, VertexBufferLayout as RawVertexBufferLayout,
     VertexFormat, VertexState as RawVertexState, VertexStepMode,
 };
+
+pub use bevy_crevice::*;

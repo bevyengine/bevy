@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+//! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
+
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
 pub mod prelude;
 
@@ -68,6 +71,7 @@ pub mod transform {
 }
 
 pub mod utils {
+    //! Various miscellaneous utilities for easing development
     pub use bevy_utils::*;
 }
 
@@ -90,6 +94,7 @@ pub mod core_pipeline {
 
 #[cfg(feature = "bevy_gilrs")]
 pub mod gilrs {
+    //! Bevy interface with GilRs - Game Input Library for Rust to handle gamepad inputs
     pub use bevy_gilrs::*;
 }
 
@@ -131,11 +136,13 @@ pub mod ui {
 
 #[cfg(feature = "bevy_winit")]
 pub mod winit {
+    //! Window creation, configuration, and handling
     pub use bevy_winit::*;
 }
 
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
+    //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
 

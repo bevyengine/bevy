@@ -16,7 +16,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -25,7 +25,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-use crevice::std140::AsStd140;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -481,7 +480,7 @@ pub fn queue_sprites(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    mut sprite_batches: Query<(Entity, &SpriteBatch)>,
+    sprite_batches: Query<(Entity, &SpriteBatch)>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -515,7 +514,7 @@ pub fn queue_sprites(
             SpritePipelineKey { colored: true },
         );
         for mut transparent_phase in views.iter_mut() {
-            for (entity, batch) in sprite_batches.iter_mut() {
+            for (entity, batch) in sprite_batches.iter() {
                 image_bind_groups
                     .values
                     .entry(batch.handle.clone_weak())

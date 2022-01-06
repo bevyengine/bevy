@@ -6,7 +6,7 @@ use bevy::prelude::*;
 /// expensive).
 /// Note that WGPU currently only supports 1 or 4 samples.
 /// Ultimately we plan on supporting whatever is natively supported on a given device.
-/// Check out this issue for more info: https://github.com/gfx-rs/wgpu/issues/1832
+/// Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })

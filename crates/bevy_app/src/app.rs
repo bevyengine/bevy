@@ -500,11 +500,11 @@ impl App {
         self
     }
 
-    /// Adds a new [State] with the given `initial` value.
-    /// This inserts a new `State<T>` resource and adds a new "driver" to [CoreStage::Update].
+    /// Adds a new [`State`] with the given `initial` value.
+    /// This inserts a new `State<T>` resource and adds a new "driver" to [`CoreStage::Update`].
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in a different stage, consider using [Self::add_state_to_stage] or manually
-    /// adding [State::get_driver] to additional stages you need it in.
+    /// your state in a different stage, consider using [`Self::add_state_to_stage`] or manually
+    /// adding [`State::get_driver`] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
         T: StateData,
@@ -512,10 +512,10 @@ impl App {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
 
-    /// Adds a new [State] with the given `initial` value.
+    /// Adds a new [`State`] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in more than one stage, consider manually adding [State::get_driver] to the
+    /// your state in more than one stage, consider manually adding [`State::get_driver`] to the
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
@@ -759,7 +759,7 @@ impl App {
     /// Adds a group of plugins
     ///
     /// Bevy plugins can be grouped into a set of plugins. Bevy provides
-    /// built-in PluginGroups that provide core engine functionality.
+    /// built-in `PluginGroups` that provide core engine functionality.
     ///
     /// The plugin groups available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
@@ -854,7 +854,24 @@ impl App {
     }
 
     /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
-    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app_mut(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+        }
+    }
+
+    /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
+    /// an [Err] containing the given label.
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+        self.sub_apps
+            .get_mut((&label) as &dyn AppLabel)
+            .map(|sub_app| &mut sub_app.app)
+            .ok_or(label)
+    }
+
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
+    pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
@@ -863,10 +880,10 @@ impl App {
 
     /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
     /// an [Err] containing the given label.
-    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
-            .map(|sub_app| &mut sub_app.app)
+            .get((&label) as &dyn AppLabel)
+            .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
 }
