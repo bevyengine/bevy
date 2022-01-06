@@ -2,7 +2,7 @@ use crate::{
     path::{AssetPath, AssetPathId, SourcePathId},
     Asset, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel, AssetLifecycleEvent,
     AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext, LoadState,
-    RefChange, RefChangeChannel, SourceInfo, SourceMeta,
+    RefChange, RefChangeChannel, SourceInfo,
 };
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
@@ -344,9 +344,7 @@ impl AssetServer {
         // TODO: queue free old assets
         source_info.asset_types.clear();
 
-        source_info.meta = Some(SourceMeta {
-            assets: load_context.get_asset_metas(),
-        });
+        source_info.meta = Some(load_context.get_asset_metas());
 
         // load asset dependencies and prepare asset type hashmap
         for (label, loaded_asset) in &mut load_context.labeled_assets {

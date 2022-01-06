@@ -3,13 +3,6 @@ use bevy_utils::{HashMap, HashSet, Uuid};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Metadata for an asset source.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SourceMeta {
-    /// A collection of asset metadata.
-    pub assets: Vec<AssetMeta>,
-}
-
 /// Metadata for an asset.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssetMeta {
@@ -24,8 +17,8 @@ pub struct AssetMeta {
 /// Information about an asset source, such as its path, load state and asset metadata.
 #[derive(Clone, Debug)]
 pub struct SourceInfo {
-    /// Metadata for the source.
-    pub meta: Option<SourceMeta>,
+    /// Metadata for each asset in the asset source.
+    pub meta: Option<Vec<AssetMeta>>,
     /// The path of the source.
     pub path: PathBuf,
     /// A map of assets and their type identifiers.
@@ -42,7 +35,7 @@ impl SourceInfo {
     /// Returns `true` if all assets tracked by the source were loaded into their asset storages.
     pub fn is_loaded(&self) -> bool {
         self.meta.as_ref().map_or(false, |meta| {
-            self.committed_assets.len() == meta.assets.len()
+            self.committed_assets.len() == meta.len()
         })
     }
 
