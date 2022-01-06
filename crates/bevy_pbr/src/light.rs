@@ -250,6 +250,8 @@ impl Clusters {
             (screen_size.y + 1) / tile_size.y,
             z_slices,
         );
+        // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
+        assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
     }
 }
 
