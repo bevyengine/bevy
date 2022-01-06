@@ -470,7 +470,7 @@ impl Archetypes {
     /// `table_components` and `sparse_set_components` must be sorted
     ///
     /// # Safety
-    /// TableId must exist in tables
+    /// [`TableId`] must exist in tables
     pub(crate) fn get_id_or_insert(
         &mut self,
         table_id: TableId,

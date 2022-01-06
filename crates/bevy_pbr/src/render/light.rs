@@ -15,6 +15,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::Mesh,
+    options::WgpuOptions,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -576,6 +577,7 @@ pub fn prepare_lights(
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
+    wgpu_options: Res<WgpuOptions>,
 ) {
     light_meta.view_gpu_lights.clear();
 
@@ -664,8 +666,10 @@ pub fn prepare_lights(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
-                    width: directional_light_shadow_map.size as u32,
-                    height: directional_light_shadow_map.size as u32,
+                    width: (directional_light_shadow_map.size as u32)
+                        .min(wgpu_options.limits.max_texture_dimension_2d),
+                    height: (directional_light_shadow_map.size as u32)
+                        .min(wgpu_options.limits.max_texture_dimension_2d),
                     depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,

@@ -10,45 +10,66 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
+/// The internal state of each [`FixedTimestep`].
 #[derive(Debug)]
 pub struct FixedTimestepState {
-    pub step: f64,
-    pub accumulator: f64,
+    step: f64,
+    accumulator: f64,
 }
 
 impl FixedTimestepState {
-    /// The amount of time each step takes
+    /// The amount of time each step takes.
     pub fn step(&self) -> f64 {
         self.step
     }
 
-    /// The number of steps made in a second
+    /// The number of steps made in a second.
     pub fn steps_per_second(&self) -> f64 {
         1.0 / self.step
     }
 
-    /// The amount of time (in seconds) left over from the last step
+    /// The amount of time (in seconds) left over from the last step.
     pub fn accumulator(&self) -> f64 {
         self.accumulator
     }
 
-    /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step
+    /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step.
     pub fn overstep_percentage(&self) -> f64 {
         self.accumulator / self.step
     }
 }
 
+/// A global resource that tracks the individual [`FixedTimestepState`]s
+/// for every labeled [`FixedTimestep`].
 #[derive(Default)]
 pub struct FixedTimesteps {
     fixed_timesteps: HashMap<String, FixedTimestepState>,
 }
 
 impl FixedTimesteps {
+    /// Gets the [`FixedTimestepState`] for a given label.
     pub fn get(&self, name: &str) -> Option<&FixedTimestepState> {
         self.fixed_timesteps.get(name)
     }
 }
 
+/// A system run criteria that enables systems or stages to run at a fixed timestep between executions.
+///
+/// This does not guarentee that the time elapsed between executions is exactly the provided
+/// fixed timestep, but will guarentee that the execution will run multiple times per game tick
+/// until the number of repetitions is as expected.
+///
+/// For example, a system with a fixed timestep run criteria of 120 times per second will run
+/// two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
+/// with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
+/// between each execution.
+///
+/// When using this run criteria, it is advised not to rely on [`Time::delta`] or any of it's
+/// variants for game simulation, but rather use the constant time delta used to initialize the
+/// [`FixedTimestep`] instead.
+///
+/// For more fine tuned information about the execution status of a given fixed timestep,
+/// use the [`FixedTimesteps`] resource.
 pub struct FixedTimestep {
     state: LocalFixedTimestepState,
     internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
@@ -64,6 +85,7 @@ impl Default for FixedTimestep {
 }
 
 impl FixedTimestep {
+    /// Creates a [`FixedTimestep`] that ticks once every `step` seconds.
     pub fn step(step: f64) -> Self {
         Self {
             state: LocalFixedTimestepState {
@@ -74,6 +96,7 @@ impl FixedTimestep {
         }
     }
 
+    /// Creates a [`FixedTimestep`] that ticks once every `rate` times per second.
     pub fn steps_per_second(rate: f64) -> Self {
         Self {
             state: LocalFixedTimestepState {
@@ -84,6 +107,8 @@ impl FixedTimestep {
         }
     }
 
+    /// Sets the label for the timestep. Setting a label allows a timestep
+    /// to be observed by the global [`FixedTimesteps`] resource.
     pub fn with_label(mut self, label: &str) -> Self {
         self.state.label = Some(label.to_string());
         self
@@ -106,7 +131,7 @@ impl FixedTimestep {
 }
 
 #[derive(Clone)]
-pub struct LocalFixedTimestepState {
+struct LocalFixedTimestepState {
     label: Option<String>, // TODO: consider making this a TypedLabel
     step: f64,
     accumulator: f64,

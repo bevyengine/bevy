@@ -53,6 +53,7 @@ skip = [
     { name = "ndk-macro", version = "0.2" },            # from rodio v0.14.0
     { name = "ndk-glue", version = "0.3" },             # from rodio v0.14.0
     { name = "ndk-glue", version = "0.4" },             # from rodio v0.14.0
+    { name = "nix", version = "0.20" },                 # from rodio v0.14.0
     { name = "proc-macro-crate", version = "0.1" },     # from rodio v0.14.0
     { name = "stdweb", version = "0.1" },               # from rodio v0.14.0
     { name = "strsim", version = "0.9" },               # from rodio v0.14.0

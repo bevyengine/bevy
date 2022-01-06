@@ -2,7 +2,6 @@
 //! # Basic usage
 //! Spawn [`entity::UiCameraBundle`] and spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
-mod anchors;
 mod flex;
 mod focus;
 mod margins;
@@ -13,7 +12,6 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-pub use anchors::*;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
@@ -23,7 +21,7 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins};
+    pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;

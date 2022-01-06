@@ -289,7 +289,7 @@ impl Components {
 
     /// # Safety
     ///
-    /// `id` must be a valid [ComponentId]
+    /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());

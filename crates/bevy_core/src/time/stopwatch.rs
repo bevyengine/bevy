@@ -55,11 +55,30 @@ impl Stopwatch {
     /// stopwatch.tick(Duration::from_secs(1));
     /// assert_eq!(stopwatch.elapsed(), Duration::from_secs(1));
     /// ```
+    ///
+    /// # See Also
+    ///
+    /// [`elapsed_secs`](Stopwatch::elapsed) - if a `f32` value is desirable instead.
     #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
 
+    /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
+    /// of the stopwatch, in seconds.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_core::*;
+    /// use std::time::Duration;
+    /// let mut stopwatch = Stopwatch::new();
+    /// stopwatch.tick(Duration::from_secs(1));
+    /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
         self.elapsed().as_secs_f32()
