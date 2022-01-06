@@ -21,8 +21,9 @@ bevy_utils::define_label!(AppLabel);
 ///
 /// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
 /// an ECS-based application. It also stores a pointer to a
-/// [runner function](Self::set_runner), which by default executes the App schedule
-/// once. Apps are constructed with the builder pattern.
+/// [runner function](Self::set_runner). The runner is responsible for managing the application's
+/// event loop and applying the [`Schedule`] to the [`World`] to drive application logic.
+/// Apps are constructed with the builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
@@ -852,7 +853,7 @@ impl App {
 
     /// Adds a "sub app" to this [`App`].
     ///
-    /// Sub apps are a largely experimental feature: each `SubApp` bas its own [`Schedule`] and [`World`].
+    /// Sub apps are a largely experimental feature: each `SubApp` has its own [`Schedule`] and [`World`].
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,

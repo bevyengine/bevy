@@ -6,7 +6,7 @@ use std::any::Any;
 /// Plugins configure an [`App`](crate::App). When an [`App`](crate::App) registers
 /// a plugin, the plugin's [`Plugin::build`] function is run.
 pub trait Plugin: Any + Send + Sync {
-    /// Configures the [`App`] that this plugin is added to
+    /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
     /// Configures a name for the [`Plugin`]. Primarily for debugging.
     fn name(&self) -> &str {
