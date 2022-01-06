@@ -151,7 +151,7 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Recasts this handle as a weak handle of an Asset `U`.
-    pub fn as_weak<U: Asset>(&self) -> Handle<U> {
+    pub fn cast<U: Asset>(&self) -> Handle<U> {
         Handle {
             id: self.id,
             handle_type: HandleType::Weak,
