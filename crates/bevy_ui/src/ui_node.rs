@@ -312,7 +312,7 @@ impl Default for Overflow {
     }
 }
 
-/// The type of position of the node
+/// The strategy used to position this node
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
