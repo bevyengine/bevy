@@ -188,9 +188,9 @@ impl Default for AlignSelf {
     }
 }
 
-/// Defines how each line is aligned within the flexbox. It only applies
-/// if [`FlexWrap::Wrap`] is present and if there are multiple lines of
-/// items
+/// Defines how each line is aligned within the flexbox.
+///
+/// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
