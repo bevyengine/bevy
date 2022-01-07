@@ -215,6 +215,32 @@ bitflags::bitflags! {
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
         const VERTEX_TANGENTS    = (1 << 0);
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+    }
+}
+
+impl ShadowPipelineKey {
+    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = 32 - 3;
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        Self::from_bits(primitive_topology_bits).unwrap()
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits =
+            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
     }
 }
 
@@ -292,7 +318,7 @@ impl SpecializedPipeline for ShadowPipeline {
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -1097,6 +1123,7 @@ pub fn queue_shadows(
                         if mesh.has_tangents {
                             key |= ShadowPipelineKey::VERTEX_TANGENTS;
                         }
+                        key |= ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     }
                     let pipeline_id =
                         pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
