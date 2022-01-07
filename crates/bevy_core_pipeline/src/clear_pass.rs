@@ -33,20 +33,13 @@ impl ClearPassNode {
 }
 
 impl Node for ClearPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![]
-    }
 
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
+    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+        
         let mut cleared_windows = HashSet::new();
         let clear_color = world.get_resource::<ClearColor>().unwrap();
 

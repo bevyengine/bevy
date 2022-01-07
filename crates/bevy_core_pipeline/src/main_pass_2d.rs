@@ -1,7 +1,7 @@
 use crate::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType, SlotInfos},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -24,21 +24,18 @@ impl MainPass2dNode {
 }
 
 impl Node for MainPass2dNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
+    fn slot_requirements(&self) -> SlotInfos {
+        
+        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)].into()
     }
 
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+        
+        let view_entity = *graph.get_entity(Self::IN_VIEW)?;
         let (transparent_phase, target) = self
             .query
             .get_manual(world, view_entity)

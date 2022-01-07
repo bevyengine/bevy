@@ -2,6 +2,7 @@ use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
+use crate::render_graph::context::SlotError;
 
 /// A value passed between render [`Nodes`](super::Node).
 /// Corresponds to the [SlotType] specified in the [`RenderGraph`](super::RenderGraph).
@@ -31,6 +32,45 @@ impl SlotValue {
             SlotValue::Sampler(_) => SlotType::Sampler,
             SlotValue::Entity(_) => SlotType::Entity,
         }
+    }
+}
+
+#[derive(Default)]
+pub struct SlotValues {
+    values:  Vec<(SlotLabel, SlotValue)>,
+}
+
+impl SlotValues {
+    pub fn new(iter: impl IntoIterator<Item = (SlotLabel, SlotValue)>) -> Self {
+        Self {
+            values: iter.into_iter().collect()
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            values: Vec::new()
+        }
+    }
+
+    pub fn get_infos(&self) -> SlotInfos {
+        self.values.iter().map(|(label, value)| SlotInfo::new(label.clone(), value.slot_type())).into()
+    }
+
+    pub fn get_value(&self, label: &SlotLabel) -> Result<&SlotValue, SlotError> {
+        match self.values.iter().find(|(l, v)| l==label) {
+            None => Err(SlotError::InvalidSlot(label.clone())),
+            Some((_, v)) => Ok(v)
+        }
+
+    }
+}
+
+
+impl<L: Into<SlotLabel>, V: Into<SlotValue>, T: IntoIterator<Item = (L, V)>> From<T> for SlotValues {
+    fn from(t: T) -> Self {
+
+        SlotValues::new(t.into_iter().map(|(l, v)| {(l.into(), v.into())}))
     }
 }
 
@@ -74,53 +114,19 @@ pub enum SlotType {
     Entity,
 }
 
-/// A [`SlotLabel`] is used to reference a slot by either its name or index
-/// inside the [`RenderGraph`](super::RenderGraph).
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SlotLabel {
-    Index(usize),
-    Name(Cow<'static, str>),
-}
+/// A [`SlotLabel`] is used to reference a slot
+pub type SlotLabel = Cow<'static, str>;
 
-impl From<&SlotLabel> for SlotLabel {
-    fn from(value: &SlotLabel) -> Self {
-        value.clone()
-    }
-}
-
-impl From<String> for SlotLabel {
-    fn from(value: String) -> Self {
-        SlotLabel::Name(value.into())
-    }
-}
-
-impl From<&'static str> for SlotLabel {
-    fn from(value: &'static str) -> Self {
-        SlotLabel::Name(value.into())
-    }
-}
-
-impl From<Cow<'static, str>> for SlotLabel {
-    fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value.clone())
-    }
-}
-
-impl From<usize> for SlotLabel {
-    fn from(value: usize) -> Self {
-        SlotLabel::Index(value)
-    }
-}
 
 /// The internal representation of a slot, which specifies its [`SlotType`] and name.
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
-    pub name: Cow<'static, str>,
+    pub name: SlotLabel,
     pub slot_type: SlotType,
 }
 
 impl SlotInfo {
-    pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
+    pub fn new(name: impl Into<SlotLabel>, slot_type: SlotType) -> Self {
         SlotInfo {
             name: name.into(),
             slot_type,
@@ -157,31 +163,29 @@ impl SlotInfos {
     }
 
     /// Retrieves the [`SlotInfo`] for the provided label.
-    pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Option<&SlotInfo> {
+    pub fn get_slot(&self, label: &SlotLabel) -> Option<&SlotInfo> {
         let label = label.into();
-        let index = self.get_slot_index(&label)?;
+        let index = self.get_slot_index(label)?;
         self.slots.get(index)
     }
 
     /// Retrieves the [`SlotInfo`] for the provided label mutably.
-    pub fn get_slot_mut(&mut self, label: impl Into<SlotLabel>) -> Option<&mut SlotInfo> {
+    pub fn get_slot_mut(&mut self, label: &SlotLabel) -> Option<&mut SlotInfo> {
         let label = label.into();
-        let index = self.get_slot_index(&label)?;
+        let index = self.get_slot_index(label)?;
         self.slots.get_mut(index)
     }
 
     /// Retrieves the index (inside input or output slots) of the slot for the provided label.
-    pub fn get_slot_index(&self, label: impl Into<SlotLabel>) -> Option<usize> {
-        let label = label.into();
-        match label {
-            SlotLabel::Index(index) => Some(index),
-            SlotLabel::Name(ref name) => self
-                .slots
-                .iter()
-                .enumerate()
-                .find(|(_i, s)| s.name == *name)
-                .map(|(i, _s)| i),
-        }
+    pub fn get_slot_index(&self, label: &SlotLabel) -> Option<usize> {
+        
+        self
+            .slots
+            .iter()
+            .enumerate()
+            .find(|(_i, s)| s.name == *label)
+            .map(|(i, _s)| i)
+        
     }
 
     /// Returns an iterator over the slot infos.

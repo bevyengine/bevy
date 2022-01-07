@@ -14,37 +14,20 @@ use super::NodeId;
 /// with an input slot of the `input_node` to pass additional data along.
 /// For more information see [`SlotType`](super::SlotType).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Edge {
-    /// An edge describing to ordering of both nodes (`output_node` before `input_node`)
-    /// and connecting the output slot at the `output_index` of the output_node
-    /// with the slot at the `input_index` of the `input_node`.
-    SlotEdge {
-        input_node: NodeId,
-        input_index: usize,
-        output_node: NodeId,
-        output_index: usize,
-    },
-    /// An edge describing to ordering of both nodes (`output_node` before `input_node`).
-    NodeEdge {
-        input_node: NodeId,
-        output_node: NodeId,
-    },
+pub struct Edge {
+    pub before: NodeId,
+    pub after: NodeId,
 }
+
 
 impl Edge {
     /// Returns the id of the 'input_node'.
-    pub fn get_input_node(&self) -> NodeId {
-        match self {
-            Edge::SlotEdge { input_node, .. } => *input_node,
-            Edge::NodeEdge { input_node, .. } => *input_node,
-        }
+    pub fn get_before_node(&self) -> NodeId {
+        self.before
     }
 
     /// Returns the id of the 'output_node'.
-    pub fn get_output_node(&self) -> NodeId {
-        match self {
-            Edge::SlotEdge { output_node, .. } => *output_node,
-            Edge::NodeEdge { output_node, .. } => *output_node,
-        }
+    pub fn get_after_node(&self) -> NodeId {
+        self.after
     }
 }

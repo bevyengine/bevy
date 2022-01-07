@@ -185,17 +185,9 @@ impl Plugin for PbrPlugin {
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph
-            .add_node_edge(
+            .add_edge(
                 draw_3d_graph::node::SHADOW_PASS,
                 bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::SHADOW_PASS,
-                ShadowPassNode::IN_VIEW,
             )
             .unwrap();
     }

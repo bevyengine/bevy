@@ -1,7 +1,9 @@
+use std::borrow::Cow;
+
 use crate::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType, SlotInfos},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -32,21 +34,17 @@ impl MainPass3dNode {
 }
 
 impl Node for MainPass3dNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity)]
+    fn slot_requirements(&self) -> SlotInfos {
+        vec![SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity)].into()
     }
 
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+        
+        let view_entity = *graph.get_entity(Self::IN_VIEW)?;
         let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,

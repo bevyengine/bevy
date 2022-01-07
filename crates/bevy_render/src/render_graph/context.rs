@@ -6,203 +6,73 @@ use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 use thiserror::Error;
 
+use super::{SlotValues, SlotInfo};
+
 /// A command that signals the graph runner to run the sub graph corresponding to the `name`
 /// with the specified `inputs` next.
 pub struct RunSubGraph {
     pub name: Cow<'static, str>,
-    pub inputs: Vec<SlotValue>,
+    pub inputs: SlotValues,
 }
+
+#[derive(Default)]
+pub struct RunSubGraphs {
+    commands: Vec<RunSubGraph>
+}
+
+
+impl RunSubGraphs {
+    pub fn drain(self) -> impl Iterator<Item = RunSubGraph> {
+        self.commands.into_iter()
+    }
+
+    pub fn run(&mut self, name: impl Into<Cow<'static, str>>, inputs: impl Into<SlotValues>) {
+        self.commands.push(RunSubGraph {
+            name: name.into(),
+            inputs: inputs.into()
+        });
+    }
+}
+
 
 /// The context with all graph information required to run a [`Node`](super::Node).
 /// This context is created for each node by the `RenderGraphRunner`.
 ///
-/// The slot input can be read from here and the outputs must be written back to the context for
-/// passing them onto the next node.
-///
-/// Sub graphs can be queued for running by adding a [`RunSubGraph`] command to the context.
-/// After the node has finished running the graph runner is responsible for executing the sub graphs.
+/// The slot input can be read from here
 pub struct RenderGraphContext<'a> {
-    graph: &'a RenderGraph,
-    node: &'a NodeState,
-    inputs: &'a [SlotValue],
-    outputs: &'a mut [Option<SlotValue>],
-    run_sub_graphs: Vec<RunSubGraph>,
+    inputs: &'a SlotValues
 }
 
 impl<'a> RenderGraphContext<'a> {
-    /// Creates a new render graph context for the `node`.
+    /// Creates a new render graph context.
     pub fn new(
-        graph: &'a RenderGraph,
-        node: &'a NodeState,
-        inputs: &'a [SlotValue],
-        outputs: &'a mut [Option<SlotValue>],
+        inputs: &'a SlotValues,
     ) -> Self {
         Self {
-            graph,
-            node,
-            inputs,
-            outputs,
-            run_sub_graphs: Vec::new(),
+            inputs
         }
     }
 
     /// Returns the input slot values for the node.
     #[inline]
-    pub fn inputs(&self) -> &[SlotValue] {
-        self.inputs
+    pub fn inputs(&self) -> &SlotValues {
+        &self.inputs
     }
 
-    /// Returns the [`SlotInfos`] of the inputs.
-    pub fn input_info(&self) -> &SlotInfos {
-        &self.node.input_slots
-    }
 
-    /// Returns the [`SlotInfos`] of the outputs.
-    pub fn output_info(&self) -> &SlotInfos {
-        &self.node.output_slots
-    }
-
-    /// Retrieves the input slot value referenced by the `label`.
-    pub fn get_input(&self, label: impl Into<SlotLabel>) -> Result<&SlotValue, InputSlotError> {
+    pub fn get_entity(&self, label: impl Into<SlotLabel>) -> Result<&Entity, SlotError> {
+        
         let label = label.into();
-        let index = self
-            .input_info()
-            .get_slot_index(label.clone())
-            .ok_or(InputSlotError::InvalidSlot(label))?;
-        Ok(&self.inputs[index])
-    }
 
-    // TODO: should this return an Arc or a reference?
-    /// Retrieves the input slot value referenced by the `label` as a [`TextureView`].
-    pub fn get_input_texture(
-        &self,
-        label: impl Into<SlotLabel>,
-    ) -> Result<&TextureView, InputSlotError> {
-        let label = label.into();
-        match self.get_input(label.clone())? {
-            SlotValue::TextureView(value) => Ok(value),
-            value => Err(InputSlotError::MismatchedSlotType {
-                label,
-                actual: value.slot_type(),
-                expected: SlotType::TextureView,
-            }),
-        }
-    }
-
-    /// Retrieves the input slot value referenced by the `label` as a [`Sampler`].
-    pub fn get_input_sampler(
-        &self,
-        label: impl Into<SlotLabel>,
-    ) -> Result<&Sampler, InputSlotError> {
-        let label = label.into();
-        match self.get_input(label.clone())? {
-            SlotValue::Sampler(value) => Ok(value),
-            value => Err(InputSlotError::MismatchedSlotType {
-                label,
-                actual: value.slot_type(),
-                expected: SlotType::Sampler,
-            }),
-        }
-    }
-
-    /// Retrieves the input slot value referenced by the `label` as a [`Buffer`].
-    pub fn get_input_buffer(&self, label: impl Into<SlotLabel>) -> Result<&Buffer, InputSlotError> {
-        let label = label.into();
-        match self.get_input(label.clone())? {
-            SlotValue::Buffer(value) => Ok(value),
-            value => Err(InputSlotError::MismatchedSlotType {
-                label,
-                actual: value.slot_type(),
-                expected: SlotType::Buffer,
-            }),
-        }
-    }
-
-    /// Retrieves the input slot value referenced by the `label` as an [`Entity`].
-    pub fn get_input_entity(&self, label: impl Into<SlotLabel>) -> Result<Entity, InputSlotError> {
-        let label = label.into();
-        match self.get_input(label.clone())? {
-            SlotValue::Entity(value) => Ok(*value),
-            value => Err(InputSlotError::MismatchedSlotType {
-                label,
-                actual: value.slot_type(),
-                expected: SlotType::Entity,
-            }),
-        }
-    }
-
-    /// Sets the output slot value referenced by the `label`.
-    pub fn set_output(
-        &mut self,
-        label: impl Into<SlotLabel>,
-        value: impl Into<SlotValue>,
-    ) -> Result<(), OutputSlotError> {
-        let label = label.into();
-        let value = value.into();
-        let slot_index = self
-            .output_info()
-            .get_slot_index(label.clone())
-            .ok_or_else(|| OutputSlotError::InvalidSlot(label.clone()))?;
-        let slot = self
-            .output_info()
-            .get_slot(slot_index)
-            .expect("slot is valid");
-        if value.slot_type() != slot.slot_type {
-            return Err(OutputSlotError::MismatchedSlotType {
-                label,
-                actual: slot.slot_type,
-                expected: value.slot_type(),
-            });
-        }
-        self.outputs[slot_index] = Some(value);
-        Ok(())
-    }
-
-    /// Queues up a sub graph for execution after the node has finished running.
-    pub fn run_sub_graph(
-        &mut self,
-        name: impl Into<Cow<'static, str>>,
-        inputs: Vec<SlotValue>,
-    ) -> Result<(), RunSubGraphError> {
-        let name = name.into();
-        let sub_graph = self
-            .graph
-            .get_sub_graph(&name)
-            .ok_or_else(|| RunSubGraphError::MissingSubGraph(name.clone()))?;
-        if let Some(input_node) = sub_graph.input_node() {
-            for (i, input_slot) in input_node.input_slots.iter().enumerate() {
-                if let Some(input_value) = inputs.get(i) {
-                    if input_slot.slot_type != input_value.slot_type() {
-                        return Err(RunSubGraphError::MismatchedInputSlotType {
-                            graph_name: name,
-                            slot_index: i,
-                            actual: input_value.slot_type(),
-                            expected: input_slot.slot_type,
-                            label: input_slot.name.clone().into(),
-                        });
-                    }
-                } else {
-                    return Err(RunSubGraphError::MissingInput {
-                        slot_index: i,
-                        slot_name: input_slot.name.clone(),
-                        graph_name: name,
-                    });
-                }
+        match self.inputs.get_value(&label)? {
+            SlotValue::Entity(e) => Ok(e),
+            val => {
+                Err(SlotError::MismatchedSlotType { label: label.clone(), expected: SlotType::Entity, actual: val.slot_type() } )
             }
-        } else if !inputs.is_empty() {
-            return Err(RunSubGraphError::SubGraphHasNoInputs(name));
         }
-
-        self.run_sub_graphs.push(RunSubGraph { name, inputs });
-
-        Ok(())
     }
 
-    /// Finishes the context for this [`Node`](super::Node) by
-    /// returning the sub graphs to run next.
-    pub fn finish(self) -> Vec<RunSubGraph> {
-        self.run_sub_graphs
-    }
+
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -227,20 +97,9 @@ pub enum RunSubGraphError {
     },
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
-pub enum OutputSlotError {
-    #[error("slot does not exist")]
-    InvalidSlot(SlotLabel),
-    #[error("attempted to assign the wrong type to slot")]
-    MismatchedSlotType {
-        label: SlotLabel,
-        expected: SlotType,
-        actual: SlotType,
-    },
-}
 
 #[derive(Error, Debug, Eq, PartialEq)]
-pub enum InputSlotError {
+pub enum SlotError {
     #[error("slot does not exist")]
     InvalidSlot(SlotLabel),
     #[error("attempted to retrieve the wrong type from input slot")]

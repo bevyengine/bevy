@@ -94,23 +94,12 @@ pub fn build_ui_render(app: &mut App) {
 
     let mut draw_ui_graph = RenderGraph::default();
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = draw_ui_graph.set_input(vec![SlotInfo::new(
-        draw_ui_graph::input::VIEW_ENTITY,
-        SlotType::Entity,
-    )]);
-    draw_ui_graph
-        .add_slot_edge(
-            input_node_id,
-            draw_ui_graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            UiPassNode::IN_VIEW,
-        )
-        .unwrap();
+    
     graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
 
     graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
     graph
-        .add_node_edge(
+        .add_edge(
             bevy_core_pipeline::node::MAIN_PASS_DRIVER,
             node::UI_PASS_DRIVER,
         )

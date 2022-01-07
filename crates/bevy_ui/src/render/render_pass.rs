@@ -19,18 +19,15 @@ use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
 pub struct UiPassDriverNode;
 
 impl bevy_render::render_graph::Node for UiPassDriverNode {
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
+    fn queue_graphs(&self, graph: &RenderGraphContext, world: &World) -> Result<RunSubGraphs, NodeRunError> {
+        let mut run_sub_graphs = RunSubGraphs::default();
+
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
         if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
+            run_sub_graphs.run(draw_ui_graph::NAME, vec![("view", SlotValue::Entity(*camera_ui))]);
         }
 
-        Ok(())
+        Ok(run_sub_graphs)
     }
 }
 
@@ -50,21 +47,18 @@ impl UiPassNode {
 }
 
 impl bevy_render::render_graph::Node for UiPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
+    fn slot_requirements(&self) -> SlotInfos {
+        
+        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)].into()
     }
 
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+        
+        let view_entity = *graph.get_entity(Self::IN_VIEW)?;
         let (transparent_phase, target) = self
             .query
             .get_manual(world, view_entity)

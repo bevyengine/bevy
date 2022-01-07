@@ -109,34 +109,11 @@ impl Plugin for CorePipelinePlugin {
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            draw_2d_graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::VIEW_ENTITY,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
+        
         graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
-            draw_3d_graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
         graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
 
         let mut clear_graph = RenderGraph::default();
@@ -146,11 +123,11 @@ impl Plugin for CorePipelinePlugin {
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
         graph
-            .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
+            .add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();
         graph.add_node(node::CLEAR_PASS_DRIVER, ClearPassDriverNode);
         graph
-            .add_node_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
+            .add_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
             .unwrap();
     }
 }

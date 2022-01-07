@@ -9,6 +9,8 @@ use bevy_ecs::prelude::World;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
+use super::SlotInfos;
+
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes itself my have their internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
@@ -51,7 +53,7 @@ pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
     sub_graphs: HashMap<Cow<'static, str>, RenderGraph>,
-    input_node: Option<NodeId>,
+    slot_requirements: SlotInfos
 }
 
 impl RenderGraph {
@@ -69,22 +71,12 @@ impl RenderGraph {
         }
     }
 
-    /// Creates an [`GraphInputNode`] with the specified slots if not already present.
-    pub fn set_input(&mut self, inputs: Vec<SlotInfo>) -> NodeId {
-        if self.input_node.is_some() {
-            panic!("Graph already has an input node");
-        }
-
-        let id = self.add_node("GraphInputNode", GraphInputNode { inputs });
-        self.input_node = Some(id);
-        id
+    /// ads
+    pub fn update_requirements(&mut self) {
+        todo!();
     }
 
-    /// Returns the [`NodeState`] of the input node of this graph..
-    #[inline]
-    pub fn input_node(&self) -> Option<&NodeState> {
-        self.input_node.and_then(|id| self.get_node_state(id).ok())
-    }
+
 
     /// Adds the `node` with the `name` to the graph.
     /// If the name is already present replaces it instead.
@@ -157,53 +149,9 @@ impl RenderGraph {
         self.get_node_state_mut(label).and_then(|n| n.node_mut())
     }
 
-    /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`
-    /// is run before the `input_node` and also connects the `output_slot` to the `input_slot`.
-    pub fn add_slot_edge(
-        &mut self,
-        output_node: impl Into<NodeLabel>,
-        output_slot: impl Into<SlotLabel>,
-        input_node: impl Into<NodeLabel>,
-        input_slot: impl Into<SlotLabel>,
-    ) -> Result<(), RenderGraphError> {
-        let output_slot = output_slot.into();
-        let input_slot = input_slot.into();
-        let output_node_id = self.get_node_id(output_node)?;
-        let input_node_id = self.get_node_id(input_node)?;
-
-        let output_index = self
-            .get_node_state(output_node_id)?
-            .output_slots
-            .get_slot_index(output_slot.clone())
-            .ok_or(RenderGraphError::InvalidOutputNodeSlot(output_slot))?;
-        let input_index = self
-            .get_node_state(input_node_id)?
-            .input_slots
-            .get_slot_index(input_slot.clone())
-            .ok_or(RenderGraphError::InvalidInputNodeSlot(input_slot))?;
-
-        let edge = Edge::SlotEdge {
-            output_node: output_node_id,
-            output_index,
-            input_node: input_node_id,
-            input_index,
-        };
-
-        self.validate_edge(&edge)?;
-
-        {
-            let output_node = self.get_node_state_mut(output_node_id)?;
-            output_node.edges.add_output_edge(edge.clone())?;
-        }
-        let input_node = self.get_node_state_mut(input_node_id)?;
-        input_node.edges.add_input_edge(edge)?;
-
-        Ok(())
-    }
-
     /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
-    pub fn add_node_edge(
+    pub fn add_edge(
         &mut self,
         output_node: impl Into<NodeLabel>,
         input_node: impl Into<NodeLabel>,
@@ -211,9 +159,9 @@ impl RenderGraph {
         let output_node_id = self.get_node_id(output_node)?;
         let input_node_id = self.get_node_id(input_node)?;
 
-        let edge = Edge::NodeEdge {
-            output_node: output_node_id,
-            input_node: input_node_id,
+        let edge = Edge {
+            before: output_node_id,
+            after: input_node_id,
         };
 
         self.validate_edge(&edge)?;
@@ -234,67 +182,15 @@ impl RenderGraph {
         if self.has_edge(edge) {
             return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
         }
-
-        match *edge {
-            Edge::SlotEdge {
-                output_node,
-                output_index,
-                input_node,
-                input_index,
-            } => {
-                let output_node_state = self.get_node_state(output_node)?;
-                let input_node_state = self.get_node_state(input_node)?;
-
-                let output_slot = output_node_state
-                    .output_slots
-                    .get_slot(output_index)
-                    .ok_or(RenderGraphError::InvalidOutputNodeSlot(SlotLabel::Index(
-                        output_index,
-                    )))?;
-                let input_slot = input_node_state.input_slots.get_slot(input_index).ok_or(
-                    RenderGraphError::InvalidInputNodeSlot(SlotLabel::Index(input_index)),
-                )?;
-
-                if let Some(Edge::SlotEdge {
-                    output_node: current_output_node,
-                    ..
-                }) = input_node_state.edges.input_edges.iter().find(|e| {
-                    if let Edge::SlotEdge {
-                        input_index: current_input_index,
-                        ..
-                    } = e
-                    {
-                        input_index == *current_input_index
-                    } else {
-                        false
-                    }
-                }) {
-                    return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                        node: input_node,
-                        input_slot: input_index,
-                        occupied_by_node: *current_output_node,
-                    });
-                }
-
-                if output_slot.slot_type != input_slot.slot_type {
-                    return Err(RenderGraphError::MismatchedNodeSlots {
-                        output_node,
-                        output_slot: output_index,
-                        input_node,
-                        input_slot: input_index,
-                    });
-                }
-            }
-            Edge::NodeEdge { .. } => { /* nothing to validate here */ }
-        }
+        // TODO: Check for cycles
 
         Ok(())
     }
 
     /// Checks whether the `edge` already exists in the graph.
     pub fn has_edge(&self, edge: &Edge) -> bool {
-        let output_node_state = self.get_node_state(edge.get_output_node());
-        let input_node_state = self.get_node_state(edge.get_input_node());
+        let output_node_state = self.get_node_state(edge.get_after_node());
+        let input_node_state = self.get_node_state(edge.get_before_node());
         if let Ok(output_node_state) = output_node_state {
             if output_node_state.edges.output_edges.contains(edge) {
                 if let Ok(input_node_state) = input_node_state {
@@ -334,18 +230,18 @@ impl RenderGraph {
 
     /// Returns an iterator over a tuple of the input edges and the corresponding output nodes
     /// for the node referenced by the label.
-    pub fn iter_node_inputs(
+    pub fn iter_node_dependencies(
         &self,
         label: impl Into<NodeLabel>,
-    ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
+    ) -> Result<impl Iterator<Item = &NodeId>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
             .edges
             .input_edges
             .iter()
-            .map(|edge| (edge, edge.get_output_node()))
-            .map(move |(edge, output_node_id)| {
-                (edge, self.get_node_state(output_node_id).unwrap())
+            .map(|edge| (edge, edge.get_after_node()))
+            .map(|(edge, output_node_id)| {
+                &edge.before
             }))
     }
 
@@ -360,7 +256,7 @@ impl RenderGraph {
             .edges
             .output_edges
             .iter()
-            .map(|edge| (edge, edge.get_input_node()))
+            .map(|edge| (edge, edge.get_before_node()))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
     }
 
@@ -385,218 +281,189 @@ impl Debug for RenderGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for node in self.iter_nodes() {
             writeln!(f, "{:?}", node.id)?;
-            writeln!(f, "  in: {:?}", node.input_slots)?;
-            writeln!(f, "  out: {:?}", node.output_slots)?;
+            writeln!(f, "  requires: {:?}", node.required_slots)?;
         }
 
         Ok(())
     }
 }
 
-/// A [`Node`] which acts as an entry point for a [`RenderGraph`] with custom inputs.
-/// It has the same input and output slots and simply copies them over when run.
-pub struct GraphInputNode {
-    inputs: Vec<SlotInfo>,
-}
 
-impl Node for GraphInputNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        self.inputs.clone()
-    }
+// #[cfg(test)]
+// mod tests {
+//     use crate::{
+//         render_graph::{
+//             Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
+//             SlotInfo, SlotType,
+//         },
+//         renderer::RenderContext,
+//     };
+//     use bevy_ecs::world::World;
+//     use bevy_utils::HashSet;
 
-    fn output(&self) -> Vec<SlotInfo> {
-        self.inputs.clone()
-    }
+//     #[derive(Debug)]
+//     struct TestNode {
+//         inputs: Vec<SlotInfo>,
+//         outputs: Vec<SlotInfo>,
+//     }
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        _world: &World,
-    ) -> Result<(), NodeRunError> {
-        for i in 0..graph.inputs().len() {
-            let input = graph.inputs()[i].clone();
-            graph.set_output(i, input)?;
-        }
-        Ok(())
-    }
-}
+//     impl TestNode {
+//         pub fn new(inputs: usize, outputs: usize) -> Self {
+//             TestNode {
+//                 inputs: (0..inputs)
+//                     .map(|i| SlotInfo::new(format!("in_{}", i), SlotType::TextureView))
+//                     .collect(),
+//                 outputs: (0..outputs)
+//                     .map(|i| SlotInfo::new(format!("out_{}", i), SlotType::TextureView))
+//                     .collect(),
+//             }
+//         }
+//     }
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        render_graph::{
-            Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-            SlotInfo, SlotType,
-        },
-        renderer::RenderContext,
-    };
-    use bevy_ecs::world::World;
-    use bevy_utils::HashSet;
+//     impl Node for TestNode {
+//         fn input(&self) -> Vec<SlotInfo> {
+//             self.inputs.clone()
+//         }
 
-    #[derive(Debug)]
-    struct TestNode {
-        inputs: Vec<SlotInfo>,
-        outputs: Vec<SlotInfo>,
-    }
+//         fn output(&self) -> Vec<SlotInfo> {
+//             self.outputs.clone()
+//         }
 
-    impl TestNode {
-        pub fn new(inputs: usize, outputs: usize) -> Self {
-            TestNode {
-                inputs: (0..inputs)
-                    .map(|i| SlotInfo::new(format!("in_{}", i), SlotType::TextureView))
-                    .collect(),
-                outputs: (0..outputs)
-                    .map(|i| SlotInfo::new(format!("out_{}", i), SlotType::TextureView))
-                    .collect(),
-            }
-        }
-    }
+//         fn run(
+//             &self,
+//             _: &mut RenderGraphContext,
+//             _: &mut RenderContext,
+//             _: &World,
+//         ) -> Result<(), NodeRunError> {
+//             Ok(())
+//         }
+//     }
 
-    impl Node for TestNode {
-        fn input(&self) -> Vec<SlotInfo> {
-            self.inputs.clone()
-        }
+//     #[test]
+//     fn test_graph_edges() {
+//         let mut graph = RenderGraph::default();
+//         let a_id = graph.add_node("A", TestNode::new(0, 1));
+//         let b_id = graph.add_node("B", TestNode::new(0, 1));
+//         let c_id = graph.add_node("C", TestNode::new(1, 1));
+//         let d_id = graph.add_node("D", TestNode::new(1, 0));
 
-        fn output(&self) -> Vec<SlotInfo> {
-            self.outputs.clone()
-        }
+//         graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
+//         graph.add_edge("B", "C").unwrap();
+//         graph.add_slot_edge("C", 0, "D", 0).unwrap();
 
-        fn run(
-            &self,
-            _: &mut RenderGraphContext,
-            _: &mut RenderContext,
-            _: &World,
-        ) -> Result<(), NodeRunError> {
-            Ok(())
-        }
-    }
+//         fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+//             graph
+//                 .iter_node_inputs(name)
+//                 .unwrap()
+//                 .map(|(_edge, node)| node.id)
+//                 .collect::<HashSet<NodeId>>()
+//         }
 
-    #[test]
-    fn test_graph_edges() {
-        let mut graph = RenderGraph::default();
-        let a_id = graph.add_node("A", TestNode::new(0, 1));
-        let b_id = graph.add_node("B", TestNode::new(0, 1));
-        let c_id = graph.add_node("C", TestNode::new(1, 1));
-        let d_id = graph.add_node("D", TestNode::new(1, 0));
+//         fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+//             graph
+//                 .iter_node_outputs(name)
+//                 .unwrap()
+//                 .map(|(_edge, node)| node.id)
+//                 .collect::<HashSet<NodeId>>()
+//         }
 
-        graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
-        graph.add_node_edge("B", "C").unwrap();
-        graph.add_slot_edge("C", 0, "D", 0).unwrap();
+//         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");
+//         assert!(
+//             output_nodes("A", &graph) == HashSet::from_iter(vec![c_id]),
+//             "A outputs to C"
+//         );
 
-        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
-            graph
-                .iter_node_inputs(name)
-                .unwrap()
-                .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId>>()
-        }
+//         assert!(input_nodes("B", &graph).is_empty(), "B has no inputs");
+//         assert!(
+//             output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+//             "B outputs to C"
+//         );
 
-        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
-            graph
-                .iter_node_outputs(name)
-                .unwrap()
-                .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId>>()
-        }
+//         assert!(
+//             input_nodes("C", &graph) == HashSet::from_iter(vec![a_id, b_id]),
+//             "A and B input to C"
+//         );
+//         assert!(
+//             output_nodes("C", &graph) == HashSet::from_iter(vec![d_id]),
+//             "C outputs to D"
+//         );
 
-        assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");
-        assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![c_id]),
-            "A outputs to C"
-        );
+//         assert!(
+//             input_nodes("D", &graph) == HashSet::from_iter(vec![c_id]),
+//             "C inputs to D"
+//         );
+//         assert!(output_nodes("D", &graph).is_empty(), "D has no outputs");
+//     }
 
-        assert!(input_nodes("B", &graph).is_empty(), "B has no inputs");
-        assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
-            "B outputs to C"
-        );
+//     #[test]
+//     fn test_get_node_typed() {
+//         struct MyNode {
+//             value: usize,
+//         }
 
-        assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![a_id, b_id]),
-            "A and B input to C"
-        );
-        assert!(
-            output_nodes("C", &graph) == HashSet::from_iter(vec![d_id]),
-            "C outputs to D"
-        );
+//         impl Node for MyNode {
+//             fn run(
+//                 &self,
+//                 _: &mut RenderGraphContext,
+//                 _: &mut RenderContext,
+//                 _: &World,
+//             ) -> Result<(), NodeRunError> {
+//                 Ok(())
+//             }
+//         }
 
-        assert!(
-            input_nodes("D", &graph) == HashSet::from_iter(vec![c_id]),
-            "C inputs to D"
-        );
-        assert!(output_nodes("D", &graph).is_empty(), "D has no outputs");
-    }
+//         let mut graph = RenderGraph::default();
 
-    #[test]
-    fn test_get_node_typed() {
-        struct MyNode {
-            value: usize,
-        }
+//         graph.add_node("A", MyNode { value: 42 });
 
-        impl Node for MyNode {
-            fn run(
-                &self,
-                _: &mut RenderGraphContext,
-                _: &mut RenderContext,
-                _: &World,
-            ) -> Result<(), NodeRunError> {
-                Ok(())
-            }
-        }
+//         let node: &MyNode = graph.get_node("A").unwrap();
+//         assert_eq!(node.value, 42, "node value matches");
 
-        let mut graph = RenderGraph::default();
+//         let result: Result<&TestNode, RenderGraphError> = graph.get_node("A");
+//         assert_eq!(
+//             result.unwrap_err(),
+//             RenderGraphError::WrongNodeType,
+//             "expect a wrong node type error"
+//         );
+//     }
 
-        graph.add_node("A", MyNode { value: 42 });
+//     #[test]
+//     fn test_slot_already_occupied() {
+//         let mut graph = RenderGraph::default();
 
-        let node: &MyNode = graph.get_node("A").unwrap();
-        assert_eq!(node.value, 42, "node value matches");
+//         graph.add_node("A", TestNode::new(0, 1));
+//         graph.add_node("B", TestNode::new(0, 1));
+//         graph.add_node("C", TestNode::new(1, 1));
 
-        let result: Result<&TestNode, RenderGraphError> = graph.get_node("A");
-        assert_eq!(
-            result.unwrap_err(),
-            RenderGraphError::WrongNodeType,
-            "expect a wrong node type error"
-        );
-    }
+//         graph.add_slot_edge("A", 0, "C", 0).unwrap();
+//         assert_eq!(
+//             graph.add_slot_edge("B", 0, "C", 0),
+//             Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
+//                 node: graph.get_node_id("C").unwrap(),
+//                 input_slot: 0,
+//                 occupied_by_node: graph.get_node_id("A").unwrap(),
+//             }),
+//             "Adding to a slot that is already occupied should return an error"
+//         );
+//     }
 
-    #[test]
-    fn test_slot_already_occupied() {
-        let mut graph = RenderGraph::default();
+//     #[test]
+//     fn test_edge_already_exists() {
+//         let mut graph = RenderGraph::default();
 
-        graph.add_node("A", TestNode::new(0, 1));
-        graph.add_node("B", TestNode::new(0, 1));
-        graph.add_node("C", TestNode::new(1, 1));
+//         graph.add_node("A", TestNode::new(0, 1));
+//         graph.add_node("B", TestNode::new(1, 0));
 
-        graph.add_slot_edge("A", 0, "C", 0).unwrap();
-        assert_eq!(
-            graph.add_slot_edge("B", 0, "C", 0),
-            Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                node: graph.get_node_id("C").unwrap(),
-                input_slot: 0,
-                occupied_by_node: graph.get_node_id("A").unwrap(),
-            }),
-            "Adding to a slot that is already occupied should return an error"
-        );
-    }
-
-    #[test]
-    fn test_edge_already_exists() {
-        let mut graph = RenderGraph::default();
-
-        graph.add_node("A", TestNode::new(0, 1));
-        graph.add_node("B", TestNode::new(1, 0));
-
-        graph.add_slot_edge("A", 0, "B", 0).unwrap();
-        assert_eq!(
-            graph.add_slot_edge("A", 0, "B", 0),
-            Err(RenderGraphError::EdgeAlreadyExists(Edge::SlotEdge {
-                output_node: graph.get_node_id("A").unwrap(),
-                output_index: 0,
-                input_node: graph.get_node_id("B").unwrap(),
-                input_index: 0,
-            })),
-            "Adding to a duplicate edge should return an error"
-        );
-    }
-}
+//         graph.add_slot_edge("A", 0, "B", 0).unwrap();
+//         assert_eq!(
+//             graph.add_slot_edge("A", 0, "B", 0),
+//             Err(RenderGraphError::EdgeAlreadyExists(Edge::SlotEdge {
+//                 output_node: graph.get_node_id("A").unwrap(),
+//                 output_index: 0,
+//                 input_node: graph.get_node_id("B").unwrap(),
+//                 input_index: 0,
+//             })),
+//             "Adding to a duplicate edge should return an error"
+//         );
+//     }
+// }
