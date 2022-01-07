@@ -247,6 +247,9 @@ async fn load_gltf<'a, 'b>(
         .collect();
 
     // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for gltf_texture in gltf.textures() {
             let (texture, label) =
