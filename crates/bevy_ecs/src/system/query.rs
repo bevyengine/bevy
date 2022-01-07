@@ -867,12 +867,7 @@ where
 
         // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
         let (lower_bound, maybe_upper_bound) = entities_iter.size_hint();
-        let best_bound = if let Some(upper_bound) = maybe_upper_bound {
-            upper_bound
-        } else {
-            lower_bound
-        };
-
+        let best_bound = maybe_upper_bound.unwrap_or(lower_bound);
         let entities_seen = HashSet::with_capacity(best_bound);
 
         // This is an iterator adaptor struct
