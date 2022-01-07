@@ -6,7 +6,7 @@ pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
 
-use copyless::{VecAllocation, VecHelper, VecEntry};
+use copyless::{VecAllocation, VecEntry, VecHelper};
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
