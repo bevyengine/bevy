@@ -1,3 +1,5 @@
+//! This module contains systems that update the UI when something changes
+
 use crate::{CalculatedClip, Overflow, Style};
 
 use super::Node;
@@ -13,8 +15,10 @@ use bevy_transform::{
     prelude::{Children, Parent, Transform},
 };
 
+/// The resolution of Z values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
+/// Updates transforms of nodes to fit with the z system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
@@ -58,6 +62,7 @@ fn update_hierarchy(
     current_global_z
 }
 
+/// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
