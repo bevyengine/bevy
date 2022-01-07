@@ -6,7 +6,7 @@ pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
 
-use copyless::{VecAllocation, VecEntry, VecHelper};
+use copyless::VecHelper;
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
@@ -24,15 +24,7 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.items.push(item);
-    }
-
-    pub fn alloc(&mut self) -> VecAllocation<I> {
-        self.items.alloc()
-    }
-
-    pub fn entry(&mut self, index: usize) -> VecEntry<I> {
-        self.items.entry(index)
+        self.items.alloc().init(item);
     }
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).

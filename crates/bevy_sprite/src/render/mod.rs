@@ -514,20 +514,17 @@ pub fn queue_sprites(
                         | ((color[2] * 255.0) as u32) << 16
                         | ((color[3] * 255.0) as u32) << 24;
                     for i in QUAD_INDICES.iter() {
-                        sprite_meta
-                            .colored_vertices
-                            .alloc()
-                            .init(ColoredSpriteVertex {
-                                position: positions[*i],
-                                uv: uvs[*i].into(),
-                                color,
-                            });
+                        sprite_meta.colored_vertices.push(ColoredSpriteVertex {
+                            position: positions[*i],
+                            uv: uvs[*i].into(),
+                            color,
+                        });
                     }
                     let item_start = colored_index;
                     colored_index += QUAD_INDICES.len() as u32;
                     let item_end = colored_index;
 
-                    transparent_phase.alloc().init(Transparent2d {
+                    transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
                         pipeline: colored_pipeline,
                         entity: current_batch_entity,
@@ -536,7 +533,7 @@ pub fn queue_sprites(
                     });
                 } else {
                     for i in QUAD_INDICES.iter() {
-                        sprite_meta.vertices.alloc().init(SpriteVertex {
+                        sprite_meta.vertices.push(SpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
                         });
@@ -545,7 +542,7 @@ pub fn queue_sprites(
                     index += QUAD_INDICES.len() as u32;
                     let item_end = index;
 
-                    transparent_phase.alloc().init(Transparent2d {
+                    transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
                         pipeline,
                         entity: current_batch_entity,

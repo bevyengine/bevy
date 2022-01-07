@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
-use copyless::{VecAllocation, VecEntry, VecHelper};
+use copyless::VecHelper;
 use wgpu::BufferUsages;
 
 pub struct BufferVec<T: Pod> {
@@ -56,7 +56,7 @@ impl<T: Pod> BufferVec<T> {
 
     pub fn push(&mut self, value: T) -> usize {
         let index = self.values.len();
-        self.values.push(value);
+        self.values.alloc().init(value);
         index
     }
 
@@ -87,13 +87,5 @@ impl<T: Pod> BufferVec<T> {
 
     pub fn clear(&mut self) {
         self.values.clear();
-    }
-
-    pub fn alloc(&mut self) -> VecAllocation<T> {
-        self.values.alloc()
-    }
-
-    pub fn entry(&mut self, index: usize) -> VecEntry<T> {
-        self.values.entry(index)
     }
 }
