@@ -161,13 +161,8 @@ impl SceneSpawner {
                         handle: scene_handle.clone(),
                     })?;
 
-            let mut archetypes = scene.world.archetypes().iter();
-
-            // Empty archetype
-            let _ = archetypes.next().unwrap();
-
             // Resources archetype
-            let resources_archetype = archetypes.next().unwrap();
+            let resources_archetype = scene.world.archetypes().resource();
             for component_id in resources_archetype.components() {
                 let component_info = scene
                     .world
@@ -193,7 +188,7 @@ impl SceneSpawner {
             }
 
             // Other archetypes
-            for archetype in archetypes {
+            for archetype in scene.world.archetypes().iter() {
                 for scene_entity in archetype.entities() {
                     let entity = *instance_info
                         .entity_map

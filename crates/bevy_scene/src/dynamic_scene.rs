@@ -36,13 +36,8 @@ impl DynamicScene {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
 
-        let mut archetypes = world.archetypes().iter();
-
-        // Empty archetype
-        let _ = archetypes.next().unwrap();
-
         // Resources archetype
-        let resources_archetype = archetypes.next().unwrap();
+        let resources_archetype = world.archetypes().resource();
         for component_id in resources_archetype.components() {
             let reflect_resource = world
                 .components()
@@ -57,7 +52,11 @@ impl DynamicScene {
         }
 
         // Other archetypes
-        for archetype in archetypes {
+        for archetype in world.archetypes().iter() {
+            if archetype.entities().is_empty() {
+                continue;
+            }
+
             let entities_offset = scene.entities.len();
 
             // Create a new dynamic entity for each entity of the given archetype
