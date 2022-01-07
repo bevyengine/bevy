@@ -253,7 +253,7 @@ async fn load_gltf<'a, 'b>(
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for gltf_texture in gltf.textures() {
             let (texture, label) =
-                load_texture(gltf_texture, &buffer_data, &linear_textures, &load_context).await?;
+                load_texture(gltf_texture, &buffer_data, &linear_textures, load_context).await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         }
     } else {
