@@ -60,8 +60,11 @@ impl AddAssign<f32> for Val {
     }
 }
 
-/// Describes the style of a UI node, these track with the Flexbox system, see <https://cssreference.io/flexbox/>
-/// Note: Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
+/// Describes the style of a UI node
+///
+/// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
+///
+/// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
 /// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]
