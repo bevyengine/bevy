@@ -187,10 +187,15 @@ pub trait BatchedPhaseItem: EntityPhaseItem {
             self.batch_range_mut().as_mut(),
             other.batch_range().as_ref(),
         ) {
-            if self_entity == other.entity() && self_batch_range.end == other_batch_range.start {
-                // If the items are compatible, join their range into `self`
-                self_batch_range.end = other_batch_range.end;
-                return BatchResult::Success;
+            // If the items are compatible, join their range into `self`
+            if self_entity == other.entity() {
+                if self_batch_range.end == other_batch_range.start {
+                    self_batch_range.end = other_batch_range.end;
+                    return BatchResult::Success;
+                } else if self_batch_range.start == other_batch_range.end {
+                    self_batch_range.start = other_batch_range.start;
+                    return BatchResult::Success;
+                }
             }
         }
         BatchResult::IncompatibleItems

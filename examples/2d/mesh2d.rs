@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle},
-};
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 fn main() {
     App::new()
