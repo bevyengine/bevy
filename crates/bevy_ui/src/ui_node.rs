@@ -216,7 +216,9 @@ impl Default for AlignContent {
     }
 }
 
-/// Defines the text direction, for example English is written LTR while Arabic is written RTL
+/// Defines the text direction
+///
+/// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
