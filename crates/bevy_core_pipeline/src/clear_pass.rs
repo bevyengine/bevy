@@ -4,7 +4,7 @@ use crate::ClearColor;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
@@ -33,13 +33,16 @@ impl ClearPassNode {
 }
 
 impl Node for ClearPassNode {
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
 
-    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
-        
+    fn record(
+        &self,
+        _graph: &RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
         let mut cleared_windows = HashSet::new();
         let clear_color = world.get_resource::<ClearColor>().unwrap();
 

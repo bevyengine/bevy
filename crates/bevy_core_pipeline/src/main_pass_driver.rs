@@ -2,7 +2,6 @@ use bevy_ecs::world::World;
 use bevy_render::{
     camera::{CameraPlugin, ExtractedCameraNames},
     render_graph::{Node, NodeRunError, RenderGraphContext, RunSubGraphs, SlotValue},
-    renderer::RenderContext,
 };
 
 pub struct MainPassDriverNode;
@@ -21,7 +20,7 @@ impl Node for MainPassDriverNode {
                 graph,
                 crate::draw_2d_graph::NAME,
                 vec![("view", SlotValue::Entity(*camera_2d))],
-            );
+            )?;
         }
 
         if let Some(camera_3d) = extracted_cameras.entities.get(CameraPlugin::CAMERA_3D) {
@@ -29,7 +28,7 @@ impl Node for MainPassDriverNode {
                 graph,
                 crate::draw_3d_graph::NAME,
                 vec![("view", SlotValue::Entity(*camera_3d))],
-            );
+            )?;
         }
 
         Ok(sub_graph_runs)

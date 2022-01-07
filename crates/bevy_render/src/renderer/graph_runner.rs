@@ -1,17 +1,14 @@
 use bevy_ecs::world::World;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{HashMap, HashSet};
-use smallvec::{smallvec, SmallVec};
-#[cfg(feature = "trace")]
-use std::ops::Deref;
-use std::{borrow::Cow, collections::VecDeque, rc::Rc};
+use bevy_utils::HashSet;
+use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, Node, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
-        RenderGraphId, RenderGraphs, SlotLabel, SlotType, SlotValue, SlotValues,
+        NodeId, NodeRunError, NodeState, RenderGraphContext, RenderGraphId, RenderGraphs, SlotType,
+        SlotValues,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -37,7 +34,7 @@ pub enum RenderGraphRunnerError {
     #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
         slot_index: usize,
-        label: SlotLabel,
+        label: &'static str,
         expected: SlotType,
         actual: SlotType,
     },
@@ -86,11 +83,7 @@ impl RenderGraphRunner {
         let context = RenderGraphContext::new(inputs, graphs);
 
         #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
-        } else {
-            info_span!("run_graph", name = "main_graph")
-        };
+        let span = info_span!("run_graph", name = "main_graph");
         #[cfg(feature = "trace")]
         let _guard = span.enter();
 
@@ -108,7 +101,7 @@ impl RenderGraphRunner {
                 .iter_node_dependencies(node_state.id)
                 .expect("node is in graph")
             {
-                if !nodes_ran.contains(&id) {
+                if !nodes_ran.contains(id) {
                     node_queue.push_front(node_state);
                     continue 'handle_node;
                 }

@@ -18,7 +18,7 @@ use bevy_render::{
     camera::ActiveCameras,
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RenderGraphs, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RenderGraphs},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},

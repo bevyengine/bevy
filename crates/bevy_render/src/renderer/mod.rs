@@ -7,7 +7,7 @@ pub use render_device::*;
 
 use crate::{
     options::{WgpuOptions, WgpuOptionsPriority},
-    render_graph::{RenderGraph, RenderGraphs},
+    render_graph::RenderGraphs,
     view::{ExtractedWindows, ViewTarget},
     MAIN_GRAPH_ID,
 };

@@ -1,12 +1,9 @@
-use crate::{
-    render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
-    render_resource::{Buffer, Sampler, TextureView},
-};
+use crate::render_graph::{SlotType, SlotValue};
 use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 use thiserror::Error;
 
-use super::{GraphLabel, RenderGraphId, RenderGraphs, SlotInfo, SlotValues};
+use super::{GraphLabel, RenderGraphId, RenderGraphs, SlotValues};
 
 /// A command that signals the graph runner to run the sub graph corresponding to the `name`
 /// with the specified `inputs` next.
@@ -67,16 +64,16 @@ impl<'a> RenderGraphContext<'a> {
     /// Returns the input slot values for the node.
     #[inline]
     pub fn inputs(&self) -> &SlotValues {
-        &self.inputs
+        self.inputs
     }
 
-    pub fn get_entity(&self, label: impl Into<SlotLabel>) -> Result<&Entity, SlotError> {
+    pub fn get_entity(&self, label: impl Into<&'static str>) -> Result<&Entity, SlotError> {
         let label = label.into();
 
         match self.inputs.get_value(&label)? {
             SlotValue::Entity(e) => Ok(e),
             val => Err(SlotError::MismatchedSlotType {
-                label: label.clone(),
+                label,
                 expected: SlotType::Entity,
                 actual: val.slot_type(),
             }),
@@ -100,7 +97,7 @@ pub enum RunSubGraphError {
     MismatchedInputSlotType {
         graph_name: Cow<'static, str>,
         slot_index: usize,
-        label: SlotLabel,
+        label: &'static str,
         expected: SlotType,
         actual: SlotType,
     },
@@ -109,10 +106,10 @@ pub enum RunSubGraphError {
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum SlotError {
     #[error("slot does not exist")]
-    InvalidSlot(SlotLabel),
+    InvalidSlot(&'static str),
     #[error("attempted to retrieve the wrong type from input slot")]
     MismatchedSlotType {
-        label: SlotLabel,
+        label: &'static str,
         expected: SlotType,
         actual: SlotType,
     },

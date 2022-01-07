@@ -17,9 +17,9 @@ pub enum RenderGraphError {
     #[error("node does not exist")]
     InvalidNode(NodeLabel),
     #[error("output node slot does not exist")]
-    InvalidOutputNodeSlot(SlotLabel),
+    InvalidOutputNodeSlot(&'static str),
     #[error("input node slot does not exist")]
-    InvalidInputNodeSlot(SlotLabel),
+    InvalidInputNodeSlot(&'static str),
     #[error("node does not match the given type")]
     WrongNodeType,
     #[error("attempted to connect a node output slot to an incompatible input node slot")]

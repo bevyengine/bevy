@@ -29,7 +29,6 @@ pub mod prelude {
 
 use bevy_utils::tracing::debug;
 pub use once_cell;
-use render_graph::RenderGraphId;
 
 use crate::{
     camera::CameraPlugin,
@@ -106,7 +105,7 @@ pub struct RenderApp;
 #[derive(Default)]
 struct ScratchRenderWorld(World);
 
-pub const MAIN_GRAPH_ID: &'static str = "main_graph";
+pub const MAIN_GRAPH_ID: &str = "main_graph";
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.

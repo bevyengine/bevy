@@ -4,10 +4,9 @@ use bevy::{
     render::{
         camera::{ActiveCameras, ExtractedCameraNames},
         render_graph::{
-            Node, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphs, SlotValue,
+            Node, NodeRunError, RenderGraphContext, RenderGraphs, RunSubGraphs, SlotValue,
         },
         render_phase::RenderPhase,
-        renderer::RenderContext,
         RenderApp, RenderStage, MAIN_GRAPH_ID,
     },
     window::{CreateWindow, WindowId},
@@ -23,7 +22,7 @@ fn main() {
     let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
     let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
-    let mut graph = graphs.get_graph_mut(MAIN_GRAPH_ID);
+    let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
     graph
         .add_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
@@ -81,20 +80,24 @@ fn create_new_window(
 
 struct SecondaryCameraDriver;
 impl Node for SecondaryCameraDriver {
-    fn run(
+    fn queue_graphs(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        graph: &RenderGraphContext,
         world: &World,
-    ) -> Result<(), NodeRunError> {
+    ) -> Result<RunSubGraphs, NodeRunError> {
+        let mut sub_graph_runs = RunSubGraphs::default();
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
         if let Some(camera_3d) = extracted_cameras.entities.get(SECONDARY_CAMERA_NAME) {
-            graph.run_sub_graph(
+            sub_graph_runs.run(
+                graph,
                 crate::draw_3d_graph::NAME,
-                vec![SlotValue::Entity(*camera_3d)],
+                vec![(
+                    draw_3d_graph::input::VIEW_ENTITY,
+                    SlotValue::Entity(*camera_3d),
+                )],
             )?;
         }
-        Ok(())
+        Ok(sub_graph_runs)
     }
 }
 

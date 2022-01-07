@@ -1,16 +1,10 @@
-use crate::{
-    render_graph::{
-        Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
-        RenderGraphError, SlotInfo, SlotLabel,
-    },
-    renderer::RenderContext,
-};
+use crate::render_graph::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError};
 use bevy_ecs::prelude::World;
 use bevy_reflect::Uuid;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::SlotInfos;
+use super::{RunSubGraphError, SlotInfos};
 
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes itself my have their internal state) structure,
@@ -66,8 +60,17 @@ impl RenderGraph {
             slot_requirements: Default::default(),
         }
     }
+
+    pub fn get_name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+
     pub fn id(&self) -> &RenderGraphId {
         &self.id
+    }
+
+    pub fn get_slot_requirements(&self) -> &SlotInfos {
+        &self.slot_requirements
     }
 
     /// Updates all nodes and sub graphs of the render graph. Should be called before executing it.
@@ -86,6 +89,10 @@ impl RenderGraph {
         todo!();
     }
 
+    pub fn assert_matching_slots(&self, _infos: &SlotInfos) -> Result<(), RunSubGraphError> {
+        todo!()
+    }
+
     /// Adds the `node` with the `name` to the graph.
     /// If the name is already present replaces it instead.
     pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
@@ -95,7 +102,7 @@ impl RenderGraph {
         let id = NodeId::new();
         let name = name.into();
         let mut node_state = NodeState::new(id, node);
-        node_state.name = Some(name.clone());
+        node_state.name = name.clone();
         self.nodes.insert(id, node_state);
         self.node_names.insert(name, id);
         id
@@ -248,7 +255,7 @@ impl RenderGraph {
             .input_edges
             .iter()
             .map(|edge| (edge, edge.get_after_node()))
-            .map(|(edge, output_node_id)| &edge.before))
+            .map(|(edge, _output_node_id)| &edge.before))
     }
 
     /// Returns an iterator over a tuple of the ouput edges and the corresponding input nodes
@@ -427,7 +434,7 @@ impl RenderGraphs {
 //         graph.add_edge("B", "C").unwrap();
 //         graph.add_slot_edge("C", 0, "D", 0).unwrap();
 
-//         fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+//         fn input_nodes(name: Cow<'static, str>, graph: &RenderGraph) -> HashSet<NodeId> {
 //             graph
 //                 .iter_node_inputs(name)
 //                 .unwrap()
@@ -435,7 +442,7 @@ impl RenderGraphs {
 //                 .collect::<HashSet<NodeId>>()
 //         }
 
-//         fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+//         fn output_nodes(name: Cow<'static, str>, graph: &RenderGraph) -> HashSet<NodeId> {
 //             graph
 //                 .iter_node_outputs(name)
 //                 .unwrap()

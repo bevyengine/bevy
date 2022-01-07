@@ -17,7 +17,7 @@ use bevy_render::{
     mesh::Mesh,
     options::WgpuOptions,
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType, SlotInfos},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotInfos, SlotType},
     render_phase::{
         CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -1165,7 +1165,6 @@ impl ShadowPassNode {
 
 impl Node for ShadowPassNode {
     fn slot_requirements(&self) -> SlotInfos {
-        
         vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)].into()
     }
 
@@ -1174,8 +1173,12 @@ impl Node for ShadowPassNode {
         self.view_light_query.update_archetypes(world);
     }
 
-    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
-        
+    fn record(
+        &self,
+        graph: &RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
         let view_entity = *graph.get_entity(Self::IN_VIEW)?;
 
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {

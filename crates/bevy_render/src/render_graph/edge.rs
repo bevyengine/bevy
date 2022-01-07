@@ -19,7 +19,6 @@ pub struct Edge {
     pub after: NodeId,
 }
 
-
 impl Edge {
     /// Returns the id of the 'input_node'.
     pub fn get_before_node(&self) -> NodeId {

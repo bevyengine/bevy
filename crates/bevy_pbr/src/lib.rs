@@ -38,11 +38,11 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
-    render_graph::{RenderGraph, RenderGraphs},
+    render_graph::RenderGraphs,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
     view::VisibilitySystems,
-    RenderApp, RenderStage, MAIN_GRAPH_ID,
+    RenderApp, RenderStage,
 };
 use bevy_transform::TransformSystem;
 

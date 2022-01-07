@@ -32,7 +32,7 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
                 graph,
                 draw_ui_graph::NAME,
                 vec![("view", SlotValue::Entity(*camera_ui))],
-            );
+            )?;
         }
 
         Ok(run_sub_graphs)

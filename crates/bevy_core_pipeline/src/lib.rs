@@ -21,7 +21,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
-    render_graph::{EmptyNode, RenderGraph, RenderGraphs, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph, RenderGraphs},
     render_phase::{
         sort_phase_system, CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
         PhaseItem, RenderPhase,

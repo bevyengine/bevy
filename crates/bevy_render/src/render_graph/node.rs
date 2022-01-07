@@ -1,7 +1,6 @@
 use crate::{
     render_graph::{
-        Edge, RenderGraphContext, RenderGraphError, RunSubGraphError, SlotError, SlotInfo,
-        SlotInfos,
+        Edge, RenderGraphContext, RenderGraphError, RunSubGraphError, SlotError, SlotInfos,
     },
     renderer::RenderContext,
 };
@@ -128,7 +127,7 @@ impl Edges {
 /// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
     pub id: NodeId,
-    pub name: Option<Cow<'static, str>>,
+    pub name: Cow<'static, str>,
     /// The name of the type that implements [`Node`].
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
@@ -151,7 +150,7 @@ impl NodeState {
     {
         NodeState {
             id,
-            name: None,
+            name: "".into(),
             required_slots: node.slot_requirements(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),

@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph, RenderGraphs},
+        render_graph::{self, NodeRunError, RenderGraphContext, RenderGraphs},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage, MAIN_GRAPH_ID,
@@ -67,7 +67,7 @@ impl Plugin for GameOfLifeComputePlugin {
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
         let mut render_graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
-        let mut render_graph = render_graphs.get_graph_mut(MAIN_GRAPH_ID);
+        let render_graph = render_graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
         render_graph.add_node("game_of_life", DispatchGameOfLife::default());
         render_graph
             .add_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
@@ -182,12 +182,12 @@ impl render_graph::Node for DispatchGameOfLife {
         }
     }
 
-    fn run(
+    fn record(
         &self,
-        _graph: &mut render_graph::RenderGraphContext,
+        _graph: &RenderGraphContext,
         render_context: &mut RenderContext,
         world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
+    ) -> Result<(), NodeRunError> {
         let pipeline = world.get_resource::<GameOfLifePipeline>().unwrap();
         let texture_bind_group = &world.get_resource::<GameOfLifeImageBindGroup>().unwrap().0;
 
