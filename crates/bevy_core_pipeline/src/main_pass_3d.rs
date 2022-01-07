@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType, SlotInfos},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotInfos, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -42,8 +42,12 @@ impl Node for MainPass3dNode {
         self.query.update_archetypes(world);
     }
 
-    fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
-        
+    fn record(
+        &self,
+        graph: &RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
         let view_entity = *graph.get_entity(Self::IN_VIEW)?;
         let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
             match self.query.get_manual(world, view_entity) {

@@ -7,8 +7,9 @@ pub use render_device::*;
 
 use crate::{
     options::{WgpuOptions, WgpuOptionsPriority},
-    render_graph::RenderGraph,
+    render_graph::{RenderGraph, RenderGraphs},
     view::{ExtractedWindows, ViewTarget},
+    MAIN_GRAPH_ID,
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
@@ -16,14 +17,15 @@ use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
+    world.resource_scope(|world, mut graphs: Mut<RenderGraphs>| {
+        graphs.update(world);
     });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
     let render_device = world.get_resource::<RenderDevice>().unwrap();
     let render_queue = world.get_resource::<RenderQueue>().unwrap();
+    let graphs = world.get_resource::<RenderGraphs>().unwrap();
+
     RenderGraphRunner::run(
-        graph,
+        &graphs.get_graph_id(MAIN_GRAPH_ID).unwrap(),
         render_device.clone(), // TODO: is this clone really necessary?
         render_queue,
         world,

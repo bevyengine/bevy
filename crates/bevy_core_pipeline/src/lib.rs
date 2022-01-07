@@ -21,7 +21,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph, RenderGraphs, SlotInfo, SlotType},
     render_phase::{
         sort_phase_system, CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
         PhaseItem, RenderPhase,
@@ -30,7 +30,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewDepthTexture},
-    RenderApp, RenderStage, RenderWorld,
+    RenderApp, RenderStage, RenderWorld, MAIN_GRAPH_ID,
 };
 
 /// Resource that configures the clear color
@@ -105,20 +105,21 @@ impl Plugin for CorePipelinePlugin {
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
-        let mut draw_2d_graph = RenderGraph::default();
+        let mut draw_2d_graph = RenderGraph::new(draw_2d_graph::NAME);
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        
-        graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
-        let mut draw_3d_graph = RenderGraph::default();
+        graphs.add_graph(draw_2d_graph);
+
+        let mut draw_3d_graph = RenderGraph::new(draw_3d_graph::NAME);
         draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
+        graphs.add_graph(draw_3d_graph);
 
-        let mut clear_graph = RenderGraph::default();
+        let mut clear_graph = RenderGraph::new(clear_graph::NAME);
         clear_graph.add_node(clear_graph::node::CLEAR_PASS, clear_pass_node);
-        graph.add_sub_graph(clear_graph::NAME, clear_graph);
+        graphs.add_graph(clear_graph);
+        let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
 
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);

@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{
-        Edge, SlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos,
+        Edge, RenderGraphContext, RenderGraphError, RunSubGraphError, SlotError, SlotInfo,
+        SlotInfos,
     },
     renderer::RenderContext,
 };
@@ -57,17 +57,21 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// passed via the [`RenderGraphContext`].
     fn record(
         &self,
-        graph: &RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> { Ok(()) }
+        _graph: &RenderGraphContext,
+        _render_context: &mut RenderContext,
+        _world: &World,
+    ) -> Result<(), NodeRunError> {
+        Ok(())
+    }
 
-    /// Queues graphs for execution
+    /// Queues graphs for execution.
     fn queue_graphs(
         &self,
-        graph: &RenderGraphContext,
-        world: &World,
-    ) -> Result<RunSubGraphs, NodeRunError> { Ok(Default::default()) }
+        _graph: &RenderGraphContext,
+        _world: &World,
+    ) -> Result<RunSubGraphs, NodeRunError> {
+        Ok(Default::default())
+    }
 }
 
 impl_downcast!(Node);
@@ -116,8 +120,6 @@ impl Edges {
     pub fn has_output_edge(&self, edge: &Edge) -> bool {
         self.output_edges.contains(edge)
     }
-
-
 }
 
 /// The internal representation of a [`Node`], with all data required
@@ -180,7 +182,6 @@ impl NodeState {
             .downcast_mut::<T>()
             .ok_or(RenderGraphError::WrongNodeType)
     }
-
 }
 
 /// A [`NodeLabel`] is used to reference a [`NodeState`] by either its name or [`NodeId`]
@@ -220,6 +221,4 @@ impl From<NodeId> for NodeLabel {
 /// the [`RenderGraph`](super::RenderGraph).
 pub struct EmptyNode;
 
-impl Node for EmptyNode {
-    
-}
+impl Node for EmptyNode {}

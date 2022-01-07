@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue, SlotValues, Node,
+        Edge, Node, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
+        RenderGraphId, RenderGraphs, SlotLabel, SlotType, SlotValue, SlotValues,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -45,7 +45,7 @@ pub enum RenderGraphRunnerError {
 
 impl RenderGraphRunner {
     pub fn run(
-        graph: &RenderGraph,
+        main_id: &RenderGraphId,
         render_device: RenderDevice,
         queue: &wgpu::Queue,
         world: &World,
@@ -56,8 +56,14 @@ impl RenderGraphRunner {
             render_device,
             command_encoder,
         };
-
-        Self::run_graph(graph, None, &mut render_context, world, &SlotValues::default())?;
+        let graphs = world.get_resource().expect("render graphs should exist");
+        Self::run_graph(
+            graphs,
+            main_id,
+            &mut render_context,
+            world,
+            &SlotValues::default(),
+        )?;
         {
             #[cfg(feature = "trace")]
             let span = info_span!("submit_graph_commands");
@@ -69,15 +75,15 @@ impl RenderGraphRunner {
     }
 
     fn run_graph(
-        graph: &RenderGraph,
-        graph_name: Option<Cow<'static, str>>,
+        graphs: &RenderGraphs,
+        graph_id: &RenderGraphId,
         render_context: &mut RenderContext,
         world: &World,
         inputs: &SlotValues,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut nodes_ran: HashSet<NodeId> = HashSet::default();
-
-        let context = RenderGraphContext::new(inputs);
+        let graph = graphs.get_graph(graph_id).expect("graph exists");
+        let context = RenderGraphContext::new(inputs, graphs);
 
         #[cfg(feature = "trace")]
         let span = if let Some(name) = &graph_name {
@@ -89,10 +95,7 @@ impl RenderGraphRunner {
         let _guard = span.enter();
 
         // Queue up nodes
-        let mut node_queue: VecDeque<&NodeState> = graph
-            .iter_nodes()
-            .collect();
-
+        let mut node_queue: VecDeque<&NodeState> = graph.iter_nodes().collect();
 
         'handle_node: while let Some(node_state) = node_queue.pop_back() {
             // skip nodes that are already processed
@@ -111,15 +114,11 @@ impl RenderGraphRunner {
                 }
             }
 
-
-            
             {
-                
                 #[cfg(feature = "trace")]
                 let span = info_span!("node", name = node_state.type_name);
                 #[cfg(feature = "trace")]
                 let guard = span.enter();
-
 
                 let sub_graph_runs = node_state.node.queue_graphs(&context, world)?;
 
@@ -129,12 +128,13 @@ impl RenderGraphRunner {
                 drop(guard);
 
                 for run_sub_graph in sub_graph_runs.drain() {
-                    let sub_graph = graph
-                        .get_sub_graph(&run_sub_graph.name)
-                        .expect("sub graph exists because it was validated when queued.");
+                    let sub_graph = graphs
+                        .get_graph(run_sub_graph.id)
+                        .expect("sub graph exists because it was validated when queued, the slot inputs are also valid");
+
                     Self::run_graph(
-                        sub_graph,
-                        Some(run_sub_graph.name),
+                        graphs,
+                        sub_graph.id(),
                         render_context,
                         world,
                         &run_sub_graph.inputs,
@@ -142,7 +142,6 @@ impl RenderGraphRunner {
                 }
             }
 
-            
             nodes_ran.insert(node_state.id);
 
             for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
@@ -154,100 +153,88 @@ impl RenderGraphRunner {
     }
 }
 
+// pub(crate) struct ParalellRenderGraphRunner {
 
+// }
 
-pub(crate) struct ParalellRenderGraphRunner {
+// impl ParalellRenderGraphRunner {
+//     pub fn new() -> Self {
+//         Self {}
+//     }
 
-}
+//     pub fn run(
+//         graph: &RenderGraph,
+//         render_device: RenderDevice,
+//         queue: &wgpu::Queue,
+//         world: &World,
+//     ) -> Result<(), RenderGraphRunnerError> {
 
+//         Ok(())
+//     }
 
-impl ParalellRenderGraphRunner {
-    pub fn new() -> Self {
-        Self {}
-    }
+//     pub fn flatten(
+//         &self,
+//         graph: &RenderGraph,
+//         world: &World,
+//         inputs: &SlotValues,
+//     ) -> Result<Vec<Rc<dyn Node>>, RenderGraphRunnerError> {
+//         let mut nodes_ordered = Vec::default();
+//         let mut nodes_ran: HashSet<NodeId> = HashSet::default();
 
-    pub fn run(
-        graph: &RenderGraph,
-        render_device: RenderDevice,
-        queue: &wgpu::Queue,
-        world: &World,
-    ) -> Result<(), RenderGraphRunnerError> {
+//         let context = RenderGraphContext::new(inputs);
 
+//         #[cfg(feature = "trace")]
+//         let span = if let Some(name) = &graph_name {
+//             info_span!("run_graph", name = name.deref())
+//         } else {
+//             info_span!("run_graph", name = "main_graph")
+//         };
+//         #[cfg(feature = "trace")]
+//         let _guard = span.enter();
 
+//         // Queue up nodes
+//         let mut node_queue: VecDeque<&NodeState> = graph
+//             .iter_nodes()
+//             .collect();
 
+//         'handle_node: while let Some(node_state) = node_queue.pop_back() {
+//             // skip nodes that are already processed
+//             if nodes_ran.contains(&node_state.id) {
+//                 continue;
+//             }
 
-        Ok(())
-    }
+//             // check if all dependencies have finished running
+//             for id in graph
+//                 .iter_node_dependencies(node_state.id)
+//                 .expect("node is in graph")
+//             {
+//                 if !nodes_ran.contains(&id) {
+//                     node_queue.push_front(node_state);
+//                     continue 'handle_node;
+//                 }
+//             }
 
+//             {
 
-    pub fn flatten(
-        &self,
-        graph: &RenderGraph,
-        world: &World,
-        inputs: &SlotValues,
-    ) -> Result<Vec<Rc<dyn Node>>, RenderGraphRunnerError> {
-        let mut nodes_ordered = Vec::default();
-        let mut nodes_ran: HashSet<NodeId> = HashSet::default();
+//                 #[cfg(feature = "trace")]
+//                 let span = info_span!("node", name = node_state.type_name);
+//                 #[cfg(feature = "trace")]
+//                 let guard = span.enter();
 
-        let context = RenderGraphContext::new(inputs);
+//                 let sub_graph_runs = node_state.node.queue_graphs(&context, world)?;
+//                 // node_state.no
 
-        #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
-        } else {
-            info_span!("run_graph", name = "main_graph")
-        };
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+//                 #[cfg(feature = "trace")]
+//                 drop(guard);
 
-        // Queue up nodes
-        let mut node_queue: VecDeque<&NodeState> = graph
-            .iter_nodes()
-            .collect();
+//             }
 
+//             nodes_ran.insert(node_state.id);
 
-        'handle_node: while let Some(node_state) = node_queue.pop_back() {
-            // skip nodes that are already processed
-            if nodes_ran.contains(&node_state.id) {
-                continue;
-            }
-
-            // check if all dependencies have finished running
-            for id in graph
-                .iter_node_dependencies(node_state.id)
-                .expect("node is in graph")
-            {
-                if !nodes_ran.contains(&id) {
-                    node_queue.push_front(node_state);
-                    continue 'handle_node;
-                }
-            }
-
-
-            
-            {
-                
-                #[cfg(feature = "trace")]
-                let span = info_span!("node", name = node_state.type_name);
-                #[cfg(feature = "trace")]
-                let guard = span.enter();
-
-
-                let sub_graph_runs = node_state.node.queue_graphs(&context, world)?;
-                // node_state.no
-
-                #[cfg(feature = "trace")]
-                drop(guard);
-
-            }
-
-            
-            nodes_ran.insert(node_state.id);
-
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
-                node_queue.push_front(node_state);
-            }
-        }
-        return Ok(nodes_ordered);
-    }
-}
+//             for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
+//                 node_queue.push_front(node_state);
+//             }
+//         }
+//         return Ok(nodes_ordered);
+//     }
+// }

@@ -3,10 +3,12 @@ use bevy::{
     prelude::*,
     render::{
         camera::{ActiveCameras, ExtractedCameraNames},
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
+        render_graph::{
+            Node, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphs, SlotValue,
+        },
         render_phase::RenderPhase,
         renderer::RenderContext,
-        RenderApp, RenderStage,
+        RenderApp, RenderStage, MAIN_GRAPH_ID,
     },
     window::{CreateWindow, WindowId},
 };
@@ -20,10 +22,11 @@ fn main() {
 
     let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+    let mut graph = graphs.get_graph_mut(MAIN_GRAPH_ID);
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
     graph
-        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
+        .add_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
         .unwrap();
     app.run();
 }

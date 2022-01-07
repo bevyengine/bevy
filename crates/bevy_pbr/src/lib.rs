@@ -38,11 +38,11 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
-    render_graph::RenderGraph,
+    render_graph::{RenderGraph, RenderGraphs},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
     view::VisibilitySystems,
-    RenderApp, RenderStage,
+    RenderApp, RenderStage, MAIN_GRAPH_ID,
 };
 use bevy_transform::TransformSystem;
 
@@ -179,9 +179,9 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        let draw_3d_graph = graphs
+            .get_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph

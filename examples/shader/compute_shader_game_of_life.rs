@@ -3,10 +3,10 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{self, RenderGraph, RenderGraphs},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        RenderApp, RenderStage,
+        RenderApp, RenderStage, MAIN_GRAPH_ID,
     },
     window::WindowDescriptor,
 };
@@ -66,10 +66,11 @@ impl Plugin for GameOfLifeComputePlugin {
             .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
-        let mut render_graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut render_graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        let mut render_graph = render_graphs.get_graph_mut(MAIN_GRAPH_ID);
         render_graph.add_node("game_of_life", DispatchGameOfLife::default());
         render_graph
-            .add_node_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
+            .add_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
             .unwrap();
     }
 }

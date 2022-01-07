@@ -29,13 +29,14 @@ pub mod prelude {
 
 use bevy_utils::tracing::debug;
 pub use once_cell;
+use render_graph::RenderGraphId;
 
 use crate::{
     camera::CameraPlugin,
     color::Color,
     mesh::MeshPlugin,
     primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
+    render_graph::{RenderGraph, RenderGraphs},
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
     texture::ImagePlugin,
@@ -105,6 +106,8 @@ pub struct RenderApp;
 #[derive(Default)]
 struct ScratchRenderWorld(World);
 
+pub const MAIN_GRAPH_ID: &'static str = "main_graph";
+
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -171,7 +174,11 @@ impl Plugin for RenderPlugin {
             .insert_resource(options)
             .insert_resource(render_pipeline_cache)
             .insert_resource(asset_server)
-            .init_resource::<RenderGraph>();
+            .init_resource::<RenderGraphs>();
+
+        let main_graph = RenderGraph::new(MAIN_GRAPH_ID);
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        graphs.add_graph(main_graph);
 
         app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
             #[cfg(feature = "trace")]

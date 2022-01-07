@@ -18,13 +18,13 @@ use bevy_render::{
     camera::ActiveCameras,
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RenderGraphs, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ViewUniforms, Visibility},
-    RenderApp, RenderStage, RenderWorld,
+    RenderApp, RenderStage, RenderWorld, MAIN_GRAPH_ID,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
@@ -90,12 +90,14 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
-    let mut draw_ui_graph = RenderGraph::default();
+    let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+    let mut draw_ui_graph = RenderGraph::new(draw_ui_graph::NAME);
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    
-    graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
+
+    graphs.add_graph(draw_ui_graph);
+
+    let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
 
     graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
     graph
