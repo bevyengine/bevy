@@ -130,6 +130,7 @@ pub struct GpuLights {
     // TODO: this comes first to work around a WGSL alignment issue. We need to solve this issue before releasing the renderer rework
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
     ambient_color: Vec4,
+    // xyz are x/y/z cluster dimensions and w is the number of clusters
     cluster_dimensions: UVec4,
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     // z is cluster_dimensions.z / log(far / near)
@@ -350,6 +351,8 @@ impl SpecializedPipeline for ShadowPipeline {
 
 #[derive(Component)]
 pub struct ExtractedClusterConfig {
+    /// Special near value for cluster calculations
+    near: f32,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -366,6 +369,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
                 data: clusters.lights.clone(),
             },
             ExtractedClusterConfig {
+                near: clusters.near,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -578,7 +582,7 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / (far / near).ln();
         Vec2::new(
             z_slices_of_ln_zfar_over_znear,
             near.ln() * z_slices_of_ln_zfar_over_znear,
@@ -710,12 +714,13 @@ pub fn prepare_lights(
 
         let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
-            extracted_view.near,
+            clusters.near,
             extracted_view.far,
             clusters.axis_slices.z as f32,
             is_orthographic,
         );
 
+        let n_clusters = clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z;
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
@@ -726,7 +731,7 @@ pub fn prepare_lights(
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
-            cluster_dimensions: clusters.axis_slices.extend(0),
+            cluster_dimensions: clusters.axis_slices.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
