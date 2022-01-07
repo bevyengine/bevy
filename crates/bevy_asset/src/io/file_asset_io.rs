@@ -21,6 +21,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// I/O implementation for the local filesystem.
+///
+/// This asset I/O is fully featured but it's not available on `android` and `wasm` targets.
 pub struct FileAssetIo {
     root_path: PathBuf,
     #[cfg(feature = "filesystem_watcher")]
@@ -28,6 +31,10 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
+    /// Creates a new `FileAssetIo` at a path relative to the I/O's root path, optionally watching
+    /// for changes.
+    ///
+    /// See `get_root_path` below.
     pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
@@ -50,6 +57,11 @@ impl FileAssetIo {
         file_asset_io
     }
 
+    /// Returns the root path of the asset I/O.
+    ///
+    /// If the `CARGO_MANIFEST_DIR` environment variable is defined, which is set by cargo when
+    /// building, the asset I/O's root path will be the crate's root directory (where `Cargo.toml`
+    /// is at).  Otherwise, the root path is the directory of the executable.
     pub fn get_root_path() -> PathBuf {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
@@ -144,6 +156,7 @@ impl AssetIo for FileAssetIo {
     }
 }
 
+/// Watches for file changes in the local file system.
 #[cfg(all(
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
