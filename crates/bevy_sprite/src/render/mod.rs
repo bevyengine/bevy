@@ -29,6 +29,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+use copyless::VecHelper;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -251,7 +252,7 @@ pub fn extract_sprites(
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.push(ExtractedSprite {
+        extracted_sprites.sprites.alloc().init(ExtractedSprite {
             color: sprite.color,
             transform: *transform,
             // Use the full texture
@@ -269,7 +270,7 @@ pub fn extract_sprites(
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
-            extracted_sprites.sprites.push(ExtractedSprite {
+            extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 color: atlas_sprite.color,
                 transform: *transform,
                 // Select the area in the texture atlas
@@ -407,10 +408,10 @@ pub fn queue_sprites(
 
             // Sort sprites by z for correct transparency and then by handle to improve batching
             extracted_sprites.sort_unstable_by(|a, b| {
-                match FloatOrd(a.transform.translation.z).cmp(&FloatOrd(b.transform.translation.z))
+                match a.transform.translation.z.partial_cmp(&b.transform.translation.z)
                 {
-                    Ordering::Equal => a.image_handle_id.cmp(&b.image_handle_id),
-                    other => other,
+                    Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
+                    Some(other) => other,
                 }
             });
 
@@ -514,7 +515,7 @@ pub fn queue_sprites(
                         | ((color[2] * 255.0) as u32) << 16
                         | ((color[3] * 255.0) as u32) << 24;
                     for i in QUAD_INDICES.iter() {
-                        sprite_meta.colored_vertices.push(ColoredSpriteVertex {
+                        sprite_meta.colored_vertices.alloc().init(ColoredSpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
                             color,
@@ -524,7 +525,7 @@ pub fn queue_sprites(
                     colored_index += QUAD_INDICES.len() as u32;
                     let item_end = colored_index;
 
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.alloc().init(Transparent2d {
                         draw_function: draw_sprite_function,
                         pipeline: colored_pipeline,
                         entity: current_batch_entity,
@@ -533,7 +534,7 @@ pub fn queue_sprites(
                     });
                 } else {
                     for i in QUAD_INDICES.iter() {
-                        sprite_meta.vertices.push(SpriteVertex {
+                        sprite_meta.vertices.alloc().init(SpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
                         });
@@ -542,7 +543,7 @@ pub fn queue_sprites(
                     index += QUAD_INDICES.len() as u32;
                     let item_end = index;
 
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.alloc().init(Transparent2d {
                         draw_function: draw_sprite_function,
                         pipeline,
                         entity: current_batch_entity,
