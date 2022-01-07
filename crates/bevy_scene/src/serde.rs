@@ -26,8 +26,43 @@ impl<'a> Serialize for SceneSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_seq(Some(self.scene.entities.len()))?;
-        for entity in self.scene.entities.iter() {
+        let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
+        state.serialize_field(
+            SCENE_FIELD_RESOURCES,
+            &ComponentsSerializer {
+                components: &self.scene.resources,
+                registry: self.registry,
+            },
+        )?;
+        state.serialize_field(
+            SCENE_FIELD_ENTITIES,
+            &EntitiesSerializer {
+                entities: &self.scene.entities,
+                registry: self.registry,
+            },
+        )?;
+        state.end()
+    }
+}
+
+pub struct EntitiesSerializer<'a> {
+    pub entities: &'a [DynamicEntity],
+    pub registry: &'a TypeRegistryArc,
+}
+
+impl<'a> EntitiesSerializer<'a> {
+    pub fn new(entities: &'a [DynamicEntity], registry: &'a TypeRegistryArc) -> Self {
+        EntitiesSerializer { entities, registry }
+    }
+}
+
+impl<'a> Serialize for EntitiesSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.entities.len()))?;
+        for entity in self.entities.iter() {
             state.serialize_element(&EntitySerializer {
                 entity,
                 registry: self.registry,
@@ -92,19 +127,102 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(DynamicScene {
-            entities: deserializer.deserialize_seq(SceneEntitySeqVisitor {
+        deserializer.deserialize_struct(
+            SCENE_STRUCT,
+            &[SCENE_FIELD_RESOURCES, SCENE_FIELD_ENTITIES],
+            SceneVisitor {
                 type_registry: self.type_registry,
-            })?,
+            },
+        )
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(field_identifier, rename_all = "lowercase")]
+enum SceneField {
+    Resources,
+    Entities,
+}
+
+pub const SCENE_STRUCT: &str = "Scene";
+pub const SCENE_FIELD_RESOURCES: &str = "resources";
+pub const SCENE_FIELD_ENTITIES: &str = "entities";
+
+struct SceneVisitor<'a> {
+    pub type_registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
+    type Value = DynamicScene;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("scene")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut resources = None;
+        let mut entities = None;
+        while let Some(key) = map.next_key()? {
+            match key {
+                SceneField::Resources => {
+                    if resources.is_some() {
+                        return Err(Error::duplicate_field(SCENE_FIELD_RESOURCES));
+                    }
+                    resources = Some(map.next_value_seed(ComponentVecDeserializer {
+                        registry: self.type_registry,
+                    })?);
+                }
+                SceneField::Entities => {
+                    if entities.is_some() {
+                        return Err(Error::duplicate_field(SCENE_FIELD_ENTITIES));
+                    }
+
+                    entities = Some(map.next_value_seed(EntityVecDeserializer {
+                        type_registry: self.type_registry,
+                    })?);
+                }
+            }
+        }
+
+        let resources = resources
+            .take()
+            .ok_or_else(|| Error::missing_field(ENTITY_FIELD_ENTITY))?;
+
+        let entities = entities
+            .take()
+            .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
+        Ok(DynamicScene {
+            resources,
+            entities,
         })
     }
 }
 
-struct SceneEntitySeqVisitor<'a> {
+pub struct EntityVecDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for EntityVecDeserializer<'a> {
+    type Value = Vec<DynamicEntity>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(EntitySeqVisitor {
+            type_registry: self.type_registry,
+        })
+    }
+}
+
+struct EntitySeqVisitor<'a> {
+    pub type_registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for EntitySeqVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -116,7 +234,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let mut entities = Vec::new();
-        while let Some(entity) = seq.next_element_seed(SceneEntityDeserializer {
+        while let Some(entity) = seq.next_element_seed(EntityDeserializer {
             type_registry: self.type_registry,
         })? {
             entities.push(entity);
@@ -126,11 +244,11 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
     }
 }
 
-pub struct SceneEntityDeserializer<'a> {
+pub struct EntityDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for EntityDeserializer<'a> {
     type Value = DynamicEntity;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -140,7 +258,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
             &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
-            SceneEntityVisitor {
+            EntityVisitor {
                 registry: self.type_registry,
             },
         )
@@ -158,11 +276,11 @@ pub const ENTITY_STRUCT: &str = "Entity";
 pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
-struct SceneEntityVisitor<'a> {
+struct EntityVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for EntityVisitor<'a> {
     type Value = DynamicEntity;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

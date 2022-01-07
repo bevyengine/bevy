@@ -18,7 +18,7 @@ pub mod world;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::ReflectComponent;
+    pub use crate::reflect::{ReflectComponent, ReflectResource};
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,

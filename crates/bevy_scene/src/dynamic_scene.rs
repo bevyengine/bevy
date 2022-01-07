@@ -2,7 +2,7 @@ use crate::{serde::SceneSerializer, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_ecs::{
     entity::EntityMap,
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
@@ -12,6 +12,7 @@ use serde::Serialize;
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
+    pub resources: Vec<Box<dyn Reflect>>,
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -35,7 +36,28 @@ impl DynamicScene {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
 
-        for archetype in world.archetypes().iter() {
+        let mut archetypes = world.archetypes().iter();
+
+        // Empty archetype
+        let _ = archetypes.next().unwrap();
+
+        // Resources archetype
+        let resources_archetype = archetypes.next().unwrap();
+        for component_id in resources_archetype.components() {
+            let reflect_resource = world
+                .components()
+                .get_info(component_id)
+                .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                .and_then(|registration| registration.data::<ReflectResource>());
+            if let Some(reflect_resource) = reflect_resource {
+                if let Some(resource) = reflect_resource.reflect_resource(world) {
+                    scene.resources.push(resource.clone_value());
+                }
+            }
+        }
+
+        // Other archetypes
+        for archetype in archetypes {
             let entities_offset = scene.entities.len();
 
             // Create a new dynamic entity for each entity of the given archetype
@@ -78,9 +100,30 @@ impl DynamicScene {
         &self,
         world: &mut World,
         entity_map: &mut EntityMap,
+        type_registry: &TypeRegistryArc,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
-        let type_registry = registry.read();
+        let type_registry = type_registry.read();
+
+        for resource in self.resources.iter() {
+            let registration = type_registry
+                .get_with_name(resource.type_name())
+                .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                    type_name: resource.type_name().to_string(),
+                })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: resource.type_name().to_string(),
+                }
+            })?;
+
+            // If the entity already has the given resource attached,
+            // just apply the (possibly) new value, otherwise insert the resource
+            if world.contains_resource_type_id(registration.type_id()) {
+                reflect_resource.apply_resource(world, &**resource);
+            } else {
+                reflect_resource.insert_resource(world, &**resource);
+            }
+        }
 
         for scene_entity in self.entities.iter() {
             // Fetch the entity with the given entity id from the `entity_map`

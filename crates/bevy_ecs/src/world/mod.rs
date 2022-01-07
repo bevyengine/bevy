@@ -644,16 +644,21 @@ impl World {
         Some(unsafe { ptr.cast::<T>().read() })
     }
 
+    /// Returns `true` if a resource of a given [`TypeId`] exists. Otherwise returns `false`.
+    #[inline]
+    pub fn contains_resource_type_id(&self, type_id: TypeId) -> bool {
+        let component_id = if let Some(component_id) = self.components.get_resource_id(type_id) {
+            component_id
+        } else {
+            return false;
+        };
+        self.get_populated_resource_column(component_id).is_some()
+    }
+
     /// Returns `true` if a resource of type `T` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource<T: Resource>(&self) -> bool {
-        let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
-                component_id
-            } else {
-                return false;
-            };
-        self.get_populated_resource_column(component_id).is_some()
+        self.contains_resource_type_id(TypeId::of::<T>())
     }
 
     /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]

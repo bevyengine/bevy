@@ -3,13 +3,16 @@ use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
     system::Command,
     world::{Mut, World},
 };
 use bevy_reflect::TypeRegistryArc;
 use bevy_transform::{hierarchy::AddChild, prelude::Parent};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{
+    tracing::{debug, error},
+    HashMap,
+};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -43,6 +46,8 @@ pub struct SceneSpawner {
 pub enum SceneSpawnError {
     #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent { type_name: String },
+    #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
+    UnregisteredResource { type_name: String },
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
     UnregisteredType { type_name: String },
     #[error("scene does not exist")]
@@ -123,7 +128,9 @@ impl SceneSpawner {
                     .ok_or_else(|| SceneSpawnError::NonExistentScene {
                         handle: scene_handle.clone_weak(),
                     })?;
-            scene.write_to_world(world, entity_map)
+            world.resource_scope(|world, type_registry: Mut<TypeRegistryArc>| {
+                scene.write_to_world(world, entity_map, &type_registry)
+            })
         })
     }
 
@@ -154,7 +161,39 @@ impl SceneSpawner {
                         handle: scene_handle.clone(),
                     })?;
 
-            for archetype in scene.world.archetypes().iter() {
+            let mut archetypes = scene.world.archetypes().iter();
+
+            // Empty archetype
+            let _ = archetypes.next().unwrap();
+
+            // Resources archetype
+            let resources_archetype = archetypes.next().unwrap();
+            for component_id in resources_archetype.components() {
+                let component_info = scene
+                    .world
+                    .components()
+                    .get_info(component_id)
+                    .expect("component_ids in archetypes should have ComponentInfo");
+
+                // Resources that are not registered are ignored
+                if let Some(registration) = type_registry.get(component_info.type_id().unwrap()) {
+                    let reflect_resource =
+                        registration.data::<ReflectResource>().ok_or_else(|| {
+                            SceneSpawnError::UnregisteredResource {
+                                type_name: component_info.name().to_string(),
+                            }
+                        })?;
+                    reflect_resource.copy_resource(&scene.world, world);
+                } else {
+                    debug!(
+                        "Ignored unregistered resource when loading scene: {}",
+                        component_info.name()
+                    );
+                }
+            }
+
+            // Other archetypes
+            for archetype in archetypes {
                 for scene_entity in archetype.entities() {
                     let entity = *instance_info
                         .entity_map
