@@ -200,6 +200,10 @@ path = "examples/3d/update_gltf_scene.rs"
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
 
+[[example]]
+name = "chess"
+path = "examples/3d/chess.rs"
+
 # Application
 [[example]]
 name = "custom_loop"
@@ -346,10 +350,6 @@ path = "examples/game/alien_cake_addict.rs"
 [[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
-
-[[example]]
-name = "chess"
-path = "examples/game/chess.rs"
 
 # Input
 [[example]]

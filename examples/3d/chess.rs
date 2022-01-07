@@ -12,7 +12,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_startup_system(create_board)
-        .add_startup_system(create_game)
         .add_startup_system(create_white_pieces)
         .add_startup_system(create_black_pieces)
         .run();
@@ -63,12 +62,6 @@ fn create_board(
     }
 }
 
-fn create_game (
-    mut commands: Commands,
-) {
-
-}
-
 fn create_white_pieces (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -83,7 +76,7 @@ fn create_white_pieces (
     let white_material = materials.add(Color::rgb(1.0, 0.8, 0.8).into());
     
 
-    let king_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0., 0.0)),
         ..Default::default()
     })
@@ -102,7 +95,7 @@ fn create_white_pieces (
         });
     }).id();
     
-    let queen_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0. ,0., 0.)),
         ..Default::default()
     })
@@ -120,7 +113,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let king_bishop_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -138,7 +131,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_bishop_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -156,7 +149,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let king_knight_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -174,7 +167,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_knight_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -192,7 +185,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let king_rook_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -210,7 +203,7 @@ fn create_white_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_rook_identity  = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -230,7 +223,7 @@ fn create_white_pieces (
     }).id();
     let x_position_start = -3.5;
     for idx in 0..8 {
-        let pawn_identity = commands.spawn_bundle(PbrBundle {
+        commands.spawn_bundle(PbrBundle {
             transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
             ..Default::default()
         }).with_children(|parent| {
@@ -263,7 +256,7 @@ fn create_black_pieces (
     let pawn_handle: Handle<Mesh> = asset_server.load("models/chess/pieces-all.glb#Mesh5/Primitive0");
     let black_material = materials.add(Color::rgb(0.0, 0.2, 0.2).into());
 
-    let king_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0., 0.0)),
         ..Default::default()
     })
@@ -282,7 +275,7 @@ fn create_black_pieces (
         });
     }).id();
     
-    let queen_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0. ,0., 0.)),
         ..Default::default()
     })
@@ -300,7 +293,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let king_bishop_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -318,7 +311,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_bishop_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -336,7 +329,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let king_knight_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -354,7 +347,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_knight_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -372,7 +365,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let king_rook_identity = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -390,7 +383,7 @@ fn create_black_pieces (
             ..Default::default()
         });
     }).id();
-    let queen_rook_identity  = commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(PbrBundle {
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..Default::default()
     })
@@ -410,7 +403,7 @@ fn create_black_pieces (
     }).id();
     let x_position_start = -3.5;
     for idx in 0..8 {
-        let pawn_identity = commands.spawn_bundle(PbrBundle {
+        commands.spawn_bundle(PbrBundle {
             transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
             ..Default::default()
         }).with_children(|parent| {

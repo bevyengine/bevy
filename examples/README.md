@@ -109,6 +109,7 @@ Example | File | Description
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+`chess` | [`game/chess.rs`](./game/chess.rs) | An implementation of the classic game "Chess"
 
 ## Application
 
@@ -179,7 +180,6 @@ Example | File | Description
 --- | --- | ---
 `alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
-`chess` | [`game/chess.rs`](./game/chess.rs) | An implementation of the classic game "Chess"
 
 ## Input
 
