@@ -5,8 +5,8 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
             title: "Chess!".to_string(),
-            width: 1600.0,
-            height: 1600.0,
+            width: 1280.0,
+            height: 720.0,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
