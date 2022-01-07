@@ -319,6 +319,8 @@ pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value
     Relative,
     /// Independent of all other nodes
+    ///
+    /// As usual, the `Transform` of this node is specified relative to its parent node
     Absolute,
 }
 
