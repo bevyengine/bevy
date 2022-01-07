@@ -24,7 +24,7 @@ fn main() {
                 .with_system(integrate),
         )
         .add_system(look_at_star)
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor::from_default_color(Color::BLACK))
         .run();
 }
 
