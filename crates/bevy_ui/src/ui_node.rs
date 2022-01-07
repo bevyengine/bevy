@@ -320,7 +320,7 @@ pub enum PositionType {
     Relative,
     /// Independent of all other nodes
     ///
-    /// As usual, the `Transform` of this node is specified relative to its parent node
+    /// As usual, the `Style.position` field of this node is specified relative to its parent node
     Absolute,
 }
 
