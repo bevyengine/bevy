@@ -11,8 +11,8 @@ For more advice on writing examples, see the [relevant section](../../CONTRIBUTI
    1. Imports
    2. A `fn main()` block
    3. Example logic
-   4. \[Optional\] Tests
 5. Try to structure app / plugin construction in the same fashion as the actual code.
+6. Examples should typically not have tests, as they are not directly reusable by the Bevy user.
 
 ## Stylistic preferences
 
