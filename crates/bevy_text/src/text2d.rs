@@ -6,11 +6,7 @@ use bevy_ecs::{
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
-use bevy_render::{
-    texture::Image,
-    view::{ComputedVisibility, Visibility},
-    RenderWorld,
-};
+use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
@@ -29,7 +25,6 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     pub text_2d_size: Text2dSize,
     pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for Text2dBundle {
@@ -42,7 +37,6 @@ impl Default for Text2dBundle {
                 size: Size::default(),
             },
             visibility: Default::default(),
-            computed_visibility: Default::default(),
         }
     }
 }
@@ -52,13 +46,7 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    text2d_query: Query<(
-        Entity,
-        &ComputedVisibility,
-        &Text,
-        &GlobalTransform,
-        &Text2dSize,
-    )>,
+    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
 
@@ -68,8 +56,8 @@ pub fn extract_text2d_sprite(
         1.
     };
 
-    for (entity, computed_visibility, text, transform, calculated_size) in text2d_query.iter() {
-        if !computed_visibility.is_visible {
+    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
+        if !visibility.is_visible {
             continue;
         }
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
