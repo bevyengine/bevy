@@ -14,7 +14,9 @@ use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-/// Describes what type of input interaction has occurred for a UI node, this is commonly queried with a Changed<Interaction> filter
+/// Describes what type of input interaction has occurred for a UI node.
+///
+/// This is commonly queried with a `Changed<Interaction>` filter.
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
