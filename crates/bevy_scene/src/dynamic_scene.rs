@@ -116,7 +116,7 @@ impl DynamicScene {
                 }
             })?;
 
-            // If the entity already has the given resource attached,
+            // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
             if world.contains_resource_type_id(registration.type_id()) {
                 reflect_resource.apply_resource(world, &**resource);
