@@ -218,11 +218,22 @@ pub fn extract_sprites(
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     extracted_sprites.sprites.clear();
-    for (computed_visibility, sprite, transform, handle) in sprite_query.iter() {
+
+    // `get` is not cheap. Cache the previous image and handle and bypass `get` when requesting the
+    // same handle multiple times in a row.
+    let mut current_image_handle = None;
+    let mut current_image = None;
+    for (computed_visibility, sprite, transform, image_handle) in sprite_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
-        if let Some(image) = images.get(handle) {
+
+        if current_image_handle != Some(image_handle) {
+            current_image = images.get(image_handle);
+            current_image_handle = Some(image_handle);
+        };
+
+        if let Some(image) = current_image {
             let size = image.texture_descriptor.size;
 
             extracted_sprites.sprites.push(ExtractedSprite {
@@ -237,15 +248,24 @@ pub fn extract_sprites(
                 },
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
-                handle: handle.clone_weak(),
+                handle: image_handle.clone_weak(),
             });
         };
     }
+
+    let mut current_atlas_handle = None;
+    let mut current_atlas = None;
     for (computed_visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+
+        if current_atlas_handle != Some(texture_atlas_handle) {
+            current_atlas = texture_atlases.get(texture_atlas_handle);
+            current_atlas_handle = Some(texture_atlas_handle);
+        };
+
+        if let Some(texture_atlas) = current_atlas {
             if images.contains(&texture_atlas.texture) {
                 let rect = texture_atlas.textures[atlas_sprite.index as usize];
                 extracted_sprites.sprites.push(ExtractedSprite {
