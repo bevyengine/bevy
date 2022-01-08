@@ -1,5 +1,18 @@
 use bevy::prelude::*;
 
+const TILE_SIZE: f32 = 1.0;
+const WHITE_TILE_COLOR: Color = Color::rgb(1.0, 0.9, 0.9);
+const BLACK_TILE_COLOR: Color = Color::rgb(0.0, 0.1, 0.1);
+const WHITE_PIECE_COLOR: Color = Color::rgb(1.0, 0.8, 0.8);
+const BLACK_PIECE_COLOR: Color = Color::rgb(0.0, 0.2, 0.2);
+const PIECE_SCALE_X: f32 = 0.18;
+const PIECE_SCALE_Y: f32 = 0.18;
+const PIECE_SCALE_Z: f32 = 0.18;
+const WHITE_PIECE_ROTATION_X: f32 = 1.65;
+const WHITE_PIECE_ROTATION_Y: f32 = 1.35;
+const BLACK_PIECE_ROTATION_X: f32 = 1.55;
+const BLACK_PIECE_ROTATION_Y: f32 = 0.65;
+
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
@@ -38,9 +51,9 @@ fn create_board(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
-    let white_material = materials.add(Color::rgb(1.0, 0.9, 0.9).into());
-    let black_material = materials.add(Color::rgb(0.0, 0.1, 0.1).into());
+    let mesh = meshes.add(Mesh::from(shape::Plane { size: TILE_SIZE }));
+    let white_material = materials.add(WHITE_TILE_COLOR.into());
+    let black_material = materials.add(BLACK_TILE_COLOR.into());
 
     // Add 64 Squares
     for i in 0..8 {
@@ -80,11 +93,12 @@ fn create_white_pieces(
         asset_server.load("models/chess/pieces-all.glb#Mesh4/Primitive0");
     let pawn_handle: Handle<Mesh> =
         asset_server.load("models/chess/pieces-all.glb#Mesh5/Primitive0");
-    let white_material = materials.add(Color::rgb(1.0, 0.8, 0.8).into());
+
+    let white_material = materials.add(WHITE_PIECE_COLOR.into());
 
     commands
         .spawn_bundle(PbrBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0., 0.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -92,10 +106,15 @@ fn create_white_pieces(
                 mesh: king_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set King's Piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(-0.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -113,10 +132,15 @@ fn create_white_pieces(
                 mesh: queen_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set Queen's piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(0.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -133,10 +157,15 @@ fn create_white_pieces(
                 mesh: bishop_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set King's Bishop piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(-1.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -153,10 +182,15 @@ fn create_white_pieces(
                 mesh: bishop_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set Queen's Bishop piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(1.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -173,10 +207,15 @@ fn create_white_pieces(
                 mesh: knight_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set King's Knight piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(-2.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -193,10 +232,15 @@ fn create_white_pieces(
                 mesh: knight_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set Queen's Knight piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(2.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -213,10 +257,15 @@ fn create_white_pieces(
                 mesh: rook_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set King's Rook piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(-3.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -233,16 +282,23 @@ fn create_white_pieces(
                 mesh: rook_handle.clone(),
                 material: white_material.clone(),
                 transform: {
+                    // Set Queen's Rook piece to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(3.5, 0., 3.8));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.65));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
             });
         })
         .id();
+
+    // Iterate over tiles and place Pawn pieces from left -> right at the correct starting location.
     let x_position_start = -3.5;
     for idx in 0..8 {
         commands
@@ -255,14 +311,19 @@ fn create_white_pieces(
                     mesh: pawn_handle.clone(),
                     material: white_material.clone(),
                     transform: {
+                        // Set Pawn piece at correct location
                         let mut transform = Transform::from_translation(Vec3::new(
                             x_position_start + (idx as f32),
-                            0.,
+                            0.0,
                             2.8,
                         ));
-                        transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                        transform.rotate(Quat::from_rotation_x(1.65));
-                        transform.rotate(Quat::from_rotation_y(1.35));
+                        transform.apply_non_uniform_scale(Vec3::new(
+                            PIECE_SCALE_X,
+                            PIECE_SCALE_Y,
+                            PIECE_SCALE_Z,
+                        ));
+                        transform.rotate(Quat::from_rotation_x(WHITE_PIECE_ROTATION_X));
+                        transform.rotate(Quat::from_rotation_y(WHITE_PIECE_ROTATION_Y));
                         transform
                     },
                     ..Default::default()
@@ -289,7 +350,7 @@ fn create_black_pieces(
         asset_server.load("models/chess/pieces-all.glb#Mesh4/Primitive0");
     let pawn_handle: Handle<Mesh> =
         asset_server.load("models/chess/pieces-all.glb#Mesh5/Primitive0");
-    let black_material = materials.add(Color::rgb(0.0, 0.2, 0.2).into());
+    let black_material: Handle<StandardMaterial> = materials.add(BLACK_PIECE_COLOR.into());
 
     commands
         .spawn_bundle(PbrBundle {
@@ -301,10 +362,15 @@ fn create_black_pieces(
                 mesh: king_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set King piece to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(-0.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -322,10 +388,15 @@ fn create_black_pieces(
                 mesh: queen_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set Queen piece to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(0.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -342,10 +413,15 @@ fn create_black_pieces(
                 mesh: bishop_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set King's Bishop to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(-1.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -362,10 +438,15 @@ fn create_black_pieces(
                 mesh: bishop_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set Queen's Bishop to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(1.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -382,10 +463,15 @@ fn create_black_pieces(
                 mesh: knight_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set King's Knight to the correct starting tile.
                     let mut transform = Transform::from_translation(Vec3::new(-2.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(0.));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -402,10 +488,15 @@ fn create_black_pieces(
                 mesh: knight_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set Queen's Knight to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(2.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(0.));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -422,10 +513,15 @@ fn create_black_pieces(
                 mesh: rook_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set the King's Rook to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(-3.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
@@ -442,16 +538,23 @@ fn create_black_pieces(
                 mesh: rook_handle.clone(),
                 material: black_material.clone(),
                 transform: {
+                    // Set the Queen's Rook to the correct starting tile
                     let mut transform = Transform::from_translation(Vec3::new(3.5, 0., -3.0));
-                    transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                    transform.rotate(Quat::from_rotation_x(1.55));
-                    transform.rotate(Quat::from_rotation_y(1.35));
+                    transform.apply_non_uniform_scale(Vec3::new(
+                        PIECE_SCALE_X,
+                        PIECE_SCALE_Y,
+                        PIECE_SCALE_Z,
+                    ));
+                    transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                    transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                     transform
                 },
                 ..Default::default()
             });
         })
         .id();
+
+    // Iterate over tiles and place Pawn pieces from left -> right at the correct starting location.
     let x_position_start = -3.5;
     for idx in 0..8 {
         commands
@@ -464,14 +567,19 @@ fn create_black_pieces(
                     mesh: pawn_handle.clone(),
                     material: black_material.clone(),
                     transform: {
+                        // Set Pawn piece at correct location
                         let mut transform = Transform::from_translation(Vec3::new(
                             x_position_start + (idx as f32),
                             0.,
                             -2.0,
                         ));
-                        transform.apply_non_uniform_scale(Vec3::new(0.18, 0.18, 0.18));
-                        transform.rotate(Quat::from_rotation_x(1.55));
-                        transform.rotate(Quat::from_rotation_y(1.35));
+                        transform.apply_non_uniform_scale(Vec3::new(
+                            PIECE_SCALE_X,
+                            PIECE_SCALE_Y,
+                            PIECE_SCALE_Z,
+                        ));
+                        transform.rotate(Quat::from_rotation_x(BLACK_PIECE_ROTATION_X));
+                        transform.rotate(Quat::from_rotation_y(BLACK_PIECE_ROTATION_Y));
                         transform
                     },
                     ..Default::default()
