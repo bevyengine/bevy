@@ -1,15 +1,49 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
 
-/// A rust "tuple struct" reflection
+/// A reflected Rust tuple struct.
+///
+/// Implementors of this trait allow their tuple fields to be addressed by
+/// index.
+///
+/// This trait is automatically implemented for tuple struct types when using
+/// `#[derive(Reflect)]`.
+///
+/// ```
+/// use bevy_reflect::{Reflect, TupleStruct};
+///
+/// #[derive(Reflect)]
+/// struct Foo(String);
+///
+/// # fn main() {
+/// let foo = Foo("Hello, world!".to_string());
+///
+/// assert_eq!(foo.field_len(), 1);
+///
+/// let first = foo.field(0).unwrap();
+/// assert_eq!(first.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
+/// # }
+/// ```
 pub trait TupleStruct: Reflect {
+    /// Returns a reference to the value of the field with index `index` as a
+    /// `&dyn Reflect`.
     fn field(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the value of the field with index `index`
+    /// as a `&mut dyn Reflect`.
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Returns the number of fields in the tuple struct.
     fn field_len(&self) -> usize;
+
+    /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter;
+
+    /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
 }
 
+/// An iterator over the field values of a tuple struct.
 pub struct TupleStructFieldIter<'a> {
     pub(crate) tuple_struct: &'a dyn TupleStruct,
     pub(crate) index: usize,
@@ -41,8 +75,31 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 
+/// A convenience trait which combines fetching and downcasting of tuple
+/// struct fields.
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{GetTupleStructField, Reflect};
+///
+/// #[derive(Reflect)]
+/// struct Foo(String);
+///
+/// # fn main() {
+/// let mut foo = Foo("Hello, world!".to_string());
+///
+/// foo.get_field_mut::<String>(0).unwrap().truncate(5);
+/// assert_eq!(foo.get_field::<String>(0), Some(&"Hello".to_string()));
+/// # }
+/// ```
 pub trait GetTupleStructField {
+    /// Returns a reference to the value of the field with index `index`,
+    /// downcast to `T`.
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
+
+    /// Returns a mutable reference to the value of the field with index
+    /// `index`, downcast to `T`.
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T>;
 }
 
@@ -70,6 +127,7 @@ impl GetTupleStructField for dyn TupleStruct {
     }
 }
 
+/// A tuple struct which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTupleStruct {
     name: String,
@@ -77,18 +135,22 @@ pub struct DynamicTupleStruct {
 }
 
 impl DynamicTupleStruct {
+    /// Returns the name of the tuple struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Sets the name of the tuple struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
+    /// Appends an element with value `value` to the tuple struct.
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
         self.fields.push(value);
     }
 
+    /// Appends a typed element with value `value` to the tuple struct.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
     }
