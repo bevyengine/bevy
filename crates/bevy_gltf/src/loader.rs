@@ -994,8 +994,10 @@ mod test {
     #[test]
     fn test_scene_to_nodes() {
         App::new()
+            .add_plugin(bevy_log::LogPlugin::default())
             .add_plugin(CorePlugin::default())
             .add_plugin(AssetPlugin::default())
+            .add_plugin(bevy_scene::ScenePlugin::default())
             .add_plugin(GltfPlugin::default())
             .add_startup_system(setup)
             .add_system(spawn_gltf_objects)
