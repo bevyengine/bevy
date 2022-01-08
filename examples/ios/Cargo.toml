@@ -15,7 +15,7 @@ bevy = { path = "../../", features = [
   "bevy_audio",
   "bevy_winit",
   "render",
-  "mp3",
+  "vorbis",
   "x11",
   "filesystem_watcher"
 ], default-features = false}

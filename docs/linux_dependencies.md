@@ -55,6 +55,8 @@ sudo dnf install alsa-lib-devel.x86_64
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
 
+Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
+
 ## Void
 
 ```bash
@@ -79,8 +81,7 @@ These packages provide the dependencies required to run a bevy project. They can
 Based on your global configuration it also might be necessary to allow unfree packages:
 
 ```bash
-export NIXPKGS_ALLOW_UNFREE=1 # needed for lutris
-nix-shell -p cargo pkgconfig udev lutris alsaLib x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
+nix-shell -p cargo pkgconfig udev alsaLib x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
 ```
 
 Alternatively, you can define `shell.nix` containing:
@@ -93,7 +94,7 @@ with pkgs;
 mkShell {
   buildInputs = [
     cargo
-    pkgconfig udev alsaLib lutris
+    pkgconfig udev alsaLib
     x11 xorg.libXcursor xorg.libXrandr xorg.libXi
     vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
   ];

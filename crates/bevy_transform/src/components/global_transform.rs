@@ -139,13 +139,13 @@ impl GlobalTransform {
         self.rotation * Vec3::X
     }
 
-    /// Equivalent to -local_x()
+    /// Equivalent to [`-local_x()`][GlobalTransform::local_x]
     #[inline]
     pub fn left(&self) -> Vec3 {
         -self.local_x()
     }
 
-    /// Equivalent to local_x()
+    /// Equivalent to [`local_x()`][GlobalTransform::local_x]
     #[inline]
     pub fn right(&self) -> Vec3 {
         self.local_x()
@@ -157,13 +157,13 @@ impl GlobalTransform {
         self.rotation * Vec3::Y
     }
 
-    /// Equivalent to local_y()
+    /// Equivalent to [`local_y()`][GlobalTransform::local_y]
     #[inline]
     pub fn up(&self) -> Vec3 {
         self.local_y()
     }
 
-    /// Equivalent to -local_y()
+    /// Equivalent to [`-local_y()`][GlobalTransform::local_y]
     #[inline]
     pub fn down(&self) -> Vec3 {
         -self.local_y()
@@ -175,13 +175,13 @@ impl GlobalTransform {
         self.rotation * Vec3::Z
     }
 
-    /// Equivalent to -local_z()
+    /// Equivalent to [`-local_z()`][[GlobalTransform::local_z]
     #[inline]
     pub fn forward(&self) -> Vec3 {
         -self.local_z()
     }
 
-    /// Equivalent to local_z()
+    /// Equivalent to [`local_z()`][GlobalTransform::local_z]
     #[inline]
     pub fn back(&self) -> Vec3 {
         self.local_z()

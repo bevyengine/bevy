@@ -6,7 +6,7 @@ use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-/// This example shows how to use the ECS and the AsyncComputeTaskPool
+/// This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
 /// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
     App::new()
@@ -43,7 +43,7 @@ fn add_assets(
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, handle_tasks, will poll the spawned tasks on subsequent
+/// system, `handle_tasks`, will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
     for x in 0..NUM_CUBES {
@@ -72,7 +72,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new PbrBundle of components to the entity using the result from the task's work, and
+/// new [`PbrBundle`] of components to the entity using the result from the task's work, and
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,

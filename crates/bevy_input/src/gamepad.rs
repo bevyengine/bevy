@@ -8,9 +8,9 @@ use bevy_utils::{tracing::info, HashMap, HashSet};
 pub struct Gamepad(pub usize);
 
 #[derive(Default)]
-/// Container of unique connected [Gamepad]s
+/// Container of unique connected [`Gamepad`]s
 ///
-/// [Gamepad]s are registered and deregistered in [gamepad_connection_system]
+/// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`]
 pub struct Gamepads {
     gamepads: HashSet<Gamepad>,
 }

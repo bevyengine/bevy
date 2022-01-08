@@ -12,7 +12,7 @@ pub struct LogDiagnosticsPlugin {
     pub filter: Option<Vec<DiagnosticId>>,
 }
 
-/// State used by the [LogDiagnosticsPlugin]
+/// State used by the [`LogDiagnosticsPlugin`]
 struct LogDiagnosticsState {
     timer: Timer,
     filter: Option<Vec<DiagnosticId>>,

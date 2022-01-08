@@ -24,7 +24,7 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .init_resource::<ExtractedWindows>()
             .init_resource::<WindowSurfaces>()
             .init_resource::<NonSendMarker>()

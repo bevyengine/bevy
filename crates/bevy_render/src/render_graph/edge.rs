@@ -7,7 +7,7 @@ use super::NodeId;
 /// and may be of two kinds: [`NodeEdge`](Self::NodeEdge) and [`SlotEdge`](Self::SlotEdge).
 ///
 /// Edges are added via the render_graph::add_node_edge(output_node, input_node) and the
-/// render_graph::add_slot_edge(output_node, output_slot, input_node, input_slot) methode.
+/// render_graph::add_slot_edge(output_node, output_slot, input_node, input_slot) methods.
 ///
 /// The former simply states that the `output_node` has to be run before the `input_node`,
 /// while the later connects an output slot of the `output_node`

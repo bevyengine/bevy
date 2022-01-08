@@ -4,10 +4,11 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     reflect::{ReflectComponent, ReflectMapEntities},
+    system::Command,
     world::{Mut, World},
 };
 use bevy_reflect::TypeRegistryArc;
-use bevy_transform::prelude::Parent;
+use bevy_transform::{hierarchy::AddChild, prelude::Parent};
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -268,10 +269,22 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for entity in instance.entity_map.values() {
-                    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
-                        if !entity_mut.contains::<Parent>() {
-                            entity_mut.insert(Parent(parent));
+                    // Add the `Parent` component to the scene root, and update the `Children` component of
+                    // the scene parent
+                    if !world
+                        .get_entity(entity)
+                        // This will filter only the scene root entity, as all other from the
+                        // scene have a parent
+                        .map(|entity| entity.contains::<Parent>())
+                        // Default is true so that it won't run on an entity that wouldn't exist anymore
+                        // this case shouldn't happen anyway
+                        .unwrap_or(true)
+                    {
+                        AddChild {
+                            parent,
+                            child: entity,
                         }
+                        .write(world);
                     }
                 }
             } else {

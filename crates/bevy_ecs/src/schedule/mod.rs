@@ -161,6 +161,7 @@ impl Schedule {
     /// # schedule.add_stage("target_stage", SystemStage::parallel());
     /// #
     /// schedule.add_stage_before("target_stage", "my_stage", SystemStage::parallel());
+    /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -197,6 +198,7 @@ impl Schedule {
     /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
     /// schedule.add_system_to_stage("my_stage", my_system);
+    /// ```
     pub fn add_system_to_stage<Params>(
         &mut self,
         stage_label: impl StageLabel,
@@ -324,6 +326,7 @@ impl Schedule {
     /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
     /// let stage = schedule.get_stage_mut::<SystemStage>(&"my_stage").unwrap();
+    /// ```
     pub fn get_stage_mut<T: Stage>(&mut self, label: &dyn StageLabel) -> Option<&mut T> {
         self.stages
             .get_mut(label)

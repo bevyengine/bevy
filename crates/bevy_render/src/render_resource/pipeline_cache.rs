@@ -2,7 +2,7 @@ use crate::{
     render_resource::{
         AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ProcessShaderError,
         RawFragmentState, RawRenderPipelineDescriptor, RawVertexState, RenderPipeline,
-        RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor,
+        RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor, ShaderReflectError,
     },
     renderer::RenderDevice,
     RenderWorld,
@@ -10,10 +10,12 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
+
+use super::ProcessedShader;
 
 #[derive(Default)]
 pub struct ShaderData {
@@ -52,7 +54,16 @@ impl ShaderCache {
             .get(handle)
             .ok_or_else(|| RenderPipelineError::ShaderNotLoaded(handle.clone_weak()))?;
         let data = self.data.entry(handle.clone_weak()).or_default();
-        if shader.imports().len() != data.resolved_imports.len() {
+        let n_asset_imports = shader
+            .imports()
+            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
+            .count();
+        let n_resolved_asset_imports = data
+            .resolved_imports
+            .keys()
+            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
+            .count();
+        if n_asset_imports != n_resolved_asset_imports {
             return Err(RenderPipelineError::ShaderImportNotYetAvailable);
         }
 
@@ -68,7 +79,12 @@ impl ShaderCache {
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = processed.get_module_descriptor()?;
+                let module_descriptor = match processed.get_module_descriptor() {
+                    Ok(module_descriptor) => module_descriptor,
+                    Err(err) => {
+                        return Err(RenderPipelineError::AsModuleDescriptorError(err, processed));
+                    }
+                };
                 entry.insert(Arc::new(
                     render_device.create_shader_module(&module_descriptor),
                 ))
@@ -206,8 +222,8 @@ pub enum RenderPipelineError {
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]
     ProcessShaderError(#[from] ProcessShaderError),
-    #[error(transparent)]
-    AsModuleDescriptorError(#[from] AsModuleDescriptorError),
+    #[error("{0}")]
+    AsModuleDescriptorError(AsModuleDescriptorError, ProcessedShader),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
 }
@@ -274,9 +290,13 @@ impl RenderPipelineCache {
                     match err {
                         RenderPipelineError::ShaderNotLoaded(_)
                         | RenderPipelineError::ShaderImportNotYetAvailable => { /* retry */ }
-                        RenderPipelineError::ProcessShaderError(_)
-                        | RenderPipelineError::AsModuleDescriptorError(_) => {
-                            // shader could not be processed ... retrying won't help
+                        // shader could not be processed ... retrying won't help
+                        RenderPipelineError::ProcessShaderError(err) => {
+                            error!("failed to process shader: {}", err);
+                            continue;
+                        }
+                        RenderPipelineError::AsModuleDescriptorError(err, source) => {
+                            log_shader_error(source, err);
                             continue;
                         }
                     }
@@ -383,6 +403,90 @@ impl RenderPipelineCache {
                 }
                 AssetEvent::Removed { handle } => cache.remove_shader(handle),
             }
+        }
+    }
+}
+
+fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
+    use codespan_reporting::{
+        diagnostic::{Diagnostic, Label},
+        files::SimpleFile,
+        term,
+    };
+
+    match error {
+        AsModuleDescriptorError::ShaderReflectError(error) => match error {
+            ShaderReflectError::WgslParse(error) => {
+                let source = source
+                    .get_wgsl_source()
+                    .expect("non-wgsl source for wgsl error");
+                let msg = error.emit_to_string(source);
+                error!("failed to process shader:\n{}", msg);
+            }
+            ShaderReflectError::GlslParse(errors) => {
+                let source = source
+                    .get_glsl_source()
+                    .expect("non-glsl source for glsl error");
+                let files = SimpleFile::new("glsl", source);
+                let config = codespan_reporting::term::Config::default();
+                let mut writer = term::termcolor::Ansi::new(Vec::new());
+
+                for err in errors {
+                    let mut diagnostic = Diagnostic::error().with_message(err.kind.to_string());
+
+                    if let Some(range) = err.meta.to_range() {
+                        diagnostic = diagnostic.with_labels(vec![Label::primary((), range)]);
+                    }
+
+                    term::emit(&mut writer, &config, &files, &diagnostic)
+                        .expect("cannot write error");
+                }
+
+                let msg = writer.into_inner();
+                let msg = String::from_utf8_lossy(&msg);
+
+                error!("failed to process shader: \n{}", msg);
+            }
+            ShaderReflectError::SpirVParse(error) => {
+                error!("failed to process shader:\n{}", error);
+            }
+            ShaderReflectError::Validation(error) => {
+                let (filename, source) = match source {
+                    ProcessedShader::Wgsl(source) => ("wgsl", source.as_ref()),
+                    ProcessedShader::Glsl(source, _) => ("glsl", source.as_ref()),
+                    ProcessedShader::SpirV(_) => {
+                        error!("failed to process shader:\n{}", error);
+                        return;
+                    }
+                };
+
+                let files = SimpleFile::new(filename, source);
+                let config = term::Config::default();
+                let mut writer = term::termcolor::Ansi::new(Vec::new());
+
+                let diagnostic = Diagnostic::error().with_labels(
+                    error
+                        .spans()
+                        .map(|(span, desc)| {
+                            Label::primary((), span.to_range().unwrap())
+                                .with_message(desc.to_owned())
+                        })
+                        .collect(),
+                );
+
+                term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
+
+                let msg = writer.into_inner();
+                let msg = String::from_utf8_lossy(&msg);
+
+                error!("failed to process shader: \n{}", msg);
+            }
+        },
+        AsModuleDescriptorError::WgslConversion(error) => {
+            error!("failed to convert shader to wgsl: \n{}", error);
+        }
+        AsModuleDescriptorError::SpirVConversion(error) => {
+            error!("failed to convert shader to spirv: \n{}", error);
         }
     }
 }

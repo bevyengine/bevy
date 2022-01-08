@@ -14,7 +14,6 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-
 bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
@@ -22,8 +21,9 @@ bevy_utils::define_label!(AppLabel);
 ///
 /// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
 /// an ECS-based application. It also stores a pointer to a
-/// [runner function](App::set_runner), which by default executes the App schedule
-/// once. Apps are constructed with the builder pattern.
+/// [runner function](Self::set_runner). The runner is responsible for managing the application's
+/// event loop and applying the [`Schedule`] to the [`World`] to drive application logic.
+/// Apps are constructed with the builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
@@ -42,12 +42,22 @@ bevy_utils::define_label!(AppLabel);
 /// }
 /// ```
 pub struct App {
+    /// The main ECS [`World`] of the [`App`].
+    /// This stores and provides access to all the main data of the application.
+    /// The systems of the [`App`] will run using this [`World`].
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`][App::add_sub_app]s.
     pub world: World,
+    /// The [runner function](Self::set_runner) is primarily responsible for managing
+    /// the application's event loop and advancing the [`Schedule`].
+    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
+    /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
+    /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
+/// Each [`SubApp`] has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
@@ -73,10 +83,15 @@ impl Default for App {
 }
 
 impl App {
+    /// Creates a new [`App`] with some default structure to enable core engine features.
+    /// This is the preferred constructor for most use cases.
     pub fn new() -> App {
         App::default()
     }
 
+    /// Creates a new empty [`App`] with minimal default configuration.
+    ///
+    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
             world: Default::default(),
@@ -502,11 +517,11 @@ impl App {
         self
     }
 
-    /// Adds a new [State] with the given `initial` value.
-    /// This inserts a new `State<T>` resource and adds a new "driver" to [CoreStage::Update].
+    /// Adds a new [`State`] with the given `initial` value.
+    /// This inserts a new `State<T>` resource and adds a new "driver" to [`CoreStage::Update`].
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in a different stage, consider using [Self::add_state_to_stage] or manually
-    /// adding [State::get_driver] to additional stages you need it in.
+    /// your state in a different stage, consider using [`Self::add_state_to_stage`] or manually
+    /// adding [`State::get_driver`] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
         T: StateData,
@@ -514,10 +529,10 @@ impl App {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
 
-    /// Adds a new [State] with the given `initial` value.
+    /// Adds a new [`State`] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
-    /// your state in more than one stage, consider manually adding [State::get_driver] to the
+    /// your state in more than one stage, consider manually adding [`State::get_driver`] to the
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
@@ -761,7 +776,7 @@ impl App {
     /// Adds a group of plugins
     ///
     /// Bevy plugins can be grouped into a set of plugins. Bevy provides
-    /// built-in PluginGroups that provide core engine functionality.
+    /// built-in `PluginGroups` that provide core engine functionality.
     ///
     /// The plugin groups available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
@@ -861,7 +876,24 @@ impl App {
     }
 
     /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
-    pub fn sub_app(&mut self, label: impl AppLabel) -> &mut App {
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app_mut(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+        }
+    }
+
+    /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
+    /// an [Err] containing the given label.
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+        self.sub_apps
+            .get_mut((&label) as &dyn AppLabel)
+            .map(|sub_app| &mut sub_app.app)
+            .ok_or(label)
+    }
+
+    /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
+    pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
@@ -870,10 +902,10 @@ impl App {
 
     /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
     /// an [Err] containing the given label.
-    pub fn get_sub_app(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
-            .map(|sub_app| &mut sub_app.app)
+            .get((&label) as &dyn AppLabel)
+            .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
 }
