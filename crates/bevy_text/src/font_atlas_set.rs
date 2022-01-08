@@ -76,10 +76,16 @@ impl FontAtlasSet {
             )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
+            let glyph_max_size = glyph_texture
+                .texture_descriptor
+                .size
+                .height
+                .max(glyph_texture.texture_descriptor.size.width);
+            let containing = (1u32 << 32 - glyph_max_size.leading_zeros()).max(512) as f32;
             font_atlases.push(FontAtlas::new(
                 textures,
                 texture_atlases,
-                Vec2::new(512.0, 512.0),
+                Vec2::new(containing, containing),
             ));
             if !font_atlases.last_mut().unwrap().add_glyph(
                 textures,
