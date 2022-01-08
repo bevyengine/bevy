@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, ops::Range};
 
+use copyless::VecHelper;
+
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Rect, Sprite, SPRITE_SHADER_HANDLE,
@@ -236,7 +238,7 @@ pub fn extract_sprites(
         if let Some(image) = current_image {
             let size = image.texture_descriptor.size;
 
-            extracted_sprites.sprites.push(ExtractedSprite {
+            extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 atlas_size: None,
                 color: sprite.color,
                 transform: transform.compute_matrix(),
@@ -268,7 +270,7 @@ pub fn extract_sprites(
         if let Some(texture_atlas) = current_atlas {
             if images.contains(&texture_atlas.texture) {
                 let rect = texture_atlas.textures[atlas_sprite.index as usize];
-                extracted_sprites.sprites.push(ExtractedSprite {
+                extracted_sprites.sprites.alloc().init(ExtractedSprite {
                     atlas_size: Some(texture_atlas.size),
                     color: atlas_sprite.color,
                     transform: transform.compute_matrix(),
