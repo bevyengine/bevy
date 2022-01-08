@@ -18,6 +18,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Frustum culling][2861]
 - [Sprite Batching][3060]
 - [Materials and MaterialPlugin][3428]
+- [2D Meshes and Materials][3460]
 - [WebGL2 support][3039]
 - [Pipeline Specialization, Shader Assets, and Shader Preprocessing][3031]
 - [Modular Rendering][2831]
@@ -636,6 +637,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [3443]: https://github.com/bevyengine/bevy/pull/3443
 [3448]: https://github.com/bevyengine/bevy/pull/3448
 [3452]: https://github.com/bevyengine/bevy/pull/3452
+[3460]: https://github.com/bevyengine/bevy/pull/3460
 [3461]: https://github.com/bevyengine/bevy/pull/3461
 [3465]: https://github.com/bevyengine/bevy/pull/3465
 [3466]: https://github.com/bevyengine/bevy/pull/3466
