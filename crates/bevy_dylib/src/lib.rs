@@ -36,7 +36,7 @@
 //! Manually enabling dynamic linking is achieved by adding `bevy_dylib` as a dependency and
 //! adding the following code to the `main.rs` file:
 //!
-//! ```rust
+//! ```
 //! #[allow(unused_imports)]
 //! use bevy_dylib;
 //! ```
@@ -44,7 +44,7 @@
 //! It is recommended to disable the `bevy_dylib` dependency in release mode by adding the
 //! following code to the `use` statement to avoid having to ship additional files with your game:
 //!
-//! ```rust
+//! ```
 //! #[allow(unused_imports)]
 //! #[cfg(debug_assertions)] // new
 //! use bevy_dylib;

@@ -14,11 +14,17 @@ use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+/// Describes what type of input interaction has occurred for a UI node.
+///
+/// This is commonly queried with a `Changed<Interaction>` filter.
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
+    /// The node has been clicked
     Clicked,
+    /// The node has been hovered over
     Hovered,
+    /// Nothing has happened
     None,
 }
 
@@ -28,10 +34,13 @@ impl Default for Interaction {
     }
 }
 
+/// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
+    /// Blocks interaction
     Block,
+    /// Lets interaction pass through
     Pass,
 }
 
@@ -41,11 +50,13 @@ impl Default for FocusPolicy {
     }
 }
 
+/// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
+/// The system that sets Interaction for all UI elements based on the mouse cursor activity
 #[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,

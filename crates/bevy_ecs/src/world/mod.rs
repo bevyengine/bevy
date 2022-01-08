@@ -493,15 +493,15 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entities = world.spawn_batch(vec![
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),    
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
     /// ]).collect::<Vec<Entity>>();
     ///
     /// let mut query = world.query::<(&mut Position, &Velocity)>();
     /// for (mut position, velocity) in query.iter_mut(&mut world) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
-    /// }     
+    /// }
     ///
     /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });

@@ -38,7 +38,7 @@ struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>;
     ambient_color: vec4<f32>;
-    // x/y/z dimensions
+    // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>;
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     //

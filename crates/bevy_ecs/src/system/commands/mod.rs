@@ -367,7 +367,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// fn my_system(mut commands: Commands) {
-    ///     let entity_id = commands.spawn().id();    
+    ///     let entity_id = commands.spawn().id();
     /// }
     /// # my_system.system();
     /// ```
@@ -403,7 +403,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///         defense: Defense(20),
-    ///     });    
+    ///     });
     /// }
     /// # add_combat_stats_system.system();
     /// ```
@@ -477,7 +477,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
     /// #
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();    
+    ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();
     /// }
     /// # remove_combat_stats_system.system();
     /// ```

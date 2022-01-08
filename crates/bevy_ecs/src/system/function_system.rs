@@ -55,7 +55,7 @@ impl SystemMeta {
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
-/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].  
+/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
@@ -115,7 +115,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
     /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
-    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]  
+    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
         self.param_state.apply(world);
@@ -150,7 +150,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
-    /// created with.   
+    /// created with.
     #[inline]
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
