@@ -268,7 +268,7 @@ where
             offset = item.write_std430(writer)?;
         }
 
-        for item in self.iter() {
+        for item in iter {
             item.write_std430(writer)?;
         }
 
