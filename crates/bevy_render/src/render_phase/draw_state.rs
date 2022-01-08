@@ -339,4 +339,12 @@ impl<'a> TrackedRenderPass<'a> {
         trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color))
     }
+
+    /// Get the underlying RenderPass.
+    ///
+    /// Resets all tracked state in the process.
+    pub fn inner(&mut self) -> &mut RenderPass<'a> {
+        self.state = Default::default();
+        &mut self.pass
+    }
 }
