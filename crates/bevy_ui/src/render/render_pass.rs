@@ -1,4 +1,5 @@
 use bevy_core::FloatOrd;
+use bevy_core_pipeline::draw_2d_graph;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -31,7 +32,10 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
             run_sub_graphs.run(
                 graph,
                 draw_ui_graph::NAME,
-                vec![("view", SlotValue::Entity(*camera_ui))],
+                vec![(
+                    draw_ui_graph::input::VIEW_ENTITY,
+                    SlotValue::Entity(*camera_ui),
+                )],
             )?;
         }
 
@@ -45,7 +49,7 @@ pub struct UiPassNode {
 }
 
 impl UiPassNode {
-    pub const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = draw_2d_graph::input::VIEW_ENTITY;
 
     pub fn new(world: &mut World) -> Self {
         Self {

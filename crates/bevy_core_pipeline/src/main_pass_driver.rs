@@ -4,6 +4,8 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, RunSubGraphs, SlotValue},
 };
 
+use crate::draw_2d_graph;
+
 pub struct MainPassDriverNode;
 
 impl Node for MainPassDriverNode {
@@ -19,7 +21,10 @@ impl Node for MainPassDriverNode {
             sub_graph_runs.run(
                 graph,
                 crate::draw_2d_graph::NAME,
-                vec![("view", SlotValue::Entity(*camera_2d))],
+                vec![(
+                    crate::draw_2d_graph::input::VIEW_ENTITY,
+                    SlotValue::Entity(*camera_2d),
+                )],
             )?;
         }
 
@@ -27,7 +32,10 @@ impl Node for MainPassDriverNode {
             sub_graph_runs.run(
                 graph,
                 crate::draw_3d_graph::NAME,
-                vec![("view", SlotValue::Entity(*camera_3d))],
+                vec![(
+                    crate::draw_3d_graph::input::VIEW_ENTITY,
+                    SlotValue::Entity(*camera_3d),
+                )],
             )?;
         }
 

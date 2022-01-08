@@ -1,4 +1,4 @@
-use crate::{AlphaMask3d, Opaque3d, Transparent3d};
+use crate::{draw_3d_graph, AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotInfos, SlotType},
@@ -22,7 +22,7 @@ pub struct MainPass3dNode {
 }
 
 impl MainPass3dNode {
-    pub const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = draw_3d_graph::input::VIEW_ENTITY;
 
     pub fn new(world: &mut World) -> Self {
         Self {

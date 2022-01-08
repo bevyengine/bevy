@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
-use bevy_core_pipeline::Transparent3d;
+use bevy_core_pipeline::{draw_3d_graph, Transparent3d};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -1153,7 +1153,7 @@ pub struct ShadowPassNode {
 }
 
 impl ShadowPassNode {
-    pub const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = draw_3d_graph::input::VIEW_ENTITY;
 
     pub fn new(world: &mut World) -> Self {
         Self {

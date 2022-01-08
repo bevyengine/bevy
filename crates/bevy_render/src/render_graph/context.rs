@@ -50,21 +50,22 @@ impl RunSubGraphs {
 /// This context is created for each node by the `RenderGraphRunner`.
 ///
 /// The slot input can be read from here
+#[derive(Clone)]
 pub struct RenderGraphContext<'a> {
-    inputs: &'a SlotValues,
+    inputs: SlotValues,
     graphs: &'a RenderGraphs,
 }
 
 impl<'a> RenderGraphContext<'a> {
     /// Creates a new render graph context.
-    pub fn new(inputs: &'a SlotValues, graphs: &'a RenderGraphs) -> Self {
+    pub fn new(inputs: SlotValues, graphs: &'a RenderGraphs) -> Self {
         Self { inputs, graphs }
     }
 
     /// Returns the input slot values for the node.
     #[inline]
     pub fn inputs(&self) -> &SlotValues {
-        self.inputs
+        &self.inputs
     }
 
     pub fn get_entity(&self, label: impl Into<&'static str>) -> Result<&Entity, SlotError> {

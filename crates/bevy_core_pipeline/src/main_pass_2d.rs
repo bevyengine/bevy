@@ -1,4 +1,4 @@
-use crate::Transparent2d;
+use crate::{draw_2d_graph, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotInfos, SlotType},
@@ -14,7 +14,7 @@ pub struct MainPass2dNode {
 }
 
 impl MainPass2dNode {
-    pub const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = draw_2d_graph::input::VIEW_ENTITY;
 
     pub fn new(world: &mut World) -> Self {
         Self {

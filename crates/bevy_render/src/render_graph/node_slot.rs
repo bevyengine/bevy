@@ -35,7 +35,7 @@ impl SlotValue {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SlotValues {
     values: Vec<(&'static str, SlotValue)>,
 }

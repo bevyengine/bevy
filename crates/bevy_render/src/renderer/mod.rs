@@ -23,7 +23,15 @@ pub fn render_system(world: &mut World) {
     let render_device = world.get_resource::<RenderDevice>().unwrap();
     let render_queue = world.get_resource::<RenderQueue>().unwrap();
     let graphs = world.get_resource::<RenderGraphs>().unwrap();
-
+    // let paralell = ParalellRenderGraphRunner::new();
+    // paralell
+    //     .run(
+    //         &graphs.get_graph_id(MAIN_GRAPH_ID).unwrap(),
+    //         render_device.clone(), // TODO: is this clone really necessary?
+    //         render_queue,
+    //         world,
+    //     )
+    //     .unwrap();
     RenderGraphRunner::run(
         &graphs.get_graph_id(MAIN_GRAPH_ID).unwrap(),
         render_device.clone(), // TODO: is this clone really necessary?
