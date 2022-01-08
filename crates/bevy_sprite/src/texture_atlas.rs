@@ -28,6 +28,9 @@ pub struct TextureAtlasSprite {
     pub index: usize,
     pub flip_x: bool,
     pub flip_y: bool,
+    /// An optional custom size for the sprite that will be used when rendering, instead of the size
+    /// of the sprite's image in the atlas
+    pub custom_size: Option<Vec2>,
 }
 
 impl Default for TextureAtlasSprite {
@@ -37,6 +40,7 @@ impl Default for TextureAtlasSprite {
             color: Color::WHITE,
             flip_x: false,
             flip_y: false,
+            custom_size: None,
         }
     }
 }

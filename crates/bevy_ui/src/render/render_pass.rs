@@ -152,7 +152,7 @@ impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
         (ui_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap(); // TODO: store bind group as component?
+        let view_uniform = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             ui_meta.into_inner().view_bind_group.as_ref().unwrap(),

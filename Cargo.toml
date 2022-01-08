@@ -120,6 +120,14 @@ name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
 [[example]]
+name = "mesh2d"
+path = "examples/2d/mesh2d.rs"
+
+[[example]]
+name = "mesh2d_manual"
+path = "examples/2d/mesh2d_manual.rs"
+
+[[example]]
 name = "rect"
 path = "examples/2d/rect.rs"
 

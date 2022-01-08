@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::{GpuBufferInfo, Mesh},
@@ -328,6 +328,10 @@ impl FromWorld for MeshPipeline {
                 texture,
                 texture_view,
                 sampler,
+                size: Size::new(
+                    image.texture_descriptor.size.width as f32,
+                    image.texture_descriptor.size.height as f32,
+                ),
             }
         };
         MeshPipeline {

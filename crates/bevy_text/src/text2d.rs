@@ -5,8 +5,8 @@ use bevy_ecs::{
     query::{Changed, QueryState, With},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
-use bevy_math::{Mat4, Size, Vec3};
-use bevy_render::{texture::Image, RenderWorld};
+use bevy_math::{Size, Vec3};
+use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
@@ -24,6 +24,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_2d_size: Text2dSize,
+    pub visibility: Visibility,
 }
 
 impl Default for Text2dBundle {
@@ -35,6 +36,7 @@ impl Default for Text2dBundle {
             text_2d_size: Text2dSize {
                 size: Size::default(),
             },
+            visibility: Default::default(),
         }
     }
 }
@@ -44,16 +46,20 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    text2d_query: Query<(Entity, &Text, &GlobalTransform, &Text2dSize)>,
+    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
+
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32
     } else {
         1.
     };
 
-    for (entity, text, transform, calculated_size) in text2d_query.iter() {
+    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
@@ -68,6 +74,9 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
+            let mut text_transform = *transform;
+            text_transform.scale /= scale_factor;
+
             for text_glyph in text_glyphs {
                 let color = text.sections[text_glyph.section_index]
                     .style
@@ -78,22 +87,20 @@ pub fn extract_text2d_sprite(
                     .unwrap();
                 let handle = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
-                let rect = atlas.textures[index];
-                let atlas_size = Some(atlas.size);
+                let rect = Some(atlas.textures[index]);
 
-                let transform =
-                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
-                        * Mat4::from_scale(transform.scale / scale_factor)
-                        * Mat4::from_translation(
-                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                        );
+                let glyph_transform = Transform::from_translation(
+                    alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                );
+
+                let transform = text_transform.mul_transform(glyph_transform);
 
                 extracted_sprites.sprites.push(ExtractedSprite {
                     transform,
                     color,
                     rect,
-                    handle,
-                    atlas_size,
+                    custom_size: None,
+                    image_handle_id: handle.id,
                     flip_x: false,
                     flip_y: false,
                 });
