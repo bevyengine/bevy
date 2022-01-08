@@ -60,11 +60,15 @@ fn create_board(
         for j in 0..8 {
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone(),
+                // Iterate over i and j, check to see if the iteration is 0 or 1, if 0 place a
+                //  while tile, if 1 place a black tile
                 material: if (i + j + 1) % 2 == 0 {
                     white_material.clone()
                 } else {
                     black_material.clone()
                 },
+                // Place the tile, maintaining alignment of the coordinate system near
+                //  the center of the rendered board.
                 transform: Transform::from_translation(Vec3::new(
                     i as f32 - 3.5,
                     0.,
