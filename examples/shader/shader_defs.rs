@@ -23,8 +23,7 @@ pub struct IsRedPlugin;
 impl Plugin for IsRedPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<IsRed>::default());
-        app.get_sub_app_mut(RenderApp)
-            .unwrap()
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawIsRed>()
             .init_resource::<IsRedPipeline>()
             .init_resource::<SpecializedPipelines<IsRedPipeline>>()

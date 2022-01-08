@@ -59,8 +59,7 @@ impl Plugin for CustomMaterialPlugin {
             mapped_at_creation: false,
         });
 
-        app.get_sub_app_mut(RenderApp)
-            .unwrap()
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .insert_resource(TimeMeta {
                 buffer,
