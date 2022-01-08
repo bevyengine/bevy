@@ -333,7 +333,7 @@ fn main() {
             MyStage::BeforeRound,
             exclusive_player_system.exclusive_system(),
         )
-        // Systems which take a `World` as an argument must call `.exclusive_system()`.
+        // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
         // The following will not compile.
         //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
         //
