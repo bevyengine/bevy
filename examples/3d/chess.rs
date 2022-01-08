@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
 const TILE_SIZE: f32 = 1.0;
+const COORDINATE_OFFSET_X: f32 = 3.5;
+const COORDINATE_OFFSET_Z: f32 = 3.5;
 const WHITE_TILE_COLOR: Color = Color::rgb(1.0, 0.9, 0.9);
 const BLACK_TILE_COLOR: Color = Color::rgb(0.0, 0.1, 0.1);
 const WHITE_PIECE_COLOR: Color = Color::rgb(1.0, 0.8, 0.8);
@@ -70,9 +72,9 @@ fn create_board(
                 // Place the tile, maintaining alignment of the coordinate system near
                 //  the center of the rendered board.
                 transform: Transform::from_translation(Vec3::new(
-                    i as f32 - 3.5,
-                    0.,
-                    j as f32 - 3.5,
+                    i as f32 - COORDINATE_OFFSET_X,
+                    0.0,
+                    j as f32 - COORDINATE_OFFSET_Z,
                 )),
                 ..Default::default()
             });
