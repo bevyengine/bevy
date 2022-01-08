@@ -1,17 +1,25 @@
 use bevy::prelude::*;
 
+const MAX_WIDTH: f32 = 400.;
+const MAX_HEIGHT: f32 = 400.;
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            width: 200.,
-            height: 200.,
+            width: MAX_WIDTH,
+            height: MAX_HEIGHT,
             scale_factor_override: Some(1.),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
+        .add_startup_system(setup)
         .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_3d());
 }
 
 enum Phase {
@@ -41,13 +49,13 @@ fn change_window_size(mut windows: ResMut<Windows>, mut phase: ResMut<Phase>) {
             primary.set_resolution((width - 4.).max(0.0), height)
         }
         Phase::ExpandingY => {
-            if height >= 200. {
+            if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
             }
             primary.set_resolution(width, height + 4.)
         }
         Phase::ExpandingX => {
-            if width >= 200. {
+            if width >= MAX_WIDTH {
                 *phase = ContractingY;
             }
             primary.set_resolution(width + 4., height)
