@@ -867,7 +867,7 @@ mod test {
     use std::path::PathBuf;
 
     use super::resolve_node_hierarchy;
-    use crate::GltfNode;
+    use crate::{GltfNode, GltfPlugin};
 
     impl GltfNode {
         fn empty() -> Self {
@@ -982,5 +982,49 @@ mod test {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l2");
         assert_eq!(result[0].1.children.len(), 0);
+    }
+
+    use super::Gltf;
+    use bevy_app::{App, AppExit, EventWriter};
+    use bevy_asset::{AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_core::CorePlugin;
+    use bevy_ecs::system::{Commands, Res};
+    use bevy_scene::Scene;
+
+    #[test]
+    fn test_scene_to_nodes() {
+        App::new()
+            .add_plugin(CorePlugin::default())
+            .add_plugin(AssetPlugin::default())
+            .add_plugin(GltfPlugin::default())
+            .add_startup_system(setup)
+            .add_system(spawn_gltf_objects)
+            .run();
+    }
+
+    fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+        let handle: Handle<Gltf> = assets.load("models/FlightHelmet/FlightHelmet.gltf");
+        commands.insert_resource(handle);
+    }
+
+    pub fn spawn_gltf_objects(
+        gltf_handle: Res<Handle<Gltf>>,
+        assets_gltf: Res<Assets<Gltf>>,
+        assets_gltfnode: Res<Assets<GltfNode>>,
+        mut exit: EventWriter<AppExit>,
+    ) {
+        // if the GLTF has loaded, we can navigate its contents
+        if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
+            let scene_handle: &Handle<Scene> = &gltf.scenes[0];
+            let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
+                .iter()
+                .filter_map(|handle| assets_gltfnode.get(handle))
+                .collect::<Vec<_>>();
+            assert_eq!(nodes.len(), 1);
+            assert_eq!(nodes[0].children[0].children.len(), 6);
+            panic!();
+            // If the asserts ran successfully, we can exit the app
+            exit.send(AppExit);
+        }
     }
 }
