@@ -12,9 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .insert_resource(PrintDone::default())
-        .insert_resource(AssertDone::default())
         .add_system(spawn_and_print_gltf_objects)
-        .add_system(assert_correctness)
         .run();
 }
 
@@ -84,29 +82,6 @@ fn spawn_and_print_gltf_objects(
         done.0 = true;
     }
 }
-fn assert_correctness(
-    mut done: ResMut<AssertDone>,
-    gltf_handle: Res<Handle<Gltf>>,
-    assets_gltf: Res<Assets<Gltf>>,
-    assets_gltfnode: Res<Assets<GltfNode>>,
-) {
-    if done.0 {
-        return;
-    }
-    // if the GLTF has loaded, we can navigate its contents
-    if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
-        let scene_handle: &Handle<Scene> = &gltf.scenes[0];
-        let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
-            .iter()
-            .filter_map(|handle| assets_gltfnode.get(handle))
-            .collect::<Vec<_>>();
-        assert_eq!(nodes.len(), 1);
-        assert_eq!(nodes[0].children[0].children.len(), 6);
-        done.0 = true;
-    }
-}
-#[derive(Default)]
-struct AssertDone(bool);
 
 #[derive(Default)]
 struct PrintDone(bool);
