@@ -62,9 +62,11 @@ fn create_board(
         for j in 0..8 {
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone(),
-                // Iterate over i and j, check to see if the iteration is 0 or 1, if 0 place a
-                //  while tile, if 1 place a black tile
-                material: if (i + j + 1) % 2 == 0 {
+                // Chess is played on a board with white and black tiles. To simulate this in 3d,
+                // we'll want to create tiles of altering colors. White and black respectively.
+                // Iterate over i + j and check the modulus and detect in the parity is 1 or 0.
+                // If 1, create a white tile; if 0, create a black tile.
+                material: if (i + j) % 2 == 1 {
                     white_material.clone()
                 } else {
                     black_material.clone()
