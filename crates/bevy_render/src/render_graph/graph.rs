@@ -30,15 +30,15 @@ use super::{RunSubGraphError, SlotInfos};
 /// # struct MyNode;
 /// #
 /// # impl Node for MyNode {
-/// #     fn run(&self, graph: &mut RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+/// #     fn record(&self, graph: &RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
 /// #         unimplemented!()
 /// #     }
 /// # }
 /// #
-/// let mut graph = RenderGraph::default();
+/// let mut graph = RenderGraph::new("my_graph");
 /// graph.add_node("input_node", MyNode);
 /// graph.add_node("output_node", MyNode);
-/// graph.add_node_edge("output_node", "input_node").unwrap();
+/// graph.add_edge("output_node", "input_node").unwrap();
 /// ```
 pub struct RenderGraph {
     id: RenderGraphId,
