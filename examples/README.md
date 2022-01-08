@@ -121,6 +121,7 @@ Example | File | Description
 `empty` | [`app/empty.rs`](./app/empty.rs) | An empty application (does nothing)
 `empty_defaults` | [`app/empty_defaults.rs`](./app/empty_defaults.rs) | An empty application with default plugins
 `headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
+`headless_defaults` | [`app/headless_defaults.rs`](./app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
 `logs` | [`app/logs.rs`](./app/logs.rs) | Illustrate how to use generate log output
 `plugin` | [`app/plugin.rs`](./app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 `plugin_group` | [`app/plugin_group.rs`](./app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group

@@ -53,11 +53,13 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<MeshPipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_meshes)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<MeshPipeline>()
+                .add_system_to_stage(RenderStage::Extract, extract_meshes)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        }
     }
 }
 

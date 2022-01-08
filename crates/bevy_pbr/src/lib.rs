@@ -138,7 +138,11 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,

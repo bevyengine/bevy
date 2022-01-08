@@ -12,7 +12,7 @@ pub enum WgpuOptionsPriority {
 #[derive(Clone)]
 pub struct WgpuOptions {
     pub device_label: Option<Cow<'static, str>>,
-    pub backends: Backends,
+    pub backends: Option<Backends>,
     pub power_preference: PowerPreference,
     pub priority: WgpuOptionsPriority,
     pub features: WgpuFeatures,
@@ -27,7 +27,7 @@ impl Default for WgpuOptions {
             Backends::PRIMARY
         };
 
-        let backends = wgpu::util::backend_bits_from_env().unwrap_or(default_backends);
+        let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
 
         let priority = options_priority_from_env().unwrap_or(WgpuOptionsPriority::Functionality);
 

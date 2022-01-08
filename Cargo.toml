@@ -250,6 +250,10 @@ name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
 [[example]]
+name = "headless_defaults"
+path = "examples/app/headless_defaults.rs"
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 
