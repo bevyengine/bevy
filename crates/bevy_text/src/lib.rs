@@ -51,7 +51,7 @@ impl Plugin for TextPlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_system_to_stage(
             RenderStage::Extract,
-            extract_text2d_sprite.after(SpriteSystem::ExtractSprite),
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
         );
     }
 }

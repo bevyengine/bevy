@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
+    render_resource::{LoadOp, Operations, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
@@ -46,14 +46,10 @@ impl Node for MainPass2dNode {
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
-            color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }],
+            color_attachments: &[target.get_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            })],
             depth_stencil_attachment: None,
         };
 

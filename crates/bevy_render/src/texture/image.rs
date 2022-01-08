@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_math::Size;
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
 use wgpu::{
@@ -373,12 +374,13 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 /// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`].
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's [`Size`].
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub sampler: Sampler,
+    pub size: Size,
 }
 
 impl RenderAsset for Image {
@@ -426,10 +428,15 @@ impl RenderAsset for Image {
         );
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let size = Size::new(
+            image.texture_descriptor.size.width as f32,
+            image.texture_descriptor.size.height as f32,
+        );
         Ok(GpuImage {
             texture,
             texture_view,
             sampler,
+            size,
         })
     }
 }
