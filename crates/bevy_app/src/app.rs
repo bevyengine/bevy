@@ -71,7 +71,7 @@ impl Default for App {
 
         app.add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
 
         #[cfg(feature = "bevy_ci_testing")]
         {
