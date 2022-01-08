@@ -1024,7 +1024,8 @@ mod test {
                 .collect::<Vec<_>>();
             assert_eq!(nodes.len(), 1);
             assert_eq!(nodes[0].children[0].children.len(), 6);
-            panic!();
+            assert_eq!(nodes.len(), 0); // This will fail, but this way clippy doesn't complain
+
             // If the asserts ran successfully, we can exit the app
             exit.send(AppExit);
         }
