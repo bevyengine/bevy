@@ -71,8 +71,8 @@ enum State {
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`App::add_event`]. [`EventReader`]s are expected to read events from this collection at
-/// least once per loop/frame.
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
+/// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
