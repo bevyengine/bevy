@@ -13,7 +13,10 @@ pub use winit_windows::*;
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, DVec2, Vec2};
-use bevy_utils::tracing::{error, trace, warn};
+use bevy_utils::{
+    tracing::{error, trace, warn},
+    HashSet,
+};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
@@ -236,6 +239,7 @@ pub fn winit_runner_with(mut app: App) {
         .map_or(false, |config| config.return_from_run);
 
     let mut active = true;
+    let mut cursorleft_event_to_execute = HashSet::default();
 
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
@@ -327,7 +331,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::CursorLeft { .. } => {
                         let mut cursor_left_events =
                             world.get_resource_mut::<Events<CursorLeft>>().unwrap();
-                        window.update_cursor_physical_position_from_backend(None);
+                        cursorleft_event_to_execute.insert(window_id);
                         cursor_left_events.send(CursorLeft { id: window_id });
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
@@ -502,6 +506,13 @@ pub fn winit_runner_with(mut app: App) {
                 );
                 if active {
                     app.update();
+                }
+                for window_id in cursorleft_event_to_execute.drain() {
+                    let mut windows = app.world.get_resource_mut::<Windows>().unwrap();
+
+                    if let Some(window) = windows.get_mut(window_id) {
+                        window.update_cursor_physical_position_from_backend(None);
+                    }
                 }
             }
             _ => (),
