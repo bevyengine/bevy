@@ -68,10 +68,46 @@ impl Name {
     }
 }
 
+impl std::fmt::Display for Name {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.name, f)
+    }
+}
+
+/* Conversions from strings */
+
 impl From<&str> for Name {
     #[inline(always)]
     fn from(name: &str) -> Self {
         Name::new(name.to_owned())
+    }
+}
+impl From<String> for Name {
+    #[inline(always)]
+    fn from(name: String) -> Self {
+        Name::new(name)
+    }
+}
+
+/* Conversions to strings */
+
+impl AsRef<str> for Name {
+    #[inline(always)]
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+impl From<&Name> for String {
+    #[inline(always)]
+    fn from(val: &Name) -> String {
+        val.as_str().to_owned()
+    }
+}
+impl From<Name> for String {
+    #[inline(always)]
+    fn from(val: Name) -> String {
+        val.name.into_owned()
     }
 }
 
