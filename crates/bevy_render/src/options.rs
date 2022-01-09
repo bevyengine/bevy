@@ -55,7 +55,7 @@ impl Default for WgpuOptions {
     }
 }
 
-/// Get a features/limits priority from the environment variable WGPU_OPTIONS_PRIO
+/// Get a features/limits priority from the environment variable `WGPU_OPTIONS_PRIO`
 pub fn options_priority_from_env() -> Option<WgpuOptionsPriority> {
     Some(
         match std::env::var("WGPU_OPTIONS_PRIO")
