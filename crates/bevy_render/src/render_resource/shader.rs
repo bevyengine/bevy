@@ -417,7 +417,6 @@ impl ShaderProcessor {
                 final_string.push('\n');
             }
         }
-        final_string.pop();
 
         if scopes.len() != 1 {
             return Err(ProcessShaderError::NotEnoughEndIfs);
