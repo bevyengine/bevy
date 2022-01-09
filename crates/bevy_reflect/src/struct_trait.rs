@@ -2,19 +2,65 @@ use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 use bevy_utils::HashMap;
 use std::{any::Any, borrow::Cow, collections::hash_map::Entry};
 
-/// An ordered &str->ReflectValue mapping where &str is a "field".
-/// This corresponds to rust struct types.
+/// A reflected Rust regular struct type.
+///
+/// Implementors of this trait allow their fields to be addressed by name as
+/// well as by index.
+///
+/// This trait is automatically implemented for `struct` types with named fields
+/// when using `#[derive(Reflect)]`.
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Struct};
+///
+/// #[derive(Reflect)]
+/// struct Foo {
+///     bar: String,
+/// }
+///
+/// # fn main() {
+/// let foo = Foo { bar: "Hello, world!".to_string() };
+///
+/// assert_eq!(foo.field_len(), 1);
+/// assert_eq!(foo.name_at(0), Some("bar"));
+///
+/// let bar = foo.field("bar").unwrap();
+/// assert_eq!(bar.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
+/// # }
+/// ```
 pub trait Struct: Reflect {
+    /// Returns a reference to the value of the field named `name` as a `&dyn
+    /// Reflect`.
     fn field(&self, name: &str) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the value of the field named `name` as a
+    /// `&mut dyn Reflect`.
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
+
+    /// Returns a reference to the value of the field with index `index` as a
+    /// `&dyn Reflect`.
     fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the value of the field with index `index`
+    /// as a `&mut dyn Reflect`.
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Returns the name of the field with index `index`.
     fn name_at(&self, index: usize) -> Option<&str>;
+
+    /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
+
+    /// Returns an iterator over the values of the struct's fields.
     fn iter_fields(&self) -> FieldIter;
+
+    /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
 }
 
+/// An iterator over the field values of a struct.
 pub struct FieldIter<'a> {
     pub(crate) struct_val: &'a dyn Struct,
     pub(crate) index: usize,
@@ -46,8 +92,33 @@ impl<'a> Iterator for FieldIter<'a> {
 
 impl<'a> ExactSizeIterator for FieldIter<'a> {}
 
+/// A convenience trait which combines fetching and downcasting of struct
+/// fields.
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{GetField, Reflect};
+///
+/// #[derive(Reflect)]
+/// struct Foo {
+///     bar: String,
+/// }
+///
+/// # fn main() {
+/// let mut foo = Foo { bar: "Hello, world!".to_string() };
+///
+/// foo.get_field_mut::<String>("bar").unwrap().truncate(5);
+/// assert_eq!(foo.get_field::<String>("bar"), Some(&"Hello".to_string()));
+/// # }
+/// ```
 pub trait GetField {
+    /// Returns a reference to the value of the field named `name`, downcast to
+    /// `T`.
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
+
+    /// Returns a mutable reference to the value of the field named `name`,
+    /// downcast to `T`.
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T>;
 }
 
@@ -73,6 +144,7 @@ impl GetField for dyn Struct {
     }
 }
 
+/// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
     name: String,
@@ -82,14 +154,19 @@ pub struct DynamicStruct {
 }
 
 impl DynamicStruct {
+    /// Returns the name of the struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Sets the name of the struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
+    /// Inserts a field named `name` with value `value` into the struct.
+    ///
+    /// If the field already exists, it is overwritten.
     pub fn insert_boxed(&mut self, name: &str, value: Box<dyn Reflect>) {
         let name = Cow::Owned(name.to_string());
         match self.field_indices.entry(name) {
@@ -104,6 +181,9 @@ impl DynamicStruct {
         }
     }
 
+    /// Inserts a field named `name` with the typed value `value` into the struct.
+    ///
+    /// If the field already exists, it is overwritten.
     pub fn insert<T: Reflect>(&mut self, name: &str, value: T) {
         if let Some(index) = self.field_indices.get(name) {
             self.fields[*index] = Box::new(value);

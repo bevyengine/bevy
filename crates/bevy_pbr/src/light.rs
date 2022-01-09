@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
@@ -33,7 +34,8 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -104,7 +106,8 @@ impl Default for PointLightShadowMap {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -207,6 +210,9 @@ pub struct Clusters {
     pub(crate) tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
     pub(crate) axis_slices: UVec3,
+    /// Distance to the far plane of the first depth slice. The first depth slice is special
+    /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
+    pub(crate) near: f32,
     aabbs: Vec<Aabb>,
     pub(crate) lights: Vec<VisiblePointLights>,
 }
@@ -216,6 +222,7 @@ impl Clusters {
         let mut clusters = Self {
             tile_size,
             axis_slices: Default::default(),
+            near: 5.0,
             aabbs: Default::default(),
             lights: Default::default(),
         };
@@ -243,6 +250,8 @@ impl Clusters {
             (screen_size.y + 1) / tile_size.y,
             z_slices,
         );
+        // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
+        assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
     }
 }
 
@@ -317,11 +326,15 @@ fn compute_aabb_for_cluster(
         let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
 
         let z_far_over_z_near = -z_far / -z_near;
-        let cluster_near = -z_near * z_far_over_z_near.powf(ijk.z / cluster_dimensions.z as f32);
+        let cluster_near = if ijk.z == 0.0 {
+            0.0
+        } else {
+            -z_near * z_far_over_z_near.powf((ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
+        };
         // NOTE: This could be simplified to:
         // cluster_far = cluster_near * z_far_over_z_near;
         let cluster_far =
-            -z_near * z_far_over_z_near.powf((ijk.z + 1.0) / cluster_dimensions.z as f32);
+            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32);
 
         // Calculate the four intersection points of the min and max points with the cluster near and far planes
         let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
@@ -384,7 +397,7 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
             for x in 0..clusters.axis_slices.x {
                 for z in 0..clusters.axis_slices.z {
                     aabbs.push(compute_aabb_for_cluster(
-                        camera.near,
+                        clusters.near,
                         camera.far,
                         tile_size,
                         screen_size,
@@ -425,13 +438,19 @@ impl VisiblePointLights {
     }
 }
 
-fn view_z_to_z_slice(cluster_factors: Vec2, view_z: f32, is_orthographic: bool) -> u32 {
+fn view_z_to_z_slice(
+    cluster_factors: Vec2,
+    z_slices: f32,
+    view_z: f32,
+    is_orthographic: bool,
+) -> u32 {
     if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
         ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        ((-view_z).ln() * cluster_factors.x - cluster_factors.y).floor() as u32
+        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0).clamp(0.0, z_slices - 1.0)
+            as u32
     }
 }
 
@@ -446,7 +465,12 @@ fn ndc_position_to_cluster(
     let frag_coord =
         (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
-    let z_slice = view_z_to_z_slice(cluster_factors, view_z, is_orthographic);
+    let z_slice = view_z_to_z_slice(
+        cluster_factors,
+        cluster_dimensions.z as f32,
+        view_z,
+        is_orthographic,
+    );
     xy.as_uvec2()
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
@@ -471,7 +495,8 @@ pub fn assign_lights_to_clusters(
         let cluster_count = clusters.aabbs.len();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let cluster_factors = calculate_cluster_factors(
-            camera.near,
+            // NOTE: Using the special cluster near value
+            clusters.near,
             camera.far,
             clusters.axis_slices.z as f32,
             is_orthographic,

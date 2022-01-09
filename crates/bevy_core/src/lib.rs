@@ -1,20 +1,21 @@
-mod bytes;
+#![warn(missing_docs)]
+//! This crate provides core functionality for Bevy Engine.
+
 mod float_ord;
-mod label;
 mod name;
 mod task_pool_options;
 mod time;
 
-pub use bytes::*;
+pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use float_ord::*;
-pub use label::*;
 pub use name::*;
 pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
+    //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
 }
 
 use bevy_app::prelude::*;
@@ -30,6 +31,7 @@ use std::ops::Range;
 #[derive(Default)]
 pub struct CorePlugin;
 
+/// A `SystemLabel` enum for ordering systems relative to core Bevy systems.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
 pub enum CoreSystem {
     /// Updates the elapsed time. Any system that interacts with [Time] component should run after
@@ -47,13 +49,11 @@ impl Plugin for CorePlugin {
             .create_default_pools(&mut app.world);
 
         app.init_resource::<Time>()
-            .init_resource::<EntityLabels>()
             .init_resource::<FixedTimesteps>()
             .register_type::<HashSet<String>>()
             .register_type::<Option<String>>()
             .register_type::<Entity>()
             .register_type::<Name>()
-            .register_type::<Labels>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
@@ -61,9 +61,7 @@ impl Plugin for CorePlugin {
             .add_system_to_stage(
                 CoreStage::First,
                 time_system.exclusive_system().label(CoreSystem::Time),
-            )
-            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system)
-            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system);
+            );
 
         register_rust_types(app);
         register_math_types(app);

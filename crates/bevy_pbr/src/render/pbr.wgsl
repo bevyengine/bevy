@@ -244,14 +244,22 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
         return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
+        return min(
+            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
+            lights.cluster_dimensions.z - 1u
+        );
     }
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
     let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(view_z, is_orthographic);
-    return (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice;
+    // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
+    // arrays based on the cluster index.
+    return min(
+        (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice,
+        lights.cluster_dimensions.w - 1u
+    );
 }
 
 struct ClusterOffsetAndCount {

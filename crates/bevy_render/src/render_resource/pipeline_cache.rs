@@ -407,46 +407,86 @@ impl RenderPipelineCache {
     }
 }
 
-fn log_shader_error(source: &ProcessedShader, err: &AsModuleDescriptorError) {
+fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
     use codespan_reporting::{
         diagnostic::{Diagnostic, Label},
         files::SimpleFile,
         term,
     };
 
-    if let ProcessedShader::Wgsl(source) = source {
-        if let AsModuleDescriptorError::ShaderReflectError(err) = err {
-            match err {
-                ShaderReflectError::WgslParse(parse) => {
-                    let msg = parse.emit_to_string(source);
-                    error!("failed to process shader:\n{}", msg);
-                }
-                ShaderReflectError::Validation(error) => {
-                    let files = SimpleFile::new("wgsl", &source);
-                    let config = term::Config::default();
-                    let mut writer = term::termcolor::Ansi::new(Vec::new());
+    match error {
+        AsModuleDescriptorError::ShaderReflectError(error) => match error {
+            ShaderReflectError::WgslParse(error) => {
+                let source = source
+                    .get_wgsl_source()
+                    .expect("non-wgsl source for wgsl error");
+                let msg = error.emit_to_string(source);
+                error!("failed to process shader:\n{}", msg);
+            }
+            ShaderReflectError::GlslParse(errors) => {
+                let source = source
+                    .get_glsl_source()
+                    .expect("non-glsl source for glsl error");
+                let files = SimpleFile::new("glsl", source);
+                let config = codespan_reporting::term::Config::default();
+                let mut writer = term::termcolor::Ansi::new(Vec::new());
 
-                    let diagnostic = Diagnostic::error().with_labels(
-                        error
-                            .spans()
-                            .map(|(span, desc)| {
-                                Label::primary((), span.to_range().unwrap())
-                                    .with_message(desc.to_owned())
-                            })
-                            .collect(),
-                    );
+                for err in errors {
+                    let mut diagnostic = Diagnostic::error().with_message(err.kind.to_string());
+
+                    if let Some(range) = err.meta.to_range() {
+                        diagnostic = diagnostic.with_labels(vec![Label::primary((), range)]);
+                    }
 
                     term::emit(&mut writer, &config, &files, &diagnostic)
                         .expect("cannot write error");
-
-                    let msg = writer.into_inner();
-                    let msg = String::from_utf8_lossy(&msg);
-
-                    error!("failed to process shader: \n{}", msg);
                 }
-                ShaderReflectError::GlslParse(_) => {}
-                ShaderReflectError::SpirVParse(_) => {}
+
+                let msg = writer.into_inner();
+                let msg = String::from_utf8_lossy(&msg);
+
+                error!("failed to process shader: \n{}", msg);
             }
+            ShaderReflectError::SpirVParse(error) => {
+                error!("failed to process shader:\n{}", error);
+            }
+            ShaderReflectError::Validation(error) => {
+                let (filename, source) = match source {
+                    ProcessedShader::Wgsl(source) => ("wgsl", source.as_ref()),
+                    ProcessedShader::Glsl(source, _) => ("glsl", source.as_ref()),
+                    ProcessedShader::SpirV(_) => {
+                        error!("failed to process shader:\n{}", error);
+                        return;
+                    }
+                };
+
+                let files = SimpleFile::new(filename, source);
+                let config = term::Config::default();
+                let mut writer = term::termcolor::Ansi::new(Vec::new());
+
+                let diagnostic = Diagnostic::error().with_labels(
+                    error
+                        .spans()
+                        .map(|(span, desc)| {
+                            Label::primary((), span.to_range().unwrap())
+                                .with_message(desc.to_owned())
+                        })
+                        .collect(),
+                );
+
+                term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
+
+                let msg = writer.into_inner();
+                let msg = String::from_utf8_lossy(&msg);
+
+                error!("failed to process shader: \n{}", msg);
+            }
+        },
+        AsModuleDescriptorError::WgslConversion(error) => {
+            error!("failed to convert shader to wgsl: \n{}", error);
+        }
+        AsModuleDescriptorError::SpirVConversion(error) => {
+            error!("failed to convert shader to spirv: \n{}", error);
         }
     }
 }

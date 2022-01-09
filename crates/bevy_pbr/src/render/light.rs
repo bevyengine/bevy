@@ -15,6 +15,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::Mesh,
+    options::WgpuOptions,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -129,6 +130,7 @@ pub struct GpuLights {
     // TODO: this comes first to work around a WGSL alignment issue. We need to solve this issue before releasing the renderer rework
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
     ambient_color: Vec4,
+    // xyz are x/y/z cluster dimensions and w is the number of clusters
     cluster_dimensions: UVec4,
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     // z is cluster_dimensions.z / log(far / near)
@@ -214,6 +216,32 @@ bitflags::bitflags! {
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
         const VERTEX_TANGENTS    = (1 << 0);
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+    }
+}
+
+impl ShadowPipelineKey {
+    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = 32 - 3;
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        Self::from_bits(primitive_topology_bits).unwrap()
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits =
+            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
     }
 }
 
@@ -291,7 +319,7 @@ impl SpecializedPipeline for ShadowPipeline {
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -323,6 +351,8 @@ impl SpecializedPipeline for ShadowPipeline {
 
 #[derive(Component)]
 pub struct ExtractedClusterConfig {
+    /// Special near value for cluster calculations
+    near: f32,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -339,6 +369,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
                 data: clusters.lights.clone(),
             },
             ExtractedClusterConfig {
+                near: clusters.near,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -551,7 +582,7 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / (far / near).ln();
         Vec2::new(
             z_slices_of_ln_zfar_over_znear,
             near.ln() * z_slices_of_ln_zfar_over_znear,
@@ -576,6 +607,7 @@ pub fn prepare_lights(
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
+    wgpu_options: Res<WgpuOptions>,
 ) {
     light_meta.view_gpu_lights.clear();
 
@@ -664,8 +696,10 @@ pub fn prepare_lights(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
-                    width: directional_light_shadow_map.size as u32,
-                    height: directional_light_shadow_map.size as u32,
+                    width: (directional_light_shadow_map.size as u32)
+                        .min(wgpu_options.limits.max_texture_dimension_2d),
+                    height: (directional_light_shadow_map.size as u32)
+                        .min(wgpu_options.limits.max_texture_dimension_2d),
                     depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,
@@ -680,12 +714,13 @@ pub fn prepare_lights(
 
         let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
-            extracted_view.near,
+            clusters.near,
             extracted_view.far,
             clusters.axis_slices.z as f32,
             is_orthographic,
         );
 
+        let n_clusters = clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z;
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
@@ -696,7 +731,7 @@ pub fn prepare_lights(
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
-            cluster_dimensions: clusters.axis_slices.extend(0),
+            cluster_dimensions: clusters.axis_slices.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
@@ -1093,6 +1128,7 @@ pub fn queue_shadows(
                         if mesh.has_tangents {
                             key |= ShadowPipelineKey::VERTEX_TANGENTS;
                         }
+                        key |= ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     }
                     let pipeline_id =
                         pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);

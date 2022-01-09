@@ -38,7 +38,6 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
-    render_component::ExtractComponentPlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
@@ -68,9 +67,11 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl(include_str!("render/depth.wgsl")),
         );
 
-        app.add_plugin(MeshRenderPlugin)
+        app.register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<PointLight>()
+            .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
-            .add_plugin(ExtractComponentPlugin::<Handle<StandardMaterial>>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -137,7 +138,11 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,

@@ -37,7 +37,6 @@ impl From<Torus> for Mesh {
 
         for segment in 0..=torus.subdivisions_segments {
             let theta = segment_stride * segment as f32;
-            let segment_pos = Vec3::new(theta.cos(), 0.0, theta.sin() * torus.radius);
 
             for side in 0..=torus.subdivisions_sides {
                 let phi = side_stride * side as f32;
@@ -46,7 +45,14 @@ impl From<Torus> for Mesh {
                 let z = theta.sin() * (torus.radius + torus.ring_radius * phi.cos());
                 let y = torus.ring_radius * phi.sin();
 
-                let normal = segment_pos.cross(Vec3::Y).normalize();
+                let tan_ring = Vec3::new(
+                    theta.cos() * phi.sin() * -1.0,
+                    theta.sin() * phi.sin() * -1.0,
+                    phi.cos(),
+                );
+                let tan = Vec3::new(theta.sin() * -1.0, theta.cos(), 0.0);
+
+                let normal = tan.cross(tan_ring).normalize();
 
                 positions.push([x, y, z]);
                 normals.push(normal.into());

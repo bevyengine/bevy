@@ -9,7 +9,7 @@ use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
-use wgpu::{ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -172,12 +172,7 @@ impl ProcessedShader {
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
-                ProcessedShader::SpirV(_) => {
-                    // TODO: we can probably just transmute the u8 array to u32?
-                    let reflection = self.reflect()?;
-                    let spirv = reflection.get_spirv()?;
-                    ShaderSource::SpirV(Cow::Owned(spirv))
-                }
+                ProcessedShader::SpirV(source) => make_spirv(source),
             },
         })
     }
@@ -313,7 +308,7 @@ impl ShaderImportProcessor {
 
     pub fn get_imports_from_str(&self, shader: &str) -> Vec<ShaderImport> {
         let mut imports = Vec::new();
-        for line in shader.split('\n') {
+        for line in shader.lines() {
             if let Some(cap) = self.import_asset_path_regex.captures(line) {
                 let import = cap.get(1).unwrap();
                 imports.push(ShaderImport::AssetPath(import.as_str().to_string()));
@@ -371,7 +366,7 @@ impl ShaderProcessor {
         let shader_defs_unique = HashSet::<String>::from_iter(shader_defs.iter().cloned());
         let mut scopes = vec![true];
         let mut final_string = String::new();
-        for line in shader_str.split('\n') {
+        for line in shader_str.lines() {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
                 scopes.push(*scopes.last().unwrap() && shader_defs_unique.contains(def.as_str()));
@@ -422,7 +417,6 @@ impl ShaderProcessor {
                 final_string.push('\n');
             }
         }
-        final_string.pop();
 
         if scopes.len() != 1 {
             return Err(ProcessShaderError::NotEnoughEndIfs);

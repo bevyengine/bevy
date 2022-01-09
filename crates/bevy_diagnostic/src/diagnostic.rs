@@ -27,7 +27,7 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
-/// A timeline of [DiagnosticMeasurement]s of a specific type.
+/// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
 pub struct Diagnostic {

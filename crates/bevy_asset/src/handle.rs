@@ -69,12 +69,38 @@ impl HandleId {
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
 /// collection.
+///
+/// # Accessing the Asset
+///
+/// A handle is _not_ the asset itself, but should be seen as a pointer to the asset. Modifying a
+/// handle's `id` only modifies which asset is being pointed to. To get the actual asset, try using
+/// [`Assets::get`](crate::Assets::get) or [`Assets::get_mut`](crate::Assets::get_mut).
+///
+/// # Strong and Weak
+///
+/// A handle can be either "Strong" or "Weak". Simply put: Strong handles keep the asset loaded,
+/// while Weak handles do not affect the loaded status of assets. This is due to a type of
+/// _reference counting_. When the number of Strong handles that exist for any given asset reach
+/// zero, the asset is dropped and becomes unloaded. In some cases, you might want a reference to an
+/// asset but don't want to take the responsibility of keeping it loaded that comes with a Strong handle.
+/// This is where a Weak handle can be very useful.
+///
+/// For example, imagine you have a `Sprite` component and a `Collider` component. The `Collider` uses
+/// the `Sprite`'s image size to check for collisions. It does so by keeping a Weak copy of the
+/// `Sprite`'s Strong handle to the image asset.
+///
+/// If the `Sprite` is removed, its Strong handle to the image is dropped with it. And since it was the
+/// only Strong handle for that asset, the asset is unloaded. Our `Collider` component still has a Weak
+/// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
+/// collisions no longer being detected for that entity.
+///
 #[derive(Component, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Handle<T>
 where
     T: Asset,
 {
+    /// The ID of the asset as contained within its respective [Assets](crate::Assets) collection
     pub id: HandleId,
     #[reflect(ignore)]
     handle_type: HandleType,
@@ -123,6 +149,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
+    /// Get a copy of this handle as a Weak handle
     pub fn as_weak<U: Asset>(&self) -> Handle<U> {
         Handle {
             id: self.id,
@@ -139,6 +166,9 @@ impl<T: Asset> Handle<T> {
         matches!(self.handle_type, HandleType::Strong(_))
     }
 
+    /// Makes this handle Strong if it wasn't already.
+    ///
+    /// This method requires the corresponding [Assets](crate::Assets) collection
     pub fn make_strong(&mut self, assets: &mut Assets<T>) {
         if self.is_strong() {
             return;
@@ -266,6 +296,8 @@ impl<T: Asset> Clone for Handle<T> {
 ///
 /// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and
 /// `Handle<B>` in the same `HashSet<HandleUntyped>`.
+///
+/// To convert back to a typed handle, use the [typed](HandleUntyped::typed) method.
 #[derive(Debug)]
 pub struct HandleUntyped {
     pub id: HandleId,
@@ -307,6 +339,9 @@ impl HandleUntyped {
         matches!(self.handle_type, HandleType::Strong(_))
     }
 
+    /// Convert this handle into a typed [Handle].
+    ///
+    /// The new handle will maintain the Strong or Weak status of the current handle.
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
             if T::TYPE_UUID != type_uuid {

@@ -34,7 +34,7 @@ impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration);
+impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(u8);
@@ -362,5 +362,15 @@ impl GetTypeRegistration for Cow<'static, str> {
 impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         Some(reflect.any().downcast_ref::<Cow<'static, str>>()?.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Reflect;
+
+    #[test]
+    fn can_serialize_duration() {
+        assert!(std::time::Duration::ZERO.serializable().is_some())
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -45,15 +45,17 @@ render = [
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
-bevy_render = ["bevy_internal/bevy_render"]
-bevy_text = ["bevy_internal/bevy_text"]
-bevy_pbr = ["bevy_internal/bevy_pbr"]
-bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
+# Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
@@ -82,24 +84,25 @@ serialize = ["bevy_internal/serialize"]
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
+# Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false, features = ["webgl"] }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = ["webgl"] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
+bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 
@@ -115,6 +118,14 @@ path = "examples/2d/contributors.rs"
 [[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
+
+[[example]]
+name = "mesh2d"
+path = "examples/2d/mesh2d.rs"
+
+[[example]]
+name = "mesh2d_manual"
+path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
 name = "rect"
@@ -182,6 +193,10 @@ name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
 [[example]]
+name = "spherical_area_lights"
+path = "examples/3d/spherical_area_lights.rs"
+
+[[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
 
@@ -233,6 +248,10 @@ path = "examples/app/return_after_run.rs"
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
+
+[[example]]
+name = "headless_defaults"
+path = "examples/app/headless_defaults.rs"
 
 [[example]]
 name = "without_winit"
@@ -411,6 +430,22 @@ path = "examples/shader/shader_defs.rs"
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_glsl"
+path = "examples/shader/shader_material_glsl.rs"
+
+[[example]]
+name = "shader_instancing"
+path = "examples/shader/shader_instancing.rs"
+
+[[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
+[[example]]
+name = "compute_shader_game_of_life"
+path = "examples/shader/compute_shader_game_of_life.rs"
 
 # Tools
 [[example]]

@@ -64,7 +64,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 #[derive(Default)]
 pub struct LogPlugin;
 
-/// LogPlugin settings
+/// `LogPlugin` settings
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
