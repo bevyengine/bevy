@@ -141,9 +141,9 @@ If you run into issues with building basic apps or activating the GPU ('thread '
   with pkgs;
   mkShell {
 +   shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
-+     pkgs.alsaLib
-+     pkgs.udev
-+     pkgs.vulkan-loader
++     alsaLib
++     udev
++     vulkan-loader
 +   ]}"'';
     buildInputs = [
 ```
