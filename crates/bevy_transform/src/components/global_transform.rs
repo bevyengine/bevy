@@ -175,7 +175,7 @@ impl GlobalTransform {
         self.rotation * Vec3::Z
     }
 
-    /// Equivalent to [`-local_z()`][[GlobalTransform::local_z]
+    /// Equivalent to [`-local_z()`][GlobalTransform::local_z]
     #[inline]
     pub fn forward(&self) -> Vec3 {
         -self.local_z()

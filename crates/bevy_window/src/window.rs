@@ -256,7 +256,7 @@ impl Window {
     }
 
     /// The requested window client area width in logical pixels from window
-    /// creation or the last call to [set_resolution](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](Window::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -266,7 +266,7 @@ impl Window {
     }
 
     /// The requested window client area height in logical pixels from window
-    /// creation or the last call to [set_resolution](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](Window::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -403,7 +403,7 @@ impl Window {
     }
 
     /// The window scale factor as reported by the window backend.
-    /// This value is unaffected by scale_factor_override.
+    /// This value is unaffected by [`scale_factor_override`](Window::scale_factor_override).
     #[inline]
     pub fn backend_scale_factor(&self) -> f64 {
         self.backend_scale_factor

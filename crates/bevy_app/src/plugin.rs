@@ -15,5 +15,6 @@ pub trait Plugin: Any + Send + Sync {
 }
 
 /// Type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// Used for dynamically loading plugins. See bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin
+/// Used for dynamically loading plugins. See
+/// `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
