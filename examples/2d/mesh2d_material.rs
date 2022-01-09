@@ -31,10 +31,7 @@ fn setup(
     let size = Vec2::new(300.0, 300.0);
 
     let material = materials.add(Custom2dMaterial {
-        color: Vec4::new(1.0, 0.0, 0.0, 1.0),
-        size,
-        transparencies: [0.5, 0.2, 0.3, 0.5, 0.7],
-        positions: [0.5, 0.75, 0.875, 0.9375, 0.96875],
+        color: Vec4::new(0.65, 0.0, 0.5, 1.0),
     });
 
     // quad
@@ -51,9 +48,6 @@ fn setup(
 #[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
 pub struct Custom2dMaterial {
     pub color: Vec4,
-    pub size: Vec2,
-    pub transparencies: [f32; 5],
-    pub positions: [f32; 5],
 }
 
 #[derive(Clone)]
@@ -64,7 +58,7 @@ pub struct GpuCustom2dMaterial {
 
 impl Material2d for Custom2dMaterial {
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        Some(asset_server.load("shaders/custom_2d_material.wgsl"))
+        Some(asset_server.load("shaders/custom_material.wgsl"))
     }
 
     fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
