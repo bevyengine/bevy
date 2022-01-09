@@ -108,6 +108,10 @@ pub trait Fetch<'world, 'state>: Sized {
     /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
     /// current table
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item;
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(std::mem::size_of::<Self::Item>()))
+    }
 }
 
 /// State used to construct a Fetch. This will be cached inside [`QueryState`](crate::query::QueryState),
