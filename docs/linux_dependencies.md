@@ -148,6 +148,24 @@ If you run into issues with building basic apps or activating the GPU ('thread '
     buildInputs = [
 ```
 
+### Wayland support
+
+For wayland support, add the `wayland` and `libxkbcommon` packages to the `makeLibraryPath` inputs in your `shell.nix`:
+
+``` diff
+  { pkgs ? import <nixpkgs> { } }:
+  with pkgs;
+  mkShell {
+    shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
+      alsaLib
+      udev
+      vulkan-loader
++     wayland
++     libxkbcommon
+    ]}"'';
+    buildInputs = [
+```
+
 ## Opensuse Tumbleweed
 
 ```bash
