@@ -319,6 +319,10 @@ path = "examples/asset/custom_asset_io.rs"
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 
+[[example]]
+name = "loading_screen"
+path = "examples/asset/loading_screen.rs"
+
 # Async Tasks
 [[example]]
 name = "async_compute"
