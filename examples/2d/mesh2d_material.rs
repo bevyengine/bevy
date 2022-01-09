@@ -30,9 +30,6 @@ fn setup(
 ) {
     let size = Vec2::new(300.0, 300.0);
 
-    // quad
-    let mesh_handle = Mesh2dHandle(meshes.add(Mesh::from(shape::Quad::new(size))));
-
     let material = materials.add(Custom2dMaterial {
         color: Vec4::new(1.0, 0.0, 0.0, 1.0),
         size,
@@ -40,8 +37,9 @@ fn setup(
         positions: [0.5, 0.75, 0.875, 0.9375, 0.96875],
     });
 
+    // quad
     commands.spawn().insert_bundle(MaterialMesh2dBundle {
-        mesh: mesh_handle.clone(),
+        mesh: Mesh2dHandle(meshes.add(Mesh::from(shape::Quad::new(size)))),
         material,
         ..Default::default()
     });
