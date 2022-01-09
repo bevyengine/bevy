@@ -36,7 +36,7 @@ pub enum AssetIoError {
     #[error("encountered an io error while loading asset: {0}")]
     Io(#[from] io::Error),
 
-    /// Failed to watch patch.
+    /// Failed to watch path.
     #[error("failed to watch path: {0}")]
     PathWatchError(PathBuf),
 }
