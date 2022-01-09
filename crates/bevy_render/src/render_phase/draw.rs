@@ -110,7 +110,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
     }
 }
 
-/// RenderCommand is a trait that runs an ECS query and produces one or more
+/// [`RenderCommand`] is a trait that runs an ECS query and produces one or more
 /// [`TrackedRenderPass`] calls. Types implementing this trait can be composed (as tuples).
 ///
 /// They can be registered as a [`Draw`] function via the

@@ -27,7 +27,7 @@ pub trait RenderAsset: Asset {
     /// The GPU-representation of the the asset.
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
-    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
     /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
     fn extract_asset(&self) -> Self::ExtractedAsset;

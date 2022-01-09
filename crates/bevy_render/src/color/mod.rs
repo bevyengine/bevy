@@ -381,7 +381,7 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from sRBG colorspace
+    /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
     pub fn as_rgba_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {

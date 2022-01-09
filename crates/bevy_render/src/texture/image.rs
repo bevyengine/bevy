@@ -189,7 +189,7 @@ impl Image {
     }
 
     /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
-    /// crate`
+    /// crate
     pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
