@@ -128,6 +128,10 @@ name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
+name = "mesh2d_material"
+path = "examples/2d/mesh2d_material.rs"
+
+[[example]]
 name = "rect"
 path = "examples/2d/rect.rs"
 
