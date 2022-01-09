@@ -101,7 +101,7 @@ impl Material for CustomMaterial {
 
     // For this example we don't need a vertex shader
     // fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-    //     // Use the same path as the fragment shader since wgsl let's you define both sahder in the same file
+    //     // Use the same path as the fragment shader since wgsl let's you define both shader in the same file
     //     Some(asset_server.load("shaders/custom_material.wgsl"))
     // }
 
