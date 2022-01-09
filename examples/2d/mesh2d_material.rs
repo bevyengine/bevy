@@ -45,7 +45,7 @@ fn setup(
 }
 
 #[derive(Debug, Clone, TypeUuid, AsStd140)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[uuid = "da63852d-f82b-459d-9790-3e652f92eaf7"]
 pub struct Custom2dMaterial {
     pub color: Vec4,
 }
