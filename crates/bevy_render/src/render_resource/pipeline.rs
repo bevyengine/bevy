@@ -159,22 +159,14 @@ impl VertexBufferLayout {
     ///
     /// The shader location is determined based on insertion order.
     pub fn push(&mut self, name: &str, format: VertexFormat) {
-        let shader_location = if let Some(attribute) = self.attributes.last() {
-            attribute.shader_location + 1
-        } else {
-            0
-        };
+        let shader_location = self.attributes.last().map_or(0, |attr| attr.shader_location + 1);
 
         self.push_location(name, format, shader_location)
     }
 
     /// Push a vertex attribute descriptor to the end of the list with an exact shader location.
     pub fn push_location(&mut self, name: &str, format: VertexFormat, shader_location: u32) {
-        let offset = if let Some(attribute) = self.attributes.last() {
-            attribute.offset + attribute.format.size()
-        } else {
-            0
-        };
+        let offset = self.attributes.last().map_or(0, |attr| attr.offset + attr.format.size());
 
         self.array_stride += format.size();
         self.attribute_names
