@@ -56,7 +56,7 @@ impl FlexSurface {
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
         let mut added = false;
         let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
+        let stretch_style = convert::style_to_style(scale_factor, style);
         let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
             added = true;
             stretch.new_node(stretch_style, Vec::new()).unwrap()
@@ -77,9 +77,9 @@ impl FlexSurface {
         scale_factor: f64,
     ) {
         let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
+        let stretch_style = convert::style_to_style(scale_factor, style);
         let measure = Box::new(move |constraints: stretch::geometry::Size<Number>| {
-            let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+            let mut size = convert::size_to_f32_size(scale_factor, calculated_size.size);
             match (constraints.width, constraints.height) {
                 (Number::Undefined, Number::Undefined) => {}
                 (Number::Defined(width), Number::Undefined) => {

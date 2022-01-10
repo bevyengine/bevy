@@ -9,7 +9,7 @@ use bevy_render::{
 };
 use bevy_sprite::Rect;
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
@@ -62,11 +62,81 @@ impl AddAssign<f32> for Val {
     }
 }
 
+impl Sub<f32> for Val {
+    type Output = Val;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value - rhs),
+            Val::Percent(value) => Val::Percent(value - rhs),
+        }
+    }
+}
+
+impl SubAssign<f32> for Val {
+    fn sub_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) => *value -= rhs,
+            Val::Percent(value) => *value -= rhs,
+        }
+    }
+}
+
+impl Mul<f32> for Val {
+    type Output = Val;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value * rhs),
+            Val::Percent(value) => Val::Percent(value * rhs),
+        }
+    }
+}
+
+impl MulAssign<f32> for Val {
+    fn mul_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) => *value *= rhs,
+            Val::Percent(value) => *value *= rhs,
+        }
+    }
+}
+
+impl Div<f32> for Val {
+    type Output = Val;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value / rhs),
+            Val::Percent(value) => Val::Percent(value / rhs),
+        }
+    }
+}
+
+impl DivAssign<f32> for Val {
+    fn div_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) => *value /= rhs,
+            Val::Percent(value) => *value /= rhs,
+        }
+    }
+}
+
 /// Describes the style of a UI node
 ///
 /// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
 ///
-/// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
+/// **Note:** Bevy's UI is upside down compared to how Flexbox normally works,
+/// to stay consistent with engine paradigms about layouting from
 /// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, PartialEq)]

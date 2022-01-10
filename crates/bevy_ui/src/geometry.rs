@@ -1,3 +1,4 @@
+use crate::Val;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -19,16 +20,16 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 /// assert_eq!(size.width, Val::Px(100.0));
 /// assert_eq!(size.height, Val::Px(200.0));
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct Size<T: Reflect + PartialEq = f32> {
+pub struct Size {
     /// The width of the 2-dimensional area.
-    pub width: T,
+    pub width: Val,
     /// The height of the 2-dimensional area.
-    pub height: T,
+    pub height: Val,
 }
 
-impl<T: Reflect + PartialEq> Size<T> {
+impl Size {
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -41,17 +42,80 @@ impl<T: Reflect + PartialEq> Size<T> {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: T, height: T) -> Self {
+    pub fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 }
 
-impl<T: Default + Reflect + PartialEq> Default for Size<T> {
-    fn default() -> Self {
+impl Add<Vec2> for Size {
+    type Output = Size;
+
+    fn add(self, rhs: Vec2) -> Self::Output {
         Self {
-            width: Default::default(),
-            height: Default::default(),
+            width: self.width + rhs.x,
+            height: self.height + rhs.y,
         }
+    }
+}
+
+impl AddAssign<Vec2> for Size {
+    fn add_assign(&mut self, rhs: Vec2) {
+        self.width += rhs.x;
+        self.height += rhs.y;
+    }
+}
+
+impl Sub<Vec2> for Size {
+    type Output = Size;
+
+    fn sub(self, rhs: Vec2) -> Self::Output {
+        Self {
+            width: self.width - rhs.x,
+            height: self.height - rhs.y,
+        }
+    }
+}
+
+impl SubAssign<Vec2> for Size {
+    fn sub_assign(&mut self, rhs: Vec2) {
+        self.width -= rhs.x;
+        self.height -= rhs.y;
+    }
+}
+
+impl Mul<f32> for Size {
+    type Output = Size;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            width: self.width * rhs,
+            height: self.height * rhs,
+        }
+    }
+}
+
+impl MulAssign<f32> for Size {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.width *= rhs;
+        self.height *= rhs;
+    }
+}
+
+impl Div<f32> for Size {
+    type Output = Size;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            width: self.width / rhs,
+            height: self.height / rhs,
+        }
+    }
+}
+
+impl DivAssign<f32> for Size {
+    fn div_assign(&mut self, rhs: f32) {
+        self.width /= rhs;
+        self.height /= rhs;
     }
 }
 
@@ -153,20 +217,20 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 /// assert_eq!(border.top, Val::Px(20.0));
 /// assert_eq!(border.bottom, Val::Px(40.0));
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect<T: Reflect + PartialEq> {
+pub struct UiRect {
     /// The left value of the [`UiRect`].
-    pub left: T,
+    pub left: Val,
     /// The right value of the [`UiRect`].
-    pub right: T,
+    pub right: Val,
     /// The top value of the [`UiRect`].
-    pub top: T,
+    pub top: Val,
     /// The bottom value of the [`UiRect`].
-    pub bottom: T,
+    pub bottom: Val,
 }
 
-impl<T: Reflect + PartialEq> UiRect<T> {
+impl UiRect {
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -186,7 +250,7 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: T, right: T, top: T, bottom: T) -> Self {
+    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -209,149 +273,44 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: T) -> Self
-    where
-        T: Clone,
-    {
+    pub fn all(value: Val) -> Self {
         UiRect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
+            left: value,
+            right: value,
+            top: value,
             bottom: value,
         }
-    }
-}
-
-impl<T: Default + Reflect + PartialEq> Default for UiRect<T> {
-    fn default() -> Self {
-        Self {
-            left: Default::default(),
-            right: Default::default(),
-            top: Default::default(),
-            bottom: Default::default(),
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> Add<Vec2> for Size<T>
-where
-    T: Add<f32, Output = T>,
-{
-    type Output = Size<T>;
-
-    fn add(self, rhs: Vec2) -> Self::Output {
-        Self {
-            width: self.width + rhs.x,
-            height: self.height + rhs.y,
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> AddAssign<Vec2> for Size<T>
-where
-    T: AddAssign<f32>,
-{
-    fn add_assign(&mut self, rhs: Vec2) {
-        self.width += rhs.x;
-        self.height += rhs.y;
-    }
-}
-
-impl<T: Reflect + PartialEq> Sub<Vec2> for Size<T>
-where
-    T: Sub<f32, Output = T>,
-{
-    type Output = Size<T>;
-
-    fn sub(self, rhs: Vec2) -> Self::Output {
-        Self {
-            width: self.width - rhs.x,
-            height: self.height - rhs.y,
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> SubAssign<Vec2> for Size<T>
-where
-    T: SubAssign<f32>,
-{
-    fn sub_assign(&mut self, rhs: Vec2) {
-        self.width -= rhs.x;
-        self.height -= rhs.y;
-    }
-}
-
-impl<T: Reflect + PartialEq> Mul<f32> for Size<T>
-where
-    T: Mul<f32, Output = T>,
-{
-    type Output = Size<T>;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            width: self.width * rhs,
-            height: self.height * rhs,
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> MulAssign<f32> for Size<T>
-where
-    T: MulAssign<f32>,
-{
-    fn mul_assign(&mut self, rhs: f32) {
-        self.width *= rhs;
-        self.height *= rhs;
-    }
-}
-
-impl<T: Reflect + PartialEq> Div<f32> for Size<T>
-where
-    T: Div<f32, Output = T>,
-{
-    type Output = Size<T>;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            width: self.width / rhs,
-            height: self.height / rhs,
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> DivAssign<f32> for Size<T>
-where
-    T: DivAssign<f32>,
-{
-    fn div_assign(&mut self, rhs: f32) {
-        self.width /= rhs;
-        self.height /= rhs;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_math::Vec2;
 
     #[test]
     fn size_ops() {
-        type SizeF = Size<f32>;
-
         assert_eq!(
-            SizeF::new(10., 10.) + Vec2::new(10., 10.),
-            SizeF::new(20., 20.)
+            Size::new(Val::Px(10.), Val::Px(10.)) + Vec2::new(10., 10.),
+            Size::new(Val::Px(20.), Val::Px(20.))
         );
         assert_eq!(
-            SizeF::new(20., 20.) - Vec2::new(10., 10.),
-            SizeF::new(10., 10.)
+            Size::new(Val::Px(20.), Val::Px(20.)) - Vec2::new(10., 10.),
+            Size::new(Val::Px(10.), Val::Px(10.))
         );
-        assert_eq!(SizeF::new(10., 10.) * 2., SizeF::new(20., 20.));
-        assert_eq!(SizeF::new(20., 20.) / 2., SizeF::new(10., 10.));
+        assert_eq!(
+            Size::new(Val::Px(10.), Val::Px(10.)) * 2.,
+            Size::new(Val::Px(20.), Val::Px(20.))
+        );
+        assert_eq!(
+            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
+            Size::new(Val::Px(10.), Val::Px(10.))
+        );
 
-        let mut size = SizeF::new(10., 10.);
+        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
 
         size += Vec2::new(10., 10.);
 
-        assert_eq!(size, SizeF::new(20., 20.));
+        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
     }
 }

@@ -3,37 +3,41 @@ use crate::{
     JustifyContent, PositionType, Size, Style, UiRect, Val,
 };
 
-pub fn from_rect(
+/// Converts a [`UiRect`] to a [`stretch::geometry::Rect<stretch::style::Dimension>`] respecting the scale factor.
+pub fn uirect_to_rect(
     scale_factor: f64,
-    rect: UiRect<Val>,
+    rect: UiRect,
 ) -> stretch::geometry::Rect<stretch::style::Dimension> {
     stretch::geometry::Rect {
-        start: from_val(scale_factor, rect.left),
-        end: from_val(scale_factor, rect.right),
+        start: val_to_dimension(scale_factor, rect.left),
+        end: val_to_dimension(scale_factor, rect.right),
         // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
-        top: from_val(scale_factor, rect.bottom),
-        bottom: from_val(scale_factor, rect.top),
+        top: val_to_dimension(scale_factor, rect.bottom),
+        bottom: val_to_dimension(scale_factor, rect.top),
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> stretch::geometry::Size<f32> {
+/// Converts a [`Size`] to a [`stretch::geometry::Size<f32>`] respecting the scale factor.
+pub fn size_to_f32_size(scale_factor: f64, size: Size) -> stretch::geometry::Size<f32> {
     stretch::geometry::Size {
-        width: (scale_factor * size.width as f64) as f32,
-        height: (scale_factor * size.height as f64) as f32,
+        width: val_to_f32(scale_factor, size.width),
+        height: val_to_f32(scale_factor, size.height),
     }
 }
 
-pub fn from_val_size(
+/// Converts a [`Size`] to a [`stretch::geometry::Size<stretch::style::Dimension>`] respecting the scale factor.
+pub fn size_to_dimension_size(
     scale_factor: f64,
-    size: Size<Val>,
+    size: Size,
 ) -> stretch::geometry::Size<stretch::style::Dimension> {
     stretch::geometry::Size {
-        width: from_val(scale_factor, size.width),
-        height: from_val(scale_factor, size.height),
+        width: val_to_dimension(scale_factor, size.width),
+        height: val_to_dimension(scale_factor, size.height),
     }
 }
 
-pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
+/// Converts a [`Style`] to a [`stretch::style::Style`] respecting the scale factor.
+pub fn style_to_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
     stretch::style::Style {
         overflow: stretch::style::Overflow::Visible,
         display: value.display.into(),
@@ -45,16 +49,16 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
-        padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
+        position: uirect_to_rect(scale_factor, value.position),
+        margin: uirect_to_rect(scale_factor, value.margin),
+        padding: uirect_to_rect(scale_factor, value.padding),
+        border: uirect_to_rect(scale_factor, value.border),
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
-        flex_basis: from_val(scale_factor, value.flex_basis),
-        size: from_val_size(scale_factor, value.size),
-        min_size: from_val_size(scale_factor, value.min_size),
-        max_size: from_val_size(scale_factor, value.max_size),
+        flex_basis: val_to_dimension(scale_factor, value.flex_basis),
+        size: size_to_dimension_size(scale_factor, value.size),
+        min_size: size_to_dimension_size(scale_factor, value.min_size),
+        max_size: size_to_dimension_size(scale_factor, value.max_size),
         aspect_ratio: match value.aspect_ratio {
             Some(value) => stretch::number::Number::Defined(value),
             None => stretch::number::Number::Undefined,
@@ -62,12 +66,22 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
     }
 }
 
-pub fn from_val(scale_factor: f64, val: Val) -> stretch::style::Dimension {
+/// Converts a [`Val`] to a [`stretch::style::Dimension`] while respecting the scale factor.
+pub fn val_to_dimension(scale_factor: f64, val: Val) -> stretch::style::Dimension {
     match val {
-        Val::Auto => stretch::style::Dimension::Auto,
-        Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
-        Val::Px(value) => stretch::style::Dimension::Points((scale_factor * value as f64) as f32),
         Val::Undefined => stretch::style::Dimension::Undefined,
+        Val::Auto => stretch::style::Dimension::Auto,
+        Val::Px(value) => stretch::style::Dimension::Points((scale_factor * value as f64) as f32),
+        Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
+    }
+}
+
+/// Converts a [`Val`] to an [`f32`] while respecting the scale factor.
+pub fn val_to_f32(scale_factor: f64, val: Val) -> f32 {
+    match val {
+        Val::Undefined | Val::Auto => 0.0,
+        Val::Px(value) => (scale_factor * value as f64) as f32,
+        Val::Percent(value) => value / 100.0,
     }
 }
 
