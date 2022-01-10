@@ -9,7 +9,7 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ExtractedCameraNames},
+    camera::{ExtractedCamera, ExtractedCameraNames, Viewport},
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -81,6 +81,7 @@ pub struct ExtractedView {
     pub height: u32,
     pub near: f32,
     pub far: f32,
+    pub viewport: Option<Viewport>,
 }
 
 #[derive(Clone, AsStd140)]
@@ -148,6 +149,7 @@ fn prepare_view_uniforms(
         let projection = camera.projection;
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,

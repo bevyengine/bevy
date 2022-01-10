@@ -3,8 +3,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState},
-    query::Added,
+    prelude::{Changed, DetectChanges, QueryState},
     reflect::ReflectComponent,
     system::{QuerySet, Res},
 };
@@ -25,6 +24,60 @@ pub struct Camera {
     pub depth_calculation: DepthCalculation,
     pub near: f32,
     pub far: f32,
+    pub viewport: Option<Viewport>,
+}
+
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+pub struct Viewport {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    /// In range `0..=1`
+    pub min_depth: f32,
+    /// In range `0..=1`
+    pub max_depth: f32,
+
+    /// Whether `x`, `y`, `w` and `h` should be in range `0..=1` or in pixels
+    pub scaling_mode: ViewportScalingMode,
+}
+impl Default for Viewport {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            w: 1.0,
+            h: 1.0,
+            min_depth: 0.0,
+            max_depth: 1.0,
+            scaling_mode: ViewportScalingMode::Normalized,
+        }
+    }
+}
+
+impl Viewport {
+    pub fn scaled_pos(&self, target_size: Vec2) -> Vec2 {
+        let pos = Vec2::new(self.x, self.y);
+        match self.scaling_mode {
+            ViewportScalingMode::Normalized => pos * target_size,
+            ViewportScalingMode::Pixels => pos,
+        }
+    }
+    pub fn scaled_size(&self, target_size: Vec2) -> Vec2 {
+        let size = Vec2::new(self.w, self.h);
+        match self.scaling_mode {
+            ViewportScalingMode::Normalized => size * target_size,
+            ViewportScalingMode::Pixels => size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+pub enum ViewportScalingMode {
+    /// `x`, `y`, `w` and `h` are in `0..=1`
+    Normalized,
+    /// Pixel units
+    Pixels,
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -77,7 +130,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     windows: Res<Windows>,
     mut queries: QuerySet<(
         QueryState<(Entity, &mut Camera, &mut T)>,
-        QueryState<Entity, Added<Camera>>,
+        QueryState<Entity, Changed<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -111,7 +164,13 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || added_cameras.contains(&entity)
                 || camera_projection.is_changed()
             {
-                camera_projection.update(window.width(), window.height());
+                let target_size = Vec2::new(window.width(), window.height());
+                let size = camera
+                    .viewport
+                    .as_ref()
+                    .map(|viewport| viewport.scaled_size(target_size))
+                    .unwrap_or(target_size);
+                camera_projection.update(size.x, size.y);
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
             }

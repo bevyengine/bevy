@@ -166,6 +166,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "split_screen_viewport"
+path = "examples/3d/split_screen_viewport.rs"
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 

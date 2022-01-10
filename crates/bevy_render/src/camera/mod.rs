@@ -98,6 +98,7 @@ fn extract_cameras(
                         height: window.physical_height().max(1),
                         near: camera.near,
                         far: camera.far,
+                        viewport: camera.viewport.clone(),
                     },
                     visible_entities.clone(),
                 ));

@@ -1,5 +1,6 @@
 use crate::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
@@ -9,16 +10,14 @@ use bevy_render::{
 };
 
 pub struct MainPass3dNode {
-    query: QueryState<
-        (
-            &'static RenderPhase<Opaque3d>,
-            &'static RenderPhase<AlphaMask3d>,
-            &'static RenderPhase<Transparent3d>,
-            &'static ViewTarget,
-            &'static ViewDepthTexture,
-        ),
-        With<ExtractedView>,
-    >,
+    query: QueryState<(
+        &'static RenderPhase<Opaque3d>,
+        &'static RenderPhase<AlphaMask3d>,
+        &'static RenderPhase<Transparent3d>,
+        &'static ViewTarget,
+        &'static ViewDepthTexture,
+        &'static ExtractedView,
+    )>,
 }
 
 impl MainPass3dNode {
@@ -47,11 +46,27 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
+        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth, view) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
                 Err(_) => return Ok(()), // No window
             };
+
+        let set_viewport = |render_pass: &mut wgpu::RenderPass| {
+            if let Some(viewport) = &view.viewport {
+                let target_size = Vec2::new(view.width as f32, view.height as f32);
+                let pos = viewport.scaled_pos(target_size);
+                let size = viewport.scaled_size(target_size);
+                render_pass.set_viewport(
+                    pos.x,
+                    pos.y,
+                    size.x,
+                    size.y,
+                    viewport.min_depth,
+                    viewport.max_depth,
+                );
+            }
+        };
 
         {
             // Run the opaque pass, sorted front-to-back
@@ -77,9 +92,10 @@ impl Node for MainPass3dNode {
 
             let draw_functions = world.get_resource::<DrawFunctions<Opaque3d>>().unwrap();
 
-            let render_pass = render_context
+            let mut render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
+            set_viewport(&mut render_pass);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             for item in &opaque_phase.items {
@@ -111,9 +127,10 @@ impl Node for MainPass3dNode {
 
             let draw_functions = world.get_resource::<DrawFunctions<AlphaMask3d>>().unwrap();
 
-            let render_pass = render_context
+            let mut render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
+            set_viewport(&mut render_pass);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             for item in &alpha_mask_phase.items {
@@ -149,9 +166,10 @@ impl Node for MainPass3dNode {
                 .get_resource::<DrawFunctions<Transparent3d>>()
                 .unwrap();
 
-            let render_pass = render_context
+            let mut render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
+            set_viewport(&mut render_pass);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             for item in &transparent_phase.items {

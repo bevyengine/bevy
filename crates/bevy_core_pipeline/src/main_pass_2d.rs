@@ -1,5 +1,6 @@
 use crate::Transparent2d;
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
@@ -9,8 +10,11 @@ use bevy_render::{
 };
 
 pub struct MainPass2dNode {
-    query:
-        QueryState<(&'static RenderPhase<Transparent2d>, &'static ViewTarget), With<ExtractedView>>,
+    query: QueryState<(
+        &'static RenderPhase<Transparent2d>,
+        &'static ViewTarget,
+        &'static ExtractedView,
+    )>,
 }
 
 impl MainPass2dNode {
@@ -39,7 +43,7 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
+        let (transparent_phase, target, view) = self
             .query
             .get_manual(world, view_entity)
             .expect("view entity should exist");
@@ -57,9 +61,23 @@ impl Node for MainPass2dNode {
             .get_resource::<DrawFunctions<Transparent2d>>()
             .unwrap();
 
-        let render_pass = render_context
+        let mut render_pass = render_context
             .command_encoder
             .begin_render_pass(&pass_descriptor);
+
+        if let Some(viewport) = &view.viewport {
+            let target_size = Vec2::new(view.width as f32, view.height as f32);
+            let pos = viewport.scaled_pos(target_size);
+            let size = viewport.scaled_size(target_size);
+            render_pass.set_viewport(
+                pos.x,
+                pos.y,
+                size.x,
+                size.y,
+                viewport.min_depth,
+                viewport.max_depth,
+            );
+        }
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);

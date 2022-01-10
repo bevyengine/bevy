@@ -782,6 +782,7 @@ pub fn prepare_lights(
                             projection: cube_face_projection,
                             near: POINT_LIGHT_NEAR_Z,
                             far: light.range,
+                            viewport: None,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -867,6 +868,7 @@ pub fn prepare_lights(
                             projection,
                             near: light.near,
                             far: light.far,
+                            viewport: None,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional { light_entity },
