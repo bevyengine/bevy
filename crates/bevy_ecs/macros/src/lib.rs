@@ -11,7 +11,7 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
+    Data, DataStruct, DeriveInput, Field, Ident, Index, LitInt, Result, Token,
 };
 
 struct AllTuples {
@@ -46,23 +46,19 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = (input.start..=input.end).count();
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
-    }
+    let ident_tuples: Vec<_> = (input.start..=input.end)
+        .map(|i| {
+            let idents = input
+                .idents
+                .iter()
+                .map(|ident| format_ident!("{}{}", ident, i));
+            if input.idents.len() < 2 {
+                quote! { #(#idents)* }
+            } else {
+                quote! { (#(#idents),*) }
+            }
+        })
+        .collect();
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
@@ -80,41 +76,68 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
 static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 
+/// Derives the Bundle trait for a struct.
+///
+/// The `#[bundle]` attribute may be used on a field of the struct to flatten the
+/// field's fields into this bundle.
+///
+/// ```ignore
+/// #[derive(Bundle)]
+/// struct A {
+///     x: i32,
+///     y: u64,
+/// }
+///
+/// #[derive(Bundle)]
+/// struct B {
+///     #[bundle]
+///     a: A,
+///     z: String,
+/// }
+/// ```
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+    derive_bundle_impl(parse_macro_input!(input as DeriveInput))
+        .unwrap_or_else(|e| e.into_compile_error().into())
+}
+
+fn derive_bundle_impl(input: DeriveInput) -> Result<TokenStream> {
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
-        Err(e) => return e.into_compile_error().into(),
+    let (num_fields, fields) = match input.data {
+        Data::Struct(DataStruct { fields, .. }) if !fields.is_empty() => (fields.len(), fields),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "`Bundle` can only be derived on structs with at least one field",
+            ))
+        }
     };
 
-    let is_bundle = named_fields
-        .iter()
-        .map(|field| {
-            field
-                .attrs
-                .iter()
-                .any(|a| *a.path.get_ident().as_ref().unwrap() == BUNDLE_ATTRIBUTE_NAME)
-        })
-        .collect::<Vec<bool>>();
-    let field = named_fields
-        .iter()
-        .map(|field| field.ident.as_ref().unwrap())
-        .collect::<Vec<_>>();
-    let field_type = named_fields
-        .iter()
-        .map(|field| &field.ty)
-        .collect::<Vec<_>>();
+    let fields = fields.into_iter().enumerate().map(|(idx, field)| {
+        let is_bundle = field
+            .attrs
+            .iter()
+            .flat_map(|attr| attr.path.get_ident())
+            .any(|ident| ident == BUNDLE_ATTRIBUTE_NAME);
+        let ident = field.ident.map_or_else(
+            || {
+                syn::Member::Unnamed(syn::Index {
+                    index: idx as u32,
+                    span: Span::call_site(),
+                })
+            },
+            syn::Member::Named,
+        );
+
+        (is_bundle, ident, field.ty)
+    });
 
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for ((field_type, is_bundle), field) in
-        field_type.iter().zip(is_bundle.iter()).zip(field.iter())
-    {
-        if *is_bundle {
+    for (is_bundle, field, field_type) in fields {
+        if is_bundle {
             field_component_ids.push(quote! {
                 component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages));
             });
@@ -130,26 +153,25 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
             field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
-                std::mem::forget(self.#field);
+                ::std::mem::forget(self.#field);
             });
             field_from_components.push(quote! {
                 #field: func().cast::<#field_type>().read(),
             });
         }
     }
-    let field_len = field.len();
-    let generics = ast.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let struct_name = &ast.ident;
 
-    TokenStream::from(quote! {
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let ident = input.ident;
+
+    Ok(quote! {
         /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #ident #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+            ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = ::std::vec::Vec::with_capacity(#num_fields);
                 #(#field_component_ids)*
                 component_ids
             }
@@ -166,7 +188,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_get_components)*
             }
         }
-    })
+    }
+    .into())
 }
 
 fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
@@ -314,14 +337,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 field
                     .attrs
                     .iter()
-                    .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
+                    .find(|attr| {
+                        attr.path
+                            .get_ident()
+                            .map_or(false, |ident| ident == SYSTEM_PARAM_ATTRIBUTE_NAME)
+                    })
                     .map_or_else(SystemParamFieldAttributes::default, |a| {
                         syn::custom_keyword!(ignore);
                         let mut attributes = SystemParamFieldAttributes::default();
                         a.parse_args_with(|input: ParseStream| {
-                            if input.parse::<Option<ignore>>()?.is_some() {
-                                attributes.ignore = true;
-                            }
+                            attributes.ignore |= input.parse::<Option<ignore>>()?.is_some();
                             Ok(())
                         })
                         .expect("Invalid 'render_resources' attribute format.");
@@ -337,11 +362,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
     for (i, (field, attrs)) in field_attributes.iter().enumerate() {
+        let ident = field.ident.as_ref().unwrap();
+
         if attrs.ignore {
-            ignored_fields.push(field.ident.as_ref().unwrap());
+            ignored_fields.push(ident);
             ignored_field_types.push(&field.ty);
         } else {
-            fields.push(field.ident.as_ref().unwrap());
+            fields.push(ident);
             field_types.push(&field.ty);
             field_indices.push(Index::from(i));
         }
@@ -350,26 +377,23 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let lifetimeless_generics: Vec<_> = generics
+    let (punctuated_generics, punctuated_generic_idents): (
+        Punctuated<_, Token![,]>,
+        Punctuated<_, Token![,]>,
+    ) = generics
         .params
         .iter()
-        .filter(|g| matches!(g, GenericParam::Type(_)))
-        .collect();
-
-    let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
-    punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
-        GenericParam::Type(g) => GenericParam::Type(TypeParam {
-            default: None,
-            ..g.clone()
-        }),
-        _ => unreachable!(),
-    }));
-
-    let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
-    punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
-        GenericParam::Type(g) => &g.ident,
-        _ => unreachable!(),
-    }));
+        .filter_map(|g| match g {
+            syn::GenericParam::Type(ty) => Some((
+                syn::GenericParam::Type(syn::TypeParam {
+                    default: None,
+                    ..ty.clone()
+                }),
+                &ty.ident,
+            )),
+            _ => None,
+        })
+        .unzip();
 
     let struct_name = &ast.ident;
     let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
@@ -383,7 +407,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         #[doc(hidden)]
         #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
-            marker: std::marker::PhantomData<(#punctuated_generic_idents)>
+            marker: ::std::marker::PhantomData<(#punctuated_generic_idents)>
         }
 
         unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
@@ -391,7 +415,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta, config: Self::Config) -> Self {
                 Self {
                     state: TSystemParamState::init(world, system_meta, config),
-                    marker: std::marker::PhantomData,
+                    marker: ::std::marker::PhantomData,
                 }
             }
 
