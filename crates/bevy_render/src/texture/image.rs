@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_math::Size;
+use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
 use wgpu::{
@@ -380,7 +380,7 @@ pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub sampler: Sampler,
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl RenderAsset for Image {
@@ -428,7 +428,7 @@ impl RenderAsset for Image {
         );
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        let size = Size::new(
+        let size = Vec2::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );

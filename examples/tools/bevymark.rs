@@ -124,7 +124,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         style: Style {
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: Val::Px(5.0),
                 left: Val::Px(5.0),
                 ..Default::default()
