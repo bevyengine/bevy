@@ -85,7 +85,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, F>>::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
@@ -436,7 +436,7 @@ where
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<QF::Item> {
         if self.current_index > 0 {
-            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, F>>::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
             } else {
                 Some(self.fetch.archetype_fetch(self.current_index - 1))
@@ -456,7 +456,7 @@ where
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
     ) -> Option<QF::Item> {
-        if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
+        if QF::IS_DENSE && <QueryFetch<'static, 'static, F>>::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;

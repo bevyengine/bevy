@@ -604,7 +604,7 @@ where
             QueryFetch::<F>::init(world, &self.filter_state, last_change_tick, change_tick);
 
         if <QueryFetch<'static, 'static, Q>>::IS_DENSE
-            && <QueryFetch<'static, 'static, Q>>::IS_DENSE
+            && <QueryFetch<'static, 'static, F>>::IS_DENSE
         {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
@@ -665,7 +665,7 @@ where
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
-            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
                     let table = &tables[*table_id];
