@@ -103,8 +103,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -523,21 +523,6 @@ mod tests {
 
         // Verify that both systems actually ran
         assert_eq!(world.get_resource::<NSystems>().unwrap().0, 2);
-    }
-
-    #[test]
-    fn configure_system_local() {
-        let mut world = World::default();
-        world.insert_resource(false);
-        fn sys(local: Local<usize>, mut modified: ResMut<bool>) {
-            assert_eq!(*local, 42);
-            *modified = true;
-        }
-
-        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
-
-        // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
     }
 
     #[test]

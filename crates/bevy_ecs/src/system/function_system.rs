@@ -337,67 +337,6 @@ where
     marker: PhantomData<fn() -> (In, Out, Marker)>,
 }
 
-impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Marker, F> {
-    /// Gives mutable access to the systems config via a callback. This is useful to set up system
-    /// [`Local`](crate::system::Local)s.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let world = &mut World::default();
-    /// fn local_is_42(local: Local<usize>) {
-    ///     assert_eq!(*local, 42);
-    /// }
-    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
-    /// system.initialize(world);
-    /// system.run((), world);
-    /// ```
-    #[must_use]
-    pub fn config(
-        mut self,
-        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
-    ) -> Self {
-        f(self.config.as_mut().unwrap());
-        self
-    }
-}
-
-/// Provides `my_system.config(...)` API.
-pub trait ConfigurableSystem<In, Out, Param: SystemParam, Marker>:
-    IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
-{
-    /// See [`FunctionSystem::config()`](crate::system::FunctionSystem::config).
-    fn config(
-        self,
-        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
-    ) -> Self::System;
-}
-
-impl<In, Out, Param: SystemParam, Marker, F> ConfigurableSystem<In, Out, Param, Marker> for F
-where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
-    Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker>
-        + IntoSystem<
-            In,
-            Out,
-            (IsFunctionSystem, Param, Marker),
-            System = FunctionSystem<In, Out, Param, Marker, F>,
-        > + Send
-        + Sync
-        + 'static,
-{
-    fn config(
-        self,
-        f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
-    ) -> Self::System {
-        IntoSystem::into_system(self).config(f)
-    }
-}
-
 pub struct IsFunctionSystem;
 
 impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F
