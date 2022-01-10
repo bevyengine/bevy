@@ -777,6 +777,16 @@ impl<'w, T> Deref for NonSend<'w, T> {
         self.value
     }
 }
+impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
+    fn from(nsm: NonSendMut<'a, T>) -> Self {
+        Self {
+            value: nsm.value,
+            ticks: nsm.ticks.component_ticks.to_owned(),
+            change_tick: nsm.ticks.change_tick,
+            last_change_tick: nsm.ticks.last_change_tick,
+        }
+    }
+}
 
 /// The [`SystemParamState`] of [`NonSend<T>`].
 pub struct NonSendState<T> {
