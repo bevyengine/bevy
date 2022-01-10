@@ -42,7 +42,8 @@ impl DynamicScene {
             let reflect_resource = world
                 .components()
                 .get_info(component_id)
-                .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                .and_then(|info| info.type_id())
+                .and_then(|type_id| type_registry.get(type_id))
                 .and_then(|registration| registration.data::<ReflectResource>());
             if let Some(reflect_resource) = reflect_resource {
                 if let Some(resource) = reflect_resource.reflect_resource(world) {
@@ -73,7 +74,8 @@ impl DynamicScene {
                 let reflect_component = world
                     .components()
                     .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                    .and_then(|info| info.type_id())
+                    .and_then(|type_id| type_registry.get(type_id))
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
