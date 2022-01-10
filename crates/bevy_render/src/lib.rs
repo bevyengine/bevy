@@ -176,7 +176,10 @@ impl Plugin for RenderPlugin {
                 .insert_resource(options)
                 .insert_resource(render_pipeline_cache)
                 .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .init_resource::<RenderGraphs>();
+
+            let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+            graphs.add_graph(RenderGraph::new(MAIN_GRAPH_ID));
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
