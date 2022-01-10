@@ -15,7 +15,7 @@ use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
-/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
+/// Updates the [`RenderGraphs`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graphs: Mut<RenderGraphs>| {
         graphs.update(world);
