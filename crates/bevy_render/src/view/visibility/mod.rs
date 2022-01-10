@@ -28,7 +28,7 @@ impl Default for Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
     pub is_visible: bool,

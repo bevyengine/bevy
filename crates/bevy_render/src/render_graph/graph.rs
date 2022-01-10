@@ -258,7 +258,7 @@ impl RenderGraph {
             .map(|(edge, _output_node_id)| &edge.before))
     }
 
-    /// Returns an iterator over a tuple of the ouput edges and the corresponding input nodes
+    /// Returns an iterator over a tuple of the output edges and the corresponding input nodes
     /// for the node referenced by the label.
     pub fn iter_node_outputs(
         &self,

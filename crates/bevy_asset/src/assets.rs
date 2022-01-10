@@ -47,17 +47,17 @@ impl<T: Asset> Debug for AssetEvent<T> {
 
 /// Stores Assets of a given type and tracks changes to them.
 ///
-/// Each asset is mapped by a unique [HandleId](crate::HandleId), allowing any [Handle](crate::Handle)
-/// with the same HandleId to access it. These assets remain loaded for as long as a Strong handle
-/// to that asset exists.
+/// Each asset is mapped by a unique [`HandleId`], allowing any [`Handle`] with the same
+/// [`HandleId`] to access it. These assets remain loaded for as long as a Strong handle to that
+/// asset exists.
 ///
 /// To store a reference to an asset without forcing it to stay loaded, you can use a Weak handle.
-/// To make a Weak handle a Strong one, use [Assets::get_handle](crate::Assets::get_handle) or pass
-/// the Assets collection into the handle's [make_strong](crate::Handle::make_strong) method.
+/// To make a Weak handle a Strong one, use [`Assets::get_handle`] or pass the `Assets` collection
+/// into the handle's [`make_strong`](Handle::make_strong) method.
 ///
-/// Remember, if there are no Strong handles for an asset (i.e. they have all been dropped), the asset
-/// will unload. Make sure you always have a Strong handle when you want to keep an asset loaded!
-///
+/// Remember, if there are no Strong handles for an asset (i.e. they have all been dropped), the
+/// asset will unload. Make sure you always have a Strong handle when you want to keep an asset
+/// loaded!
 #[derive(Debug)]
 pub struct Assets<T: Asset> {
     assets: HashMap<HandleId, T>,
@@ -92,7 +92,7 @@ impl<T: Asset> Assets<T> {
     /// Unless there exists another Strong handle for this asset, it's advised to use the returned
     /// Strong handle. Not doing so may result in the unexpected release of the asset.
     ///
-    /// See [set_untracked](Assets::set_untracked) for more info.
+    /// See [`set_untracked`](Assets::set_untracked) for more info.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn set<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Handle<T> {
         let id: HandleId = handle.into();
@@ -102,8 +102,8 @@ impl<T: Asset> Assets<T> {
 
     /// Add/modify the asset pointed to by the given handle.
     ///
-    /// If an asset already exists with the given HandleId, it will be modified. Otherwise the new asset
-    /// will be inserted.
+    /// If an asset already exists with the given [`HandleId`], it will be modified. Otherwise the
+    /// new asset will be inserted.
     ///
     /// # Events
     /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle
@@ -124,7 +124,7 @@ impl<T: Asset> Assets<T> {
     /// Get the asset for the given handle.
     ///
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
-    /// mutable access to the asset, use [get_mut](Assets::get_mut).
+    /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
         self.assets.get(&handle.into())
     }
@@ -190,7 +190,7 @@ impl<T: Asset> Assets<T> {
         self.assets.iter_mut().map(|(k, v)| (*k, v))
     }
 
-    /// Get an iterator over all HandleIds in the collection.
+    /// Get an iterator over all [`HandleId`]'s in the collection.
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
         self.assets.keys().cloned()
     }

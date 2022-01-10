@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::{GpuBufferInfo, Mesh},
@@ -53,11 +53,13 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<MeshPipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_meshes)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<MeshPipeline>()
+                .add_system_to_stage(RenderStage::Extract, extract_meshes)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        }
     }
 }
 
@@ -328,6 +330,10 @@ impl FromWorld for MeshPipeline {
                 texture,
                 texture_view,
                 sampler,
+                size: Size::new(
+                    image.texture_descriptor.size.width as f32,
+                    image.texture_descriptor.size.height as f32,
+                ),
             }
         };
         MeshPipeline {

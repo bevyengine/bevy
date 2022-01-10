@@ -80,7 +80,7 @@ fn main() {
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
             // CorePlugin, so that the IO task pool has already been constructed.
             // And it must be before the `AssetPlugin` so that the asset plugin
-            // doesn't create another instance of an assert server. In general,
+            // doesn't create another instance of an asset server. In general,
             // the AssetPlugin should still run so that other aspects of the
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)

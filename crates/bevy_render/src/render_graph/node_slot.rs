@@ -5,7 +5,7 @@ use crate::render_graph::context::SlotError;
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
 /// A value passed between render [`Nodes`](super::Node).
-/// Corresponds to the [SlotType] specified in the [`RenderGraph`](super::RenderGraph).
+/// Corresponds to the [`SlotType`] specified in the [`RenderGraph`](super::RenderGraph).
 ///
 /// Slots can have four different types of values:
 /// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].

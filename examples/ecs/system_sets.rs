@@ -46,7 +46,6 @@ pub enum PhysicsSystem {
 /// ordering can then change between invocations.
 ///
 /// Lastly a system with run criterion _done_ is used to exit the app.
-/// ```
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

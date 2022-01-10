@@ -63,12 +63,16 @@ enum State {
 /// Each event can be consumed by multiple systems, in parallel,
 /// with consumption tracked by the [`EventReader`] on a per-system basis.
 ///
+/// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs)
+/// is applied between writing and reading systems, there is a risk of a race condition.
+/// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
+///
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`App::add_event`]. [`EventReader`]s are expected to read events from this collection at
-/// least once per loop/frame.
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
+/// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
@@ -103,20 +107,21 @@ enum State {
 ///
 /// # Details
 ///
-/// [`Events`] is implemented using a double buffer. Each call to [`Events::update`] swaps buffers
-/// and clears out the oldest buffer. [`EventReader`]s that read at least once per update will never
-/// drop events. [`EventReader`]s that read once within two updates might still receive some events.
-/// [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
+/// [`Events`] is implemented using a variation of a double buffer strategy.
+/// Each call to [`update`](Events::update) swaps buffers and clears out the oldest one.
+/// - [`EventReader`]s will read events from both buffers.
+/// - [`EventReader`]s that read at least once per update will never drop events.
+/// - [`EventReader`]s that read once within two updates might still receive some events
+/// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
 /// before those updates.
 ///
-/// The buffers in [`Events`] will grow indefinitely if [`Events::update`] is never called.
+/// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
-/// An alternative call pattern would be to call [`Events::update`] manually across frames to
-/// control when events are cleared.
+/// An alternative call pattern would be to call [`update`](Events::update)
+/// manually across frames to control when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`App::add_event`].
-///
-/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
+/// but can be done by adding your event as a resource instead of using
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
