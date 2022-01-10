@@ -73,7 +73,7 @@ pub trait Fetch<'world, 'state>: Sized {
     ///
     /// # Safety
     ///
-    /// `state` must have been initialized (via [FetchState::init]) using the same `world` passed in
+    /// `state` must have been initialized (via [`FetchState::init`]) using the same `world` passed in
     /// to this function.
     unsafe fn init(
         world: &'world World,
@@ -88,7 +88,7 @@ pub trait Fetch<'world, 'state>: Sized {
     /// # Safety
     ///
     /// `archetype` and `tables` must be from the [`World`] [`Fetch::init`] was called on. `state` must
-    /// be the [Self::State] this was initialized with.
+    /// be the [`Self::State`] this was initialized with.
     unsafe fn set_archetype(
         &mut self,
         state: &'state Self::State,
@@ -102,7 +102,7 @@ pub trait Fetch<'world, 'state>: Sized {
     /// # Safety
     ///
     /// `table` must be from the [`World`] [`Fetch::init`] was called on. `state` must be the
-    /// [Self::State] this was initialized with.
+    /// [`Self::State`] this was initialized with.
     unsafe fn set_table(&mut self, state: &'state Self::State, table: &'world Table);
 
     /// Fetch [`Self::Item`] for the given `archetype_index` in the current [`Archetype`]. This must
@@ -146,7 +146,11 @@ pub unsafe trait FetchState: Send + Sync + Sized {
     fn matches_table(&self, table: &Table) -> bool;
 }
 
-/// A fetch that is read only. This must only be implemented for read-only fetches.
+/// A fetch that is read only.
+///
+/// # Safety
+///
+/// This must only be implemented for read-only fetches.
 pub unsafe trait ReadOnlyFetch<'w, 's>: Fetch<'w, 's> {}
 
 impl WorldQuery for Entity {
@@ -773,7 +777,7 @@ pub struct OptionFetch<T> {
     matches: bool,
 }
 
-/// SAFETY: OptionFetch is read only because T is read only
+/// SAFETY: [`OptionFetch`] is read only because T is read only
 unsafe impl<'w, 's, T: ReadOnlyFetch<'w, 's>> ReadOnlyFetch<'w, 's> for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.

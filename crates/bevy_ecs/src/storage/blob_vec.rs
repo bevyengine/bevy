@@ -215,23 +215,21 @@ impl BlobVec {
         self.get_ptr_mut().add(index * layout_size)
     }
 
-    /// Gets a [Ptr] to the start of the vec
+    /// Gets a [`Ptr`] to the start of the vec
     #[inline]
     pub fn get_ptr(&self) -> Ptr<'_> {
         // SAFE: the inner data will remain valid for as long as 'self.
         unsafe { Ptr::new(self.data) }
     }
 
-    /// Gets a [ThinSlicePtr] for the vec.
-    ///
     /// # Safety
-    /// The type `T` must be the type of the items in this BlobVec.
+    /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFE: the inner data will remain valid for as long as 'self.
         std::slice::from_raw_parts(self.data.as_ptr() as *const _, self.len)
     }
 
-    /// Gets a [PtrMut] to the start of the vec
+    /// Gets a [`PtrMut`] to the start of the vec
     #[inline]
     pub fn get_ptr_mut(&mut self) -> PtrMut<'_> {
         // SAFE: the inner data will remain valid for as long as 'self.

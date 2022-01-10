@@ -166,6 +166,8 @@ impl ComponentSparseSet {
         })
     }
 
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
     pub unsafe fn get_with_ticks(
         &self,
