@@ -4,8 +4,6 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, RunSubGraphs, SlotValue},
 };
 
-use crate::draw_2d_graph;
-
 pub struct MainPassDriverNode;
 
 impl Node for MainPassDriverNode {

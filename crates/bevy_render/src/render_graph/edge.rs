@@ -20,12 +20,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    /// Returns the id of the 'input_node'.
+    /// Returns the id of the before node.
     pub fn get_before_node(&self) -> NodeId {
         self.before
     }
 
-    /// Returns the id of the 'output_node'.
+    /// Returns the id of the after node.
     pub fn get_after_node(&self) -> NodeId {
         self.after
     }

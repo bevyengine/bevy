@@ -3,8 +3,8 @@ use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashSet;
-use parking_lot::Mutex;
-use std::{borrow::Cow, collections::VecDeque, iter::once, sync::Arc};
+use std::ops::Deref;
+use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
-pub(crate) struct RenderGraphRunner;
+pub struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
 pub enum RenderGraphRunnerError {
@@ -192,7 +192,7 @@ impl ParalellRenderGraphRunner {
                 scope.spawn(async {
                     for node in range {
                         let (state, ctx) = &recording_nodes[node];
-                        state.node.record(&ctx, &mut render_context, world).unwrap();
+                        state.node.record(ctx, &mut render_context, world).unwrap();
                     }
                     render_context.command_encoder.finish()
                 });
@@ -229,11 +229,7 @@ impl ParalellRenderGraphRunner {
         let graph = graphs.get_graph(graph_id).unwrap();
 
         #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
-        } else {
-            info_span!("run_graph", name = "main_graph")
-        };
+        let span = info_span!("run_graph", name = graph.get_name().deref());
         #[cfg(feature = "trace")]
         let _guard = span.enter();
 
@@ -251,7 +247,7 @@ impl ParalellRenderGraphRunner {
                 .iter_node_dependencies(node_state.id)
                 .expect("node is in graph")
             {
-                if !nodes_ran.contains(&id) {
+                if !nodes_ran.contains(id) {
                     node_queue.push_front(node_state);
                     continue 'handle_node;
                 }
