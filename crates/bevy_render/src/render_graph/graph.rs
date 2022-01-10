@@ -162,7 +162,7 @@ impl RenderGraph {
         self.get_node_state_mut(label).and_then(|n| n.node_mut())
     }
 
-    /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
+    /// Adds the [`Edge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
     pub fn add_edge(
         &mut self,
