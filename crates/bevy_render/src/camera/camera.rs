@@ -24,7 +24,6 @@ use wgpu::Extent3d;
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
-    pub name: Option<String>,
     #[reflect(ignore)]
     pub target: RenderTarget,
     #[reflect(ignore)]

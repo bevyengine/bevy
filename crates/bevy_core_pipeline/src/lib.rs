@@ -23,7 +23,7 @@ use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin, RenderTarget},
+    camera::{Camera2d, Camera3d, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
@@ -143,6 +143,7 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
+        let main_pass_driver_node = MainPassDriverNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -184,7 +185,7 @@ impl Plugin for CorePipelinePlugin {
         graph.add_sub_graph(clear_graph::NAME, clear_graph);
 
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
-        graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
+        graph.add_node(node::MAIN_PASS_DRIVER, main_pass_driver_node);
         graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();
@@ -367,23 +368,20 @@ pub fn extract_clear_color(
 
 pub fn extract_core_pipeline_camera_phases(
     mut commands: Commands,
-    active_cameras: Res<ActiveCameras>,
+    query_camera_2d: Query<Entity, With<Camera2d>>,
+    query_camera_3d: Query<Entity, With<Camera3d>>,
 ) {
-    if let Some(camera_2d) = active_cameras.get(CameraPlugin::CAMERA_2D) {
-        if let Some(entity) = camera_2d.entity {
-            commands
-                .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2d>::default());
-        }
+    for entity in query_camera_2d.iter() {
+        commands
+            .get_or_spawn(entity)
+            .insert(RenderPhase::<Transparent2d>::default());
     }
-    if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
-        if let Some(entity) = camera_3d.entity {
-            commands.get_or_spawn(entity).insert_bundle((
-                RenderPhase::<Opaque3d>::default(),
-                RenderPhase::<AlphaMask3d>::default(),
-                RenderPhase::<Transparent3d>::default(),
-            ));
-        }
+    for entity in query_camera_3d.iter() {
+        commands.get_or_spawn(entity).insert_bundle((
+            RenderPhase::<Opaque3d>::default(),
+            RenderPhase::<AlphaMask3d>::default(),
+            RenderPhase::<Transparent3d>::default(),
+        ));
     }
 }
 

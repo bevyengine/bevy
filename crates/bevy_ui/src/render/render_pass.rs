@@ -4,7 +4,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    camera::ExtractedCameraNames,
     render_graph::*,
     render_phase::*,
     render_resource::{
@@ -14,20 +13,35 @@ use bevy_render::{
     view::*,
 };
 
-use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
+use crate::prelude::CameraUi;
 
-pub struct UiPassDriverNode;
+use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
+
+pub struct UiPassDriverNode {
+    query_camera_ui: QueryState<Entity, With<CameraUi>>,
+}
+
+impl UiPassDriverNode {
+    pub fn new(render_world: &mut World) -> Self {
+        UiPassDriverNode {
+            query_camera_ui: QueryState::new(render_world),
+        }
+    }
+}
 
 impl bevy_render::render_graph::Node for UiPassDriverNode {
+    fn update(&mut self, world: &mut World) {
+        self.query_camera_ui.update_archetypes(world);
+    }
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.resource::<ExtractedCameraNames>();
-        if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
+        for camera_ui in self.query_camera_ui.iter_manual(world) {
+            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
         }
 
         Ok(())
