@@ -47,11 +47,13 @@ impl Plugin for CameraPlugin {
             .add_system_to_stage(CoreStage::PostUpdate, crate::camera::active_cameras_system)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::camera_system::<OrthographicProjection>,
+                crate::camera::camera_system::<OrthographicProjection>
+                    .label(UpdateCameraProjectionSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::camera_system::<PerspectiveProjection>,
+                crate::camera::camera_system::<PerspectiveProjection>
+                    .label(UpdateCameraProjectionSystem),
             );
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -60,6 +62,9 @@ impl Plugin for CameraPlugin {
         }
     }
 }
+
+#[derive(SystemLabel, Debug, PartialEq, Eq, Clone, Hash)]
+pub struct UpdateCameraProjectionSystem;
 
 #[derive(Default)]
 pub struct ExtractedCameraNames {
