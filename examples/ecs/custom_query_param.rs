@@ -14,7 +14,7 @@ use std::{fmt::Debug, marker::PhantomData};
 /// declared as named structs can bring the following advantages:
 /// - They help to avoid destructuring or using `q.0, q.1, ...` access pattern.
 /// - Adding, removing components or changing items order with structs greatly reduces maintenance
-///   burden, as you don't need to update statements that destructure tuples, care abort order
+///   burden, as you don't need to update statements that destructure tuples, care about order
 ///   of elements, etc. Instead, you can just add or remove places where a certain element is used.
 /// - Named structs enable the composition pattern, that makes query types easier to re-use.
 /// - You can bypass the limit of 15 components that exists for query tuples.
@@ -130,7 +130,7 @@ fn print_components_iter(
     println!();
 }
 
-// If you are going to use a query only for reading, you can mark it with `read_only` attribute
+// If you are never going to mutate the data in a query, you can mark it with `read_only` attribute
 // to avoid creating an additional type with `ReadOnly` suffix.
 #[derive(Fetch)]
 #[read_only]

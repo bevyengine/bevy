@@ -145,48 +145,90 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 ///     optional_foo: Option<&'w OptionalFoo>,
 /// }
 ///
+/// // You can also compose derived queries with regular ones in tuples.
+/// fn my_system(query: Query<(&Foo, MyQuery, FooQuery)>) {
+///     for (foo, my_query, foo_query) in query.iter() {
+///         foo; my_query; foo_query;
+///     }
+/// }
+///
+/// # my_system.system();
 /// ```
 ///
 /// ## Read-only queries
 ///
 /// All queries that are derived with `Fetch` macro have their read-only variants with `ReadOnly`
-/// suffix. If you are going to use a query only for reading, you can mark it with `read_only`
-/// attribute.
+/// suffix. If you are going to use a query which can only read data from the ECS, you can mark it
+/// with the `read_only` attribute.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
 ///
 /// #[derive(Component)]
-/// struct Foo;
+/// struct A(i32);
 /// #[derive(Component)]
-/// struct Bar;
+/// struct B(i32);
 ///
+/// #[derive(Fetch)]
+/// struct SumQuery<'w> {
+///     a: &'w A,
+///     b: &'w B,
+/// }
+///
+/// // This implementation is only available when iterating with `iter_mut`.
+/// impl<'w> SumQuery<'w> {
+///     fn calc(&self) -> i32 {
+///         let Self { a: A(a), b: B(b) } = self;
+///         a + b
+///     }
+/// }
+///
+/// // If you want to use it with `iter`, you'll need to write an additional implementation.
+/// impl<'w> SumQueryReadOnly<'w> {
+///     fn calc(&self) -> i32 {
+///         let Self { a: A(a), b: B(b) } = self;
+///         a + b
+///     }
+/// }
+///
+/// // If you are never going to mutate the data, you can mark the query with the `read_only`
+/// // attribute and write the implementation only once.
 /// #[derive(Fetch)]
 /// #[read_only]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-///     bar_query: BarQueryReadOnly<'w>,
+/// struct ProductQuery<'w> {
+///     a: &'w A,
+///     b: &'w B,
 /// }
 ///
-/// #[derive(Fetch)]
-/// struct BarQuery<'w> {
-///     bar: &'w Bar,
+/// impl<'w> ProductQuery<'w> {
+///     fn calc(&self) -> i32 {
+///         let Self { a: A(a), b: B(b) } = self;
+///         a * b
+///     }
 /// }
 ///
-/// fn assert_read_only<T: ReadOnlyFetch>() {}
-///
-/// assert_read_only::<<FooQuery as WorldQuery>::Fetch>();
-/// assert_read_only::<<BarQuery as WorldQuery>::ReadOnlyFetch>();
-/// // the following will fail to compile:
-/// // assert_read_only::<<BarQuery as WorldQuery>::Fetch>();
+/// fn my_system(mut sum_query: Query<SumQuery>, product_query: Query<ProductQuery>) {
+///     // Iterator's item is `SumQueryReadOnly`.
+///     for sum in sum_query.iter() {
+///         println!("Sum: {}", sum.calc());
+///     }
+///     // Iterator's item is `SumQuery`.
+///     for sum in sum_query.iter_mut() {
+///         println!("Sum (mut): {}", sum.calc());
+///     }
+///     // Iterator's item is `ProductQuery`.
+///     for product in product_query.iter() {
+///         println!("Product: {}", product.calc());
+///     }
+/// }
 /// ```
 ///
 /// If you want to use derive macros with read-only query variants, you need to pass them with
-/// using `read_only_derive` attribute.
-///
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+/// using the `read_only_derive` attribute. As the `Fetch` macro generates an additional struct
+/// for `ReadOnlyFetch` implementation (granted it isn't marked with the `read_only` attribute),
+/// you may want it to inherit the same derives. Since derive macros can't access information about
+/// other derives, they need to be passed manually with the `read_only_derive` attribute.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;

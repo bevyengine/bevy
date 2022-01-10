@@ -374,7 +374,7 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
             type ReadOnlyFetch = #fetch_struct_name #ty_generics;
         }
 
-        /// SAFETY: each item in the struct is read only
+        /// SAFETY: each item in the struct is read-only as filters never actually fetch any data that could be mutated
         unsafe impl #impl_generics #path::query::ReadOnlyFetch for #fetch_struct_name #ty_generics #where_clause {}
     });
     tokens
