@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem,
-        QueryIter, QueryState, ROQueryFetch, ROQueryItem, WorldQuery,
+        FilterFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
+        QueryState, ROQueryFetch, ROQueryItem, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -329,7 +329,7 @@ where
     /// # gravity_system.system();
     /// ```
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, QueryFetch<'w, 's, Q>, F> {
+    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -348,7 +348,7 @@ where
     #[inline]
     pub fn iter_combinations<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, '_, Q, ROQueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, ROQueryFetch<'_, '_, Q>, F, K> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -385,7 +385,7 @@ where
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
-    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F, K> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -420,7 +420,7 @@ where
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F, K> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.iter_combinations_unchecked_manual(
@@ -454,17 +454,16 @@ where
     /// # report_names_system.system();
     /// ```
     #[inline]
-    pub fn for_each<FN: FnMut(<ROQueryFetch<'w, 's, Q> as Fetch<'w, 's>>::Item)>(&'s self, f: FN) {
+    pub fn for_each<FN: FnMut(ROQueryItem<'w, 's, Q>)>(&'s self, f: FN) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state
-                .for_each_unchecked_manual::<ROQueryFetch<'w, 's, Q>, FN>(
-                    self.world,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
+            self.state.for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
+                self.world,
+                f,
+                self.last_change_tick,
+                self.change_tick,
+            )
         };
     }
 
@@ -490,20 +489,16 @@ where
     /// # gravity_system.system();
     /// ```
     #[inline]
-    pub fn for_each_mut<'a, FN: FnMut(<QueryFetch<'w, 's, Q> as Fetch<'a, 'a>>::Item)>(
-        &'a mut self,
-        f: FN,
-    ) {
+    pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, 'a, Q>)>(&'a mut self, f: FN) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
-            self.state
-                .for_each_unchecked_manual::<QueryFetch<'w, 's, Q>, FN>(
-                    self.world,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
+            self.state.for_each_unchecked_manual::<QueryFetch<Q>, FN>(
+                self.world,
+                f,
+                self.last_change_tick,
+                self.change_tick,
+            )
         };
     }
 
@@ -512,9 +507,7 @@ where
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
     #[inline]
-    pub fn par_for_each<
-        FN: Fn(<ROQueryFetch<'w, 's, Q> as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
-    >(
+    pub fn par_for_each<FN: Fn(ROQueryItem<'w, 's, Q>) + Send + Sync + Clone>(
         &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -524,7 +517,7 @@ where
         // borrow checks when they conflict
         unsafe {
             self.state
-                .par_for_each_unchecked_manual::<ROQueryFetch<'w, 's, Q>, FN>(
+                .par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                     self.world,
                     task_pool,
                     batch_size,
@@ -537,10 +530,7 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     #[inline]
-    pub fn par_for_each_mut<
-        'a,
-        FN: Fn(<QueryFetch<'w, 's, Q> as Fetch<'a, 'a>>::Item) + Send + Sync + Clone,
-    >(
+    pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, 'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -550,7 +540,7 @@ where
         // borrow checks when they conflict
         unsafe {
             self.state
-                .par_for_each_unchecked_manual::<QueryFetch<'w, 's, Q>, FN>(
+                .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                     self.world,
                     task_pool,
                     batch_size,
@@ -593,14 +583,11 @@ where
     /// # print_selected_character_name_system.system();
     /// ```
     #[inline]
-    pub fn get(
-        &'s self,
-        entity: Entity,
-    ) -> Result<<ROQueryFetch<'w, 's, Q> as Fetch<'w, 's>>::Item, QueryEntityError> {
+    pub fn get(&'s self, entity: Entity) -> Result<ROQueryItem<'w, 's, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.get_unchecked_manual::<ROQueryFetch<'w, 's, Q>>(
+            self.state.get_unchecked_manual::<ROQueryFetch<Q>>(
                 self.world,
                 entity,
                 self.last_change_tick,
@@ -638,7 +625,7 @@ where
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.get_unchecked_manual::<QueryFetch<'w, 's, Q>>(
+            self.state.get_unchecked_manual::<QueryFetch<Q>>(
                 self.world,
                 entity,
                 self.last_change_tick,
@@ -660,10 +647,10 @@ where
     pub unsafe fn get_unchecked(
         &'s self,
         entity: Entity,
-    ) -> Result<<QueryFetch<'w, 's, Q> as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        self.state.get_unchecked_manual::<QueryFetch<'w, 's, Q>>(
+        self.state.get_unchecked_manual::<QueryFetch<Q>>(
             self.world,
             entity,
             self.last_change_tick,
@@ -860,9 +847,7 @@ where
     /// }
     /// # player_scoring_system.system();
     /// ```
-    pub fn get_single(
-        &'s self,
-    ) -> Result<<ROQueryFetch<'w, 's, Q> as Fetch<'w, 's>>::Item, QuerySingleError> {
+    pub fn get_single(&'s self) -> Result<ROQueryItem<'w, 's, Q>, QuerySingleError> {
         let mut query = self.iter();
         let first = query.next();
         let extra = query.next().is_some();

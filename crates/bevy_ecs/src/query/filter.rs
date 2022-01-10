@@ -144,7 +144,12 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
         }
     };
 
-    unsafe fn init(&self, _world: &World, _last_change_tick: u32, _change_tick: u32) -> Self {
+    unsafe fn init(
+        _world: &World,
+        _state: &WithState<T>,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         Self {
             marker: PhantomData,
         }
@@ -174,7 +179,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T> ReadOnlyFetch for WithFetch<T> {}
+unsafe impl<T: Component> ReadOnlyFetch<'_, '_> for WithFetch<T> {}
 
 /// Filter that selects entities without a component `T`.
 ///
@@ -258,6 +263,9 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
 impl<T: Component> FetchInit<'_, '_> for WithoutState<T> {
     type Fetch = WithoutFetch<T>;
     type Item = bool;
+
+    type ReadOnlyFetch = WithoutFetch<T>;
+    type ReadOnlyItem = bool;
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
@@ -271,7 +279,12 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
         }
     };
 
-    unsafe fn init(&self, _world: &World, _last_change_tick: u32, _change_tick: u32) -> Self {
+    unsafe fn init(
+        _world: &World,
+        _state: &WithoutState<T>,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         WithoutFetch {
             marker: PhantomData,
         }
@@ -301,7 +314,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WithoutFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T> ReadOnlyFetch for WithoutFetch<T> {}
+unsafe impl<T: Component> ReadOnlyFetch<'_, '_> for WithoutFetch<T> {}
 
 /// A filter that tests if any of the given filters apply.
 ///
@@ -393,10 +406,10 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
-            unsafe fn init(&'s self, world: &'w World, last_change_tick: u32, change_tick: u32) -> Self {
-                let ($($filter,)*) = &self.0;
+            unsafe fn init(world: &'w World, state: &'s Or<($(<$filter as Fetch<'w, 's>>::State,)*)>, last_change_tick: u32, change_tick: u32) -> Self {
+                let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
-                    fetch: $filter.fetch_init(world, last_change_tick, change_tick),
+                    fetch: <$filter as Fetch<'w, 's>>::init(world, $filter, last_change_tick, change_tick),
                     matches: false,
                     _marker: PhantomData,
                 },)*))
@@ -553,6 +566,8 @@ macro_rules! impl_tick_filter {
         impl<'w, T: Component> FetchInit<'w, '_> for $state_name<T> {
             type Fetch = $fetch_name<'w, T>;
             type Item = bool;
+            type ReadOnlyFetch = $fetch_name<'w, T>;
+            type ReadOnlyItem = bool;
         }
 
         impl<'w, 's, T: Component> Fetch<'w, 's> for $fetch_name<'w, T> {
@@ -566,13 +581,13 @@ macro_rules! impl_tick_filter {
                 }
             };
 
-            unsafe fn init(&self, world: &'w World, last_change_tick: u32, change_tick: u32) -> Self {
+            unsafe fn init(world: &'w World, state: &'s $state_name<T>, last_change_tick: u32, change_tick: u32) -> Self {
                 Self {
                     table_ticks: None,
                     entities: None,
                     entity_table_rows: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| world.storages().sparse_sets.get(self.component_id).unwrap()),
+                        .then(|| world.storages().sparse_sets.get(state.component_id).unwrap()),
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
@@ -614,7 +629,7 @@ macro_rules! impl_tick_filter {
         }
 
         /// SAFETY: read-only access
-        unsafe impl<T: Component> ReadOnlyFetch for $fetch_name<'_, T> {}
+        unsafe impl<'w, T: Component> ReadOnlyFetch<'w, '_> for $fetch_name<'w, T> {}
     };
 }
 

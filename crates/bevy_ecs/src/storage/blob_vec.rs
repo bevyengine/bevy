@@ -9,7 +9,6 @@ use crate::ptr::{OwningPtr, Ptr, PtrMut};
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data.
-#[derive(Debug)]
 pub struct BlobVec {
     item_layout: Layout,
     capacity: usize,
@@ -128,16 +127,15 @@ impl BlobVec {
     /// [`BlobVec`]'s `item_layout`
     /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
     /// calling this function, and as such should not be used or dropped by the caller.
-    pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        let ptr = self.get_unchecked(index).inner();
-        let drop = self.drop;
+        let ptr = self.get_unchecked_mut(index).inner();
         // If `drop` panics, then when the collection is dropped during stack unwinding, the
         // collection's `Drop` impl will call `drop` again for the old value (which is still stored
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
         let old_len = std::mem::replace(&mut self.len, 0);
-        (drop)(OwningPtr::new(ptr));
+        (self.drop)(OwningPtr::new(ptr));
         std::ptr::copy_nonoverlapping(value.inner(), ptr.as_ptr(), self.item_layout.size());
         self.len = old_len;
     }
@@ -170,7 +168,7 @@ impl BlobVec {
     /// caller's responsibility to drop the returned pointer, if that is desirable.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    /// It is the caller's responsibility to ensure that `index` is < `self.len()`
     #[inline]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         debug_assert!(index < self.len());

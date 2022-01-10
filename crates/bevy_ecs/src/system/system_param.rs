@@ -6,7 +6,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
-        FilterFetch, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyQuery,
+        FilterFetch, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
         WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
@@ -111,7 +111,7 @@ where
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F>
 where
-    Q: ReadOnlyQuery,
+    for<'x, 'y> QueryFetch<'x, 'y, Q>: ReadOnlyFetch<'x, 'y>,
     for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
 }

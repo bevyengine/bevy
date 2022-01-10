@@ -6,7 +6,7 @@ use crate::{
 };
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use super::{QueryFetch, QueryItem, ReadOnlyFetch};
+use super::{QueryFetch, ReadOnlyFetch};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -44,12 +44,18 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = query_state
-            .fetch_state
-            .fetch_init(world, last_change_tick, change_tick);
-        let filter = query_state
-            .filter_state
-            .fetch_init(world, last_change_tick, change_tick);
+        let fetch = QF::init(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = QueryFetch::<F>::init(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
 
         QueryIter {
             world,
@@ -68,9 +74,10 @@ where
 
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, QF, F>
 where
+    QF: Fetch<'w, 's, State = Q::State>,
     for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
 {
-    type Item = QueryItem<'w, 's, Q>;
+    type Item = QF::Item;
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -78,7 +85,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if QF::IS_DENSE && F::Fetch::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
@@ -273,7 +280,7 @@ where
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe {
             self.fetch_next_aliased_unchecked()
-                .map(|array| array.map(Q::shrink))
+            // .map(|array| array.map(Q::shrink))
         }
     }
 }
@@ -284,8 +291,8 @@ where
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, QF, F, K>
 where
-    QF: Fetch<'w, 's, State = Q::State> + Clone + ReadOnlyFetch,
-    for<'x, 'y> QueryFetch<'x, 'y, F>: Clone + FilterFetch<'x, 'y> + ReadOnlyFetch,
+    QF: Fetch<'w, 's, State = Q::State> + Clone + ReadOnlyFetch<'w, 's>,
+    for<'x, 'y> QueryFetch<'x, 'y, F>: Clone + FilterFetch<'x, 'y> + ReadOnlyFetch<'x, 'y>,
 {
     type Item = [<QF as Fetch<'w, 's>>::Item; K];
 
@@ -402,12 +409,18 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = query_state
-            .fetch_state
-            .fetch_init(world, last_change_tick, change_tick);
-        let filter = query_state
-            .filter_state
-            .fetch_init(world, last_change_tick, change_tick);
+        let fetch = QF::init(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = QueryFetch::<F>::init(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
         QueryIterationCursor {
             fetch,
             filter,
@@ -423,7 +436,7 @@ where
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<QF::Item> {
         if self.current_index > 0 {
-            if QF::IS_DENSE && F::Fetch::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
             } else {
                 Some(self.fetch.archetype_fetch(self.current_index - 1))
@@ -443,7 +456,7 @@ where
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
     ) -> Option<QF::Item> {
-        if QF::IS_DENSE && F::Fetch::IS_DENSE {
+        if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;

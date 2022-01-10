@@ -218,7 +218,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
 
             // SAFE: All Queries are constrained to ReadOnlyQuery, so World is only read
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> ReadOnlySystemParamFetch for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-            where #(#query: ReadOnlyQuery,)* #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
+            where #(for<'x, 'y> QueryFetch<'x, 'y, #query>: ReadOnlyFetch<'x, 'y>,)* #(for<'x, 'y> QueryFetch<'x, 'y, #filter>: FilterFetch<'x, 'y>,)*
             { }
 
             // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts

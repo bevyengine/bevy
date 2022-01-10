@@ -145,7 +145,7 @@ where
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
-            self.get_unchecked_manual::<Q::ReadOnlyFetch>(
+            self.get_unchecked_manual::<ROQueryFetch<'w, 's, Q>>(
                 world,
                 entity,
                 world.last_change_tick(),
@@ -164,7 +164,7 @@ where
         self.update_archetypes(world);
         // SAFETY: query has unique world access
         unsafe {
-            self.get_unchecked_manual::<Q::Fetch>(
+            self.get_unchecked_manual::<QueryFetch<'w, 's, Q>>(
                 world,
                 entity,
                 world.last_change_tick(),
@@ -182,7 +182,7 @@ where
         self.validate_world(world);
         // SAFETY: query is read only and world is validated
         unsafe {
-            self.get_unchecked_manual::<Q::ReadOnlyFetch>(
+            self.get_unchecked_manual::<ROQueryFetch<'w, 's, Q>>(
                 world,
                 entity,
                 world.last_change_tick(),
@@ -204,7 +204,7 @@ where
         entity: Entity,
     ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         self.update_archetypes(world);
-        self.get_unchecked_manual::<Q::Fetch>(
+        self.get_unchecked_manual::<QueryFetch<'w, 's, Q>>(
             world,
             entity,
             world.last_change_tick(),
@@ -239,7 +239,7 @@ where
         let archetype = &world.archetypes[location.archetype_id];
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
-            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
+            QueryFetch::<F>::init(world, &self.filter_state, last_change_tick, change_tick);
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -442,7 +442,7 @@ where
         // SAFETY: query is read only
         unsafe {
             self.update_archetypes(world);
-            self.for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
+            self.for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                 world,
                 func,
                 world.last_change_tick(),
@@ -462,7 +462,7 @@ where
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.for_each_unchecked_manual::<Q::Fetch, FN>(
+            self.for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 world,
                 func,
                 world.last_change_tick(),
@@ -487,7 +487,7 @@ where
         func: FN,
     ) {
         self.update_archetypes(world);
-        self.for_each_unchecked_manual::<Q::Fetch, FN>(
+        self.for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
             func,
             world.last_change_tick(),
@@ -510,7 +510,7 @@ where
         // SAFETY: query is read only
         unsafe {
             self.update_archetypes(world);
-            self.par_for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
+            self.par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                 world,
                 task_pool,
                 batch_size,
@@ -533,7 +533,7 @@ where
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.par_for_each_unchecked_manual::<Q::Fetch, FN>(
+            self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 world,
                 task_pool,
                 batch_size,
@@ -565,7 +565,7 @@ where
         func: FN,
     ) {
         self.update_archetypes(world);
-        self.par_for_each_unchecked_manual::<Q::Fetch, FN>(
+        self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
             task_pool,
             batch_size,
@@ -601,8 +601,11 @@ where
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
-            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
+            QueryFetch::<F>::init(world, &self.filter_state, last_change_tick, change_tick);
+
+        if <QueryFetch<'static, 'static, Q>>::IS_DENSE
+            && <QueryFetch<'static, 'static, Q>>::IS_DENSE
+        {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
                 let table = &tables[*table_id];
@@ -662,7 +665,7 @@ where
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
-            if QF::IS_DENSE && F::Fetch::IS_DENSE {
+            if QF::IS_DENSE && <QueryFetch<'static, 'static, Q>>::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
                     let table = &tables[*table_id];
@@ -672,7 +675,7 @@ where
                         scope.spawn(async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = <F::Fetch as Fetch>::init(
+                            let mut filter = QueryFetch::<F>::init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
@@ -704,7 +707,7 @@ where
                         scope.spawn(async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = <F::Fetch as Fetch>::init(
+                            let mut filter = QueryFetch::<F>::init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
