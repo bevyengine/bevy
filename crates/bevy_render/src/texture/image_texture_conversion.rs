@@ -1,5 +1,5 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use image::DynamicImage;
+use image::{DynamicImage, ImageBuffer};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 // TODO: fix name?
@@ -78,7 +78,6 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
 
             data = cast_slice(&raw_data).to_owned();
         }
-
         DynamicImage::ImageRgb16(image) => {
             width = image.width();
             height = image.height();
@@ -88,7 +87,7 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
                 Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
             for pixel in image.into_raw().chunks_exact(3) {
-                // TODO use the array_chunks method once stabilised
+                // TODO: use the array_chunks method once stabilised
                 // https://github.com/rust-lang/rust/issues/74985
                 let r = pixel[0];
                 let g = pixel[1];
@@ -130,25 +129,25 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
 /// covered, therefore it will return `None` if the format is unsupported.
 pub(crate) fn texture_to_image(texture: &Image) -> Option<DynamicImage> {
     match texture.texture_descriptor.format {
-        TextureFormat::R8Unorm => image::ImageBuffer::from_raw(
+        TextureFormat::R8Unorm => ImageBuffer::from_raw(
             texture.texture_descriptor.size.width,
             texture.texture_descriptor.size.height,
             texture.data.clone(),
         )
         .map(DynamicImage::ImageLuma8),
-        TextureFormat::Rg8Unorm => image::ImageBuffer::from_raw(
+        TextureFormat::Rg8Unorm => ImageBuffer::from_raw(
             texture.texture_descriptor.size.width,
             texture.texture_descriptor.size.height,
             texture.data.clone(),
         )
         .map(DynamicImage::ImageLumaA8),
-        TextureFormat::Rgba8UnormSrgb => image::ImageBuffer::from_raw(
+        TextureFormat::Rgba8UnormSrgb => ImageBuffer::from_raw(
             texture.texture_descriptor.size.width,
             texture.texture_descriptor.size.height,
             texture.data.clone(),
         )
         .map(DynamicImage::ImageRgba8),
-        TextureFormat::Bgra8UnormSrgb => image::ImageBuffer::from_raw(
+        TextureFormat::Bgra8UnormSrgb => ImageBuffer::from_raw(
             texture.texture_descriptor.size.width,
             texture.texture_descriptor.size.height,
             texture.data.clone(),
