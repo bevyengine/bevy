@@ -14,17 +14,29 @@ use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`
+/// Errors that occur while loading assets with an `AssetServer`.
 #[derive(Error, Debug)]
 pub enum AssetServerError {
+    /// Asset folder is not a directory.
     #[error("asset folder path is not a directory: {0}")]
     AssetFolderNotADirectory(String),
+
+    /// No asset loader was found for the specified extensions.
     #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
-    MissingAssetLoader { extensions: Vec<String> },
+    MissingAssetLoader {
+        #[allow(missing_docs)]
+        extensions: Vec<String>,
+    },
+
+    /// The handle type does not match the type of the loaded asset.
     #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
+
+    /// Encountered an error while processing an asset.
     #[error("encountered an error while loading an asset: {0}")]
     AssetLoaderError(anyhow::Error),
+
+    /// Encountered an error while reading an asset from disk.
     #[error("encountered an error while reading an asset: {0}")]
     AssetIoError(#[from] AssetIoError),
 }
@@ -48,6 +60,9 @@ pub(crate) struct AssetRefCounter {
     pub(crate) mark_unused_assets: Arc<Mutex<Vec<HandleId>>>,
 }
 
+/// Internal data for the asset server.
+///
+/// [`AssetServer`] is the public API for interacting with the asset server.
 pub struct AssetServerInternal {
     pub(crate) asset_io: Box<dyn AssetIo>,
     pub(crate) asset_ref_counter: AssetRefCounter,
@@ -58,17 +73,19 @@ pub struct AssetServerInternal {
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
 }
 
-/// Loads assets from the filesystem on background threads
+/// Loads assets from the filesystem on background threads.
 #[derive(Clone)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
 
 impl AssetServer {
+    /// Creates a new asset server with the provided asset I/O.
     pub fn new<T: AssetIo>(source_io: T) -> Self {
         Self::with_boxed_io(Box::new(source_io))
     }
 
+    /// Creates a new asset server with a pointer to an asset I/O.
     pub fn with_boxed_io(asset_io: Box<dyn AssetIo>) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
@@ -104,6 +121,7 @@ impl AssetServer {
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
+    /// Adds the provided loader as an asset loader for `T` assets.
     pub fn add_loader<T>(&self, loader: T)
     where
         T: AssetLoader,
@@ -126,11 +144,13 @@ impl AssetServer {
         Ok(())
     }
 
+    /// Gets a handle for an asset with the provided id.
     pub fn get_handle<T: Asset, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         Handle::strong(id.into(), sender)
     }
 
+    /// Gets an untyped handle for an asset with the provided id.
     pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         HandleUntyped::strong(id.into(), sender)
@@ -179,6 +199,7 @@ impl AssetServer {
         })
     }
 
+    /// Gets the source path of an asset from the provided handle.
     pub fn get_handle_path<H: Into<HandleId>>(&self, handle: H) -> Option<AssetPath<'_>> {
         self.server
             .handle_to_path
@@ -187,6 +208,7 @@ impl AssetServer {
             .cloned()
     }
 
+    /// Gets the load state of an asset from the provided handle.
     pub fn get_load_state<H: Into<HandleId>>(&self, handle: H) -> LoadState {
         match handle.into() {
             HandleId::AssetPathId(id) => {
@@ -199,6 +221,7 @@ impl AssetServer {
         }
     }
 
+    /// Gets the overall load state of a group of assets from the provided handles.
     pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {
@@ -219,11 +242,11 @@ impl AssetServer {
         load_state
     }
 
-    /// Queue an [`Asset`] at the provided relative path for asynchronous loading.
+    /// Queues an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute Path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
+    /// The absolute path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
     ///
-    /// By default the ROOT is the directory of the Application, but this can be overridden by
+    /// By default the `ROOT` is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
@@ -363,6 +386,9 @@ impl AssetServer {
         Ok(asset_path_id)
     }
 
+    /// Queues the [`Asset`] at the provided path for loading and returns an untyped handle.
+    ///
+    /// See [`load`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
@@ -398,6 +424,7 @@ impl AssetServer {
         asset_path.into()
     }
 
+    /// Loads one or more assets from the folder at the provided path.
     #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder<P: AsRef<Path>>(
         &self,
@@ -427,6 +454,7 @@ impl AssetServer {
         Ok(handles)
     }
 
+    /// Frees unused assets from their asset storages.
     pub fn free_unused_assets(&self) {
         let mut potential_frees = self.server.asset_ref_counter.mark_unused_assets.lock();
 
@@ -453,6 +481,7 @@ impl AssetServer {
         }
     }
 
+    /// Iterates through asset references and marks assets with no active handles as unused.
     pub fn mark_unused_assets(&self) {
         let receiver = &self.server.asset_ref_counter.channel.receiver;
         let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
@@ -557,6 +586,7 @@ fn free_unused_assets_system_impl(asset_server: &AssetServer) {
     asset_server.mark_unused_assets();
 }
 
+/// A system for freeing assets that have no active handles.
 pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
     free_unused_assets_system_impl(&asset_server);
 }
