@@ -65,16 +65,8 @@ pub struct SystemState<Param: SystemParam> {
 
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
-        let config = <Param::Fetch as SystemParamState>::default_config();
-        Self::with_config(world, config)
-    }
-
-    pub fn with_config(
-        world: &mut World,
-        config: <Param::Fetch as SystemParamState>::Config,
-    ) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta, config);
+        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -331,7 +323,6 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
-    config: Option<<Param::Fetch as SystemParamState>::Config>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
@@ -352,7 +343,6 @@ where
         FunctionSystem {
             func,
             param_state: None,
-            config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
         }
@@ -421,7 +411,6 @@ where
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
-            self.config.take().unwrap(),
         ));
     }
 

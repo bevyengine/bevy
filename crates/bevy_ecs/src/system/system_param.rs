@@ -60,25 +60,11 @@ pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamF
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
-    /// Values of this type can be used to adjust the behavior of the
-    /// system parameter. For instance, this can be used to pass
-    /// values from a `Plugin` to a `System`, or to control the
-    /// behavior of the `System`.
-    ///
-    /// The default configuration of the parameter is set by
-    /// [`SystemParamState::default_config`]. To change it, invoke
-    /// [`FunctionSystem::config`](super::FunctionSystem::config) when
-    /// creating the system.
-    ///
-    /// See [`FunctionSystem::config`](super::FunctionSystem::config)
-    /// for more information and examples.
-    type Config: Send + Sync;
-    fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self;
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self;
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
-    fn default_config() -> Self::Config;
 }
 
 /// A [`SystemParamFetch`] that only reads a given [`World`].
@@ -122,9 +108,7 @@ unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState f
 where
     F::Fetch: FilterFetch,
 {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
@@ -149,8 +133,6 @@ where
             .archetype_component_access
             .extend(&self.archetype_component_access);
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
@@ -294,9 +276,7 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
 // SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState for ResState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
         assert!(
@@ -319,8 +299,6 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
             marker: PhantomData,
         }
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
@@ -363,13 +341,9 @@ impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
 
 unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Self(ResState::init(world, system_meta, ()))
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(ResState::init(world, system_meta))
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
@@ -406,9 +380,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 // SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
@@ -434,8 +406,6 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
             marker: PhantomData,
         }
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
@@ -477,13 +447,9 @@ impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
 }
 
 unsafe impl<T: Resource> SystemParamState for OptionResMutState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Self(ResMutState::init(world, system_meta, ()))
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(ResMutState::init(world, system_meta))
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
@@ -518,17 +484,13 @@ unsafe impl ReadOnlySystemParamFetch for CommandQueue {}
 
 // SAFE: only local state is accessed
 unsafe impl SystemParamState for CommandQueue {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Default::default()
     }
 
     fn apply(&mut self, world: &mut World) {
         self.apply(world);
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
@@ -664,14 +626,8 @@ impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
 
 // SAFE: only local state is accessed
 unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
-    type Config = Option<T>;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
-        Self(config.unwrap_or_else(|| T::from_world(world)))
-    }
-
-    fn default_config() -> Option<T> {
-        None
+    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Self(T::from_world(world))
     }
 }
 
@@ -750,16 +706,12 @@ impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
 // SAFE: no component access. removed component entity collections can be read in parallel and are
 // never mutably borrowed during system execution
 unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self {
             component_id: world.init_component::<T>(),
             marker: PhantomData,
         }
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T> {
@@ -857,9 +809,7 @@ impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 // SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
@@ -884,8 +834,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             marker: PhantomData,
         }
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
@@ -930,13 +878,9 @@ impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
 unsafe impl<T: 'static> ReadOnlySystemParamFetch for OptionNonSendState<T> {}
 
 unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Self(NonSendState::init(world, system_meta, ()))
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(NonSendState::init(world, system_meta))
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
@@ -974,9 +918,7 @@ impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 // SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
@@ -1004,8 +946,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             marker: PhantomData,
         }
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
@@ -1048,13 +988,9 @@ impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
 }
 
 unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
-    type Config = ();
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        Self(NonSendMutState::init(world, system_meta, ()))
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(NonSendMutState::init(world, system_meta))
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
@@ -1093,13 +1029,9 @@ pub struct ArchetypesState;
 
 // SAFE: no component value access
 unsafe impl SystemParamState for ArchetypesState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
@@ -1128,13 +1060,9 @@ pub struct ComponentsState;
 
 // SAFE: no component value access
 unsafe impl SystemParamState for ComponentsState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
@@ -1163,13 +1091,9 @@ pub struct EntitiesState;
 
 // SAFE: no component value access
 unsafe impl SystemParamState for EntitiesState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
@@ -1198,13 +1122,9 @@ pub struct BundlesState;
 
 // SAFE: no component value access
 unsafe impl SystemParamState for BundlesState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
@@ -1238,13 +1158,9 @@ impl SystemParam for SystemChangeTick {
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {
-    type Config = ();
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self {}
     }
-
-    fn default_config() {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
@@ -1294,11 +1210,9 @@ macro_rules! impl_system_param_tuple {
         /// SAFE: implementors of each `SystemParamState` in the tuple have validated their impls
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
-            type Config = ($(<$param as SystemParamState>::Config,)*);
             #[inline]
-            fn init(_world: &mut World, _system_meta: &mut SystemMeta, config: Self::Config) -> Self {
-                let ($($param,)*) = config;
-                (($($param::init(_world, _system_meta, $param),)*))
+            fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+                (($($param::init(_world, _system_meta),)*))
             }
 
             #[inline]
@@ -1311,11 +1225,6 @@ macro_rules! impl_system_param_tuple {
             fn apply(&mut self, _world: &mut World) {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
-            }
-
-            #[allow(clippy::unused_unit)]
-            fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {
-                ($(<$param as SystemParamState>::default_config(),)*)
             }
         }
     };
