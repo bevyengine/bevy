@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System},
+    system::{IntoSystem, Res, ResMut, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -79,7 +79,9 @@ impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
             state: LocalFixedTimestepState::default(),
-            internal_system: Box::new(IntoSystem::into_system(Self::prepare_system)),
+            internal_system: Box::new(IntoSystem::into_system(Self::prepare_system(
+                Default::default(),
+            ))),
         }
     }
 }
@@ -116,18 +118,18 @@ impl FixedTimestep {
     }
 
     fn prepare_system(
-        mut state: Local<LocalFixedTimestepState>,
-        time: Res<Time>,
-        mut fixed_timesteps: ResMut<FixedTimesteps>,
-    ) -> ShouldRun {
-        let should_run = state.update(&time);
-        if let Some(ref label) = state.label {
-            let res_state = fixed_timesteps.fixed_timesteps.get_mut(label).unwrap();
-            res_state.step = state.step;
-            res_state.accumulator = state.accumulator;
-        }
+        mut state: LocalFixedTimestepState,
+    ) -> impl FnMut(Res<Time>, ResMut<FixedTimesteps>) -> ShouldRun {
+        move |time, mut fixed_timesteps| {
+            let should_run = state.update(&time);
+            if let Some(ref label) = state.label {
+                let res_state = fixed_timesteps.fixed_timesteps.get_mut(label).unwrap();
+                res_state.step = state.step;
+                res_state.accumulator = state.accumulator;
+            }
 
-        should_run
+            should_run
+        }
     }
 }
 
@@ -202,8 +204,9 @@ impl System for FixedTimestep {
     }
 
     fn initialize(&mut self, world: &mut World) {
-        self.internal_system =
-            Box::new(Self::prepare_system.config(|c| c.0 = Some(self.state.clone())));
+        self.internal_system = Box::new(IntoSystem::into_system(Self::prepare_system(
+            self.state.clone(),
+        )));
         self.internal_system.initialize(world);
         if let Some(ref label) = self.state.label {
             let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
