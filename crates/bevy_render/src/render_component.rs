@@ -8,7 +8,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, QueryItem, WorldQuery},
+    query::{FilterFetch, QueryFetch, QueryItem, WorldQuery},
     system::{
         lifetimeless::{Read, SCommands, SQuery},
         RunSystem, SystemParamItem,
@@ -142,7 +142,7 @@ impl<C, F> Default for ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
 where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
+    for<'w, 's> QueryFetch<'w, 's, C::Filter>: FilterFetch<'w, 's>,
 {
     fn build(&self, app: &mut App) {
         let system = ExtractComponentSystem::<C>::system(&mut app.world);
@@ -167,7 +167,7 @@ pub struct ExtractComponentSystem<C: ExtractComponent>(PhantomData<C>);
 
 impl<C: ExtractComponent> RunSystem for ExtractComponentSystem<C>
 where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
+    for<'w, 's> QueryFetch<'w, 's, C::Filter>: FilterFetch<'w, 's>,
 {
     type Param = (
         SCommands,
