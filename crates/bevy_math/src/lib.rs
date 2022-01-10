@@ -7,7 +7,7 @@
 
 pub use glam::*;
 
-/// The bevy_math prelude.
+/// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

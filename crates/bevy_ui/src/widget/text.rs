@@ -34,7 +34,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     }
 }
 
-/// Computes the size of a text block and updates the Text Glyphs with the
+/// Computes the size of a text block and updates the `TextGlyphs` with the
 /// new computed glyphs from the layout
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
