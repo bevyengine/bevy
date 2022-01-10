@@ -81,8 +81,8 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 /// };
 ///
 /// assert_eq!(position.left, Val::Px(100.0));
-/// assert_eq!(position.top, Val::Px(50.0));
 /// assert_eq!(position.right, Val::Undefined);
+/// assert_eq!(position.top, Val::Px(50.0));
 /// assert_eq!(position.bottom, Val::Undefined);
 /// ```
 ///
@@ -105,8 +105,8 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 /// };
 ///
 /// assert_eq!(margin.left, Val::Px(10.0));
-/// assert_eq!(margin.top, Val::Px(20.0));
 /// assert_eq!(margin.right, Val::Px(30.0));
+/// assert_eq!(margin.top, Val::Px(20.0));
 /// assert_eq!(margin.bottom, Val::Px(40.0));
 /// ```
 ///
@@ -129,8 +129,8 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 /// };
 ///
 /// assert_eq!(padding.left, Val::Px(10.0));
-/// assert_eq!(padding.top, Val::Px(20.0));
 /// assert_eq!(padding.right, Val::Px(30.0));
+/// assert_eq!(padding.top, Val::Px(20.0));
 /// assert_eq!(padding.bottom, Val::Px(40.0));
 /// ```
 ///
@@ -153,8 +153,8 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 /// };
 ///
 /// assert_eq!(border.left, Val::Px(10.0));
-/// assert_eq!(border.top, Val::Px(20.0));
 /// assert_eq!(border.right, Val::Px(30.0));
+/// assert_eq!(border.top, Val::Px(20.0));
 /// assert_eq!(border.bottom, Val::Px(40.0));
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -171,6 +171,34 @@ pub struct UiRect<T: Reflect + PartialEq> {
 }
 
 impl<T: Reflect + PartialEq> UiRect<T> {
+    /// Creates a new [`UiRect`] from the values specified.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::new(
+    ///     Val::Px(10.0),
+    ///     Val::Px(20.0),
+    ///     Val::Px(30.0),
+    ///     Val::Px(40.0),
+    /// );
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(20.0));
+    /// assert_eq!(ui_rect.top, Val::Px(30.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
+    /// ```
+    pub fn new(left: T, right: T, top: T, bottom: T) -> Self {
+        UiRect {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+
     /// Creates a new [`UiRect`] where all sides have the same value.
     ///
     /// # Example
@@ -181,8 +209,8 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// let ui_rect = UiRect::all(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn all(value: T) -> Self
