@@ -374,7 +374,7 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 /// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's [`Size`].
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the textures `size` represented by a [`Vec2`].
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,

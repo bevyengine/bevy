@@ -161,13 +161,13 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as descrided by its UiRect
-    pub position: UiRect<Val>,
+    pub position: UiRect,
     /// The margin of the node
-    pub margin: UiRect<Val>,
+    pub margin: UiRect,
     /// The padding of the node
-    pub padding: UiRect<Val>,
+    pub padding: UiRect,
     /// The border of the node
-    pub border: UiRect<Val>,
+    pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -175,11 +175,11 @@ pub struct Style {
     /// The initial size of the item
     pub flex_basis: Val,
     /// The size of the flexbox
-    pub size: Size<Val>,
+    pub size: Size,
     /// The minimum size of the flexbox
-    pub min_size: Size<Val>,
+    pub min_size: Size,
     /// The maximum size of the flexbox
-    pub max_size: Size<Val>,
+    pub max_size: Size,
     /// The aspect ratio of the flexbox
     pub aspect_ratio: Option<f32>,
     /// How to handle overflow
