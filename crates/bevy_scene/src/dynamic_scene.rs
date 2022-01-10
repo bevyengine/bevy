@@ -119,7 +119,7 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            if world.contains_resource_type_id(registration.type_id()) {
+            if world.contains_resource_with_type(registration.type_id()) {
                 reflect_resource.apply_resource(world, &**resource);
             } else {
                 reflect_resource.insert_resource(world, &**resource);
