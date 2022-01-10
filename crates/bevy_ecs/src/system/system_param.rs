@@ -269,6 +269,17 @@ impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
     }
 }
 
+impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+    fn from(res: ResMut<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks.component_ticks,
+            change_tick: res.ticks.change_tick,
+            last_change_tick: res.ticks.last_change_tick,
+        }
+    }
+}
+
 /// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
     component_id: ComponentId,
