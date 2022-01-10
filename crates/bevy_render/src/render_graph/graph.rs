@@ -6,21 +6,19 @@ use std::{borrow::Cow, fmt::Debug};
 
 use super::{RunSubGraphError, SlotInfos};
 
-/// The render graph configures the modular, parallel and re-usable render logic.
-/// It is a retained and stateless (nodes itself my have their internal state) structure,
+/// A render graph configures the modular, parallel and re-usable render logic.
+/// It is a retained and stateless (nodes itself may have their internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
 /// The `RenderGraphRunner` is responsible for executing the entire graph each frame.
 ///
-/// It consists of three main components: [`Nodes`](Node), [`Edges`](Edge)
-/// and [`Slots`](super::SlotType).
+/// It consists of two main components: [`Nodes`](Node) and [`Edges`](Edge)
 ///
-/// Nodes are responsible for generating draw calls and operating on input and output slots.
-/// Edges specify the order of execution for nodes and connect input and output slots together.
-/// Slots describe the render resources created or used by the nodes.
+/// Nodes are responsible for generating draw calls (`record`) and queuing other graphs for execution (`queue_graphs`).
+/// Edges specify the order of recording.
 ///
 /// ## Example
-/// Here is a simple render graph example with two nodes connected by a node edge.
+/// Here is a simple render graph example with two nodes connected by an edge.
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
