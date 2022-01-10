@@ -206,10 +206,15 @@ impl ComponentDescriptor {
         }
     }
 
-    pub fn new_resource<T: Resource>(storage_type: StorageType) -> Self {
+    /// Create a new `ComponentDescriptor` for a resource.
+    ///
+    /// The [`StorageType`] for resources is always [`TableStorage`].
+    pub fn new_resource<T: Resource>() -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
-            storage_type,
+            // PERF: `SparseStorage` may actually be a more
+            // reasonable choice as `storage_type` for resources.
+            storage_type: StorageType::Table,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -296,7 +301,7 @@ impl Components {
 
     /// # Safety
     ///
-    /// `id` must be a valid [ComponentId]
+    /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
@@ -320,7 +325,7 @@ impl Components {
         // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>(StorageType::default())
+                ComponentDescriptor::new_resource::<T>()
             })
         }
     }

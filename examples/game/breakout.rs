@@ -1,7 +1,6 @@
 use bevy::{
     core::FixedTimestep,
     prelude::*,
-    render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
 };
 
@@ -46,11 +45,7 @@ struct Scoreboard {
     score: usize,
 }
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add the game's entities to our world
 
     // cameras
@@ -59,9 +54,15 @@ fn setup(
     // paddle
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-            transform: Transform::from_xyz(0.0, -215.0, 0.0),
-            sprite: Sprite::new(Vec2::new(120.0, 30.0)),
+            transform: Transform {
+                translation: Vec3::new(0.0, -215.0, 0.0),
+                scale: Vec3::new(120.0, 30.0, 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(0.5, 0.5, 1.0),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Paddle { speed: 500.0 })
@@ -69,9 +70,15 @@ fn setup(
     // ball
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
-            transform: Transform::from_xyz(0.0, -50.0, 1.0),
-            sprite: Sprite::new(Vec2::new(30.0, 30.0)),
+            transform: Transform {
+                scale: Vec3::new(30.0, 30.0, 0.0),
+                translation: Vec3::new(0.0, -50.0, 1.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(1.0, 0.5, 0.5),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Ball {
@@ -113,43 +120,67 @@ fn setup(
     });
 
     // Add walls
-    let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
+    let wall_color = Color::rgb(0.8, 0.8, 0.8);
     let wall_thickness = 10.0;
     let bounds = Vec2::new(900.0, 600.0);
 
     // left
     commands
         .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(-bounds.x / 2.0, 0.0, 0.0),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
+            transform: Transform {
+                translation: Vec3::new(-bounds.x / 2.0, 0.0, 0.0),
+                scale: Vec3::new(wall_thickness, bounds.y + wall_thickness, 1.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: wall_color,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Collider::Solid);
     // right
     commands
         .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(bounds.x / 2.0, 0.0, 0.0),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
+            transform: Transform {
+                translation: Vec3::new(bounds.x / 2.0, 0.0, 0.0),
+                scale: Vec3::new(wall_thickness, bounds.y + wall_thickness, 1.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: wall_color,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Collider::Solid);
     // bottom
     commands
         .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(0.0, -bounds.y / 2.0, 0.0),
-            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
+            transform: Transform {
+                translation: Vec3::new(0.0, -bounds.y / 2.0, 0.0),
+                scale: Vec3::new(bounds.x + wall_thickness, wall_thickness, 1.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: wall_color,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Collider::Solid);
     // top
     commands
         .spawn_bundle(SpriteBundle {
-            material: wall_material,
-            transform: Transform::from_xyz(0.0, bounds.y / 2.0, 0.0),
-            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
+            transform: Transform {
+                translation: Vec3::new(0.0, bounds.y / 2.0, 0.0),
+                scale: Vec3::new(bounds.x + wall_thickness, wall_thickness, 1.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: wall_color,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Collider::Solid);
@@ -158,11 +189,11 @@ fn setup(
     let brick_rows = 4;
     let brick_columns = 5;
     let brick_spacing = 20.0;
-    let brick_size = Vec2::new(150.0, 30.0);
+    let brick_size = Vec3::new(150.0, 30.0, 1.0);
     let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
     // center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
-    let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    let brick_color = Color::rgb(0.5, 0.5, 1.0);
     for row in 0..brick_rows {
         let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {
@@ -174,9 +205,15 @@ fn setup(
             // brick
             commands
                 .spawn_bundle(SpriteBundle {
-                    material: brick_material.clone(),
-                    sprite: Sprite::new(brick_size),
-                    transform: Transform::from_translation(brick_position),
+                    sprite: Sprite {
+                        color: brick_color,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: brick_position,
+                        scale: brick_size,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
                 .insert(Collider::Scorable);
@@ -218,20 +255,20 @@ fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
-    mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
-    collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
+    mut ball_query: Query<(&mut Ball, &Transform)>,
+    collider_query: Query<(Entity, &Collider, &Transform)>,
 ) {
-    let (mut ball, ball_transform, sprite) = ball_query.single_mut();
-    let ball_size = sprite.size;
+    let (mut ball, ball_transform) = ball_query.single_mut();
+    let ball_size = ball_transform.scale.truncate();
     let velocity = &mut ball.velocity;
 
     // check collision with walls
-    for (collider_entity, collider, transform, sprite) in collider_query.iter() {
+    for (collider_entity, collider, transform) in collider_query.iter() {
         let collision = collide(
             ball_transform.translation,
             ball_size,
             transform.translation,
-            sprite.size,
+            transform.scale.truncate(),
         );
         if let Some(collision) = collision {
             // scorable colliders should be despawned and increment the scoreboard on collision

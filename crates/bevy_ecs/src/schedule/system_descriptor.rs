@@ -78,7 +78,10 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemDescriptor {
     }
 }
 
-impl IntoSystemDescriptor<()> for ExclusiveSystemFn {
+impl<F> IntoSystemDescriptor<()> for ExclusiveSystemFn<F>
+where
+    F: FnMut(&mut crate::prelude::World) + Send + Sync + 'static,
+{
     fn into_descriptor(self) -> SystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).into_descriptor()
     }

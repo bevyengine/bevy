@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
-/// An ordered, mutable list of [Reflect] items. This corresponds to types like [std::vec::Vec].
+/// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 pub trait List: Reflect {
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;

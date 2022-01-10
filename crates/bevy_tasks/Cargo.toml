@@ -1,14 +1,12 @@
 [package]
 name = "bevy_tasks"
-version = "0.5.0"
-edition = "2018"
+version = "0.6.0"
+edition = "2021"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 futures-lite = "1.4.0"

@@ -219,10 +219,10 @@ where
     }
 }
 
-/// Trait used to generate `TypeData` for trait reflection.
+/// Trait used to generate [`TypeData`] for trait reflection.
 ///
-/// This is used by the `#[derive(Reflect)]` macro to generate an implementation of [TypeData]
-/// to pass to [TypeRegistration::insert].
+/// This is used by the `#[derive(Reflect)]` macro to generate an implementation of [`TypeData`]
+/// to pass to [`TypeRegistration::insert`].
 pub trait FromType<T> {
     fn from_type() -> Self;
 }

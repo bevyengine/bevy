@@ -6,6 +6,10 @@ use std::{
 
 use crate::ptr::{OwningPtr, Ptr, PtrMut};
 
+/// A flat, type-erased data storage type
+///
+/// Used to densely store homogeneous ECS data.
+#[derive(Debug)]
 pub struct BlobVec {
     item_layout: Layout,
     capacity: usize,
@@ -102,7 +106,12 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in bounds
-    /// - memory must be reserved and uninitialized
+    /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
+    /// `item_layout`, must have been previously allocated, but not initialized yet
+    /// - the memory at `*value` must be previously initialized with an item matching this
+    /// `BlobVec`'s `item_layout`
+    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
+    /// calling this function, and as such should not be used or dropped by the caller.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
@@ -112,21 +121,28 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in-bounds
-    //  - memory must be previously initialized
-    pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
+    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
+    /// [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
+    /// this [`BlobVec`]'s `item_layout`
+    /// - the memory at `*value` must also be previously initialized with an item matching this
+    /// [`BlobVec`]'s `item_layout`
+    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
+    /// calling this function, and as such should not be used or dropped by the caller.
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
-        let len = self.len;
+        let ptr = self.get_unchecked(index).inner();
         let drop = self.drop;
-        // to ensure we don't observe the empty slot in case of drop panic
-        let ptr = self.get_unchecked_mut(index);
-        let ptr = ptr.inner();
-        self.len = index;
+        // If `drop` panics, then when the collection is dropped during stack unwinding, the
+        // collection's `Drop` impl will call `drop` again for the old value (which is still stored
+        // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
+        // done.
+        let old_len = std::mem::replace(&mut self.len, 0);
         (drop)(OwningPtr::new(ptr));
         std::ptr::copy_nonoverlapping(value.inner(), ptr.as_ptr(), self.item_layout.size());
-        self.len = len;
+        self.len = old_len;
     }
 
-    /// increases the length by one (and grows the vec if needed) with uninitialized memory and
+    /// Increases the length by one (and grows the vec if needed) with uninitialized memory and
     /// returns the index
     ///
     /// # Safety
@@ -140,9 +156,9 @@ impl BlobVec {
     }
 
     /// # Safety
-    /// len must be <= capacity. if length is decreased, "out of bounds" items must be dropped.
+    /// `len` must be <= `capacity`. if length is decreased, "out of bounds" items must be dropped.
     /// Newly added items must be immediately populated with valid values and length must be
-    /// increased. For better unwind safety, call [BlobVec::set_len] _after_ populating a new
+    /// increased. For better unwind safety, call [`BlobVec::set_len`] _after_ populating a new
     /// value.
     pub unsafe fn set_len(&mut self, len: usize) {
         debug_assert!(len <= self.capacity());
@@ -150,7 +166,7 @@ impl BlobVec {
     }
 
     /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
-    /// the last item in the [BlobVec] to `index` (if `index` is not the last item). It is the
+    /// the last item in the [`BlobVec`] to `index` (if `index` is not the last item). It is the
     /// caller's responsibility to drop the returned pointer, if that is desirable.
     ///
     /// # Safety
@@ -256,15 +272,15 @@ impl Drop for BlobVec {
     }
 }
 
-/// From https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
 fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
     let (array_layout, offset) = repeat_layout(layout, n)?;
     debug_assert_eq!(layout.size(), offset);
     Some(array_layout)
 }
 
-// TODO: replace with Layout::repeat if/when it stabilizes
-/// From https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html
+// TODO: replace with `Layout::repeat` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
 fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
     // This cannot overflow. Quoting from the invariant of Layout:
     // > `size`, when rounded up to the nearest multiple of `align`,
@@ -283,7 +299,7 @@ fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
     }
 }
 
-/// From https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
 const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
     let len = layout.size();
 
@@ -324,7 +340,7 @@ mod tests {
 
     /// # Safety
     ///
-    /// `blob_vec` must have a layout that matches Layout::new::<T>()
+    /// `blob_vec` must have a layout that matches `Layout::new::<T>()`
     unsafe fn push<T>(blob_vec: &mut BlobVec, value: T) {
         let index = blob_vec.push_uninit();
         OwningPtr::make(value, |ptr| {
@@ -334,7 +350,7 @@ mod tests {
 
     /// # Safety
     ///
-    /// `blob_vec` must have a layout that matches Layout::new::<T>()
+    /// `blob_vec` must have a layout that matches `Layout::new::<T>()`
     unsafe fn swap_remove<T>(blob_vec: &mut BlobVec, index: usize) -> T {
         assert!(index < blob_vec.len());
         let value = blob_vec.swap_remove_and_forget_unchecked(index);
@@ -343,8 +359,8 @@ mod tests {
 
     /// # Safety
     ///
-    /// `blob_vec` must have a layout that matches Layout::new::<T>(), it most store a valid T value
-    /// at the given `index`
+    /// `blob_vec` must have a layout that matches `Layout::new::<T>()`, it most store a valid `T`
+    /// value at the given `index`
     unsafe fn get_mut<T>(blob_vec: &mut BlobVec, index: usize) -> &mut T {
         assert!(index < blob_vec.len());
         &mut *blob_vec
