@@ -153,6 +153,7 @@ Example | File | Description
 `custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+`loading_screen` | [`asset/loading_screen.rs`](./asset/loading_screen.rs) | Demonstrates a way to create a loading screen and provides it as a plugin template
 
 ## Async Tasks
 
