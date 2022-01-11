@@ -34,9 +34,9 @@ pub struct SourceInfo {
 impl SourceInfo {
     /// Returns `true` if all assets tracked by the source were loaded into their asset storages.
     pub fn is_loaded(&self) -> bool {
-        self.meta.as_ref().map_or(false, |meta| {
-            self.committed_assets.len() == meta.len()
-        })
+        self.meta
+            .as_ref()
+            .map_or(false, |meta| self.committed_assets.len() == meta.len())
     }
 
     /// Gets the type identifier for an asset identified by `label_id`.
