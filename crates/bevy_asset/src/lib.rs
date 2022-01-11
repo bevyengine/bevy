@@ -8,6 +8,8 @@
 //! [asset server]: struct.AssetServer.html
 //! [asset storage]: struct.Assets.html
 
+#![warn(missing_docs)]
+
 mod asset_server;
 mod assets;
 #[cfg(feature = "debug_asset_server")]
