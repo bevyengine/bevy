@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 pub enum HandleId {
     /// A handle id of a loaded asset.
     Id(Uuid, u64),
+
     /// A handle id of a pending asset.
     AssetPathId(AssetPathId),
 }
@@ -51,13 +52,13 @@ impl<'a> From<AssetPath<'a>> for HandleId {
 }
 
 impl HandleId {
-    /// Creates a random id for an Asset of type `T`.
+    /// Creates a random id for an asset of type `T`.
     #[inline]
     pub fn random<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, rand::random())
     }
 
-    /// Creates the default id for an Asset of type `T`.
+    /// Creates the default id for an asset of type `T`.
     #[inline]
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
@@ -78,7 +79,7 @@ impl HandleId {
 ///
 /// A handle is _not_ the asset itself, but should be seen as a pointer to the asset. Modifying a
 /// handle's `id` only modifies which asset is being pointed to. To get the actual asset, try using
-/// [`Assets::get`](crate::Assets::get) or [`Assets::get_mut`](crate::Assets::get_mut).
+/// [`Assets::get`] or [`Assets::get_mut`].
 ///
 /// # Strong and Weak
 ///
@@ -104,7 +105,7 @@ pub struct Handle<T>
 where
     T: Asset,
 {
-    /// The ID of the asset as contained within its respective [Assets](crate::Assets) collection
+    /// The ID of the asset as contained within its respective [`Assets`] collection
     pub id: HandleId,
     #[reflect(ignore)]
     handle_type: HandleType,
@@ -171,7 +172,7 @@ impl<T: Asset> Handle<T> {
 
     /// Makes this handle Strong if it wasn't already.
     ///
-    /// This method requires the corresponding [Assets](crate::Assets) collection
+    /// This method requires the corresponding [`Assets`](crate::Assets) collection.
     pub fn make_strong(&mut self, assets: &Assets<T>) {
         if self.is_strong() {
             return;
@@ -329,7 +330,7 @@ impl HandleUntyped {
         }
     }
 
-    /// Create a weak untyped into an Asset identified by `id`.
+    /// Create a weak, untyped handle into an Asset identified by `id`.
     pub fn weak(id: HandleId) -> Self {
         Self {
             id,

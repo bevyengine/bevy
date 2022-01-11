@@ -41,7 +41,17 @@ pub enum AssetIoError {
     PathWatchError(PathBuf),
 }
 
-/// Handles load requests from an `AssetServer`.
+/// A storage provider for an [`AssetServer`].
+///
+/// An asset I/O is the backend actually providing data for the asset loaders managed by the asset
+/// server. An average user will probably be just fine with the default [`FileAssetIo`], but you
+/// can easily use your own custom I/O to, for example, load assets from cloud storage or create a
+/// seamless VFS layout using custom containers.
+///
+/// See the [`custom_asset_io`]  example in the repository for more details.
+///
+/// [`AssetServer`]: struct.AssetServer.html
+/// [`custom_asset_io`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/custom_asset_io.rs
 pub trait AssetIo: Downcast + Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>>;

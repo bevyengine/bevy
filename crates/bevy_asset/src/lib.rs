@@ -1,3 +1,13 @@
+//! Built-in plugin for asset support.
+//!
+//! This plugin allows a bevy app to work with assets from the filesystem (or [another source]),
+//! providing an [asset server] for loading an processing [`Asset`]s and storing them in an
+//! [asset storage] to be accesed by systems.
+//!
+//! [another source]: trait.AssetIo.html
+//! [asset server]: struct.AssetServer.html
+//! [asset storage]: struct.Assets.html
+
 mod asset_server;
 mod assets;
 #[cfg(feature = "debug_asset_server")]
@@ -35,7 +45,9 @@ use bevy_ecs::schedule::{StageLabel, SystemStage};
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum AssetStage {
+    /// The stage where asset storages are updated.
     LoadAssets,
+    /// The stage where asset events are generated.
     AssetEvents,
 }
 

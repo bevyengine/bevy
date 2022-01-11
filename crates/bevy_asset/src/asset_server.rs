@@ -388,7 +388,7 @@ impl AssetServer {
 
     /// Queues the [`Asset`] at the provided path for loading and returns an untyped handle.
     ///
-    /// See [`load`].
+    /// See [`load`](#method.load).
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
