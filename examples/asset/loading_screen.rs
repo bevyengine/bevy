@@ -1,9 +1,6 @@
-use bevy::{
-    prelude::*, gltf::Gltf,
-};
+use bevy::{gltf::Gltf, prelude::*};
 
 /// This example illustrates, how a loading screen can be implemented. It has an animated spinner and listens for an `AssetEvent`.
-
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
@@ -16,8 +13,12 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         // Loading screen plugin and its `asset_listening_system`
-        .add_plugin(plugin::SimpleLoadingScreenPlugin { loading_state: GameState::Loading })
-        .add_system_set(SystemSet::on_update(GameState::Loading).with_system(asset_listening_system))
+        .add_plugin(plugin::SimpleLoadingScreenPlugin {
+            loading_state: GameState::Loading,
+        })
+        .add_system_set(
+            SystemSet::on_update(GameState::Loading).with_system(asset_listening_system),
+        )
         // system that sets up everything for our game
         .add_startup_system(setup_game)
         // system that will be run after everything is set up
@@ -39,10 +40,10 @@ fn asset_listening_system(
                 // in this case, we know that we only had one asset (FlightHelmet.gltf#Scene0) to load,
                 // so we can switch our game state from `GameState::Loading` over to `GameState::Playing`
                 let _ = state.overwrite_set(GameState::Playing);
-            },
+            }
             // we don't care about these events in our example
-            AssetEvent::Modified { handle: _ } => {},
-            AssetEvent::Removed { handle: _ } => {},
+            AssetEvent::Modified { handle: _ } => {}
+            AssetEvent::Removed { handle: _ } => {}
         }
     }
 }
@@ -52,7 +53,7 @@ fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut loading_screen: Query<(&mut Style, &Children), With<plugin::LoadingScreen>>,
-    mut text_query: Query<&mut Text>
+    mut text_query: Query<&mut Text>,
 ) {
     // Change our default loading screen text to something more descriptive
     for (mut _style, children) in loading_screen.iter_mut() {
@@ -91,10 +92,7 @@ fn setup_game(
 }
 
 // Your, or at least one of your, game systems.
-fn game_system(
-    _commands: Commands,
-    _asset_server: Res<AssetServer>,
-) {
+fn game_system(_commands: Commands, _asset_server: Res<AssetServer>) {
     // TODO: do your thing!
 }
 
@@ -103,7 +101,8 @@ fn game_system(
 // like `asset_listening_system`, to track your loading progress and to transition into your playing state.
 pub mod plugin {
     use bevy::{
-        ecs::schedule::{SystemSet, StateData}, prelude::*,
+        ecs::schedule::{StateData, SystemSet},
+        prelude::*,
     };
 
     pub struct SimpleLoadingScreenPlugin<S: StateData> {
@@ -112,11 +111,15 @@ pub mod plugin {
 
     impl<S: StateData> Plugin for SimpleLoadingScreenPlugin<S> {
         fn build(&self, app: &mut App) {
-            app
-                .add_state(self.loading_state.clone())
+            app.add_state(self.loading_state.clone())
                 .add_startup_system(setup_loading_screen)
-                .add_system_set(SystemSet::on_update(self.loading_state.clone()).with_system(animate_spinner))
-                .add_system_set(SystemSet::on_exit(self.loading_state.clone()).with_system(close_loading_screen));
+                .add_system_set(
+                    SystemSet::on_update(self.loading_state.clone()).with_system(animate_spinner),
+                )
+                .add_system_set(
+                    SystemSet::on_exit(self.loading_state.clone())
+                        .with_system(close_loading_screen),
+                );
         }
     }
 
@@ -126,10 +129,7 @@ pub mod plugin {
 
     // Setup our simple loading screen, it uses an image as spinner and a loading text bellow it.
     // INFO: you need to change this if you want something fancier 🙂
-    fn setup_loading_screen(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-    ) {
+    fn setup_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
         // UI camera
         commands.spawn_bundle(UiCameraBundle::default());
         commands
@@ -183,7 +183,7 @@ pub mod plugin {
                             },
                             TextAlignment {
                                 horizontal: HorizontalAlign::Center,
-                                vertical: VerticalAlign::Center
+                                vertical: VerticalAlign::Center,
                             },
                         ),
                         ..Default::default()
@@ -198,7 +198,7 @@ pub mod plugin {
         // This queries for the children and style of the `NodeBundle` we marked with `LoadingScreen`
         mut loading_screen: Query<(&mut Style, &Children), With<LoadingScreen>>,
         // Queries for the `Transform`s of all `UiImage`s, so that we can get our child from it.
-        mut images_query: Query<&mut Transform, With<UiImage>>
+        mut images_query: Query<&mut Transform, With<UiImage>>,
     ) {
         for (mut _style, children) in loading_screen.iter_mut() {
             // All children of the loading screen
@@ -215,7 +215,7 @@ pub mod plugin {
     // Close our loading screen. This system is called when we exit `GameState::Loading`.
     fn close_loading_screen(
         mut loading_screen: Query<(&mut Style, &Children), With<LoadingScreen>>,
-        mut text_query: Query<&mut Text>
+        mut text_query: Query<&mut Text>,
     ) {
         for (mut style, children) in loading_screen.iter_mut() {
             style.display = Display::None;
