@@ -1212,7 +1212,7 @@ impl Turtle {
     /// A view on this [`Turtle`]'s [`World`], which contains no [`!Send`] resources
     ///
     /// [`!Send`]: Send
-    // Safety: NonSend resources cannot be added using a raw reference
+    // Safety: NonSend resources cannot be added using a shared reference
     // to the world, so this cannot break our invariants
     pub fn world_ref(&self) -> &World {
         &self.world
