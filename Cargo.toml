@@ -503,7 +503,7 @@ required-features = []
 [[example]]
 name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
+required-features = ["bevy_winit","render"]
 
 [[example]]
 name = "headless_wasm"
