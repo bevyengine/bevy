@@ -428,7 +428,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 }
 
 /// Implement `WorldQuery` to use a struct as a parameter in a query
-#[proc_macro_derive(Fetch, attributes(read_only, read_only_derive))]
+#[proc_macro_derive(Fetch, attributes(mutable, read_only_derive))]
 pub fn derive_fetch(input: TokenStream) -> TokenStream {
     derive_fetch_impl(input)
 }

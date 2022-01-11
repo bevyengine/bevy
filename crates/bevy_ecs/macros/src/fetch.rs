@@ -9,7 +9,7 @@ use syn::{
 
 use crate::bevy_ecs_path;
 
-static READ_ONLY_ATTRIBUTE_NAME: &str = "read_only";
+static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
 static READ_ONLY_DERIVE_ATTRIBUTE_NAME: &str = "read_only_derive";
 
 pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
@@ -26,7 +26,7 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         ty_generics,
         where_clause,
         has_world_lifetime,
-        has_read_only_attr,
+        has_mutable_attr,
         world_lifetime,
         state_lifetime,
         phantom_field_idents,
@@ -47,8 +47,8 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
             .map_or(false, |ident| ident == READ_ONLY_DERIVE_ATTRIBUTE_NAME)
     });
     let read_only_derive_macro_call = if let Some(read_only_derive_attr) = read_only_derive_attr {
-        if has_read_only_attr {
-            panic!("Attributes `read_only` and `read_only_derive` are mutually exclusive");
+        if !has_mutable_attr {
+            panic!("Attribute `read_only_derive` can only be be used for a struct marked with the `mutable` attribute");
         }
         let derive_args = &read_only_derive_attr.tokens;
         quote! { #[derive #derive_args] }
@@ -74,25 +74,10 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
 
     let path = bevy_ecs_path();
 
-    let struct_read_only_declaration = if has_read_only_attr {
+    let struct_read_only_declaration = if has_mutable_attr {
         quote! {
-            // Statically checks that the safety guarantee actually holds true. We need this to make
-            // sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
-            // members that don't implement it.
-            #[allow(dead_code)]
-            const _: () = {
-                fn assert_readonly<T: #path::query::ReadOnlyFetch>() {}
-
-                // We generate a readonly assertion for every struct member.
-                fn assert_all #impl_generics () #where_clause {
-                    #(assert_readonly::<<#query_types as #path::query::WorldQuery>::Fetch>();)*
-                }
-            };
-        }
-    } else {
-        quote! {
-            // TODO: it would be great to be able to dedup this by just deriving `Fetch` again with `read_only` attribute,
-            //  but supporting QSelf types is tricky.
+            // TODO: it would be great to be able to dedup this by just deriving `Fetch` again
+            //  without the `mutable` attribute, but supporting QSelf types is tricky.
             #read_only_derive_macro_call
             struct #struct_name_read_only #impl_generics #where_clause {
                 #(#field_idents: <<#query_types as #path::query::WorldQuery>::ReadOnlyFetch as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
@@ -153,6 +138,21 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
                 type State = #state_struct_name #ty_generics;
                 type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
             }
+        }
+    } else {
+        quote! {
+            // Statically checks that the safety guarantee actually holds true. We need this to make
+            // sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
+            // members that don't implement it.
+            #[allow(dead_code)]
+            const _: () = {
+                fn assert_readonly<T: #path::query::ReadOnlyFetch>() {}
+
+                // We generate a readonly assertion for every struct member.
+                fn assert_all #impl_generics () #where_clause {
+                    #(assert_readonly::<<#query_types as #path::query::WorldQuery>::Fetch>();)*
+                }
+            };
         }
     };
 
@@ -265,7 +265,7 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         ty_generics,
         where_clause,
         world_lifetime,
-        has_read_only_attr: _,
+        has_mutable_attr: _,
         has_world_lifetime,
         state_lifetime,
         phantom_field_idents,
@@ -383,7 +383,7 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
 // This struct is used to share common tokens between `Fetch` and `FilterFetch` implementations.
 struct FetchImplTokens<'a> {
     struct_name: Ident,
-    // Equals `struct_name` if `has_read_only_attr` is true.
+    // Equals `struct_name` if `has_mutable_attr` is false.
     struct_name_read_only: Ident,
     fetch_struct_name: Ident,
     state_struct_name: Ident,
@@ -392,7 +392,7 @@ struct FetchImplTokens<'a> {
     impl_generics: ImplGenerics<'a>,
     ty_generics: TypeGenerics<'a>,
     where_clause: Option<&'a WhereClause>,
-    has_read_only_attr: bool,
+    has_mutable_attr: bool,
     has_world_lifetime: bool,
     world_lifetime: GenericParam,
     state_lifetime: GenericParam,
@@ -405,10 +405,10 @@ struct FetchImplTokens<'a> {
 }
 
 fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
-    let has_read_only_attr = ast.attrs.iter().any(|attr| {
+    let has_mutable_attr = ast.attrs.iter().any(|attr| {
         attr.path
             .get_ident()
-            .map_or(false, |ident| ident == READ_ONLY_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == MUTABLE_ATTRIBUTE_NAME)
     });
 
     let world_lifetime = ast.generics.params.first().and_then(|param| match param {
@@ -429,17 +429,17 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     let struct_name = ast.ident.clone();
-    let struct_name_read_only = if has_read_only_attr {
-        ast.ident.clone()
-    } else {
+    let struct_name_read_only = if has_mutable_attr {
         Ident::new(&format!("{}ReadOnly", struct_name), Span::call_site())
+    } else {
+        ast.ident.clone()
     };
     let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
     let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
-    let read_only_fetch_struct_name = if has_read_only_attr {
-        fetch_struct_name.clone()
-    } else {
+    let read_only_fetch_struct_name = if has_mutable_attr {
         Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site())
+    } else {
+        fetch_struct_name.clone()
     };
 
     let fields = match &ast.data {
@@ -496,7 +496,7 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
         impl_generics,
         ty_generics,
         where_clause,
-        has_read_only_attr,
+        has_mutable_attr,
         has_world_lifetime,
         world_lifetime,
         state_lifetime,

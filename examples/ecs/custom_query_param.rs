@@ -23,18 +23,18 @@ use std::{fmt::Debug, marker::PhantomData};
 fn main() {
     App::new()
         .add_startup_system(spawn)
-        .add_system(print_components_iter_mut.label("print_components_iter_mut"))
+        .add_system(print_components_read_only.label("print_components_read_only"))
+        .add_system(
+            print_components_iter_mut
+                .label("print_components_iter_mut")
+                .after("print_components_read_only"),
+        )
         .add_system(
             print_components_iter
                 .label("print_components_iter")
                 .after("print_components_iter_mut"),
         )
-        .add_system(
-            print_components_read_only
-                .label("print_components_read_only")
-                .after("print_components_iter"),
-        )
-        .add_system(print_components_tuple.after("print_components_read_only"))
+        .add_system(print_components_tuple.after("print_components_iter_mut"))
         .run();
 }
 
@@ -50,6 +50,39 @@ struct ComponentD;
 struct ComponentZ;
 
 #[derive(Fetch)]
+struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
+    entity: Entity,
+    a: &'w ComponentA,
+    b: Option<&'w ComponentB>,
+    nested: NestedQuery<'w>,
+    generic: GenericQuery<'w, T, P>,
+    #[allow(dead_code)]
+    empty: EmptyQuery<'w>,
+}
+
+fn print_components_read_only(
+    query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+) {
+    println!("Print components (read_only):");
+    for e in query.iter() {
+        let e: ReadOnlyCustomQuery<'_, _, _> = e;
+        println!("Entity: {:?}", e.entity);
+        println!("A: {:?}", e.a);
+        println!("B: {:?}", e.b);
+        println!("Nested: {:?}", e.nested);
+        println!("Generic: {:?}", e.generic);
+    }
+    println!();
+}
+
+// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
+// The `Fetch` derive macro will still create a read-only version, which will be have `ReadOnly`
+// suffix.
+// Note: if you want to use derive macros with read-only query variants, you need to pass them with
+// using the `read_only_derive` attribute.
+#[derive(Fetch, Debug)]
+#[mutable]
+#[read_only_derive(Debug)]
 struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
@@ -62,13 +95,12 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(Fetch)]
+#[derive(Fetch, Debug)]
 struct EmptyQuery<'w> {
     _w: std::marker::PhantomData<&'w ()>,
 }
 
 #[derive(Fetch, Debug)]
-#[read_only_derive(Debug)]
 #[allow(dead_code)]
 struct NestedQuery<'w> {
     c: &'w ComponentC,
@@ -76,7 +108,6 @@ struct NestedQuery<'w> {
 }
 
 #[derive(Fetch, Debug)]
-#[read_only_derive(Debug)]
 #[allow(dead_code)]
 struct GenericQuery<'w, T: Component, P: Component> {
     generic: (&'w T, &'w P),
@@ -119,37 +150,8 @@ fn print_components_iter(
 ) {
     println!("Print components (iter):");
     for e in query.iter() {
-        // Note that the actual type is different when you iterate with `iter`.
+        // Note that the actual type is different when you iterate over mutable queries with `iter`.
         let e: CustomQueryReadOnly<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
-        println!("A: {:?}", e.a);
-        println!("B: {:?}", e.b);
-        println!("Nested: {:?}", e.nested);
-        println!("Generic: {:?}", e.generic);
-    }
-    println!();
-}
-
-// If you are never going to mutate the data in a query, you can mark it with `read_only` attribute
-// to avoid creating an additional type with `ReadOnly` suffix.
-#[derive(Fetch)]
-#[read_only]
-struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
-    entity: Entity,
-    a: &'w ComponentA,
-    b: Option<&'w ComponentB>,
-    nested: NestedQueryReadOnly<'w>,
-    generic: GenericQueryReadOnly<'w, T, P>,
-    #[allow(dead_code)]
-    empty: EmptyQueryReadOnly<'w>,
-}
-
-fn print_components_read_only(
-    query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
-) {
-    println!("Print components (read_only):");
-    for e in query.iter() {
-        let e: ReadOnlyCustomQuery<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);

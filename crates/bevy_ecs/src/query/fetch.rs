@@ -90,28 +90,128 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 /// struct Foo;
 /// #[derive(Component)]
 /// struct Bar;
-/// #[derive(Component)]
-/// struct OptionalFoo;
-/// #[derive(Component)]
-/// struct OptionalBar;
 ///
 /// #[derive(Fetch)]
 /// struct MyQuery<'w> {
 ///     entity: Entity,
 ///     foo: &'w Foo,
-///     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
-///     bar: Mut<'w, Bar>,
-///     optional_foo: Option<&'w OptionalFoo>,
-///     optional_bar: Option<Mut<'w, OptionalBar>>,
+///     bar: Option<&'w Bar>,
 /// }
 ///
-/// fn my_system(mut query: Query<MyQuery>) {
-///     for q in query.iter_mut() {
+/// fn my_system(query: Query<MyQuery>) {
+///     for q in query.iter() {
 ///         q.foo;
 ///     }
 /// }
 ///
 /// # my_system.system();
+/// ```
+///
+/// ## Mutable queries
+///
+/// All queries that are derived with `Fetch` macro provide only an immutable access by default.
+/// If you need a mutable access to components, you can mark a struct with the `mutable` attribute.
+/// The macro will still generate a read-only variant of a query suffixed with `ReadOnly`.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+///
+/// #[derive(Component)]
+/// struct Health(f32);
+/// #[derive(Component)]
+/// struct Buff(f32);
+///
+/// #[derive(Fetch)]
+/// #[mutable]
+/// struct HealthQuery<'w> {
+///     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
+///     health: Mut<'w, Health>,
+///     buff: Option<Mut<'w, Buff>>,
+/// }
+///
+/// // This implementation is only available when iterating with `iter_mut`.
+/// impl<'w> HealthQuery<'w> {
+///     fn damage(&mut self, value: f32) {
+///         self.health.0 -= value;
+///     }
+///
+///     fn total(&self) -> f32 {
+///         self.health.0 + self.buff.as_deref().map_or(0.0, |Buff(buff)| *buff)
+///     }
+/// }
+///
+/// // If you want to use it with `iter`, you'll need to write an additional implementation.
+/// impl<'w> HealthQueryReadOnly<'w> {
+///     fn total(&self) -> f32 {
+///         self.health.0 + self.buff.map_or(0.0, |Buff(buff)| *buff)
+///     }
+/// }
+///
+/// fn my_system(mut health_query: Query<HealthQuery>) {
+///     // Iterator's item is `HealthQueryReadOnly`.
+///     for health in health_query.iter() {
+///         println!("Total: {}", health.total());
+///     }
+///     // Iterator's item is `HealthQuery`.
+///     for mut health in health_query.iter_mut() {
+///         health.damage(1.0);
+///         println!("Total (mut): {}", health.total());
+///     }
+/// }
+/// ```
+///
+/// If you want to use derive macros with read-only query variants, you need to pass them with
+/// using the `read_only_derive` attribute. When `Fetch` macro generates an additional struct
+/// for a mutable query, it doesn't automatically inherit the same derives. Since derive macros
+/// can't access information about other derives, they need to be passed manually with the
+/// `read_only_derive` attribute.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+///
+/// #[derive(Component, Debug)]
+/// struct Foo;
+///
+/// #[derive(Fetch, Debug)]
+/// #[mutable]
+/// #[read_only_derive(Debug)]
+/// struct FooQuery<'w> {
+///     foo: &'w Foo,
+/// }
+///
+/// fn assert_debug<T: std::fmt::Debug>() {}
+///
+/// assert_debug::<FooQuery>();
+/// assert_debug::<FooQueryReadOnly>();
+/// ```
+///
+/// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
+/// `ReadOnlyFetch`, compilation will fail. We insert static checks as in the example above for
+/// every query component and a nested query.
+/// (The checks neither affect the runtime, nor pollute your local namespace.)
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+///
+/// #[derive(Component)]
+/// struct Foo;
+/// #[derive(Component)]
+/// struct Bar;
+///
+/// #[derive(Fetch)]
+/// struct FooQuery<'w> {
+///     foo: &'w Foo,
+///     bar_query: BarQuery<'w>,
+/// }
+///
+/// #[derive(Fetch)]
+/// #[mutable]
+/// struct BarQuery<'w> {
+///     bar: Mut<'w, Bar>,
+/// }
 /// ```
 ///
 /// ## Nested queries
@@ -153,126 +253,6 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 /// }
 ///
 /// # my_system.system();
-/// ```
-///
-/// ## Read-only queries
-///
-/// All queries that are derived with `Fetch` macro have their read-only variants with `ReadOnly`
-/// suffix. If you are going to use a query which can only read data from the ECS, you can mark it
-/// with the `read_only` attribute.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
-///
-/// #[derive(Component)]
-/// struct A(i32);
-/// #[derive(Component)]
-/// struct B(i32);
-///
-/// #[derive(Fetch)]
-/// struct SumQuery<'w> {
-///     a: &'w A,
-///     b: &'w B,
-/// }
-///
-/// // This implementation is only available when iterating with `iter_mut`.
-/// impl<'w> SumQuery<'w> {
-///     fn calc(&self) -> i32 {
-///         let Self { a: A(a), b: B(b) } = self;
-///         a + b
-///     }
-/// }
-///
-/// // If you want to use it with `iter`, you'll need to write an additional implementation.
-/// impl<'w> SumQueryReadOnly<'w> {
-///     fn calc(&self) -> i32 {
-///         let Self { a: A(a), b: B(b) } = self;
-///         a + b
-///     }
-/// }
-///
-/// // If you are never going to mutate the data, you can mark the query with the `read_only`
-/// // attribute and write the implementation only once.
-/// #[derive(Fetch)]
-/// #[read_only]
-/// struct ProductQuery<'w> {
-///     a: &'w A,
-///     b: &'w B,
-/// }
-///
-/// impl<'w> ProductQuery<'w> {
-///     fn calc(&self) -> i32 {
-///         let Self { a: A(a), b: B(b) } = self;
-///         a * b
-///     }
-/// }
-///
-/// fn my_system(mut sum_query: Query<SumQuery>, product_query: Query<ProductQuery>) {
-///     // Iterator's item is `SumQueryReadOnly`.
-///     for sum in sum_query.iter() {
-///         println!("Sum: {}", sum.calc());
-///     }
-///     // Iterator's item is `SumQuery`.
-///     for sum in sum_query.iter_mut() {
-///         println!("Sum (mut): {}", sum.calc());
-///     }
-///     // Iterator's item is `ProductQuery`.
-///     for product in product_query.iter() {
-///         println!("Product: {}", product.calc());
-///     }
-/// }
-/// ```
-///
-/// If you want to use derive macros with read-only query variants, you need to pass them with
-/// using the `read_only_derive` attribute. As the `Fetch` macro generates an additional struct
-/// for `ReadOnlyFetch` implementation (granted it isn't marked with the `read_only` attribute),
-/// you may want it to inherit the same derives. Since derive macros can't access information about
-/// other derives, they need to be passed manually with the `read_only_derive` attribute.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
-///
-/// #[derive(Component, Debug)]
-/// struct Foo;
-///
-/// #[derive(Fetch, Debug)]
-/// #[read_only_derive(Debug)]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-/// }
-///
-/// fn assert_debug<T: std::fmt::Debug>() {}
-///
-/// assert_debug::<FooQuery>();
-/// assert_debug::<FooQueryReadOnly>();
-/// ```
-///
-/// **Note:** if you mark a query that doesn't implement `ReadOnlyFetch` as `read_only`,
-/// compilation will fail. We insert static checks as in the example above for every nested query
-/// marked as `read_only`. (They neither affect the runtime, nor pollute your local namespace.)
-///
-/// ```compile_fail
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-///
-/// #[derive(Fetch)]
-/// #[read_only]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-///     bar_query: BarQuery<'w>,
-/// }
-///
-/// #[derive(Fetch)]
-/// struct BarQuery<'w> {
-///     bar: Mut<'w, Bar>,
-/// }
 /// ```
 ///
 /// ## Limitations
