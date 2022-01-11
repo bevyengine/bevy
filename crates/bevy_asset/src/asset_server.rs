@@ -115,6 +115,8 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
+    /// Enable watching of the filesystem for changes, if support is available, starting from after
+    /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         self.server.asset_io.watch_for_changes()?;
         Ok(())

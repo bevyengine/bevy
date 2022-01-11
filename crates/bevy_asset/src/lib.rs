@@ -44,12 +44,22 @@ pub struct AssetPlugin;
 
 pub struct AssetServerSettings {
     pub asset_folder: String,
+    #[cfg(all(
+        feature = "filesystem_watcher",
+        all(not(target_arch = "wasm32"), not(target_os = "android"))
+    ))]
+    pub watch_for_changes: bool,
 }
 
 impl Default for AssetServerSettings {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
+            #[cfg(all(
+                feature = "filesystem_watcher",
+                all(not(target_arch = "wasm32"), not(target_os = "android"))
+            ))]
+            watch_for_changes: false,
         }
     }
 }
@@ -64,7 +74,11 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
         .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-    let source = FileAssetIo::new(&settings.asset_folder);
+    let source = FileAssetIo::new(
+        &settings.asset_folder,
+        #[cfg(feature = "filesystem_watcher")]
+        settings.watch_for_changes,
+    );
     #[cfg(target_arch = "wasm32")]
     let source = WasmAssetIo::new(&settings.asset_folder);
     #[cfg(target_os = "android")]
