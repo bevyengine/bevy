@@ -1,0 +1,27 @@
+[package]
+name = "bevy_android_example"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bevy = { path = "../../", features = [ 
+  #"bevy_audio", TODO: https://github.com/bevyengine/bevy/issues/3648
+  "bevy_winit",
+  "render",
+  #"vorbis",
+  "filesystem_watcher",
+  "png"
+], default-features = false}
+
+
+[package.metadata.android]
+apk_label = "Bevy Example"
+assets = "../../assets"
+res = "assets/android-res"
+icon = "@mipmap/ic_launcher"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+min_sdk_version = 16
+target_sdk_version = 29
