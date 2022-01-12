@@ -417,9 +417,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Adds a single [`Component`] to the entity.
     ///
-    /// See [`EntityMut::insert`](crate::world::EntityMut::insert) for more
-    /// details.
-    ///
     /// # Example
     ///
     /// `Self::insert` can be chained with [`Commands::spawn`].
