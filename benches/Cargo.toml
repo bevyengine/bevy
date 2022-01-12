@@ -25,11 +25,6 @@ path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
 harness = false
 
 [[bench]]
-name = "system_stage"
-path = "benches/bevy_ecs/stages.rs"
-harness = false
-
-[[bench]]
 name = "run_criteria"
 path = "benches/bevy_ecs/run_criteria.rs"
 harness = false
@@ -40,8 +35,28 @@ path = "benches/bevy_ecs/commands.rs"
 harness = false
 
 [[bench]]
+name = "system_stage"
+path = "benches/bevy_ecs/stages.rs"
+harness = false
+
+[[bench]]
 name = "world_get"
 path = "benches/bevy_ecs/world_get.rs"
+harness = false
+
+[[bench]]
+name = "reflect_list"
+path = "benches/bevy_reflect/list.rs"
+harness = false
+
+[[bench]]
+name = "reflect_map"
+path = "benches/bevy_reflect/map.rs"
+harness = false
+
+[[bench]]
+name = "reflect_struct"
+path = "benches/bevy_reflect/struct.rs"
 harness = false
 
 [[bench]]
