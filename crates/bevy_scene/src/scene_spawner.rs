@@ -9,10 +9,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeRegistryArc;
 use bevy_transform::{hierarchy::AddChild, prelude::Parent};
-use bevy_utils::{
-    tracing::{debug, error},
-    HashMap,
-};
+use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -170,8 +167,11 @@ impl SceneSpawner {
                     .get_info(component_id)
                     .expect("component_ids in archetypes should have ComponentInfo");
 
-                // Resources that are not registered are ignored
-                if let Some(registration) = type_registry.get(component_info.type_id().unwrap()) {
+                let type_id = component_info
+                    .type_id()
+                    .expect("Reflected resources must have a type_id");
+
+                if let Some(registration) = type_registry.get(type_id) {
                     let reflect_resource =
                         registration.data::<ReflectResource>().ok_or_else(|| {
                             SceneSpawnError::UnregisteredResource {
@@ -180,10 +180,9 @@ impl SceneSpawner {
                         })?;
                     reflect_resource.copy_resource(&scene.world, world);
                 } else {
-                    debug!(
-                        "Ignored unregistered resource when loading scene: {}",
-                        component_info.name()
-                    );
+                    return Err(SceneSpawnError::UnregisteredType {
+                        type_name: component_info.name().to_string(),
+                    });
                 }
             }
 
