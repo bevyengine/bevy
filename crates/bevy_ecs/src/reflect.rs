@@ -17,7 +17,7 @@ pub struct ReflectComponent {
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
-    reflect_component_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
+    reflect_component_unchecked_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
     copy_component: fn(&World, &mut World, Entity, Entity),
 }
 
@@ -48,7 +48,7 @@ impl ReflectComponent {
         entity: Entity,
     ) -> Option<ReflectMut<'a>> {
         // SAFE: unique world access
-        unsafe { (self.reflect_component_mut)(world, entity) }
+        unsafe { (self.reflect_component_unchecked_mut)(world, entity) }
     }
 
     /// # Safety
@@ -62,7 +62,7 @@ impl ReflectComponent {
         world: &'a World,
         entity: Entity,
     ) -> Option<ReflectMut<'a>> {
-        (self.reflect_component_mut)(world, entity)
+        (self.reflect_component_unchecked_mut)(world, entity)
     }
 
     pub fn copy_component(
@@ -110,7 +110,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
-            reflect_component_mut: |world, entity| unsafe {
+            reflect_component_unchecked_mut: |world, entity| unsafe {
                 world
                     .get_entity(entity)?
                     .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
@@ -129,7 +129,7 @@ pub struct ReflectResource {
     apply_resource: fn(&mut World, &dyn Reflect),
     remove_resource: fn(&mut World),
     reflect_resource: fn(&World) -> Option<&dyn Reflect>,
-    reflect_resource_mut: unsafe fn(&World) -> Option<ReflectMut>,
+    reflect_resource_unchecked_mut: unsafe fn(&World) -> Option<ReflectMut>,
     copy_resource: fn(&World, &mut World),
 }
 
@@ -150,14 +150,22 @@ impl ReflectResource {
         (self.reflect_resource)(world)
     }
 
+    pub fn reflect_resource_mut<'a>(&self, world: &'a mut World) -> Option<ReflectMut<'a>> {
+        // SAFE: unique world access
+        unsafe { (self.reflect_resource_unchecked_mut)(world) }
+    }
+
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
     ///   scheduler that enforces safe memory access).
     /// * Don't call this method more than once in the same scope for a given resource.
-    pub unsafe fn reflect_resource_mut<'a>(&self, world: &'a World) -> Option<ReflectMut<'a>> {
-        (self.reflect_resource_mut)(world)
+    pub unsafe fn reflect_resource_unckecked_mut<'a>(
+        &self,
+        world: &'a World,
+    ) -> Option<ReflectMut<'a>> {
+        (self.reflect_resource_unchecked_mut)(world)
     }
 
     pub fn copy_resource(&self, source_world: &World, destination_world: &mut World) {
@@ -181,7 +189,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 world.remove_resource::<C>();
             },
             reflect_resource: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
-            reflect_resource_mut: |world| unsafe {
+            reflect_resource_unchecked_mut: |world| unsafe {
                 world
                     .get_resource_unchecked_mut::<C>()
                     .map(|res| ReflectMut {
