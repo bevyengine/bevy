@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics, MAX_DIAGNOSTIC_NAME_WIDTH};
 use bevy_ecs::system::{Res, ResMut};
 
-/// Adds an asset count diagnostic to an [´App`] for assets of type `T`.
+/// Adds an asset count diagnostic to an [`App`] for assets of type `T`.
 pub struct AssetCountDiagnosticsPlugin<T: Asset> {
     marker: std::marker::PhantomData<T>,
 }

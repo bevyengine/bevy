@@ -12,7 +12,7 @@ use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
 
-/// Events that happen on assets of type `T`.
+/// Events that involve assets of type `T`.
 ///
 /// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle.
 pub enum AssetEvent<T: Asset> {
@@ -245,7 +245,8 @@ impl<T: Asset> Assets<T> {
         self.assets.shrink_to_fit();
     }
 
-    /// A system that sends [`AssetEvent`]s around the application.
+    /// A system that creates [`AssetEvent`]s at the end of the frame based on changes in the
+    /// asset storage.
     pub fn asset_event_system(
         mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,

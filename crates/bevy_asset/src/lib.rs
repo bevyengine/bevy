@@ -2,7 +2,7 @@
 //!
 //! This plugin allows a bevy app to work with assets from the filesystem (or [another source]),
 //! providing an [asset server] for loading an processing [`Asset`]s and storing them in an
-//! [asset storage] to be accesed by systems.
+//! [asset storage] to be accessed by systems.
 //!
 //! [another source]: trait.AssetIo.html
 //! [asset server]: struct.AssetServer.html
@@ -44,7 +44,7 @@ pub use path::*;
 use bevy_app::{prelude::Plugin, App};
 use bevy_ecs::schedule::{StageLabel, SystemStage};
 
-/// The names of asset stages in an App Schedule
+/// The names of asset stages in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum AssetStage {
     /// The stage where asset storages are updated.
@@ -60,7 +60,7 @@ pub enum AssetStage {
 #[derive(Default)]
 pub struct AssetPlugin;
 
-/// [`AssetServer`] settings
+/// [`AssetServer`] settings.
 pub struct AssetServerSettings {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,

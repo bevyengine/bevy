@@ -73,8 +73,28 @@ pub struct AssetServerInternal {
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
 }
 
-/// Loads assets from the filesystem on background threads.
 #[derive(Clone)]
+/// Loads assets from the filesystem on the background.
+///
+/// The asset server is the primary way of loading assets in bevy. It keeps track of
+/// the load state of the assets it manages and can even reload them from the
+/// filesystem [if you tell it to]!
+///
+/// The asset server is a _resource_, so in order to accesss it in a system you
+/// need a `Res` accessor, like this:
+///
+/// ```rust
+/// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
+/// {
+///     let asset_handle = asset_server.load("cool_picture.png");
+///     // do something with the asset handle...
+/// }
+/// ```
+///
+/// See the [`asset_loading`] example for more information.
+///
+/// [if you tell it to]: AssetServer::watch_for_changes
+/// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
@@ -144,13 +164,13 @@ impl AssetServer {
         Ok(())
     }
 
-    /// Gets a handle for an asset with the provided id.
+    /// Gets a strong handle for an asset with the provided id.
     pub fn get_handle<T: Asset, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         Handle::strong(id.into(), sender)
     }
 
-    /// Gets an untyped handle for an asset with the provided id.
+    /// Gets an untyped, strong handle for an asset with the provided id.
     pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         HandleUntyped::strong(id.into(), sender)
@@ -222,6 +242,9 @@ impl AssetServer {
     }
 
     /// Gets the overall load state of a group of assets from the provided handles.
+    ///
+    /// This method will only return [`LoadState::Loaded`] if all assets in the
+    /// group were loaded succesfully.
     pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {
@@ -388,7 +411,7 @@ impl AssetServer {
 
     /// Queues the [`Asset`] at the provided path for loading and returns an untyped handle.
     ///
-    /// See [`load`](#method.load).
+    /// See [`load`](AssetServer::load).
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
@@ -424,7 +447,14 @@ impl AssetServer {
         asset_path.into()
     }
 
-    /// Loads one or more assets from the folder at the provided path.
+    /// Loads assets from the specified folder recursively.
+    ///
+    /// # Errors
+    ///
+    /// - If the provided path is not a directory, it will fail with
+    /// [`AssetServerError::AssetFolderNotADirectory`].
+    /// - If something unexpected happened while loading an asset, other
+    /// [`AssetServerError`]s may be returned.
     #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder<P: AsRef<Path>>(
         &self,
@@ -454,7 +484,7 @@ impl AssetServer {
         Ok(handles)
     }
 
-    /// Frees unused assets from their asset storages.
+    /// Frees unused assets, unloading them from memory.
     pub fn free_unused_assets(&self) {
         let mut potential_frees = self.server.asset_ref_counter.mark_unused_assets.lock();
 
