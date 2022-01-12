@@ -14,7 +14,7 @@ use bevy::{
         view::{ExtractedView, ViewTarget},
         RenderApp, RenderStage,
     },
-    utils::HashMap,
+    utils::{HashMap, HashSet},
 };
 
 fn main() {
@@ -201,6 +201,16 @@ pub fn compile_pipeline(
     commands.insert_resource(CompiledBackgroundPipeline(pipeline));
 }
 
+// Cleanup unused bind groups
+fn cleanup_bind_groups(
+    mut pipeline: ResMut<BackgroundPipeline>,
+    query: Query<Entity, With<CustomRenderingSettings>>,
+) {
+    let ids: HashSet<Entity> = query.iter().collect();
+
+    pipeline.bind_groups.retain(|e, _| ids.contains(e));
+}
+
 // Our custom Node to insert into the rendering graph
 pub struct BackgroundNode {
     query: QueryState<(
@@ -294,7 +304,8 @@ impl Plugin for BackgroundRendererPlugin {
             .add_system_to_stage(RenderStage::Extract, extract_time)
             .add_system_to_stage(RenderStage::Extract, extract_custom_rendering_settings)
             .add_system_to_stage(RenderStage::Prepare, compile_pipeline)
-            .add_system_to_stage(RenderStage::Prepare, write_background_uniforms);
+            .add_system_to_stage(RenderStage::Prepare, write_background_uniforms)
+            .add_system_to_stage(RenderStage::Cleanup, cleanup_bind_groups);
 
         // insert our render node to the graph
         let background_node = BackgroundNode::from_world(&mut render_app.world);
