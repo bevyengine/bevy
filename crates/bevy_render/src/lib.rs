@@ -27,7 +27,7 @@ pub mod prelude {
     };
 }
 
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, info};
 pub use once_cell;
 
 use crate::{
@@ -38,13 +38,16 @@ use crate::{
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
-    texture::ImagePlugin,
+    texture::{BevyDefault as _, ImagePlugin, DEFAULT_DEPTH_FORMAT},
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -113,35 +116,72 @@ impl Plugin for RenderPlugin {
             .get_resource::<options::WgpuOptions>()
             .cloned()
             .unwrap_or_default();
-
         app.add_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                let world = app.world.cell();
-                let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                });
-                raw_handle
-            };
-            let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
-                compatible_surface: surface.as_ref(),
-                ..Default::default()
-            };
+            let adapter = Arc::new({
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut selected_adapter = None;
+                    for adapter in instance.enumerate_adapters(backends) {
+                        let default_texture_format_features = adapter
+                            .get_texture_format_features(wgpu::TextureFormat::bevy_default());
+                        let default_depth_format_features =
+                            adapter.get_texture_format_features(DEFAULT_DEPTH_FORMAT);
+
+                        let requested_device_type = match options.power_preference {
+                            wgpu::PowerPreference::LowPower => wgpu::DeviceType::IntegratedGpu,
+                            wgpu::PowerPreference::HighPerformance => wgpu::DeviceType::DiscreteGpu,
+                        };
+                        if default_texture_format_features
+                            .allowed_usages
+                            .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                            && default_depth_format_features
+                                .allowed_usages
+                                .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                            && adapter.get_info().device_type == requested_device_type
+                        {
+                            selected_adapter = Some(adapter);
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    selected_adapter.expect(
+                        "Unable to find a GPU! Make sure you have installed required drivers!",
+                    )
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let request_adapter_options = wgpu::RequestAdapterOptions {
+                        power_preference: options.power_preference,
+                        compatible_surface: None,
+                        ..Default::default()
+                    };
+                    instance
+                        .request_adapter(request_adapter_options)
+                        .await
+                        .expect(
+                            "Unable to find a GPU! Make sure you have installed required drivers!",
+                        )
+                }
+            });
+            info!("{:?}", adapter.get_info());
             let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
-                &instance,
+                &adapter,
                 &mut options,
-                &request_adapter_options,
             ));
-            debug!("Configured wgpu adapter Limits: {:#?}", &options.limits);
-            debug!("Configured wgpu adapter Features: {:#?}", &options.features);
+            debug!("Configured wgpu adapter Limits: {:#?}", &adapter.limits());
+            debug!(
+                "Configured wgpu adapter Features: {:#?}",
+                &adapter.features()
+            );
             app.insert_resource(device.clone())
+                .insert_resource(adapter.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(options.clone())
                 .init_resource::<ScratchRenderWorld>()
@@ -170,6 +210,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .insert_resource(instance)
                 .insert_resource(device)
+                .insert_resource(adapter)
                 .insert_resource(queue)
                 .insert_resource(options)
                 .insert_resource(render_pipeline_cache)

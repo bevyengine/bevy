@@ -30,7 +30,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::RenderDevice,
-    texture::TextureCache,
+    texture::{TextureCache, DEFAULT_DEPTH_FORMAT},
     view::{ExtractedView, Msaa, ViewDepthTexture},
     RenderApp, RenderStage, RenderWorld,
 };
@@ -384,8 +384,7 @@ pub fn prepare_core_views_system(
                 mip_level_count: 1,
                 sample_count: msaa.samples,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                      * bit depth for better performance */
+                format: DEFAULT_DEPTH_FORMAT,
                 usage: TextureUsages::RENDER_ATTACHMENT,
             },
         );

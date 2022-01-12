@@ -150,7 +150,7 @@ pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
-pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const SHADOW_FORMAT: TextureFormat = DEFAULT_DEPTH_FORMAT;
 
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
