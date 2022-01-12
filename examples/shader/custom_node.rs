@@ -154,9 +154,10 @@ pub fn write_background_uniforms(
     query: Query<(Entity, &CustomRenderingSettings, &ExtractedView)>,
 ) {
     // get or create our buffer and bind group for this camera
+    let pipeline = &mut *pipeline;
     query.for_each(|(e, bg_settings, camera_view)| {
         // Make our buffer and bind groups if they aren't cached
-        if !pipeline.bind_groups.contains_key(&e) {
+        pipeline.bind_groups.entry(e).or_insert_with(|| {
             let buffer = render_device.create_buffer(&BufferDescriptor {
                 label: Some(format!("background_uniform_buffer_{}", e.id()).as_str()),
                 size: BackgroundUniform::std430_size_static() as u64,
@@ -171,8 +172,9 @@ pub fn write_background_uniforms(
                     resource: buffer.as_entire_binding(),
                 }],
             });
-            pipeline.bind_groups.insert(e, (bind_group, buffer));
-        }
+
+            (bind_group, buffer)
+        });
 
         // Push our uniforms
         let (_bind_group, buffer) = pipeline.bind_groups.get(&e).unwrap();
