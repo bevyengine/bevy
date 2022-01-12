@@ -18,6 +18,7 @@ pub use main_pass_driver::*;
 use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ActiveCameras, CameraPlugin},
     color::Color,
@@ -34,7 +35,8 @@ use bevy_render::{
 };
 
 /// Resource that configures the clear color
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
@@ -86,7 +88,8 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ClearColor>();
+        app.register_type::<ClearColor>()
+            .init_resource::<ClearColor>();
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app
