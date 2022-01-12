@@ -264,7 +264,7 @@ If you end up adding a new official Bevy crate to the `bevy` repo:
 When contributing, please:
 
 * try to loosely follow the workflow in [*How we work together*](#how-we-work-together)
-* consult the [style guide](.github/contributing/engine_style_guide.md) to help keep our code base tidy
+* consult the [style guide](.github/contributing/engine_style_guide.md) and [API guidelines](https://rust-lang.github.io/api-guidelines/about.html) to help keep our code base tidy
 * explain what you're doing and why
 * document new code with doc comments
 * include clear, simple tests
