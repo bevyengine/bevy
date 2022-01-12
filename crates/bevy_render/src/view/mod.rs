@@ -18,13 +18,16 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
+        app.register_type::<Msaa>()
+            .init_resource::<Msaa>()
+            .add_plugin(VisibilityPlugin);
 
         app.sub_app_mut(RenderApp)
             .init_resource::<ViewUniforms>()
@@ -37,7 +40,8 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
+#[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges. Note that WGPU currently only supports 1 or 4 samples.
