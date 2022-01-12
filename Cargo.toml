@@ -447,6 +447,10 @@ path = "examples/shader/animate_shader.rs"
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
 
+[[example]]
+name = "custom_node"
+path = "examples/shader/custom_node.rs"
+
 # Tools
 [[example]]
 name = "bevymark"
