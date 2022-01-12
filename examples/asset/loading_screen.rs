@@ -57,7 +57,7 @@ fn setup_game(
 ) {
     // Change our default loading screen text to something more descriptive
     let children = loading_screen.single();
-    for child in children.first() {
+    if let Some(child) = children.first() {
         if let Ok(mut loading_text) = text_query.get_mut(*child) {
             loading_text.sections[0].value = "Loading \"FlightHelmet\"".to_string();
         }
@@ -206,7 +206,7 @@ pub mod plugin {
         // We only have one loading screen, so we can use `single()` instead of `iter()`
         let children = loading_screen.single();
         // We only have one `UiImage` in our loading screen, so `first()` does the trick
-        for child in children.first() {
+        if let Some(child) = children.first() {
             // Actually get the `Transform` of our child from all `UiImage`s
             if let Ok(mut transform) = images_query.get_mut(*child) {
                 // Rotate the image clockwise
@@ -224,7 +224,7 @@ pub mod plugin {
         let (mut style, children) = loading_screen.single_mut();
         style.display = Display::None;
         // We only have one `Text` in our loading screen, so `first()` does the trick
-        for child in children.first() {
+        if let Some(child) = children.first() {
             // Reset the text to our default text
             if let Ok(mut loading_text) = text_query.get_mut(*child) {
                 loading_text.sections[0].value = LOADING_SCREEN_DEFAULT_TEXT.to_string();
