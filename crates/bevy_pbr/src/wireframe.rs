@@ -29,7 +29,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl(include_str!("render/wireframe.wgsl")),
         );
 
-        app.init_resource::<WireframeConfig>();
+        app.register_type::<WireframeConfig>()
+            .init_resource::<WireframeConfig>();
 
         app.sub_app_mut(RenderApp)
             .add_render_command::<Opaque3d, DrawWireframes>()
@@ -58,7 +59,8 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 #[reflect(Component)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Reflect)]
+#[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
