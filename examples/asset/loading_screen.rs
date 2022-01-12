@@ -36,7 +36,7 @@ fn asset_listening_system(
     for event in asset_events.iter() {
         match event {
             AssetEvent::Created { handle: _ } => {
-                println!("Done loading, switch state to `GameState::Playing`");
+                info!("Done loading, switch state to `GameState::Playing`");
                 // in this case, we know that we only had one asset (FlightHelmet.gltf#Scene0) to load,
                 // so we can switch our game state from `GameState::Loading` over to `GameState::Playing`
                 let _ = state.overwrite_set(GameState::Playing);
@@ -52,15 +52,14 @@ fn asset_listening_system(
 fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut loading_screen: Query<(&mut Style, &Children), With<plugin::LoadingScreen>>,
-    mut text_query: Query<&mut Text>,
+    loading_screen: Query<&Children, With<plugin::LoadingScreen>>,
+    mut text_query: Query<&mut Text, With<plugin::LoadingScreenContent>>,
 ) {
     // Change our default loading screen text to something more descriptive
-    for (mut _style, children) in loading_screen.iter_mut() {
-        for child in children.iter() {
-            if let Ok(mut loading_text) = text_query.get_mut(*child) {
-                loading_text.sections[0].value = "Loading \"FlightHelmet\"".to_string();
-            }
+    let children = loading_screen.single();
+    for child in children.first() {
+        if let Ok(mut loading_text) = text_query.get_mut(*child) {
+            loading_text.sections[0].value = "Loading \"FlightHelmet\"".to_string();
         }
     }
 
@@ -125,6 +124,8 @@ pub mod plugin {
 
     #[derive(Component)]
     pub struct LoadingScreen;
+    #[derive(Component)]
+    pub struct LoadingScreenContent;
     const LOADING_SCREEN_DEFAULT_TEXT: &str = "Loading...";
 
     // Setup our simple loading screen, it uses an image as spinner and a loading text bellow it.
@@ -164,7 +165,8 @@ pub mod plugin {
                         },
                         image: asset_server.load("branding/icon.png").into(),
                         ..Default::default()
-                    });
+                    })
+                    .insert(LoadingScreenContent);
                 parent
                     // Loading screen text bellow the bevy spinner
                     .spawn_bundle(TextBundle {
@@ -187,7 +189,8 @@ pub mod plugin {
                             },
                         ),
                         ..Default::default()
-                    });
+                    })
+                    .insert(LoadingScreenContent);
             })
             .insert(LoadingScreen);
     }
@@ -196,18 +199,18 @@ pub mod plugin {
     fn animate_spinner(
         time: Res<Time>,
         // This queries for the children and style of the `NodeBundle` we marked with `LoadingScreen`
-        mut loading_screen: Query<(&mut Style, &Children), With<LoadingScreen>>,
+        loading_screen: Query<&Children, With<LoadingScreen>>,
         // Queries for the `Transform`s of all `UiImage`s, so that we can get our child from it.
-        mut images_query: Query<&mut Transform, With<UiImage>>,
+        mut images_query: Query<&mut Transform, (With<UiImage>, With<LoadingScreenContent>)>,
     ) {
-        for (mut _style, children) in loading_screen.iter_mut() {
-            // All children of the loading screen
-            for child in children.iter() {
-                // Actually get the `Transform` of our child from all `UiImage`s
-                if let Ok(mut transform) = images_query.get_mut(*child) {
-                    // Rotate the image clockwise
-                    transform.rotate(Quat::from_rotation_z(-time.delta_seconds() * 0.5));
-                }
+        // We only have one loading screen, so we can use `single()` instead of `iter()`
+        let children = loading_screen.single();
+        // We only have one `UiImage` in our loading screen, so `first()` does the trick
+        for child in children.first() {
+            // Actually get the `Transform` of our child from all `UiImage`s
+            if let Ok(mut transform) = images_query.get_mut(*child) {
+                // Rotate the image clockwise
+                transform.rotate(Quat::from_rotation_z(-time.delta_seconds() * 0.5));
             }
         }
     }
@@ -215,15 +218,16 @@ pub mod plugin {
     // Close our loading screen. This system is called when we exit `GameState::Loading`.
     fn close_loading_screen(
         mut loading_screen: Query<(&mut Style, &Children), With<LoadingScreen>>,
-        mut text_query: Query<&mut Text>,
+        mut text_query: Query<&mut Text, With<LoadingScreenContent>>,
     ) {
-        for (mut style, children) in loading_screen.iter_mut() {
-            style.display = Display::None;
-            // Reset the loading screen text to our default text
-            for child in children.iter() {
-                if let Ok(mut loading_text) = text_query.get_mut(*child) {
-                    loading_text.sections[0].value = LOADING_SCREEN_DEFAULT_TEXT.to_string();
-                }
+        // We only have one loading screen, so we can use `single_mut()` instead of `iter_mut()`
+        let (mut style, children) = loading_screen.single_mut();
+        style.display = Display::None;
+        // We only have one `Text` in our loading screen, so `first()` does the trick
+        for child in children.first() {
+            // Reset the text to our default text
+            if let Ok(mut loading_text) = text_query.get_mut(*child) {
+                loading_text.sections[0].value = LOADING_SCREEN_DEFAULT_TEXT.to_string();
             }
         }
     }
