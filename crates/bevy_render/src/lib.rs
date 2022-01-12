@@ -38,16 +38,13 @@ use crate::{
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
     renderer::render_system,
-    texture::{BevyDefault as _, ImagePlugin, DEFAULT_DEPTH_FORMAT},
+    texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -122,59 +119,10 @@ impl Plugin for RenderPlugin {
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
-            let adapter = Arc::new({
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let mut selected_adapter = None;
-                    for adapter in instance.enumerate_adapters(backends) {
-                        let default_texture_format_features = adapter
-                            .get_texture_format_features(wgpu::TextureFormat::bevy_default());
-                        let default_depth_format_features =
-                            adapter.get_texture_format_features(DEFAULT_DEPTH_FORMAT);
-
-                        let requested_device_type = match options.power_preference {
-                            wgpu::PowerPreference::LowPower => wgpu::DeviceType::IntegratedGpu,
-                            wgpu::PowerPreference::HighPerformance => wgpu::DeviceType::DiscreteGpu,
-                        };
-                        if default_texture_format_features
-                            .allowed_usages
-                            .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
-                            && default_depth_format_features
-                                .allowed_usages
-                                .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
-                            && adapter.get_info().device_type == requested_device_type
-                        {
-                            selected_adapter = Some(adapter);
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    selected_adapter.expect(
-                        "Unable to find a GPU! Make sure you have installed required drivers!",
-                    )
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let request_adapter_options = wgpu::RequestAdapterOptions {
-                        power_preference: options.power_preference,
-                        compatible_surface: None,
-                        ..Default::default()
-                    };
-                    instance
-                        .request_adapter(request_adapter_options)
-                        .await
-                        .expect(
-                            "Unable to find a GPU! Make sure you have installed required drivers!",
-                        )
-                }
-            });
+            let (device, adapter, queue) = futures_lite::future::block_on(
+                renderer::initialize_renderer(app, &instance, backends, &mut options),
+            );
             info!("{:?}", adapter.get_info());
-            let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
-                &adapter,
-                &mut options,
-            ));
             debug!("Configured wgpu adapter Limits: {:#?}", &adapter.limits());
             debug!(
                 "Configured wgpu adapter Features: {:#?}",

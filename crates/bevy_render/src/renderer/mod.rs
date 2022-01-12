@@ -1,7 +1,7 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_utils::tracing::{info, info_span};
+use bevy_utils::tracing::info_span;
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{Adapter, CommandEncoder, Instance, Queue};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -57,6 +57,8 @@ pub fn render_system(world: &mut World) {
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 pub type RenderQueue = Arc<Queue>;
 
+pub type RenderAdapter = Arc<Adapter>;
+
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// aswell as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 pub type RenderInstance = Instance;
@@ -69,16 +71,86 @@ pub const DEFAULT_DISABLED_WGPU_FEATURES: wgpu::Features = wgpu::Features::MAPPA
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: &Instance,
+    #[cfg_attr(not(target_arch = "wasm32"), allow(unused))] app: &mut bevy_app::App,
+    instance: &wgpu::Instance,
+    #[cfg_attr(target_arch = "wasm32", allow(unused))] backends: wgpu::Backends,
     options: &mut WgpuOptions,
-    request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue) {
-    let adapter = instance
-        .request_adapter(request_adapter_options)
-        .await
-        .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+) -> (RenderDevice, RenderAdapter, RenderQueue) {
+    let adapter = {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use crate::texture::{BevyDefault as _, DEFAULT_DEPTH_FORMAT};
+            let mut adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(backends).collect();
+            let (mut integrated, mut discrete, mut virt, mut cpu, mut other) =
+                (None, None, None, None, None);
 
-    info!("{:?}", adapter.get_info());
+            for (i, adapter) in adapters.iter().enumerate() {
+                let default_texture_format_features =
+                    adapter.get_texture_format_features(wgpu::TextureFormat::bevy_default());
+                let default_depth_format_features =
+                    adapter.get_texture_format_features(DEFAULT_DEPTH_FORMAT);
+                if default_texture_format_features
+                    .allowed_usages
+                    .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                    && default_depth_format_features
+                        .allowed_usages
+                        .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                {
+                    let info = adapter.get_info();
+                    match info.device_type {
+                        wgpu::DeviceType::IntegratedGpu => {
+                            integrated = integrated.or(Some(i));
+                        }
+                        wgpu::DeviceType::DiscreteGpu => {
+                            discrete = discrete.or(Some(i));
+                        }
+                        wgpu::DeviceType::VirtualGpu => {
+                            virt = virt.or(Some(i));
+                        }
+                        wgpu::DeviceType::Cpu => {
+                            cpu = cpu.or(Some(i));
+                        }
+                        wgpu::DeviceType::Other => {
+                            other = other.or(Some(i));
+                        }
+                    }
+                }
+            }
+
+            let preferred_gpu_index = match options.power_preference {
+                wgpu::PowerPreference::LowPower => {
+                    integrated.or(other).or(discrete).or(virt).or(cpu)
+                }
+                wgpu::PowerPreference::HighPerformance => {
+                    discrete.or(other).or(integrated).or(virt).or(cpu)
+                }
+            }
+            .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+
+            adapters.swap_remove(preferred_gpu_index)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let surface = {
+                let world = app.world.cell();
+                let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+                let raw_handle = windows.get_primary().map(|window| unsafe {
+                    let handle = window.raw_window_handle().get_handle();
+                    instance.create_surface(&handle)
+                });
+                raw_handle
+            };
+            instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: options.power_preference,
+                    compatible_surface: surface.as_ref(),
+                    ..Default::default()
+                })
+                .await
+                .expect("Unable to find a GPU! Make sure you have installed required drivers!")
+        }
+    };
 
     #[cfg(feature = "wgpu_trace")]
     let trace_path = {
@@ -108,9 +180,10 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
+    let adapter = Arc::new(adapter);
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (RenderDevice::from(device), queue)
+    (RenderDevice::from(device), adapter, queue)
 }
 
 /// The context with all information required to interact with the GPU.
