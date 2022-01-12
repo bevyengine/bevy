@@ -69,10 +69,12 @@ impl Plugin for PbrPlugin {
 
         app.add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .register_type::<AmbientLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLightShadowMap>()
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .init_resource::<AmbientLight>()
             .init_resource::<VisiblePointLights>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,

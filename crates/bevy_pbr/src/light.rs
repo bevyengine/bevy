@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
@@ -67,7 +68,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -144,7 +146,8 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -159,7 +162,8 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Debug)]
+#[derive(Debug, Reflect)]
+#[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
