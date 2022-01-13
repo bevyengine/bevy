@@ -41,7 +41,7 @@ pub struct DynamicList {
 }
 
 impl DynamicList {
-    /// Returns the name of the list.
+    /// Returns the type name of the list.
     ///
     /// The value returned by this method is the same value returned by
     /// [`Reflect::type_name`].
@@ -49,7 +49,7 @@ impl DynamicList {
         &self.name
     }
 
-    /// Sets the name of the list.
+    /// Sets the type name of the list.
     ///
     /// The value set by this method is the value returned by
     /// [`Reflect::type_name`].

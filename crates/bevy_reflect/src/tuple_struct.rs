@@ -135,12 +135,12 @@ pub struct DynamicTupleStruct {
 }
 
 impl DynamicTupleStruct {
-    /// Returns the name of the tuple struct.
+    /// Returns the type name of the tuple struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the name of the tuple struct.
+    /// Sets the type name of the tuple struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }

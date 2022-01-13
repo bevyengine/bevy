@@ -128,14 +128,14 @@ pub struct DynamicTuple {
 }
 
 impl DynamicTuple {
-    /// Returns the name of the tuple.
+    /// Returns the type name of the tuple.
     ///
     /// The tuple's name is automatically generated from its element types.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Manually sets the name of the tuple.
+    /// Manually sets the type name of the tuple.
     ///
     /// Note that the tuple name will be overwritten when elements are added.
     pub fn set_name(&mut self, name: String) {

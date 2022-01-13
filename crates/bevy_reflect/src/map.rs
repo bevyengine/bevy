@@ -38,7 +38,7 @@ pub struct DynamicMap {
 }
 
 impl DynamicMap {
-    /// Returns the name of the map.
+    /// Returns the type name of the map.
     ///
     /// The value returned by this method is the same value returned by
     /// [`Reflect::type_name`].
@@ -46,7 +46,7 @@ impl DynamicMap {
         &self.name
     }
 
-    /// Sets the name of the map.
+    /// Sets the type name of the map.
     ///
     /// The value set by this method is the same value returned by
     /// [`Reflect::type_name`].

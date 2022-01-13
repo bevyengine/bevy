@@ -154,12 +154,12 @@ pub struct DynamicStruct {
 }
 
 impl DynamicStruct {
-    /// Returns the name of the struct.
+    /// Returns the type name of the struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the name of the struct.
+    /// Sets the type name of the struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
