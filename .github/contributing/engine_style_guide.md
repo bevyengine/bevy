@@ -17,7 +17,7 @@ For more advice on contributing to the engine, see the [relevant section](../../
 
 ## Rust API guidelines
 
-As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. These should be respected and followed except for the following areas of disagreements.
+As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. Generally, these should be followed, except for the following areas of disagreement:
 
 ### Areas of disagreements
 
@@ -25,7 +25,7 @@ Some areas mentioned in the [Rust API guidelines][Rust API guidelines] we do not
 
 > All items have a rustdoc example
 
-- This guideline is too strong and not applicable for everything inside of the Bevy game engine. Instead we should make use of the `examples` folder and add new examples that way if needed.
+- This guideline is too strong and not applicable for everything inside of the Bevy game engine. For functionality that requires more context or needs a more interactive demonstration (such as rendering or input features), make use of the `examples` folder instead.
 
 > Examples use ?, not try!, not unwrap
 
@@ -33,6 +33,6 @@ Some areas mentioned in the [Rust API guidelines][Rust API guidelines] we do not
 
 > Only smart pointers implement Deref and DerefMut
 
-- Generally a good rule of thumb, but we're probably going to deliberately violate this for wrapper types due to the lack of any better ergonomic solution.
+- Generally a good rule of thumb, but we're probably going to deliberately violate this for single-element wrapper types like `Life(u32)`. The behavior is still predictable and it significantly improves ergonomics / new user comprehension.
 
 [Rust API guidelines]: https://rust-lang.github.io/api-guidelines/about.html
