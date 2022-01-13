@@ -277,7 +277,7 @@ where
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
-    /// Archetypes must be manually updated elsewhere using [`Self::update_archetypes`].
+    /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
     ///
     /// This can only be called for read-only queries.
     #[inline]
