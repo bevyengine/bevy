@@ -4,26 +4,40 @@ use bevy_utils::HashMap;
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
-/// An ordered `ReflectValue->ReflectValue` mapping.
+/// An ordered mapping between [`Reflect`] values.
+///
+/// Because the values are reflected, the underlying types of keys and values
+/// may differ between entries.
 ///
 ///`ReflectValue` `Keys` are assumed to return a non-`None` hash. Ideally the
 /// ordering is stable across runs, but this is not required. This corresponds
 /// to types like [`std::collections::HashMap`].
 pub trait Map: Reflect {
+    /// Returns a reference to the value associated with the given key.
+    ///
+    /// If no value is associated with `key`, returns `None`.
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
 
+    /// Returns a mutable reference to the value associated with the given key.
+    ///
+    /// If no value is associated with `key`, returns `None`.
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
 
+    /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
 
+    /// Returns the number of elements in the map.
     fn len(&self) -> usize;
 
+    /// Returns `true` if the list contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Returns an iterator over the key-value pairs of the map.
     fn iter(&self) -> MapIter;
 
+    /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
 }
 
