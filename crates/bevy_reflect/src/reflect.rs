@@ -59,29 +59,36 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
     /// Applies a reflected value to this value.
     ///
-    /// When `Reflect` is derived for a type, the semantics of this method
-    /// depend on the kind of type `T`:
-    /// - If `T` is a struct with named fields, then the value of each named
-    ///   field of `value` is applied to the corresponding named field of
-    ///   `self`. Fields which are not present in both values are ignored.
-    /// - If `T` is a tuple struct, then the value of each numbered field is
-    ///   applied to the corresponding numbered field of `self.` Fields which
-    ///   are not present in both values are ignored.
-    /// - If `T` is a value type (i.e., neither of the above), then `value` is
-    ///   downcast to `T`, cloned, and assigned to `self`.
+    /// If a type implements a subtrait of `Reflect`, then the semantics of this
+    /// method are as follows:
+    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
+    ///   applied to the corresponding named field of `self`. Fields which are
+    ///   not present in both structs are ignored.
+    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
+    ///   numbered field is applied to the corresponding numbered field of
+    ///   `self.` Fields which are not present in both values are ignored.
+    /// - If `T` is a [`List`], then each element of `value` is applied to the
+    ///   corresponding element of `self`. The number of elements applied is
+    ///   equal to the length of the shorter list.
+    /// - If `T` is a [`Map`], then for each key in `value`, the associated
+    ///   value is applied to the value associated with the same key in `self`.
+    ///   Keys which are not present in both maps are ignored.
+    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
+    ///   assigned to `self`.
     ///
-    /// Note that deriving `Reflect` for collections may result in undesired
-    /// behavior, such as applying not only the elements of `value` to those of
-    /// the other but also `value`'s metadata. For collection semantics,
-    /// consider manually implementing `Reflect` and using a helper function
-    /// such as [`list_apply`] to implement this method.
+    /// Note that `Reflect` must be implemented manually for [`List`]s and
+    /// [`Map`]s in order to achieve the correct semantics, as derived
+    /// implementations will have the semantics for [`Struct`], [`TupleStruct`]
+    /// or none of the above depending on the kind of type. For lists, use the
+    /// [`list_apply`] helper function when implementing this method.
     ///
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If `T` is a struct or tuple struct and `value` is not of the same kind
-    /// - If `T` is a struct or tuple struct and corresponding fields of `self`
-    ///   and `value` are not of the same type
+    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    ///   a `List`, while `value` is a `Struct`).
+    /// - If `T` is any complex type and the corresponding fields or elements of
+    ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn Reflect);
 
