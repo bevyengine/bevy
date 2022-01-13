@@ -50,11 +50,36 @@ pub enum SpriteSystem {
     ExtractSprites,
 }
 
+#[cfg(feature = "bevy_shader_hot_reloading")]
+pub struct SpriteShaders {
+    sprite_shader_handle: Handle<Shader>,
+}
+
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
-        shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
+        #[cfg(not(feature = "bevy_shader_hot_reloading"))]
+        {
+            shaders.set_untracked(
+                COLOR_MATERIAL_SHADER_HANDLE,
+                Shader::from_wgsl(include_str!(
+                    "../../../assets/shaders/bevy_sprite/sprite.wgsl"
+                )),
+            );
+        }
+        #[cfg(feature = "bevy_shader_hot_reloading")]
+        {
+            let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+            let sprite_shader_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_sprite/sprite.wgsl");
+            shaders.add_alias(sprite_shader_handle, SPRITE_SHADER_HANDLE);
+
+            // NOTE: We need to store the strong handles created from the asset paths
+            app.world.insert_resource(SpriteShaders {
+                sprite_shader_handle,
+            });
+        }
+
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
             .add_plugin(Mesh2dRenderPlugin)

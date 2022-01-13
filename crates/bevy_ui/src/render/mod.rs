@@ -58,10 +58,29 @@ pub enum RenderUiSystem {
     ExtractNode,
 }
 
+#[cfg(feature = "bevy_shader_hot_reloading")]
+pub struct UiShaders {
+    ui_shader_handle: Handle<Shader>,
+}
+
 pub fn build_ui_render(app: &mut App) {
     let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-    let ui_shader = Shader::from_wgsl(include_str!("ui.wgsl"));
-    shaders.set_untracked(UI_SHADER_HANDLE, ui_shader);
+    #[cfg(not(feature = "bevy_shader_hot_reloading"))]
+    {
+        shaders.set_untracked(
+            UI_SHADER_HANDLE,
+            Shader::from_wgsl(include_str!("../../../../assets/shaders/bevy_ui/ui.wgsl")),
+        );
+    }
+    #[cfg(feature = "bevy_shader_hot_reloading")]
+    {
+        let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+        let ui_shader_handle: Handle<Shader> = asset_server.load("shaders/bevy_ui/ui.wgsl");
+        shaders.add_alias(ui_shader_handle, UI_SHADER_HANDLE);
+
+        // NOTE: We need to store the strong handles created from the asset paths
+        app.world.insert_resource(UiShaders { ui_shader_handle });
+    }
 
     let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
     active_cameras.add(CAMERA_UI);

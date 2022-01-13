@@ -11,6 +11,9 @@ keywords = ["bevy"]
 [features]
 webgl = []
 
+# Enable hot-reloading of core bevy shaders (for development of bevy)
+bevy_shader_hot_reloading = []
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.6.0" }

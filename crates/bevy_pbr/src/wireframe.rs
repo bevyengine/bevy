@@ -1,6 +1,8 @@
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::AssetServer;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -21,13 +23,37 @@ pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 
+#[cfg(feature = "bevy_shader_hot_reloading")]
+pub struct WireframeShaders {
+    wireframe_shader_handle: Handle<Shader>,
+}
+
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            WIREFRAME_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/wireframe.wgsl")),
-        );
+        #[cfg(not(feature = "bevy_shader_hot_reloading"))]
+        {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.set_untracked(
+                WIREFRAME_SHADER_HANDLE,
+                Shader::from_wgsl(include_str!(
+                    "../../../assets/shaders/bevy_pbr/wireframe.wgsl"
+                )),
+            );
+        }
+        #[cfg(feature = "bevy_shader_hot_reloading")]
+        {
+            let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+            let wireframe_shader_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_pbr/wireframe.wgsl");
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.add_alias(wireframe_shader_handle.clone(), WIREFRAME_SHADER_HANDLE);
+
+            // NOTE: We need to store the strong handles created from the asset paths
+            app.world.insert_resource(WireframeShaders {
+                wireframe_shader_handle,
+            });
+        }
 
         app.init_resource::<WireframeConfig>();
 

@@ -33,6 +33,8 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::AssetServer;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
@@ -55,17 +57,43 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 #[derive(Default)]
 pub struct PbrPlugin;
 
+#[cfg(feature = "bevy_shader_hot_reloading")]
+pub struct PbrShaderHandles {
+    pbr_shader_handle: Handle<Shader>,
+    shadow_shader_handle: Handle<Shader>,
+}
+
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            PBR_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/pbr.wgsl")),
-        );
-        shaders.set_untracked(
-            SHADOW_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/depth.wgsl")),
-        );
+        #[cfg(not(feature = "bevy_shader_hot_reloading"))]
+        {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.set_untracked(
+                PBR_SHADER_HANDLE,
+                Shader::from_wgsl(include_str!("../../../assets/shaders/bevy_pbr/pbr.wgsl")),
+            );
+            shaders.set_untracked(
+                SHADOW_SHADER_HANDLE,
+                Shader::from_wgsl(include_str!("../../../assets/shaders/bevy_pbr/depth.wgsl")),
+            );
+        }
+        #[cfg(feature = "bevy_shader_hot_reloading")]
+        {
+            let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+            let pbr_shader_handle: Handle<Shader> = asset_server.load("shaders/bevy_pbr/pbr.wgsl");
+            let shadow_shader_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_pbr/depth.wgsl");
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.add_alias(&pbr_shader_handle, PBR_SHADER_HANDLE);
+            shaders.add_alias(&shadow_shader_handle, SHADOW_SHADER_HANDLE);
+
+            // NOTE: We need to store the strong handles created from the asset paths
+            app.world.insert_resource(PbrShaderHandles {
+                pbr_shader_handle,
+                shadow_shader_handle,
+            });
+        }
 
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()

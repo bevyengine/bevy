@@ -2,7 +2,11 @@ use crate::{
     GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
     ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
 };
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_app::CoreStage;
 use bevy_app::Plugin;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::{AssetServer, LoadState};
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
@@ -26,6 +30,15 @@ use bevy_transform::components::GlobalTransform;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
+#[cfg(feature = "bevy_shader_hot_reloading")]
+pub struct MeshShaders {
+    mesh_shader_handle: Handle<Shader>,
+    mesh_struct_handle: Handle<Shader>,
+    mesh_struct_loaded: bool,
+    mesh_view_bind_group_handle: Handle<Shader>,
+    mesh_view_bind_group_loaded: bool,
+}
+
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
 pub const MESH_STRUCT_HANDLE: HandleUntyped =
@@ -35,21 +48,56 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            MESH_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("mesh.wgsl")),
-        );
-        shaders.set_untracked(
-            MESH_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_struct.wgsl"))
+        #[cfg(not(feature = "bevy_shader_hot_reloading"))]
+        {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.set_untracked(
+                MESH_SHADER_HANDLE,
+                Shader::from_wgsl(include_str!(
+                    "../../../../assets/shaders/bevy_pbr/mesh.wgsl"
+                )),
+            );
+            shaders.set_untracked(
+                MESH_STRUCT_HANDLE,
+                Shader::from_wgsl(include_str!(
+                    "../../../../assets/shaders/bevy_pbr/mesh_struct.wgsl"
+                ))
                 .with_import_path("bevy_pbr::mesh_struct"),
-        );
-        shaders.set_untracked(
-            MESH_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_view_bind_group.wgsl"))
+            );
+            shaders.set_untracked(
+                MESH_VIEW_BIND_GROUP_HANDLE,
+                Shader::from_wgsl(include_str!(
+                    "../../../../assets/shaders/bevy_pbr/mesh_view_bind_group.wgsl"
+                ))
                 .with_import_path("bevy_pbr::mesh_view_bind_group"),
-        );
+            );
+        }
+        #[cfg(feature = "bevy_shader_hot_reloading")]
+        {
+            let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+            let mesh_shader_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_pbr/mesh.wgsl");
+            let mesh_struct_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_pbr/mesh_struct.wgsl");
+            let mesh_view_bind_group_handle: Handle<Shader> =
+                asset_server.load("shaders/bevy_pbr/mesh_view_bind_group.wgsl");
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.add_alias(&mesh_shader_handle, MESH_SHADER_HANDLE);
+            shaders.add_alias(&mesh_struct_handle, MESH_STRUCT_HANDLE);
+            shaders.add_alias(&mesh_view_bind_group_handle, MESH_VIEW_BIND_GROUP_HANDLE);
+
+            // NOTE: We need to store the strong handles created from the asset paths
+            app.world.insert_resource(MeshShaders {
+                mesh_shader_handle,
+                mesh_struct_handle,
+                mesh_struct_loaded: false,
+                mesh_view_bind_group_handle,
+                mesh_view_bind_group_loaded: false,
+            });
+
+            app.add_system_to_stage(CoreStage::PostUpdate, set_shader_import_paths);
+        }
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
@@ -60,6 +108,34 @@ impl Plugin for MeshRenderPlugin {
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
         }
+    }
+}
+
+#[cfg(feature = "bevy_shader_hot_reloading")]
+fn set_shader_import_paths(
+    asset_server: Res<AssetServer>,
+    mut shaders: ResMut<Assets<Shader>>,
+    mut mesh_shader_handles: ResMut<MeshShaders>,
+) {
+    if !mesh_shader_handles.mesh_struct_loaded
+        && asset_server.get_load_state(mesh_shader_handles.mesh_struct_handle.clone())
+            == LoadState::Loaded
+    {
+        shaders
+            .get_mut(mesh_shader_handles.mesh_struct_handle.clone())
+            .unwrap()
+            .set_import_path("bevy_pbr::mesh_struct");
+        mesh_shader_handles.mesh_struct_loaded = true;
+    }
+    if !mesh_shader_handles.mesh_view_bind_group_loaded
+        && asset_server.get_load_state(mesh_shader_handles.mesh_view_bind_group_handle.clone())
+            == LoadState::Loaded
+    {
+        shaders
+            .get_mut(mesh_shader_handles.mesh_view_bind_group_handle.clone())
+            .unwrap()
+            .set_import_path("bevy_pbr::mesh_view_bind_group");
+        mesh_shader_handles.mesh_view_bind_group_loaded = true;
     }
 }
 

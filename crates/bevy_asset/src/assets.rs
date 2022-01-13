@@ -4,9 +4,16 @@ use crate::{
 };
 use bevy_app::{App, EventWriter, Events};
 use bevy_ecs::{system::ResMut, world::FromWorld};
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
+
+#[derive(Debug)]
+enum AssetEventType {
+    Created,
+    Modified,
+    Removed,
+}
 
 /// Events that happen on assets of type `T`
 ///
@@ -61,6 +68,8 @@ impl<T: Asset> Debug for AssetEvent<T> {
 #[derive(Debug)]
 pub struct Assets<T: Asset> {
     assets: HashMap<HandleId, T>,
+    aliases: HashMap<HandleId, HashSet<HandleId>>,
+    alias_to_handle: HashMap<HandleId, HandleId>,
     events: Events<AssetEvent<T>>,
     pub(crate) ref_change_sender: Sender<RefChange>,
 }
@@ -69,8 +78,60 @@ impl<T: Asset> Assets<T> {
     pub(crate) fn new(ref_change_sender: Sender<RefChange>) -> Self {
         Assets {
             assets: HashMap::default(),
+            aliases: HashMap::default(),
+            alias_to_handle: HashMap::default(),
             events: Events::default(),
             ref_change_sender,
+        }
+    }
+
+    /// Add an alias from a strong handle obtained from `AssetServer::load` to another handle,
+    /// for example a `const` `HandleUntyped`.
+    pub fn add_alias<H: Into<HandleId>, A: Into<HandleId>>(&mut self, handle: H, alias: A) {
+        let handle_id = handle.into();
+        let alias_handle_id = alias.into();
+        self.aliases
+            .entry(handle_id)
+            .or_default()
+            .insert(alias_handle_id);
+        self.alias_to_handle.insert(alias_handle_id, handle_id);
+    }
+
+    /// Remove an alias from a strong handle obtained from `AssetServer::load` to another handle,
+    /// for example a `const` `HandleUntyped`.
+    pub fn remove_alias<H: Into<HandleId>, A: Into<HandleId>>(&mut self, handle: H, alias: A) {
+        let handle_id = handle.into();
+        let alias_handle_id = alias.into();
+        self.aliases
+            .entry(handle_id)
+            .or_default()
+            .remove(&alias_handle_id);
+        self.alias_to_handle.remove(&alias_handle_id);
+    }
+
+    /// Get the strong handle obtained from `AssetServer::load` from an alias handle.
+    pub fn get_handle_from_alias<A: Into<HandleId>>(&self, alias: A) -> Option<&HandleId> {
+        self.alias_to_handle.get(&alias.into())
+    }
+
+    fn broadcast_event<H: Into<HandleId>>(&mut self, asset_event_type: AssetEventType, handle: H) {
+        let make_event = match asset_event_type {
+            AssetEventType::Created => |id| AssetEvent::Created {
+                handle: Handle::weak(id),
+            },
+            AssetEventType::Modified => |id| AssetEvent::Modified {
+                handle: Handle::weak(id),
+            },
+            AssetEventType::Removed => |id| AssetEvent::Removed {
+                handle: Handle::weak(id),
+            },
+        };
+        let handle_id = handle.into();
+        self.events.send(make_event(handle_id));
+        if let Some(aliases) = self.aliases.get(&handle_id) {
+            for alias in aliases {
+                self.events.send(make_event(*alias));
+            }
         }
     }
 
@@ -81,9 +142,7 @@ impl<T: Asset> Assets<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let id = HandleId::random::<T>();
         self.assets.insert(id, asset);
-        self.events.send(AssetEvent::Created {
-            handle: Handle::weak(id),
-        });
+        self.broadcast_event(AssetEventType::Created, id);
         self.get_handle(id)
     }
 
@@ -111,13 +170,9 @@ impl<T: Asset> Assets<T> {
     pub fn set_untracked<H: Into<HandleId>>(&mut self, handle: H, asset: T) {
         let id: HandleId = handle.into();
         if self.assets.insert(id, asset).is_some() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(id),
-            });
+            self.broadcast_event(AssetEventType::Modified, id);
         } else {
-            self.events.send(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
+            self.broadcast_event(AssetEventType::Created, id);
         }
     }
 
@@ -126,7 +181,11 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
-        self.assets.get(&handle.into())
+        let handle_id = handle.into();
+        self.assets.get(&handle_id).or_else(|| {
+            self.get_handle_from_alias(handle_id)
+                .and_then(|handle_id| self.assets.get(handle_id))
+        })
     }
 
     /// Checks if an asset exists for the given handle
@@ -140,9 +199,7 @@ impl<T: Asset> Assets<T> {
     /// do not need mutable access to the asset, you may also use [get](Assets::get).
     pub fn get_mut<H: Into<HandleId>>(&mut self, handle: H) -> Option<&mut T> {
         let id: HandleId = handle.into();
-        self.events.send(AssetEvent::Modified {
-            handle: Handle::weak(id),
-        });
+        self.broadcast_event(AssetEventType::Modified, id);
         self.assets.get_mut(&id)
     }
 
@@ -160,19 +217,11 @@ impl<T: Asset> Assets<T> {
         handle: H,
         insert_fn: impl FnOnce() -> T,
     ) -> &mut T {
-        let mut event = None;
         let id: HandleId = handle.into();
-        let borrowed = self.assets.entry(id).or_insert_with(|| {
-            event = Some(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
-            insert_fn()
-        });
-
-        if let Some(event) = event {
-            self.events.send(event);
+        if !self.assets.contains_key(&id) {
+            self.broadcast_event(AssetEventType::Created, id);
         }
-        borrowed
+        self.assets.entry(id).or_insert_with(insert_fn)
     }
 
     /// Get an iterator over all assets in the collection.
@@ -182,10 +231,9 @@ impl<T: Asset> Assets<T> {
 
     /// Get a mutable iterator over all assets in the collection.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
-        for id in self.assets.keys() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(*id),
-            });
+        let mut keys = self.assets.keys().cloned().collect::<Vec<_>>();
+        for id in keys.drain(..) {
+            self.broadcast_event(AssetEventType::Modified, id);
         }
         self.assets.iter_mut().map(|(k, v)| (*k, v))
     }
@@ -205,9 +253,7 @@ impl<T: Asset> Assets<T> {
         let id: HandleId = handle.into();
         let asset = self.assets.remove(&id);
         if asset.is_some() {
-            self.events.send(AssetEvent::Removed {
-                handle: Handle::weak(id),
-            });
+            self.broadcast_event(AssetEventType::Removed, id);
         }
         asset
     }

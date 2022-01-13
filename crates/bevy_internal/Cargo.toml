@@ -47,6 +47,9 @@ webgl = ["bevy_pbr/webgl", "bevy_render/webgl"]
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
+# Enable hot-reloading of core bevy shaders (for development of bevy)
+bevy_shader_hot_reloading = ["bevy_pbr/bevy_shader_hot_reloading"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.6.0" }
