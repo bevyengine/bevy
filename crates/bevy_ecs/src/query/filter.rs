@@ -76,7 +76,6 @@ impl<T: Component> WorldQuery for With<T> {
 }
 
 /// The [`Fetch`] of [`With`].
-#[derive(Copy)]
 pub struct WithFetch<T> {
     marker: PhantomData<T>,
 }
@@ -175,6 +174,8 @@ impl<T> Clone for WithFetch<T> {
     }
 }
 
+impl<T> Copy for WithFetch<T> {}
+
 /// Filter that selects entities without a component `T`.
 ///
 /// This is the negation of [`With`].
@@ -208,7 +209,6 @@ impl<T: Component> WorldQuery for Without<T> {
 }
 
 /// The [`Fetch`] of [`Without`].
-#[derive(Copy)]
 pub struct WithoutFetch<T> {
     marker: PhantomData<T>,
 }
@@ -307,6 +307,8 @@ impl<T> Clone for WithoutFetch<T> {
     }
 }
 
+impl<T> Copy for WithoutFetch<T> {}
+
 /// A filter that tests if any of the given filters apply.
 ///
 /// This is useful for example if a system with multiple components in a query only wants to run
@@ -341,19 +343,10 @@ impl<T> Clone for WithoutFetch<T> {
 pub struct Or<T>(pub T);
 
 /// The [`Fetch`] of [`Or`].
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct OrFetch<T: FilterFetch> {
     fetch: T,
     matches: bool,
-}
-
-impl<T: FilterFetch + Clone> Clone for OrFetch<T> {
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 macro_rules! impl_query_filter_tuple {
@@ -485,7 +478,6 @@ macro_rules! impl_tick_filter {
         pub struct $name<T>(PhantomData<T>);
 
         $(#[$fetch_meta])*
-        #[derive(Copy)]
         pub struct $fetch_name<T> {
             table_ticks: *const UnsafeCell<ComponentTicks>,
             entity_table_rows: *const usize,
@@ -630,6 +622,8 @@ macro_rules! impl_tick_filter {
                 }
             }
         }
+
+        impl<T> Copy for $fetch_name<T> {}
     };
 }
 
