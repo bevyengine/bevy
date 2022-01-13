@@ -22,7 +22,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<(), anyhow::Error>>;
 
-    /// Returns a list of extensions supported by this asset loader.
+    /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
 }
 

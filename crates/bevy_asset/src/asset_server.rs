@@ -24,7 +24,9 @@ pub enum AssetServerError {
     /// No asset loader was found for the specified extensions.
     #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
     MissingAssetLoader {
-        #[allow(missing_docs)]
+        /// The list of extensions detected on the asset source path that failed to load.
+        ///
+        /// The list may be empty if the asset path is invalid or doesn't have an extension.
         extensions: Vec<String>,
     },
 
@@ -267,7 +269,10 @@ impl AssetServer {
 
     /// Queues an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
+    /// The absolute path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`. Its extension is then
+    /// extracted to search for an [asset loader]. If an asset path contains multiple dots (e.g.
+    /// `foo.bar.baz`), each level is considered a separate extension and the asset server will try
+    /// to look for loaders of `bar.baz` and `baz` assets.
     ///
     /// By default the `ROOT` is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable
@@ -281,7 +286,10 @@ impl AssetServer {
     ///
     /// The asset is loaded asynchronously, and will generally not be available by the time
     /// this calls returns. Use [`AssetServer::get_load_state`] to determine when the asset is
-    /// effectively loaded and available in the [`Assets`] collection.
+    /// effectively loaded and available in the [`Assets`] collection. The asset will always fail to
+    /// load if the provided path doesn't contain an extension.
+    ///
+    /// [asset loader]: AssetLoader
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
