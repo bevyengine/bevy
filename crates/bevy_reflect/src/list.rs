@@ -210,7 +210,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 
 /// Compares a [`List`] with a [`Reflect`] value.
 ///
-/// Returns true _iff_ all of the following are true:
+/// Returns true if and only if all of the following are true:
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.

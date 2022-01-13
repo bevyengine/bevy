@@ -256,7 +256,7 @@ unsafe impl Reflect for DynamicTupleStruct {
 
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
-/// Returns true _iff_ all of the following are true:
+/// Returns true if and only if all of the following are true:
 /// - `b` is a tuple struct;
 /// - `b` has the same number of fields as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.

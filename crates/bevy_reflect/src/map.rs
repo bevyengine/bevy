@@ -212,7 +212,7 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 
 /// Compares a [`Map`] with a [`Reflect`] value.
 ///
-/// Returns true _iff_ all of the following are true:
+/// Returns true if and only if all of the following are true:
 /// - `b` is a map;
 /// - `b` is the same length as `a`;
 /// - For each key-value pair in `a`, `b` contains a value for the given key,
