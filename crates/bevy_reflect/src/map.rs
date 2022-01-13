@@ -9,9 +9,11 @@ use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 /// Because the values are reflected, the underlying types of keys and values
 /// may differ between entries.
 ///
-///`ReflectValue` `Keys` are assumed to return a non-`None` hash. Ideally the
-/// ordering is stable across runs, but this is not required. This corresponds
-/// to types like [`std::collections::HashMap`].
+///`ReflectValue` `Keys` are assumed to return a non-`None` hash. The ordering
+/// of `Map` entries is not guaranteed to be stable across runs or between
+/// instances.
+///
+/// This trait corresponds to types like [`std::collections::HashMap`].
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///
