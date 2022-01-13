@@ -1196,6 +1196,8 @@ pub struct Turtle {
     world: World,
 }
 
+// I mean I guess clippy, that's the point. There's a reason we called it `unsafe`
+#[allow(clippy::non_send_fields_in_send_ty)]
 // Safety: The contained world does not contain anything which is !Send
 unsafe impl Send for Turtle {}
 
