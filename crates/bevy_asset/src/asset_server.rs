@@ -624,7 +624,14 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path)),
+                asset_io: Box::new(FileAssetIo::new(
+                    asset_path,
+                    #[cfg(all(
+                        feature = "filesystem_watcher",
+                        all(not(target_arch = "wasm32"), not(target_os = "android"))
+                    ))]
+                    false,
+                )),
             }),
         }
     }
