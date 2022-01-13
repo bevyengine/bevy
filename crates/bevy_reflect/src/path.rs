@@ -59,7 +59,7 @@ pub trait GetPath {
     /// Returns a mutable reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed mutable reference, use
-    /// [`get_path`][GetPath::get_path].
+    /// [`get_path_mut`][GetPath::get_path_mut].
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
