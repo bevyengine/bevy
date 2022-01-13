@@ -4,23 +4,32 @@ use bevy_utils::HashMap;
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
-/// An ordered `ReflectValue->ReflectValue` mapping. `ReflectValue` `Keys` are assumed to return a
-/// non-`None` hash. Ideally the ordering is stable across runs, but this is not required.
-/// This corresponds to types like [`std::collections::HashMap`].
+/// An ordered `ReflectValue->ReflectValue` mapping.
+///
+///`ReflectValue` `Keys` are assumed to return a non-`None` hash. Ideally the
+/// ordering is stable across runs, but this is not required. This corresponds
+/// to types like [`std::collections::HashMap`].
 pub trait Map: Reflect {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
+
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
+
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
+
     fn len(&self) -> usize;
+
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
     fn iter(&self) -> MapIter;
+
     fn clone_dynamic(&self) -> DynamicMap;
 }
 
 const HASH_ERROR: &str = "the given key does not support hashing";
 
+/// An ordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
     name: String,
@@ -29,18 +38,28 @@ pub struct DynamicMap {
 }
 
 impl DynamicMap {
+    /// Returns the name of the map.
+    ///
+    /// The value returned by this method is the same value returned by
+    /// [`Reflect::type_name`].
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Sets the name of the map.
+    ///
+    /// The value set by this method is the same value returned by
+    /// [`Reflect::type_name`].
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
+    /// Inserts a typed key-value pair into the map.
     pub fn insert<K: Reflect, V: Reflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
 
+    /// Inserts a key-value pair of [`Reflect`] values into the map.
     pub fn insert_boxed(&mut self, key: Box<dyn Reflect>, value: Box<dyn Reflect>) {
         match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
             Entry::Occupied(entry) => {
@@ -154,6 +173,7 @@ unsafe impl Reflect for DynamicMap {
     }
 }
 
+/// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {
     pub(crate) map: &'a dyn Map,
     pub(crate) index: usize,
@@ -176,6 +196,13 @@ impl<'a> Iterator for MapIter<'a> {
 
 impl<'a> ExactSizeIterator for MapIter<'a> {}
 
+/// Compares a [`Map`] with a [`Reflect`] value.
+///
+/// Returns true _iff_ all of the following are true:
+/// - `b` is a map;
+/// - `b` is the same length as `a`;
+/// - For each key-value pair in `a`, `b` contains a value for the given key,
+///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     let map = if let ReflectRef::Map(map) = b.reflect_ref() {

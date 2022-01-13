@@ -259,6 +259,11 @@ unsafe impl Reflect for DynamicTuple {
     }
 }
 
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -272,6 +277,12 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     }
 }
 
+/// Compares a [`Tuple`] with a [`Reflect`] value.
+///
+/// Returns true _iff_ all of the following are true:
+/// - `b` is a tuple;
+/// - `b` has the same number of elements as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {

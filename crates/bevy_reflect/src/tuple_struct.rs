@@ -254,6 +254,12 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 }
 
+/// Compares a [`TupleStruct`] with a [`Reflect`] value.
+///
+/// Returns true _iff_ all of the following are true:
+/// - `b` is a tuple struct;
+/// - `b` has the same number of fields as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {

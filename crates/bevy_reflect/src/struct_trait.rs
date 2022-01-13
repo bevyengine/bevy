@@ -315,6 +315,13 @@ unsafe impl Reflect for DynamicStruct {
     }
 }
 
+/// Compares a [`Struct`] with a [`Reflect`] value.
+///
+/// Returns true _iff_ all of the following are true:
+/// - `b` is a struct;
+/// - For each field in `a`, `b` contains a field with the same name and
+///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   values.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
