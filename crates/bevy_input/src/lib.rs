@@ -1,15 +1,46 @@
+//! This crate contains the input functionality of the `Bevy` game engine.
+//!
+//! ## Supported input devices
+//!
+//! `Bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+//!
+//! ## How to use the input functionality
+//!
+//! To use the input functionality provided by `Bevy` you can add the [`InputPlugin`](crate::InputPlugin)
+//! to your [`App`](bevy_app::App) using the `add_plugin` function. This plugin is also bundled into
+//! the `DefaultPlugins` bundle, which can be added to your [`App`](bevy_app::App) using the `add_plugins`
+//! function.
+
+#[warn(missing_docs)]
+
+/// The generic axis type.
 mod axis;
+
+/// The gamepad input functionality.
 pub mod gamepad;
+
+/// The generic input type.
 mod input;
+
+/// The keyboard input functionality.
 pub mod keyboard;
+
+/// The mouse input functionality.
 pub mod mouse;
+
+/// The app exiting functionality.
 pub mod system;
+
+/// The touch input functionality.
 pub mod touch;
 
-pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-pub use input::*;
+/// The input plugin.
+pub mod plugin;
 
+/// The input state.
+pub mod state;
+
+/// The `bevy_input` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -24,79 +55,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
-use prelude::Gamepads;
-use touch::{touch_screen_input_system, TouchInput, Touches};
-
-use gamepad::{
-    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
-    GamepadEventRaw, GamepadSettings,
-};
-
-/// Adds keyboard and mouse input to an App
-#[derive(Default)]
-pub struct InputPlugin;
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
-pub struct InputSystem;
-
-impl Plugin for InputPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            // keyboard
-            .add_event::<KeyboardInput>()
-            .init_resource::<Input<KeyCode>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                keyboard_input_system.label(InputSystem),
-            )
-            // mouse
-            .add_event::<MouseButtonInput>()
-            .add_event::<MouseMotion>()
-            .add_event::<MouseWheel>()
-            .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                mouse_button_input_system.label(InputSystem),
-            )
-            // gamepad
-            .add_event::<GamepadEvent>()
-            .add_event::<GamepadEventRaw>()
-            .init_resource::<GamepadSettings>()
-            .init_resource::<Gamepads>()
-            .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_event_system.label(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
-            )
-            // touch
-            .add_event::<TouchInput>()
-            .init_resource::<Touches>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                touch_screen_input_system.label(InputSystem),
-            );
-    }
-}
-
-/// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum ElementState {
-    Pressed,
-    Released,
-}
-
-impl ElementState {
-    pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
-    }
-}
+pub use axis::*;
+pub use input::*;
+pub use plugin::*;
+pub use state::*;
