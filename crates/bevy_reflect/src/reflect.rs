@@ -56,7 +56,39 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn any_mut(&mut self) -> &mut dyn Any;
+
+    /// Applies a reflected value to this value.
+    ///
+    /// When `Reflect` is derived for a type, the semantics of this method
+    /// depend on the kind of type `T`:
+    /// - If `T` is a struct with named fields, then the value of each named
+    ///   field of `value` is applied to the corresponding named field of
+    ///   `self`. Fields which are not present in both values are ignored.
+    /// - If `T` is a tuple struct, then the value of each numbered field is
+    ///   applied to the corresponding numbered field of `self.` Fields which
+    ///   are not present in both values are ignored.
+    /// - If `T` is a value type (i.e., neither of the above), then `value` is
+    ///   downcast to `T`, cloned, and assigned to `self`.
+    ///
+    /// Note that deriving `Reflect` for collections may result in undesired
+    /// behavior, such as applying not only the elements of `value` to those of
+    /// the other but also `value`'s metadata. For collection semantics,
+    /// consider manually implementing `Reflect` and using a helper function
+    /// such as [`list_apply`] to implement this method.
+    ///
+    /// # Panics
+    ///
+    /// Derived implementations of this method will panic:
+    /// - If `T` is a struct or tuple struct and `value` is not of the same kind
+    /// - If `T` is a struct or tuple struct and corresponding fields of `self`
+    ///   and `value` are not of the same type
+    /// - If `T` is a value type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn Reflect);
+
+    /// Performs a type-checked assignment of a reflected value to this value.
+    ///
+    /// If `value` does not contain a value of type `T`, returns an `Err`
+    /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
     /// Returns an enumeration of "kinds" of type.
@@ -69,7 +101,13 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// See [`ReflectMut`].
     fn reflect_mut(&mut self) -> ReflectMut;
 
-    /// Clones the value as a [`Reflect`] trait object.
+    /// Clones the value as a `Reflect` trait object.
+    ///
+    /// When deriving `Reflect` for a struct or struct tuple, the value is
+    /// cloned via [`Struct::clone_dynamic`] (resp.
+    /// [`TupleStruct::clone_dynamic`]). Implementors of other `Reflect`
+    /// subtraits (e.g. [`List`], [`Map`]) should use those subtraits'
+    /// respective `clone_dynamic` methods.
     fn clone_value(&self) -> Box<dyn Reflect>;
 
     /// Returns a hash of the value (which includes the type).
@@ -77,7 +115,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// If the underlying type does not support hashing, returns `None`.
     fn reflect_hash(&self) -> Option<u64>;
 
-    /// Returns a "partial equal" comparison result.
+    /// Returns a "partial equality" comparison result.
     ///
     /// If the underlying type does not support equality testing, returns `None`.
     fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
@@ -90,14 +128,16 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
 /// A trait for types which can be constructed from a reflected type.
 ///
-/// This trait is automatically derived for types which derive [`Reflect`].
+/// This trait can be derived on types which implement [`Reflect`]. Some complex
+/// types (such as `Vec<T>`) may only be reflected if their element types
+/// implement this trait.
 ///
 /// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
 /// attribute will be constructed using the `Default` implementation of the
 /// field type, rather than the corresponding field value (if any) of the
 /// reflected value.
 pub trait FromReflect: Reflect + Sized {
-    /// Creates a clone of a reflected value, converting it to a concrete type if it was a dynamic types (e.g. [`DynamicStruct`](crate::DynamicStruct))
+    /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
 }
 

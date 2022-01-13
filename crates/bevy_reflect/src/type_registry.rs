@@ -117,6 +117,11 @@ impl TypeRegistry {
 
     /// Returns the [`TypeData`] of type `T` associated with the given `TypeId`.
     ///
+    /// The returned value may be used to downcast [`Reflect`] trait objects to
+    /// trait objects of the trait used to generate `T`, provided that the
+    /// underlying reflected type has the proper `#[reflect(DoThing)]`
+    /// attribute.
+    ///
     /// If the specified type has not been registered, or if `T` is not present
     /// in its type registration, returns `None`.
     pub fn get_type_data<T: TypeData>(&self, type_id: TypeId) -> Option<&T> {
@@ -145,12 +150,18 @@ impl TypeRegistryArc {
 
 /// A record of data about a type.
 ///
-/// This contains the [`TypeId`], [name], and [short name] of the type, as well
-/// as the same data for any type parameters of the type.
+/// This contains the [`TypeId`], [name], and [short name] of the type.
+///
+/// For each trait specified by the [`#[reflect(_)]`][0] attribute of
+/// [`#[derive(Reflect)]`][1] on the registered type, this record also contains
+/// a [`TypeData`] which can be used to downcast [`Reflect`] trait objects of
+/// this type to trait objects of the relevant trait.
 ///
 /// [`TypeId`]: std::any::TypeId
 /// [name]: std::any::type_name
 /// [short name]: TypeRegistration::get_short_name
+/// [0]: crate::Reflect
+/// [1]: crate::Reflect
 pub struct TypeRegistration {
     type_id: TypeId,
     short_name: String,
