@@ -129,9 +129,20 @@ impl ShaderCache {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
                     }
                 };
-                entry.insert(Arc::new(
-                    render_device.create_shader_module(&module_descriptor),
-                ))
+
+                render_device
+                    .wgpu_device()
+                    .push_error_scope(wgpu::ErrorFilter::Validation);
+                let shader_module = render_device.create_shader_module(&module_descriptor);
+                use futures_util::future::FutureExt;
+                let error = render_device.wgpu_device().pop_error_scope();
+                if let Some(Some(wgpu::Error::Validation { description, .. })) =
+                    error.now_or_never()
+                {
+                    return Err(PipelineCacheError::CreateShaderModule(description));
+                }
+
+                entry.insert(Arc::new(shader_module))
             }
         };
 
@@ -479,6 +490,10 @@ impl PipelineCache {
                             log_shader_error(source, err);
                             continue;
                         }
+                        PipelineCacheError::CreateShaderModule(description) => {
+                            error!("failed to create shader module: {}", description);
+                            continue;
+                        }
                     }
                 }
             }
@@ -626,6 +641,8 @@ pub enum PipelineCacheError {
     AsModuleDescriptorError(AsModuleDescriptorError, ProcessedShader),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
+    #[error("Could not create shader module: {0}")]
+    CreateShaderModule(String),
 }
 
 struct ErrorSources<'a> {
