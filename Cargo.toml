@@ -359,6 +359,10 @@ path = "examples/game/alien_cake_addict.rs"
 name = "breakout"
 path = "examples/game/breakout.rs"
 
+[[example]]
+name = "game_menu"
+path = "examples/game/game_menu.rs"
+
 # Input
 [[example]]
 name = "char_input_events"
