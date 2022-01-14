@@ -82,6 +82,8 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// or none of the above depending on the kind of type. For lists, use the
     /// [`list_apply`] helper function when implementing this method.
     ///
+    /// [`list_apply`]: crate::list_apply
+    ///
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
