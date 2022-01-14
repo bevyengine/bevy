@@ -68,8 +68,8 @@ pub unsafe trait Reflect: Any + Send + Sync {
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
     /// - If `T` is a [`List`], then each element of `value` is applied to the
-    ///   corresponding element of `self`. The number of elements applied is
-    ///   equal to the length of the shorter list.
+    ///   corresponding element of `self`. Up to `self.len()` items are applied,
+    ///   and excess elements in `value` are appended to `self`.
     /// - If `T` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
     ///   Keys which are not present in both maps are ignored.
