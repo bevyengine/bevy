@@ -863,13 +863,13 @@ impl App {
         &mut self,
         label: impl AppLabel,
         app: App,
-        f: impl Fn(&mut World, &mut App) + 'static,
+        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             Box::new(label),
             SubApp {
                 app,
-                runner: Box::new(f),
+                runner: Box::new(sub_app_runner),
             },
         );
         self
