@@ -36,8 +36,11 @@ use std::ops::Mul;
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform {
+    /// The position of the global transform
     pub translation: Vec3,
+    /// The rotation of the global transform
     pub rotation: Quat,
+    /// The scale of the global transform
     pub scale: Vec3,
 }
 
