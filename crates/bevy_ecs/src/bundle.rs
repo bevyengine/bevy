@@ -135,11 +135,20 @@ pub struct BundleId(NonMaxUsize);
 assert_eq_size!(BundleId, Option<BundleId>);
 
 impl BundleId {
+    /// Creates a new [`BundleId`] from an index without checking for the
+    /// type's invariants.
+    ///
+    /// # Safety
+    /// This function is only safe if `value` is not equal to [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(value: usize) -> Self {
         Self(NonMaxUsize::new_unchecked(value))
     }
 
+    /// Creates a new [`BundleId`] from an index.
+    ///
+    /// # Panic
+    /// This function will panic if `value` is equal to [`usize::MAX`].
     #[inline]
     pub fn new(value: usize) -> Self {
         Self(NonMaxUsize::new(value).unwrap())

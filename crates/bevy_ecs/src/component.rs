@@ -144,11 +144,20 @@ pub struct ComponentId(NonMaxUsize);
 assert_eq_size!(ComponentId, Option<ComponentId>);
 
 impl ComponentId {
+    /// Creates a new [`ComponentId`] from an index without
+    /// checking for the type's invariants.
+    ///
+    /// # Safety
+    /// This function is only safe if `index` is not equal to [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> ComponentId {
         ComponentId(NonMaxUsize::new_unchecked(index))
     }
 
+    /// Creates a new [`ArchetypeComponentId`] from an index.
+    ///
+    /// # Panic
+    /// This function will panic if `index` is equal to [`usize::MAX`].
     #[inline]
     pub fn new(index: usize) -> ComponentId {
         ComponentId(NonMaxUsize::new(index).unwrap())
