@@ -264,7 +264,7 @@ pub trait FetchedItem {
 /// # my_system.system();
 /// ```
 pub trait Fetch<'world, 'state>: Sized {
-    type Item;
+    type Item: FetchedItem;
     type State: FetchState;
 
     /// Creates a new instance of this fetch.
@@ -1496,4 +1496,10 @@ impl<'w, 's, State: FetchState> Fetch<'w, 's> for NopFetch<State> {
 
     #[inline(always)]
     unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {}
+}
+
+/// This implementation won't allow us to correlate a boolean to a filter type. But having a dummy
+/// for `bool` allows us to add `FetchedItem` bound to [`Fetch::Item`].
+impl FetchedItem for bool {
+    type Query = ();
 }
