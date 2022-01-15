@@ -4,7 +4,6 @@ use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::Res;
-use bevy_log::warn;
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_utils::HashSet;
@@ -106,7 +105,7 @@ impl AssetIo for FileAssetIo {
             *self.filesystem_watcher.write() = Some(FilesystemWatcher::default());
         }
         #[cfg(not(feature = "filesystem_watcher"))]
-        warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
+        bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
 
         Ok(())
     }
