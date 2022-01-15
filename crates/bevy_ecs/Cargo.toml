@@ -25,6 +25,7 @@ fxhash = "0.2"
 thiserror = "1.0"
 downcast-rs = "1.2"
 static_assertions = "1.1"
+nonmax = "0.5"
 serde = "1"
 
 [dev-dependencies]

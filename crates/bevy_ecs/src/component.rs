@@ -5,10 +5,10 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
+use nonmax::NonMaxUsize;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
-    num::NonZeroUsize,
 };
 use thiserror::Error;
 
@@ -139,19 +139,19 @@ impl ComponentInfo {
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(NonZeroUsize);
+pub struct ComponentId(NonMaxUsize);
 
 assert_eq_size!(ComponentId, Option<ComponentId>);
 
 impl ComponentId {
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> ComponentId {
-        ComponentId(NonZeroUsize::new_unchecked(index))
+        ComponentId(NonMaxUsize::new_unchecked(index))
     }
 
     #[inline]
     pub fn new(index: usize) -> ComponentId {
-        ComponentId(NonZeroUsize::new(index).unwrap())
+        ComponentId(NonMaxUsize::new(index).unwrap())
     }
 
     #[inline]

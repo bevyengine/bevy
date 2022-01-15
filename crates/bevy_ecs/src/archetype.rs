@@ -7,11 +7,11 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
+use nonmax::NonMaxUsize;
 use std::{
     borrow::Cow,
     collections::HashMap,
     hash::Hash,
-    num::NonZeroUsize,
     ops::{Index, IndexMut},
 };
 
@@ -337,19 +337,19 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(NonZeroUsize);
+pub struct ArchetypeComponentId(NonMaxUsize);
 
 assert_eq_size!(ArchetypeComponentId, Option<ArchetypeComponentId>);
 
 impl ArchetypeComponentId {
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonZeroUsize::new_unchecked(index))
+        Self(NonMaxUsize::new_unchecked(index))
     }
 
     #[inline]
     pub fn new(index: usize) -> Self {
-        Self(NonZeroUsize::new(index).unwrap())
+        Self(NonMaxUsize::new(index).unwrap())
     }
 
     #[inline]

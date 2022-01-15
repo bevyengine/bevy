@@ -3,11 +3,8 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use std::{
-    cell::UnsafeCell,
-    marker::PhantomData,
-    num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize},
-};
+use nonmax::{NonMaxU16, NonMaxU32, NonMaxU64, NonMaxU8, NonMaxUsize};
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
@@ -242,7 +239,7 @@ impl ComponentSparseSet {
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
-    sparse: SparseArray<I, NonZeroUsize>,
+    sparse: SparseArray<I, NonMaxUsize>,
 }
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
@@ -278,10 +275,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe {
-                *self.dense.get_unchecked_mut(dense_index.get() - 1) = value;
+                *self.dense.get_unchecked_mut(dense_index.get()) = value;
             }
         } else {
-            let dense = NonZeroUsize::new(self.dense.len() + 1).unwrap();
+            let dense = NonMaxUsize::new(self.dense.len()).unwrap();
             self.sparse.insert(index.clone(), dense);
             self.indices.push(index);
             self.dense.push(value);
@@ -313,15 +310,15 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
-            unsafe { self.dense.get_unchecked_mut(dense_index.get() - 1) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
         } else {
             let value = func();
-            let dense_index = NonZeroUsize::new(self.dense.len() + 1).unwrap();
+            let dense_index = NonMaxUsize::new(self.dense.len()).unwrap();
             self.sparse.insert(index.clone(), dense_index);
             self.indices.push(index);
             self.dense.push(value);
             // SAFE: dense index was just populated above
-            unsafe { self.dense.get_unchecked_mut(dense_index.get() - 1) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
         }
     }
 
@@ -343,7 +340,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(dense_index.get() - 1) }
+            unsafe { self.dense.get_unchecked(dense_index.get()) }
         })
     }
 
@@ -351,13 +348,13 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { dense.get_unchecked_mut(dense_index.get() - 1) }
+            unsafe { dense.get_unchecked_mut(dense_index.get()) }
         })
     }
 
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_idx| {
-            let dense_index = dense_idx.get() - 1;
+            let dense_index = dense_idx.get();
             let is_last = dense_index == self.dense.len() - 1;
             let value = self.dense.swap_remove(dense_index);
             self.indices.swap_remove(dense_index);
@@ -404,11 +401,11 @@ macro_rules! impl_sparse_set_index {
     };
 }
 
-impl_sparse_set_index!(NonZeroU8, u8);
-impl_sparse_set_index!(NonZeroU16, u16);
-impl_sparse_set_index!(NonZeroU32, u32);
-impl_sparse_set_index!(NonZeroU64, u64);
-impl_sparse_set_index!(NonZeroUsize, usize);
+impl_sparse_set_index!(NonMaxU8, u8);
+impl_sparse_set_index!(NonMaxU16, u16);
+impl_sparse_set_index!(NonMaxU32, u32);
+impl_sparse_set_index!(NonMaxU64, u64);
+impl_sparse_set_index!(NonMaxUsize, usize);
 
 /// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
 ///
