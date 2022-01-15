@@ -564,8 +564,8 @@ mod test {
     #[test]
     pub fn test_archetyype_component_id_size_optimized() {
         assert_eq!(
-            core::mem::sizeof::<ArchetypeComponentId>(),
-            core::mem::sizeof::<Option<ArchetypeComponentId>>(),
+            core::mem::size_of::<ArchetypeComponentId>(),
+            core::mem::size_of::<Option<ArchetypeComponentId>>(),
         );
     }
 }
