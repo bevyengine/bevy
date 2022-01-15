@@ -27,17 +27,23 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
-    pub fn new<P: AsRef<Path>>(
-        path: P,
-        #[cfg(feature = "filesystem_watcher")] watch_for_changes: bool,
-    ) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
             root_path: Self::get_root_path().join(path.as_ref()),
         };
-        #[cfg(feature = "filesystem_watcher")]
         if watch_for_changes {
+            #[cfg(any(
+                not(feature = "filesystem_watcher"),
+                target_arch = "wasm32",
+                target_os = "android"
+            ))]
+            panic!(
+                "Watch for changes requires the filesystem_watcher feature and cannot be used on \
+                wasm32 / android targets"
+            );
+            #[cfg(feature = "filesystem_watcher")]
             file_asset_io.watch_for_changes().unwrap();
         }
         file_asset_io
