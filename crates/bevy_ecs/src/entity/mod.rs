@@ -50,6 +50,9 @@ pub struct Entity {
     pub(crate) id: u32,
 }
 
+// TODO: Optimize memory usage of Option<Entity>
+// assert_size_eq!(Entity, Option<Entity>);
+
 pub enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,

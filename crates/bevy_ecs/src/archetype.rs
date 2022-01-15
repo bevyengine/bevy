@@ -11,6 +11,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     hash::Hash,
+    num::NonZeroUsize,
     ops::{Index, IndexMut},
 };
 
@@ -336,28 +337,35 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(usize);
+pub struct ArchetypeComponentId(NonZeroUsize);
+
+assert_eq_size!(ArchetypeComponentId, Option<ArchetypeComponentId>);
 
 impl ArchetypeComponentId {
     #[inline]
-    pub const fn new(index: usize) -> Self {
-        Self(index)
+    pub const unsafe fn new_unchecked(index: usize) -> Self {
+        Self(NonZeroUsize::new_unchecked(index))
+    }
+
+    #[inline]
+    pub fn new(index: usize) -> Self {
+        Self(NonZeroUsize::new(index).unwrap())
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0.get()
     }
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.0
+        self.index()
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 
@@ -487,7 +495,7 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
         let mut next_archetype_component_id = move || {
-            let id = ArchetypeComponentId(*archetype_component_count);
+            let id = ArchetypeComponentId::new(*archetype_component_count);
             *archetype_component_count += 1;
             id
         };

@@ -3,7 +3,11 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use std::{cell::UnsafeCell, marker::PhantomData};
+use std::{
+    cell::UnsafeCell,
+    marker::PhantomData,
+    num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize},
+};
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
@@ -238,7 +242,7 @@ impl ComponentSparseSet {
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
-    sparse: SparseArray<I, usize>,
+    sparse: SparseArray<I, NonZeroUsize>,
 }
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
@@ -274,10 +278,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe {
-                *self.dense.get_unchecked_mut(dense_index) = value;
+                *self.dense.get_unchecked_mut(dense_index.get() - 1) = value;
             }
         } else {
-            self.sparse.insert(index.clone(), self.dense.len());
+            let dense = NonZeroUsize::new(self.dense.len() + 1).unwrap();
+            self.sparse.insert(index.clone(), dense);
             self.indices.push(index);
             self.dense.push(value);
         }
@@ -308,15 +313,15 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
-            unsafe { self.dense.get_unchecked_mut(dense_index) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get() - 1) }
         } else {
             let value = func();
-            let dense_index = self.dense.len();
+            let dense_index = NonZeroUsize::new(self.dense.len() + 1).unwrap();
             self.sparse.insert(index.clone(), dense_index);
             self.indices.push(index);
             self.dense.push(value);
             // SAFE: dense index was just populated above
-            unsafe { self.dense.get_unchecked_mut(dense_index) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get() - 1) }
         }
     }
 
@@ -338,7 +343,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(*dense_index) }
+            unsafe { self.dense.get_unchecked(dense_index.get() - 1) }
         })
     }
 
@@ -346,18 +351,19 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { dense.get_unchecked_mut(*dense_index) }
+            unsafe { dense.get_unchecked_mut(dense_index.get() - 1) }
         })
     }
 
     pub fn remove(&mut self, index: I) -> Option<V> {
-        self.sparse.remove(index).map(|dense_index| {
+        self.sparse.remove(index).map(|dense_idx| {
+            let dense_index = dense_idx.get() - 1;
             let is_last = dense_index == self.dense.len() - 1;
             let value = self.dense.swap_remove(dense_index);
             self.indices.swap_remove(dense_index);
             if !is_last {
                 let swapped_index = self.indices[dense_index].clone();
-                *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
+                *self.sparse.get_mut(swapped_index).unwrap() = dense_idx;
             }
             value
         })
@@ -382,20 +388,27 @@ pub trait SparseSetIndex: Clone {
 }
 
 macro_rules! impl_sparse_set_index {
-    ($($ty:ty),+) => {
-        $(impl SparseSetIndex for $ty {
+    ($ty:ty, $underlying:ty) => {
+        impl SparseSetIndex for $ty {
             fn sparse_set_index(&self) -> usize {
-                *self as usize
+                self.get() as usize
             }
 
             fn get_sparse_set_index(value: usize) -> Self {
-                value as $ty
+                <$ty>::new(value as $underlying).unwrap()
             }
-        })*
+        }
+
+        assert_eq_size!($ty, Option<$ty>);
+        assert_eq_size!($ty, $underlying);
     };
 }
 
-impl_sparse_set_index!(u8, u16, u32, u64, usize);
+impl_sparse_set_index!(NonZeroU8, u8);
+impl_sparse_set_index!(NonZeroU16, u16);
+impl_sparse_set_index!(NonZeroU32, u32);
+impl_sparse_set_index!(NonZeroU64, u64);
+impl_sparse_set_index!(NonZeroUsize, usize);
 
 /// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
 ///

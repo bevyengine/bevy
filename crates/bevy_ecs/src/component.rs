@@ -8,6 +8,7 @@ pub use bevy_ecs_macros::Component;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    num::NonZeroUsize,
 };
 use thiserror::Error;
 
@@ -138,17 +139,24 @@ impl ComponentInfo {
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(usize);
+pub struct ComponentId(NonZeroUsize);
+
+assert_eq_size!(ComponentId, Option<ComponentId>);
 
 impl ComponentId {
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const unsafe fn new_unchecked(index: usize) -> ComponentId {
+        ComponentId(NonZeroUsize::new_unchecked(index))
+    }
+
+    #[inline]
+    pub fn new(index: usize) -> ComponentId {
+        ComponentId(NonZeroUsize::new(index).unwrap())
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0.get()
     }
 }
 
@@ -159,7 +167,7 @@ impl SparseSetIndex for ComponentId {
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 
@@ -262,14 +270,14 @@ impl Components {
         let index = self.indices.entry(type_id).or_insert_with(|| {
             let index = components.len();
             let descriptor = ComponentDescriptor::new::<T>();
-            let info = ComponentInfo::new(ComponentId(index), descriptor);
+            let info = ComponentInfo::new(ComponentId::new(index), descriptor);
             if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
                 storages.sparse_sets.get_or_insert(&info);
             }
             components.push(info);
             index
         });
-        ComponentId(*index)
+        ComponentId::new(*index)
     }
 
     #[inline]
@@ -284,7 +292,7 @@ impl Components {
 
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
+        self.components.get(id.0.get())
     }
 
     /// # Safety
@@ -293,19 +301,21 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        self.components.get_unchecked(id.0.get())
     }
 
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.indices
+            .get(&type_id)
+            .map(|index| ComponentId::new(*index))
     }
 
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
             .get(&type_id)
-            .map(|index| ComponentId(*index))
+            .map(|index| ComponentId::new(*index))
     }
 
     #[inline]
@@ -341,11 +351,11 @@ impl Components {
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
+            components.push(ComponentInfo::new(ComponentId::new(index), descriptor));
             index
         });
 
-        ComponentId(*index)
+        ComponentId::new(*index)
     }
 }
 

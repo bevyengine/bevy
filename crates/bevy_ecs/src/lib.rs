@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[macro_use]
+extern crate static_assertions;
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
