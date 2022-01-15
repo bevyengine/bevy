@@ -1,9 +1,11 @@
 extern crate proc_macro;
 
 mod attrs;
+mod shape;
 mod symbol;
 
 pub use attrs::*;
+pub use shape::*;
 pub use symbol::*;
 
 use cargo_manifest::{DepsSet, Manifest};

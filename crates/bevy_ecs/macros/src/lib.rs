@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 mod component;
 
-use bevy_macro_utils::{derive_label, BevyManifest};
+use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -11,8 +11,7 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, LitInt, Result,
-    Token,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token,
 };
 
 struct AllTuples {
@@ -86,12 +85,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let named_fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
 
     let is_bundle = named_fields
@@ -304,12 +300,9 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
     let path = bevy_ecs_path();
 
