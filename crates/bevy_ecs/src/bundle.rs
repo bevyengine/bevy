@@ -11,6 +11,7 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
+use nonmax::NonMaxUsize;
 use std::{any::TypeId, collections::HashMap};
 
 /// An ordered collection of [`Component`]s.
@@ -129,12 +130,24 @@ macro_rules! tuple_impl {
 all_tuples!(tuple_impl, 0, 15, C);
 
 #[derive(Debug, Clone, Copy)]
-pub struct BundleId(usize);
+pub struct BundleId(NonMaxUsize);
+
+assert_eq_size!(BundleId, Option<BundleId>);
 
 impl BundleId {
     #[inline]
+    pub const unsafe fn new_unchecked(value: usize) -> Self {
+        Self(NonMaxUsize::new_unchecked(value))
+    }
+
+    #[inline]
+    pub fn new(value: usize) -> Self {
+        Self(NonMaxUsize::new(value).unwrap())
+    }
+
+    #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0.get()
     }
 }
 
@@ -145,7 +158,7 @@ impl SparseSetIndex for BundleId {
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 
@@ -597,7 +610,7 @@ impl Bundles {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let component_ids = T::component_ids(components, storages);
-            let id = BundleId(bundle_infos.len());
+            let id = BundleId::new(bundle_infos.len());
             // SAFE: T::component_id ensures info was created
             let bundle_info = unsafe {
                 initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
@@ -606,7 +619,7 @@ impl Bundles {
             id
         });
         // SAFE: index either exists, or was initialized
-        unsafe { self.bundle_infos.get_unchecked(id.0) }
+        unsafe { self.bundle_infos.get_unchecked(id.index()) }
     }
 }
 
