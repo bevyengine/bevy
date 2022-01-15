@@ -73,7 +73,8 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
     let struct_read_only_declaration = if has_mutable_attr {
         quote! {
             // TODO: it would be great to be able to dedup this by just deriving `Fetch` again
-            //  without the `mutable` attribute, but supporting QSelf types is tricky.
+            //  without the `mutable` attribute, but we'd need a way to avoid creating a redundant
+            //  `State` struct.
             #read_only_derive_macro_call
             struct #struct_name_read_only #impl_generics #where_clause {
                 #(#field_idents: <<#query_types as #path::query::WorldQuery>::ReadOnlyFetch as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
