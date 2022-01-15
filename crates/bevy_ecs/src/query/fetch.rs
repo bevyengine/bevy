@@ -56,7 +56,7 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 
 /// Types that appear as [`Fetch::Item`] associated types.
 ///
-/// This trait comes in useful when it's needed to correlate such types as `Mut<T>` to `&mut T`.
+/// This trait comes in useful when it's needed to correlate between types (such as `Mut<T>` to `&mut T`).
 /// In most cases though, [`FetchedItem::Query`] corresponds to a type that implements the trait.
 pub trait FetchedItem {
     type Query: WorldQuery;
@@ -171,7 +171,7 @@ pub trait FetchedItem {
 /// ```
 ///
 /// If you want to use derive macros with read-only query variants, you need to pass them with
-/// using the `read_only_derive` attribute. When `Fetch` macro generates an additional struct
+/// using the `read_only_derive` attribute. When the `Fetch` macro generates an additional struct
 /// for a mutable query, it doesn't automatically inherit the same derives. Since derive macros
 /// can't access information about other derives, they need to be passed manually with the
 /// `read_only_derive` attribute.

@@ -57,11 +57,13 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    // Add `'state` and `'fetch` lifetimes that will be used in `Fetch` implementation.
     let mut fetch_generics = ast.generics.clone();
     fetch_generics.params.insert(1, state_lifetime);
-    fetch_generics.params.push(fetch_lifetime.clone());
+    fetch_generics.params.insert(2, fetch_lifetime.clone());
     let (fetch_impl_generics, _, _) = fetch_generics.split_for_impl();
 
+    // Replace lifetime `'world` with `'fetch`. See `replace_lifetime_for_type` for more details.
     let mut fetch_generics = ast.generics.clone();
     *fetch_generics.params.first_mut().unwrap() = fetch_lifetime;
     let (_, fetch_ty_generics, _) = fetch_generics.split_for_impl();
@@ -283,10 +285,11 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         panic!("Expected a struct without a lifetime");
     }
 
+    // Add `'world`, `'state` and `'fetch` lifetimes that will be used in `Fetch` implementation.
     let mut fetch_generics = ast.generics.clone();
     fetch_generics.params.insert(0, world_lifetime);
     fetch_generics.params.insert(1, state_lifetime);
-    fetch_generics.params.push(fetch_lifetime);
+    fetch_generics.params.insert(2, fetch_lifetime);
     let (fetch_impl_generics, _, _) = fetch_generics.split_for_impl();
 
     let path = bevy_ecs_path();
@@ -417,19 +420,19 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
     // enough to try to find a better work around, I'll leave playground links here:
     // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=da5e260a5c2f3e774142d60a199e854a (this fails)
     // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=802517bb3d8f83c45ee8c0be360bb250 (this compiles)
-    let fetch_lifetime =
+    let fetch_lifetime_param =
         GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'fetch", Span::call_site())));
 
     let has_world_lifetime = world_lifetime.is_some();
-    let world_lifetime = world_lifetime.unwrap_or_else(|| {
+    let world_lifetime_param = world_lifetime.unwrap_or_else(|| {
         GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'world", Span::call_site())))
     });
-    let state_lifetime =
+    let state_lifetime_param =
         GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'state", Span::call_site())));
 
     let mut fetch_trait_punctuated_lifetimes = Punctuated::<_, Token![,]>::new();
-    fetch_trait_punctuated_lifetimes.push(world_lifetime.clone());
-    fetch_trait_punctuated_lifetimes.push(state_lifetime.clone());
+    fetch_trait_punctuated_lifetimes.push(world_lifetime_param.clone());
+    fetch_trait_punctuated_lifetimes.push(state_lifetime_param.clone());
 
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
@@ -462,13 +465,13 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
     let mut query_types = Vec::new();
     let mut fetch_init_types = Vec::new();
 
+    let (world_lifetime, fetch_lifetime) = match (&world_lifetime_param, &fetch_lifetime_param) {
+        (GenericParam::Lifetime(world), GenericParam::Lifetime(fetch)) => {
+            (&world.lifetime, &fetch.lifetime)
+        }
+        _ => unreachable!(),
+    };
     for field in fields.iter() {
-        let (world_lifetime, fetch_lifetime) = match (&world_lifetime, &fetch_lifetime) {
-            (GenericParam::Lifetime(world), GenericParam::Lifetime(fetch)) => {
-                (&world.lifetime, &fetch.lifetime)
-            }
-            _ => unreachable!(),
-        };
         let WorldQueryFieldTypeInfo {
             query_type,
             fetch_init_type: init_type,
@@ -499,9 +502,9 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
         where_clause,
         has_mutable_attr,
         has_world_lifetime,
-        world_lifetime,
-        state_lifetime,
-        fetch_lifetime,
+        world_lifetime: world_lifetime_param,
+        state_lifetime: state_lifetime_param,
+        fetch_lifetime: fetch_lifetime_param,
         phantom_field_idents,
         phantom_field_types,
         field_idents,
@@ -527,8 +530,8 @@ fn read_world_query_field_type_info(
 ) -> WorldQueryFieldTypeInfo {
     let path = bevy_ecs_path();
 
-    let query_type = parse_quote!(<#ty as #path::query::FetchedItem>::Query);
-    let mut fetch_init_type = parse_quote!(<#ty as #path::query::FetchedItem>::Query);
+    let query_type: Type = parse_quote!(<#ty as #path::query::FetchedItem>::Query);
+    let mut fetch_init_type: Type = query_type.clone();
 
     let is_phantom_data = match ty {
         Type::Path(path) => {
@@ -550,6 +553,11 @@ fn read_world_query_field_type_info(
     }
 }
 
+// Fetch's HRTBs require substituting world lifetime with an additional one to make the
+// implementation compile. I don't fully understand why this works though. If anyone's curious
+// enough to try to find a better work around, I'll leave playground links here:
+// - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=da5e260a5c2f3e774142d60a199e854a (this fails)
+// - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=802517bb3d8f83c45ee8c0be360bb250 (this compiles)
 fn replace_lifetime_for_type(ty: &mut Type, world_lifetime: &Lifetime, fetch_lifetime: &Lifetime) {
     match ty {
         Type::Path(ref mut path) => {
