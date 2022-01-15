@@ -339,8 +339,6 @@ pub struct ArchetypeIdentity {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(NonMaxUsize);
 
-assert_eq_size!(ArchetypeComponentId, Option<ArchetypeComponentId>);
-
 impl ArchetypeComponentId {
     /// Creates a new [`ArchetypeComponentId`] from an index without
     /// checking for the type's invariants.
@@ -556,5 +554,18 @@ impl IndexMut<ArchetypeId> for Archetypes {
     #[inline]
     fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
         &mut self.archetypes[index.index()]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ArchetypeComponentId;
+
+    #[test]
+    pub fn test_archetyype_component_id_size_optimized() {
+        assert_eq!(
+            core::mem::sizeof::<ArchetypeComponentId>(),
+            core::mem::sizeof::<Option<ArchetypeComponentId>>(),
+        );
     }
 }

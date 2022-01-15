@@ -132,8 +132,6 @@ all_tuples!(tuple_impl, 0, 15, C);
 #[derive(Debug, Clone, Copy)]
 pub struct BundleId(NonMaxUsize);
 
-assert_eq_size!(BundleId, Option<BundleId>);
-
 impl BundleId {
     /// Creates a new [`BundleId`] from an index without checking for the
     /// type's invariants.
@@ -660,5 +658,18 @@ unsafe fn initialize_bundle(
         id,
         component_ids,
         storage_types,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::BundleId;
+
+    #[test]
+    pub fn test_bundle_id_size_optimized() {
+        assert_eq!(
+            core::mem::size_of::<BundleId>(),
+            core::mem::size_of::<Option<BundleId>>(),
+        );
     }
 }

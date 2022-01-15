@@ -395,9 +395,6 @@ macro_rules! impl_sparse_set_index {
                 <$ty>::new(value as $underlying).unwrap()
             }
         }
-
-        assert_eq_size!($ty, Option<$ty>);
-        assert_eq_size!($ty, $underlying);
     };
 }
 

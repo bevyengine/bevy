@@ -141,8 +141,6 @@ impl ComponentInfo {
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(NonMaxUsize);
 
-assert_eq_size!(ComponentId, Option<ComponentId>);
-
 impl ComponentId {
     /// Creates a new [`ComponentId`] from an index without
     /// checking for the type's invariants.
@@ -154,7 +152,7 @@ impl ComponentId {
         ComponentId(NonMaxUsize::new_unchecked(index))
     }
 
-    /// Creates a new [`ArchetypeComponentId`] from an index.
+    /// Creates a new [`ComponentId`] from an index.
     ///
     /// # Panic
     /// This function will panic if `index` is equal to [`usize::MAX`].
@@ -430,5 +428,18 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
     // Clamp to max delta
     if tick_delta > MAX_DELTA {
         *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ComponentId;
+
+    #[test]
+    pub fn test_component_id_size_optimized() {
+        assert_eq!(
+            core::mem::size_of::<ComponentId>(),
+            core::mem::size_of::<Option<ComponentId>>(),
+        );
     }
 }
