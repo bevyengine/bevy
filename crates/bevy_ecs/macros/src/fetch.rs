@@ -674,7 +674,9 @@ fn read_world_query_field_type_info(
                     panic!("Invalid tuple element: PhantomData");
                 }
                 is_phantom = true;
-            } else if segment.ident != "Entity" {
+            } else if segment.ident == "Entity" {
+            	// Nothing to do here
+            } else {
                 assert_not_generic(path, generic_names);
 
                 // Here, we assume that this member is another type that implements `Fetch`.

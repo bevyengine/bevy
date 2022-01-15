@@ -159,6 +159,7 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 ///         println!("Total (mut): {}", health.total());
 ///     }
 /// }
+/// # my_system.system();
 /// ```
 ///
 /// If you want to use derive macros with read-only query variants, you need to pass them with
@@ -257,11 +258,11 @@ pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Ite
 ///
 /// ## Limitations
 ///
-/// Currently, we don't support members that have a manual [`WorldQuery`] implementation if their
+/// Currently, we don't support members that have a [`WorldQuery`] implementation where their
 /// [`Fetch::Item`] is different from the member type. For instance, the following code won't
 /// compile:
 ///
-/// ```ignore
+/// ```compile_fail
 /// #[derive(Component)]
 /// struct CustomQueryParameter;
 /// #[derive(Component)]
