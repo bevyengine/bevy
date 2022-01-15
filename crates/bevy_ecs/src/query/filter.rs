@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    query::{Access, Fetch, FetchState, FilteredAccess, ReadOnlyFetch, WorldQuery},
+    query::{Access, Fetch, FetchState, FetchedItem, FilteredAccess, ReadOnlyFetch, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
 };
@@ -120,6 +120,10 @@ impl<T: Component> WorldQuery for With<T> {
     type Fetch = WithFetch<T>;
     type State = WithState<T>;
     type ReadOnlyFetch = WithFetch<T>;
+}
+
+impl<T: Component> FetchedItem for With<T> {
+    type Query = Self;
 }
 
 /// The [`Fetch`] of [`With`].
@@ -243,6 +247,10 @@ impl<T: Component> WorldQuery for Without<T> {
     type Fetch = WithoutFetch<T>;
     type State = WithoutState<T>;
     type ReadOnlyFetch = WithoutFetch<T>;
+}
+
+impl<T: Component> FetchedItem for Without<T> {
+    type Query = Self;
 }
 
 /// The [`Fetch`] of [`Without`].
@@ -400,6 +408,12 @@ macro_rules! impl_query_filter_tuple {
             type ReadOnlyFetch = Or<($(OrFetch<$filter::ReadOnlyFetch>,)*)>;
         }
 
+        impl<$($filter: WorldQuery),*> FetchedItem for Or<($($filter,)*)>
+            where $($filter::Fetch: FilterFetch, $filter::ReadOnlyFetch: FilterFetch),*
+        {
+            type Query = Self;
+        }
+
         /// SAFETY: this only works using the filter which doesn't write
         unsafe impl<$($filter: FilterFetch + ReadOnlyFetch),*> ReadOnlyFetch for Or<($(OrFetch<$filter>,)*)> {}
 
@@ -523,6 +537,10 @@ macro_rules! impl_tick_filter {
             type Fetch = $fetch_name<T>;
             type State = $state_name<T>;
             type ReadOnlyFetch = $fetch_name<T>;
+        }
+
+        impl<T: Component> FetchedItem for $name<T> {
+            type Query = Self;
         }
 
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that

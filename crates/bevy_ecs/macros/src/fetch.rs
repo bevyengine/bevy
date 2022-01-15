@@ -1,10 +1,10 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
-    parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput, Fields,
-    GenericArgument, GenericParam, ImplGenerics, Lifetime, LifetimeDef, PathArguments, Token, Type,
-    TypeGenerics, TypePath, TypeReference, WhereClause,
+    parse_macro_input, parse_quote, punctuated::Punctuated, Data, DataStruct, DeriveInput, Fields,
+    GenericArgument, GenericParam, ImplGenerics, Lifetime, LifetimeDef, Path, PathArguments,
+    ReturnType, Token, Type, TypeGenerics, TypePath, WhereClause,
 };
 
 use crate::bevy_ecs_path;
@@ -29,6 +29,7 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         has_mutable_attr,
         world_lifetime,
         state_lifetime,
+        fetch_lifetime,
         phantom_field_idents,
         phantom_field_types,
         field_idents,
@@ -56,13 +57,6 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Fetch's HRTBs require this hack to make the implementation compile. I don't fully understand
-    // why this works though. If anyone's curious enough to try to find a better work-around, I'll
-    // leave playground links here:
-    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=da5e260a5c2f3e774142d60a199e854a (this fails)
-    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=802517bb3d8f83c45ee8c0be360bb250 (this compiles)
-    let fetch_lifetime =
-        GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'fetch", Span::call_site())));
     let mut fetch_generics = ast.generics.clone();
     fetch_generics.params.insert(1, state_lifetime);
     fetch_generics.params.push(fetch_lifetime.clone());
@@ -137,6 +131,10 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
                 type Fetch = #read_only_fetch_struct_name #ty_generics;
                 type State = #state_struct_name #ty_generics;
                 type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
+            }
+
+            impl #impl_generics #path::query::FetchedItem for #struct_name_read_only #ty_generics #where_clause {
+                type Query = Self;
             }
         }
     } else {
@@ -215,7 +213,7 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #path::query::FetchState for #state_struct_name #ty_generics #where_clause {
             fn init(world: &mut #path::world::World) -> Self {
                 #state_struct_name {
-                    #(#field_idents: <#query_types as #path::query::WorldQuery>::State::init(world),)*
+                    #(#field_idents: <<#query_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
                     #(#phantom_field_idents: Default::default(),)*
                 }
             }
@@ -245,6 +243,10 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
             type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
         }
 
+        impl #impl_generics #path::query::FetchedItem for #struct_name #ty_generics #where_clause {
+            type Query = Self;
+        }
+
         /// SAFETY: each item in the struct is read only
         unsafe impl #impl_generics #path::query::ReadOnlyFetch for #read_only_fetch_struct_name #ty_generics #where_clause {}
     });
@@ -264,10 +266,11 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         impl_generics,
         ty_generics,
         where_clause,
-        world_lifetime,
         has_mutable_attr: _,
         has_world_lifetime,
+        world_lifetime,
         state_lifetime,
+        fetch_lifetime,
         phantom_field_idents,
         phantom_field_types,
         field_idents,
@@ -280,13 +283,6 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         panic!("Expected a struct without a lifetime");
     }
 
-    // Fetch's HRTBs require this hack to make the implementation compile. I don't fully understand
-    // why this works though. If anyone's curious enough to try to find a better work-around, I'll
-    // leave playground links here:
-    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=da5e260a5c2f3e774142d60a199e854a (this fails)
-    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=802517bb3d8f83c45ee8c0be360bb250 (this compiles)
-    let fetch_lifetime =
-        GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'fetch", Span::call_site())));
     let mut fetch_generics = ast.generics.clone();
     fetch_generics.params.insert(0, world_lifetime);
     fetch_generics.params.insert(1, state_lifetime);
@@ -346,7 +342,7 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #path::query::FetchState for #state_struct_name #ty_generics #where_clause {
             fn init(world: &mut #path::world::World) -> Self {
                 #state_struct_name {
-                    #(#field_idents: <#field_types as #path::query::WorldQuery>::State::init(world),)*
+                    #(#field_idents: <<#field_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
                     #(#phantom_field_idents: Default::default(),)*
                 }
             }
@@ -396,6 +392,7 @@ struct FetchImplTokens<'a> {
     has_world_lifetime: bool,
     world_lifetime: GenericParam,
     state_lifetime: GenericParam,
+    fetch_lifetime: GenericParam,
     phantom_field_idents: Vec<Ident>,
     phantom_field_types: Vec<Type>,
     field_idents: Vec<Ident>,
@@ -415,6 +412,14 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
         lt @ GenericParam::Lifetime(_) => Some(lt.clone()),
         _ => None,
     });
+    // Fetch's HRTBs require substituting world lifetime with an additional one to make the
+    // implementation compile. I don't fully understand why this works though. If anyone's curious
+    // enough to try to find a better work around, I'll leave playground links here:
+    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=da5e260a5c2f3e774142d60a199e854a (this fails)
+    // - https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=802517bb3d8f83c45ee8c0be360bb250 (this compiles)
+    let fetch_lifetime =
+        GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'fetch", Span::call_site())));
+
     let has_world_lifetime = world_lifetime.is_some();
     let world_lifetime = world_lifetime.unwrap_or_else(|| {
         GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'world", Span::call_site())))
@@ -457,25 +462,21 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
     let mut query_types = Vec::new();
     let mut fetch_init_types = Vec::new();
 
-    let generic_names = ast
-        .generics
-        .params
-        .iter()
-        .filter_map(|param| match param {
-            GenericParam::Type(ty) => Some(ty.ident.to_string()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
     for field in fields.iter() {
+        let (world_lifetime, fetch_lifetime) = match (&world_lifetime, &fetch_lifetime) {
+            (GenericParam::Lifetime(world), GenericParam::Lifetime(fetch)) => {
+                (&world.lifetime, &fetch.lifetime)
+            }
+            _ => unreachable!(),
+        };
         let WorldQueryFieldTypeInfo {
             query_type,
             fetch_init_type: init_type,
-            is_phantom,
-        } = read_world_query_field_type_info(&field.ty, false, &generic_names);
+            is_phantom_data,
+        } = read_world_query_field_type_info(&field.ty, world_lifetime, fetch_lifetime);
 
         let field_ident = field.ident.as_ref().unwrap().clone();
-        if is_phantom {
+        if is_phantom_data {
             phantom_field_idents.push(field_ident.clone());
             phantom_field_types.push(field.ty.clone());
         } else {
@@ -500,6 +501,7 @@ fn fetch_impl_tokens(ast: &DeriveInput) -> FetchImplTokens {
         has_world_lifetime,
         world_lifetime,
         state_lifetime,
+        fetch_lifetime,
         phantom_field_idents,
         phantom_field_types,
         field_idents,
@@ -515,234 +517,106 @@ struct WorldQueryFieldTypeInfo {
     query_type: Type,
     /// The same as `query_type` but with `'fetch` lifetime.
     fetch_init_type: Type,
-    is_phantom: bool,
+    is_phantom_data: bool,
 }
 
 fn read_world_query_field_type_info(
     ty: &Type,
-    is_tuple_element: bool,
-    generic_names: &[String],
+    world_lifetime: &Lifetime,
+    fetch_lifetime: &Lifetime,
 ) -> WorldQueryFieldTypeInfo {
-    let mut query_type = ty.clone();
-    let mut fetch_init_type = ty.clone();
-    let mut is_phantom = false;
+    let path = bevy_ecs_path();
 
-    match (ty, &mut fetch_init_type) {
-        (Type::Path(path), Type::Path(path_init)) => {
-            if path.qself.is_some() {
-                // There's a risk that it contains a generic parameter that we can't test
-                // whether it's read-only or not.
-                panic!("Self type qualifiers aren't supported");
-            }
+    let query_type = parse_quote!(<#ty as #path::query::FetchedItem>::Query);
+    let mut fetch_init_type = parse_quote!(<#ty as #path::query::FetchedItem>::Query);
 
-            let segment = path.path.segments.last().unwrap();
-            if segment.ident == "Option" {
-                // We expect that `Option` stores either `&T` or `Mut<T>`.
-                let ty = match &segment.arguments {
-                    PathArguments::AngleBracketed(args) => {
-                        args.args.last().and_then(|arg| match arg {
-                            GenericArgument::Type(ty) => Some(ty),
-                            _ => None,
-                        })
-                    }
-                    _ => None,
-                };
-                match ty.expect("Option type is expected to have generic arguments") {
-                    // If it's a read-only reference, we just update the lifetime for `fetch_init_type` to `'fetch`.
-                    Type::Reference(reference) => {
-                        if reference.mutability.is_some() {
-                            panic!("Invalid reference type: use `Mut<T>` instead of `&mut T`");
-                        }
-                        match &mut path_init.path.segments.last_mut().unwrap().arguments {
-                            PathArguments::AngleBracketed(args) => {
-                                match args.args.last_mut().unwrap() {
-                                    GenericArgument::Type(Type::Reference(ty)) => ty.lifetime = Some(Lifetime::new("'fetch", Span::call_site())),
-                                    _ => unreachable!(),
-                                }
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    // If it's a mutable reference, we set `query_type` and `fetch_init_type` to `&mut T`,
-                    // we also update the lifetime for `fetch_init_type` to `'fetch`.
-                    Type::Path(path) => {
-                        assert_not_generic(path, generic_names);
-
-                        let segment = path.path.segments.last().unwrap();
-                        let ty_ident = &segment.ident;
-                        if ty_ident == "Mut" {
-                            let (mut_lifetime, mut_ty) = match &segment.arguments {
-                                PathArguments::AngleBracketed(args) => {
-                                    (args.args.first().and_then(|arg| {
-                                        match arg {
-                                            GenericArgument::Lifetime(lifetime) => Some(lifetime.clone()),
-                                            _ => None,
-                                        }
-                                    }).expect("Mut is expected to have a lifetime"),
-                                     args.args.last().and_then(|arg| {
-                                         match arg {
-                                             GenericArgument::Type(ty) => Some(ty.clone()),
-                                             _ => None,
-                                         }
-                                     }).expect("Mut is expected to have a lifetime"))
-                                }
-                                _ => panic!("Mut type is expected to have generic arguments")
-                            };
-
-                            match query_type {
-                                Type::Path(ref mut path) => {
-                                    let segment = path.path.segments.last_mut().unwrap();
-                                    match segment.arguments {
-                                        PathArguments::AngleBracketed(ref mut args) => {
-                                            match args.args.last_mut().unwrap() {
-                                                GenericArgument::Type(ty) => {
-                                                    *ty = Type::Reference(TypeReference {
-                                                        and_token: Token![&](Span::call_site()),
-                                                        lifetime: Some(mut_lifetime),
-                                                        mutability: Some(Token![mut](Span::call_site())),
-                                                        elem: Box::new(mut_ty.clone()),
-                                                    });
-                                                }
-                                                _ => unreachable!()
-                                            }
-                                        }
-                                        _ => unreachable!()
-                                    }
-                                }
-                                _ => unreachable!()
-                            }
-
-                            let segment = path_init.path.segments.last_mut().unwrap();
-                            match segment.arguments {
-                                PathArguments::AngleBracketed(ref mut args) => {
-                                    match args.args.last_mut().unwrap() {
-                                        GenericArgument::Type(ty) => {
-                                            *ty = Type::Reference(TypeReference {
-                                                and_token: Token![&](Span::call_site()),
-                                                lifetime: Some(Lifetime::new("'fetch", Span::call_site())),
-                                                mutability: Some(Token![mut](Span::call_site())),
-                                                elem: Box::new(mut_ty),
-                                            });
-                                        }
-                                        _ => unreachable!()
-                                    }
-                                }
-                                _ => unreachable!()
-                            }
-                        } else {
-                            panic!("Option type is expected to have a reference value (`Option<&T>` or `Option<Mut<T>>`)");
-                        }
-                    }
-                    _ => panic!("Option type is expected to have a reference value (`Option<&T>` or `Option<Mut<T>>`)"),
-                }
-            } else if segment.ident == "Mut" {
-                // If it's a mutable reference, we set `query_type` and `fetch_init_type` to `&mut T`,
-                // we also update the lifetime for `fetch_init_type` to `'fetch`.
-                let (mut_lifetime, mut_ty) = match &segment.arguments {
-                    PathArguments::AngleBracketed(args) => {
-                        let lt = args.args.first().and_then(|arg| {
-                            match arg {
-                                GenericArgument::Lifetime(lifetime) => Some(lifetime.clone()),
-                                _ => None,
-                            }
-                        }).expect("`Mut` is expected to have a lifetime");
-                        let ty = args.args.last().and_then(|arg| {
-                            match arg {
-                                GenericArgument::Type(ty) => Some(ty.clone()),
-                                _ => None,
-                            }
-                        }).expect("`Mut` is expected to have a lifetime");
-                        (lt, ty)
-                    }
-                    _ => panic!("`Mut` is expected to have generic arguments")
-                };
-
-                query_type = Type::Reference(TypeReference {
-                    and_token: Token![&](Span::call_site()),
-                    lifetime: Some(mut_lifetime),
-                    mutability: Some(Token![mut](Span::call_site())),
-                    elem: Box::new(mut_ty.clone()),
-                });
-                fetch_init_type = Type::Reference(TypeReference {
-                    and_token: Token![&](Span::call_site()),
-                    lifetime: Some(Lifetime::new("'fetch", Span::call_site())),
-                    mutability: Some(Token![mut](Span::call_site())),
-                    elem: Box::new(mut_ty),
-                });
-            } else if segment.ident == "PhantomData" {
-                if is_tuple_element {
-                    panic!("Invalid tuple element: PhantomData");
-                }
-                is_phantom = true;
-            } else if segment.ident == "Entity" {
-            	// Nothing to do here
+    let is_phantom_data = match ty {
+        Type::Path(path) => {
+            if let Some(segment) = path.path.segments.last() {
+                segment.ident == "PhantomData"
             } else {
-                assert_not_generic(path, generic_names);
-
-                // Here, we assume that this member is another type that implements `Fetch`.
-                // If it doesn't, the code won't compile.
-
-                // Also, we don't support `Fetch` implementations that specify custom `Item` types,
-                // except for the well-known ones, such as `WriteFetch`.
-                // See https://github.com/bevyengine/bevy/pull/2713#issuecomment-904773083.
-
-                if let PathArguments::AngleBracketed(args) = &mut path_init.path.segments.last_mut().unwrap().arguments {
-                    if let Some(GenericArgument::Lifetime(lt)) = args.args.first_mut() {
-                        *lt = Lifetime::new("'fetch", Span::call_site());
-                    }
-                }
+                false
             }
         }
-        (Type::Reference(reference), Type::Reference(init_reference)) => {
-            if reference.mutability.is_some() {
-                panic!("Invalid reference type: use `Mut<T>` instead of `&mut T`");
-            }
-            init_reference.lifetime = Some(Lifetime::new("'fetch", Span::call_site()));
-        }
-        (Type::Tuple(tuple), Type::Tuple(init_tuple)) => {
-            let mut query_tuple_elems = tuple.elems.clone();
-            query_tuple_elems.clear();
-            let mut fetch_init_tuple_elems = query_tuple_elems.clone();
-            for ty in tuple.elems.iter() {
-                let WorldQueryFieldTypeInfo {
-                    query_type,
-                    fetch_init_type,
-                    is_phantom: _,
-                } = read_world_query_field_type_info(
-                    ty,
-                    true,
-                    generic_names,
-                );
-                query_tuple_elems.push(query_type);
-                fetch_init_tuple_elems.push(fetch_init_type);
-            }
-            match query_type {
-                Type::Tuple(ref mut tuple) => {
-                    tuple.elems = query_tuple_elems;
-                }
-                _ => unreachable!(),
-            }
-            init_tuple.elems = fetch_init_tuple_elems;
-        }
-        _ => panic!("Only the following types (or their tuples) are supported for WorldQuery: &T, &mut T, Option<&T>, Option<&mut T>, Entity, or other structs that implement WorldQuery"),
-    }
+        _ => false,
+    };
+
+    replace_lifetime_for_type(&mut fetch_init_type, world_lifetime, fetch_lifetime);
 
     WorldQueryFieldTypeInfo {
         query_type,
         fetch_init_type,
-        is_phantom,
+        is_phantom_data,
     }
 }
 
-fn assert_not_generic(type_path: &TypePath, generic_names: &[String]) {
-    // `get_ident` returns Some if it consists of a single segment, in this case it
-    // makes sense to ensure that it's not a generic.
-    if let Some(ident) = type_path.path.get_ident() {
-        let is_generic = generic_names
-            .iter()
-            .any(|generic_name| ident == generic_name.as_str());
-        if is_generic {
-            panic!("Only references to generic types are supported: i.e. instead of `component: T`, use `component: &T` or `component: Mut<T>` (optional references are supported as well)");
+fn replace_lifetime_for_type(ty: &mut Type, world_lifetime: &Lifetime, fetch_lifetime: &Lifetime) {
+    match ty {
+        Type::Path(ref mut path) => {
+            replace_world_lifetime_for_type_path(path, world_lifetime, fetch_lifetime)
         }
+        Type::Reference(ref mut reference) => {
+            if let Some(lifetime) = reference.lifetime.as_mut() {
+                replace_lifetime(lifetime, world_lifetime, fetch_lifetime);
+            }
+            replace_lifetime_for_type(reference.elem.as_mut(), world_lifetime, fetch_lifetime);
+        }
+        Type::Tuple(tuple) => {
+            for ty in tuple.elems.iter_mut() {
+                replace_lifetime_for_type(ty, world_lifetime, fetch_lifetime);
+            }
+        }
+        ty => panic!("Unsupported type: {}", ty.to_token_stream()),
+    }
+}
+
+fn replace_world_lifetime_for_type_path(
+    path: &mut TypePath,
+    world_lifetime: &Lifetime,
+    fetch_lifetime: &Lifetime,
+) {
+    if let Some(qself) = path.qself.as_mut() {
+        replace_lifetime_for_type(qself.ty.as_mut(), world_lifetime, fetch_lifetime);
+    }
+
+    replace_world_lifetime_for_path(&mut path.path, world_lifetime, fetch_lifetime);
+}
+
+fn replace_world_lifetime_for_path(
+    path: &mut Path,
+    world_lifetime: &Lifetime,
+    fetch_lifetime: &Lifetime,
+) {
+    for segment in path.segments.iter_mut() {
+        match segment.arguments {
+            PathArguments::None => {}
+            PathArguments::AngleBracketed(ref mut args) => {
+                for arg in args.args.iter_mut() {
+                    match arg {
+                        GenericArgument::Lifetime(lifetime) => {
+                            replace_lifetime(lifetime, world_lifetime, fetch_lifetime);
+                        }
+                        GenericArgument::Type(ty) => {
+                            replace_lifetime_for_type(ty, world_lifetime, fetch_lifetime)
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            PathArguments::Parenthesized(ref mut args) => {
+                for input in args.inputs.iter_mut() {
+                    replace_lifetime_for_type(input, world_lifetime, fetch_lifetime);
+                }
+                if let ReturnType::Type(_, _) = args.output {
+                    panic!("Function types aren't supported");
+                }
+            }
+        }
+    }
+}
+
+fn replace_lifetime(lifetime: &mut Lifetime, world_lifetime: &Lifetime, fetch_lifetime: &Lifetime) {
+    if lifetime.ident == world_lifetime.ident {
+        lifetime.ident = fetch_lifetime.ident.clone();
     }
 }

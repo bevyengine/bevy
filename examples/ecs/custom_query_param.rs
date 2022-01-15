@@ -34,7 +34,7 @@ fn main() {
                 .label("print_components_iter")
                 .after("print_components_iter_mut"),
         )
-        .add_system(print_components_tuple.after("print_components_iter_mut"))
+        .add_system(print_components_tuple.after("print_components_iter"))
         .run();
 }
 
@@ -55,6 +55,8 @@ struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     a: &'w ComponentA,
     b: Option<&'w ComponentB>,
     nested: NestedQuery<'w>,
+    optional_nested: Option<NestedQuery<'w>>,
+    optional_tuple: Option<(&'w ComponentB, &'w ComponentZ)>,
     generic: GenericQuery<'w, T, P>,
     #[allow(dead_code)]
     empty: EmptyQuery<'w>,
@@ -65,11 +67,12 @@ fn print_components_read_only(
 ) {
     println!("Print components (read_only):");
     for e in query.iter() {
-        let e: ReadOnlyCustomQuery<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
+        println!("Optional nested: {:?}", e.optional_nested);
+        println!("Optional tuple: {:?}", e.optional_tuple);
         println!("Generic: {:?}", e.generic);
     }
     println!();
@@ -89,6 +92,8 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     a: Mut<'w, ComponentA>,
     b: Option<Mut<'w, ComponentB>>,
     nested: NestedQuery<'w>,
+    optional_nested: Option<NestedQuery<'w>>,
+    optional_tuple: Option<(NestedQuery<'w>, Mut<'w, ComponentZ>)>,
     generic: GenericQuery<'w, T, P>,
     #[allow(dead_code)]
     empty: EmptyQuery<'w>,
@@ -97,6 +102,8 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
 // This is a valid query as well, which would iterate over every entity.
 #[derive(Fetch, Debug)]
 struct EmptyQuery<'w> {
+    // The Fetch derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
+    // to use `PhantomData` as a work around.
     _w: std::marker::PhantomData<&'w ()>,
 }
 
@@ -139,6 +146,8 @@ fn print_components_iter_mut(
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
+        println!("Optional nested: {:?}", e.optional_nested);
+        println!("Optional tuple: {:?}", e.optional_tuple);
         println!("Nested: {:?}", e.nested);
         println!("Generic: {:?}", e.generic);
     }
