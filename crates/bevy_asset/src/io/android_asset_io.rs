@@ -42,6 +42,7 @@ impl AssetIo for AndroidAssetIo {
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+        warn!("Watching for changes is not supported on Android");
         Ok(())
     }
 
