@@ -948,7 +948,7 @@ impl World {
         let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
         unsafe {
             // SAFE: pointer is of type T
-            column.push(&mut nodrop_wrapped_value as *mut _ as *mut _, ticks);
+            column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
         }
         result
     }
