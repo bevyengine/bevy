@@ -6,6 +6,7 @@ mod flex;
 mod focus;
 mod margins;
 mod render;
+mod startup;
 mod ui_node;
 
 pub mod entity;
@@ -72,6 +73,10 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
+            .add_system_to_stage(
+                StartupStage::PostStartup,
+                startup::add_default_ui_cam_if_needed,
+            )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
