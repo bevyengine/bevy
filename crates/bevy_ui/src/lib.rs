@@ -1,6 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn [`entity::UiCameraBundle`] and spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
+//! When UI elements are present during startup, the [`entity::UiCameraBundle`] will be added automatically.
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
 mod focus;
@@ -73,7 +74,7 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
-            .add_system_to_stage(
+            .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 startup::add_default_ui_cam_if_needed,
             )

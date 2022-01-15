@@ -50,7 +50,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
     // paddle
     commands
         .spawn_bundle(SpriteBundle {

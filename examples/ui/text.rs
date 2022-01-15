@@ -25,8 +25,6 @@ struct FpsText;
 struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // UI camera
-    commands.spawn_bundle(UiCameraBundle::default());
     // Text with one section
     commands
         .spawn_bundle(TextBundle {
