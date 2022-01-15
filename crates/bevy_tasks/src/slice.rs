@@ -28,8 +28,8 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     ///
     /// # See Also
     ///
-    /// [`ParallelSliceMut::par_chunk_map_mut`] for mapping mutable slices.
-    /// [`ParallelSlice::par_splat_map`] for mapping when a specific chunk size is unknown.
+    /// - [`ParallelSliceMut::par_chunk_map_mut`] for mapping mutable slices.
+    /// - [`ParallelSlice::par_splat_map`] for mapping when a specific chunk size is unknown.
     fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
