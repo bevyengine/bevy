@@ -31,7 +31,7 @@ fn generate_pets(mut commands: Commands) {
 
 fn random_people(name_query: Query<&Name>, pet_query: Query<&Pet>) {
     let mut rng = rand::thread_rng();
-    // Use [`IteratorRandom::choose_multiple`] to pick two random names
+    // Use [`IteratorRandom::choose_multiple`] to pick three random names
     let names: Vec<&Name> = name_query.iter().choose_multiple(&mut rng, 3);
     for name in names {
         // Use [`IteratorRandom::choose`] to pick one random pet
