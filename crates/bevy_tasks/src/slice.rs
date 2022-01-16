@@ -6,7 +6,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool
     /// for every chunk.
     ///
-    /// Returns a `Vec` of the mapped results.
+    /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
     /// # Example
     ///
@@ -50,7 +50,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
     ///
-    /// Returns a `Vec` of the mapped results.
+    /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
     /// # Example
     ///
@@ -100,7 +100,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool
     /// for every chunk.
     ///
-    /// Returns a `Vec` of the mapped results.
+    /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
     /// # Example
     ///
@@ -147,7 +147,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
     ///
-    /// Returns a `Vec` of the mapped results.
+    /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
     /// # Example
     ///
