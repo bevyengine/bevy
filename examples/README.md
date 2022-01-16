@@ -379,3 +379,9 @@ Then serve `examples/wasm` dir to browser. i.e.
 ```sh
 basic-http-server examples/wasm
 ```
+
+### Loading Assets
+
+To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
+repository will set it up as a symlink on Linux and macOS, but you will need to manually move
+the assets on Windows.
