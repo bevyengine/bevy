@@ -25,6 +25,8 @@ pub struct WireframePlugin;
 
 #[cfg(feature = "bevy_shader_hot_reloading")]
 pub struct WireframeShaders {
+    // NOTE: This is needed to keep the shader alive.
+    #[allow(dead_code)]
     wireframe_shader_handle: Handle<Shader>,
 }
 

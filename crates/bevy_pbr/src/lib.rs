@@ -59,6 +59,8 @@ pub struct PbrPlugin;
 
 #[cfg(feature = "bevy_shader_hot_reloading")]
 pub struct PbrShaderHandles {
+    // NOTE: This is needed to keep the shaders alive.
+    #[allow(dead_code)]
     pbr_shader_handle: Handle<Shader>,
     shadow_shader_handle: Handle<Shader>,
 }
