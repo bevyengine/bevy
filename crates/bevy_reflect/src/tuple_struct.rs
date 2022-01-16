@@ -135,12 +135,12 @@ pub struct DynamicTupleStruct {
 }
 
 impl DynamicTupleStruct {
-    /// Returns the name of the tuple struct.
+    /// Returns the type name of the tuple struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the name of the tuple struct.
+    /// Sets the type name of the tuple struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -254,6 +254,12 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 }
 
+/// Compares a [`TupleStruct`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is a tuple struct;
+/// - `b` has the same number of fields as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {

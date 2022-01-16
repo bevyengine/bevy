@@ -36,8 +36,11 @@ use std::ops::Mul;
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform {
+    /// The position of the global transform
     pub translation: Vec3,
+    /// The rotation of the global transform
     pub rotation: Quat,
+    /// The scale of the global transform
     pub scale: Vec3,
 }
 
@@ -175,7 +178,7 @@ impl GlobalTransform {
         self.rotation * Vec3::Z
     }
 
-    /// Equivalent to [`-local_z()`][[GlobalTransform::local_z]
+    /// Equivalent to [`-local_z()`][GlobalTransform::local_z]
     #[inline]
     pub fn forward(&self) -> Vec3 {
         -self.local_z()

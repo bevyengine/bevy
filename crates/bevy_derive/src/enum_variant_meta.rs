@@ -1,5 +1,5 @@
 use bevy_macro_utils::BevyManifest;
-use proc_macro::TokenStream;
+use proc_macro::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput};
 
@@ -7,7 +7,11 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let variants = match &ast.data {
         Data::Enum(v) => &v.variants,
-        _ => panic!("Expected an enum."),
+        _ => {
+            return syn::Error::new(Span::call_site().into(), "Only enums are supported")
+                .into_compile_error()
+                .into()
+        }
     };
 
     let bevy_util_path = BevyManifest::default().get_path(crate::modules::BEVY_UTILS);

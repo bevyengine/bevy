@@ -1,6 +1,7 @@
+use bevy_macro_utils::get_named_struct_fields;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{parse_quote, Data, DeriveInput, Fields, Ident, Path, Type};
+use syn::{parse_quote, DeriveInput, Ident, Path, Type};
 
 pub fn emit(
     input: DeriveInput,
@@ -32,13 +33,9 @@ pub fn emit(
 
     // Crevice's derive only works on regular structs. We could potentially
     // support transparent tuple structs in the future.
-    let fields: Vec<_> = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => fields.named.iter().collect(),
-            Fields::Unnamed(_) => panic!("Tuple structs are not supported"),
-            Fields::Unit => panic!("Unit structs are not supported"),
-        },
-        Data::Enum(_) | Data::Union(_) => panic!("Only structs are supported"),
+    let fields: Vec<_> = match get_named_struct_fields(&input.data) {
+        Ok(fields) => fields.named.iter().collect(),
+        Err(e) => return e.into_compile_error(),
     };
 
     // Gives the layout-specific version of the given type.

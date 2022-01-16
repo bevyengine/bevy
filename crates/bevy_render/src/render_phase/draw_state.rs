@@ -249,7 +249,7 @@ impl<'a> TrackedRenderPass<'a> {
 
     /// Set push constant data.
     ///
-    /// Features::PUSH_CONSTANTS must be enabled on the device in order to call these functions.
+    /// `Features::PUSH_CONSTANTS` must be enabled on the device in order to call these functions.
     pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
         trace!(
             "set push constants: {:?} offset: {} data.len: {}",

@@ -6,16 +6,19 @@ use bevy_ecs::{
 };
 use bevy_utils::tracing::debug;
 
+/// Despawns the given entity and all its children recursively
 #[derive(Debug)]
 pub struct DespawnRecursive {
     entity: Entity,
 }
 
+/// Despawns the given entity's children recursively
 #[derive(Debug)]
 pub struct DespawnChildrenRecursive {
     entity: Entity,
 }
 
+/// Function for despawning an entity and all its children
 pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
     if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
@@ -61,6 +64,7 @@ impl Command for DespawnChildrenRecursive {
     }
 }
 
+/// Trait that holds functions for despawning recursively down the transform hierarchy
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity alongside all descendants.
     fn despawn_recursive(self);

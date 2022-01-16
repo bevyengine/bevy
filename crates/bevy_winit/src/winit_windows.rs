@@ -127,10 +127,12 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        match winit_window.set_cursor_grab(window_descriptor.cursor_locked) {
-            Ok(_) => {}
-            Err(winit::error::ExternalError::NotSupported(_)) => {}
-            Err(err) => Err(err).unwrap(),
+        if window_descriptor.cursor_locked {
+            match winit_window.set_cursor_grab(true) {
+                Ok(_) => {}
+                Err(winit::error::ExternalError::NotSupported(_)) => {}
+                Err(err) => Err(err).unwrap(),
+            }
         }
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);

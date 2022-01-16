@@ -1159,6 +1159,8 @@ impl fmt::Debug for World {
     }
 }
 
+// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
 
