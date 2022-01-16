@@ -1,8 +1,8 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
-    List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    TypeRegistration,
+    map_apply, map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType,
+    GetTypeRegistration, List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut,
+    ReflectRef, TypeRegistration,
 };
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
@@ -166,7 +166,7 @@ impl<T: FromReflect> FromReflect for Vec<T> {
     }
 }
 
-impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
+impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
             .and_then(|key| HashMap::get(self, key))
@@ -204,10 +204,35 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
         }
         dynamic_map
     }
+
+    fn insert_boxed(
+        &mut self,
+        key: Box<dyn Reflect>,
+        value: Box<dyn Reflect>,
+    ) -> Option<Box<dyn Reflect>> {
+        let key = key.take::<K>().unwrap_or_else(|key| {
+            K::from_reflect(&*key).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid key of type {}.",
+                    key.type_name()
+                )
+            })
+        });
+        let value = value.take::<V>().unwrap_or_else(|value| {
+            V::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to push invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        self.insert(key, value)
+            .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
+    }
 }
 
 // SAFE: any and any_mut both return self
-unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
+unsafe impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -221,15 +246,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Map(map_value) = value.reflect_ref() {
-            for (key, value) in map_value.iter() {
-                if let Some(v) = Map::get_mut(self, key) {
-                    v.apply(value)
-                }
-            }
-        } else {
-            panic!("Attempted to apply a non-map type to a map type.");
-        }
+        map_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -264,8 +281,8 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
-    K: Reflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
-    V: Reflect + Clone + for<'de> Deserialize<'de>,
+    K: FromReflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
+    V: FromReflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<HashMap<K, V>>();

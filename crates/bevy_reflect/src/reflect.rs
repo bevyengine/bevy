@@ -79,10 +79,11 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// Note that `Reflect` must be implemented manually for [`List`]s and
     /// [`Map`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`]
-    /// or none of the above depending on the kind of type. For lists, use the
-    /// [`list_apply`] helper function when implementing this method.
+    /// or none of the above depending on the kind of type. For lists and maps, use the
+    /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
     /// [`list_apply`]: crate::list_apply
+    /// [`map_apply`]: crate::map_apply
     ///
     /// # Panics
     ///
