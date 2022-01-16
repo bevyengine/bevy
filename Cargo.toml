@@ -323,6 +323,10 @@ name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 
 [[example]]
+name = "random_query"
+path = "examples/ecs/random_query.rs"
+
+[[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
 
