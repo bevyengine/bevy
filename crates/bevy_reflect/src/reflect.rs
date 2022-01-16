@@ -72,7 +72,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
     ///   and excess elements in `value` are appended to `self`.
     /// - If `T` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in both maps are ignored.
+    ///   Keys which are not present in `self` are inserted.
     /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
     ///   assigned to `self`.
     ///
