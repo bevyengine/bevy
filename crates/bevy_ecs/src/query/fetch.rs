@@ -131,7 +131,7 @@ pub trait FetchedItem {
 /// struct Buff(f32);
 ///
 /// #[derive(Fetch)]
-/// #[mutable]
+/// #[fetch(mutable)]
 /// struct HealthQuery<'w> {
 ///     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
 ///     health: Mut<'w, Health>,
@@ -184,8 +184,7 @@ pub trait FetchedItem {
 /// struct Foo;
 ///
 /// #[derive(Fetch, Debug)]
-/// #[mutable]
-/// #[read_only_derive(Debug)]
+/// #[fetch(mutable, read_only_derive(Debug))]
 /// struct FooQuery<'w> {
 ///     foo: &'w Foo,
 /// }
@@ -217,7 +216,7 @@ pub trait FetchedItem {
 /// }
 ///
 /// #[derive(Fetch)]
-/// #[mutable]
+/// #[fetch(mutable)]
 /// struct BarQuery<'w> {
 ///     bar: Mut<'w, Bar>,
 /// }
@@ -259,6 +258,30 @@ pub trait FetchedItem {
 ///     for (foo, my_query, foo_query) in query.iter() {
 ///         foo; my_query; foo_query;
 ///     }
+/// }
+///
+/// # my_system.system();
+/// ```
+///
+/// ## Ignored fields
+///
+/// The macro also supports `ignore` attribute for struct members. Fields marked with this attribute
+/// must implement the `Default` trait.
+///
+/// This example demonstrates a query that would iterate over every entity.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::Fetch;
+///
+/// #[derive(Fetch, Debug)]
+/// struct EmptyQuery<'w> {
+///     #[fetch(ignore)]
+///     _w: std::marker::PhantomData<&'w ()>,
+/// }
+///
+/// fn my_system(query: Query<EmptyQuery>) {
+///     for _ in query.iter() {}
 /// }
 ///
 /// # my_system.system();

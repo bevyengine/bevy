@@ -428,13 +428,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 }
 
 /// Implement `WorldQuery` to use a struct as a parameter in a query
-#[proc_macro_derive(Fetch, attributes(mutable, read_only_derive))]
+#[proc_macro_derive(Fetch, attributes(fetch))]
 pub fn derive_fetch(input: TokenStream) -> TokenStream {
     derive_fetch_impl(input)
 }
 
 /// Implement `FilterFetch` to use a struct as a filter parameter in a query
-#[proc_macro_derive(FilterFetch)]
+#[proc_macro_derive(FilterFetch, attributes(filter_fetch))]
 pub fn derive_filter_fetch(input: TokenStream) -> TokenStream {
     derive_filter_fetch_impl(input)
 }

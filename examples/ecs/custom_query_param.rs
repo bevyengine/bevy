@@ -84,8 +84,7 @@ fn print_components_read_only(
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
 // using the `read_only_derive` attribute.
 #[derive(Fetch, Debug)]
-#[mutable]
-#[read_only_derive(Debug)]
+#[fetch(mutable, read_only_derive(Debug))]
 struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
@@ -104,6 +103,7 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
 struct EmptyQuery<'w> {
     // The Fetch derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
     // to use `PhantomData` as a work around.
+    #[fetch(ignore)]
     _w: std::marker::PhantomData<&'w ()>,
 }
 
@@ -126,6 +126,7 @@ struct QueryFilter<T: Component, P: Component> {
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
     _generic_tuple: (With<T>, With<P>),
+    #[filter_fetch(ignore)]
     _tp: PhantomData<(T, P)>,
 }
 

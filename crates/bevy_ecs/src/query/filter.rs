@@ -49,6 +49,7 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 ///     _bar: With<Bar>,
 ///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
 ///     _generic_tuple: (With<T>, Without<P>),
+///     #[filter_fetch(ignore)]
 ///     _tp: std::marker::PhantomData<(T, P)>,
 /// }
 ///
