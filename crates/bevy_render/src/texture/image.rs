@@ -119,7 +119,7 @@ impl Image {
     }
 
     /// Returns the size of a 2D image.
-    pub fn size_2d(&self) -> Vec2 {
+    pub fn size(&self) -> Vec2 {
         Vec2::new(
             self.texture_descriptor.size.width as f32,
             self.texture_descriptor.size.height as f32,
@@ -455,7 +455,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn image_size_2d() {
+    fn image_size() {
         let size = Extent3d {
             width: 200,
             height: 100,
@@ -469,12 +469,12 @@ mod test {
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
-            image.size_2d()
+            image.size()
         );
     }
     #[test]
-    fn image_default_size_2d() {
+    fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::new(1.0, 1.0), image.size_2d());
+        assert_eq!(Vec2::new(1.0, 1.0), image.size());
     }
 }
