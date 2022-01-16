@@ -925,7 +925,7 @@ impl World {
             // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type T
+        // SAFE: pointer is of type T and valid to move out of
         // Read the value onto the stack to avoid potential mut aliasing.
         let mut value = unsafe { std::ptr::read(ptr.cast::<T>()) };
         let value_mut = Mut {
