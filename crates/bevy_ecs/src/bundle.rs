@@ -105,13 +105,12 @@ mod sealed {
 
 /// A bundle which can be applied to a world
 ///
-/// # Safety:
+/// # Safety
 /// The bundle returned from `init_bundle_info` is the same as used for `get_component_box`.
 ///
 /// This trait is sealed and cannot be implemented outside of `bevy_ecs`
 ///
 /// However, it is implemented for every type which implements [`Bundle`]
-
 pub unsafe trait ApplicableBundle:
     Send + Sync + 'static + sealed::SealedApplicableBundle
 {
