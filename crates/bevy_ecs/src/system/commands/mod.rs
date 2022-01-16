@@ -50,7 +50,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
-    /// To directly spawn an entity with a [`ApplicableBundle`] included, you can use
+    /// To directly spawn an entity with an [`ApplicableBundle`] included, you can use
     /// [`spawn_bundle`](Self::spawn_bundle) instead of `.spawn().insert_bundle()`.
     ///
     /// See [`World::spawn`] for more details.
@@ -104,7 +104,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Spawns a [`ApplicableBundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
+    /// Spawns an [`ApplicableBundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
     /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl ApplicableBundle) {
         self.queue.push(Spawn { bundle })
@@ -115,9 +115,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This returns an [`EntityCommands`] builder, which enables inserting more components and
     /// bundles using a "builder pattern".
     ///
-    /// Note that `bundle` is a [`ApplicableBundle`], which is a collection of components. [`ApplicableBundle`] is
+    /// Note that `bundle` is an [`ApplicableBundle`], which is a collection of components. [`ApplicableBundle`] is
     /// automatically implemented for tuples of components. You can also create your own bundle
-    /// types by deriving [`derive@ApplicableBundle`].
+    /// types by deriving [`derive@Bundle`].
     ///
     /// # Example
     ///
@@ -135,7 +135,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Component)]
     /// struct Agility(u32);
     ///
-    /// #[derive(ApplicableBundle)]
+    /// #[derive(Bundle)]
     /// struct ExampleBundle {
     ///     a: Component1,
     ///     b: Component2,
@@ -331,7 +331,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # #[derive(Component)]
     /// # struct Defense(u32);
     /// #
-    /// # #[derive(ApplicableBundle)]
+    /// # #[derive(Bundle)]
     /// # struct CombatBundle {
     /// #     health: Health,
     /// #     strength: Strength,
@@ -379,7 +379,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.entity
     }
 
-    /// Adds a [`ApplicableBundle`] of components to the entity.
+    /// Adds an [`ApplicableBundle`] of components to the entity.
     ///
     /// # Example
     ///
@@ -394,7 +394,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # #[derive(Component)]
     /// # struct Defense(u32);
     /// #
-    /// # #[derive(ApplicableBundle)]
+    /// # #[derive(Bundle)]
     /// # struct CombatBundle {
     /// #     health: Health,
     /// #     strength: Strength,
@@ -452,7 +452,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
-    /// Removes a [`ApplicableBundle`] of components from the entity.
+    /// Removes a [`Bundle`] of components from the entity.
     ///
     /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle) for more
     /// details.
@@ -466,7 +466,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// #
     /// # #[derive(Component)]
     /// struct Dummy;
-    /// # #[derive(ApplicableBundle)]
+    /// # #[derive(Bundle)]
     /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
     /// #
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
