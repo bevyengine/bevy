@@ -947,7 +947,7 @@ impl World {
         // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
         let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
         unsafe {
-            // SAFE: pointer is of type T
+            // SAFE: pointer is of type T, and valid to move out of
             column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
         }
         result
