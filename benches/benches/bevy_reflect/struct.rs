@@ -9,7 +9,7 @@ criterion_group!(
     benches,
     concrete_struct_apply,
     concrete_struct_field,
-    concrete_struct_name_at,
+    dynamic_struct_apply,
     dynamic_struct_get_field,
     dynamic_struct_insert,
 );
@@ -110,27 +110,61 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
     }
 }
 
-fn concrete_struct_name_at(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_name_at");
+fn dynamic_struct_apply(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("dynamic_struct_apply");
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let objects: &[Box<dyn Struct>] = &[
-        Box::new(Struct16::default()),
-        Box::new(Struct32::default()),
-        Box::new(Struct64::default()),
-        Box::new(Struct128::default()),
+    let patches: &[(fn() -> Box<dyn Reflect>, usize)] = &[
+        (|| Box::new(Struct16::default()), 16),
+        (|| Box::new(Struct32::default()), 32),
+        (|| Box::new(Struct64::default()), 64),
+        (|| Box::new(Struct128::default()), 128),
     ];
 
-    for obj in objects {
-        let field_count = obj.field_len();
+    for (patch, field_count) in patches {
+        let field_count = *field_count;
         group.throughput(Throughput::Elements(field_count as u64));
+
+        let mut base = DynamicStruct::default();
+        for i in 0..field_count {
+            let field_name = format!("field_{}", i);
+            base.insert(&field_name, 1u32);
+        }
+
         group.bench_with_input(
-            BenchmarkId::from_parameter(field_count),
-            obj,
-            |bencher, obj| {
-                let idx = field_count / 2;
-                bencher.iter(|| obj.name_at(black_box(idx)));
+            BenchmarkId::new("apply_concrete", field_count),
+            &patch,
+            |bencher, patch| {
+                bencher.iter_batched(
+                    || (base.clone_dynamic(), patch()),
+                    |(mut base, patch)| base.apply(black_box(&*patch)),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    for field_count in SIZES {
+        group.throughput(Throughput::Elements(field_count as u64));
+
+        group.bench_with_input(
+            BenchmarkId::new("apply_dynamic", field_count),
+            &field_count,
+            |bencher, &field_count| {
+                let mut base = DynamicStruct::default();
+                let mut patch = DynamicStruct::default();
+                for i in 0..field_count {
+                    let field_name = format!("field_{}", i);
+                    base.insert(&field_name, 0u32);
+                    patch.insert(&field_name, 1u32);
+                }
+
+                bencher.iter_batched(
+                    || base.clone_dynamic(),
+                    |mut base| base.apply(black_box(&patch)),
+                    BatchSize::SmallInput,
+                );
             },
         );
     }
