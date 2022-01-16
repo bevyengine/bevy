@@ -366,12 +366,12 @@ cargo install wasm-bindgen-cli
 
 ### Build & Run
 
-Following is an example for `load_gltf`. For other examples, change the `load_gltf` in the
+Following is an example for `lighting`. For other examples, change the `lighting` in the
 following commands.
 
 ```sh
-cargo build --release --example load_gltf --target wasm32-unknown-unknown
-wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/load_gltf.wasm
+cargo build --release --example lighting --target wasm32-unknown-unknown
+wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
 ```
 
 Then serve `examples/wasm` dir to browser. i.e.
