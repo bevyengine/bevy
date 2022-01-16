@@ -12,19 +12,6 @@ pub use state::*;
 
 #[cfg(test)]
 mod tests {
-    macro_rules! hash_set {
-        ( $($key:expr,)+) => { hash_set!($($key),+) };
-        ( $($key:expr),* ) => {
-            {
-                let mut _set = ::std::collections::HashSet::new();
-                $(
-                    let _ = _set.insert($key);
-                )*
-                _set
-            }
-        }
-    }
-
     use std::collections::HashSet;
 
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -245,17 +232,22 @@ mod tests {
         let values: HashSet<[&A; 2]> = a_query_without_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            hash_set![[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
+            [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
 
         let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
-        assert_eq!(values, hash_set![[&A(2), &A(3), &A(4)],]);
+        assert_eq!(
+            values,
+            [[&A(2), &A(3), &A(4)],].into_iter().collect::<HashSet<_>>()
+        );
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
         let values: HashSet<[&A; 2]> = query.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            hash_set![
+            [
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
@@ -263,6 +255,8 @@ mod tests {
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
             ]
+            .into_iter()
+            .collect::<HashSet<_>>()
         );
 
         let mut query = world.query_filtered::<&mut A, Without<B>>();
@@ -274,7 +268,12 @@ mod tests {
         }
 
         let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
-        assert_eq!(values, hash_set![[&A(12), &A(103), &A(1004)],]);
+        assert_eq!(
+            values,
+            [[&A(12), &A(103), &A(1004)],]
+                .into_iter()
+                .collect::<HashSet<_>>()
+        );
 
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
@@ -319,12 +318,14 @@ mod tests {
         let values: HashSet<[&A; 3]> = query_changed.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            hash_set![
+            [
                 [&A(31), &A(212), &A(1203)],
                 [&A(31), &A(212), &A(3004)],
                 [&A(31), &A(1203), &A(3004)],
                 [&A(212), &A(1203), &A(3004)]
             ]
+            .into_iter()
+            .collect::<HashSet<_>>()
         );
     }
 
