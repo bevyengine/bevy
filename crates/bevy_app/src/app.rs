@@ -103,6 +103,8 @@ impl App {
 
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
+    /// This method also updates sub apps. See [`add_sub_app`](Self::add_sub_app) for more details.
+    ///
     /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
@@ -852,20 +854,22 @@ impl App {
         self
     }
 
-    /// Adds a "sub app" to this [`App`].
+    /// Adds an `App` as a child of the current one.
     ///
-    /// Sub apps are a largely experimental feature: each `SubApp` has its own [`Schedule`] and [`World`].
+    /// The provided function `f` is called by the [`update`](Self::update) method. The `World`
+    /// parameter represents the main app world, while the `App` parameter is just a mutable
+    /// reference to the sub app itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         app: App,
-        f: impl Fn(&mut World, &mut App) + 'static,
+        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             Box::new(label),
             SubApp {
                 app,
-                runner: Box::new(f),
+                runner: Box::new(sub_app_runner),
             },
         );
         self

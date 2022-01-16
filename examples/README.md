@@ -182,6 +182,7 @@ Example | File | Description
 --- | --- | ---
 `alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
+`game_menu` | [`game/game_menu.rs`](./game/game_menu.rs) | A simple game menu
 
 ## Input
 
