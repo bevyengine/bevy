@@ -366,13 +366,12 @@ cargo install wasm-bindgen-cli
 
 ### Build & Run
 
-Following is an example for `headless_wasm`. For other examples in wasm/ directory,
-change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
-to point to the correct `.js` file.
+Following is an example for `load_gltf`. For other examples, change the `load_gltf` in the
+following commands.
 
 ```sh
-cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
-wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+cargo build --release --example load_gltf --target wasm32-unknown-unknown
+wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/load_gltf.wasm
 ```
 
 Then serve `examples/wasm` dir to browser. i.e.
@@ -380,10 +379,3 @@ Then serve `examples/wasm` dir to browser. i.e.
 ```sh
 basic-http-server examples/wasm
 ```
-
-Example | File | Description
---- | --- | ---
-`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Runs a minimal example that logs "hello world" to the browser's console
-`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
-`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
