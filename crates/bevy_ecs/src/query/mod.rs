@@ -12,9 +12,24 @@ pub use state::*;
 
 #[cfg(test)]
 mod tests {
+    macro_rules! hash_set {
+        ( $($key:expr,)+) => { hash_set!($($key),+) };
+        ( $($key:expr),* ) => {
+            {
+                let mut _set = ::std::collections::HashSet::new();
+                $(
+                    let _ = _set.insert($key);
+                )*
+                _set
+            }
+        }
+    }
+
+    use std::collections::HashSet;
+
     use crate::{self as bevy_ecs, component::Component, world::World};
 
-    #[derive(Component, Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq)]
     struct A(usize);
     #[derive(Component, Debug, Eq, PartialEq)]
     struct B(usize);
@@ -227,20 +242,20 @@ mod tests {
             (0, Some(0))
         );
 
-        let values: Vec<[&A; 2]> = a_query_without_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 2]> = a_query_without_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            vec![[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
+            hash_set![[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
         );
 
-        let values: Vec<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
-        assert_eq!(values, vec![[&A(2), &A(3), &A(4)],]);
+        let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
+        assert_eq!(values, hash_set![[&A(2), &A(3), &A(4)],]);
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
-        let values: Vec<[&A; 2]> = query.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 2]> = query.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            vec![
+            hash_set![
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
@@ -258,8 +273,8 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: Vec<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
-        assert_eq!(values, vec![[&A(12), &A(103), &A(1004)],]);
+        let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
+        assert_eq!(values, hash_set![[&A(12), &A(103), &A(1004)],]);
 
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
@@ -301,10 +316,10 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: Vec<[&A; 3]> = query_changed.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 3]> = query_changed.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            vec![
+            hash_set![
                 [&A(31), &A(212), &A(1203)],
                 [&A(31), &A(212), &A(3004)],
                 [&A(31), &A(1203), &A(3004)],
