@@ -44,6 +44,7 @@ impl Plugin for ViewPlugin {
 ///
 /// # Example
 /// ```
+/// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
 /// App::new()
 ///     .insert_resource(Msaa { samples: 4 })
