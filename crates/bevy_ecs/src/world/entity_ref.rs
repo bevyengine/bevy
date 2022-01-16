@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo},
+    bundle::{ApplicableBundle, Bundle, BundleInfo},
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -189,12 +189,14 @@ impl<'w> EntityMut<'w> {
             })
     }
 
-    pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+    pub fn insert_bundle<T: ApplicableBundle>(&mut self, bundle: T) -> &mut Self {
         let change_tick = self.world.change_tick();
-        let bundle_info = self
-            .world
-            .bundles
-            .init_info::<T>(&mut self.world.components, &mut self.world.storages);
+        let bundle_info = bundle.init_bundle_info(
+            &mut self.world.bundles,
+            &mut self.world.components,
+            &mut self.world.storages,
+        );
+
         let mut bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,

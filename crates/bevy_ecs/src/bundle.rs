@@ -22,6 +22,8 @@ use std::{any::TypeId, collections::HashMap};
 /// particularly useful for spawning multiple empty entities by using
 /// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
 ///
+/// To use a bundle dynamically, use [`Box<dyn ApplicableBundle>`](`ApplicableBundle`)
+///
 /// # Examples
 ///
 /// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
@@ -75,24 +77,105 @@ use std::{any::TypeId, collections::HashMap};
 /// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 ///   [`Bundle::component_ids`].
-pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
-    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
-
+pub unsafe trait Bundle: ApplicableBundle + Sized {
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
     ///
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
     /// [`Component`]s
-    unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
-    where
-        Self: Sized;
+    unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self;
+
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
+    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
     /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
     /// if that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
+}
+
+mod sealed {
+    use super::{ApplicableBundle, Bundle};
+
+    pub trait SealedApplicableBundle {}
+    impl<T> SealedApplicableBundle for T where T: Bundle {}
+    impl SealedApplicableBundle for Box<dyn ApplicableBundle> {}
+}
+
+/// A bundle which can be applied to a world
+///
+/// # Safety:
+/// The bundle returned from `init_bundle_info` is the same as used for `get_component_box`.
+///
+/// This trait is sealed and cannot be implemented outside of `bevy_ecs`
+///
+/// However, it is implemented for every type which implements [`Bundle`]
+
+pub unsafe trait ApplicableBundle:
+    Send + Sync + 'static + sealed::SealedApplicableBundle
+{
+    fn init_bundle_info<'a>(
+        &self,
+        bundles: &'a mut Bundles,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> &'a BundleInfo;
+    // Same requirements as [`Bundle::get_components`]
+    fn get_components_box(self: Box<Self>, func: &mut dyn FnMut(*mut u8));
+    // Same requirements as [`Bundle::get_components`]
+    fn get_components_self(self, func: impl FnMut(*mut u8))
+    where
+        Self: Sized;
+}
+
+unsafe impl<T> ApplicableBundle for T
+where
+    T: Bundle,
+{
+    fn init_bundle_info<'a>(
+        &self,
+        bundles: &'a mut Bundles,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> &'a BundleInfo {
+        bundles.init_info::<Self>(components, storages)
+    }
+
+    fn get_components_box(self: Box<Self>, func: &mut dyn FnMut(*mut u8)) {
+        Self::get_components(*self, func)
+    }
+
+    fn get_components_self(self, func: impl FnMut(*mut u8))
+    where
+        Self: Sized,
+    {
+        Self::get_components(self, func)
+    }
+}
+
+unsafe impl ApplicableBundle for Box<dyn ApplicableBundle> {
+    fn init_bundle_info<'a>(
+        &self,
+        bundles: &'a mut Bundles,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> &'a BundleInfo {
+        <dyn ApplicableBundle as ApplicableBundle>::init_bundle_info(
+            self, bundles, components, storages,
+        )
+    }
+
+    fn get_components_box(self: Box<Self>, func: &mut dyn FnMut(*mut u8)) {
+        <dyn ApplicableBundle as ApplicableBundle>::get_components_box(self, func)
+    }
+
+    fn get_components_self(self, mut func: impl FnMut(*mut u8))
+    where
+        Self: Sized,
+    {
+        <dyn ApplicableBundle as ApplicableBundle>::get_components_box(self, &mut func)
+    }
 }
 
 macro_rules! tuple_impl {
@@ -261,7 +344,7 @@ impl BundleInfo {
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
-    unsafe fn write_components<T: Bundle>(
+    unsafe fn write_components<T: ApplicableBundle>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -274,7 +357,7 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.get_components(|component_ptr| {
+        bundle.get_components_self(|component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
@@ -412,7 +495,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     /// `entity` must currently exist in the source archetype for this inserter. `archetype_index`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn insert<T: Bundle>(
+    pub unsafe fn insert<T: ApplicableBundle>(
         &mut self,
         entity: Entity,
         archetype_index: usize,
@@ -540,7 +623,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn_non_existent<T: Bundle>(
+    pub unsafe fn spawn_non_existent<T: ApplicableBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -564,7 +647,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
+    pub unsafe fn spawn<T: ApplicableBundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
         // SAFE: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         self.spawn_non_existent(entity, bundle);

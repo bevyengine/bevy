@@ -21,7 +21,7 @@ pub mod prelude {
     pub use crate::reflect::ReflectComponent;
     #[doc(hidden)]
     pub use crate::{
-        bundle::Bundle,
+        bundle::{ApplicableBundle, Bundle},
         change_detection::DetectChanges,
         component::Component,
         entity::Entity,
