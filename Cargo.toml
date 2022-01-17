@@ -498,27 +498,6 @@ path = "examples/window/transparent_window.rs"
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 
-# WASM
-[[example]]
-name = "hello_wasm"
-path = "examples/wasm/hello_wasm.rs"
-required-features = []
-
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
-[[example]]
-name = "headless_wasm"
-path = "examples/wasm/headless_wasm.rs"
-required-features = []
-
-[[example]]
-name = "winit_wasm"
-path = "examples/wasm/winit_wasm.rs"
-required-features = ["bevy_winit"]
-
 # Android
 [[example]]
 crate-type = ["cdylib"]

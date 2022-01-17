@@ -366,24 +366,34 @@ cargo install wasm-bindgen-cli
 
 ### Build & Run
 
-Following is an example for `headless_wasm`. For other examples in wasm/ directory,
-change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
-to point to the correct `.js` file.
+Following is an example for `lighting`. For other examples, change the `lighting` in the
+following commands.
 
 ```sh
-cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
-wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+cargo build --release --example lighting --target wasm32-unknown-unknown
+wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
 ```
 
-Then serve `examples/wasm` dir to browser. i.e.
+The first command will build the example for the wasm target, creating a binary. Then,
+[wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
+javascript bindings to this wasm file, which can be loaded using this
+[example HTML file](./wasm/index.html).
+
+Then serve `examples/wasm` directory to browser. i.e.
 
 ```sh
+# cargo install basic-http-server
 basic-http-server examples/wasm
+
+# with python
+python3 -m http.server --directory examples/wasm
+
+# with ruby
+ruby -run -ehttpd examples/wasm
 ```
 
-Example | File | Description
---- | --- | ---
-`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Runs a minimal example that logs "hello world" to the browser's console
-`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
-`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
+### Loading Assets
+
+To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
+repository will set it up as a symlink on Linux and macOS, but you will need to manually move
+the assets on Windows.
