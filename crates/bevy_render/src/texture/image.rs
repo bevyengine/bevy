@@ -1,7 +1,7 @@
 use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Sampler, Texture, TextureView},
+    render_resource::{Sampler, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
@@ -377,7 +377,6 @@ impl TextureFormatPixelInfo for TextureFormat {
 /// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's [`Size`].
 #[derive(Debug, Clone)]
 pub struct GpuImage {
-    pub texture: Texture,
     pub texture_view: TextureView,
     pub sampler: Sampler,
     pub size: Size,
@@ -433,7 +432,6 @@ impl RenderAsset for Image {
             image.texture_descriptor.size.height as f32,
         );
         Ok(GpuImage {
-            texture,
             texture_view,
             sampler,
             size,

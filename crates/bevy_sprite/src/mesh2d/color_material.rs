@@ -101,8 +101,6 @@ pub struct ColorMaterialUniformData {
 /// The GPU representation of a [`ColorMaterial`].
 #[derive(Debug, Clone)]
 pub struct GpuColorMaterial {
-    /// A buffer containing the [`ColorMaterialUniformData`] of the material.
-    pub buffer: Buffer,
     /// The bind group specifying how the [`ColorMaterialUniformData`] and
     /// the texture of the material are bound.
     pub bind_group: BindGroup,
@@ -172,7 +170,6 @@ impl RenderAsset for ColorMaterial {
         });
 
         Ok(GpuColorMaterial {
-            buffer,
             bind_group,
             flags,
             texture: material.texture,

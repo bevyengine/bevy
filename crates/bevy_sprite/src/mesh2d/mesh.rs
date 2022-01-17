@@ -192,7 +192,6 @@ impl FromWorld for Mesh2dPipeline {
 
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
             GpuImage {
-                texture,
                 texture_view,
                 sampler,
                 size: Size::new(

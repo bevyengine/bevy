@@ -144,8 +144,6 @@ pub struct StandardMaterialUniformData {
 /// The GPU representation of a [`StandardMaterial`].
 #[derive(Debug, Clone)]
 pub struct GpuStandardMaterial {
-    /// A buffer containing the [`StandardMaterialUniformData`] of the material.
-    pub buffer: Buffer,
     /// The bind group specifying how the [`StandardMaterialUniformData`] and
     /// all the textures of the material are bound.
     pub bind_group: BindGroup,
@@ -314,7 +312,6 @@ impl RenderAsset for StandardMaterial {
         });
 
         Ok(GpuStandardMaterial {
-            buffer,
             bind_group,
             flags,
             has_normal_map,
