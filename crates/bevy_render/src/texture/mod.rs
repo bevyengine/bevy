@@ -1,13 +1,21 @@
+#[cfg(feature = "dds")]
+mod dds;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
 mod image;
 mod image_texture_loader;
+#[cfg(feature = "ktx2")]
+mod ktx2;
 mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
 
 pub use self::image::*;
+#[cfg(feature = "ktx2")]
+pub use self::ktx2::*;
+#[cfg(feature = "dds")]
+pub use dds::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 

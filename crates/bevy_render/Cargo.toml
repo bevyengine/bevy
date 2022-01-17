@@ -14,6 +14,7 @@ hdr = ["image/hdr"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
+dds = ["ddsfile"]
 trace = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
@@ -53,5 +54,5 @@ hexasphere = "7.0.0"
 parking_lot = "0.11.0"
 regex = "1.5"
 copyless = "0.1.5"
-ddsfile = "0.4.0"
-ktx2 = "0.2.0"
+ddsfile = { version = "0.4.0", optional = true }
+ktx2 = { version = "0.2.0", optional = true }
