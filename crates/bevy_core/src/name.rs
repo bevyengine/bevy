@@ -107,9 +107,9 @@ impl Ord for Name {
 }
 
 impl Deref for Name {
-    type Target = Cow<'static, str>;
+    type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.name
+        self.name.as_ref()
     }
 }
