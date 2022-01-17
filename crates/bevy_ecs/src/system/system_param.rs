@@ -1258,7 +1258,7 @@ pub mod lifetimeless {
 mod tests {
     use super::SystemParam;
     use crate::{
-        self as bevy_ecs, // Neccessary for the `SystemParam` Derive when used inside `bevy_ecs`.
+        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{FilterFetch, WorldQuery},
         system::Query,
     };
