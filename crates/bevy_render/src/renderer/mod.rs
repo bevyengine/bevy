@@ -61,6 +61,11 @@ pub type RenderQueue = Arc<Queue>;
 /// aswell as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 pub type RenderInstance = Instance;
 
+/// `wgpu::Features` that are not automatically enabled due to having possibly-negative side effects.
+/// `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact so should not be
+/// automatically enabled.
+pub const DEFAULT_DISABLED_WGPU_FEATURES: wgpu::Features = wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
@@ -86,8 +91,9 @@ pub async fn initialize_renderer(
     let trace_path = None;
 
     if matches!(options.priority, WgpuOptionsPriority::Functionality) {
-        options.features =
-            adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        options.features = (adapter.features()
+            | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+            - DEFAULT_DISABLED_WGPU_FEATURES;
         options.limits = adapter.limits();
     }
 
