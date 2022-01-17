@@ -22,7 +22,31 @@ use std::{any::TypeId, collections::HashMap};
 /// particularly useful for spawning multiple empty entities by using
 /// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
 ///
-/// To use a bundle dynamically, use [`Box<dyn ApplicableBundle>`](`ApplicableBundle`)
+/// This trait is not object-safe as the components added by a bundle are cached by the type
+/// of the [`Bundle`]. To create a version of a bundle which can be used dynamically, use
+/// [`Box<dyn ApplicableBundle>`](`ApplicableBundle`):
+///
+/// ```rust
+/// # use bevy_ecs::bundle::{ApplicableBundle, Bundle};
+/// # #[derive(Bundle)]
+/// # struct EnemyShip {}
+/// # #[derive(Bundle)]
+/// # struct TradePost {}
+/// /// # use bevy_ecs::bundle::Bundle;
+/// # let hostility = 10;
+/// let result: Box<dyn ApplicableBundle> = if hostility > 5 {
+///     Box::new(TradePost { /* ... */})
+/// } else {
+///     Box::new(EnemyShip { /* ... */})
+/// };
+/// # if false {
+/// # let commands: bevy_ecs::system::Commands = panic!(); // For type checking
+/// commands.spawn_bundle(result);
+/// # }
+/// ```
+///
+/// Note that this dynamic bundle cannot be nested within other bundles, again because of
+/// the caching features.
 ///
 /// # Examples
 ///
@@ -108,7 +132,8 @@ mod sealed {
 /// # Safety
 /// The bundle returned from `init_bundle_info` must be the same as used for `get_component_box`.
 ///
-/// This trait is sealed and cannot be implemented outside of `bevy_ecs`
+/// This trait is sealed and cannot be implemented outside of `bevy_ecs`, since it
+/// is not useful to implement for custom types.
 ///
 /// However, it is implemented for every type which implements [`Bundle`]
 pub unsafe trait ApplicableBundle:
