@@ -160,13 +160,14 @@ unsafe impl ApplicableBundle for Box<dyn ApplicableBundle> {
         components: &mut Components,
         storages: &mut Storages,
     ) -> &'a BundleInfo {
+        let this = &**self;
         <dyn ApplicableBundle as ApplicableBundle>::init_bundle_info(
-            self, bundles, components, storages,
+            this, bundles, components, storages,
         )
     }
 
     fn get_components_box(self: Box<Self>, func: &mut dyn FnMut(*mut u8)) {
-        <dyn ApplicableBundle as ApplicableBundle>::get_components_box(self, func)
+        <dyn ApplicableBundle as ApplicableBundle>::get_components_box(*self, func)
     }
 
     fn get_components_self(self, mut func: impl FnMut(*mut u8))
