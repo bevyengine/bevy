@@ -188,7 +188,7 @@ impl Image {
             .map(super::image_texture_conversion::image_to_texture)
     }
 
-    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
+    /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
         let format = match image_type {
