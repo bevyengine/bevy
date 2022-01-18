@@ -193,8 +193,8 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
-    fn clone_dynamic(&self) -> DynamicTuple {
-        DynamicTuple {
+    fn clone_dynamic(&self) -> Self {
+        Self {
             name: self.name.clone(),
             fields: self
                 .fields

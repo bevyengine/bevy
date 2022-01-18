@@ -92,7 +92,7 @@ impl<T: FromReflect> List for Vec<T> {
                 )
             })
         });
-        Vec::push(self, value);
+        self.push(value);
     }
 }
 
@@ -146,8 +146,8 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 
 impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Vec<T>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -169,13 +169,13 @@ impl<T: FromReflect> FromReflect for Vec<T> {
 impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
-            .and_then(|key| HashMap::get(self, key))
+            .and_then(|key| self.get(key))
             .map(|value| value as &dyn Reflect)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         key.downcast_ref::<K>()
-            .and_then(move |key| HashMap::get_mut(self, key))
+            .and_then(move |key| self.get_mut(key))
             .map(|value| value as &mut dyn Reflect)
     }
 
@@ -186,7 +186,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     }
 
     fn len(&self) -> usize {
-        HashMap::len(self)
+        self.len()
     }
 
     fn iter(&self) -> MapIter {
@@ -199,7 +199,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_name(self.type_name().to_string());
-        for (k, v) in HashMap::iter(self) {
+        for (k, v) in self.iter() {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
         dynamic_map
@@ -268,8 +268,8 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -339,11 +339,11 @@ unsafe impl Reflect for Cow<'static, str> {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = value.any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
+        Some(
+            value
+                .downcast_ref::<Self>()
+                .map_or(false, |value| std::cmp::PartialEq::eq(self, value)),
+        )
     }
 
     fn serializable(&self) -> Option<Serializable> {

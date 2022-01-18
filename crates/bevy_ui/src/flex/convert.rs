@@ -75,11 +75,11 @@ pub fn from_val(scale_factor: f64, val: Val) -> stretch::style::Dimension {
 impl From<AlignItems> for stretch::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::FlexStart => stretch::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => stretch::style::AlignItems::FlexEnd,
-            AlignItems::Center => stretch::style::AlignItems::Center,
-            AlignItems::Baseline => stretch::style::AlignItems::Baseline,
-            AlignItems::Stretch => stretch::style::AlignItems::Stretch,
+            AlignItems::FlexStart => Self::FlexStart,
+            AlignItems::FlexEnd => Self::FlexEnd,
+            AlignItems::Center => Self::Center,
+            AlignItems::Baseline => Self::Baseline,
+            AlignItems::Stretch => Self::Stretch,
         }
     }
 }
@@ -87,12 +87,12 @@ impl From<AlignItems> for stretch::style::AlignItems {
 impl From<AlignSelf> for stretch::style::AlignSelf {
     fn from(value: AlignSelf) -> Self {
         match value {
-            AlignSelf::Auto => stretch::style::AlignSelf::Auto,
-            AlignSelf::FlexStart => stretch::style::AlignSelf::FlexStart,
-            AlignSelf::FlexEnd => stretch::style::AlignSelf::FlexEnd,
-            AlignSelf::Center => stretch::style::AlignSelf::Center,
-            AlignSelf::Baseline => stretch::style::AlignSelf::Baseline,
-            AlignSelf::Stretch => stretch::style::AlignSelf::Stretch,
+            AlignSelf::Auto => Self::Auto,
+            AlignSelf::FlexStart => Self::FlexStart,
+            AlignSelf::FlexEnd => Self::FlexEnd,
+            AlignSelf::Center => Self::Center,
+            AlignSelf::Baseline => Self::Baseline,
+            AlignSelf::Stretch => Self::Stretch,
         }
     }
 }
@@ -100,12 +100,12 @@ impl From<AlignSelf> for stretch::style::AlignSelf {
 impl From<AlignContent> for stretch::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::FlexStart => stretch::style::AlignContent::FlexStart,
-            AlignContent::FlexEnd => stretch::style::AlignContent::FlexEnd,
-            AlignContent::Center => stretch::style::AlignContent::Center,
-            AlignContent::Stretch => stretch::style::AlignContent::Stretch,
-            AlignContent::SpaceBetween => stretch::style::AlignContent::SpaceBetween,
-            AlignContent::SpaceAround => stretch::style::AlignContent::SpaceAround,
+            AlignContent::FlexStart => Self::FlexStart,
+            AlignContent::FlexEnd => Self::FlexEnd,
+            AlignContent::Center => Self::Center,
+            AlignContent::Stretch => Self::Stretch,
+            AlignContent::SpaceBetween => Self::SpaceBetween,
+            AlignContent::SpaceAround => Self::SpaceAround,
         }
     }
 }
@@ -113,9 +113,9 @@ impl From<AlignContent> for stretch::style::AlignContent {
 impl From<Direction> for stretch::style::Direction {
     fn from(value: Direction) -> Self {
         match value {
-            Direction::Inherit => stretch::style::Direction::Inherit,
-            Direction::LeftToRight => stretch::style::Direction::LTR,
-            Direction::RightToLeft => stretch::style::Direction::RTL,
+            Direction::Inherit => Self::Inherit,
+            Direction::LeftToRight => Self::LTR,
+            Direction::RightToLeft => Self::RTL,
         }
     }
 }
@@ -123,8 +123,8 @@ impl From<Direction> for stretch::style::Direction {
 impl From<Display> for stretch::style::Display {
     fn from(value: Display) -> Self {
         match value {
-            Display::Flex => stretch::style::Display::Flex,
-            Display::None => stretch::style::Display::None,
+            Display::Flex => Self::Flex,
+            Display::None => Self::None,
         }
     }
 }
@@ -132,10 +132,10 @@ impl From<Display> for stretch::style::Display {
 impl From<FlexDirection> for stretch::style::FlexDirection {
     fn from(value: FlexDirection) -> Self {
         match value {
-            FlexDirection::Row => stretch::style::FlexDirection::Row,
-            FlexDirection::Column => stretch::style::FlexDirection::Column,
-            FlexDirection::RowReverse => stretch::style::FlexDirection::RowReverse,
-            FlexDirection::ColumnReverse => stretch::style::FlexDirection::ColumnReverse,
+            FlexDirection::Row => Self::Row,
+            FlexDirection::Column => Self::Column,
+            FlexDirection::RowReverse => Self::RowReverse,
+            FlexDirection::ColumnReverse => Self::ColumnReverse,
         }
     }
 }
@@ -143,12 +143,12 @@ impl From<FlexDirection> for stretch::style::FlexDirection {
 impl From<JustifyContent> for stretch::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::FlexStart => stretch::style::JustifyContent::FlexStart,
-            JustifyContent::FlexEnd => stretch::style::JustifyContent::FlexEnd,
-            JustifyContent::Center => stretch::style::JustifyContent::Center,
-            JustifyContent::SpaceBetween => stretch::style::JustifyContent::SpaceBetween,
-            JustifyContent::SpaceAround => stretch::style::JustifyContent::SpaceAround,
-            JustifyContent::SpaceEvenly => stretch::style::JustifyContent::SpaceEvenly,
+            JustifyContent::FlexStart => Self::FlexStart,
+            JustifyContent::FlexEnd => Self::FlexEnd,
+            JustifyContent::Center => Self::Center,
+            JustifyContent::SpaceBetween => Self::SpaceBetween,
+            JustifyContent::SpaceAround => Self::SpaceAround,
+            JustifyContent::SpaceEvenly => Self::SpaceEvenly,
         }
     }
 }
@@ -156,8 +156,8 @@ impl From<JustifyContent> for stretch::style::JustifyContent {
 impl From<PositionType> for stretch::style::PositionType {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => stretch::style::PositionType::Relative,
-            PositionType::Absolute => stretch::style::PositionType::Absolute,
+            PositionType::Relative => Self::Relative,
+            PositionType::Absolute => Self::Absolute,
         }
     }
 }
@@ -165,9 +165,9 @@ impl From<PositionType> for stretch::style::PositionType {
 impl From<FlexWrap> for stretch::style::FlexWrap {
     fn from(value: FlexWrap) -> Self {
         match value {
-            FlexWrap::NoWrap => stretch::style::FlexWrap::NoWrap,
-            FlexWrap::Wrap => stretch::style::FlexWrap::Wrap,
-            FlexWrap::WrapReverse => stretch::style::FlexWrap::WrapReverse,
+            FlexWrap::NoWrap => Self::NoWrap,
+            FlexWrap::Wrap => Self::Wrap,
+            FlexWrap::WrapReverse => Self::WrapReverse,
         }
     }
 }

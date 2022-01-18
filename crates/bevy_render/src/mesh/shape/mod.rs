@@ -7,14 +7,14 @@ pub struct Cube {
 }
 
 impl Cube {
-    pub fn new(size: f32) -> Cube {
-        Cube { size }
+    pub const fn new(size: f32) -> Self {
+        Self { size }
     }
 }
 
 impl Default for Cube {
     fn default() -> Self {
-        Cube { size: 1.0 }
+        Self { size: 1.0 }
     }
 }
 
@@ -39,8 +39,8 @@ pub struct Box {
 
 impl Box {
     /// Creates a new box centered at the origin with the supplied side lengths.
-    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Box {
-        Box {
+    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
+        Self {
             max_x: x_length / 2.0,
             min_x: -x_length / 2.0,
             max_y: y_length / 2.0,
@@ -53,7 +53,7 @@ impl Box {
 
 impl Default for Box {
     fn default() -> Self {
-        Box::new(2.0, 1.0, 1.0)
+        Self::new(2.0, 1.0, 1.0)
     }
 }
 
@@ -111,10 +111,10 @@ impl From<Box> for Mesh {
             20, 21, 22, 22, 23, 20, // back
         ]);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
+        mesh.set_attribute(Self::ATTRIBUTE_POSITION, positions);
+        mesh.set_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.set_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh.set_indices(Some(indices));
         mesh
     }
@@ -131,16 +131,16 @@ pub struct Quad {
 
 impl Default for Quad {
     fn default() -> Self {
-        Quad::new(Vec2::ONE)
+        Self::new(Vec2::ONE)
     }
 }
 
 impl Quad {
-    pub fn new(size: Vec2) -> Self {
+    pub const fn new(size: Vec2) -> Self {
         Self { size, flip: false }
     }
 
-    pub fn flipped(size: Vec2) -> Self {
+    pub const fn flipped(size: Vec2) -> Self {
         Self { size, flip: true }
     }
 }
@@ -213,11 +213,11 @@ impl From<Quad> for Mesh {
             uvs.push(*uv);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.set_attribute(Self::ATTRIBUTE_POSITION, positions);
+        mesh.set_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.set_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }
@@ -231,7 +231,7 @@ pub struct Plane {
 
 impl Default for Plane {
     fn default() -> Self {
-        Plane { size: 1.0 }
+        Self { size: 1.0 }
     }
 }
 
@@ -257,11 +257,11 @@ impl From<Plane> for Mesh {
             uvs.push(*uv);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.set_attribute(Self::ATTRIBUTE_POSITION, positions);
+        mesh.set_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.set_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

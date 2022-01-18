@@ -15,7 +15,7 @@ where
     T: Copy + Eq + Hash,
 {
     fn default() -> Self {
-        Axis {
+        Self {
             axis_data: HashMap::default(),
         }
     }

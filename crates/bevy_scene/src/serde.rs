@@ -16,7 +16,7 @@ pub struct SceneSerializer<'a> {
 }
 
 impl<'a> SceneSerializer<'a> {
-    pub fn new(scene: &'a DynamicScene, registry: &'a TypeRegistryArc) -> Self {
+    pub const fn new(scene: &'a DynamicScene, registry: &'a TypeRegistryArc) -> Self {
         SceneSerializer { scene, registry }
     }
 }

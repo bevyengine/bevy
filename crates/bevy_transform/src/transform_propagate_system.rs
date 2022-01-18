@@ -17,11 +17,12 @@ pub fn transform_propagate_system(
     children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
     for (entity, children, transform, mut global_transform) in root_query.iter_mut() {
-        let mut changed = false;
-        if changed_transform_query.get(entity).is_ok() {
+        let changed = if changed_transform_query.get(entity).is_ok() {
             *global_transform = GlobalTransform::from(*transform);
-            changed = true;
-        }
+            true
+        } else {
+            false
+        };
 
         if let Some(children) = children {
             for child in children.0.iter() {

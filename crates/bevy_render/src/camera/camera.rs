@@ -38,7 +38,7 @@ pub enum DepthCalculation {
 
 impl Default for DepthCalculation {
     fn default() -> Self {
-        DepthCalculation::Distance
+        Self::Distance
     }
 }
 

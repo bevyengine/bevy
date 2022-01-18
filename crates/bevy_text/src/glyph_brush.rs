@@ -17,7 +17,7 @@ pub struct GlyphBrush {
 
 impl Default for GlyphBrush {
     fn default() -> Self {
-        GlyphBrush {
+        Self {
             fonts: Vec::new(),
             handles: Vec::new(),
             latest_font_id: FontId(0),
@@ -156,7 +156,7 @@ impl GlyphPlacementAdjuster {
     }
 
     #[inline(always)]
-    pub fn position(&self, p: Vec2) -> Vec2 {
+    pub const fn position(&self, p: Vec2) -> Vec2 {
         p
     }
 }

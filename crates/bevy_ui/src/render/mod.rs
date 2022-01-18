@@ -188,11 +188,9 @@ pub fn extract_text_uinodes(
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows
+        .get_primary()
+        .map_or(1., |window| window.scale_factor() as f32);
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -314,28 +312,29 @@ pub fn prepare_uinodes(
 
         // Calculate the effect of clipping
         // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-        let positions_diff = if let Some(clip) = extracted_uinode.clip {
-            [
-                Vec2::new(
-                    f32::max(clip.min.x - positions[0].x, 0.),
-                    f32::max(clip.min.y - positions[0].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[1].x, 0.),
-                    f32::max(clip.min.y - positions[1].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[2].x, 0.),
-                    f32::min(clip.max.y - positions[2].y, 0.),
-                ),
-                Vec2::new(
-                    f32::max(clip.min.x - positions[3].x, 0.),
-                    f32::min(clip.max.y - positions[3].y, 0.),
-                ),
-            ]
-        } else {
-            [Vec2::ZERO; 4]
-        };
+        let positions_diff = extracted_uinode.clip.map_or_else(
+            || [Vec2::ZERO; 4],
+            |clip| {
+                [
+                    Vec2::new(
+                        f32::max(clip.min.x - positions[0].x, 0.),
+                        f32::max(clip.min.y - positions[0].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::min(clip.max.x - positions[1].x, 0.),
+                        f32::max(clip.min.y - positions[1].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::min(clip.max.x - positions[2].x, 0.),
+                        f32::min(clip.max.y - positions[2].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::max(clip.min.x - positions[3].x, 0.),
+                        f32::min(clip.max.y - positions[3].y, 0.),
+                    ),
+                ]
+            },
+        );
 
         let positions_clipped = [
             positions[0] + positions_diff[0].extend(0.),

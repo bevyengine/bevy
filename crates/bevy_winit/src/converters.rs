@@ -15,14 +15,14 @@ pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> K
     }
 }
 
-pub fn convert_element_state(element_state: winit::event::ElementState) -> ElementState {
+pub const fn convert_element_state(element_state: winit::event::ElementState) -> ElementState {
     match element_state {
         winit::event::ElementState::Pressed => ElementState::Pressed,
         winit::event::ElementState::Released => ElementState::Released,
     }
 }
 
-pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButton {
+pub const fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButton {
     match mouse_button {
         winit::event::MouseButton::Left => MouseButton::Left,
         winit::event::MouseButton::Right => MouseButton::Right,
@@ -59,7 +59,7 @@ pub fn convert_touch_input(
     }
 }
 
-pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) -> KeyCode {
+pub const fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) -> KeyCode {
     match virtual_key_code {
         winit::event::VirtualKeyCode::Key1 => KeyCode::Key1,
         winit::event::VirtualKeyCode::Key2 => KeyCode::Key2,
@@ -227,7 +227,7 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
     }
 }
 
-pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon {
+pub const fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon {
     match cursor_icon {
         CursorIcon::Default => winit::window::CursorIcon::Default,
         CursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,

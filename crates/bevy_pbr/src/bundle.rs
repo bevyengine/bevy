@@ -46,7 +46,7 @@ pub struct CubemapVisibleEntities {
 }
 
 impl CubemapVisibleEntities {
-    pub fn get(&self, i: usize) -> &VisibleEntities {
+    pub const fn get(&self, i: usize) -> &VisibleEntities {
         &self.data[i]
     }
 

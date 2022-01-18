@@ -96,7 +96,7 @@ where
     T: StateData,
 {
     pub fn on_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<Self>, pred: Local<Option<T>>| {
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
@@ -106,7 +106,7 @@ where
     }
 
     pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
+        (|state: Res<Self>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
             Some(StateTransition::Pausing(ref relevant, _))
@@ -126,7 +126,7 @@ where
     }
 
     pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
+        (|state: Res<Self>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
             Some(StateTransition::Entering(ref relevant, _))
@@ -158,7 +158,7 @@ where
     }
 
     pub fn on_enter(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<Self>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
@@ -177,7 +177,7 @@ where
     }
 
     pub fn on_exit(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<Self>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
@@ -194,7 +194,7 @@ where
     }
 
     pub fn on_pause(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<Self>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
@@ -210,7 +210,7 @@ where
     }
 
     pub fn on_resume(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+        (|state: Res<Self>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()

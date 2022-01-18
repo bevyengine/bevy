@@ -177,17 +177,20 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, FlexError> {
-        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
-            self.stretch
-                .layout(*stretch_node)
-                .map_err(FlexError::StretchError)
-        } else {
-            warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
+        self.entity_to_stretch.get(&entity).map_or_else(
+            || {
+                warn!(
+                    "Styled child in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, results may be unexpected."
-            );
-            Err(FlexError::InvalidHierarchy)
-        }
+                );
+                Err(FlexError::InvalidHierarchy)
+            },
+            |stretch_node| {
+                self.stretch
+                    .layout(*stretch_node)
+                    .map_err(FlexError::StretchError)
+            },
+        )
     }
 }
 
@@ -218,11 +221,9 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
-        primary_window.scale_factor()
-    } else {
-        1.
-    };
+    let logical_to_physical_factor = windows
+        .get_primary()
+        .map_or(1., |primary_window| primary_window.scale_factor());
 
     if scale_factor_events.iter().next_back().is_some() {
         update_changed(

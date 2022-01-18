@@ -193,7 +193,7 @@ pub fn get_fitting_videomode(
 ) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
-    fn abs_diff(a: u32, b: u32) -> u32 {
+    const fn abs_diff(a: u32, b: u32) -> u32 {
         if a > b {
             return a - b;
         }

@@ -67,7 +67,7 @@ pub(crate) struct BoxedLoadedAsset {
 
 impl<T: Asset> From<LoadedAsset<T>> for BoxedLoadedAsset {
     fn from(asset: LoadedAsset<T>) -> Self {
-        BoxedLoadedAsset {
+        Self {
             value: asset
                 .value
                 .map(|value| Box::new(value) as Box<dyn AssetDynamic>),
@@ -103,7 +103,7 @@ impl<'a> LoadContext<'a> {
         }
     }
 
-    pub fn path(&self) -> &Path {
+    pub const fn path(&self) -> &Path {
         self.path
     }
 
@@ -142,7 +142,7 @@ impl<'a> LoadContext<'a> {
         asset_metas
     }
 
-    pub fn task_pool(&self) -> &TaskPool {
+    pub const fn task_pool(&self) -> &TaskPool {
         self.task_pool
     }
 }
@@ -199,7 +199,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
 impl<T> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        AssetLifecycleChannel { sender, receiver }
+        Self { sender, receiver }
     }
 }
 

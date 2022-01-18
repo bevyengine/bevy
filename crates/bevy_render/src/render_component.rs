@@ -153,7 +153,7 @@ where
 }
 
 impl<T: Asset> ExtractComponent for Handle<T> {
-    type Query = Read<Handle<T>>;
+    type Query = Read<Self>;
     type Filter = ();
 
     #[inline]

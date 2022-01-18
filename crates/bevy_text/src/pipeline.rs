@@ -22,7 +22,7 @@ pub struct TextPipeline<ID> {
 
 impl<ID> Default for TextPipeline<ID> {
     fn default() -> Self {
-        TextPipeline {
+        Self {
             brush: GlyphBrush::default(),
             glyph_map: Default::default(),
             map_font_id: Default::default(),

@@ -72,7 +72,7 @@ pub struct WireframePipeline {
 }
 impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
-        WireframePipeline {
+        Self {
             mesh_pipeline: render_world.get_resource::<MeshPipeline>().unwrap().clone(),
             shader: WIREFRAME_SHADER_HANDLE.typed(),
         }

@@ -51,7 +51,7 @@ pub struct PointLight {
 
 impl Default for PointLight {
     fn default() -> Self {
-        PointLight {
+        Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
@@ -123,7 +123,7 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         let size = 100.0;
-        DirectionalLight {
+        Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             illuminance: 100000.0,
             shadows_enabled: false,
@@ -240,7 +240,7 @@ impl Clusters {
             (aspect_ratio * n_tiles_y).floor() as u32,
             n_tiles_y.floor() as u32,
         );
-        Clusters::new((screen_size + UVec2::ONE) / n_tiles, screen_size, Z_SLICES)
+        Self::new((screen_size + UVec2::ONE) / n_tiles, screen_size, Z_SLICES)
     }
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
@@ -295,9 +295,7 @@ fn compute_aabb_for_cluster(
     let p_min = ijk.xy() * tile_size;
     let p_max = p_min + tile_size;
 
-    let cluster_min;
-    let cluster_max;
-    if is_orthographic {
+    let (cluster_min, cluster_max) = if is_orthographic {
         // Use linear depth slicing for orthographic
 
         // Convert to view space at the cluster near and far planes
@@ -317,8 +315,7 @@ fn compute_aabb_for_cluster(
         )
         .xyz();
 
-        cluster_min = p_min.min(p_max);
-        cluster_max = p_min.max(p_max);
+        (p_min.min(p_max), p_min.max(p_max))
     } else {
         // Convert to view space at the near plane
         // NOTE: 1.0 is the near plane due to using reverse z projections
@@ -342,9 +339,11 @@ fn compute_aabb_for_cluster(
         let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
         let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
 
-        cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
-        cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
-    }
+        (
+            p_min_near.min(p_min_far).min(p_max_near.min(p_max_far)),
+            p_min_near.max(p_min_far).max(p_max_near.max(p_max_far)),
+        )
+    };
 
     Aabb::from_min_max(cluster_min, cluster_max)
 }

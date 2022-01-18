@@ -16,18 +16,18 @@ pub struct TableId(usize);
 
 impl TableId {
     #[inline]
-    pub fn new(index: usize) -> Self {
-        TableId(index)
+    pub const fn new(index: usize) -> Self {
+        Self(index)
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 
     #[inline]
-    pub const fn empty() -> TableId {
-        TableId(0)
+    pub const fn empty() -> Self {
+        Self(0)
     }
 }
 
@@ -40,7 +40,7 @@ pub struct Column {
 impl Column {
     #[inline]
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
-        Column {
+        Self {
             component_id: component_info.id(),
             data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
             ticks: Vec::with_capacity(capacity),
@@ -84,12 +84,12 @@ impl Column {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.data.len()
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
@@ -136,7 +136,7 @@ impl Column {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_data_ptr(&self) -> NonNull<u8> {
+    pub const unsafe fn get_data_ptr(&self) -> NonNull<u8> {
         self.data.get_ptr()
     }
 
@@ -198,14 +198,14 @@ pub struct Table {
 }
 
 impl Table {
-    pub const fn new() -> Table {
+    pub const fn new() -> Self {
         Self {
             columns: SparseSet::new(),
             entities: Vec::new(),
         }
     }
 
-    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Table {
+    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             entities: Vec::with_capacity(capacity),
@@ -252,7 +252,7 @@ impl Table {
     pub unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
         row: usize,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
@@ -282,7 +282,7 @@ impl Table {
     pub unsafe fn move_to_and_drop_missing_unchecked(
         &mut self,
         row: usize,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
@@ -314,7 +314,7 @@ impl Table {
     pub unsafe fn move_to_superset_unchecked(
         &mut self,
         row: usize,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
@@ -421,7 +421,7 @@ pub struct Tables {
 impl Default for Tables {
     fn default() -> Self {
         let empty_table = Table::with_capacity(0, 0);
-        Tables {
+        Self {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
         }

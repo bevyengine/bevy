@@ -52,9 +52,9 @@ impl Hash for FloatOrd {
 }
 
 impl Neg for FloatOrd {
-    type Output = FloatOrd;
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
-        FloatOrd(-self.0)
+        Self(-self.0)
     }
 }

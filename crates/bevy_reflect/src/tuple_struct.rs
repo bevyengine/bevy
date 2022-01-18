@@ -180,8 +180,8 @@ impl TupleStruct for DynamicTupleStruct {
         }
     }
 
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
+    fn clone_dynamic(&self) -> Self {
+        Self {
             name: self.name.clone(),
             fields: self
                 .fields

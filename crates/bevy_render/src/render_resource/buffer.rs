@@ -15,7 +15,7 @@ pub struct Buffer {
 
 impl Buffer {
     #[inline]
-    pub fn id(&self) -> BufferId {
+    pub const fn id(&self) -> BufferId {
         self.id
     }
 
@@ -40,7 +40,7 @@ impl Buffer {
 
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
-        Buffer {
+        Self {
             id: BufferId(Uuid::new_v4()),
             value: Arc::new(value),
         }
@@ -65,12 +65,12 @@ pub struct BufferSlice<'a> {
 
 impl<'a> BufferSlice<'a> {
     #[inline]
-    pub fn id(&self) -> BufferId {
+    pub const fn id(&self) -> BufferId {
         self.id
     }
 
     #[inline]
-    pub fn offset(&self) -> wgpu::BufferAddress {
+    pub const fn offset(&self) -> wgpu::BufferAddress {
         self.offset
     }
 }

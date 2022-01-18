@@ -51,7 +51,7 @@ pub struct Sizer {
 
 impl Sizer {
     /// Create a new `Sizer`.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { offset: 0 }
     }
 
@@ -75,7 +75,7 @@ impl Sizer {
 
     /// Returns the number of bytes required to contain all the types added to
     /// the `Sizer`.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.offset
     }
 }

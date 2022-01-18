@@ -104,8 +104,8 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub fn from_raw(id: u32) -> Entity {
-        Entity { id, generation: 0 }
+    pub const fn from_raw(id: u32) -> Self {
+        Self { id, generation: 0 }
     }
 
     /// Convert to a form convenient for passing outside of rust.
@@ -121,7 +121,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub fn from_bits(bits: u64) -> Self {
+    pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
             id: bits as u32,
@@ -134,7 +134,7 @@ impl Entity {
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub fn id(self) -> u32 {
+    pub const fn id(self) -> u32 {
         self.id
     }
 
@@ -142,7 +142,7 @@ impl Entity {
     /// entity with a given id is despawned. This serves as a "count" of the number of times a
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
-    pub fn generation(self) -> u32 {
+    pub const fn generation(self) -> u32 {
         self.generation
     }
 }
@@ -159,7 +159,7 @@ impl SparseSetIndex for Entity {
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_raw(value as u32)
+        Self::from_raw(value as u32)
     }
 }
 
@@ -312,8 +312,9 @@ impl Entities {
 
     /// Check that we do not have pending work requiring `flush()` to be called.
     fn verify_flushed(&mut self) {
+        let needs_flush = !self.needs_flush();
         debug_assert!(
-            !self.needs_flush(),
+            needs_flush,
             "flush() needs to be called before this operation is legal"
         );
     }
@@ -545,12 +546,12 @@ impl Entities {
     }
 
     #[inline]
-    pub fn len(&self) -> u32 {
+    pub const fn len(&self) -> u32 {
         self.len
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 }
@@ -562,7 +563,7 @@ pub struct EntityMeta {
 }
 
 impl EntityMeta {
-    const EMPTY: EntityMeta = EntityMeta {
+    const EMPTY: Self = Self {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,

@@ -7,15 +7,15 @@ pub struct WindowId(Uuid);
 
 impl WindowId {
     pub fn new() -> Self {
-        WindowId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 
-    pub fn primary() -> Self {
-        WindowId(Uuid::from_u128(0))
+    pub const fn primary() -> Self {
+        Self(Uuid::from_u128(0))
     }
 
     pub fn is_primary(&self) -> bool {
-        *self == WindowId::primary()
+        *self == Self::primary()
     }
 }
 
@@ -32,7 +32,7 @@ impl fmt::Display for WindowId {
 
 impl Default for WindowId {
     fn default() -> Self {
-        WindowId::primary()
+        Self::primary()
     }
 }
 
@@ -62,8 +62,8 @@ impl Default for WindowResizeConstraints {
 }
 
 impl WindowResizeConstraints {
-    pub fn check_constraints(&self) -> WindowResizeConstraints {
-        let WindowResizeConstraints {
+    pub fn check_constraints(&self) -> Self {
+        let Self {
             mut min_width,
             mut min_height,
             mut max_width,
@@ -85,7 +85,7 @@ impl WindowResizeConstraints {
             );
             max_height = min_height;
         }
-        WindowResizeConstraints {
+        Self {
             min_width,
             min_height,
             max_width,
@@ -211,7 +211,7 @@ impl Window {
         position: Option<IVec2>,
         raw_window_handle: RawWindowHandle,
     ) -> Self {
-        Window {
+        Self {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
@@ -239,7 +239,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn id(&self) -> WindowId {
+    pub const fn id(&self) -> WindowId {
         self.id
     }
 
@@ -261,7 +261,7 @@ impl Window {
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
     #[inline]
-    pub fn requested_width(&self) -> f32 {
+    pub const fn requested_width(&self) -> f32 {
         self.requested_width
     }
 
@@ -271,31 +271,31 @@ impl Window {
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
     #[inline]
-    pub fn requested_height(&self) -> f32 {
+    pub const fn requested_height(&self) -> f32 {
         self.requested_height
     }
 
     /// The window's client area width in physical pixels.
     #[inline]
-    pub fn physical_width(&self) -> u32 {
+    pub const fn physical_width(&self) -> u32 {
         self.physical_width
     }
 
     /// The window's client area height in physical pixels.
     #[inline]
-    pub fn physical_height(&self) -> u32 {
+    pub const fn physical_height(&self) -> u32 {
         self.physical_height
     }
 
     /// The window's client resize constraint in logical pixels.
     #[inline]
-    pub fn resize_constraints(&self) -> WindowResizeConstraints {
+    pub const fn resize_constraints(&self) -> WindowResizeConstraints {
         self.resize_constraints
     }
 
     /// The window's client position in physical pixels.
     #[inline]
-    pub fn position(&self) -> Option<IVec2> {
+    pub const fn position(&self) -> Option<IVec2> {
         self.position
     }
 
@@ -405,12 +405,12 @@ impl Window {
     /// The window scale factor as reported by the window backend.
     /// This value is unaffected by [`scale_factor_override`](Window::scale_factor_override).
     #[inline]
-    pub fn backend_scale_factor(&self) -> f64 {
+    pub const fn backend_scale_factor(&self) -> f64 {
         self.backend_scale_factor
     }
 
     #[inline]
-    pub fn scale_factor_override(&self) -> Option<f64> {
+    pub const fn scale_factor_override(&self) -> Option<f64> {
         self.scale_factor_override
     }
 
@@ -425,7 +425,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn vsync(&self) -> bool {
+    pub const fn vsync(&self) -> bool {
         self.vsync
     }
 
@@ -436,7 +436,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn resizable(&self) -> bool {
+    pub const fn resizable(&self) -> bool {
         self.resizable
     }
 
@@ -447,7 +447,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn decorations(&self) -> bool {
+    pub const fn decorations(&self) -> bool {
         self.decorations
     }
 
@@ -458,7 +458,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn cursor_locked(&self) -> bool {
+    pub const fn cursor_locked(&self) -> bool {
         self.cursor_locked
     }
 
@@ -469,7 +469,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn cursor_visible(&self) -> bool {
+    pub const fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
 
@@ -481,7 +481,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn cursor_icon(&self) -> CursorIcon {
+    pub const fn cursor_icon(&self) -> CursorIcon {
         self.cursor_icon
     }
 
@@ -492,7 +492,7 @@ impl Window {
 
     /// The current mouse position, in physical pixels.
     #[inline]
-    pub fn physical_cursor_position(&self) -> Option<DVec2> {
+    pub const fn physical_cursor_position(&self) -> Option<DVec2> {
         self.physical_cursor_position
     }
 
@@ -522,7 +522,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn mode(&self) -> WindowMode {
+    pub const fn mode(&self) -> WindowMode {
         self.mode
     }
 
@@ -540,7 +540,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn is_focused(&self) -> bool {
+    pub const fn is_focused(&self) -> bool {
         self.focused
     }
 
@@ -577,7 +577,7 @@ pub struct WindowDescriptor {
 
 impl Default for WindowDescriptor {
     fn default() -> Self {
-        WindowDescriptor {
+        Self {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,

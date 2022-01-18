@@ -16,7 +16,7 @@ impl Default for FilesystemWatcher {
             sender.send(res).expect("Watch event send failure.");
         })
         .expect("Failed to create filesystem watcher.");
-        FilesystemWatcher { watcher, receiver }
+        Self { watcher, receiver }
     }
 }
 

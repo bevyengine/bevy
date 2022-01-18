@@ -18,17 +18,17 @@ use std::{
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
-    pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
-    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+    pub const EMPTY: Self = Self(0);
+    pub const RESOURCE: Self = Self(1);
+    pub const INVALID: Self = Self(usize::MAX);
 
     #[inline]
     pub const fn new(index: usize) -> Self {
-        ArchetypeId(index)
+        Self(index)
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 }
@@ -178,12 +178,12 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn id(&self) -> ArchetypeId {
+    pub const fn id(&self) -> ArchetypeId {
         self.id
     }
 
     #[inline]
-    pub fn table_id(&self) -> TableId {
+    pub const fn table_id(&self) -> TableId {
         self.table_info.id
     }
 
@@ -208,7 +208,7 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
+    pub const fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
         &self.unique_components
     }
 
@@ -223,7 +223,7 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn edges(&self) -> &Edges {
+    pub const fn edges(&self) -> &Edges {
         &self.edges
     }
 
@@ -320,11 +320,11 @@ pub struct ArchetypeGeneration(usize);
 impl ArchetypeGeneration {
     #[inline]
     pub const fn initial() -> Self {
-        ArchetypeGeneration(0)
+        Self(0)
     }
 
     #[inline]
-    pub fn value(self) -> usize {
+    pub const fn value(self) -> usize {
         self.0
     }
 }
@@ -345,7 +345,7 @@ impl ArchetypeComponentId {
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 }
@@ -369,7 +369,7 @@ pub struct Archetypes {
 
 impl Default for Archetypes {
     fn default() -> Self {
-        let mut archetypes = Archetypes {
+        let mut archetypes = Self {
             archetypes: Vec::new(),
             archetype_ids: Default::default(),
             archetype_component_count: 0,
@@ -515,7 +515,7 @@ impl Archetypes {
     }
 
     #[inline]
-    pub fn archetype_components_len(&self) -> usize {
+    pub const fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
     }
 

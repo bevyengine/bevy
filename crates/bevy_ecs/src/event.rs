@@ -134,7 +134,7 @@ pub struct Events<T> {
 
 impl<T> Default for Events<T> {
     fn default() -> Self {
-        Events {
+        Self {
             a_start_event_count: 0,
             b_start_event_count: 0,
             event_count: 0,
@@ -145,11 +145,11 @@ impl<T> Default for Events<T> {
     }
 }
 
-fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
+const fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
     (&event_instance.event, event_instance.event_id)
 }
 
-fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
+const fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
@@ -185,7 +185,7 @@ pub struct ManualEventReader<T> {
 
 impl<T> Default for ManualEventReader<T> {
     fn default() -> Self {
-        ManualEventReader {
+        Self {
             last_event_count: 0,
             _marker: Default::default(),
         }

@@ -215,7 +215,7 @@ impl<M: SpecializedMaterial2d> FromWorld for Material2dPipeline<M> {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material2d_layout = M::bind_group_layout(render_device);
 
-        Material2dPipeline {
+        Self {
             mesh2d_pipeline: world.get_resource::<Mesh2dPipeline>().unwrap().clone(),
             material2d_layout,
             vertex_shader: M::vertex_shader(asset_server),

@@ -184,7 +184,7 @@ impl FromWorld for ShadowPipeline {
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
-        ShadowPipeline {
+        Self {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
@@ -216,7 +216,7 @@ bitflags::bitflags! {
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
         const VERTEX_TANGENTS    = (1 << 0);
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
@@ -515,7 +515,7 @@ pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     },
 ];
 
-fn face_index_to_name(face_index: usize) -> &'static str {
+const fn face_index_to_name(face_index: usize) -> &'static str {
     match face_index {
         0 => "+x",
         1 => "-x",
@@ -946,7 +946,7 @@ const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 // and the count into the lower 8 bits.
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
-fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
+const fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
         | (count as u32 & CLUSTER_COUNT_MASK)
 }
@@ -989,7 +989,7 @@ impl ViewClusterBindings {
         self.n_offsets += 1;
     }
 
-    pub fn n_indices(&self) -> usize {
+    pub const fn n_indices(&self) -> usize {
         self.n_indices
     }
 
@@ -1197,7 +1197,7 @@ impl ShadowPassNode {
 
 impl Node for ShadowPassNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {

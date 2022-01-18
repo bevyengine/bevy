@@ -77,11 +77,10 @@ impl RenderGraphRunner {
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
         #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
-        } else {
-            info_span!("run_graph", name = "main_graph")
-        };
+        let span = graph_name.as_ref().map_or_else(
+            || info_span!("run_graph", name = "main_graph"),
+            |name| info_span!("run_graph", name = name.deref()),
+        );
         #[cfg(feature = "trace")]
         let _guard = span.enter();
 

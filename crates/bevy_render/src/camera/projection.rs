@@ -40,7 +40,7 @@ impl CameraProjection for PerspectiveProjection {
 
 impl Default for PerspectiveProjection {
     fn default() -> Self {
-        PerspectiveProjection {
+        Self {
             fov: std::f32::consts::PI / 4.0,
             near: 0.1,
             far: 1000.0,
@@ -159,7 +159,7 @@ impl CameraProjection for OrthographicProjection {
 
 impl Default for OrthographicProjection {
     fn default() -> Self {
-        OrthographicProjection {
+        Self {
             left: -1.0,
             right: 1.0,
             bottom: -1.0,

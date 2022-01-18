@@ -8,7 +8,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(world: World) -> Self {
+    pub const fn new(world: World) -> Self {
         Self { world }
     }
 }

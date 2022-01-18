@@ -78,7 +78,7 @@ impl AssetServer {
     }
 
     pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
-        AssetServer {
+        Self {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
                 extension_to_loader_index: Default::default(),
@@ -426,7 +426,7 @@ impl AssetServer {
             let asset_sources = self.server.asset_sources.read();
             let asset_lifecycles = self.server.asset_lifecycles.read();
             for potential_free in potential_frees.drain(..) {
-                if let Some(&0) = ref_counts.get(&potential_free) {
+                if ref_counts.get(&potential_free) == Some(&0) {
                     let type_uuid = match potential_free {
                         HandleId::Id(type_uuid, _) => Some(type_uuid),
                         HandleId::AssetPathId(id) => asset_sources

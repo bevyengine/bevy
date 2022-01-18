@@ -86,7 +86,7 @@ pub enum StorageType {
 
 impl Default for StorageType {
     fn default() -> Self {
-        StorageType::Table
+        Self::Table
     }
 }
 
@@ -98,7 +98,7 @@ pub struct ComponentInfo {
 
 impl ComponentInfo {
     #[inline]
-    pub fn id(&self) -> ComponentId {
+    pub const fn id(&self) -> ComponentId {
         self.id
     }
 
@@ -108,12 +108,12 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn type_id(&self) -> Option<TypeId> {
+    pub const fn type_id(&self) -> Option<TypeId> {
         self.descriptor.type_id
     }
 
     #[inline]
-    pub fn layout(&self) -> Layout {
+    pub const fn layout(&self) -> Layout {
         self.descriptor.layout
     }
 
@@ -123,17 +123,17 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn storage_type(&self) -> StorageType {
+    pub const fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
     }
 
     #[inline]
-    pub fn is_send_and_sync(&self) -> bool {
+    pub const fn is_send_and_sync(&self) -> bool {
         self.descriptor.is_send_and_sync
     }
 
-    fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+    const fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+        Self { id, descriptor }
     }
 }
 
@@ -142,12 +142,12 @@ pub struct ComponentId(usize);
 
 impl ComponentId {
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(index: usize) -> Self {
+        Self(index)
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 }
@@ -222,12 +222,12 @@ impl ComponentDescriptor {
     }
 
     #[inline]
-    pub fn storage_type(&self) -> StorageType {
+    pub const fn storage_type(&self) -> StorageType {
         self.storage_type
     }
 
     #[inline]
-    pub fn type_id(&self) -> Option<TypeId> {
+    pub const fn type_id(&self) -> Option<TypeId> {
         self.type_id
     }
 
@@ -357,7 +357,7 @@ pub struct ComponentTicks {
 
 impl ComponentTicks {
     #[inline]
-    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
+    pub const fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // The comparison is relative to `change_tick` so that we can detect changes over the whole
         // `u32` range. Comparing directly the ticks would limit to half that due to overflow
         // handling.
@@ -368,14 +368,14 @@ impl ComponentTicks {
     }
 
     #[inline]
-    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
+    pub const fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let component_delta = change_tick.wrapping_sub(self.changed);
         let system_delta = change_tick.wrapping_sub(last_change_tick);
 
         component_delta < system_delta
     }
 
-    pub(crate) fn new(change_tick: u32) -> Self {
+    pub(crate) const fn new(change_tick: u32) -> Self {
         Self {
             added: change_tick,
             changed: change_tick,

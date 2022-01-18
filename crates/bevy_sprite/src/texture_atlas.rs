@@ -68,12 +68,7 @@ impl TextureAtlas {
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// cell of the grid  of `tile_size` is one of the textures in the atlas
-    pub fn from_grid(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-    ) -> TextureAtlas {
+    pub fn from_grid(texture: Handle<Image>, tile_size: Vec2, columns: usize, rows: usize) -> Self {
         Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32))
     }
 
@@ -86,7 +81,7 @@ impl TextureAtlas {
         columns: usize,
         rows: usize,
         padding: Vec2,
-    ) -> TextureAtlas {
+    ) -> Self {
         let mut sprites = Vec::new();
         let mut x_padding = 0.0;
         let mut y_padding = 0.0;
@@ -112,7 +107,7 @@ impl TextureAtlas {
             }
         }
 
-        TextureAtlas {
+        Self {
             size: Vec2::new(
                 ((tile_size.x + x_padding) * columns as f32) - x_padding,
                 ((tile_size.y + y_padding) * rows as f32) - y_padding,

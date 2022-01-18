@@ -124,7 +124,7 @@ where
     type Config = ();
 
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        let state = QueryState::new(world);
+        let state = Self::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<Q>(),
@@ -747,13 +747,13 @@ where
 impl<'w, T: 'static> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
-    pub fn is_added(&self) -> bool {
+    pub const fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
-    pub fn is_changed(&self) -> bool {
+    pub const fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }

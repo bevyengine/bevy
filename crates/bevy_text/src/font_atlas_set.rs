@@ -24,7 +24,7 @@ pub struct GlyphAtlasInfo {
 
 impl Default for FontAtlasSet {
     fn default() -> Self {
-        FontAtlasSet {
+        Self {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
         }
     }

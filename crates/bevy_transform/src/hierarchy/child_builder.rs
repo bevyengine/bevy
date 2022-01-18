@@ -151,7 +151,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     }
 
     /// Returns the parent entity of this [`ChildBuilder`]
-    pub fn parent_entity(&self) -> Entity {
+    pub const fn parent_entity(&self) -> Entity {
         self.push_children.parent
     }
 

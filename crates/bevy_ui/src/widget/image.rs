@@ -21,7 +21,7 @@ pub enum ImageMode {
 
 impl Default for ImageMode {
     fn default() -> Self {
-        ImageMode::KeepAspect
+        Self::KeepAspect
     }
 }
 

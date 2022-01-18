@@ -29,7 +29,7 @@ impl CountdownEvent {
             counter: AtomicIsize::new(n),
         };
 
-        CountdownEvent {
+        Self {
             inner: Arc::new(inner),
         }
     }

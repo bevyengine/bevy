@@ -336,7 +336,7 @@ impl FromWorld for MeshPipeline {
                 ),
             }
         };
-        MeshPipeline {
+        Self {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
@@ -370,8 +370,8 @@ bitflags::bitflags! {
         const NONE                        = 0;
         const VERTEX_TANGENTS             = (1 << 0);
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
@@ -383,10 +383,10 @@ impl MeshPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        Self::from_bits(msaa_bits).unwrap()
     }
 
-    pub fn msaa_samples(&self) -> u32 {
+    pub const fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
     }
 
@@ -394,7 +394,7 @@ impl MeshPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -719,25 +719,26 @@ impl EntityRenderCommand for DrawMesh {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item).unwrap();
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, 0..1);
+        meshes
+            .into_inner()
+            .get(mesh_handle)
+            .map_or(RenderCommandResult::Failure, |gpu_mesh| {
+                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+                match &gpu_mesh.buffer_info {
+                    GpuBufferInfo::Indexed {
+                        buffer,
+                        index_format,
+                        count,
+                    } => {
+                        pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                        pass.draw_indexed(0..*count, 0, 0..1);
+                    }
+                    GpuBufferInfo::NonIndexed { vertex_count } => {
+                        pass.draw(0..*vertex_count, 0..1);
+                    }
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
-                }
-            }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
-        }
+                RenderCommandResult::Success
+            })
     }
 }
 

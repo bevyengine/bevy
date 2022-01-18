@@ -55,7 +55,7 @@ impl GlobalTransform {
     /// on all axes.
     #[inline]
     pub const fn identity() -> Self {
-        GlobalTransform {
+        Self {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,
             scale: Vec3::ONE,
@@ -67,7 +67,7 @@ impl GlobalTransform {
     pub fn from_matrix(matrix: Mat4) -> Self {
         let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
 
-        GlobalTransform {
+        Self {
             translation,
             rotation,
             scale,
@@ -77,7 +77,7 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
-        GlobalTransform {
+        Self {
             translation,
             ..Default::default()
         }
@@ -86,7 +86,7 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform {
+        Self {
             rotation,
             ..Default::default()
         }
@@ -95,7 +95,7 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
-        GlobalTransform {
+        Self {
             scale,
             ..Default::default()
         }
@@ -110,21 +110,21 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
@@ -199,11 +199,11 @@ impl GlobalTransform {
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]
-    pub fn mul_transform(&self, transform: Transform) -> GlobalTransform {
+    pub fn mul_transform(&self, transform: Transform) -> Self {
         let translation = self.mul_vec3(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
-        GlobalTransform {
+        Self {
             translation,
             rotation,
             scale,
@@ -251,17 +251,17 @@ impl From<Transform> for GlobalTransform {
     }
 }
 
-impl Mul<GlobalTransform> for GlobalTransform {
-    type Output = GlobalTransform;
+impl Mul<Self> for GlobalTransform {
+    type Output = Self;
 
     #[inline]
-    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+    fn mul(self, global_transform: Self) -> Self::Output {
         self.mul_transform(global_transform.into())
     }
 }
 
 impl Mul<Transform> for GlobalTransform {
-    type Output = GlobalTransform;
+    type Output = Self;
 
     #[inline]
     fn mul(self, transform: Transform) -> Self::Output {

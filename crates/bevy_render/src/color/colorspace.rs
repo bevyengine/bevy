@@ -6,7 +6,7 @@ pub trait SrgbColorSpace {
 // source: https://entropymine.com/imageworsener/srgbformula/
 impl SrgbColorSpace for f32 {
     #[inline]
-    fn linear_to_nonlinear_srgb(self) -> f32 {
+    fn linear_to_nonlinear_srgb(self) -> Self {
         if self <= 0.0 {
             return self;
         }
@@ -19,7 +19,7 @@ impl SrgbColorSpace for f32 {
     }
 
     #[inline]
-    fn nonlinear_to_linear_srgb(self) -> f32 {
+    fn nonlinear_to_linear_srgb(self) -> Self {
         if self <= 0.0 {
             return self;
         }

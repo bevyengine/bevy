@@ -174,7 +174,7 @@ impl TypeRegistration {
     ///
     /// [`TypeId`]: std::any::TypeId
     #[inline]
-    pub fn type_id(&self) -> TypeId {
+    pub const fn type_id(&self) -> TypeId {
         self.type_id
     }
 
@@ -225,7 +225,7 @@ impl TypeRegistration {
     }
 
     /// Returns the name of the type.
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         self.name
     }
 
@@ -280,7 +280,7 @@ impl Clone for TypeRegistration {
             data.insert(*id, (*type_data).clone_type_data());
         }
 
-        TypeRegistration {
+        Self {
             data,
             name: self.name,
             short_name: self.short_name.clone(),
@@ -344,7 +344,7 @@ impl ReflectDeserialize {
 
 impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     fn from_type() -> Self {
-        ReflectDeserialize {
+        Self {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
         }
     }

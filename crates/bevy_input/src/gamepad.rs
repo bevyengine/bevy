@@ -137,7 +137,7 @@ pub struct ButtonSettings {
 
 impl Default for ButtonSettings {
     fn default() -> Self {
-        ButtonSettings {
+        Self {
             press: 0.75,
             release: 0.65,
         }
@@ -174,7 +174,7 @@ pub struct AxisSettings {
 
 impl Default for AxisSettings {
     fn default() -> Self {
-        AxisSettings {
+        Self {
             positive_high: 0.95,
             positive_low: 0.05,
             negative_high: -0.95,
@@ -215,7 +215,7 @@ pub struct ButtonAxisSettings {
 
 impl Default for ButtonAxisSettings {
     fn default() -> Self {
-        ButtonAxisSettings {
+        Self {
             high: 0.95,
             low: 0.05,
             threshold: 0.01,

@@ -107,8 +107,8 @@ impl Map for DynamicMap {
         self.values.len()
     }
 
-    fn clone_dynamic(&self) -> DynamicMap {
-        DynamicMap {
+    fn clone_dynamic(&self) -> Self {
+        Self {
             name: self.name.clone(),
             values: self
                 .values

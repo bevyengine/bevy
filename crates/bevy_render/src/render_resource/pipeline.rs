@@ -23,14 +23,14 @@ pub struct RenderPipeline {
 
 impl RenderPipeline {
     #[inline]
-    pub fn id(&self) -> RenderPipelineId {
+    pub const fn id(&self) -> RenderPipelineId {
         self.id
     }
 }
 
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
-        RenderPipeline {
+        Self {
             id: RenderPipelineId(Uuid::new_v4()),
             value: Arc::new(value),
         }
@@ -63,14 +63,14 @@ pub struct ComputePipeline {
 impl ComputePipeline {
     /// Returns the [`ComputePipelineId`].
     #[inline]
-    pub fn id(&self) -> ComputePipelineId {
+    pub const fn id(&self) -> ComputePipelineId {
         self.id
     }
 }
 
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
-        ComputePipeline {
+        Self {
             id: ComputePipelineId(Uuid::new_v4()),
             value: Arc::new(value),
         }

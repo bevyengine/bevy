@@ -231,7 +231,7 @@ impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = M::bind_group_layout(render_device);
 
-        MaterialPipeline {
+        Self {
             mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
             material_layout,
             vertex_shader: M::vertex_shader(asset_server),
@@ -323,7 +323,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     }
                     let alpha_mode = M::alpha_mode(material);
-                    if let AlphaMode::Blend = alpha_mode {
+                    if alpha_mode == AlphaMode::Blend {
                         mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
                     }
 

@@ -31,13 +31,13 @@ impl TaskPoolBuilder {
 
     /// Override the number of threads created for the pool. If unset, we default to the number
     /// of logical cores of the system
-    pub fn num_threads(mut self, num_threads: usize) -> Self {
+    pub const fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = Some(num_threads);
         self
     }
 
     /// Override the stack size of the threads created for the pool
-    pub fn stack_size(mut self, stack_size: usize) -> Self {
+    pub const fn stack_size(mut self, stack_size: usize) -> Self {
         self.stack_size = Some(stack_size);
         self
     }
@@ -120,11 +120,10 @@ impl TaskPool {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{} ({})", thread_name, i)
-                } else {
-                    format!("TaskPool ({})", i)
-                };
+                let thread_name = thread_name.map_or_else(
+                    || format!("TaskPool ({})", i),
+                    |thread_name| format!("{} ({})", thread_name, i),
+                );
 
                 let mut thread_builder = thread::Builder::new().name(thread_name);
 
@@ -166,7 +165,7 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+        Self::LOCAL_EXECUTOR.with(|local_executor| {
             // SAFETY: This function blocks until all futures complete, so this future must return
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
@@ -247,7 +246,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        Task::new(Self::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
 }
 

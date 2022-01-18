@@ -19,7 +19,7 @@ pub struct FixedTimestepState {
 
 impl FixedTimestepState {
     /// The amount of time each step takes.
-    pub fn step(&self) -> f64 {
+    pub const fn step(&self) -> f64 {
         self.step
     }
 
@@ -29,7 +29,7 @@ impl FixedTimestepState {
     }
 
     /// The amount of time (in seconds) left over from the last step.
-    pub fn accumulator(&self) -> f64 {
+    pub const fn accumulator(&self) -> f64 {
         self.accumulator
     }
 
@@ -171,7 +171,7 @@ impl System for FixedTimestep {
     type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<FixedTimestep>())
+        Cow::Borrowed(std::any::type_name::<Self>())
     }
 
     fn new_archetype(&mut self, archetype: &Archetype) {

@@ -133,7 +133,7 @@ pub struct BundleId(usize);
 
 impl BundleId {
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 }
@@ -157,7 +157,7 @@ pub struct BundleInfo {
 
 impl BundleInfo {
     #[inline]
-    pub fn id(&self) -> BundleId {
+    pub const fn id(&self) -> BundleId {
         self.id
     }
 

@@ -51,7 +51,7 @@ impl UiPassNode {
 
 impl bevy_render::render_graph::Node for UiPassNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {

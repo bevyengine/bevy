@@ -58,7 +58,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub const fn identity() -> Self {
-        Transform {
+        Self {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,
             scale: Vec3::ONE,
@@ -71,7 +71,7 @@ impl Transform {
     pub fn from_matrix(matrix: Mat4) -> Self {
         let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
 
-        Transform {
+        Self {
             translation,
             rotation,
             scale,
@@ -82,7 +82,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
-        Transform {
+        Self {
             translation,
             ..Default::default()
         }
@@ -92,7 +92,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        Transform {
+        Self {
             rotation,
             ..Default::default()
         }
@@ -102,7 +102,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
-        Transform {
+        Self {
             scale,
             ..Default::default()
         }
@@ -119,21 +119,21 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new translation.
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     /// Returns this [`Transform`] with a new rotation.
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     /// Returns this [`Transform`] with a new scale.
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
@@ -208,11 +208,11 @@ impl Transform {
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`Transform`]
     #[inline]
-    pub fn mul_transform(&self, transform: Transform) -> Self {
+    pub fn mul_transform(&self, transform: Self) -> Self {
         let translation = self.mul_vec3(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
-        Transform {
+        Self {
             translation,
             rotation,
             scale,
@@ -262,10 +262,10 @@ impl From<GlobalTransform> for Transform {
     }
 }
 
-impl Mul<Transform> for Transform {
-    type Output = Transform;
+impl Mul<Self> for Transform {
+    type Output = Self;
 
-    fn mul(self, transform: Transform) -> Self::Output {
+    fn mul(self, transform: Self) -> Self::Output {
         self.mul_transform(transform)
     }
 }

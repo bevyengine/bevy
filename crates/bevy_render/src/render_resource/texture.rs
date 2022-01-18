@@ -18,7 +18,7 @@ pub struct Texture {
 impl Texture {
     /// Returns the [`TextureId`].
     #[inline]
-    pub fn id(&self) -> TextureId {
+    pub const fn id(&self) -> TextureId {
         self.id
     }
 
@@ -30,7 +30,7 @@ impl Texture {
 
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
-        Texture {
+        Self {
             id: TextureId(Uuid::new_v4()),
             value: Arc::new(value),
         }
@@ -80,7 +80,7 @@ pub struct TextureView {
 impl TextureView {
     /// Returns the [`TextureViewId`].
     #[inline]
-    pub fn id(&self) -> TextureViewId {
+    pub const fn id(&self) -> TextureViewId {
         self.id
     }
 
@@ -96,7 +96,7 @@ impl TextureView {
 
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
-        TextureView {
+        Self {
             id: TextureViewId(Uuid::new_v4()),
             value: TextureViewValue::TextureView(Arc::new(value)),
         }
@@ -108,7 +108,7 @@ impl From<wgpu::SurfaceTexture> for TextureView {
         let texture = Arc::new(value);
         let view = Arc::new(texture.texture.create_view(&Default::default()));
 
-        TextureView {
+        Self {
             id: TextureViewId(Uuid::new_v4()),
             value: TextureViewValue::SurfaceTexture { texture, view },
         }
@@ -145,14 +145,14 @@ pub struct Sampler {
 impl Sampler {
     /// Returns the [`SamplerId`].
     #[inline]
-    pub fn id(&self) -> SamplerId {
+    pub const fn id(&self) -> SamplerId {
         self.id
     }
 }
 
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
-        Sampler {
+        Self {
             id: SamplerId(Uuid::new_v4()),
             value: Arc::new(value),
         }

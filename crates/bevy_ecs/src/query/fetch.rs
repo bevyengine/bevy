@@ -243,7 +243,7 @@ pub struct ReadState<T> {
 unsafe impl<T: Component> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
-        ReadState {
+        Self {
             component_id,
             marker: PhantomData,
         }
@@ -445,7 +445,7 @@ pub struct WriteState<T> {
 unsafe impl<T: Component> FetchState for WriteState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
-        WriteState {
+        Self {
             component_id,
             marker: PhantomData,
         }

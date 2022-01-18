@@ -52,7 +52,7 @@ impl FromWorld for UiPipeline {
             label: Some("ui_image_layout"),
         });
 
-        UiPipeline {
+        Self {
             view_layout,
             image_layout,
         }

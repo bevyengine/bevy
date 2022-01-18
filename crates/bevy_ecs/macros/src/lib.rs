@@ -34,7 +34,7 @@ impl Parse for AllTuples {
             idents.push(input.parse::<Ident>()?);
         }
 
-        Ok(AllTuples {
+        Ok(Self {
             macro_ident,
             start,
             end,

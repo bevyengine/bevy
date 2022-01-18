@@ -28,7 +28,7 @@ pub struct FileAssetIo {
 
 impl FileAssetIo {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        FileAssetIo {
+        Self {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
             root_path: Self::get_root_path().join(path.as_ref()),

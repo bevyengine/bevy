@@ -30,7 +30,7 @@ pub enum Interaction {
 
 impl Default for Interaction {
     fn default() -> Self {
-        Interaction::None
+        Self::None
     }
 }
 
@@ -46,7 +46,7 @@ pub enum FocusPolicy {
 
 impl Default for FocusPolicy {
     fn default() -> Self {
-        FocusPolicy::Block
+        Self::Block
     }
 }
 

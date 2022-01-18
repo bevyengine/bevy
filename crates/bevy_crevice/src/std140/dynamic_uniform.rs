@@ -18,7 +18,7 @@ impl<T: AsStd140> AsStd140 for DynamicUniform<T> {
     }
 
     fn from_std140(value: Self::Output) -> Self {
-        DynamicUniform(<T as AsStd140>::from_std140(value.0))
+        Self(<T as AsStd140>::from_std140(value.0))
     }
 }
 

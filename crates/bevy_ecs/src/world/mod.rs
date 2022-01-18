@@ -111,19 +111,19 @@ impl World {
     /// This guarantee allows System Parameters to safely uniquely identify a [`World`],
     /// since its [`WorldId`] is unique
     #[inline]
-    pub fn new() -> World {
-        World::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Retrieves this [`World`]'s unique ID
     #[inline]
-    pub fn id(&self) -> WorldId {
+    pub const fn id(&self) -> WorldId {
         self.id
     }
 
     /// Retrieves this world's [Entities] collection
     #[inline]
-    pub fn entities(&self) -> &Entities {
+    pub const fn entities(&self) -> &Entities {
         &self.entities
     }
 
@@ -135,13 +135,13 @@ impl World {
 
     /// Retrieves this world's [Archetypes] collection
     #[inline]
-    pub fn archetypes(&self) -> &Archetypes {
+    pub const fn archetypes(&self) -> &Archetypes {
         &self.archetypes
     }
 
     /// Retrieves this world's [Components] collection
     #[inline]
-    pub fn components(&self) -> &Components {
+    pub const fn components(&self) -> &Components {
         &self.components
     }
 
@@ -153,13 +153,13 @@ impl World {
 
     /// Retrieves this world's [Storages] collection
     #[inline]
-    pub fn storages(&self) -> &Storages {
+    pub const fn storages(&self) -> &Storages {
         &self.storages
     }
 
     /// Retrieves this world's [Bundles] collection
     #[inline]
-    pub fn bundles(&self) -> &Bundles {
+    pub const fn bundles(&self) -> &Bundles {
         &self.bundles
     }
 
@@ -571,11 +571,10 @@ impl World {
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
-            self.removed_with_id(component_id)
-        } else {
-            [].iter().cloned()
-        }
+        self.components.get_id(TypeId::of::<T>()).map_or_else(
+            || [].iter().cloned(),
+            |component_id| self.removed_with_id(component_id),
+        )
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
@@ -584,11 +583,9 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(removed) = self.removed_components.get(component_id) {
-            removed.iter().cloned()
-        } else {
-            [].iter().cloned()
-        }
+        self.removed_components
+            .get(component_id)
+            .map_or_else(|| [].iter().cloned(), |removed| removed.iter().cloned())
     }
 
     /// Inserts a new resource with the given `value`.
@@ -907,7 +904,7 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<T: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<T>) -> U) -> U {
+    pub fn resource_scope<T: Resource, U>(&mut self, f: impl FnOnce(&mut Self, Mut<T>) -> U) -> U {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
@@ -1120,7 +1117,7 @@ impl World {
     }
 
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub const fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
 

@@ -20,7 +20,7 @@ struct LogDiagnosticsState {
 
 impl Default for LogDiagnosticsPlugin {
     fn default() -> Self {
-        LogDiagnosticsPlugin {
+        Self {
             debug: false,
             wait_duration: Duration::from_secs(1),
             filter: None,
@@ -45,7 +45,7 @@ impl Plugin for LogDiagnosticsPlugin {
 
 impl LogDiagnosticsPlugin {
     pub fn filtered(filter: Vec<DiagnosticId>) -> Self {
-        LogDiagnosticsPlugin {
+        Self {
             filter: Some(filter),
             ..Default::default()
         }
@@ -86,15 +86,18 @@ impl LogDiagnosticsPlugin {
         diagnostics: Res<Diagnostics>,
     ) {
         if state.timer.tick(time.delta()).finished() {
-            if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                    Self::log_diagnostic(diagnostic);
-                }
-            } else {
-                for diagnostic in diagnostics.iter() {
-                    Self::log_diagnostic(diagnostic);
-                }
-            }
+            state.filter.as_ref().map_or_else(
+                || {
+                    for diagnostic in diagnostics.iter() {
+                        Self::log_diagnostic(diagnostic);
+                    }
+                },
+                |filter| {
+                    for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                        Self::log_diagnostic(diagnostic);
+                    }
+                },
+            )
         }
     }
 
@@ -104,15 +107,18 @@ impl LogDiagnosticsPlugin {
         diagnostics: Res<Diagnostics>,
     ) {
         if state.timer.tick(time.delta()).finished() {
-            if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                    debug!("{:#?}\n", diagnostic);
-                }
-            } else {
-                for diagnostic in diagnostics.iter() {
-                    debug!("{:#?}\n", diagnostic);
-                }
-            }
+            state.filter.as_ref().map_or_else(
+                || {
+                    for diagnostic in diagnostics.iter() {
+                        debug!("{:#?}\n", diagnostic);
+                    }
+                },
+                |filter| {
+                    for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                        debug!("{:#?}\n", diagnostic);
+                    }
+                },
+            )
         }
     }
 }

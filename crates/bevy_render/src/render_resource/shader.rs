@@ -17,7 +17,7 @@ pub struct ShaderId(Uuid);
 impl ShaderId {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 }
 
@@ -43,26 +43,26 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
+    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Self {
         let source = source.into();
-        Shader {
+        Self {
             imports: SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source),
             source: Source::Wgsl(source),
             import_path: None,
         }
     }
 
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Self {
         let source = source.into();
-        Shader {
+        Self {
             imports: SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source),
             source: Source::Glsl(source, stage),
             import_path: None,
         }
     }
 
-    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Shader {
-        Shader {
+    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Self {
+        Self {
             imports: Vec::new(),
             source: Source::SpirV(source.into()),
             import_path: None,
@@ -79,7 +79,7 @@ impl Shader {
     }
 
     #[inline]
-    pub fn import_path(&self) -> Option<&ShaderImport> {
+    pub const fn import_path(&self) -> Option<&ShaderImport> {
         self.import_path.as_ref()
     }
 
@@ -374,10 +374,11 @@ impl ShaderProcessor {
                 let def = cap.get(1).unwrap();
                 scopes.push(*scopes.last().unwrap() && !shader_defs_unique.contains(def.as_str()));
             } else if self.else_regex.is_match(line) {
-                let mut is_parent_scope_truthy = true;
-                if scopes.len() > 1 {
-                    is_parent_scope_truthy = scopes[scopes.len() - 2];
-                }
+                let is_parent_scope_truthy = if scopes.len() > 1 {
+                    scopes[scopes.len() - 2]
+                } else {
+                    true
+                };
                 if let Some(last) = scopes.last_mut() {
                     *last = is_parent_scope_truthy && !*last;
                 }

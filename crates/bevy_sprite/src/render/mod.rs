@@ -77,7 +77,7 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_material_layout"),
         });
 
-        SpritePipeline {
+        Self {
             view_layout,
             material_layout,
         }
@@ -91,7 +91,7 @@ bitflags::bitflags! {
     pub struct SpritePipelineKey: u32 {
         const NONE                        = 0;
         const COLORED                     = (1 << 0);
-        const MSAA_RESERVED_BITS          = SpritePipelineKey::MSAA_MASK_BITS << SpritePipelineKey::MSAA_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
 
@@ -101,7 +101,7 @@ impl SpritePipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        SpritePipelineKey::from_bits(msaa_bits).unwrap()
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {

@@ -17,7 +17,7 @@ pub struct ReflectDeserializer<'a> {
 }
 
 impl<'a> ReflectDeserializer<'a> {
-    pub fn new(registry: &'a TypeRegistry) -> Self {
+    pub const fn new(registry: &'a TypeRegistry) -> Self {
         ReflectDeserializer { registry }
     }
 }

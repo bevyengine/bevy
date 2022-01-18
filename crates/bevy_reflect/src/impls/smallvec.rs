@@ -8,7 +8,7 @@ where
     T::Item: FromReflect + Clone,
 {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&self[index] as &dyn Reflect)
         } else {
             None
@@ -16,7 +16,7 @@ where
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&mut self[index] as &mut dyn Reflect)
         } else {
             None
@@ -24,7 +24,7 @@ where
     }
 
     fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
+        self.len()
     }
 
     fn push(&mut self, value: Box<dyn Reflect>) {
@@ -36,7 +36,7 @@ where
                 )
             })
         });
-        SmallVec::push(self, value);
+        self.push(value);
     }
 
     fn iter(&self) -> ListIter {

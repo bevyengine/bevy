@@ -81,8 +81,8 @@ impl List for DynamicList {
         self.values.len()
     }
 
-    fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
+    fn clone_dynamic(&self) -> Self {
+        Self {
             name: self.name.clone(),
             values: self
                 .values
@@ -100,7 +100,7 @@ impl List for DynamicList {
     }
 
     fn push(&mut self, value: Box<dyn Reflect>) {
-        DynamicList::push_box(self, value);
+        Self::push_box(self, value);
     }
 }
 

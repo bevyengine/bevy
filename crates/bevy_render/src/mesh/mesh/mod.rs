@@ -72,7 +72,7 @@ impl Mesh {
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
-        Mesh {
+        Self {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
@@ -80,7 +80,7 @@ impl Mesh {
     }
 
     /// Returns the topology of the mesh.
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
+    pub const fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
     }
 
@@ -116,7 +116,7 @@ impl Mesh {
     }
 
     /// Retrieves the vertex `indices` of the mesh.
-    pub fn indices(&self) -> Option<&Indices> {
+    pub const fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
     }
 
@@ -276,7 +276,7 @@ impl Mesh {
         }
 
         let positions = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .attribute(Self::ATTRIBUTE_POSITION)
             .unwrap()
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
@@ -287,13 +287,13 @@ impl Mesh {
             .flat_map(|normal| [normal; 3])
             .collect();
 
-        self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.set_attribute(Self::ATTRIBUTE_NORMAL, normals);
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     pub fn compute_aabb(&self) -> Option<Aabb> {
         if let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
+            self.attribute(Self::ATTRIBUTE_POSITION)
         {
             let mut minimum = VEC3_MAX;
             let mut maximum = VEC3_MIN;
@@ -408,34 +408,34 @@ impl VertexAttributeValues {
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
     pub fn len(&self) -> usize {
         match *self {
-            VertexAttributeValues::Float32(ref values) => values.len(),
-            VertexAttributeValues::Sint32(ref values) => values.len(),
-            VertexAttributeValues::Uint32(ref values) => values.len(),
-            VertexAttributeValues::Float32x2(ref values) => values.len(),
-            VertexAttributeValues::Sint32x2(ref values) => values.len(),
-            VertexAttributeValues::Uint32x2(ref values) => values.len(),
-            VertexAttributeValues::Float32x3(ref values) => values.len(),
-            VertexAttributeValues::Sint32x3(ref values) => values.len(),
-            VertexAttributeValues::Uint32x3(ref values) => values.len(),
-            VertexAttributeValues::Float32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint32x4(ref values) => values.len(),
-            VertexAttributeValues::Uint32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint16x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Uint16x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Sint16x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Uint16x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Sint8x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Uint8x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Sint8x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x4(ref values) => values.len(),
-            VertexAttributeValues::Uint8x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x4(ref values) => values.len(),
+            Self::Float32(ref values) => values.len(),
+            Self::Sint32(ref values) => values.len(),
+            Self::Uint32(ref values) => values.len(),
+            Self::Float32x2(ref values) => values.len(),
+            Self::Sint32x2(ref values) => values.len(),
+            Self::Uint32x2(ref values) => values.len(),
+            Self::Float32x3(ref values) => values.len(),
+            Self::Sint32x3(ref values) => values.len(),
+            Self::Uint32x3(ref values) => values.len(),
+            Self::Float32x4(ref values) => values.len(),
+            Self::Sint32x4(ref values) => values.len(),
+            Self::Uint32x4(ref values) => values.len(),
+            Self::Sint16x2(ref values) => values.len(),
+            Self::Snorm16x2(ref values) => values.len(),
+            Self::Uint16x2(ref values) => values.len(),
+            Self::Unorm16x2(ref values) => values.len(),
+            Self::Sint16x4(ref values) => values.len(),
+            Self::Snorm16x4(ref values) => values.len(),
+            Self::Uint16x4(ref values) => values.len(),
+            Self::Unorm16x4(ref values) => values.len(),
+            Self::Sint8x2(ref values) => values.len(),
+            Self::Snorm8x2(ref values) => values.len(),
+            Self::Uint8x2(ref values) => values.len(),
+            Self::Unorm8x2(ref values) => values.len(),
+            Self::Sint8x4(ref values) => values.len(),
+            Self::Snorm8x4(ref values) => values.len(),
+            Self::Uint8x4(ref values) => values.len(),
+            Self::Unorm8x4(ref values) => values.len(),
         }
     }
 
@@ -457,34 +457,34 @@ impl VertexAttributeValues {
     /// useful for serialization and sending to the GPU.
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x4(values) => cast_slice(&values[..]),
+            Self::Float32(values) => cast_slice(&values[..]),
+            Self::Sint32(values) => cast_slice(&values[..]),
+            Self::Uint32(values) => cast_slice(&values[..]),
+            Self::Float32x2(values) => cast_slice(&values[..]),
+            Self::Sint32x2(values) => cast_slice(&values[..]),
+            Self::Uint32x2(values) => cast_slice(&values[..]),
+            Self::Float32x3(values) => cast_slice(&values[..]),
+            Self::Sint32x3(values) => cast_slice(&values[..]),
+            Self::Uint32x3(values) => cast_slice(&values[..]),
+            Self::Float32x4(values) => cast_slice(&values[..]),
+            Self::Sint32x4(values) => cast_slice(&values[..]),
+            Self::Uint32x4(values) => cast_slice(&values[..]),
+            Self::Sint16x2(values) => cast_slice(&values[..]),
+            Self::Snorm16x2(values) => cast_slice(&values[..]),
+            Self::Uint16x2(values) => cast_slice(&values[..]),
+            Self::Unorm16x2(values) => cast_slice(&values[..]),
+            Self::Sint16x4(values) => cast_slice(&values[..]),
+            Self::Snorm16x4(values) => cast_slice(&values[..]),
+            Self::Uint16x4(values) => cast_slice(&values[..]),
+            Self::Unorm16x4(values) => cast_slice(&values[..]),
+            Self::Sint8x2(values) => cast_slice(&values[..]),
+            Self::Snorm8x2(values) => cast_slice(&values[..]),
+            Self::Uint8x2(values) => cast_slice(&values[..]),
+            Self::Unorm8x2(values) => cast_slice(&values[..]),
+            Self::Sint8x4(values) => cast_slice(&values[..]),
+            Self::Snorm8x4(values) => cast_slice(&values[..]),
+            Self::Uint8x4(values) => cast_slice(&values[..]),
+            Self::Unorm8x4(values) => cast_slice(&values[..]),
         }
     }
 }
@@ -492,34 +492,34 @@ impl VertexAttributeValues {
 impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
-            VertexAttributeValues::Float32(_) => VertexFormat::Float32,
-            VertexAttributeValues::Sint32(_) => VertexFormat::Sint32,
-            VertexAttributeValues::Uint32(_) => VertexFormat::Uint32,
-            VertexAttributeValues::Float32x2(_) => VertexFormat::Float32x2,
-            VertexAttributeValues::Sint32x2(_) => VertexFormat::Sint32x2,
-            VertexAttributeValues::Uint32x2(_) => VertexFormat::Uint32x2,
-            VertexAttributeValues::Float32x3(_) => VertexFormat::Float32x3,
-            VertexAttributeValues::Sint32x3(_) => VertexFormat::Sint32x3,
-            VertexAttributeValues::Uint32x3(_) => VertexFormat::Uint32x3,
-            VertexAttributeValues::Float32x4(_) => VertexFormat::Float32x4,
-            VertexAttributeValues::Sint32x4(_) => VertexFormat::Sint32x4,
-            VertexAttributeValues::Uint32x4(_) => VertexFormat::Uint32x4,
-            VertexAttributeValues::Sint16x2(_) => VertexFormat::Sint16x2,
-            VertexAttributeValues::Snorm16x2(_) => VertexFormat::Snorm16x2,
-            VertexAttributeValues::Uint16x2(_) => VertexFormat::Uint16x2,
-            VertexAttributeValues::Unorm16x2(_) => VertexFormat::Unorm16x2,
-            VertexAttributeValues::Sint16x4(_) => VertexFormat::Sint16x4,
-            VertexAttributeValues::Snorm16x4(_) => VertexFormat::Snorm16x4,
-            VertexAttributeValues::Uint16x4(_) => VertexFormat::Uint16x4,
-            VertexAttributeValues::Unorm16x4(_) => VertexFormat::Unorm16x4,
-            VertexAttributeValues::Sint8x2(_) => VertexFormat::Sint8x2,
-            VertexAttributeValues::Snorm8x2(_) => VertexFormat::Snorm8x2,
-            VertexAttributeValues::Uint8x2(_) => VertexFormat::Uint8x2,
-            VertexAttributeValues::Unorm8x2(_) => VertexFormat::Unorm8x2,
-            VertexAttributeValues::Sint8x4(_) => VertexFormat::Sint8x4,
-            VertexAttributeValues::Snorm8x4(_) => VertexFormat::Snorm8x4,
-            VertexAttributeValues::Uint8x4(_) => VertexFormat::Uint8x4,
-            VertexAttributeValues::Unorm8x4(_) => VertexFormat::Unorm8x4,
+            VertexAttributeValues::Float32(_) => Self::Float32,
+            VertexAttributeValues::Sint32(_) => Self::Sint32,
+            VertexAttributeValues::Uint32(_) => Self::Uint32,
+            VertexAttributeValues::Float32x2(_) => Self::Float32x2,
+            VertexAttributeValues::Sint32x2(_) => Self::Sint32x2,
+            VertexAttributeValues::Uint32x2(_) => Self::Uint32x2,
+            VertexAttributeValues::Float32x3(_) => Self::Float32x3,
+            VertexAttributeValues::Sint32x3(_) => Self::Sint32x3,
+            VertexAttributeValues::Uint32x3(_) => Self::Uint32x3,
+            VertexAttributeValues::Float32x4(_) => Self::Float32x4,
+            VertexAttributeValues::Sint32x4(_) => Self::Sint32x4,
+            VertexAttributeValues::Uint32x4(_) => Self::Uint32x4,
+            VertexAttributeValues::Sint16x2(_) => Self::Sint16x2,
+            VertexAttributeValues::Snorm16x2(_) => Self::Snorm16x2,
+            VertexAttributeValues::Uint16x2(_) => Self::Uint16x2,
+            VertexAttributeValues::Unorm16x2(_) => Self::Unorm16x2,
+            VertexAttributeValues::Sint16x4(_) => Self::Sint16x4,
+            VertexAttributeValues::Snorm16x4(_) => Self::Snorm16x4,
+            VertexAttributeValues::Uint16x4(_) => Self::Uint16x4,
+            VertexAttributeValues::Unorm16x4(_) => Self::Unorm16x4,
+            VertexAttributeValues::Sint8x2(_) => Self::Sint8x2,
+            VertexAttributeValues::Snorm8x2(_) => Self::Snorm8x2,
+            VertexAttributeValues::Uint8x2(_) => Self::Uint8x2,
+            VertexAttributeValues::Unorm8x2(_) => Self::Unorm8x2,
+            VertexAttributeValues::Sint8x4(_) => Self::Sint8x4,
+            VertexAttributeValues::Snorm8x4(_) => Self::Snorm8x4,
+            VertexAttributeValues::Uint8x4(_) => Self::Uint8x4,
+            VertexAttributeValues::Unorm8x4(_) => Self::Unorm8x4,
         }
     }
 }
@@ -579,8 +579,8 @@ impl Iterator for IndicesIter<'_> {
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {
         match indices {
-            Indices::U16(_) => IndexFormat::Uint16,
-            Indices::U32(_) => IndexFormat::Uint32,
+            Indices::U16(_) => Self::Uint16,
+            Indices::U32(_) => Self::Uint32,
         }
     }
 }
@@ -611,7 +611,7 @@ pub enum GpuBufferInfo {
 }
 
 impl RenderAsset for Mesh {
-    type ExtractedAsset = Mesh;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuMesh;
     type Param = SRes<RenderDevice>;
 
@@ -650,7 +650,7 @@ impl RenderAsset for Mesh {
         Ok(GpuMesh {
             vertex_buffer,
             buffer_info,
-            has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
+            has_tangents: mesh.attributes.contains_key(Self::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),
         })
     }

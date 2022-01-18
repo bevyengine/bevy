@@ -13,7 +13,7 @@ pub struct Torus {
 
 impl Default for Torus {
     fn default() -> Self {
-        Torus {
+        Self {
             radius: 1.0,
             ring_radius: 0.5,
             subdivisions_segments: 32,
@@ -41,8 +41,8 @@ impl From<Torus> for Mesh {
             for side in 0..=torus.subdivisions_sides {
                 let phi = side_stride * side as f32;
 
-                let x = theta.cos() * (torus.radius + torus.ring_radius * phi.cos());
-                let z = theta.sin() * (torus.radius + torus.ring_radius * phi.cos());
+                let x = theta.cos() * torus.ring_radius.mul_add(phi.cos(), torus.radius);
+                let z = theta.sin() * torus.ring_radius.mul_add(phi.cos(), torus.radius);
                 let y = torus.ring_radius * phi.sin();
 
                 let tan_ring = Vec3::new(
@@ -88,11 +88,11 @@ impl From<Torus> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.set_attribute(Self::ATTRIBUTE_POSITION, positions);
+        mesh.set_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.set_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

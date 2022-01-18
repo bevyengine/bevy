@@ -14,8 +14,8 @@ pub struct Time {
 }
 
 impl Default for Time {
-    fn default() -> Time {
-        Time {
+    fn default() -> Self {
+        Self {
             delta: Duration::from_secs(0),
             last_update: None,
             startup: Instant::now(),
@@ -47,43 +47,43 @@ impl Time {
 
     /// The delta between the current tick and last tick as a [`Duration`]
     #[inline]
-    pub fn delta(&self) -> Duration {
+    pub const fn delta(&self) -> Duration {
         self.delta
     }
 
     /// The delta between the current and last tick as [`f32`] seconds
     #[inline]
-    pub fn delta_seconds(&self) -> f32 {
+    pub const fn delta_seconds(&self) -> f32 {
         self.delta_seconds
     }
 
     /// The delta between the current and last tick as [`f64`] seconds
     #[inline]
-    pub fn delta_seconds_f64(&self) -> f64 {
+    pub const fn delta_seconds_f64(&self) -> f64 {
         self.delta_seconds_f64
     }
 
     /// The time from startup to the last update in seconds
     #[inline]
-    pub fn seconds_since_startup(&self) -> f64 {
+    pub const fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
     }
 
     /// The [`Instant`] the app was started
     #[inline]
-    pub fn startup(&self) -> Instant {
+    pub const fn startup(&self) -> Instant {
         self.startup
     }
 
     /// The ['Instant'] when [`Time::update`] was last called, if it exists
     #[inline]
-    pub fn last_update(&self) -> Option<Instant> {
+    pub const fn last_update(&self) -> Option<Instant> {
         self.last_update
     }
 
     /// The ['Duration'] from startup to the last update
     #[inline]
-    pub fn time_since_startup(&self) -> Duration {
+    pub const fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
 }

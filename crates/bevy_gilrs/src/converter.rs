@@ -4,7 +4,7 @@ pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
     Gamepad(gamepad_id.into())
 }
 
-pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
+pub const fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
     match button {
         gilrs::Button::South => Some(GamepadButtonType::South),
         gilrs::Button::East => Some(GamepadButtonType::East),
@@ -29,7 +29,7 @@ pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
     }
 }
 
-pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxisType> {
+pub const fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxisType> {
     match axis {
         gilrs::Axis::LeftStickX => Some(GamepadAxisType::LeftStickX),
         gilrs::Axis::LeftStickY => Some(GamepadAxisType::LeftStickY),

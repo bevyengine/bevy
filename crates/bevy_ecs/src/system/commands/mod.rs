@@ -372,7 +372,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # my_system.system();
     /// ```
     #[inline]
-    pub fn id(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
@@ -746,7 +746,7 @@ mod tests {
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
             let atomic = Arc::new(AtomicUsize::new(0));
-            (DropCk(atomic.clone()), atomic)
+            (Self(atomic.clone()), atomic)
         }
     }
 

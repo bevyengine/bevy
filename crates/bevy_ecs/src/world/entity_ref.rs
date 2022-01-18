@@ -17,7 +17,7 @@ pub struct EntityRef<'w> {
 
 impl<'w> EntityRef<'w> {
     #[inline]
-    pub(crate) fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
+    pub(crate) const fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
         Self {
             world,
             entity,
@@ -26,12 +26,12 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn id(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub const fn location(&self) -> EntityLocation {
         self.location
     }
 
@@ -113,12 +113,12 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn id(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub const fn location(&self) -> EntityLocation {
         self.location
     }
 
@@ -369,7 +369,7 @@ impl<'w> EntityMut<'w> {
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                if old_archetype.get_storage_type(component_id) == Some(StorageType::SparseSet) {
                     storages
                         .sparse_sets
                         .get_mut(component_id)
@@ -591,11 +591,12 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
-        contains_component_with_id(world, component_id, location)
-    } else {
-        false
-    }
+    world
+        .components
+        .get_id(type_id)
+        .map_or(false, |component_id| {
+            contains_component_with_id(world, component_id, location)
+        })
 }
 
 fn contains_component_with_id(

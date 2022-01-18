@@ -238,8 +238,8 @@ impl Struct for DynamicStruct {
         }
     }
 
-    fn clone_dynamic(&self) -> DynamicStruct {
-        DynamicStruct {
+    fn clone_dynamic(&self) -> Self {
+        Self {
             name: self.name.clone(),
             field_names: self.field_names.clone(),
             field_indices: self.field_indices.clone(),

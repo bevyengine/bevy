@@ -114,11 +114,10 @@ pub struct ViewTarget {
 impl ViewTarget {
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
-            view: if let Some(sampled_target) = &self.sampled_target {
-                sampled_target
-            } else {
-                &self.view
-            },
+            view: self
+                .sampled_target
+                .as_ref()
+                .map_or(&self.view, |sampled_target| sampled_target),
             resolve_target: if self.sampled_target.is_some() {
                 Some(&self.view)
             } else {

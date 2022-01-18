@@ -25,7 +25,7 @@ impl MainPass2dNode {
 
 impl Node for MainPass2dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {

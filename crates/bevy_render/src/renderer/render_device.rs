@@ -160,7 +160,7 @@ impl RenderDevice {
         }
     }
 
-    pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
+    pub const fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
         let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
         row_bytes + padded_bytes_per_row_padding

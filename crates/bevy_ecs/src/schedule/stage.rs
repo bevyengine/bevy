@@ -90,7 +90,7 @@ pub struct SystemStage {
 
 impl SystemStage {
     pub fn new(executor: Box<dyn ParallelSystemExecutor>) -> Self {
-        SystemStage {
+        Self {
             world_id: None,
             executor,
             stage_run_criteria: Default::default(),

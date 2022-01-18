@@ -6,7 +6,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 pub struct RawWindowHandleWrapper(RawWindowHandle);
 
 impl RawWindowHandleWrapper {
-    pub(crate) fn new(handle: RawWindowHandle) -> Self {
+    pub(crate) const fn new(handle: RawWindowHandle) -> Self {
         Self(handle)
     }
 
@@ -14,7 +14,7 @@ impl RawWindowHandleWrapper {
     /// This returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`]. Some platforms
     /// have constraints on where/how this handle can be used. For example, some platforms don't support doing window
     /// operations off of the main thread. The caller must ensure the [`RawWindowHandle`] is only used in valid contexts.
-    pub unsafe fn get_handle(&self) -> HasRawWindowHandleWrapper {
+    pub const unsafe fn get_handle(&self) -> HasRawWindowHandleWrapper {
         HasRawWindowHandleWrapper(self.0)
     }
 }

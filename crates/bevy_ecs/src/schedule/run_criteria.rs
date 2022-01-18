@@ -223,7 +223,7 @@ impl IntoRunCriteria<RunCriteriaDescriptorOrLabel> for RunCriteriaDescriptor {
     }
 }
 
-impl IntoRunCriteria<BoxedSystem<(), ShouldRun>> for BoxedSystem<(), ShouldRun> {
+impl IntoRunCriteria<Self> for BoxedSystem<(), ShouldRun> {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(self))
     }
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl IntoRunCriteria<BoxedRunCriteriaLabel> for BoxedRunCriteriaLabel {
+impl IntoRunCriteria<Self> for BoxedRunCriteriaLabel {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Label(self)
     }
@@ -255,7 +255,7 @@ where
     }
 }
 
-impl IntoRunCriteria<RunCriteria> for RunCriteria {
+impl IntoRunCriteria<Self> for RunCriteria {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Label(self.label)
     }
@@ -408,7 +408,7 @@ impl System for RunOnce {
     type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<RunOnce>())
+        Cow::Borrowed(std::any::type_name::<Self>())
     }
 
     fn new_archetype(&mut self, _archetype: &Archetype) {}

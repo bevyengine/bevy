@@ -15,7 +15,7 @@ impl Font {
     pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, InvalidFont> {
         let font = FontVec::try_from_vec(font_data)?;
         let font = FontArc::new(font);
-        Ok(Font { font })
+        Ok(Self { font })
     }
 
     pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Image {

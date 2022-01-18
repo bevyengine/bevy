@@ -12,7 +12,7 @@ pub struct BindGroupLayout {
 
 impl BindGroupLayout {
     #[inline]
-    pub fn id(&self) -> BindGroupLayoutId {
+    pub const fn id(&self) -> BindGroupLayoutId {
         self.id
     }
 
@@ -24,7 +24,7 @@ impl BindGroupLayout {
 
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
-        BindGroupLayout {
+        Self {
             id: BindGroupLayoutId(Uuid::new_v4()),
             value: Arc::new(value),
         }

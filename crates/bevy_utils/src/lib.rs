@@ -90,7 +90,7 @@ impl<K, V> AHashExt for HashMap<K, V> {
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
+        Self::with_capacity_and_hasher(capacity, RandomState::default())
     }
 }
 
@@ -118,7 +118,7 @@ impl<K, V> AHashExt for StableHashMap<K, V> {
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        StableHashMap::with_capacity_and_hasher(capacity, FixedState::default())
+        Self::with_capacity_and_hasher(capacity, FixedState::default())
     }
 }
 
@@ -176,7 +176,7 @@ impl<K> AHashExt for HashSet<K> {
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        HashSet::with_capacity_and_hasher(capacity, RandomState::default())
+        Self::with_capacity_and_hasher(capacity, RandomState::default())
     }
 }
 
@@ -204,6 +204,6 @@ impl<K> AHashExt for StableHashSet<K> {
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        StableHashSet::with_capacity_and_hasher(capacity, FixedState::default())
+        Self::with_capacity_and_hasher(capacity, FixedState::default())
     }
 }

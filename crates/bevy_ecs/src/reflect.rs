@@ -82,7 +82,7 @@ impl ReflectComponent {
 
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
-        ReflectComponent {
+        Self {
             add_component: |world, entity, reflected_component| {
                 let mut component = C::from_world(world);
                 component.apply(reflected_component);
@@ -142,7 +142,7 @@ impl ReflectMapEntities {
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
-        ReflectMapEntities {
+        Self {
             map_entities: |world, entity_map| {
                 for entity in entity_map.values() {
                     if let Some(mut component) = world.get_mut::<C>(entity) {

@@ -20,7 +20,7 @@ pub struct Capsule {
 }
 impl Default for Capsule {
     fn default() -> Self {
-        Capsule {
+        Self {
             radius: 0.5,
             rings: 0,
             depth: 1.0,
@@ -45,7 +45,7 @@ pub enum CapsuleUvProfile {
 
 impl Default for CapsuleUvProfile {
     fn default() -> Self {
-        CapsuleUvProfile::Aspect
+        Self::Aspect
     }
 }
 
@@ -180,7 +180,7 @@ impl From<Capsule> for Mesh {
             // For texture coordinates.
             let t_tex_fac = ip1f * to_tex_vertical;
             let cmpl_tex_fac = 1.0 - t_tex_fac;
-            let t_tex_north = cmpl_tex_fac + vt_aspect_north * t_tex_fac;
+            let t_tex_north = vt_aspect_north.mul_add(t_tex_fac, cmpl_tex_fac);
             let t_tex_south = cmpl_tex_fac * vt_aspect_south;
 
             let i_lonsp1 = i * lonsp1;
@@ -225,7 +225,7 @@ impl From<Capsule> for Mesh {
             for h in 1..ringsp1 {
                 let fac = h as f32 * to_fac;
                 let cmpl_fac = 1.0 - fac;
-                let t_texture = cmpl_fac * vt_aspect_north + fac * vt_aspect_south;
+                let t_texture = cmpl_fac.mul_add(vt_aspect_north, fac * vt_aspect_south);
                 let z = half_depth - depth * fac;
 
                 for j in 0..lonsp1 {
@@ -369,10 +369,10 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vts);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
+        mesh.set_attribute(Self::ATTRIBUTE_POSITION, vs);
+        mesh.set_attribute(Self::ATTRIBUTE_NORMAL, vns);
+        mesh.set_attribute(Self::ATTRIBUTE_UV_0, vts);
         mesh.set_indices(Some(Indices::U32(tris)));
         mesh
     }
