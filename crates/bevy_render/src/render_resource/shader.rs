@@ -357,9 +357,8 @@ impl ShaderProcessor {
             Source::SpirV(source) => {
                 if shader_defs.is_empty() {
                     return Ok(ProcessedShader::SpirV(source.clone()));
-                } else {
-                    return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
                 }
+                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
             }
         };
 

@@ -133,14 +133,14 @@ impl<'a> TrackedRenderPass<'a> {
                 dynamic_uniform_indices
             );
             return;
-        } else {
-            trace!(
-                "set bind_group {}: {:?} ({:?})",
-                index,
-                bind_group,
-                dynamic_uniform_indices
-            );
         }
+        trace!(
+            "set bind_group {}: {:?} ({:?})",
+            index,
+            bind_group,
+            dynamic_uniform_indices
+        );
+
         self.pass
             .set_bind_group(index as u32, bind_group, dynamic_uniform_indices);
         self.state
@@ -167,14 +167,14 @@ impl<'a> TrackedRenderPass<'a> {
                 offset
             );
             return;
-        } else {
-            trace!(
-                "set vertex buffer {}: {:?} ({})",
-                slot_index,
-                buffer_slice.id(),
-                offset
-            );
         }
+        trace!(
+            "set vertex buffer {}: {:?} ({})",
+            slot_index,
+            buffer_slice.id(),
+            offset
+        );
+
         self.pass
             .set_vertex_buffer(slot_index as u32, *buffer_slice);
         self.state
@@ -201,9 +201,8 @@ impl<'a> TrackedRenderPass<'a> {
                 offset
             );
             return;
-        } else {
-            trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         }
+        trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         self.pass.set_index_buffer(*buffer_slice, index_format);
         self.state
             .set_index_buffer(buffer_slice.id(), offset, index_format);
