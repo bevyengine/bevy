@@ -129,8 +129,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[u8; 4]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Uint8x4(value) => Ok(value),
-            VertexAttributeValues::Unorm8x4(value) => Ok(value),
+            VertexAttributeValues::Uint8x4(value) | VertexAttributeValues::Unorm8x4(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -141,8 +142,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[i8; 4]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Sint8x4(value) => Ok(value),
-            VertexAttributeValues::Snorm8x4(value) => Ok(value),
+            VertexAttributeValues::Sint8x4(value) | VertexAttributeValues::Snorm8x4(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -153,8 +155,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[u8; 2]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Uint8x2(value) => Ok(value),
-            VertexAttributeValues::Unorm8x2(value) => Ok(value),
+            VertexAttributeValues::Uint8x2(value) | VertexAttributeValues::Unorm8x2(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -165,8 +168,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[i8; 2]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Sint8x2(value) => Ok(value),
-            VertexAttributeValues::Snorm8x2(value) => Ok(value),
+            VertexAttributeValues::Sint8x2(value) | VertexAttributeValues::Snorm8x2(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -177,8 +181,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[i16; 4]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Sint16x4(value) => Ok(value),
-            VertexAttributeValues::Snorm16x4(value) => Ok(value),
+            VertexAttributeValues::Sint16x4(value) | VertexAttributeValues::Snorm16x4(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -189,8 +194,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[u16; 4]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Uint16x4(value) => Ok(value),
-            VertexAttributeValues::Unorm16x4(value) => Ok(value),
+            VertexAttributeValues::Uint16x4(value) | VertexAttributeValues::Unorm16x4(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }
@@ -201,8 +207,9 @@ impl TryFrom<VertexAttributeValues> for Vec<[u16; 2]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
-            VertexAttributeValues::Uint16x2(value) => Ok(value),
-            VertexAttributeValues::Unorm16x2(value) => Ok(value),
+            VertexAttributeValues::Uint16x2(value) | VertexAttributeValues::Unorm16x2(value) => {
+                Ok(value)
+            }
             _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
     }

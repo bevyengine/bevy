@@ -704,12 +704,8 @@ impl MulAssign<f32> for Color {
         match self {
             Self::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs;
-                *green *= rhs;
-                *blue *= rhs;
             }
-            Self::RgbaLinear {
+            | Self::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs;
@@ -780,13 +776,8 @@ impl MulAssign<Vec4> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
-                *alpha *= rhs.w;
             }
-            Self::RgbaLinear {
+            | Self::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -822,13 +813,8 @@ impl Mul<Vec3> for Color {
                 green,
                 blue,
                 alpha,
-            } => Self::Rgba {
-                red: red * rhs.x,
-                green: green * rhs.y,
-                blue: blue * rhs.z,
-                alpha,
-            },
-            Self::RgbaLinear {
+            }
+            | Self::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -859,12 +845,8 @@ impl MulAssign<Vec3> for Color {
         match self {
             Self::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
             }
-            Self::RgbaLinear {
+            | Self::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs.x;
@@ -895,13 +877,8 @@ impl Mul<[f32; 4]> for Color {
                 green,
                 blue,
                 alpha,
-            } => Self::Rgba {
-                red: red * rhs[0],
-                green: green * rhs[1],
-                blue: blue * rhs[2],
-                alpha: alpha * rhs[3],
-            },
-            Self::RgbaLinear {
+            }
+            | Self::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -935,13 +912,8 @@ impl MulAssign<[f32; 4]> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
-                *alpha *= rhs[3];
             }
-            Self::RgbaLinear {
+            | Self::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -977,13 +949,8 @@ impl Mul<[f32; 3]> for Color {
                 green,
                 blue,
                 alpha,
-            } => Self::Rgba {
-                red: red * rhs[0],
-                green: green * rhs[1],
-                blue: blue * rhs[2],
-                alpha,
-            },
-            Self::RgbaLinear {
+            }
+            | Self::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -1014,12 +981,8 @@ impl MulAssign<[f32; 3]> for Color {
         match self {
             Self::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
             }
-            Self::RgbaLinear {
+            | Self::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs[0];

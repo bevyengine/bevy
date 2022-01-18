@@ -130,13 +130,8 @@ where
             .transition
         {
             Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            | Some(StateTransition::ExitingToResume(_, ref relevant))
+            | Some(StateTransition::ExitingFull(_, ref relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }

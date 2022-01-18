@@ -54,8 +54,7 @@ impl AddAssign<f32> for Val {
     fn add_assign(&mut self, rhs: f32) {
         match self {
             Self::Undefined | Self::Auto => {}
-            Self::Px(value) => *value += rhs,
-            Self::Percent(value) => *value += rhs,
+            Self::Px(value) | Self::Percent(value) => *value += rhs,
         }
     }
 }

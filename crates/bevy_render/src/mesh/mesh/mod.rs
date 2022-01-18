@@ -331,36 +331,30 @@ pub trait VertexFormatSize {
 impl VertexFormatSize for wgpu::VertexFormat {
     fn get_size(self) -> u64 {
         match self {
-            VertexFormat::Uint8x2 => 2,
-            VertexFormat::Uint8x4 => 4,
-            VertexFormat::Sint8x2 => 2,
-            VertexFormat::Sint8x4 => 4,
-            VertexFormat::Unorm8x2 => 2,
-            VertexFormat::Unorm8x4 => 4,
-            VertexFormat::Snorm8x2 => 2,
-            VertexFormat::Snorm8x4 => 4,
-            VertexFormat::Uint16x2 => 2 * 2,
-            VertexFormat::Uint16x4 => 2 * 4,
-            VertexFormat::Sint16x2 => 2 * 2,
-            VertexFormat::Sint16x4 => 2 * 4,
-            VertexFormat::Unorm16x2 => 2 * 2,
-            VertexFormat::Unorm16x4 => 2 * 4,
-            VertexFormat::Snorm16x2 => 2 * 2,
-            VertexFormat::Snorm16x4 => 2 * 4,
-            VertexFormat::Float16x2 => 2 * 2,
-            VertexFormat::Float16x4 => 2 * 4,
-            VertexFormat::Float32 => 4,
-            VertexFormat::Float32x2 => 4 * 2,
-            VertexFormat::Float32x3 => 4 * 3,
-            VertexFormat::Float32x4 => 4 * 4,
-            VertexFormat::Uint32 => 4,
-            VertexFormat::Uint32x2 => 4 * 2,
-            VertexFormat::Uint32x3 => 4 * 3,
-            VertexFormat::Uint32x4 => 4 * 4,
-            VertexFormat::Sint32 => 4,
-            VertexFormat::Sint32x2 => 4 * 2,
-            VertexFormat::Sint32x3 => 4 * 3,
-            VertexFormat::Sint32x4 => 4 * 4,
+            VertexFormat::Uint8x2
+            | VertexFormat::Sint8x2
+            | VertexFormat::Unorm8x2
+            | VertexFormat::Snorm8x2 => 2,
+            VertexFormat::Uint8x4
+            | VertexFormat::Sint8x4
+            | VertexFormat::Unorm8x4
+            | VertexFormat::Snorm8x4
+            | VertexFormat::Float32
+            | VertexFormat::Uint32
+            | VertexFormat::Sint32 => 4,
+            VertexFormat::Uint16x2
+            | VertexFormat::Sint16x2
+            | VertexFormat::Unorm16x2
+            | VertexFormat::Snorm16x2
+            | VertexFormat::Float16x2 => 2 * 2,
+            VertexFormat::Uint16x4
+            | VertexFormat::Sint16x4
+            | VertexFormat::Unorm16x4
+            | VertexFormat::Snorm16x4
+            | VertexFormat::Float16x4 => 2 * 4,
+            VertexFormat::Float32x2 | VertexFormat::Uint32x2 | VertexFormat::Sint32x2 => 4 * 2,
+            VertexFormat::Float32x3 | VertexFormat::Sint32x3 | VertexFormat::Uint32x3 => 4 * 3,
+            VertexFormat::Float32x4 | VertexFormat::Uint32x4 | VertexFormat::Sint32x4 => 4 * 4,
             VertexFormat::Float64 => 8,
             VertexFormat::Float64x2 => 8 * 2,
             VertexFormat::Float64x3 => 8 * 3,
