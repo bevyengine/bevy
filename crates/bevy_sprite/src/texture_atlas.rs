@@ -46,7 +46,7 @@ impl Default for TextureAtlasSprite {
 }
 
 impl TextureAtlasSprite {
-    pub fn new(index: usize) -> TextureAtlasSprite {
+    pub fn new(index: usize) -> Self {
         Self {
             index,
             ..Default::default()

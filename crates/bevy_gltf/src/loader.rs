@@ -596,7 +596,7 @@ fn load_node(
             }
         }
     });
-    gltf_error.map_or(Ok(()), |err| Err(err))
+    gltf_error.map_or(Ok(()), Err)
 }
 
 /// Returns the label for the `mesh`.

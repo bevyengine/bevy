@@ -104,7 +104,7 @@ impl SpritePipelineKey {
         Self::from_bits(msaa_bits).unwrap()
     }
 
-    pub fn msaa_samples(&self) -> u32 {
+    pub const fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
     }
 }
