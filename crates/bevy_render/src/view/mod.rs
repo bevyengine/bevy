@@ -17,7 +17,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{uvec2, Mat4, UVec2, Vec3};
 use bevy_transform::components::GlobalTransform;
 
 pub struct ViewPlugin;
@@ -109,6 +109,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     pub view: TextureView,
     pub sampled_target: Option<TextureView>,
+    pub size: UVec2,
 }
 
 impl ViewTarget {
@@ -217,6 +218,7 @@ fn prepare_view_targets(
         commands.entity(entity).insert(ViewTarget {
             view: swap_chain_texture.clone(),
             sampled_target,
+            size: uvec2(window.physical_width, window.physical_height),
         });
     }
 }
