@@ -15,7 +15,7 @@ pub fn impl_struct(
             field
                 .ident
                 .as_ref()
-                .map(|i| i.to_string())
+                .map(Ident::to_string)
                 .unwrap_or_else(|| index.to_string())
         })
         .collect::<Vec<String>>();

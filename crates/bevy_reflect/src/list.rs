@@ -28,7 +28,7 @@ pub trait List: Reflect {
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.type_name().to_string(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
+            values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
 }

@@ -113,7 +113,7 @@ where
     // This extends each batch using the flatten. The other option is to
     // turn each IntoIter into its own batch.
     fn next_batch(&mut self) -> Option<std::iter::Flatten<B>> {
-        self.iter.next_batch().map(|b| b.flatten())
+        self.iter.next_batch().map(B::flatten)
     }
 }
 
@@ -170,7 +170,7 @@ where
     T: 'a + Copy,
 {
     fn next_batch(&mut self) -> Option<std::iter::Copied<B>> {
-        self.iter.next_batch().map(|b| b.copied())
+        self.iter.next_batch().map(B::copied)
     }
 }
 
@@ -186,7 +186,7 @@ where
     T: 'a + Copy,
 {
     fn next_batch(&mut self) -> Option<std::iter::Cloned<B>> {
-        self.iter.next_batch().map(|b| b.cloned())
+        self.iter.next_batch().map(B::cloned)
     }
 }
 
@@ -202,7 +202,7 @@ where
     P: ParallelIterator<B> + Clone,
 {
     fn next_batch(&mut self) -> Option<B> {
-        match self.curr.as_mut().and_then(|c| c.next_batch()) {
+        match self.curr.as_mut().and_then(P::next_batch) {
             batch @ Some(_) => batch,
             None => {
                 self.curr = Some(self.iter.clone());
