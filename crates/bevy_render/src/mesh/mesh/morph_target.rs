@@ -77,7 +77,7 @@ impl MorphTarget {
         let attribute_offset = float_offset * std::mem::size_of::<f32>();
         let attribute_size = float_count * std::mem::size_of::<f32>();
         if let Some(attribute_values) = src.as_ref() {
-            let attributes_bytes = cast_slice(&attribute_values);
+            let attributes_bytes = cast_slice(attribute_values);
             for (vertex_index, attribute_bytes) in
                 attributes_bytes.chunks_exact(attribute_size).enumerate()
             {
