@@ -1,19 +1,16 @@
 use crate::{
     gamepad::{
-        GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw, GamepadEventType,
-        GamepadSettings, Gamepads, ALL_AXIS_TYPES, ALL_BUTTON_TYPES,
+        GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
+        GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
     },
     Axis, Input,
 };
 use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::tracing::info;
+use strum::IntoEnumIterator;
 
 /// Monitors gamepad connection and disconnection events and updates the [`Gamepads`] resource accordingly.
-///
-/// ## Schedule
-///
-/// By default, this system runs during `CoreStage::PreUpdate` when added via the [`InputPlugin`](crate::InputPlugin).
 ///
 /// ## Note
 ///
@@ -44,7 +41,8 @@ pub fn gamepad_connection_system(
 ///
 /// ## Differences
 ///
-/// The main difference between the events and the resources is that the latter have convenient functions
+/// The main difference between the events and the resources is that the latter allows you to check specifc
+/// buttons or axes, rather than reading the events one at a time. This is done through convenient functions
 /// like [`Input::pressed`], [`Input::just_pressed`], and [`Input::just_released`] or [`Axis::get`], and
 /// [`Axis::set`].
 pub fn gamepad_event_system(
@@ -60,24 +58,24 @@ pub fn gamepad_event_system(
         match event.event_type {
             GamepadEventType::Connected => {
                 events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
+                for button_type in GamepadButtonType::iter() {
+                    let gamepad_button = GamepadButton::new(event.gamepad, button_type);
                     button_input.reset(gamepad_button);
                     button_axis.set(gamepad_button, 0.0);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.set(GamepadAxis::new(event.gamepad, *axis_type), 0.0);
+                for axis_type in GamepadAxisType::iter() {
+                    axis.set(GamepadAxis::new(event.gamepad, axis_type), 0.0);
                 }
             }
             GamepadEventType::Disconnected => {
                 events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
+                for button_type in GamepadButtonType::iter() {
+                    let gamepad_button = GamepadButton::new(event.gamepad, button_type);
                     button_input.reset(gamepad_button);
                     button_axis.remove(gamepad_button);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.remove(GamepadAxis::new(event.gamepad, *axis_type));
+                for axis_type in GamepadAxisType::iter() {
+                    axis.remove(GamepadAxis::new(event.gamepad, axis_type));
                 }
             }
             GamepadEventType::AxisChanged(axis_type, value) => {

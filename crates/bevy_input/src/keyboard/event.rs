@@ -1,4 +1,4 @@
-use crate::{keyboard::KeyCode, ElementState};
+use crate::{keyboard::KeyCode, ButtonState};
 
 /// A keyboard input event.
 ///
@@ -22,7 +22,7 @@ pub struct KeyboardInput {
     /// The key code of the key.
     pub key_code: Option<KeyCode>,
     /// The press state of the key.
-    pub state: ElementState,
+    pub state: ButtonState,
 }
 
 impl KeyboardInput {
@@ -32,17 +32,17 @@ impl KeyboardInput {
     ///
     /// ```
     /// # use bevy_input::{
-    /// #     ElementState,
+    /// #     ButtonState,
     /// #     keyboard::{KeyboardInput, KeyCode}
     /// # };
     /// #
     /// let keyboard_input = KeyboardInput::new(
     ///     48,
     ///     Some(KeyCode::B),
-    ///     ElementState::Pressed,
+    ///     ButtonState::Pressed,
     /// );
     /// ```
-    pub fn new(scan_code: u32, key_code: Option<KeyCode>, state: ElementState) -> Self {
+    pub fn new(scan_code: u32, key_code: Option<KeyCode>, state: ButtonState) -> Self {
         Self {
             scan_code,
             key_code,

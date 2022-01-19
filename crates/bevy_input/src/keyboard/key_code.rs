@@ -1,21 +1,17 @@
+use strum_macros::EnumIter;
+
 /// The key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Bevy`
+/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `bevy`
 /// resource. The resource stores the data of the buttons of a keyboard and can be accessed
 /// inside of a system.
-///
-/// ## Access
-///
-/// To access the resource use one of the following:
-/// - Non-mutable access of the keyboard inputs: `Res<Input<KeyCode>>`
-/// - Mutable access of the keyboard inputs: `ResMut<Input<KeyCode>>`
 ///
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {

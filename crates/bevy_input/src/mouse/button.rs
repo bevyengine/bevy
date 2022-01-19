@@ -2,7 +2,7 @@
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Bevy`
+/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `bevy`
 /// resource. The resource stores the data of the buttons of a mouse and can be accessed
 /// inside of a system.
 ///

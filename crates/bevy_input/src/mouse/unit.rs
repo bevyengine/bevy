@@ -1,9 +1,7 @@
-/// A scroll unit of a mouse wheel.
+/// A description of how a value of a [`MouseWheel`](crate::mouse::MouseWheel) event has to be interpreted.
 ///
-/// ## Usage
-///
-/// It is used to determine how a value of a [`MouseWheel`](crate::mouse::MouseWheel) event
-/// has to be interpreted.
+/// The value of the event can either be interpreted as the amount of lines or the amount of pixels
+/// to scroll.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseScrollUnit {
     /// The line scroll unit.

@@ -3,8 +3,7 @@ use std::hash::Hash;
 
 /// Stores the position data of the input devices of type `T`.
 ///
-/// Values are stored as `f32` values, which range from [`Axis::MIN`] to [`Axis::MAX`].
-/// The valid range is from -1.0 to 1.0, inclusive.
+/// Values are stored as `f32` values, which range from -1.0 to 1.0, inclusive.
 #[derive(Debug)]
 pub struct Axis<T> {
     /// The position data of the input devices.
@@ -26,19 +25,13 @@ impl<T> Axis<T>
 where
     T: Copy + Eq + Hash,
 {
-    /// The minimum axis value.
-    pub const MIN: f32 = -1.0;
-
-    /// The maximum axis value.
-    pub const MAX: f32 = 1.0;
-
     /// Inserts a position data for an input device, restricting the position data to an interval `min..=max`.
     ///
     /// If the `input_device`:
     /// - was present before, the position data is updated, and the old value is returned.
     /// - wasn't present before, [None] is returned.
     pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
-        let new_position_data = position_data.clamp(Self::MIN, Self::MAX);
+        let new_position_data = position_data.clamp(-1.0, 1.0);
         self.axis_data.insert(input_device, new_position_data)
     }
 

@@ -5,16 +5,12 @@ use crate::gamepad::{Gamepad, GamepadButtonType};
 /// ## Usage
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) and [`Axis`](crate::Axis)
-/// to create `Bevy` resources. These resources store the data of the buttons and axes of a gamepad
+/// to create `bevy` resources. These resources store the data of the buttons and axes of a gamepad
 /// and can be accessed inside of a system.
 ///
 /// ## Access
 ///
-/// To access the resources use one of the following:
-/// - Non-mutable access of the buttons: `Res<Input<GamepadButton>>`
-/// - Mutable access of the buttons: `ResMut<Input<GamepadButton>>`
-/// - Non-mutable access of the axes: `Res<Axis<GamepadButton>>`
-/// - Mutable access of the axes: `ResMut<Axis<GamepadButton>>`
+/// To access the data you can use the [`Input<GamepadButton>`] or the [`Axis<GamepadButton>`] resource.
 ///
 /// ## Updating
 ///

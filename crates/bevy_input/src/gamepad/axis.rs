@@ -4,14 +4,8 @@ use crate::gamepad::{Gamepad, GamepadAxisType};
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Axis`](crate::Axis) to create a `Bevy` resource.
+/// It is used as the generic `T` value of an [`Axis`](crate::Axis) to create a `bevy` resource.
 /// This resource stores the data of the  axes of a gamepad and can be accessed inside of a system.
-///
-/// ## Access
-///
-/// To access the resource use one of the following:
-/// - Non-mutable access of the axes: `Res<Axis<GamepadAxis>>`
-/// - Mutable access of the axes: `ResMut<Axis<GamepadAxis>>`
 ///
 /// ## Updating
 ///

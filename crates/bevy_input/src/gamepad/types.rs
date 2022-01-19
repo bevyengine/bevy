@@ -1,47 +1,4 @@
-/// An array of every [`GamepadButtonType`].
-///
-/// ## Usage
-///
-/// This is used inside of the [`gamepad_event_system`](crate::gamepad::gamepad_event_system)
-/// to reset, set or remove the values of every [`GamepadButton`](crate::gamepad::GamepadButton).
-pub(crate) const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
-    GamepadButtonType::South,
-    GamepadButtonType::East,
-    GamepadButtonType::North,
-    GamepadButtonType::West,
-    GamepadButtonType::C,
-    GamepadButtonType::Z,
-    GamepadButtonType::LeftTrigger,
-    GamepadButtonType::LeftTrigger2,
-    GamepadButtonType::RightTrigger,
-    GamepadButtonType::RightTrigger2,
-    GamepadButtonType::Select,
-    GamepadButtonType::Start,
-    GamepadButtonType::Mode,
-    GamepadButtonType::LeftThumb,
-    GamepadButtonType::RightThumb,
-    GamepadButtonType::DPadUp,
-    GamepadButtonType::DPadDown,
-    GamepadButtonType::DPadLeft,
-    GamepadButtonType::DPadRight,
-];
-
-/// An array of every [`GamepadAxisType`].
-///
-/// ## Usage
-///
-/// This is used inside of the [`gamepad_event_system`](crate::gamepad::gamepad_event_system)
-/// to set or remove the values of every [`GamepadAxis`](crate::gamepad::GamepadAxis).
-pub(crate) const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
-    GamepadAxisType::LeftStickX,
-    GamepadAxisType::LeftStickY,
-    GamepadAxisType::LeftZ,
-    GamepadAxisType::RightStickX,
-    GamepadAxisType::RightStickY,
-    GamepadAxisType::RightZ,
-    GamepadAxisType::DPadX,
-    GamepadAxisType::DPadY,
-];
+use strum_macros::EnumIter;
 
 /// A type of a [`GamepadButton`](crate::gamepad::GamepadButton).
 ///
@@ -49,7 +6,7 @@ pub(crate) const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadEventType::ButtonChanged`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadButtonType {
     /// The bottom action button of the action pad (i.e. PS: Cross, Xbox: A).
@@ -103,7 +60,7 @@ pub enum GamepadButtonType {
 ///
 /// This is used to determine which axis has changed its value when receiving a
 /// [`GamepadEventType::ButtonChanged`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadAxisType {
     /// The horizontal value of the left stick.
@@ -127,11 +84,6 @@ pub enum GamepadAxisType {
 }
 
 /// A type of a [`GamepadEvent`](crate::gamepad::GamepadEvent).
-///
-/// ## Usage
-///
-/// This is used to determine what happened with the gamepad of a
-/// [`GamepadEvent`](crate::gamepad::GamepadEvent).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadEventType {

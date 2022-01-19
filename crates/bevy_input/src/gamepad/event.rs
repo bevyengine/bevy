@@ -4,17 +4,15 @@ use crate::gamepad::{Gamepad, GamepadEventType};
 ///
 /// This event is the translated version of the [`GamepadEventRaw`].
 /// It is available to the end user and can be used for game logic.
+/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] is that the
+/// latter respects user defined [`GamepadSettings`](crate::gamepad::GamepadSettings)
+/// for the gamepad inputs.
 ///
 /// ## Access
 ///
 /// To access or send gamepad events use one of the following:
 /// - To access gamepad events: `EventReader<GamepadEvent>`
 /// - To send gamepad events: `EventWriter<GamepadEvent>`
-///
-/// ## Differences
-///
-/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] is that the latter respects
-/// user defined [`GamepadSettings`](crate::gamepad::GamepadSettings) for the gamepad inputs.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEvent {

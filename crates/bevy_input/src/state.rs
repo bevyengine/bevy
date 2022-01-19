@@ -1,4 +1,4 @@
-/// The current state of an element.
+/// The current state of a button.
 ///
 /// ## Usage
 ///
@@ -6,27 +6,27 @@
 /// [`MouseButtonInput`](crate::mouse::MouseButtonInput).
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum ElementState {
-    /// Represents a pressed element or key.
+pub enum ButtonState {
+    /// Represents a pressed button.
     Pressed,
-    /// Represents a released element or key.
+    /// Represents a released button.
     Released,
 }
 
-impl ElementState {
-    /// Returns `true` if the element is pressed.
+impl ButtonState {
+    /// Returns `true` if the button is pressed.
     pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
+        matches!(self, ButtonState::Pressed)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ElementState;
+    use crate::ButtonState;
 
     #[test]
     fn test_is_pressed() {
-        assert!(ElementState::Pressed.is_pressed());
-        assert!(!ElementState::Released.is_pressed());
+        assert!(ButtonState::Pressed.is_pressed());
+        assert!(!ButtonState::Released.is_pressed());
     }
 }

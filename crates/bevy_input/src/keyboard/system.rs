@@ -1,6 +1,6 @@
 use crate::{
     keyboard::{KeyCode, KeyboardInput},
-    ElementState, Input,
+    ButtonState, Input,
 };
 use bevy_app::EventReader;
 use bevy_ecs::system::ResMut;
@@ -19,8 +19,8 @@ pub fn keyboard_input_system(
     for event in keyboard_input_events.iter() {
         if let Some(key_code) = event.key_code {
             match event.state {
-                ElementState::Pressed => keyboard_input.press(key_code),
-                ElementState::Released => keyboard_input.release(key_code),
+                ButtonState::Pressed => keyboard_input.press(key_code),
+                ButtonState::Released => keyboard_input.release(key_code),
             }
         }
     }

@@ -1,12 +1,12 @@
-//! This crate contains the input functionality of the `Bevy` game engine.
+//! This crate contains the input functionality of the `bevy` game engine.
 //!
 //! ## Supported input devices
 //!
-//! `Bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+//! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
 //!
 //! ## How to use the input functionality
 //!
-//! To use the input functionality provided by `Bevy` you can add the [`InputPlugin`](crate::InputPlugin)
+//! To use the input functionality provided by `bevy` you can add the [`InputPlugin`](crate::InputPlugin)
 //! to your [`App`](bevy_app::App) using the `add_plugin` function. This plugin is also bundled into
 //! the `DefaultPlugins` bundle, which can be added to your [`App`](bevy_app::App) using the `add_plugins`
 //! function.

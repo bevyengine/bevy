@@ -1,6 +1,6 @@
 use crate::{
     mouse::{MouseButton, MouseScrollUnit},
-    ElementState,
+    ButtonState,
 };
 use bevy_math::Vec2;
 
@@ -24,7 +24,7 @@ pub struct MouseButtonInput {
     /// The mouse button assigned to the event.
     pub button: MouseButton,
     /// The state of the [`MouseButton`].
-    pub state: ElementState,
+    pub state: ButtonState,
 }
 
 impl MouseButtonInput {
@@ -34,16 +34,16 @@ impl MouseButtonInput {
     ///
     /// ```
     /// # use bevy_input::{
-    /// #     ElementState,
+    /// #     ButtonState,
     /// #     mouse::{MouseButtonInput, MouseButton}
     /// # };
     /// #
     /// let mouse_button_input = MouseButtonInput::new(
     ///     MouseButton::Left,
-    ///     ElementState::Pressed,
+    ///     ButtonState::Pressed,
     /// );
     /// ```
-    pub fn new(button: MouseButton, state: ElementState) -> Self {
+    pub fn new(button: MouseButton, state: ButtonState) -> Self {
         Self { button, state }
     }
 }

@@ -1,25 +1,18 @@
 use crate::gamepad::{GamepadAxis, GamepadButton};
 use bevy_utils::HashMap;
 
-/// A setting for all [`Gamepad`](crate::gamepad::Gamepad)s.
+/// Settings for all [`Gamepad`](crate::gamepad::Gamepad)s.
 ///
 /// ## Usage
 ///
-/// It is used to create a `Bevy` resource that stores the settings of every [`GamepadButton`] and
+/// It is used to create a `bevy` resource that stores the settings of every [`GamepadButton`] and
 /// [`GamepadAxis`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
 /// are defined, the default settings of each are used as a fallback accordingly.
 ///
-/// ## Access
-///
-/// To access the resource use one of the following:
-/// - Non-mutable access of the gamepad settings: `Res<GamepadSettings>`
-/// - Mutable access of the gamepad settings: `ResMut<GamepadSettings>`
-///
-/// ## Usage
+/// ## Note
 ///
 /// The [`GamepadSettings`] are used inside of the [`gamepad_event_system`][crate::gamepad::gamepad_event_system],
-/// but are never written to inside of `Bevy`. To insert user defined settings it is required to mutably access
-/// the resource and insert the settings as needed.
+/// but are never written to inside of `bevy`. To modify these settings, mutate the corresponding resource.
 #[derive(Default, Debug)]
 pub struct GamepadSettings {
     /// The default button settings.
@@ -95,7 +88,7 @@ impl GamepadSettings {
     }
 }
 
-/// A setting for a [`GamepadButton`].
+/// Settings for a [`GamepadButton`].
 ///
 /// ## Usage
 ///
@@ -140,7 +133,7 @@ impl ButtonSettings {
     }
 }
 
-/// A setting for a [`GamepadAxis`].
+/// Settings for a [`GamepadAxis`].
 ///
 /// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for an axis.
@@ -216,7 +209,7 @@ impl AxisSettings {
     }
 }
 
-/// A setting for a [`GamepadButton`].
+/// Settings for a [`GamepadButton`].
 ///
 /// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for a button axis.

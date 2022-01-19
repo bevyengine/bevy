@@ -1,6 +1,6 @@
 use crate::{
     mouse::{MouseButton, MouseButtonInput},
-    ElementState, Input,
+    ButtonState, Input,
 };
 use bevy_app::EventReader;
 use bevy_ecs::system::ResMut;
@@ -18,8 +18,8 @@ pub fn mouse_button_input_system(
     mouse_button_input.clear();
     for event in mouse_button_input_events.iter() {
         match event.state {
-            ElementState::Pressed => mouse_button_input.press(event.button),
-            ElementState::Released => mouse_button_input.release(event.button),
+            ButtonState::Pressed => mouse_button_input.press(event.button),
+            ButtonState::Released => mouse_button_input.release(event.button),
         }
     }
 }

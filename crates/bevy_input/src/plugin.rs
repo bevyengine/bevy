@@ -12,6 +12,15 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 
 /// A [`Plugin`] that adds keyboard, mouse, gamepad, and touch input support to an [`App`].
+///
+/// ## Schedule
+///
+/// This plugin contains the following systems, which run during the [`CoreStage::PreUpdate`]:
+/// - [`keyboard_input_system`] labeled [`InputSystem`]
+/// - [`mouse_button_input_system`] labeled [`InputSystem`]
+/// - [`gamepad_event_system`] labeled [`InputSystem`]
+/// - [`touch_screen_input_system`] labeled [`InputSystem`]
+/// - [`gamepad_connection_system`] runs after systems labeled [`InputSystem`]
 #[derive(Default)]
 pub struct InputPlugin;
 

@@ -10,7 +10,7 @@ use bevy_utils::HashSet;
 ///
 /// ## Note
 ///
-/// The `ID` of a gamepad is valid throughout a whole session.
+/// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamepad {
@@ -37,13 +37,7 @@ impl Gamepad {
 ///
 /// ## Usage
 ///
-/// It is used to create a `Bevy` resource that stores all of the currently connected [`Gamepad`]s.
-///
-/// ## Access
-///
-/// To access the resource use one of the following:
-/// - Non-mutable access of the gamepads: `Res<Gamepads>`
-/// - Mutable access of the gamepads: `ResMut<Gamepads>`
+/// Stored in a `bevy` resource which tracks all of the currently connected [`Gamepad`]s.
 ///
 /// ## Updating
 ///

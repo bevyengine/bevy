@@ -8,7 +8,7 @@ use bevy_utils::HashMap;
 ///
 /// It is used to store the position and force of a touch input and also the `id` of the finger.
 /// The data of the touch input comes from the [`TouchInput`] event and is being stored
-/// inside of the [`Touches`] `Bevy` resource.
+/// inside of the [`Touches`] `bevy` resource.
 #[derive(Debug, Clone, Copy)]
 pub struct Touch {
     /// The id of the touch input.
@@ -99,7 +99,7 @@ impl From<&TouchInput> for Touch {
 ///
 /// ## Usage
 ///
-/// It is used to create a `Bevy` resource that stores the data of the touches on a touchscreen
+/// It is used to create a `bevy` resource that stores the data of the touches on a touchscreen
 /// and can be accessed inside of a system.
 ///
 /// ## Access
