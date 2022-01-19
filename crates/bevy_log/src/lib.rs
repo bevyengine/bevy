@@ -5,7 +5,7 @@
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
 //!
-//! By default, the [`LogPlugin`] from this crate are included in Bevy's `DefaultPlugins`
+//! By default, the [`LogPlugin`] from this crate is included in Bevy's `DefaultPlugins`
 //! and the logging macros can be used out of the box, if used.
 //!
 //! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
