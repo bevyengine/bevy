@@ -10,7 +10,7 @@ use crate::gamepad::{Gamepad, GamepadButtonType};
 ///
 /// ## Access
 ///
-/// To access the data you can use the [`Input<GamepadButton>`] or the [`Axis<GamepadButton>`] resource.
+/// To access the data you can use the [`Input<GamepadButton>`](crate::Input<GamepadButton>) or [`Axis<GamepadButton>`](crate::Axis<GamepadButton>) resource.
 ///
 /// ## Updating
 ///
