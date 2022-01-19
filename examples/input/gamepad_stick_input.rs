@@ -13,9 +13,6 @@ struct Crosshair;
 #[derive(Component)]
 struct CoordinateText;
 
-#[derive(Component)]
-struct DeadzoneBox;
-
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -103,17 +100,15 @@ fn setup(
         ..Default::default()
     });
     // Spawn deadzone box
-    commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
-                color: DEADZONE_COLOR,
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(deadzone_box_midpoint, deadzone_box_midpoint, 0.1),
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
+            color: DEADZONE_COLOR,
             ..Default::default()
-        })
-        .insert(DeadzoneBox);
+        },
+        transform: Transform::from_xyz(deadzone_box_midpoint, deadzone_box_midpoint, 0.1),
+        ..Default::default()
+    });
 
     // Spawn text
     let font = asset_server.load(FONT);
