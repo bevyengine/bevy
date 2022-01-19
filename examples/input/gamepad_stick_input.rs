@@ -4,6 +4,8 @@ const WINDOW_SIZE: f32 = 300.0;
 const CROSSHAIR_SIZE: f32 = 16.0;
 const FONT: &str = "fonts/FiraMono-Medium.ttf";
 const FONT_SIZE: f32 = 18.0;
+const LIVEZONE_COLOR: Color = Color::GRAY;
+const DEADZONE_COLOR: Color = Color::rgb(0.4, 0.4, 0.4);
 
 #[derive(Component)]
 struct Crosshair;
@@ -22,7 +24,7 @@ fn main() {
             height: WINDOW_SIZE,
             ..Default::default()
         })
-        .insert_resource(ClearColor(Color::GRAY))
+        .insert_resource(ClearColor(DEADZONE_COLOR))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(update_position)
@@ -74,6 +76,45 @@ fn setup(
         })
         .insert(Crosshair);
 
+    // Get live/deadzone info
+    let livezone_upperbound = gamepad_settings.default_axis_settings.positive_high;
+    let livezone_lowerbound = gamepad_settings.default_axis_settings.negative_high;
+    let deadzone_upperbound = gamepad_settings.default_axis_settings.positive_low;
+    let deadzone_lowerbound = gamepad_settings.default_axis_settings.negative_low;
+    let livezone_midpoint = (livezone_lowerbound + livezone_upperbound) / 2.0;
+    let deadzone_midpoint = (deadzone_lowerbound + deadzone_upperbound) / 2.0;
+    let livezone_size = livezone_upperbound - livezone_lowerbound;
+    let deadzone_size = deadzone_upperbound - deadzone_lowerbound;
+    let livezone_box_midpoint = livezone_midpoint * WINDOW_SIZE / 2.0;
+    let deadzone_box_midpoint = deadzone_midpoint * WINDOW_SIZE / 2.0;
+    let livezone_box_size = livezone_size * WINDOW_SIZE / 2.0;
+    let deadzone_box_size = deadzone_size * WINDOW_SIZE / 2.0;
+    // For text placement
+    let livezone_lower_left_corner = (livezone_box_midpoint - livezone_box_size) / 2.0;
+
+    // Spawn livezone box
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(livezone_box_size, livezone_box_size)),
+            color: LIVEZONE_COLOR,
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(livezone_box_midpoint, livezone_box_midpoint, 0.0),
+        ..Default::default()
+    });
+    // Spawn deadzone box
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
+                color: DEADZONE_COLOR,
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(deadzone_box_midpoint, deadzone_box_midpoint, 0.1),
+            ..Default::default()
+        })
+        .insert(DeadzoneBox);
+
     // Spawn text
     let font = asset_server.load(FONT);
     let text_style = TextStyle {
@@ -88,29 +129,12 @@ fn setup(
     commands
         .spawn_bundle(Text2dBundle {
             text: Text::with_section("( 0.000,  0.000)", text_style, text_alignment),
-            transform: Transform::from_xyz(-WINDOW_SIZE / 2.0, -WINDOW_SIZE / 2.0, 1.0),
+            transform: Transform::from_xyz(
+                livezone_lower_left_corner,
+                livezone_lower_left_corner,
+                1.0,
+            ),
             ..Default::default()
         })
         .insert(CoordinateText);
-
-    // Get deadzone info
-    let deadzone_upperbound = gamepad_settings.default_axis_settings.positive_low;
-    let deadzone_lowerbound = gamepad_settings.default_axis_settings.negative_low;
-    let deadzone_midpoint = (deadzone_lowerbound + deadzone_upperbound) / 2.0;
-    let deadzone_size = deadzone_upperbound - deadzone_lowerbound;
-    let deadzone_box_midpoint = deadzone_midpoint * WINDOW_SIZE / 2.0;
-    let deadzone_box_size = deadzone_size * WINDOW_SIZE / 2.0;
-
-    // Spawn deadzone box
-    commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
-                color: Color::rgb(0.4, 0.4, 0.4),
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(deadzone_box_midpoint, deadzone_box_midpoint, 0.0),
-            ..Default::default()
-        })
-        .insert(DeadzoneBox);
 }
