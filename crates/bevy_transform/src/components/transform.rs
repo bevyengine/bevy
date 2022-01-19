@@ -277,3 +277,9 @@ impl Mul<Vec3> for Transform {
         self.mul_vec3(value)
     }
 }
+
+impl From<Vec3> for Transform {
+    fn from(vec: Vec3) -> Self {
+        Transform::from_translation(vec)
+    }
+}
