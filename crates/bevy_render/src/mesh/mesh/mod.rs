@@ -19,10 +19,10 @@ use wgpu::{
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
-/// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
+/// [`BTreeMap`] with all defined vertex attributes (Positions, Normals, ...)
 /// for this mesh. Attribute name maps to attribute values.
-/// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
-/// which allows easy stable VertexBuffers (i.e. same buffer order)
+/// Uses a [`BTreeMap`] because, unlike [`HashMap`], it has a defined iteration order,
+/// which allows easy stable vertex buffers (i.e. same buffer order)
 type VertexAttributeMap = BTreeMap<Cow<'static, str>, VertexAttributeValues>;
 
 /// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
