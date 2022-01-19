@@ -164,6 +164,25 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
+            for (positions, normals, tangents) in reader.read_morph_targets() {
+                let morph_target = mesh.add_morph_target();
+                if let Some(morph_vertex_attribute) =
+                    positions.map(|v| VertexAttributeValues::Float32x3(v.collect()))
+                {
+                    morph_target.set_attribute(Mesh::ATTRIBUTE_POSITION, morph_vertex_attribute);
+                }
+                if let Some(morph_vertex_attribute) =
+                    normals.map(|v| VertexAttributeValues::Float32x3(v.collect()))
+                {
+                    morph_target.set_attribute(Mesh::ATTRIBUTE_NORMAL, morph_vertex_attribute);
+                }
+                if let Some(morph_vertex_attribute) =
+                    tangents.map(|v| VertexAttributeValues::Float32x3(v.collect()))
+                {
+                    morph_target.set_attribute(Mesh::ATTRIBUTE_TANGENT, morph_vertex_attribute);
+                }
+            }
+
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();

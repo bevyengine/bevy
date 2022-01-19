@@ -19,16 +19,54 @@ use wgpu::{
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
+/// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
+/// for this mesh. Attribute name maps to attribute values.
+/// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
+/// which allows easy stable VertexBuffers (i.e. same buffer order)
+type VertexAttributeMap = BTreeMap<Cow<'static, str>, VertexAttributeValues>;
+
+/// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
+/// morph targets that affect the end rendered result.
+///
+/// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
+#[derive(Debug, Clone)]
+pub struct MorphTarget {
+    attributes: VertexAttributeMap,
+}
+
+impl MorphTarget {
+    /// Sets the data for a vertex attribute (position, normal etc.). The name will
+    /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    pub fn set_attribute(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        values: impl Into<VertexAttributeValues>,
+    ) {
+        let values: VertexAttributeValues = values.into();
+        self.attributes.insert(name.into(), values);
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified `name`.
+    pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
+        self.attributes.get(&name.into())
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
+    pub fn attribute_mut(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Option<&mut VertexAttributeValues> {
+        self.attributes.get_mut(&name.into())
+    }
+}
+
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
 #[derive(Debug, TypeUuid, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
-    /// for this mesh. Attribute name maps to attribute values.
-    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
-    /// which allows easy stable VertexBuffers (i.e. same buffer order)
-    attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
+    attributes: VertexAttributeMap,
+    morph_targets: Vec<MorphTarget>,
     indices: Option<Indices>,
 }
 
@@ -75,6 +113,7 @@ impl Mesh {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
+            morph_targets: Vec::new(),
             indices: None,
         }
     }
@@ -106,6 +145,24 @@ impl Mesh {
         name: impl Into<Cow<'static, str>>,
     ) -> Option<&mut VertexAttributeValues> {
         self.attributes.get_mut(&name.into())
+    }
+
+    /// Creates a blank new [`MorphTarget`] and returns a mutable reference to it.
+    pub fn add_morph_target(&mut self) -> &mut MorphTarget {
+        self.morph_targets.push(MorphTarget {
+            attributes: Default::default(),
+        });
+        self.morph_targets.last_mut().unwrap()
+    }
+
+    /// Retrieves the morph target at a given index.
+    pub fn morph_target(&self, target_idx: usize) -> Option<&MorphTarget> {
+        self.morph_targets.get(target_idx)
+    }
+
+    /// Retrieves the morph target at a given index mutably.
+    pub fn morph_target_mut(&mut self, target_idx: usize) -> Option<&mut MorphTarget> {
+        self.morph_targets.get_mut(target_idx)
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
