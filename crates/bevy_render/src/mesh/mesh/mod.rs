@@ -20,7 +20,7 @@ pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
 /// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
-/// morph targets that affect the end rendered result.
+/// morph targets that affect the final rendered result.
 ///
 /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Debug, Clone)]
@@ -38,7 +38,7 @@ pub struct Mesh {
     /// [`BTreeMap`] with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute name maps to attribute values.
     /// Uses a [`BTreeMap`] because, unlike [`HashMap`], it has a defined iteration order,
-    /// which allows easy stable vertex buffers t pus(i.e. same buffer order)
+    /// which allows easy stable vertex buffers (i.e. same buffer order)
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     morph_targets: Vec<MorphTarget>,
     indices: Option<Indices>,
