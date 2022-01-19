@@ -188,9 +188,10 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`char_input_events` | [`input/char_input_events.rs`](./input/char_input_events.rs) | Prints out all chars as they are inputted.
+`char_input_events` | [`input/char_input_events.rs`](./input/char_input_events.rs) | Prints out all chars as they are input
 `gamepad_input` | [`input/gamepad_input.rs`](./input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
 `gamepad_input_events` | [`input/gamepad_input_events.rs`](./input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
+`gamepad_stick_input` | [`input/gamepad_stick_input.rs`](./input/gamepad_stick_input.rs) | Shows gamepad stick input graphically
 `keyboard_input` | [`input/keyboard_input.rs`](./input/keyboard_input.rs) | Demonstrates handling a key press/release
 `keyboard_input_events` | [`input/keyboard_input_events.rs`](./input/keyboard_input_events.rs) | Prints out all keyboard events
 `keyboard_modifiers` | [`input/keyboard_modifiers.rs`](./input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
