@@ -464,15 +464,22 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 let config = term::Config::default();
                 let mut writer = term::termcolor::Ansi::new(Vec::new());
 
-                let diagnostic = Diagnostic::error().with_labels(
-                    error
-                        .spans()
-                        .map(|(span, desc)| {
-                            Label::primary((), span.to_range().unwrap())
-                                .with_message(desc.to_owned())
-                        })
-                        .collect(),
-                );
+                let diagnostic = Diagnostic::error()
+                    .with_message(error.to_string())
+                    .with_labels(
+                        error
+                            .spans()
+                            .map(|(span, desc)| {
+                                Label::primary((), span.to_range().unwrap())
+                                    .with_message(desc.to_owned())
+                            })
+                            .collect(),
+                    )
+                    .with_notes(
+                        error_sources(error)
+                            .map(|source| source.to_string())
+                            .collect(),
+                    );
 
                 term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
 
@@ -488,5 +495,26 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
         AsModuleDescriptorError::SpirVConversion(error) => {
             error!("failed to convert shader to spirv: \n{}", error);
         }
+    }
+}
+
+fn error_sources(
+    error: &dyn std::error::Error,
+) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
+    ErrorSources {
+        current: error.source(),
+    }
+}
+
+struct ErrorSources<'a> {
+    current: Option<&'a (dyn std::error::Error + 'static)>,
+}
+impl<'a> Iterator for ErrorSources<'a> {
+    type Item = &'a (dyn std::error::Error + 'static);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current;
+        self.current = self.current.and_then(std::error::Error::source);
+        current
     }
 }
