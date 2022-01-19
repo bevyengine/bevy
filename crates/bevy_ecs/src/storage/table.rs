@@ -221,7 +221,7 @@ impl Table {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.entities.capacity()),
-        )
+        );
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an

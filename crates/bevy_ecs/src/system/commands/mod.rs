@@ -107,7 +107,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
     /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
-        self.queue.push(Spawn { bundle })
+        self.queue.push(Spawn { bundle });
     }
 
     /// Creates a new entity with the components contained in `bundle`.
@@ -284,7 +284,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # system.system();
     /// ```
     pub fn insert_resource<T: Resource>(&mut self, resource: T) {
-        self.queue.push(InsertResource { resource })
+        self.queue.push(InsertResource { resource });
     }
 
     /// Removes a resource from the [`World`].
@@ -534,7 +534,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
-        })
+        });
     }
 
     /// Returns the underlying [`Commands`].

@@ -216,14 +216,14 @@ impl<T: Asset> Assets<T> {
     ///
     /// Keeps the allocated memory for reuse.
     pub fn clear(&mut self) {
-        self.assets.clear()
+        self.assets.clear();
     }
 
     /// Reserves capacity for at least additional more elements to be inserted into the assets.
     ///
     /// The collection may reserve more space to avoid frequent reallocations.
     pub fn reserve(&mut self, additional: usize) {
-        self.assets.reserve(additional)
+        self.assets.reserve(additional);
     }
 
     /// Shrinks the capacity of the asset map as much as possible.
@@ -231,14 +231,14 @@ impl<T: Asset> Assets<T> {
     /// It will drop down as much as possible while maintaining the internal rules and possibly
     /// leaving some space in accordance with the resize policy.
     pub fn shrink_to_fit(&mut self) {
-        self.assets.shrink_to_fit()
+        self.assets.shrink_to_fit();
     }
 
     pub fn asset_event_system(mut events: EventWriter<AssetEvent<T>>, mut assets: ResMut<Self>) {
         // Check if the events are empty before calling `drain`.
         // As `drain` triggers change detection.
         if !assets.events.is_empty() {
-            events.send_batch(assets.events.drain())
+            events.send_batch(assets.events.drain());
         }
     }
 

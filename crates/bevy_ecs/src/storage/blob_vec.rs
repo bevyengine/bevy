@@ -180,7 +180,7 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
         let value = self.swap_remove_and_forget_unchecked(index);
-        (self.drop)(value)
+        (self.drop)(value);
     }
 
     /// # Safety

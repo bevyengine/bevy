@@ -541,7 +541,7 @@ impl Entities {
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
-            })
+            });
         }
     }
 

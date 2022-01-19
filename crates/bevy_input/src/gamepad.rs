@@ -309,7 +309,7 @@ pub fn gamepad_event_system(
                     events.send(GamepadEvent(
                         gamepad,
                         GamepadEventType::AxisChanged(*axis_type, filtered_value),
-                    ))
+                    ));
                 }
             }
             GamepadEventType::ButtonChanged(button_type, value) => {
@@ -322,7 +322,7 @@ pub fn gamepad_event_system(
                     events.send(GamepadEvent(
                         gamepad,
                         GamepadEventType::ButtonChanged(*button_type, filtered_value),
-                    ))
+                    ));
                 }
 
                 let button_property = settings.get_button_settings(gamepad_button);

@@ -97,7 +97,7 @@ impl LogDiagnosticsPlugin {
                         Self::log_diagnostic(diagnostic);
                     }
                 },
-            )
+            );
         }
     }
 
@@ -118,7 +118,7 @@ impl LogDiagnosticsPlugin {
                         debug!("{:#?}\n", diagnostic);
                     }
                 },
-            )
+            );
         }
     }
 }

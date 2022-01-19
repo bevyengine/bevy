@@ -46,7 +46,7 @@ impl RenderDevice {
     /// no-op on the web, device is automatically polled.
     #[inline]
     pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain)
+        self.device.poll(maintain);
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
@@ -144,7 +144,7 @@ impl RenderDevice {
     /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
     /// - Texture format requested is unsupported on the surface.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
-        surface.configure(&self.device, config)
+        surface.configure(&self.device, config);
     }
 
     /// Returns the wgpu [`Device`](wgpu::Device).

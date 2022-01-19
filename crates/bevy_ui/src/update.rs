@@ -76,7 +76,7 @@ pub fn update_clipping_system(
             &mut node_query,
             root_node,
             None,
-        )
+        );
     }
 }
 

@@ -620,15 +620,15 @@ impl ReflectAttrs {
                                             match ident.as_str() {
                                                 "PartialEq" => {
                                                     attrs.reflect_partial_eq =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 "Hash" => {
                                                     attrs.reflect_hash =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 "Serialize" => {
                                                     attrs.serialize =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 _ => {}
                                             }

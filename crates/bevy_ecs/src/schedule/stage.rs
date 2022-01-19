@@ -289,11 +289,11 @@ impl SystemStage {
                         match system {
                             SystemDescriptor::Exclusive(descriptor) => {
                                 descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()));
                             }
                             SystemDescriptor::Parallel(descriptor) => {
                                 descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()));
                             }
                         }
                     }
@@ -744,7 +744,7 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
                 if let (Some(a), Some(b)) = (a_access, b_access) {
                     let conflicts = a.get_conflicts(b);
                     if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts))
+                        ambiguities.push((index_a, index_b, conflicts));
                     }
                 } else {
                     ambiguities.push((index_a, index_b, Vec::new()));
@@ -908,7 +908,7 @@ impl Stage for SystemStage {
                         ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
                             match &mut criteria.inner {
                                 RunCriteriaInner::Single(system) => {
-                                    criteria.should_run = system.run((), world)
+                                    criteria.should_run = system.run((), world);
                                 }
                                 RunCriteriaInner::Piped {
                                     input: parent,
@@ -916,7 +916,7 @@ impl Stage for SystemStage {
                                     ..
                                 } => {
                                     criteria.should_run =
-                                        system.run(run_criteria[*parent].should_run, world)
+                                        system.run(run_criteria[*parent].should_run, world);
                                 }
                             }
                             match criteria.should_run {

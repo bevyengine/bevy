@@ -241,7 +241,7 @@ impl RenderAsset for StandardMaterial {
             AlphaMode::Opaque => flags |= StandardMaterialFlags::ALPHA_MODE_OPAQUE,
             AlphaMode::Mask(c) => {
                 alpha_cutoff = c;
-                flags |= StandardMaterialFlags::ALPHA_MODE_MASK
+                flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
         };
