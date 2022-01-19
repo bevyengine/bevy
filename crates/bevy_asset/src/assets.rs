@@ -192,7 +192,7 @@ impl<T: Asset> Assets<T> {
 
     /// Get an iterator over all [`HandleId`]'s in the collection.
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
-        self.assets.keys().cloned()
+        self.assets.keys().copied()
     }
 
     /// Remove an asset for the given handle.

@@ -181,7 +181,7 @@ impl WinitWindows {
     }
 
     pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
-        self.winit_to_window_id.get(&id).cloned()
+        self.winit_to_window_id.get(&id).copied()
     }
 }
 

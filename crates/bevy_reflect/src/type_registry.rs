@@ -100,7 +100,7 @@ impl TypeRegistry {
     pub fn get_with_name_mut(&mut self, type_name: &str) -> Option<&mut TypeRegistration> {
         self.full_name_to_id
             .get(type_name)
-            .cloned()
+            .copied()
             .and_then(move |id| self.get_mut(id))
     }
 

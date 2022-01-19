@@ -157,7 +157,7 @@ pub fn ui_focus_system(
             }
         }
 
-        match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
+        match focus_policy.copied().unwrap_or(FocusPolicy::Block) {
             FocusPolicy::Block => {
                 break;
             }

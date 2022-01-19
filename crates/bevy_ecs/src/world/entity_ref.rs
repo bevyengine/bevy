@@ -237,7 +237,7 @@ impl<'w> EntityMut<'w> {
         }
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
-        let mut bundle_components = bundle_info.component_ids.iter().cloned();
+        let mut bundle_components = bundle_info.component_ids.iter().copied();
         let entity = self.entity;
         // SAFE: bundle components are iterated in order, which guarantees that the component type
         // matches
@@ -361,7 +361,7 @@ impl<'w> EntityMut<'w> {
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
         let entity = self.entity;
-        for component_id in bundle_info.component_ids.iter().cloned() {
+        for component_id in bundle_info.component_ids.iter().copied() {
             if old_archetype.contains(component_id) {
                 removed_components
                     .get_or_insert_with(component_id, Vec::new)
@@ -647,7 +647,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.component_ids.iter().cloned() {
+            for component_id in bundle_info.component_ids.iter().copied() {
                 if current_archetype.contains(component_id) {
                     // SAFE: bundle components were already initialized by bundles.get_info
                     let component_info = components.get_info_unchecked(component_id);

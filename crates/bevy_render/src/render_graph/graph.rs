@@ -133,7 +133,7 @@ impl RenderGraph {
             NodeLabel::Name(ref name) => self
                 .node_names
                 .get(name)
-                .cloned()
+                .copied()
                 .ok_or(RenderGraphError::InvalidNode(label)),
         }
     }

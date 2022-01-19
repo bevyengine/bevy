@@ -34,15 +34,15 @@ impl EntityMap {
     pub fn get(&self, entity: Entity) -> Result<Entity, MapEntitiesError> {
         self.map
             .get(&entity)
-            .cloned()
+            .copied()
             .ok_or(MapEntitiesError::EntityNotFound(entity))
     }
 
     pub fn keys(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.map.keys().cloned()
+        self.map.keys().copied()
     }
 
     pub fn values(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.map.values().cloned()
+        self.map.values().copied()
     }
 }

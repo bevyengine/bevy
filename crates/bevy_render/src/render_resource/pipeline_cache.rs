@@ -100,7 +100,7 @@ impl ShaderCache {
         while let Some(handle) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&handle) {
                 data.processed_shaders.clear();
-                pipelines_to_queue.extend(data.pipelines.iter().cloned());
+                pipelines_to_queue.extend(data.pipelines.iter().copied());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
             }
         }

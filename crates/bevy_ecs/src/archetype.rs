@@ -74,7 +74,7 @@ impl Edges {
 
     #[inline]
     pub fn get_remove_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle.get(bundle_id).cloned()
+        self.remove_bundle.get(bundle_id).copied()
     }
 
     #[inline]
@@ -87,7 +87,7 @@ impl Edges {
         &self,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle_intersection.get(bundle_id).cloned()
+        self.remove_bundle_intersection.get(bundle_id).copied()
     }
 
     #[inline]

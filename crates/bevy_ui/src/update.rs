@@ -49,7 +49,7 @@ fn update_hierarchy(
     }
     if let Ok(children) = children_query.get(entity) {
         let current_parent_global_z = current_global_z;
-        for child in children.iter().cloned() {
+        for child in children.iter().copied() {
             current_global_z = update_hierarchy(
                 children_query,
                 node_query,
@@ -119,7 +119,7 @@ fn update_clipping(
     };
 
     if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
+        for child in children.iter().copied() {
             update_clipping(commands, children_query, node_query, child, children_clip);
         }
     }

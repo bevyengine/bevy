@@ -142,6 +142,6 @@ impl TextureAtlas {
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(texture).copied())
     }
 }

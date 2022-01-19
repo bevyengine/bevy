@@ -34,7 +34,7 @@ impl SourceInfo {
     }
 
     pub fn get_asset_type(&self, label_id: LabelId) -> Option<Uuid> {
-        self.asset_types.get(&label_id).cloned()
+        self.asset_types.get(&label_id).copied()
     }
 }
 

@@ -271,7 +271,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     pub fn insert(&mut self, index: I, value: V) {
-        if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
+        if let Some(dense_index) = self.sparse.get(index.clone()).copied() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe {
                 *self.dense.get_unchecked_mut(dense_index) = value;
@@ -306,7 +306,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
-        if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
+        if let Some(dense_index) = self.sparse.get(index.clone()).copied() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe { self.dense.get_unchecked_mut(dense_index) }
         } else {

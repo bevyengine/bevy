@@ -108,8 +108,8 @@ pub fn topological_order<Labels: Clone>(
     let mut sorted = Vec::with_capacity(graph.len());
     let mut current = Vec::with_capacity(graph.len());
     let mut unvisited = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
-    unvisited.extend(graph.keys().cloned());
-    while let Some(node) = unvisited.iter().next().cloned() {
+    unvisited.extend(graph.keys().copied());
+    while let Some(node) = unvisited.iter().next().copied() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
             let mut cycle = Vec::new();
             let last_window = [*current.last().unwrap(), current[0]];

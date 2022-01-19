@@ -319,7 +319,7 @@ impl BundleInfo {
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
 
         let current_archetype = &mut archetypes[archetype_id];
-        for component_id in self.component_ids.iter().cloned() {
+        for component_id in self.component_ids.iter().copied() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Mutated);
             } else {
@@ -586,7 +586,7 @@ impl Bundles {
 
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.bundle_ids.get(&type_id).copied()
     }
 
     pub(crate) fn init_info<'a, T: Bundle>(

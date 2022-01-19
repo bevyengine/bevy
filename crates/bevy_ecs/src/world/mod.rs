@@ -570,6 +570,7 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
+    // TODO: return `std::iter::Copied` instead
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         self.components.get_id(TypeId::of::<T>()).map_or_else(
             || [].iter().cloned(),
@@ -579,6 +580,7 @@ impl World {
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
+    // TODO: return `std::iter::Copied` instead
     pub fn removed_with_id(
         &self,
         component_id: ComponentId,

@@ -99,7 +99,7 @@ impl Map for DynamicMap {
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
             .get(&key.reflect_hash().expect(HASH_ERROR))
-            .cloned()
+            .copied()
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
 
