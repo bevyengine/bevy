@@ -35,7 +35,7 @@ impl SystemMeta {
 
     /// Returns true if the system is [`Send`].
     #[inline]
-    pub const fn is_send(&self) -> bool {
+    pub fn is_send(&self) -> bool {
         self.is_send
     }
 

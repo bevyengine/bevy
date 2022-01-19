@@ -6,7 +6,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 pub struct RawWindowHandleWrapper(RawWindowHandle);
 
 impl RawWindowHandleWrapper {
-    pub(crate) const fn new(handle: RawWindowHandle) -> Self {
+    pub(crate) fn new(handle: RawWindowHandle) -> Self {
         Self(handle)
     }
 

@@ -23,7 +23,7 @@ pub struct RenderPipeline {
 
 impl RenderPipeline {
     #[inline]
-    pub const fn id(&self) -> RenderPipelineId {
+    pub fn id(&self) -> RenderPipelineId {
         self.id
     }
 }
@@ -63,7 +63,7 @@ pub struct ComputePipeline {
 impl ComputePipeline {
     /// Returns the [`ComputePipelineId`].
     #[inline]
-    pub const fn id(&self) -> ComputePipelineId {
+    pub fn id(&self) -> ComputePipelineId {
         self.id
     }
 }

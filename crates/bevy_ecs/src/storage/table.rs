@@ -84,12 +84,12 @@ impl Column {
     }
 
     #[inline]
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.data.len()
     }
 
     #[inline]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
@@ -136,7 +136,7 @@ impl Column {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub const unsafe fn get_data_ptr(&self) -> NonNull<u8> {
+    pub unsafe fn get_data_ptr(&self) -> NonNull<u8> {
         self.data.get_ptr()
     }
 

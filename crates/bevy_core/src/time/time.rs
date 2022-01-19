@@ -47,43 +47,43 @@ impl Time {
 
     /// The delta between the current tick and last tick as a [`Duration`]
     #[inline]
-    pub const fn delta(&self) -> Duration {
+    pub fn delta(&self) -> Duration {
         self.delta
     }
 
     /// The delta between the current and last tick as [`f32`] seconds
     #[inline]
-    pub const fn delta_seconds(&self) -> f32 {
+    pub fn delta_seconds(&self) -> f32 {
         self.delta_seconds
     }
 
     /// The delta between the current and last tick as [`f64`] seconds
     #[inline]
-    pub const fn delta_seconds_f64(&self) -> f64 {
+    pub fn delta_seconds_f64(&self) -> f64 {
         self.delta_seconds_f64
     }
 
     /// The time from startup to the last update in seconds
     #[inline]
-    pub const fn seconds_since_startup(&self) -> f64 {
+    pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
     }
 
     /// The [`Instant`] the app was started
     #[inline]
-    pub const fn startup(&self) -> Instant {
+    pub fn startup(&self) -> Instant {
         self.startup
     }
 
     /// The ['Instant'] when [`Time::update`] was last called, if it exists
     #[inline]
-    pub const fn last_update(&self) -> Option<Instant> {
+    pub fn last_update(&self) -> Option<Instant> {
         self.last_update
     }
 
     /// The ['Duration'] from startup to the last update
     #[inline]
-    pub const fn time_since_startup(&self) -> Duration {
+    pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
 }

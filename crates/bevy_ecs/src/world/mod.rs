@@ -117,13 +117,13 @@ impl World {
 
     /// Retrieves this [`World`]'s unique ID
     #[inline]
-    pub const fn id(&self) -> WorldId {
+    pub fn id(&self) -> WorldId {
         self.id
     }
 
     /// Retrieves this world's [Entities] collection
     #[inline]
-    pub const fn entities(&self) -> &Entities {
+    pub fn entities(&self) -> &Entities {
         &self.entities
     }
 
@@ -135,13 +135,13 @@ impl World {
 
     /// Retrieves this world's [Archetypes] collection
     #[inline]
-    pub const fn archetypes(&self) -> &Archetypes {
+    pub fn archetypes(&self) -> &Archetypes {
         &self.archetypes
     }
 
     /// Retrieves this world's [Components] collection
     #[inline]
-    pub const fn components(&self) -> &Components {
+    pub fn components(&self) -> &Components {
         &self.components
     }
 
@@ -153,13 +153,13 @@ impl World {
 
     /// Retrieves this world's [Storages] collection
     #[inline]
-    pub const fn storages(&self) -> &Storages {
+    pub fn storages(&self) -> &Storages {
         &self.storages
     }
 
     /// Retrieves this world's [Bundles] collection
     #[inline]
-    pub const fn bundles(&self) -> &Bundles {
+    pub fn bundles(&self) -> &Bundles {
         &self.bundles
     }
 
@@ -1119,7 +1119,7 @@ impl World {
     }
 
     #[inline]
-    pub const fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
 

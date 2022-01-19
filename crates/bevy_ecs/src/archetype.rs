@@ -178,12 +178,12 @@ impl Archetype {
     }
 
     #[inline]
-    pub const fn id(&self) -> ArchetypeId {
+    pub fn id(&self) -> ArchetypeId {
         self.id
     }
 
     #[inline]
-    pub const fn table_id(&self) -> TableId {
+    pub fn table_id(&self) -> TableId {
         self.table_info.id
     }
 
@@ -208,7 +208,7 @@ impl Archetype {
     }
 
     #[inline]
-    pub const fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
+    pub fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
         &self.unique_components
     }
 
@@ -223,7 +223,7 @@ impl Archetype {
     }
 
     #[inline]
-    pub const fn edges(&self) -> &Edges {
+    pub fn edges(&self) -> &Edges {
         &self.edges
     }
 
@@ -515,7 +515,7 @@ impl Archetypes {
     }
 
     #[inline]
-    pub const fn archetype_components_len(&self) -> usize {
+    pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
     }
 

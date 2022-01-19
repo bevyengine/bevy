@@ -48,17 +48,17 @@ impl<'a> RenderGraphContext<'a> {
 
     /// Returns the input slot values for the node.
     #[inline]
-    pub const fn inputs(&self) -> &[SlotValue] {
+    pub fn inputs(&self) -> &[SlotValue] {
         self.inputs
     }
 
     /// Returns the [`SlotInfos`] of the inputs.
-    pub const fn input_info(&self) -> &SlotInfos {
+    pub fn input_info(&self) -> &SlotInfos {
         &self.node.input_slots
     }
 
     /// Returns the [`SlotInfos`] of the outputs.
-    pub const fn output_info(&self) -> &SlotInfos {
+    pub fn output_info(&self) -> &SlotInfos {
         &self.node.output_slots
     }
 

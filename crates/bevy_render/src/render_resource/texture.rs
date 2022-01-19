@@ -18,7 +18,7 @@ pub struct Texture {
 impl Texture {
     /// Returns the [`TextureId`].
     #[inline]
-    pub const fn id(&self) -> TextureId {
+    pub fn id(&self) -> TextureId {
         self.id
     }
 
@@ -80,7 +80,7 @@ pub struct TextureView {
 impl TextureView {
     /// Returns the [`TextureViewId`].
     #[inline]
-    pub const fn id(&self) -> TextureViewId {
+    pub fn id(&self) -> TextureViewId {
         self.id
     }
 
@@ -145,7 +145,7 @@ pub struct Sampler {
 impl Sampler {
     /// Returns the [`SamplerId`].
     #[inline]
-    pub const fn id(&self) -> SamplerId {
+    pub fn id(&self) -> SamplerId {
         self.id
     }
 }

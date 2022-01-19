@@ -60,7 +60,7 @@ impl Stopwatch {
     ///
     /// [`elapsed_secs`](Stopwatch::elapsed) - if a `f32` value is desirable instead.
     #[inline]
-    pub const fn elapsed(&self) -> Duration {
+    pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
 
@@ -168,7 +168,7 @@ impl Stopwatch {
     /// assert!(!stopwatch.paused());
     /// ```
     #[inline]
-    pub const fn paused(&self) -> bool {
+    pub fn paused(&self) -> bool {
         self.paused
     }
 

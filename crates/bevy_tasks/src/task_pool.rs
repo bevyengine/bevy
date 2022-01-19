@@ -31,13 +31,13 @@ impl TaskPoolBuilder {
 
     /// Override the number of threads created for the pool. If unset, we default to the number
     /// of logical cores of the system
-    pub const fn num_threads(mut self, num_threads: usize) -> Self {
+    pub fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = Some(num_threads);
         self
     }
 
     /// Override the stack size of the threads created for the pool
-    pub const fn stack_size(mut self, stack_size: usize) -> Self {
+    pub fn stack_size(mut self, stack_size: usize) -> Self {
         self.stack_size = Some(stack_size);
         self
     }

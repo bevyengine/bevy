@@ -15,7 +15,7 @@ pub struct Buffer {
 
 impl Buffer {
     #[inline]
-    pub const fn id(&self) -> BufferId {
+    pub fn id(&self) -> BufferId {
         self.id
     }
 
@@ -65,12 +65,12 @@ pub struct BufferSlice<'a> {
 
 impl<'a> BufferSlice<'a> {
     #[inline]
-    pub const fn id(&self) -> BufferId {
+    pub fn id(&self) -> BufferId {
         self.id
     }
 
     #[inline]
-    pub const fn offset(&self) -> wgpu::BufferAddress {
+    pub fn offset(&self) -> wgpu::BufferAddress {
         self.offset
     }
 }

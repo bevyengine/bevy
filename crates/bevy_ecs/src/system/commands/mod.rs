@@ -372,7 +372,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # my_system.system();
     /// ```
     #[inline]
-    pub const fn id(&self) -> Entity {
+    pub fn id(&self) -> Entity {
         self.entity
     }
 

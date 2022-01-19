@@ -60,7 +60,7 @@ impl Timer {
     /// assert!(timer.finished());
     /// ```
     #[inline]
-    pub const fn finished(&self) -> bool {
+    pub fn finished(&self) -> bool {
         self.finished
     }
 
@@ -77,7 +77,7 @@ impl Timer {
     /// assert!(!timer.just_finished());
     /// ```
     #[inline]
-    pub const fn just_finished(&self) -> bool {
+    pub fn just_finished(&self) -> bool {
         self.times_finished > 0
     }
 
@@ -95,7 +95,7 @@ impl Timer {
     /// assert_eq!(timer.elapsed(), Duration::from_secs_f32(0.5));
     /// ```
     #[inline]
-    pub const fn elapsed(&self) -> Duration {
+    pub fn elapsed(&self) -> Duration {
         self.stopwatch.elapsed()
     }
 
@@ -135,7 +135,7 @@ impl Timer {
     /// assert_eq!(timer.duration(), Duration::from_secs(1));
     /// ```
     #[inline]
-    pub const fn duration(&self) -> Duration {
+    pub fn duration(&self) -> Duration {
         self.duration
     }
 
@@ -163,7 +163,7 @@ impl Timer {
     /// assert!(timer.repeating());
     /// ```
     #[inline]
-    pub const fn repeating(&self) -> bool {
+    pub fn repeating(&self) -> bool {
         self.repeating
     }
 
@@ -285,7 +285,7 @@ impl Timer {
     /// assert!(!timer.paused());
     /// ```
     #[inline]
-    pub const fn paused(&self) -> bool {
+    pub fn paused(&self) -> bool {
         self.stopwatch.paused()
     }
 
@@ -359,7 +359,7 @@ impl Timer {
     /// assert_eq!(timer.times_finished(), 0);
     /// ```
     #[inline]
-    pub const fn times_finished(&self) -> u32 {
+    pub fn times_finished(&self) -> u32 {
         self.times_finished
     }
 }

@@ -12,7 +12,7 @@ pub struct BindGroupLayout {
 
 impl BindGroupLayout {
     #[inline]
-    pub const fn id(&self) -> BindGroupLayoutId {
+    pub fn id(&self) -> BindGroupLayoutId {
         self.id
     }
 

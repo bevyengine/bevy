@@ -86,7 +86,7 @@ impl Diagnostic {
         self.history.back().map(|measurement| measurement.value)
     }
 
-    pub const fn sum(&self) -> f64 {
+    pub fn sum(&self) -> f64 {
         self.sum
     }
 
@@ -116,7 +116,7 @@ impl Diagnostic {
         None
     }
 
-    pub const fn get_max_history_length(&self) -> usize {
+    pub fn get_max_history_length(&self) -> usize {
         self.max_history_length
     }
 

@@ -103,7 +103,7 @@ impl<'a> LoadContext<'a> {
         }
     }
 
-    pub const fn path(&self) -> &Path {
+    pub fn path(&self) -> &Path {
         self.path
     }
 
@@ -142,7 +142,7 @@ impl<'a> LoadContext<'a> {
         asset_metas
     }
 
-    pub const fn task_pool(&self) -> &TaskPool {
+    pub fn task_pool(&self) -> &TaskPool {
         self.task_pool
     }
 }

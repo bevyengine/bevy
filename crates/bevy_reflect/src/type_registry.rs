@@ -174,7 +174,7 @@ impl TypeRegistration {
     ///
     /// [`TypeId`]: std::any::TypeId
     #[inline]
-    pub const fn type_id(&self) -> TypeId {
+    pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
@@ -225,7 +225,7 @@ impl TypeRegistration {
     }
 
     /// Returns the name of the type.
-    pub const fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         self.name
     }
 

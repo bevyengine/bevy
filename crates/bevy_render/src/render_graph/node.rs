@@ -24,7 +24,8 @@ impl NodeId {
         Self(Uuid::new_v4())
     }
 
-    pub const fn uuid(&self) -> &Uuid {
+    #[inline]
+    pub fn uuid(&self) -> &Uuid {
         &self.0
     }
 }

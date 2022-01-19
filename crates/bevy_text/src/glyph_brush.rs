@@ -156,7 +156,7 @@ impl GlyphPlacementAdjuster {
     }
 
     #[inline(always)]
-    pub const fn position(&self, p: Vec2) -> Vec2 {
+    pub fn position(&self, p: Vec2) -> Vec2 {
         p
     }
 }

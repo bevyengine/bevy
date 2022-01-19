@@ -98,32 +98,32 @@ impl Touch {
     }
 
     #[inline]
-    pub const fn id(&self) -> u64 {
+    pub fn id(&self) -> u64 {
         self.id
     }
 
     #[inline]
-    pub const fn start_position(&self) -> Vec2 {
+    pub fn start_position(&self) -> Vec2 {
         self.start_position
     }
 
     #[inline]
-    pub const fn start_force(&self) -> Option<ForceTouch> {
+    pub fn start_force(&self) -> Option<ForceTouch> {
         self.start_force
     }
 
     #[inline]
-    pub const fn previous_position(&self) -> Vec2 {
+    pub fn previous_position(&self) -> Vec2 {
         self.previous_position
     }
 
     #[inline]
-    pub const fn position(&self) -> Vec2 {
+    pub fn position(&self) -> Vec2 {
         self.position
     }
 
     #[inline]
-    pub const fn force(&self) -> Option<ForceTouch> {
+    pub fn force(&self) -> Option<ForceTouch> {
         self.force
     }
 }

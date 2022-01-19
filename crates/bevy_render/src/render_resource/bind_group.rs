@@ -20,7 +20,7 @@ pub struct BindGroup {
 impl BindGroup {
     /// Returns the [`BindGroupId`].
     #[inline]
-    pub const fn id(&self) -> BindGroupId {
+    pub fn id(&self) -> BindGroupId {
         self.id
     }
 }

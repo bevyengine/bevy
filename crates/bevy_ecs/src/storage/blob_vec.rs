@@ -44,17 +44,17 @@ impl BlobVec {
     }
 
     #[inline]
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.len
     }
 
     #[inline]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     #[inline]
-    pub const fn capacity(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.capacity
     }
 
@@ -196,7 +196,7 @@ impl BlobVec {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub const unsafe fn get_ptr(&self) -> NonNull<u8> {
+    pub unsafe fn get_ptr(&self) -> NonNull<u8> {
         self.data
     }
 

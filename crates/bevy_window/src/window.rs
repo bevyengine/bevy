@@ -239,7 +239,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn id(&self) -> WindowId {
+    pub fn id(&self) -> WindowId {
         self.id
     }
 
@@ -261,7 +261,7 @@ impl Window {
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
     #[inline]
-    pub const fn requested_width(&self) -> f32 {
+    pub fn requested_width(&self) -> f32 {
         self.requested_width
     }
 
@@ -271,31 +271,31 @@ impl Window {
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
     #[inline]
-    pub const fn requested_height(&self) -> f32 {
+    pub fn requested_height(&self) -> f32 {
         self.requested_height
     }
 
     /// The window's client area width in physical pixels.
     #[inline]
-    pub const fn physical_width(&self) -> u32 {
+    pub fn physical_width(&self) -> u32 {
         self.physical_width
     }
 
     /// The window's client area height in physical pixels.
     #[inline]
-    pub const fn physical_height(&self) -> u32 {
+    pub fn physical_height(&self) -> u32 {
         self.physical_height
     }
 
     /// The window's client resize constraint in logical pixels.
     #[inline]
-    pub const fn resize_constraints(&self) -> WindowResizeConstraints {
+    pub fn resize_constraints(&self) -> WindowResizeConstraints {
         self.resize_constraints
     }
 
     /// The window's client position in physical pixels.
     #[inline]
-    pub const fn position(&self) -> Option<IVec2> {
+    pub fn position(&self) -> Option<IVec2> {
         self.position
     }
 
@@ -405,12 +405,12 @@ impl Window {
     /// The window scale factor as reported by the window backend.
     /// This value is unaffected by [`scale_factor_override`](Window::scale_factor_override).
     #[inline]
-    pub const fn backend_scale_factor(&self) -> f64 {
+    pub fn backend_scale_factor(&self) -> f64 {
         self.backend_scale_factor
     }
 
     #[inline]
-    pub const fn scale_factor_override(&self) -> Option<f64> {
+    pub fn scale_factor_override(&self) -> Option<f64> {
         self.scale_factor_override
     }
 
@@ -425,7 +425,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn vsync(&self) -> bool {
+    pub fn vsync(&self) -> bool {
         self.vsync
     }
 
@@ -436,7 +436,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn resizable(&self) -> bool {
+    pub fn resizable(&self) -> bool {
         self.resizable
     }
 
@@ -447,7 +447,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn decorations(&self) -> bool {
+    pub fn decorations(&self) -> bool {
         self.decorations
     }
 
@@ -458,7 +458,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn cursor_locked(&self) -> bool {
+    pub fn cursor_locked(&self) -> bool {
         self.cursor_locked
     }
 
@@ -469,7 +469,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn cursor_visible(&self) -> bool {
+    pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
 
@@ -481,7 +481,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn cursor_icon(&self) -> CursorIcon {
+    pub fn cursor_icon(&self) -> CursorIcon {
         self.cursor_icon
     }
 
@@ -492,7 +492,7 @@ impl Window {
 
     /// The current mouse position, in physical pixels.
     #[inline]
-    pub const fn physical_cursor_position(&self) -> Option<DVec2> {
+    pub fn physical_cursor_position(&self) -> Option<DVec2> {
         self.physical_cursor_position
     }
 
@@ -522,7 +522,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn mode(&self) -> WindowMode {
+    pub fn mode(&self) -> WindowMode {
         self.mode
     }
 
@@ -540,7 +540,7 @@ impl Window {
     }
 
     #[inline]
-    pub const fn is_focused(&self) -> bool {
+    pub fn is_focused(&self) -> bool {
         self.focused
     }
 

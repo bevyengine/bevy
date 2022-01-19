@@ -79,7 +79,7 @@ impl Shader {
     }
 
     #[inline]
-    pub const fn import_path(&self) -> Option<&ShaderImport> {
+    pub fn import_path(&self) -> Option<&ShaderImport> {
         self.import_path.as_ref()
     }
 

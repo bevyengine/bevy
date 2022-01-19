@@ -80,7 +80,7 @@ impl Mesh {
     }
 
     /// Returns the topology of the mesh.
-    pub const fn primitive_topology(&self) -> PrimitiveTopology {
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
     }
 
@@ -116,7 +116,7 @@ impl Mesh {
     }
 
     /// Retrieves the vertex `indices` of the mesh.
-    pub const fn indices(&self) -> Option<&Indices> {
+    pub fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
     }
 
