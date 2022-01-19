@@ -994,6 +994,10 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_stick_input"
+path = "examples/input/gamepad_stick_input.rs"
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
