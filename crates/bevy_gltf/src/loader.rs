@@ -166,21 +166,12 @@ async fn load_gltf<'a, 'b>(
 
             for (positions, normals, tangents) in reader.read_morph_targets() {
                 let morph_target = mesh.add_morph_target();
-                if let Some(morph_vertex_attribute) =
-                    positions.map(|v| VertexAttributeValues::Float32x3(v.collect()))
-                {
-                    morph_target.set_attribute(Mesh::ATTRIBUTE_POSITION, morph_vertex_attribute);
-                }
-                if let Some(morph_vertex_attribute) =
-                    normals.map(|v| VertexAttributeValues::Float32x3(v.collect()))
-                {
-                    morph_target.set_attribute(Mesh::ATTRIBUTE_NORMAL, morph_vertex_attribute);
-                }
-                if let Some(morph_vertex_attribute) =
-                    tangents.map(|v| VertexAttributeValues::Float32x3(v.collect()))
-                {
-                    morph_target.set_attribute(Mesh::ATTRIBUTE_TANGENT, morph_vertex_attribute);
-                }
+                morph_target.position_displacement =
+                    positions.map(|v| VertexAttributeValues::Float32x3(v.collect()));
+                morph_target.normal_displacement =
+                    normals.map(|v| VertexAttributeValues::Float32x3(v.collect()));
+                morph_target.tangent_displacement =
+                    tangents.map(|v| VertexAttributeValues::Float32x3(v.collect()));
             }
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
