@@ -476,7 +476,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                             .collect(),
                     )
                     .with_notes(
-                        error_sources(error)
+                        ErrorSources::of(error)
                             .map(|source| source.to_string())
                             .collect(),
                     );
@@ -498,17 +498,18 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
     }
 }
 
-fn error_sources(
-    error: &dyn std::error::Error,
-) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
-    ErrorSources {
-        current: error.source(),
-    }
-}
-
 struct ErrorSources<'a> {
     current: Option<&'a (dyn std::error::Error + 'static)>,
 }
+
+impl<'a> ErrorSources<'a> {
+    fn of(error: &'a dyn std::error::Error) -> Self {
+        Self {
+            current: error.source(),
+        }
+    }
+}
+
 impl<'a> Iterator for ErrorSources<'a> {
     type Item = &'a (dyn std::error::Error + 'static);
 
