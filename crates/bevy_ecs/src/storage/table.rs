@@ -495,13 +495,13 @@ impl Tables {
     }
 
     pub fn clear(&mut self) {
-        for table in self.tables.iter_mut() {
+        for table in &mut self.tables {
             table.clear();
         }
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for table in self.tables.iter_mut() {
+        for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
     }

@@ -513,10 +513,10 @@ pub fn queue_sprites(
                         | ((color[1] * 255.0) as u32) << 8
                         | ((color[2] * 255.0) as u32) << 16
                         | ((color[3] * 255.0) as u32) << 24;
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                             color,
                         });
                     }
@@ -532,10 +532,10 @@ pub fn queue_sprites(
                         batch_range: Some(item_start..item_end),
                     });
                 } else {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                         });
                     }
                     let item_start = index;

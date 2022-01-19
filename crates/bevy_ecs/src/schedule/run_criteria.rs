@@ -77,7 +77,7 @@ impl BoxedRunCriteria {
             let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
             let archetype_index_range = old_generation.value()..new_generation.value();
 
-            for archetype in archetypes.archetypes[archetype_index_range].iter() {
+            for archetype in &archetypes.archetypes[archetype_index_range] {
                 run_criteria.new_archetype(archetype);
             }
 
@@ -141,7 +141,7 @@ impl RunCriteriaContainer {
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+        for archetype in &archetypes.archetypes[archetype_index_range] {
             match &mut self.inner {
                 RunCriteriaInner::Single(system) => {
                     system.new_archetype(archetype);

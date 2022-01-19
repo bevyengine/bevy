@@ -49,7 +49,7 @@ impl SingleThreadedExecutor {
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+        for archetype in &archetypes.archetypes[archetype_index_range] {
             for container in systems.iter_mut() {
                 let system = container.system_mut();
                 system.new_archetype(archetype);

@@ -130,7 +130,7 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        for archetype in world.archetypes.iter() {
+        for archetype in &world.archetypes {
             system.new_archetype(archetype);
         }
         system.run((), &mut world);
@@ -556,7 +556,7 @@ mod tests {
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
                 bundle_components.sort();
-                for component_id in bundle_components.iter() {
+                for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
                         "every bundle component exists in Components"

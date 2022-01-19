@@ -208,7 +208,7 @@ impl SystemStage {
     }
 
     pub fn apply_buffers(&mut self, world: &mut World) {
-        for container in self.parallel.iter_mut() {
+        for container in &mut self.parallel {
             let system = container.system_mut();
             #[cfg(feature = "trace")]
             let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
@@ -261,7 +261,7 @@ impl SystemStage {
         let (run_criteria, mut systems) = system_set.bake();
         let set_run_criteria_index = run_criteria.and_then(|criteria| {
             // validate that no systems have criteria
-            for system in systems.iter_mut() {
+            for system in &mut systems {
                 if let Some(name) = match system {
                     SystemDescriptor::Exclusive(descriptor) => descriptor
                         .run_criteria
@@ -285,7 +285,7 @@ impl SystemStage {
                     Some(self.add_run_criteria_internal(descriptor))
                 }
                 RunCriteriaDescriptorOrLabel::Label(label) => {
-                    for system in systems.iter_mut() {
+                    for system in &mut systems {
                         match system {
                             SystemDescriptor::Exclusive(descriptor) => {
                                 descriptor.run_criteria =
@@ -611,7 +611,7 @@ impl SystemStage {
                     .map(|label| (label.clone(), order_inverted[index].0))
             })
             .collect();
-        for criteria in self.run_criteria.iter_mut() {
+        for criteria in &mut self.run_criteria {
             if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
                 let label = &criteria.after[0];
                 *parent = *labels.get(label).unwrap_or_else(|| {

@@ -279,24 +279,24 @@ pub fn gamepad_event_system(
         match event {
             GamepadEventType::Connected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(gamepad, *button_type);
+                for button_type in ALL_BUTTON_TYPES {
+                    let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                     button_axis.set(gamepad_button, 0.0);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.set(GamepadAxis(gamepad, *axis_type), 0.0);
+                for axis_type in ALL_AXIS_TYPES {
+                    axis.set(GamepadAxis(gamepad, axis_type), 0.0);
                 }
             }
             GamepadEventType::Disconnected => {
                 events.send(GamepadEvent(gamepad, event.clone()));
-                for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(gamepad, *button_type);
+                for button_type in ALL_BUTTON_TYPES {
+                    let gamepad_button = GamepadButton(gamepad, button_type);
                     button_input.reset(gamepad_button);
                     button_axis.remove(gamepad_button);
                 }
-                for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.remove(GamepadAxis(gamepad, *axis_type));
+                for axis_type in ALL_AXIS_TYPES {
+                    axis.remove(GamepadAxis(gamepad, axis_type));
                 }
             }
             GamepadEventType::AxisChanged(axis_type, value) => {

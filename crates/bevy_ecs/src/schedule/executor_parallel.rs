@@ -84,7 +84,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         self.should_run.grow(systems.len());
 
         // Construct scheduling data for systems.
-        for container in systems.iter() {
+        for container in systems {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             let (start_sender, start_receiver) = async_channel::bounded(1);
@@ -166,7 +166,7 @@ impl ParallelExecutor {
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
+        for archetype in &archetypes.archetypes[archetype_index_range] {
             for (index, container) in systems.iter_mut().enumerate() {
                 let meta = &mut self.system_metadata[index];
                 let system = container.system_mut();
