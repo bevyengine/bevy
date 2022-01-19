@@ -130,7 +130,7 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        for archetype in &world.archetypes {
+        for archetype in world.archetypes.iter() {
             system.new_archetype(archetype);
         }
         system.run((), &mut world);
