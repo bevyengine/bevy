@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use bevy::{input::gamepad::GamepadSettings, prelude::*};
 
 const WINDOW_SIZE: f32 = 300.0;
-const CROSSHAIR_SIZE: f32 = 24.0;
+const CROSSHAIR_SIZE: f32 = 16.0;
 const FONT: &str = "fonts/FiraMono-Medium.ttf";
 const FONT_SIZE: f32 = 18.0;
 
@@ -10,6 +10,9 @@ struct Crosshair;
 
 #[derive(Component)]
 struct CoordinateText;
+
+#[derive(Component)]
+struct DeadzoneBox;
 
 fn main() {
     App::new()
@@ -48,9 +51,12 @@ fn update_position(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Spawn cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    gamepad_settings: Res<GamepadSettings>,
+) {
+    // Spawn camera
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     // Spawn crosshair
@@ -62,6 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(CROSSHAIR_SIZE, CROSSHAIR_SIZE)),
                 ..Default::default()
             },
+            // Make sure it is in the foreground with a Z value > 0.0
+            transform: Transform::from_xyz(0.0, 0.0, 1.0),
             ..Default::default()
         })
         .insert(Crosshair);
@@ -79,9 +87,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("(0.000, 0.000)", text_style, text_alignment),
-            transform: Transform::from_xyz(-WINDOW_SIZE / 2.0, -WINDOW_SIZE / 2.0, 0.0),
+            text: Text::with_section("( 0.000,  0.000)", text_style, text_alignment),
+            transform: Transform::from_xyz(-WINDOW_SIZE / 2.0, -WINDOW_SIZE / 2.0, 1.0),
             ..Default::default()
         })
         .insert(CoordinateText);
+
+    // Get deadzone info
+    let deadzone_upperbound = gamepad_settings.default_axis_settings.positive_low;
+    let deadzone_lowerbound = gamepad_settings.default_axis_settings.negative_low;
+    let deadzone_midpoint = (deadzone_lowerbound + deadzone_upperbound) / 2.0;
+    let deadzone_size = deadzone_upperbound - deadzone_lowerbound;
+    let deadzone_box_midpoint = deadzone_midpoint * WINDOW_SIZE / 2.0;
+    let deadzone_box_size = deadzone_size * WINDOW_SIZE / 2.0;
+
+    // Spawn deadzone box
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
+                color: Color::rgb(0.4, 0.4, 0.4),
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(deadzone_box_midpoint, deadzone_box_midpoint, 0.0),
+            ..Default::default()
+        })
+        .insert(DeadzoneBox);
 }
