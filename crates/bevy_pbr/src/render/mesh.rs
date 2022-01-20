@@ -372,6 +372,7 @@ bitflags::bitflags! {
         const TRANSPARENT_MAIN_PASS       = (1 << 1);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const CULL_MODE_RESERVED_BITS = MeshPipelineKey::CULL_MODE_MASK_BITS << MeshPipelineKey::CULL_MODE_SHIFT_BITS;
     }
 }
 
@@ -380,6 +381,8 @@ impl MeshPipelineKey {
     const MSAA_SHIFT_BITS: u32 = 32 - 6;
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+    const CULL_MODE_MASK_BITS: u32 = 0b11;
+    const CULL_MODE_SHIFT_BITS: u32 = Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - 2;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
@@ -407,6 +410,26 @@ impl MeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn from_cull_mode(cull_mode: Option<Face>) -> Self {
+        let cull_mode = match cull_mode {
+            Some(Face::Back) => 0,
+            Some(Face::Front) => 1,
+            None => 2,
+        };
+        let cull_mode_bits = (cull_mode & Self::CULL_MODE_MASK_BITS) << Self::CULL_MODE_SHIFT_BITS;
+        MeshPipelineKey::from_bits(cull_mode_bits).unwrap()
+    }
+
+    pub fn cull_mode(&self) -> Option<Face> {
+        let cull_mode_bits = (self.bits >> Self::CULL_MODE_SHIFT_BITS) & Self::CULL_MODE_MASK_BITS;
+        match cull_mode_bits {
+            0 => Some(Face::Back),
+            1 => Some(Face::Front),
+            2 => None,
+            _ => Some(Face::Back),
         }
     }
 }
@@ -519,7 +542,7 @@ impl SpecializedPipeline for MeshPipeline {
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
+                cull_mode: key.cull_mode(),
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,

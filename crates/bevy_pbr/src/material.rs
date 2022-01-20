@@ -65,6 +65,12 @@ pub trait Material: Asset + RenderAsset {
         AlphaMode::Opaque
     }
 
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
+    #[allow(unused_variables)]
+    fn double_sided(material: &<Self as RenderAsset>::PreparedAsset) -> bool {
+        false
+    }
+
     /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
     /// Defaults to an empty array / no dynamic uniform indices.
     #[allow(unused_variables)]
@@ -96,6 +102,11 @@ impl<M: Material> SpecializedMaterial for M {
     #[inline]
     fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         <M as Material>::alpha_mode(material)
+    }
+
+    #[inline]
+    fn double_sided(material: &<Self as RenderAsset>::PreparedAsset) -> bool {
+        <M as Material>::double_sided(material)
     }
 
     #[inline]
@@ -156,6 +167,12 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
     #[allow(unused_variables)]
     fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         AlphaMode::Opaque
+    }
+
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
+    #[allow(unused_variables)]
+    fn double_sided(material: &<Self as RenderAsset>::PreparedAsset) -> bool {
+        false
     }
 
     /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
@@ -325,6 +342,9 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                     let alpha_mode = M::alpha_mode(material);
                     if let AlphaMode::Blend = alpha_mode {
                         mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
+                    }
+                    if M::double_sided(material) {
+                        mesh_key |= MeshPipelineKey::from_cull_mode(None)
                     }
 
                     let specialized_key = M::key(material);
