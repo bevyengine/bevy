@@ -24,6 +24,8 @@ mod impls {
 }
 
 pub mod serde;
+pub mod std_traits;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -1,10 +1,11 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
 // FIXME: This should probably be part of bevy_render2!
 /// Alpha mode
 #[derive(Component, Debug, Reflect, Copy, Clone, PartialEq)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub enum AlphaMode {
     Opaque,
     /// An alpha cutoff must be supplied where alpha values >= the cutoff

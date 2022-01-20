@@ -1,6 +1,7 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Size;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::Font;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,
@@ -152,7 +153,7 @@ impl Default for TextStyle {
 }
 
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Text2dSize {
     pub size: Size,
 }

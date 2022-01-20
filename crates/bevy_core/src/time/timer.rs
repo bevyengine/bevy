@@ -1,5 +1,6 @@
 use crate::Stopwatch;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
@@ -11,7 +12,7 @@ use bevy_utils::Duration;
 ///
 /// Paused timers will not have elapsed time increased.
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,

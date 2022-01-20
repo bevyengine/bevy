@@ -1,6 +1,7 @@
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -34,7 +35,7 @@ use std::ops::Mul;
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform {
     /// The position of the global transform
     pub translation: Vec3,

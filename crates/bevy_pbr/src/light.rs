@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -35,7 +36,7 @@ use crate::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -107,7 +108,7 @@ impl Default for PointLightShadowMap {
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
