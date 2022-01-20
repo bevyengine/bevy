@@ -641,7 +641,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, &(entity, light)) in point_lights.iter().enumerate() {
+    for (index, &(entity, light)) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
