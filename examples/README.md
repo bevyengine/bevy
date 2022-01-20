@@ -88,6 +88,7 @@ Example | File | Description
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
 `rect` | [`2d/rect.rs`](./2d/rect.rs) | Renders a rectangle
+`circle` | [`2d/circle.rs`](./2d/circle.rs) | Renders a circle
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
