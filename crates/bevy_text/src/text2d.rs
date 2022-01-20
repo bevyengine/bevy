@@ -115,7 +115,7 @@ pub struct QueuedText2d {
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the TextPipeline on insertion, then stored.
+/// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,

@@ -35,7 +35,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the TextPipeline on insertion, then stored.
+/// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
