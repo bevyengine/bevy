@@ -22,9 +22,14 @@ impl From<RegularPolygon> for Mesh {
     fn from(polygon: RegularPolygon) -> Self {
         let RegularPolygon { radius, sides } = polygon;
 
-        let mut positions = vec![[0.0, 0.0, 0.0]];
-        let mut normals = vec![[0.0, 0.0, 1.0]];
-        let mut uvs = vec![[0.5, 0.5]];
+        let mut positions = Vec::with_capacity(sides + 1);
+        positions.push([0.0, 0.0, 0.0]);
+
+        let mut normals = Vec::with_capacity(sides + 1);
+        normals.push([0.0, 0.0, 1.0]);
+
+        let mut uvs = Vec::with_capacity(sides + 1);
+        uvs.push([0.5, 0.5]);
 
         for i in 0..sides {
             let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / (sides as f32);
@@ -34,7 +39,9 @@ impl From<RegularPolygon> for Mesh {
             uvs.push([(a.cos() + 1.0) / 2.0, 1.0 - (a.sin() + 1.0) / 2.0]);
         }
 
-        let mut indices = vec![0, 1, sides as u32];
+        let mut indices = Vec::with_capacity(sides * 3);
+
+        indices.extend_from_slice(&[0, 1, sides as u32]);
         for i in 2..=sides as u32 {
             indices.extend_from_slice(&[0, i, i - 1]);
         }
