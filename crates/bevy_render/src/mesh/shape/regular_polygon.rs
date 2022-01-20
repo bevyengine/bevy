@@ -23,12 +23,11 @@ impl From<RegularPolygon> for Mesh {
         let RegularPolygon { radius, sides } = polygon;
 
         let mut positions = Vec::with_capacity(sides + 1);
-        positions.push([0.0, 0.0, 0.0]);
-
         let mut normals = Vec::with_capacity(sides + 1);
-        normals.push([0.0, 0.0, 1.0]);
-
         let mut uvs = Vec::with_capacity(sides + 1);
+
+        positions.push([0.0, 0.0, 0.0]);
+        normals.push([0.0, 0.0, 1.0]);
         uvs.push([0.5, 0.5]);
 
         for i in 0..sides {
