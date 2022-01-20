@@ -140,6 +140,10 @@ name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
+name = "circle"
+path = "examples/2d/circle.rs"
+
+[[example]]
 name = "rect"
 path = "examples/2d/rect.rs"
 
