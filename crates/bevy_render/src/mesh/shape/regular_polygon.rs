@@ -7,7 +7,7 @@ pub struct RegularPolygon {
     /// Inscribed radius on the xy plane.
     pub radius: f32,
     /// Number of sides.
-    pub sides: u32,
+    pub sides: usize,
 }
 impl Default for RegularPolygon {
     fn default() -> Self {
@@ -34,8 +34,8 @@ impl From<RegularPolygon> for Mesh {
             uvs.push([(a.cos() + 1.0) / 2.0, 1.0 - (a.sin() + 1.0) / 2.0]);
         }
 
-        let mut indices = vec![0, 1, sides];
-        for i in 2..=sides {
+        let mut indices = vec![0, 1, sides as u32];
+        for i in 2..=sides as u32 {
             indices.extend_from_slice(&[0, i, i - 1]);
         }
 
@@ -52,7 +52,7 @@ pub struct Circle {
     /// Inscribed radius on the xy plane.
     pub radius: f32,
     /// The number of subdivisions applied.
-    pub subdivisions: u32,
+    pub subdivisions: usize,
 }
 
 impl Default for Circle {
