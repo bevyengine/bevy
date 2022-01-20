@@ -29,12 +29,12 @@ fn main() {
 }
 
 fn update_position(
-    mut xform_query: Query<&mut Transform, With<Crosshair>>,
+    mut crosshair_query: Query<&mut Transform, With<Crosshair>>,
     mut text_query: Query<&mut Text, With<CoordinateText>>,
     gamepads: Res<Gamepads>,
     axes: Res<Axis<GamepadAxis>>,
 ) {
-    let mut xform = xform_query.single_mut();
+    let mut transform = crosshair_query.single_mut();
     let mut text = text_query.single_mut();
     for gamepad in gamepads.iter() {
         // We only use input from the left stick.
@@ -44,8 +44,8 @@ fn update_position(
         let y = axes
             .get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickY))
             .unwrap();
-        xform.translation.x = x * WINDOW_SIZE / 2.0;
-        xform.translation.y = y * WINDOW_SIZE / 2.0;
+        transform.translation.x = x * WINDOW_SIZE / 2.0;
+        transform.translation.y = y * WINDOW_SIZE / 2.0;
         text.sections[0].value = format!("({:6.3}, {:6.3})", x, y);
     }
 }
@@ -64,7 +64,7 @@ fn setup(
         .spawn_bundle(SpriteBundle {
             texture,
             sprite: Sprite {
-                custom_size: Some(Vec2::new(CROSSHAIR_SIZE, CROSSHAIR_SIZE)),
+                custom_size: Some(Vec2::splat(CROSSHAIR_SIZE)),
                 ..Default::default()
             },
             // Make sure it is in the foreground with a Z value > 0.0
@@ -92,7 +92,7 @@ fn setup(
     // Spawn livezone box
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
-            custom_size: Some(Vec2::new(livezone_box_size, livezone_box_size)),
+            custom_size: Some(Vec2::splat(livezone_box_size)),
             color: LIVEZONE_COLOR,
             ..Default::default()
         },
@@ -102,7 +102,7 @@ fn setup(
     // Spawn deadzone box
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
-            custom_size: Some(Vec2::new(deadzone_box_size, deadzone_box_size)),
+            custom_size: Some(Vec2::splat(deadzone_box_size)),
             color: DEADZONE_COLOR,
             ..Default::default()
         },
