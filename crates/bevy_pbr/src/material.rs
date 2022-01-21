@@ -23,7 +23,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
+        BindGroup, BindGroupLayout, Face, RenderPipelineCache, RenderPipelineDescriptor, Shader,
         SpecializedPipeline, SpecializedPipelines,
     },
     renderer::RenderDevice,
@@ -343,8 +343,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                     if let AlphaMode::Blend = alpha_mode {
                         mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
                     }
-                    if M::double_sided(material) {
-                        mesh_key |= MeshPipelineKey::from_cull_mode(None)
+                    if !M::double_sided(material) {
+                        mesh_key |= MeshPipelineKey::from_cull_mode(Some(Face::Back))
                     }
 
                     let specialized_key = M::key(material);
