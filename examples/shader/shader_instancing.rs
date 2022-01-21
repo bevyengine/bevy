@@ -231,7 +231,6 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,
