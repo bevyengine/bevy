@@ -5,7 +5,8 @@ use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::Buffer,
-    renderer::RenderDevice,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{Image, GpuImage},
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -15,7 +16,7 @@ use bevy_utils::EnumVariantMeta;
 pub use morph_target::*;
 use std::{borrow::Cow, collections::BTreeMap};
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexFormat,
+    Extent3d, util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, TextureDimension, TextureFormat, VertexFormat,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -55,6 +56,8 @@ pub struct Mesh {
 /// }
 /// ```
 impl Mesh {
+    const MORPH_TARGET_PIXEL_SIZE: usize = std::mem::size_of::<Vec4>();
+
     /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
     /// The direction the vertex normal is facing in.
@@ -195,6 +198,15 @@ impl Mesh {
                         "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_name, attribute_len, previous_vertex_count);
             }
             vertex_count = Some(attribute_len);
+        }
+
+        for (idx, morph_target) in self.morph_targets.iter().enumerate() {
+            let morph_target_len = morph_target.count_vertices();
+            if let Some(previous_vertex_count) = vertex_count {
+                assert_eq!(previous_vertex_count, morph_target_len,
+                        "Morph target {} has a different vertex count ({}) than other attributes ({}) in this mesh.", idx, morph_target_len, previous_vertex_count);
+            }
+            vertex_count = Some(morph_target_len);
         }
 
         vertex_count.unwrap_or(0)
@@ -339,6 +351,54 @@ impl Mesh {
         }
 
         None
+    }
+
+    /// Creates a [`Image`] from the morph target data stored within the mesh.
+    /// 
+    /// Returns `None` if there is no morph target data.
+    fn create_morph_target_image(&self) -> Option<Image> {
+        if self.morph_targets.is_empty() {
+            return None;
+        }
+
+        const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba32Float; 
+        let vertex_count = self.count_vertices();
+        let size = Extent3d {
+            width: vertex_count as u32,
+            // 3 attributes per morph target: position, normal, tangent.
+            height: self.morph_targets.len() as u32 * 3,
+            depth_or_array_layers: 1u32,
+        };
+        let mut data: Vec<u8> = vec![0u8; size.width as usize * size.height as usize * Self::MORPH_TARGET_PIXEL_SIZE];
+        let row_size = vertex_count * Self::MORPH_TARGET_PIXEL_SIZE;
+        let mut offset = 0;
+        for morph_target in self.morph_targets.iter() {
+            Self::write_morph_target_row(morph_target.position_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            offset += row_size;
+            Self::write_morph_target_row(morph_target.normal_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            offset += row_size;
+            Self::write_morph_target_row(morph_target.tangent_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            offset += row_size;
+        }
+
+        Some(Image::new(
+            size,
+            TextureDimension::D2,
+            data,
+            TEXTURE_FORMAT, 
+        ))
+    }
+
+    fn write_morph_target_row(row: Option<&Vec<Vec3>>, dst: &mut [u8]) {
+        const VEC3_SIZE: usize = std::mem::size_of::<Vec3>();
+        if let Some(row) = row {
+            let src: &[u8] = cast_slice(&row);
+            let src_chunks = src.chunks_exact(VEC3_SIZE);
+            let dst_chunks = dst.chunks_exact_mut(Self::MORPH_TARGET_PIXEL_SIZE);
+            for (src, dst) in src_chunks.zip(dst_chunks) {
+                dst[0..VEC3_SIZE].copy_from_slice(src);
+            }
+        }
     }
 }
 
@@ -617,7 +677,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
-    pub morph_target_vertex_buffers: Vec<Buffer>,
+    pub morph_target_image: Option<GpuImage>,
     pub buffer_info: GpuBufferInfo,
     pub has_tangents: bool,
     pub primitive_topology: PrimitiveTopology,
@@ -640,7 +700,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -650,26 +710,17 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let morph_target_image = mesh.create_morph_target_image()
+            .and_then(|image| Image::prepare_asset(image, param).ok());
+        let (render_device, _) = &param;
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
-        let morph_target_vertex_buffers = mesh
-            .morph_targets
-            .iter()
-            .map(|target| {
-                let morph_target_buffer_data = target.get_vertex_buffer_data();
-                render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::VERTEX,
-                    label: Some("Morph Target Buffer"),
-                    contents: &morph_target_buffer_data,
-                })
-            })
-            .collect();
 
         let buffer_info = mesh.get_index_buffer_bytes().map_or(
             GpuBufferInfo::NonIndexed {
@@ -688,7 +739,7 @@ impl RenderAsset for Mesh {
 
         Ok(GpuMesh {
             vertex_buffer,
-            morph_target_vertex_buffers,
+            morph_target_image,
             buffer_info,
             has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),

@@ -166,9 +166,9 @@ async fn load_gltf<'a, 'b>(
 
             for (positions, normals, tangents) in reader.read_morph_targets() {
                 let morph_target = mesh.add_morph_target();
-                morph_target.position_displacement = positions.map(|v| v.collect());
-                morph_target.normal_displacement = normals.map(|v| v.collect());
-                morph_target.tangent_displacement = tangents.map(|v| v.collect());
+                morph_target.position_displacement = positions.map(|v| v.map(Into::into).collect());
+                morph_target.normal_displacement = normals.map(|v| v.map(Into::into).collect());
+                morph_target.tangent_displacement = tangents.map(|v| v.map(Into::into).collect());
             }
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
