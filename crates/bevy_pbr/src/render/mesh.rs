@@ -367,12 +367,12 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                        = 0;
-        const VERTEX_TANGENTS             = (1 << 0);
-        const TRANSPARENT_MAIN_PASS       = (1 << 1);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
+        const NONE                             = 0;
+        const VERTEX_TANGENTS                  = (1 << 0);
+        const TRANSPARENT_MAIN_PASS            = (1 << 1);
+        const MSAA_RESERVED_BITS               = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        const CULL_MODE_RESERVED_BITS = MeshPipelineKey::CULL_MODE_MASK_BITS << MeshPipelineKey::CULL_MODE_SHIFT_BITS;
+        const CULL_MODE_RESERVED_BITS          = MeshPipelineKey::CULL_MODE_MASK_BITS << MeshPipelineKey::CULL_MODE_SHIFT_BITS;
     }
 }
 
