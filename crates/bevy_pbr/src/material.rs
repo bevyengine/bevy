@@ -65,7 +65,7 @@ pub trait Material: Asset + RenderAsset {
         AlphaMode::Opaque
     }
 
-    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
+    /// Returns whether this material is double-sided. Defaults to [`false`].
     #[allow(unused_variables)]
     fn double_sided(material: &<Self as RenderAsset>::PreparedAsset) -> bool {
         false
