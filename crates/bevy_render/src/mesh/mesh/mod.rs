@@ -28,12 +28,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// [`BTreeMap`] with all defined vertex attributes (Positions, Normals, ...)
+    /// `BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute name maps to attribute values.
-    /// Uses a [`BTreeMap`] because, unlike [`HashMap`], it has a defined iteration order,
+    /// Uses a `BTreeMap` because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable vertex buffers (i.e. same buffer order)
-    ///
-    /// [HashMap]: std::collections::HashMap
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     morph_targets: Vec<MorphTarget>,
     indices: Option<Indices>,
