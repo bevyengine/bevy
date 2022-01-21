@@ -1,7 +1,10 @@
 use super::Mesh;
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
-use std::ops::{Deref, DerefMut};
+use std::{
+    cmp::min,
+    ops::{Deref, DerefMut}
+};
 
 /// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
 /// morph targets that affect the final rendered result.
@@ -53,36 +56,40 @@ impl MorphTargetWeights {
     ///
     /// The returned values are returned in non particular order.
     pub fn strongest_n<const N: usize>(&self) -> ([f32; N], [usize; N]) {
-        let mut weights = [f32::MAX; N];
+        let mut weights = [0.0; N];
         let mut indexes = [0; N];
         let len = self.0.len();
-        if N > len {
-            for idx in 0..N {
-                weights[idx] = self.0[idx];
-                indexes[idx] = idx;
-            }
-        } else {
-            for (idx, weight) in self.0.iter().cloned().enumerate() {
-                let min_idx = Self::min_abs_idx(&weights);
-                if weight.abs() > weights[min_idx].abs() {
-                    indexes[min_idx] = idx;
+        for idx in 0..min(len, N) {
+            weights[idx] = self.0[idx];
+            indexes[idx] = idx;
+        }
+        if N < len {
+            let mut min_idx = Self::min_abs_idx(&weights);
+            let mut min = weights[min_idx];
+            for (idx, weight) in self.0.iter().cloned().enumerate().skip(N) {
+                if weight.abs() > min {
                     weights[min_idx] = weight;
+                    indexes[min_idx] = idx;
+                    min_idx = Self::min_abs_idx(&weights);
+                    min = weights[min_idx];
                 }
             }
-        };
+        }
 
         (weights, indexes)
     }
 
     #[inline(always)]
     fn min_abs_idx<const N: usize>(values: &[f32; N]) -> usize {
-        let mut max_idx = 0;
-        for idx in 0..N {
-            if values[idx].abs() < values[max_idx].abs() {
-                max_idx = idx;
+        let mut min = f32::MAX;
+        let mut min_idx = 0;
+        for (idx, value) in values.iter().cloned().map(f32::abs).enumerate() {
+            if value < min {
+                min = value;
+                min_idx = idx;
             }
         }
-        max_idx
+        min_idx
     }
 }
 
