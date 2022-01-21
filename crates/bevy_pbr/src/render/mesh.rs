@@ -426,9 +426,9 @@ impl MeshPipelineKey {
     pub fn cull_mode(&self) -> Option<Face> {
         let cull_mode_bits = (self.bits >> Self::CULL_MODE_SHIFT_BITS) & Self::CULL_MODE_MASK_BITS;
         match cull_mode_bits {
-            0 => Some(Face::Back),
+            0 => None,
             1 => Some(Face::Front),
-            2 => None,
+            2 => Some(Face::Back),
             _ => Some(Face::Back),
         }
     }
