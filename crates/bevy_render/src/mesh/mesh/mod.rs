@@ -396,7 +396,7 @@ impl Mesh {
     fn write_morph_target_row(row: Option<&Vec<Vec3>>, dst: &mut [u8]) {
         const VEC3_SIZE: usize = std::mem::size_of::<Vec3>();
         if let Some(row) = row {
-            let src: &[u8] = cast_slice(&row);
+            let src: &[u8] = cast_slice(row);
             let src_chunks = src.chunks_exact(VEC3_SIZE);
             let dst_chunks = dst.chunks_exact_mut(Self::MORPH_TARGET_PIXEL_SIZE);
             for (src, dst) in src_chunks.zip(dst_chunks) {
