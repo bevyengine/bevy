@@ -6,7 +6,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
-    texture::{Image, GpuImage},
+    texture::{GpuImage, Image},
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -16,7 +16,8 @@ use bevy_utils::EnumVariantMeta;
 pub use morph_target::*;
 use std::{borrow::Cow, collections::BTreeMap};
 use wgpu::{
-    Extent3d, util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, TextureDimension, TextureFormat, VertexFormat,
+    util::BufferInitDescriptor, BufferUsages, Extent3d, IndexFormat, PrimitiveTopology,
+    TextureDimension, TextureFormat, VertexFormat,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -354,14 +355,14 @@ impl Mesh {
     }
 
     /// Creates a [`Image`] from the morph target data stored within the mesh.
-    /// 
+    ///
     /// Returns `None` if there is no morph target data.
     fn create_morph_target_image(&self) -> Option<Image> {
         if self.morph_targets.is_empty() {
             return None;
         }
 
-        const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba32Float; 
+        const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
         let vertex_count = self.count_vertices();
         let size = Extent3d {
             width: vertex_count as u32,
@@ -369,24 +370,29 @@ impl Mesh {
             height: self.morph_targets.len() as u32 * 3,
             depth_or_array_layers: 1u32,
         };
-        let mut data: Vec<u8> = vec![0u8; size.width as usize * size.height as usize * Self::MORPH_TARGET_PIXEL_SIZE];
+        let mut data: Vec<u8> =
+            vec![0u8; size.width as usize * size.height as usize * Self::MORPH_TARGET_PIXEL_SIZE];
         let row_size = vertex_count * Self::MORPH_TARGET_PIXEL_SIZE;
         let mut offset = 0;
         for morph_target in self.morph_targets.iter() {
-            Self::write_morph_target_row(morph_target.position_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            Self::write_morph_target_row(
+                morph_target.position_displacement.as_ref(),
+                &mut data[offset..offset + row_size],
+            );
             offset += row_size;
-            Self::write_morph_target_row(morph_target.normal_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            Self::write_morph_target_row(
+                morph_target.normal_displacement.as_ref(),
+                &mut data[offset..offset + row_size],
+            );
             offset += row_size;
-            Self::write_morph_target_row(morph_target.tangent_displacement.as_ref(), &mut data[offset..offset + row_size]);
+            Self::write_morph_target_row(
+                morph_target.tangent_displacement.as_ref(),
+                &mut data[offset..offset + row_size],
+            );
             offset += row_size;
         }
 
-        Some(Image::new(
-            size,
-            TextureDimension::D2,
-            data,
-            TEXTURE_FORMAT, 
-        ))
+        Some(Image::new(size, TextureDimension::D2, data, TEXTURE_FORMAT))
     }
 
     fn write_morph_target_row(row: Option<&Vec<Vec3>>, dst: &mut [u8]) {
@@ -712,7 +718,8 @@ impl RenderAsset for Mesh {
         mesh: Self::ExtractedAsset,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let morph_target_image = mesh.create_morph_target_image()
+        let morph_target_image = mesh
+            .create_morph_target_image()
             .and_then(|image| Image::prepare_asset(image, param).ok());
         let (render_device, _) = &param;
         let vertex_buffer_data = mesh.get_vertex_buffer_data();

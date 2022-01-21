@@ -1,6 +1,6 @@
 use super::Mesh;
-use bevy_math::Vec3;
 use bevy_ecs::component::Component;
+use bevy_math::Vec3;
 use std::ops::{Deref, DerefMut};
 
 /// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
