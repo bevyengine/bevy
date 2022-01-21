@@ -11,7 +11,7 @@ where
     Source: Decodable,
 {
     _stream: Option<OutputStream>,
-    stream_handle: Option<OutputStreamHandle>,
+    pub(crate) stream_handle: Option<OutputStreamHandle>,
     phantom: PhantomData<Source>,
 }
 
@@ -41,7 +41,7 @@ impl<Source> AudioOutput<Source>
 where
     Source: Asset + Decodable,
 {
-    fn play_source(&self, audio_source: &Source) {
+    pub(crate) fn play_source(&self, audio_source: &Source) {
         if let Some(stream_handle) = &self.stream_handle {
             let sink = Sink::try_new(stream_handle).unwrap();
             sink.append(audio_source.decoder());
