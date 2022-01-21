@@ -3,7 +3,7 @@ use bevy_ecs::component::Component;
 use bevy_math::Vec3;
 use std::{
     cmp::min,
-    ops::{Deref, DerefMut}
+    ops::{Deref, DerefMut},
 };
 
 /// A [morph target] for a parent mesh. A given [`Mesh`] may have zero or more
