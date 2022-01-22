@@ -9,9 +9,9 @@ use crate::{RenderApp, RenderStage};
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`Resource`].
-pub struct ExtractResourcePlugin<R>(PhantomData<R>);
+pub struct ExtractResourcePlugin<R: Clone + Resource>(PhantomData<R>);
 
-impl<R> Default for ExtractResourcePlugin<R> {
+impl<R: Clone + Resource> Default for ExtractResourcePlugin<R> {
     fn default() -> Self {
         Self(PhantomData)
     }
