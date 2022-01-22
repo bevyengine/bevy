@@ -68,9 +68,9 @@ impl Mesh {
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
 
-    /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
+    /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
-    /// `PrimitiveTopology::TriangleList`.
+    /// [`PrimitiveTopology::TriangleList`].
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
@@ -269,7 +269,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
-    /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
+    /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         if self.indices().is_some() {
             panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
@@ -404,8 +404,8 @@ pub enum VertexAttributeValues {
 }
 
 impl VertexAttributeValues {
-    /// Returns the number of vertices in this VertexAttribute. For a single
-    /// mesh, all of the VertexAttributeValues must have the same length.
+    /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
+    /// mesh, all of the [`VertexAttributeValues`] must have the same length.
     pub fn len(&self) -> usize {
         match *self {
             VertexAttributeValues::Float32(ref values) => values.len(),
@@ -439,7 +439,7 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Returns `true` if there are no vertices in this VertexAttributeValue.
+    /// Returns `true` if there are no vertices in this [`VertexAttributeValues`].
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -453,7 +453,7 @@ impl VertexAttributeValues {
     }
 
     // TODO: add vertex format as parameter here and perform type conversions
-    /// Flattens the VertexAttributeArray into a sequence of bytes. This is
+    /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
     pub fn get_bytes(&self) -> &[u8] {
         match self {

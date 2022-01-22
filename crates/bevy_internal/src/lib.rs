@@ -94,7 +94,7 @@ pub mod core_pipeline {
 
 #[cfg(feature = "bevy_gilrs")]
 pub mod gilrs {
-    //! Bevy interface with GilRs - Game Input Library for Rust to handle gamepad inputs
+    //! Bevy interface with `GilRs` - "Game Input Library for Rust" - to handle gamepad inputs.
     pub use bevy_gilrs::*;
 }
 

@@ -104,6 +104,8 @@ impl AssetIo for FileAssetIo {
         {
             *self.filesystem_watcher.write() = Some(FilesystemWatcher::default());
         }
+        #[cfg(not(feature = "filesystem_watcher"))]
+        bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
 
         Ok(())
     }

@@ -276,16 +276,10 @@ where
         }
     }
 
-    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
+    /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
+    ///
     /// This can only be called for read-only queries.
-    ///
-    ///  For permutations of size K of query returning N results, you will get:
-    /// - if K == N: one permutation of all query results
-    /// - if K < N: all possible K-sized combinations of query results, without repetition
-    /// - if K > N: empty set (no K-sized combinations exist)
-    ///
-    /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
-    /// write-queries.
     #[inline]
     pub fn iter_manual<'w, 's>(
         &'s self,

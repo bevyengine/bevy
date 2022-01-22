@@ -128,14 +128,14 @@ pub struct DynamicTuple {
 }
 
 impl DynamicTuple {
-    /// Returns the name of the tuple.
+    /// Returns the type name of the tuple.
     ///
     /// The tuple's name is automatically generated from its element types.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Manually sets the name of the tuple.
+    /// Manually sets the type name of the tuple.
     ///
     /// Note that the tuple name will be overwritten when elements are added.
     pub fn set_name(&mut self, name: String) {
@@ -259,6 +259,11 @@ unsafe impl Reflect for DynamicTuple {
     }
 }
 
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -272,6 +277,12 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     }
 }
 
+/// Compares a [`Tuple`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is a tuple;
+/// - `b` has the same number of elements as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
