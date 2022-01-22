@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
+        render_ecs_resource::ExtractResourcePlugin,
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
@@ -61,10 +62,10 @@ pub struct GameOfLifeComputePlugin;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<GameOfLifePipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -75,13 +76,9 @@ impl Plugin for GameOfLifeComputePlugin {
     }
 }
 
-#[derive(Deref)]
+#[derive(Clone, Deref)]
 struct GameOfLifeImage(Handle<Image>);
 struct GameOfLifeImageBindGroup(BindGroup);
-
-fn extract_game_of_life_image(mut commands: Commands, image: Res<GameOfLifeImage>) {
-    commands.insert_resource(GameOfLifeImage(image.clone()));
-}
 
 fn queue_bind_group(
     mut commands: Commands,

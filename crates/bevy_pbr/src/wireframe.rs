@@ -9,6 +9,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
+    render_ecs_resource::ExtractResourcePlugin,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{
         PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
@@ -34,7 +35,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<WireframeConfig>();
+        app.init_resource::<WireframeConfig>()
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -42,15 +44,8 @@ impl Plugin for WireframePlugin {
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Extract, extract_wireframe_config)
                 .add_system_to_stage(RenderStage::Queue, queue_wireframes);
         }
-    }
-}
-
-fn extract_wireframe_config(mut commands: Commands, wireframe_config: Res<WireframeConfig>) {
-    if wireframe_config.is_added() || wireframe_config.is_changed() {
-        commands.insert_resource(wireframe_config.into_inner().clone());
     }
 }
 

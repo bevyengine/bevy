@@ -12,6 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
+    render_ecs_resource::ExtractResourcePlugin,
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -27,12 +28,14 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
+        app.init_resource::<Msaa>()
+            // NOTE: windows.is_changed() handles cases where a window was resized
+            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
+            .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Extract, extract_msaa)
                 .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -68,11 +71,6 @@ impl Default for Msaa {
     fn default() -> Self {
         Self { samples: 4 }
     }
-}
-
-pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
-    // NOTE: windows.is_changed() handles cases where a window was resized
-    commands.insert_resource(msaa.clone());
 }
 
 #[derive(Component)]
