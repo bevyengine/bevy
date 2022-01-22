@@ -12,7 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
-    render_ecs_resource::ExtractResourcePlugin,
+    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -70,6 +70,12 @@ pub struct Msaa {
 impl Default for Msaa {
     fn default() -> Self {
         Self { samples: 4 }
+    }
+}
+
+impl ExtractResource for Msaa {
+    fn extract_resource(res: &Self) -> Self {
+        res.clone()
     }
 }
 

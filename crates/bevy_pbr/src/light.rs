@@ -9,6 +9,7 @@ use bevy_render::{
     color::Color,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
+    render_ecs_resource::ExtractResource,
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
@@ -168,7 +169,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.

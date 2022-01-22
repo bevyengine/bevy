@@ -9,7 +9,6 @@ use bevy::{
     render::{
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
-        render_ecs_resource::ExtractResourcePlugin,
         render_phase::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
@@ -54,9 +53,6 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        // extract the passed time into a resource in the render world
-        app.add_plugin(ExtractResourcePlugin::<Time>::default());
-
         let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),
@@ -73,6 +69,7 @@ impl Plugin for CustomMaterialPlugin {
             })
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
+            .add_system_to_stage(RenderStage::Extract, extract_time)
             .add_system_to_stage(RenderStage::Extract, extract_custom_material)
             .add_system_to_stage(RenderStage::Prepare, prepare_time)
             .add_system_to_stage(RenderStage::Queue, queue_custom)
@@ -133,17 +130,33 @@ fn queue_custom(
     }
 }
 
+#[derive(Default)]
+struct ExtractedTime {
+    seconds_since_startup: f32,
+}
+
+// extract the passed time into a resource in the render world
+fn extract_time(mut commands: Commands, time: Res<Time>) {
+    commands.insert_resource(ExtractedTime {
+        seconds_since_startup: time.seconds_since_startup() as f32,
+    });
+}
+
 struct TimeMeta {
     buffer: Buffer,
     bind_group: Option<BindGroup>,
 }
 
 // write the extracted time into the corresponding uniform buffer
-fn prepare_time(time: Res<Time>, time_meta: ResMut<TimeMeta>, render_queue: Res<RenderQueue>) {
+fn prepare_time(
+    time: Res<ExtractedTime>,
+    time_meta: ResMut<TimeMeta>,
+    render_queue: Res<RenderQueue>,
+) {
     render_queue.write_buffer(
         &time_meta.buffer,
         0,
-        bevy::core::cast_slice(&[time.seconds_since_startup() as f32]),
+        bevy::core::cast_slice(&[time.seconds_since_startup]),
     );
 }
 

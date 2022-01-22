@@ -24,7 +24,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
     color::Color,
-    render_ecs_resource::ExtractResourcePlugin,
+    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
@@ -42,7 +42,7 @@ use bevy_utils::FloatOrd;
 ///
 /// This color appears as the "background" color for simple apps, when
 /// there are portions of the screen with nothing rendered.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
@@ -51,7 +51,7 @@ impl Default for ClearColor {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, ExtractResource)]
 pub struct RenderTargetClearColors {
     colors: HashMap<RenderTarget, Color>,
 }

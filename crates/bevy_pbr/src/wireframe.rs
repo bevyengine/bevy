@@ -9,7 +9,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_ecs_resource::ExtractResourcePlugin,
+    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{
         PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
@@ -60,7 +60,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ExtractResource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,

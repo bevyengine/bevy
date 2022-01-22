@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
-        render_ecs_resource::ExtractResourcePlugin,
+        render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
@@ -76,7 +76,7 @@ impl Plugin for GameOfLifeComputePlugin {
     }
 }
 
-#[derive(Clone, Deref)]
+#[derive(Clone, Deref, ExtractResource)]
 struct GameOfLifeImage(Handle<Image>);
 struct GameOfLifeImageBindGroup(BindGroup);
 
