@@ -62,6 +62,8 @@ pub struct GameOfLifeComputePlugin;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
+        // Extract the game of life image resource from the main world into the render world
+        // for operation on by the compute shader and display on the sprite.
         app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app
