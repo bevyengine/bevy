@@ -35,7 +35,7 @@ fn setup(
     });
 
     // quad
-    commands.spawn().insert_bundle(MaterialMesh2dBundle {
+    commands.spawn_bundle(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(meshes.add(Mesh::from(shape::Quad::new(size)))),
         material,
         ..Default::default()
