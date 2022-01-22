@@ -45,7 +45,7 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -70,12 +70,6 @@ pub struct Msaa {
 impl Default for Msaa {
     fn default() -> Self {
         Self { samples: 4 }
-    }
-}
-
-impl ExtractResource for Msaa {
-    fn extract_resource(res: &Self) -> Self {
-        res.clone()
     }
 }
 
