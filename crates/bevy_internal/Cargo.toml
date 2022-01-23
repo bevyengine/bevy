@@ -24,6 +24,8 @@ jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 dds = ["bevy_render/dds"]
 ktx2 = ["bevy_render/ktx2"]
+# For ktx2 supercompression
+zstd = ["bevy_render/zstd"]
 
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_audio/flac"]

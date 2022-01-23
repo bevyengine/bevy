@@ -337,6 +337,8 @@ pub enum TextureError {
     UnsupportedTextureFormat(String),
     #[error("supercompression not supported: {0}")]
     SuperCompressionNotSupported(String),
+    #[error("failed to load an image: {0}")]
+    SuperDecompressionError(String),
 }
 
 /// The type of a raw image buffer.
