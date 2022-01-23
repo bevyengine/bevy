@@ -62,6 +62,7 @@ pub struct PbrShaderHandles {
     // NOTE: This is needed to keep the shaders alive.
     #[allow(dead_code)]
     pbr_shader_handle: Handle<Shader>,
+    #[allow(dead_code)]
     shadow_shader_handle: Handle<Shader>,
 }
 

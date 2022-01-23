@@ -43,8 +43,10 @@ pub struct MeshShaders {
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
+const MESH_VIEW_BIND_GROUP_IMPORT_PATH: &str = "bevy_pbr::mesh_view_bind_group";
 pub const MESH_STRUCT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
+const MESH_STRUCT_IMPORT_PATH: &str = "bevy_pbr::mesh_struct";
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 
@@ -64,14 +66,14 @@ impl Plugin for MeshRenderPlugin {
                 Shader::from_wgsl(include_str!(
                     "../../../../assets/shaders/bevy_pbr/mesh_struct.wgsl"
                 ))
-                .with_import_path("bevy_pbr::mesh_struct"),
+                .with_import_path(MESH_STRUCT_IMPORT_PATH),
             );
             shaders.set_untracked(
                 MESH_VIEW_BIND_GROUP_HANDLE,
                 Shader::from_wgsl(include_str!(
                     "../../../../assets/shaders/bevy_pbr/mesh_view_bind_group.wgsl"
                 ))
-                .with_import_path("bevy_pbr::mesh_view_bind_group"),
+                .with_import_path(MESH_VIEW_BIND_GROUP_IMPORT_PATH),
             );
         }
         #[cfg(feature = "bevy_shader_hot_reloading")]
@@ -126,7 +128,7 @@ fn set_shader_import_paths(
         shaders
             .get_mut(mesh_shader_handles.mesh_struct_handle.clone())
             .unwrap()
-            .set_import_path("bevy_pbr::mesh_struct");
+            .set_import_path(MESH_STRUCT_IMPORT_PATH);
         mesh_shader_handles.mesh_struct_loaded = true;
     }
     if !mesh_shader_handles.mesh_view_bind_group_loaded
@@ -136,7 +138,7 @@ fn set_shader_import_paths(
         shaders
             .get_mut(mesh_shader_handles.mesh_view_bind_group_handle.clone())
             .unwrap()
-            .set_import_path("bevy_pbr::mesh_view_bind_group");
+            .set_import_path(MESH_VIEW_BIND_GROUP_IMPORT_PATH);
         mesh_shader_handles.mesh_view_bind_group_loaded = true;
     }
 }

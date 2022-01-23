@@ -36,8 +36,10 @@ pub struct Mesh2dRenderPlugin;
 
 pub const MESH2D_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
+const MESH2D_BIEW_BIND_GROUP_IMPORT_PATH: &str = "bevy_sprite::mesh2d_view_bind_group";
 pub const MESH2D_STRUCT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
+const MESH2D_STRUCT_IMPORT_PATH: &str = "bevy_sprite::mesh2d_struct";
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
@@ -64,14 +66,14 @@ impl Plugin for Mesh2dRenderPlugin {
                 Shader::from_wgsl(include_str!(
                     "../../../../assets/shaders/bevy_sprite/mesh2d_struct.wgsl"
                 ))
-                .with_import_path("bevy_sprite::mesh2d_struct"),
+                .with_import_path(MESH2D_STRUCT_IMPORT_PATH),
             );
             shaders.set_untracked(
                 MESH2D_VIEW_BIND_GROUP_HANDLE,
                 Shader::from_wgsl(include_str!(
                     "../../../../assets/shaders/bevy_sprite/mesh2d_view_bind_group.wgsl"
                 ))
-                .with_import_path("bevy_sprite::mesh2d_view_bind_group"),
+                .with_import_path(MESH2D_BIEW_BIND_GROUP_IMPORT_PATH),
             );
         }
         #[cfg(feature = "bevy_shader_hot_reloading")]
@@ -125,7 +127,7 @@ fn set_shader_import_paths(
         shaders
             .get_mut(mesh2d_shader_handles.mesh2d_struct_handle.clone())
             .unwrap()
-            .set_import_path("bevy_sprite::mesh2d_struct");
+            .set_import_path(MESH2D_STRUCT_IMPORT_PATH);
         mesh2d_shader_handles.mesh2d_struct_loaded = true;
     }
     if !mesh2d_shader_handles.mesh2d_view_bind_group_loaded
@@ -135,7 +137,7 @@ fn set_shader_import_paths(
         shaders
             .get_mut(mesh2d_shader_handles.mesh2d_view_bind_group_handle.clone())
             .unwrap()
-            .set_import_path("bevy_sprite::mesh2d_view_bind_group");
+            .set_import_path(MESH2D_BIEW_BIND_GROUP_IMPORT_PATH);
         mesh2d_shader_handles.mesh2d_view_bind_group_loaded = true;
     }
 }
