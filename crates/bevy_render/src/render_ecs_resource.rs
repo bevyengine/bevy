@@ -19,15 +19,15 @@ pub trait ExtractResource: Resource {
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`Resource`].
-pub struct ExtractResourcePlugin<R: ExtractResource + Resource>(PhantomData<R>);
+pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<R>);
 
-impl<R: ExtractResource + Resource> Default for ExtractResourcePlugin<R> {
+impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<R: ExtractResource + Resource> Plugin for ExtractResourcePlugin<R> {
+impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
@@ -37,7 +37,7 @@ impl<R: ExtractResource + Resource> Plugin for ExtractResourcePlugin<R> {
 
 /// This system extracts the resource of the corresponding [`Resource`] type
 /// by cloning it.
-pub fn extract_resource<R: ExtractResource + Resource>(mut commands: Commands, resource: Res<R>) {
+pub fn extract_resource<R: ExtractResource>(mut commands: Commands, resource: Res<R>) {
     if resource.is_changed() {
         commands.insert_resource(R::extract_resource(resource.into_inner()));
     }
