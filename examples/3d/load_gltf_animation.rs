@@ -26,12 +26,15 @@ fn main() {
 
 const ANIMATIONS: [(&str, Transform, f32); 3] = [
     (
+        // Model being loaded
         "models/animated/AnimatedTriangle.gltf",
+        // Position of the camera
         Transform {
             translation: const_vec3!([0.0, 0.0, 3.0]),
             rotation: const_quat!([0.0, 0.0, 0.0, 1.0]),
             scale: const_vec3!([1.0; 3]),
         },
+        // Speed of the animation
         0.12,
     ),
     (
@@ -46,8 +49,8 @@ const ANIMATIONS: [(&str, Transform, f32); 3] = [
     (
         "models/animated/animations.gltf",
         Transform {
-            translation: const_vec3!([2.0, 10.0, 5.0]),
-            rotation: const_quat!([-0.48, 0.16, 0.09, 0.85]),
+            translation: const_vec3!([-10.0, 5.0, -3.0]),
+            rotation: const_quat!([0.16, 0.69, 0.16, -0.69]),
             scale: const_vec3!([1.0; 3]),
         },
         2.5,
@@ -70,43 +73,54 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
+    // Insert a resource with the current scene information
     commands.insert_resource(CurrentScene {
+        // Its instance id, to be able to check that it's loaded
         instance_id: scene_spawner.spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[0].0))),
+        // The handle to the first animation
         animation: asset_server.load(&format!("{}#Animation0", ANIMATIONS[0].0)),
+        // The animation speed modifier
         speed: ANIMATIONS[0].2,
     });
 
+    // Add a camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: ANIMATIONS[0].1,
         ..Default::default()
     });
 
+    // Add a directional light
     commands.spawn_bundle(DirectionalLightBundle::default());
 }
 
+// Switch the scene to the next one every 10 seconds
 fn switch_scene(
     mut commands: Commands,
     scene_root: Query<Entity, (Without<Camera>, Without<DirectionalLight>, Without<Parent>)>,
-    camera: Query<Entity, With<Camera>>,
+    mut camera: Query<&mut Transform, With<Camera>>,
     mut current: Local<usize>,
     mut current_scene: ResMut<CurrentScene>,
     asset_server: Res<AssetServer>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     *current = (*current + 1) % ANIMATIONS.len();
+
+    // Despawn the existing scene, then start loading the next one
     commands.entity(scene_root.single()).despawn_recursive();
     current_scene.instance_id =
         scene_spawner.spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[*current].0)));
     current_scene.animation = asset_server.load(&format!("{}#Animation0", ANIMATIONS[*current].0));
     current_scene.speed = ANIMATIONS[*current].2;
-    commands.entity(camera.single()).despawn_recursive();
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: ANIMATIONS[*current].1,
-        ..Default::default()
-    });
+
+    // Update the camera position
+    *camera.single_mut() = ANIMATIONS[*current].1;
+
+    // Reset the current animation
     commands.remove_resource::<CurrentAnimation>();
 }
 
+// Setup the scene for animation once it is loaded, by adding the animation to a resource with
+// the start time.
 fn setup_scene_once_loaded(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
@@ -115,9 +129,11 @@ fn setup_scene_once_loaded(
     mut done: Local<bool>,
     animations: Res<Assets<GltfAnimation>>,
 ) {
+    // If the current scene resource has changed, start waiting for it to be loaded
     if current_scene.is_changed() {
         *done = false;
     }
+    // Once the scene and the animation are loaded, start the animation
     if !*done && scene_spawner.instance_is_ready(current_scene.instance_id) {
         if let Some(animation) = animations.get(&current_scene.animation) {
             *done = true;
@@ -129,6 +145,8 @@ fn setup_scene_once_loaded(
     }
 }
 
+// This animation driver is not made to work in the general case. It will work with only one
+// animation per scene, and will ignore the specified interpolation method to only do linear.
 fn gltf_animation_driver(
     mut animated: Query<(&mut Transform, &GltfAnimatedNode)>,
     current_animation: Option<Res<CurrentAnimation>>,
