@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use ktx2::{BasicDataFormatDescriptor, ColorModel, DfdSampleInformation};
+use ktx2::{BasicDataFormatDescriptor, ColorModel, SampleInformation, SupercompressionScheme};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 use super::{Image, TextureError};
@@ -13,42 +13,30 @@ pub fn ktx2_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Result<Image, Textu
         image.texture_descriptor.format = ktx2_format_to_texture_format(format, is_srgb)?;
         image.data = ktx2.levels().flatten().copied().collect();
     } else if let Some(supercompression_scheme) = ktx2_header.supercompression_scheme {
-        if matches!(
-            supercompression_scheme,
-            ktx2::SupercompressionScheme::Zstandard
-        ) {
-            let data_format_descriptors = ktx2.data_format_descriptors();
-            dbg!(&data_format_descriptors[0].color_model);
-            if matches!(data_format_descriptors[0].color_model, ColorModel::UASTC) {
-                let mut data = Vec::new();
+        match supercompression_scheme {
+            SupercompressionScheme::Zstandard => {
                 for (l, level) in ktx2.levels().enumerate() {
                     let mut cursor = std::io::Cursor::new(level);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
                         .map_err(TextureError::SuperDecompressionError)?;
-                    let mut uncompressed = Vec::new();
-                    decoder.read_to_end(&mut uncompressed).map_err(|_err| {
-                        TextureError::SuperDecompressionError(
-                            "Failed to decompress supercompression".to_string(),
-                        )
+                    decoder.read_to_end(&mut image.data).map_err(|err| {
+                        TextureError::SuperDecompressionError(format!(
+                            "Failed to decompress supercompression for mip {}: {:?}",
+                            l, err
+                        ))
                     })?;
                 }
-                image.data = data;
-            } else {
-                return Err(TextureError::SuperCompressionNotSupported(format!(
-                    "MANAGED TO DECOMPRESS! {:?}",
+            }
+            _ => {
+                return Err(TextureError::SuperDecompressionError(format!(
+                    "Unsupported supercompression scheme: {:?}",
                     supercompression_scheme
                 )));
             }
-        } else {
-            return Err(TextureError::SuperCompressionNotSupported(format!(
-                "{:?}",
-                supercompression_scheme
-            )));
         }
-    } else {
-        return Err(TextureError::UnsupportedTextureFormat(
-            "unspecified".to_string(),
-        ));
+        let data_format_descriptors = ktx2.data_format_descriptors();
+        image.texture_descriptor.format =
+            ktx2_dfd_to_texture_format(&data_format_descriptors[0], is_srgb)?;
     }
     image.texture_descriptor.size = Extent3d {
         width: ktx2_header.pixel_width,
@@ -98,7 +86,7 @@ enum DataType {
 }
 
 fn sample_information_to_data_type(
-    sample: &DfdSampleInformation,
+    sample: &SampleInformation,
     is_srgb: bool,
 ) -> Result<DataType, TextureError> {
     // Exponent flag not supported
@@ -145,7 +133,7 @@ pub fn ktx2_dfd_to_texture_format(
                     assert_eq!(ktx2_dfd.samples[0].channel_type, 0);
 
                     let sample = &ktx2_dfd.samples[0];
-                    let data_type = sample_information_to_data_type(&sample, false)?;
+                    let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::R8Unorm,
@@ -195,7 +183,12 @@ pub fn ktx2_dfd_to_texture_format(
                             DataType::Uint => TextureFormat::R32Uint,
                             DataType::Sint => TextureFormat::R32Sint,
                         },
-                        _ => todo!(),
+                        v => {
+                            return Err(TextureError::UnsupportedTextureFormat(format!(
+                                "Unsupported sample bit length for RGBSDA 1-channel format: {}",
+                                v
+                            )));
+                        }
                     }
                 }
                 2 => {
@@ -218,7 +211,7 @@ pub fn ktx2_dfd_to_texture_format(
                     assert_eq!(ktx2_dfd.samples[0].upper, ktx2_dfd.samples[1].upper);
 
                     let sample = &ktx2_dfd.samples[0];
-                    let data_type = sample_information_to_data_type(&sample, false)?;
+                    let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::Rg8Unorm,
@@ -268,7 +261,12 @@ pub fn ktx2_dfd_to_texture_format(
                             DataType::Uint => TextureFormat::Rg32Uint,
                             DataType::Sint => TextureFormat::Rg32Sint,
                         },
-                        _ => todo!(),
+                        v => {
+                            return Err(TextureError::UnsupportedTextureFormat(format!(
+                                "Unsupported sample bit length for RGBSDA 2-channel format: {}",
+                                v
+                            )));
+                        }
                     }
                 }
                 3 => {
@@ -345,7 +343,7 @@ pub fn ktx2_dfd_to_texture_format(
                     );
 
                     let sample = &ktx2_dfd.samples[0];
-                    let data_type = sample_information_to_data_type(&sample, is_srgb)?;
+                    let data_type = sample_information_to_data_type(sample, is_srgb)?;
                     match sample.bit_length {
                         8 => match data_type {
                             DataType::Unorm => {
@@ -491,26 +489,21 @@ pub fn ktx2_dfd_to_texture_format(
                                 }
                             }
                         },
-                        _ => todo!(),
+                        v => {
+                            return Err(TextureError::UnsupportedTextureFormat(format!(
+                                "Unsupported sample bit length for RGBSDA 4-channel format: {}",
+                                v
+                            )));
+                        }
                     }
                 }
-                _ => todo!(),
+                v => {
+                    return Err(TextureError::UnsupportedTextureFormat(format!(
+                        "Unsupported channel count for RGBSDA format: {}",
+                        v
+                    )));
+                }
             }
-            // transfer denotes srgb or linear, but overridden by sample info channel type qualifier if linear
-            // texel block dimension for compressed
-            // only bytes plane 0? compScheme
-            // compFirstChannel identifies exact compressed format?
-            // channel flags indicate suffix
-            // sample contains channel and compChannelBits
-            // some compressed formats have compSampleCount > 1 so have a second
-            //   sample info thing for the second channel
-            // channel type maps to:
-            //   0  red
-            //   1  green
-            //   2  blue
-            //   13 stencil
-            //   14 depth
-            //   15 alpha (opacity)
         }
         ColorModel::YUVSDA => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
@@ -577,7 +570,7 @@ pub fn ktx2_dfd_to_texture_format(
                     );
 
                     let sample = &ktx2_dfd.samples[0];
-                    let data_type = sample_information_to_data_type(&sample, false)?;
+                    let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::Rgba8Unorm,
@@ -627,10 +620,20 @@ pub fn ktx2_dfd_to_texture_format(
                             DataType::Uint => TextureFormat::Rgba32Uint,
                             DataType::Sint => TextureFormat::Rgba32Sint,
                         },
-                        _ => todo!(),
+                        v => {
+                            return Err(TextureError::UnsupportedTextureFormat(format!(
+                                "Unsupported sample bit length for XYZW 4-channel format: {}",
+                                v
+                            )));
+                        }
                     }
                 }
-                _ => todo!(),
+                v => {
+                    return Err(TextureError::UnsupportedTextureFormat(format!(
+                        "Unsupported channel count for XYZW format: {}",
+                        v
+                    )));
+                }
             }
         }
         ColorModel::HSVAAng => {
@@ -773,7 +776,6 @@ pub fn ktx2_dfd_to_texture_format(
                 let sample0 = &ktx2_dfd.samples[0];
                 let sample1 = &ktx2_dfd.samples[1];
                 if sample0.channel_type == 0 && sample1.channel_type == 1 {
-                    // RG11 EAC
                     if sample0.is_signed() {
                         TextureFormat::EacRg11Snorm
                     } else {
@@ -798,7 +800,12 @@ pub fn ktx2_dfd_to_texture_format(
                     )));
                 }
             }
-            _ => todo!(),
+            v => {
+                return Err(TextureError::UnsupportedTextureFormat(format!(
+                    "Unsupported channel count for ETC2 format: {}",
+                    v
+                )));
+            }
         },
         ColorModel::ASTC => match ktx2_dfd.texel_block_dimensions[0] {
             4 => match ktx2_dfd.texel_block_dimensions[1] {
