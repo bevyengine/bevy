@@ -184,6 +184,10 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
+name = "load_gltf_animation"
+path = "examples/3d/load_gltf_animation.rs"
+
+[[example]]
 name = "many_cubes"
 path = "examples/3d/many_cubes.rs"
 
