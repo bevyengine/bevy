@@ -70,6 +70,7 @@ pub struct GltfPrimitive {
     pub material: Option<Handle<StandardMaterial>>,
 }
 
+/// Part of a [`GltfNodeAnimation`], interpolation method for an animation.
 #[derive(Clone, Debug)]
 pub enum GltfAnimationInterpolation {
     Linear,
@@ -77,6 +78,8 @@ pub enum GltfAnimationInterpolation {
     CubicSpline,
 }
 
+/// How a property of a gLTF node should be animated. The property and its value can be found
+/// through the [`GltfNodeAnimationKeyframes`] attribute.
 #[derive(Clone, Debug)]
 pub struct GltfNodeAnimation {
     pub keyframe_timestamps: Vec<f32>,
@@ -84,12 +87,14 @@ pub struct GltfNodeAnimation {
     pub interpolation: GltfAnimationInterpolation,
 }
 
+/// A gLTF animation, listing how each node (by its index) that is part of it should be animated.
 #[derive(Default, Clone, TypeUuid, Debug)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct GltfAnimation {
     pub node_animations: HashMap<usize, Vec<GltfNodeAnimation>>,
 }
 
+/// Key frames of an animation.
 #[derive(Clone, Debug)]
 pub enum GltfNodeAnimationKeyframes {
     Rotation(Vec<Vec4>),
@@ -107,6 +112,7 @@ impl Default for GltfNodeAnimation {
     }
 }
 
+/// A gLTF node that is part of an animation, with its index.
 #[derive(Component, Debug, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct GltfAnimatedNode {
