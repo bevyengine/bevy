@@ -169,8 +169,9 @@ fn gltf_animation_driver(
                         if rot_end.dot(rot_start) < 0.0 {
                             rot_end = -rot_end;
                         }
-                        let result = rot_start.lerp(rot_end, lerp);
-                        transform.rotation = Quat::from_array(result.normalize().into());
+                        let result = Quat::from_array(rot_start.normalize().into())
+                            .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
+                        transform.rotation = result;
                     }
                     GltfNodeAnimationKeyframes::Translation(keyframes) => {
                         let translation_start = keyframes[step_start.0];
