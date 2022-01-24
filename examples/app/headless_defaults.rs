@@ -2,7 +2,7 @@ use bevy::{prelude::*, render::options::WgpuOptions};
 
 fn main() {
     App::new()
-        .insert_resource(WgpuOptions {
+        .insert_initialization_resource(WgpuOptions {
             backends: None,
             ..Default::default()
         })
