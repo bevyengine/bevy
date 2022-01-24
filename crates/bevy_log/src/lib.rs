@@ -1,7 +1,21 @@
+#![warn(missing_docs)]
+//! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
+//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//!
+//! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
+//! and behave identically to it.
+//!
+//! By default, the [`LogPlugin`] from this crate is included in Bevy's `DefaultPlugins`
+//! and the logging macros can be used out of the box, if used.
+//!
+//! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
+//! adding [`LogPlugin`] or `DefaultPlugins` during app initialization.
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
 pub mod prelude {
+    //! The Bevy Log Prelude.
     #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
@@ -61,6 +75,12 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .run();
 /// }
 /// ```
+///
+/// # Panics
+///
+/// This plugin should not be added multiple times in the same process. This plugin
+/// sets up global logging configuration for **all** Apps in a given process, and
+/// rerunning the same initialization multiple times will lead to a panic.
 #[derive(Default)]
 pub struct LogPlugin;
 
