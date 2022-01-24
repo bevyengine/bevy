@@ -231,8 +231,7 @@ pub fn winit_runner_with(mut app: App) {
     trace!("Entering winit event loop");
 
     let should_return_from_run = app
-        .world
-        .get_resource::<WinitConfig>()
+        .consume_initialization_resource::<WinitConfig>()
         .map_or(false, |config| config.return_from_run);
 
     let mut active = true;
