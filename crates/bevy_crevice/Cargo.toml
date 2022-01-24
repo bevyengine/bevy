@@ -33,4 +33,4 @@ glam = { version = "0.20.0", features = ["mint"], optional = true }
 nalgebra = { version = "0.30.0", features = ["mint"], optional = true }
 
 [dev-dependencies]
-insta = "0.16.1"
+insta = "1.11.0"
