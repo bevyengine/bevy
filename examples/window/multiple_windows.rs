@@ -54,7 +54,7 @@ fn create_new_window(
     // sends out a "CreateWindow" event, which will be received by the windowing backend
     create_window_events.send(CreateWindow {
         id: window_id,
-        descriptor: WindowInitializationDescriptor {
+        descriptor: WindowSetupDescriptor {
             width: 800.,
             height: 600.,
             vsync: false,

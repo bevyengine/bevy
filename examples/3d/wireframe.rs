@@ -7,7 +7,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
-        .insert_initialization_resource(WgpuOptions {
+        .insert_setup_resource(WgpuOptions {
             features: WgpuFeatures::POLYGON_MODE_LINE,
             ..Default::default()
         })

@@ -1,12 +1,12 @@
 /// An example of how to display a window in transparent mode
 /// [Documentation & Platform support.](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
-use bevy::{prelude::*, window::WindowInitializationDescriptor};
+use bevy::{prelude::*, window::WindowSetupDescriptor};
 
 fn main() {
     App::new()
         // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))
-        .insert_initialization_resource(WindowInitializationDescriptor {
+        .insert_setup_resource(WindowSetupDescriptor {
             // Setting `transparent` allows the `ClearColor`'s alpha value to take effect
             transparent: true,
             // Disabling window decorations to make it feel more like a widget than a window

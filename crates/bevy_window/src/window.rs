@@ -207,7 +207,7 @@ pub enum WindowMode {
 impl Window {
     pub fn new(
         id: WindowId,
-        window_descriptor: &WindowInitializationDescriptor,
+        window_descriptor: &WindowSetupDescriptor,
         physical_width: u32,
         physical_height: u32,
         scale_factor: f64,
@@ -553,7 +553,7 @@ impl Window {
 }
 
 #[derive(Debug, Clone)]
-pub struct WindowInitializationDescriptor {
+pub struct WindowSetupDescriptor {
     pub width: f32,
     pub height: f32,
     pub position: Option<Vec2>,
@@ -578,9 +578,9 @@ pub struct WindowInitializationDescriptor {
     pub canvas: Option<String>,
 }
 
-impl Default for WindowInitializationDescriptor {
+impl Default for WindowSetupDescriptor {
     fn default() -> Self {
-        WindowInitializationDescriptor {
+        WindowSetupDescriptor {
             title: "app".to_string(),
             width: 1280.,
             height: 720.,

@@ -8,7 +8,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
-    window::WindowInitializationDescriptor,
+    window::WindowSetupDescriptor,
 };
 
 const SIZE: (u32, u32) = (1280, 720);
@@ -17,7 +17,7 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_initialization_resource(WindowInitializationDescriptor {
+        .insert_setup_resource(WindowSetupDescriptor {
             // uncomment for unthrottled FPS
             // vsync: false,
             ..Default::default()

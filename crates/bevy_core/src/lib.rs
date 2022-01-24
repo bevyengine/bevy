@@ -42,7 +42,7 @@ pub enum CoreSystem {
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
-        app.consume_initialization_resource::<DefaultTaskPoolOptions>()
+        app.consume_setup_resource::<DefaultTaskPoolOptions>()
             .unwrap_or_default()
             .create_default_pools(&mut app.world);
 

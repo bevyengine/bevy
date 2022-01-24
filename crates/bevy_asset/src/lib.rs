@@ -60,7 +60,7 @@ impl Default for AssetServerSettings {
 /// delegate to the default `AssetIo` for the platform.
 pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
     let settings = app
-        .consume_initialization_resource::<AssetServerSettings>()
+        .consume_setup_resource::<AssetServerSettings>()
         .unwrap_or_default();
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]

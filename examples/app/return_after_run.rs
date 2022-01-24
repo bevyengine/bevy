@@ -3,7 +3,7 @@ use bevy::{prelude::*, winit::WinitConfig};
 fn main() {
     println!("Running first App.");
     App::new()
-        .insert_initialization_resource(WinitConfig {
+        .insert_setup_resource(WinitConfig {
             return_from_run: true,
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
@@ -12,7 +12,7 @@ fn main() {
         .run();
     println!("Running another App.");
     App::new()
-        .insert_initialization_resource(WinitConfig {
+        .insert_setup_resource(WinitConfig {
             return_from_run: true,
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.8, 0.2)))
