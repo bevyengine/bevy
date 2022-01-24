@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 }
 
 struct IsRedPipeline {
-    mesh_pipline: MeshPipeline,
+    mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
@@ -92,7 +92,7 @@ impl FromWorld for IsRedPipeline {
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
         IsRedPipeline {
-            mesh_pipline: mesh_pipeline.clone(),
+            mesh_pipeline: mesh_pipeline.clone(),
             shader,
         }
     }
@@ -106,15 +106,15 @@ impl SpecializedPipeline for IsRedPipeline {
         if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.mesh_pipline.specialize(pbr_pipeline_key);
+        let mut descriptor = self.mesh_pipeline.specialize(pbr_pipeline_key);
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         fragment.shader_defs = shader_defs;
         descriptor.layout = Some(vec![
-            self.mesh_pipline.view_layout.clone(),
-            self.mesh_pipline.mesh_layout.clone(),
+            self.mesh_pipeline.view_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
         ]);
         descriptor
     }
