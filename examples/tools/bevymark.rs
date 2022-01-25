@@ -1,9 +1,12 @@
+use std::fmt::Write;
+
+use rand::{thread_rng, Rng};
+
 use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
-use rand::random;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
@@ -72,67 +75,74 @@ fn scheduled_spawner(
             scheduled.per_wave,
             bird_texture.0.clone_weak(),
         );
-        counter.color = Color::rgb_linear(random(), random(), random());
+
+        let mut random = thread_rng();
+        counter.color = Color::rgb_linear(random.gen(), random.gen(), random.gen());
         scheduled.wave -= 1;
     }
 }
 
 struct BirdTexture(Handle<Image>);
 
+#[derive(Component)]
+struct StatsText;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
-    commands.spawn_bundle(TextBundle {
-        text: Text {
-            sections: vec![
-                TextSection {
-                    value: "Bird Count: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+    commands
+        .spawn_bundle(TextBundle {
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Bird Count: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "\nAverage FPS: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+                    TextSection {
+                        value: "\nAverage FPS: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
+                        },
                     },
+                ],
+                ..Default::default()
+            },
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..Default::default()
                 },
-            ],
-            ..Default::default()
-        },
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: Rect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
                 ..Default::default()
             },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(StatsText);
 
     commands.insert_resource(BirdTexture(texture));
     commands.insert_resource(BirdScheduled {
@@ -156,7 +166,8 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb_linear(random(), random(), random());
+        let mut random = thread_rng();
+        counter.color = Color::rgb_linear(random.gen(), random.gen(), random.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -181,6 +192,8 @@ fn spawn_birds(
     let window = windows.get_primary().unwrap();
     let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
     let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
+    let mut random = thread_rng();
+
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
@@ -199,7 +212,7 @@ fn spawn_birds(
             })
             .insert(Bird {
                 velocity: Vec3::new(
-                    rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
+                    random.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                     0.,
                     0.,
                 ),
@@ -209,11 +222,11 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    for (mut bird, mut transform) in bird_query.iter_mut() {
+    bird_query.for_each_mut(|(mut bird, mut transform)| {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
         bird.velocity.y += GRAVITY * time.delta_seconds();
-    }
+    });
 }
 
 fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
@@ -221,7 +234,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
     let half_width = window.width() as f32 * 0.5;
     let half_height = window.height() as f32 * 0.5;
 
-    for (mut bird, transform) in bird_query.iter_mut() {
+    bird_query.for_each_mut(|(mut bird, transform)| {
         let x_vel = bird.velocity.x;
         let y_vel = bird.velocity.y;
         let x_pos = transform.translation.x;
@@ -238,20 +251,22 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
         if y_pos + HALF_BIRD_SIZE > half_height && y_vel > 0.0 {
             bird.velocity.y = 0.0;
         }
-    }
+    });
 }
 
 fn counter_system(
     diagnostics: Res<Diagnostics>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text>,
+    mut query: Query<&mut Text, With<StatsText>>,
 ) {
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            for mut text in query.iter_mut() {
-                text.sections[1].value = format!("{}", counter.count);
-                text.sections[3].value = format!("{:.2}", average);
-            }
+            let mut text = query.single_mut();
+
+            text.sections[1].value.clear();
+            write!(text.sections[1].value, "{}", counter.count).unwrap();
+            text.sections[3].value.clear();
+            write!(text.sections[3].value, "{:.2}", average).unwrap();
         }
     };
 }
