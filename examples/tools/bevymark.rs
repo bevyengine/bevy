@@ -1,12 +1,10 @@
-use std::fmt::Write;
-
-use rand::{thread_rng, Rng};
-
 use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
+use rand::{thread_rng, Rng};
+use std::fmt::Write;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
