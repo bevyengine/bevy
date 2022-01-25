@@ -289,9 +289,10 @@ fn collision_system(
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut velocity_query: Query<(&Velocity, &mut Transform)>) {
+fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
-    for (velocity, mut transform) in velocity_query.iter_mut() {
+
+    for (velocity, mut transform) in query.iter_mut() {
         transform.translation += delta * velocity.translation;
         transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
     }
