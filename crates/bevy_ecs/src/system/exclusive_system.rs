@@ -15,13 +15,16 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: u32);
 }
 
-pub struct ExclusiveSystemFn {
-    func: Box<dyn FnMut(&mut World) + Send + Sync + 'static>,
+pub struct ExclusiveSystemFn<F> {
+    func: F,
     name: Cow<'static, str>,
     last_change_tick: u32,
 }
 
-impl ExclusiveSystem for ExclusiveSystemFn {
+impl<F> ExclusiveSystem for ExclusiveSystemFn<F>
+where
+    F: FnMut(&mut World) + Send + Sync + 'static,
+{
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
@@ -52,13 +55,13 @@ pub trait IntoExclusiveSystem<Params, SystemType> {
     fn exclusive_system(self) -> SystemType;
 }
 
-impl<F> IntoExclusiveSystem<&mut World, ExclusiveSystemFn> for F
+impl<F> IntoExclusiveSystem<&mut World, ExclusiveSystemFn<F>> for F
 where
     F: FnMut(&mut World) + Send + Sync + 'static,
 {
-    fn exclusive_system(self) -> ExclusiveSystemFn {
+    fn exclusive_system(self) -> ExclusiveSystemFn<F> {
         ExclusiveSystemFn {
-            func: Box::new(self),
+            func: self,
             name: core::any::type_name::<F>().into(),
             last_change_tick: 0,
         }

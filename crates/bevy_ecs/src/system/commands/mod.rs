@@ -88,13 +88,14 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns an [EntityCommands] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [None] if the `entity` exists with a different generation.
+    /// Returns an [`EntityCommands`] for the given `entity` (if it exists) or spawns one if it
+    /// doesn't exist. This will return [`None`] if the `entity` exists with a different generation.
     ///
     /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
+    /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
+    /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
+    /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         self.add(GetOrSpawn { entity });
         EntityCommands {
@@ -103,8 +104,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Spawns a [Bundle] without pre-allocating an [Entity]. The [Entity] will be allocated when
-    /// this [Command] is applied.
+    /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
+    /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
         self.queue.push(Spawn { bundle })
     }
@@ -366,11 +367,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// fn my_system(mut commands: Commands) {
-    ///     let entity_id = commands.spawn().id();    
+    ///     let entity_id = commands.spawn().id();
     /// }
     /// # my_system.system();
     /// ```
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -402,7 +404,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///         defense: Defense(20),
-    ///     });    
+    ///     });
     /// }
     /// # add_combat_stats_system.system();
     /// ```
@@ -415,16 +417,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Adds a single [`Component`] to the entity.
-    ///
-    /// See [`EntityMut::insert`](crate::world::EntityMut::insert) for more
-    /// details.
-    ///
-    /// # Warning
-    ///
-    /// It's possible to call this with a bundle, but this is likely not intended and
-    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the
-    /// bundle itself will be added as a component instead of the bundles' inner components each
-    /// being added.
     ///
     /// # Example
     ///
@@ -476,7 +468,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
     /// #
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();    
+    ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();
     /// }
     /// # remove_combat_stats_system.system();
     /// ```

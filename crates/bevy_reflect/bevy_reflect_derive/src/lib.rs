@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+mod from_reflect;
 mod reflect_trait;
 mod type_uuid;
 
@@ -206,7 +207,7 @@ fn impl_struct(
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
             fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match name {
                     #(#field_names => Some(&self.#field_idents),)*
@@ -259,7 +260,7 @@ fn impl_struct(
         }
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics #where_clause {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -349,7 +350,7 @@ fn impl_tuple_struct(
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name#ty_generics {
+        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics {
             fn field(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => Some(&self.#field_idents),)*
@@ -381,7 +382,7 @@ fn impl_tuple_struct(
         }
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -457,7 +458,7 @@ fn impl_value(
         #get_type_registration_impl
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name#ty_generics #where_clause  {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -715,10 +716,10 @@ fn impl_get_type_registration(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         #[allow(unused_mut)]
-        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name#ty_generics>();
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name#ty_generics>::from_type());)*
+                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
+                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());)*
                 registration
             }
         }
@@ -739,4 +740,118 @@ pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenS
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     reflect_trait::reflect_trait(args, input)
+}
+
+#[proc_macro_derive(FromReflect)]
+pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let unit_struct_punctuated = Punctuated::new();
+    let (fields, mut derive_type) = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => (&fields.named, DeriveType::Struct),
+        Data::Struct(DataStruct {
+            fields: Fields::Unnamed(fields),
+            ..
+        }) => (&fields.unnamed, DeriveType::TupleStruct),
+        Data::Struct(DataStruct {
+            fields: Fields::Unit,
+            ..
+        }) => (&unit_struct_punctuated, DeriveType::UnitStruct),
+        _ => (&unit_struct_punctuated, DeriveType::Value),
+    };
+
+    let fields_and_args = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            (
+                f,
+                f.attrs
+                    .iter()
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+                    .map(|a| {
+                        syn::custom_keyword!(ignore);
+                        let mut attribute_args = PropAttributeArgs { ignore: None };
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                attribute_args.ignore = Some(true);
+                                return Ok(());
+                            }
+                            Ok(())
+                        })
+                        .expect("Invalid 'property' attribute format.");
+
+                        attribute_args
+                    }),
+                i,
+            )
+        })
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
+    let active_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+    let ignored_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs
+                .as_ref()
+                .map(|attrs| attrs.ignore.unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let type_name = &ast.ident;
+
+    for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+        let meta_list = if let Meta::List(meta_list) = attribute {
+            meta_list
+        } else {
+            continue;
+        };
+
+        if let Some(ident) = meta_list.path.get_ident() {
+            if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                derive_type = DeriveType::Value;
+            }
+        }
+    }
+
+    match derive_type {
+        DeriveType::Struct | DeriveType::UnitStruct => from_reflect::impl_struct(
+            type_name,
+            &ast.generics,
+            &bevy_reflect_path,
+            &active_fields,
+            &ignored_fields,
+        ),
+        DeriveType::TupleStruct => from_reflect::impl_tuple_struct(
+            type_name,
+            &ast.generics,
+            &bevy_reflect_path,
+            &active_fields,
+            &ignored_fields,
+        ),
+        DeriveType::Value => from_reflect::impl_value(type_name, &ast.generics, &bevy_reflect_path),
+    }
+}
+
+#[proc_macro]
+pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
+    let reflect_value_def = parse_macro_input!(input as ReflectDef);
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let ty = &reflect_value_def.type_name;
+    from_reflect::impl_value(ty, &reflect_value_def.generics, &bevy_reflect_path)
 }

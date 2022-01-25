@@ -84,6 +84,8 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
+    apply_buffers: bool,
 }
 
 impl SystemStage {
@@ -105,6 +107,7 @@ impl SystemStage {
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
+            apply_buffers: true,
         }
     }
 
@@ -202,6 +205,21 @@ impl SystemStage {
                 self.parallel.push(container);
             }
         }
+    }
+
+    pub fn apply_buffers(&mut self, world: &mut World) {
+        for container in self.parallel.iter_mut() {
+            let system = container.system_mut();
+            #[cfg(feature = "trace")]
+            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
+            #[cfg(feature = "trace")]
+            let _guard = span.enter();
+            system.apply_buffers(world);
+        }
+    }
+
+    pub fn set_apply_buffers(&mut self, apply_buffers: bool) {
+        self.apply_buffers = apply_buffers;
     }
 
     /// Topologically sorted parallel systems.
@@ -812,6 +830,13 @@ impl Stage for SystemStage {
                 // Run systems that want to be at the start of stage.
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
@@ -827,20 +852,43 @@ impl Stage for SystemStage {
                 // Run systems that want to be between parallel systems and their command buffers.
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
 
                 // Apply parallel systems' buffers.
-                for container in &mut self.parallel {
-                    if container.should_run {
-                        container.system_mut().apply_buffers(world);
+                if self.apply_buffers {
+                    for container in &mut self.parallel {
+                        if container.should_run {
+                            #[cfg(feature = "trace")]
+                            let span = bevy_utils::tracing::info_span!(
+                                "system_commands",
+                                name = &*container.name()
+                            );
+                            #[cfg(feature = "trace")]
+                            let _guard = span.enter();
+                            container.system_mut().apply_buffers(world);
+                        }
                     }
                 }
 
                 // Run systems that want to be at the end of stage.
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
