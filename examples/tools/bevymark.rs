@@ -76,8 +76,8 @@ fn scheduled_spawner(
             bird_texture.0.clone_weak(),
         );
 
-        let mut random = thread_rng();
-        counter.color = Color::rgb_linear(random.gen(), random.gen(), random.gen());
+        let mut rng = thread_rng();
+        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
         scheduled.wave -= 1;
     }
 }
@@ -166,8 +166,8 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        let mut random = thread_rng();
-        counter.color = Color::rgb_linear(random.gen(), random.gen(), random.gen());
+        let mut rng = thread_rng();
+        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -192,7 +192,7 @@ fn spawn_birds(
     let window = windows.get_primary().unwrap();
     let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
     let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
-    let mut random = thread_rng();
+    let mut rng = thread_rng();
 
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
@@ -212,7 +212,7 @@ fn spawn_birds(
             })
             .insert(Bird {
                 velocity: Vec3::new(
-                    random.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
+                    rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                     0.,
                     0.,
                 ),
