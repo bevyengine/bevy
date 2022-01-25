@@ -53,7 +53,6 @@ struct RotateToPlayer {
 /// The origin is at the center of the screen.
 fn setup(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     let ship_handle = asset_server.load("textures/simplespace/ship_C.png");
@@ -69,7 +68,7 @@ fn setup(
     // player controlled ship
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(ship_handle.into()),
+            texture: ship_handle.into(),
             ..Default::default()
         })
         .insert(Player {
@@ -80,14 +79,14 @@ fn setup(
     // enemy that snaps to face the player spawns on the bottom and left
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(enemy_a_handle.clone().into()),
+            texture: enemy_a_handle.clone().into(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
             ..Default::default()
         })
         .insert(SnapToPlayer);
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(enemy_a_handle.into()),
+            texture: enemy_a_handle.into(),
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
             ..Default::default()
         })
@@ -96,7 +95,7 @@ fn setup(
     // enemy that rotates to face the player enemy spawns on the top and right
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(enemy_b_handle.clone().into()),
+            texture: enemy_b_handle.clone().into(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
             ..Default::default()
         })
@@ -105,7 +104,7 @@ fn setup(
         });
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(enemy_b_handle.into()),
+            texture: enemy_b_handle.into(),
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
             ..Default::default()
         })
