@@ -235,9 +235,9 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
-    velocity_query.for_each_mut(|mut velocity| {
+    for mut velocity in velocity_query.iter_mut() {
         velocity.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
-    });
+    }
 }
 
 /// Checks for collisions of contributor-birds.
@@ -259,7 +259,7 @@ fn collision_system(
     let wall_left = -(window.width() / 2.);
     let wall_right = window.width() / 2.;
 
-    query.for_each_mut(|(mut velocity, mut transform)| {
+    for (mut velocity, mut transform) in query.iter_mut() {
         let left = transform.translation.x - SPRITE_SIZE / 2.0;
         let right = transform.translation.x + SPRITE_SIZE / 2.0;
         let top = transform.translation.y + SPRITE_SIZE / 2.0;
@@ -285,17 +285,16 @@ fn collision_system(
             velocity.translation.x *= -1.0;
             velocity.rotation *= -1.0;
         }
-    });
+    }
 }
 
 /// Apply velocity to positions and rotations.
 fn move_system(time: Res<Time>, mut velocity_query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
-
-    velocity_query.for_each_mut(|(velocity, mut transform)| {
+    for (velocity, mut transform) in velocity_query.iter_mut() {
         transform.translation += delta * velocity.translation;
         transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
-    });
+    }
 }
 
 enum LoadContributorsError {
