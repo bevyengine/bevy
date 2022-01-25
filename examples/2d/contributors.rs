@@ -1,10 +1,12 @@
-use bevy::{prelude::*, utils::HashSet};
-use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
     io::{self, BufRead, BufReader},
     process::Stdio,
 };
+
+use rand::{prelude::SliceRandom, Rng};
+
+use bevy::{prelude::*, utils::HashSet};
 
 fn main() {
     App::new()
@@ -69,7 +71,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     let texture_handle = asset_server.load("branding/icon.png");
 
     let mut contributor_selection = ContributorSelection {
-        order: vec![],
+        order: Vec::with_capacity(contribs.len()),
         idx: 0,
     };
 
@@ -163,20 +165,22 @@ fn select_system(
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    let mut timer_fired = false;
-    for mut timer in timer_query.iter_mut() {
-        if !timer.tick(time.delta()).just_finished() {
-            continue;
-        }
-        timer.reset();
-        timer_fired = true;
-    }
-
-    if !timer_fired {
+    let mut timer = timer_query.single_mut();
+    if !timer.tick(time.delta()).just_finished() {
         return;
     }
+    if timer.times_finished() == 1 {
+        let mut text = text_query.single_mut();
+        text.sections[0].value.clear();
+        text.sections[0].value.push_str("Contributor: ");
+    }
 
-    let prev = contributor_selection.idx;
+    {
+        let (_, entity) = &contributor_selection.order[contributor_selection.idx];
+        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+            deselect(&mut sprite, contributor, &mut *transform);
+        }
+    }
 
     if (contributor_selection.idx + 1) < contributor_selection.order.len() {
         contributor_selection.idx += 1;
@@ -184,19 +188,11 @@ fn select_system(
         contributor_selection.idx = 0;
     }
 
-    {
-        let (_, entity) = &contributor_selection.order[prev];
-        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
-            deselect(&mut sprite, contributor, &mut *transform);
-        }
-    }
-
     let (name, entity) = &contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
-        if let Some(mut text) = text_query.iter_mut().next() {
-            select(&mut sprite, contributor, &mut *transform, &mut *text, name);
-        }
+        let mut text = text_query.single_mut();
+        select(&mut sprite, contributor, &mut *transform, &mut *text, name);
     }
 }
 
@@ -207,7 +203,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
-    name: &str,
+    name: &String,
 ) {
     sprite.color = Color::hsla(
         contributor.hue,
@@ -218,8 +214,7 @@ fn select(
 
     transform.translation.z = 100.0;
 
-    text.sections[0].value = "Contributor: ".to_string();
-    text.sections[1].value = name.to_string();
+    text.sections[1].value.clone_from(name);
     text.sections[1].style.color = sprite.color;
 }
 
@@ -240,9 +235,9 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
-    for mut velocity in velocity_query.iter_mut() {
+    velocity_query.for_each_mut(|mut velocity| {
         velocity.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
-    }
+    });
 }
 
 /// Checks for collisions of contributor-birds.
@@ -264,7 +259,7 @@ fn collision_system(
     let wall_left = -(window.width() / 2.);
     let wall_right = window.width() / 2.;
 
-    for (mut velocity, mut transform) in query.iter_mut() {
+    query.for_each_mut(|(mut velocity, mut transform)| {
         let left = transform.translation.x - SPRITE_SIZE / 2.0;
         let right = transform.translation.x + SPRITE_SIZE / 2.0;
         let top = transform.translation.y + SPRITE_SIZE / 2.0;
@@ -290,17 +285,17 @@ fn collision_system(
             velocity.translation.x *= -1.0;
             velocity.rotation *= -1.0;
         }
-    }
+    });
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+fn move_system(time: Res<Time>, mut velocity_query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
-    for (velocity, mut transform) in query.iter_mut() {
+    velocity_query.for_each_mut(|(velocity, mut transform)| {
         transform.translation += delta * velocity.translation;
         transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
-    }
+    });
 }
 
 enum LoadContributorsError {
