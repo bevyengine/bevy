@@ -123,6 +123,7 @@ path = "examples/2d/many_sprites.rs"
 name = "2d_rotation"
 path = "examples/2d/rotation.rs"
 
+[[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
 
