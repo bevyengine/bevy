@@ -92,6 +92,7 @@ Example | File | Description
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+`rotation` | [`2d/rotation.rs`](./2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 
 ## 3D Rendering
 
