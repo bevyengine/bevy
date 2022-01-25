@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // player controlled ship
     commands
         .spawn_bundle(SpriteBundle {
-            texture: ship_handle.into(),
+            texture: ship_handle,
             ..Default::default()
         })
         .insert(Player {
@@ -76,14 +76,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // enemy that snaps to face the player spawns on the bottom and left
     commands
         .spawn_bundle(SpriteBundle {
-            texture: enemy_a_handle.clone().into(),
+            texture: enemy_a_handle.clone(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
             ..Default::default()
         })
         .insert(SnapToPlayer);
     commands
         .spawn_bundle(SpriteBundle {
-            texture: enemy_a_handle.into(),
+            texture: enemy_a_handle,
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
             ..Default::default()
         })
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // enemy that rotates to face the player enemy spawns on the top and right
     commands
         .spawn_bundle(SpriteBundle {
-            texture: enemy_b_handle.clone().into(),
+            texture: enemy_b_handle.clone(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
             ..Default::default()
         })
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
     commands
         .spawn_bundle(SpriteBundle {
-            texture: enemy_b_handle.into(),
+            texture: enemy_b_handle,
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
             ..Default::default()
         })
