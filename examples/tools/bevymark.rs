@@ -257,12 +257,15 @@ fn counter_system(
     counter: Res<BevyCounter>,
     mut query: Query<&mut Text, With<StatsText>>,
 ) {
+    let mut text = query.single_mut();
+
+    if counter.is_changed() {
+        text.sections[1].value.clear();
+        write!(text.sections[1].value, "{}", counter.count).unwrap();
+    }
+
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            let mut text = query.single_mut();
-
-            text.sections[1].value.clear();
-            write!(text.sections[1].value, "{}", counter.count).unwrap();
             text.sections[3].value.clear();
             write!(text.sections[3].value, "{:.2}", average).unwrap();
         }
