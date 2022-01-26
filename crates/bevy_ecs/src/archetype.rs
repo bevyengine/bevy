@@ -16,21 +16,26 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeId(usize);
+pub struct ArchetypeId(NonMaxUsize);
 
 impl ArchetypeId {
-    pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
-    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+    pub const EMPTY: ArchetypeId = unsafe { ArchetypeId::new_unchecked(0) };
+    pub const RESOURCE: ArchetypeId = unsafe { ArchetypeId::new_unchecked(1) };
+    pub const INVALID: ArchetypeId = unsafe { ArchetypeId::new_unchecked(usize::MAX - 1) };
 
     #[inline]
-    pub const fn new(index: usize) -> Self {
-        ArchetypeId(index)
+    pub fn new(index: usize) -> Self {
+        Self(NonMaxUsize::new(index).unwrap())
     }
 
     #[inline]
-    pub fn index(self) -> usize {
-        self.0
+    pub const unsafe fn new_unchecked(index: usize) -> Self {
+        Self(NonMaxUsize::new_unchecked(index))
+    }
+
+    #[inline]
+    pub const fn index(self) -> usize {
+        self.0.get()
     }
 }
 
@@ -510,7 +515,7 @@ impl Archetypes {
             .archetype_ids
             .entry(archetype_identity)
             .or_insert_with(move || {
-                let id = ArchetypeId(archetypes.len());
+                let id = ArchetypeId::new(archetypes.len());
                 let table_archetype_components = (0..table_components.len())
                     .map(|_| next_archetype_component_id())
                     .collect();
