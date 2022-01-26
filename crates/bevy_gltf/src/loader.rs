@@ -867,7 +867,7 @@ mod test {
     use std::path::PathBuf;
 
     use super::resolve_node_hierarchy;
-    use crate::{GltfNode, GltfPlugin};
+    use crate::GltfNode;
 
     impl GltfNode {
         fn empty() -> Self {
@@ -986,26 +986,22 @@ mod test {
 
     use super::Gltf;
     use bevy_app::{App, AppExit, EventWriter};
-    use bevy_asset::{AssetPlugin, AssetServer, Assets, Handle};
-    use bevy_core::CorePlugin;
+    use bevy_asset::{AssetServer, Assets, Handle};
     use bevy_ecs::system::{Commands, Res};
+    use bevy_internal::DefaultPlugins;
     use bevy_scene::Scene;
 
     #[test]
     fn test_scene_to_nodes() {
         App::new()
-            .add_plugin(bevy_log::LogPlugin::default())
-            .add_plugin(CorePlugin::default())
-            .add_plugin(AssetPlugin::default())
-            .add_plugin(bevy_scene::ScenePlugin::default())
-            .add_plugin(GltfPlugin::default())
+            .add_plugins(DefaultPlugins)
             .add_startup_system(setup)
             .add_system(spawn_gltf_objects)
             .run();
     }
 
     fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-        let handle: Handle<Gltf> = assets.load("models/FlightHelmet/FlightHelmet.gltf");
+        let handle: Handle<Gltf> = assets.load("FlightHelmet.gltf");
         commands.insert_resource(handle);
     }
 
@@ -1024,7 +1020,6 @@ mod test {
                 .collect::<Vec<_>>();
             assert_eq!(nodes.len(), 1);
             assert_eq!(nodes[0].children[0].children.len(), 6);
-            assert_eq!(nodes.len(), 0); // This will fail, but this way clippy doesn't complain
 
             // If the asserts ran successfully, we can exit the app
             exit.send(AppExit);
