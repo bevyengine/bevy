@@ -71,6 +71,7 @@ basis-universal = ["bevy_internal/basis-universal"]
 dds = ["bevy_internal/dds"]
 ktx2 = ["bevy_internal/ktx2"]
 # For ktx2 supercompression
+zlib = ["bevy_internal/zlib"]
 zstd = ["bevy_internal/zstd"]
 
 # Audio format support (MP3 is enabled by default)

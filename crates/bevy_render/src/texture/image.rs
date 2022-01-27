@@ -308,7 +308,9 @@ impl Image {
             #[cfg(feature = "dds")]
             ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
             #[cfg(feature = "ktx2")]
-            ImageFormat::Ktx2 => ktx2_buffer_to_image(buffer, is_srgb),
+            ImageFormat::Ktx2 => {
+                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+            }
             _ => {
                 let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
                     TextureError::UnsupportedTextureFormat(format!("{:?}", format))
@@ -334,6 +336,14 @@ impl Image {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum TranscodeFormat {
+    Etc1s,
+    // Has to be transcoded to Rgba8 for use with `wgpu`
+    Rgb8,
+    Uastc,
+}
+
 /// An error that occurs when loading a texture
 #[derive(Error, Debug)]
 pub enum TextureError {
@@ -353,6 +363,8 @@ pub enum TextureError {
     InvalidData(String),
     #[error("transcode error: {0}")]
     TranscodeError(String),
+    #[error("format requires transcoding: {0:?}")]
+    FormatRequiresTranscodingError(TranscodeFormat),
 }
 
 /// The type of a raw image buffer.

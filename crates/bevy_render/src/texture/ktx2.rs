@@ -1,56 +1,175 @@
 use std::io::Read;
 
-use ktx2::{BasicDataFormatDescriptor, ColorModel, SampleInformation, SupercompressionScheme};
+#[cfg(feature = "basis-universal")]
+use basis_universal::{
+    DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
+};
+use ktx2::{
+    BasicDataFormatDescriptor, ColorModel, Header, SampleInformation, SupercompressionScheme,
+};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
-use super::{Image, TextureError};
+use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
-pub fn ktx2_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Result<Image, TextureError> {
+pub fn ktx2_buffer_to_image(
+    buffer: &[u8],
+    supported_compressed_formats: CompressedImageFormats,
+    is_srgb: bool,
+) -> Result<Image, TextureError> {
     let ktx2 = ktx2::Reader::new(buffer).expect("Can't create reader");
-    let ktx2_header = ktx2.header();
-    let mut image = Image::default();
-    if let Some(format) = ktx2_header.format {
-        image.texture_descriptor.format = ktx2_format_to_texture_format(format, is_srgb)?;
-        image.data = ktx2.levels().flatten().copied().collect();
-    } else if let Some(supercompression_scheme) = ktx2_header.supercompression_scheme {
-        match supercompression_scheme {
-            SupercompressionScheme::Zstandard => {
-                for (l, level) in ktx2.levels().enumerate() {
-                    let mut cursor = std::io::Cursor::new(level);
-                    let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
-                    decoder.read_to_end(&mut image.data).map_err(|err| {
+    let Header {
+        pixel_width: width,
+        pixel_height: height,
+        pixel_depth: depth,
+        layer_count,
+        level_count,
+        supercompression_scheme,
+        ..
+    } = ktx2.header();
+
+    // Handle supercompression
+    let mut levels = Vec::new();
+    if let Some(supercompression_scheme) = supercompression_scheme {
+        for (level, level_data) in ktx2.levels().enumerate() {
+            let mut decompressed = Vec::new();
+            match supercompression_scheme {
+                #[cfg(feature = "flate2")]
+                SupercompressionScheme::ZLIB => {
+                    let mut decoder = flate2::bufread::ZlibDecoder::new(level_data);
+                    decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress supercompression for mip {}: {:?}",
-                            l, err
+                            "Failed to decompress {:?} for mip {}: {:?}",
+                            supercompression_scheme, level, err
                         ))
                     })?;
                 }
+                #[cfg(feature = "ruzstd")]
+                SupercompressionScheme::Zstandard => {
+                    let mut cursor = std::io::Cursor::new(level_data);
+                    let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
+                        .map_err(TextureError::SuperDecompressionError)?;
+                    decoder.read_to_end(&mut decompressed).map_err(|err| {
+                        TextureError::SuperDecompressionError(format!(
+                            "Failed to decompress {:?} for mip {}: {:?}",
+                            supercompression_scheme, level, err
+                        ))
+                    })?;
+                }
+                _ => {
+                    return Err(TextureError::SuperDecompressionError(format!(
+                        "Unsupported supercompression scheme: {:?}",
+                        supercompression_scheme
+                    )));
+                }
             }
-            _ => {
-                return Err(TextureError::SuperDecompressionError(format!(
-                    "Unsupported supercompression scheme: {:?}",
-                    supercompression_scheme
-                )));
-            }
+            levels.push(decompressed);
         }
-        let data_format_descriptors = ktx2.data_format_descriptors();
-        image.texture_descriptor.format =
-            ktx2_dfd_to_texture_format(&data_format_descriptors[0], is_srgb)?;
+    } else {
+        levels = ktx2.levels().map(|level| level.to_vec()).collect();
     }
+
+    // Identify the format
+    let texture_format = ktx2_get_texture_format(&ktx2, is_srgb).or_else(|error| match error {
+        // Transcode if needed and supported
+        TextureError::FormatRequiresTranscodingError(transcode_format) => {
+            let mut transcoded = Vec::new();
+            let texture_format = match transcode_format {
+                TranscodeFormat::Rgb8 => {
+                    let (mut original_width, mut original_height) = (width, height);
+
+                    for level_data in levels.iter() {
+                        let n_pixels = (original_width * original_height) as usize;
+
+                        let mut rgba = vec![255u8; n_pixels * 4];
+                        for i in 0..n_pixels {
+                            rgba[i * 4] = level_data[i * 3];
+                            rgba[i * 4 + 1] = level_data[i * 3 + 1];
+                            rgba[i * 4 + 2] = level_data[i * 3 + 2];
+                        }
+                        transcoded.push(rgba);
+
+                        // Next mip dimensions are half the current, minimum 1x1
+                        original_width = (original_width / 2).max(1);
+                        original_height = (original_height / 2).max(1);
+                    }
+
+                    if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    }
+                }
+                #[cfg(feature = "basis-universal")]
+                TranscodeFormat::Uastc => {
+                    let (transcode_block_format, texture_format) =
+                        get_transcoded_formats(supported_compressed_formats, is_srgb);
+                    let (mut original_width, mut original_height) = (width, height);
+                    let (block_width_pixels, block_height_pixels) = (4, 4);
+                    // FIXME: How do we know whether it has alpha - from the data format descriptor
+
+                    let transcoder = LowLevelUastcTranscoder::new();
+                    for (level, level_data) in levels.iter().enumerate() {
+                        let slice_parameters = SliceParametersUastc {
+                            num_blocks_x: ((original_width + block_width_pixels - 1)
+                                / block_width_pixels)
+                                .max(1),
+                            num_blocks_y: ((original_height + block_height_pixels - 1)
+                                / block_height_pixels)
+                                .max(1),
+                            has_alpha: false,
+                            original_width,
+                            original_height,
+                        };
+
+                        transcoder
+                            .transcode_slice(
+                                level_data,
+                                slice_parameters,
+                                DecodeFlags::HIGH_QULITY,
+                                transcode_block_format,
+                            )
+                            .map(|transcoded_level| transcoded.push(transcoded_level))
+                            .map_err(|error| {
+                                TextureError::SuperDecompressionError(format!(
+                                    "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
+                                    level, transcode_block_format, error
+                                ))
+                            })?;
+
+                        // Next mip dimensions are half the current, minimum 1x1
+                        original_width = (original_width / 2).max(1);
+                        original_height = (original_height / 2).max(1);
+                    }
+                    texture_format
+                }
+                _ => return Err(error),
+            };
+            levels = transcoded;
+            Ok(texture_format)
+        }
+        _ => Err(error),
+    })?;
+    if !supported_compressed_formats.supports(texture_format) {
+        return Err(TextureError::UnsupportedTextureFormat(format!(
+            "Format not supported by this GPU: {:?}",
+            texture_format
+        )));
+    }
+
+    // Assign the data and fill in the rest of the metadata now the possible
+    // error cases have been handled
+    let mut image = Image::default();
+    image.texture_descriptor.format = texture_format;
+    image.data = levels.into_iter().flatten().collect::<Vec<_>>();
     image.texture_descriptor.size = Extent3d {
-        width: ktx2_header.pixel_width,
-        height: ktx2_header.pixel_height,
-        depth_or_array_layers: if ktx2_header.layer_count > 1 {
-            ktx2_header.layer_count
-        } else {
-            ktx2_header.pixel_depth
-        },
+        width,
+        height,
+        depth_or_array_layers: if layer_count > 1 { layer_count } else { depth }.max(1),
     };
-    image.texture_descriptor.mip_level_count = ktx2_header.level_count;
-    image.texture_descriptor.dimension = if ktx2_header.pixel_depth > 1 {
+    image.texture_descriptor.mip_level_count = level_count;
+    image.texture_descriptor.dimension = if depth > 1 {
         TextureDimension::D3
-    } else if image.is_compressed() || ktx2_header.pixel_height > 1 {
+    } else if image.is_compressed() || height > 1 {
         TextureDimension::D2
     } else {
         TextureDimension::D1
@@ -58,22 +177,65 @@ pub fn ktx2_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Result<Image, Textu
     Ok(image)
 }
 
+pub fn get_transcoded_formats(
+    supported_compressed_formats: CompressedImageFormats,
+    is_srgb: bool,
+) -> (TranscoderBlockFormat, TextureFormat) {
+    if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+        (
+            TranscoderBlockFormat::BC7,
+            if is_srgb {
+                TextureFormat::Bc7RgbaUnormSrgb
+            } else {
+                TextureFormat::Bc7RgbaUnorm
+            },
+        )
+    } else if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
+        (
+            TranscoderBlockFormat::ASTC_4x4,
+            if is_srgb {
+                TextureFormat::Astc4x4RgbaUnormSrgb
+            } else {
+                TextureFormat::Astc4x4RgbaUnorm
+            },
+        )
+    } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
+        (
+            TranscoderBlockFormat::ETC2_RGBA,
+            if is_srgb {
+                TextureFormat::Etc2Rgba8UnormSrgb
+            } else {
+                TextureFormat::Etc2Rgba8Unorm
+            },
+        )
+    } else {
+        (
+            TranscoderBlockFormat::RGBA32,
+            if is_srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            },
+        )
+    }
+}
+
 pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     ktx2: &ktx2::Reader<Data>,
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
-    let ktx2_header = ktx2.header();
-    if let Some(format) = ktx2_header.format {
-        return ktx2_format_to_texture_format(format, is_srgb);
+    if let Some(format) = ktx2.header().format {
+        ktx2_format_to_texture_format(format, is_srgb)
+    } else if let Some(data_format_descriptor) = ktx2.data_format_descriptors().next() {
+        let sample_information = data_format_descriptor
+            .sample_information()
+            .collect::<Vec<_>>();
+        ktx2_dfd_to_texture_format(&data_format_descriptor, &sample_information, is_srgb)
+    } else {
+        Err(TextureError::UnsupportedTextureFormat(
+            "Unknown".to_string(),
+        ))
     }
-    let dfds = ktx2.data_format_descriptors();
-    // FIXME: How should more than one Data Format Descriptor be handled? Follow the specification.
-    if let Some(dfd) = dfds.get(0) {
-        return ktx2_dfd_to_texture_format(dfd, is_srgb);
-    }
-    Err(TextureError::UnsupportedTextureFormat(
-        "Unknown".to_string(),
-    ))
 }
 
 enum DataType {
@@ -116,23 +278,19 @@ fn sample_information_to_data_type(
 }
 
 pub fn ktx2_dfd_to_texture_format(
-    ktx2_dfd: &BasicDataFormatDescriptor,
+    data_format_descriptor: &BasicDataFormatDescriptor,
+    sample_information: &[SampleInformation],
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
-    Ok(match ktx2_dfd.color_model {
-        ColorModel::RGBSDA => {
-            // Same number of channels in both texel block dimensions and sample info descriptions
-            assert_eq!(
-                ktx2_dfd.texel_block_dimensions[0] as usize,
-                ktx2_dfd.samples.len()
-            );
-            match ktx2_dfd.samples.len() {
+    Ok(match data_format_descriptor.color_model {
+        Some(ColorModel::RGBSDA) => {
+            match sample_information.len() {
                 1 => {
                     // Only red channel allowed
                     // FIXME: What about depth?
-                    assert_eq!(ktx2_dfd.samples[0].channel_type, 0);
+                    assert_eq!(sample_information[0].channel_type, 0);
 
-                    let sample = &ktx2_dfd.samples[0];
+                    let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
@@ -194,23 +352,23 @@ pub fn ktx2_dfd_to_texture_format(
                 2 => {
                     // Only red and green channels allowed
                     // FIXME: What about depth stencil?
-                    assert_eq!(ktx2_dfd.samples[0].channel_type, 0);
-                    assert_eq!(ktx2_dfd.samples[1].channel_type, 1);
+                    assert_eq!(sample_information[0].channel_type, 0);
+                    assert_eq!(sample_information[1].channel_type, 1);
                     // Only same bit length for all channels
                     assert_eq!(
-                        ktx2_dfd.samples[0].bit_length,
-                        ktx2_dfd.samples[1].bit_length
+                        sample_information[0].bit_length,
+                        sample_information[1].bit_length
                     );
                     // Only same channel type qualifiers for all channels
                     assert_eq!(
-                        ktx2_dfd.samples[0].channel_type_qualifiers,
-                        ktx2_dfd.samples[1].channel_type_qualifiers
+                        sample_information[0].channel_type_qualifiers,
+                        sample_information[1].channel_type_qualifiers
                     );
                     // Only same sample range for all channels
-                    assert_eq!(ktx2_dfd.samples[0].lower, ktx2_dfd.samples[1].lower);
-                    assert_eq!(ktx2_dfd.samples[0].upper, ktx2_dfd.samples[1].upper);
+                    assert_eq!(sample_information[0].lower, sample_information[1].lower);
+                    assert_eq!(sample_information[0].upper, sample_information[1].upper);
 
-                    let sample = &ktx2_dfd.samples[0];
+                    let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
@@ -270,22 +428,32 @@ pub fn ktx2_dfd_to_texture_format(
                     }
                 }
                 3 => {
-                    if ktx2_dfd.samples[0].channel_type == 0
-                        && ktx2_dfd.samples[0].bit_length == 11
-                        && ktx2_dfd.samples[1].channel_type == 1
-                        && ktx2_dfd.samples[1].bit_length == 11
-                        && ktx2_dfd.samples[2].channel_type == 2
-                        && ktx2_dfd.samples[2].bit_length == 10
+                    if sample_information[0].channel_type == 0
+                        && sample_information[0].bit_length == 11
+                        && sample_information[1].channel_type == 1
+                        && sample_information[1].bit_length == 11
+                        && sample_information[2].channel_type == 2
+                        && sample_information[2].bit_length == 10
                     {
                         TextureFormat::Rg11b10Float
-                    } else if ktx2_dfd.samples[0].channel_type == 0
-                        && ktx2_dfd.samples[0].bit_length == 9
-                        && ktx2_dfd.samples[1].channel_type == 1
-                        && ktx2_dfd.samples[1].bit_length == 9
-                        && ktx2_dfd.samples[2].channel_type == 2
-                        && ktx2_dfd.samples[2].bit_length == 9
+                    } else if sample_information[0].channel_type == 0
+                        && sample_information[0].bit_length == 9
+                        && sample_information[1].channel_type == 1
+                        && sample_information[1].bit_length == 9
+                        && sample_information[2].channel_type == 2
+                        && sample_information[2].bit_length == 9
                     {
                         TextureFormat::Rgb9e5Ufloat
+                    } else if sample_information[0].channel_type == 0
+                        && sample_information[0].bit_length == 8
+                        && sample_information[1].channel_type == 1
+                        && sample_information[1].bit_length == 8
+                        && sample_information[2].channel_type == 2
+                        && sample_information[2].bit_length == 8
+                    {
+                        return Err(TextureError::FormatRequiresTranscodingError(
+                            TranscodeFormat::Rgb8,
+                        ));
                     } else {
                         return Err(TextureError::UnsupportedTextureFormat(
                             "3-component formats not supported".to_string(),
@@ -294,55 +462,47 @@ pub fn ktx2_dfd_to_texture_format(
                 }
                 4 => {
                     // Only RGBA or BGRA channels allowed
-                    let is_rgba = ktx2_dfd.samples[0].channel_type == 0;
+                    let is_rgba = sample_information[0].channel_type == 0;
                     assert!(
-                        ktx2_dfd.samples[0].channel_type == 0
-                            || ktx2_dfd.samples[0].channel_type == 2
+                        sample_information[0].channel_type == 0
+                            || sample_information[0].channel_type == 2
                     );
-                    assert_eq!(ktx2_dfd.samples[1].channel_type, 1);
+                    assert_eq!(sample_information[1].channel_type, 1);
                     assert_eq!(
-                        ktx2_dfd.samples[2].channel_type,
+                        sample_information[2].channel_type,
                         if is_rgba { 2 } else { 0 }
                     );
-                    assert_eq!(ktx2_dfd.samples[3].channel_type, 15);
+                    assert_eq!(sample_information[3].channel_type, 15);
 
                     // Handle one special packed format
-                    if ktx2_dfd.samples[0].bit_length == 10
-                        && ktx2_dfd.samples[1].bit_length == 10
-                        && ktx2_dfd.samples[2].bit_length == 10
-                        && ktx2_dfd.samples[3].bit_length == 2
+                    if sample_information[0].bit_length == 10
+                        && sample_information[1].bit_length == 10
+                        && sample_information[2].bit_length == 10
+                        && sample_information[3].bit_length == 2
                     {
                         return Ok(TextureFormat::Rgb10a2Unorm);
                     }
 
                     // Only same bit length for all channels
                     assert!(
-                        ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[1].bit_length
-                            && ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[2].bit_length
-                            && ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[3].bit_length
-                    );
-                    // Only same channel type qualifiers for all channels
-                    assert!(
-                        ktx2_dfd.samples[0].channel_type_qualifiers
-                            == ktx2_dfd.samples[1].channel_type_qualifiers
-                            && ktx2_dfd.samples[0].channel_type_qualifiers
-                                == ktx2_dfd.samples[2].channel_type_qualifiers
-                            && ktx2_dfd.samples[0].channel_type_qualifiers
-                                == ktx2_dfd.samples[3].channel_type_qualifiers
-                    );
-                    // Only same sample range for all channels
-                    assert!(
-                        ktx2_dfd.samples[0].lower == ktx2_dfd.samples[1].lower
-                            && ktx2_dfd.samples[0].lower == ktx2_dfd.samples[2].lower
-                            && ktx2_dfd.samples[0].lower == ktx2_dfd.samples[3].lower
+                        sample_information[0].bit_length == sample_information[1].bit_length
+                            && sample_information[0].bit_length
+                                == sample_information[2].bit_length
+                            && sample_information[0].bit_length
+                                == sample_information[3].bit_length
                     );
                     assert!(
-                        ktx2_dfd.samples[0].upper == ktx2_dfd.samples[1].upper
-                            && ktx2_dfd.samples[0].upper == ktx2_dfd.samples[2].upper
-                            && ktx2_dfd.samples[0].upper == ktx2_dfd.samples[3].upper
+                        sample_information[0].lower == sample_information[1].lower
+                            && sample_information[0].lower == sample_information[2].lower
+                            && sample_information[0].lower == sample_information[3].lower
+                    );
+                    assert!(
+                        sample_information[0].upper == sample_information[1].upper
+                            && sample_information[0].upper == sample_information[2].upper
+                            && sample_information[0].upper == sample_information[3].upper
                     );
 
-                    let sample = &ktx2_dfd.samples[0];
+                    let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, is_srgb)?;
                     match sample.bit_length {
                         8 => match data_type {
@@ -376,7 +536,14 @@ pub fn ktx2_dfd_to_texture_format(
                             }
                             DataType::Uint => {
                                 if is_rgba {
-                                    TextureFormat::Rgba8Uint
+                                    // FIXME: This seems to be more about how you
+                                    // want to use the data so TextureFormat::Rgba8Uint
+                                    // is incorrect here?
+                                    if is_srgb {
+                                        TextureFormat::Rgba8UnormSrgb
+                                    } else {
+                                        TextureFormat::Rgba8Unorm
+                                    }
                                 } else {
                                     return Err(TextureError::UnsupportedTextureFormat(
                                         "Bgra8 not supported for Uint".to_string(),
@@ -385,7 +552,10 @@ pub fn ktx2_dfd_to_texture_format(
                             }
                             DataType::Sint => {
                                 if is_rgba {
-                                    TextureFormat::Rgba8Sint
+                                    // FIXME: This seems to be more about how you
+                                    // want to use the data so TextureFormat::Rgba8Sint
+                                    // is incorrect here?
+                                    TextureFormat::Rgba8Snorm
                                 } else {
                                     return Err(TextureError::UnsupportedTextureFormat(
                                         "Bgra8 not supported for Sint".to_string(),
@@ -505,71 +675,73 @@ pub fn ktx2_dfd_to_texture_format(
                 }
             }
         }
-        ColorModel::YUVSDA => {
+        Some(ColorModel::YUVSDA) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::YIQSDA => {
+        Some(ColorModel::YIQSDA) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::LabSDA => {
+        Some(ColorModel::LabSDA) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::CMYKA => {
+        Some(ColorModel::CMYKA) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::XYZW => {
+        Some(ColorModel::XYZW) => {
             // Same number of channels in both texel block dimensions and sample info descriptions
             assert_eq!(
-                ktx2_dfd.texel_block_dimensions[0] as usize,
-                ktx2_dfd.samples.len()
+                data_format_descriptor.texel_block_dimensions[0] as usize,
+                sample_information.len()
             );
-            match ktx2_dfd.samples.len() {
+            match sample_information.len() {
                 4 => {
                     // Only RGBA or BGRA channels allowed
-                    assert_eq!(ktx2_dfd.samples[0].channel_type, 0);
-                    assert_eq!(ktx2_dfd.samples[1].channel_type, 1);
-                    assert_eq!(ktx2_dfd.samples[2].channel_type, 2);
-                    assert_eq!(ktx2_dfd.samples[3].channel_type, 3);
+                    assert_eq!(sample_information[0].channel_type, 0);
+                    assert_eq!(sample_information[1].channel_type, 1);
+                    assert_eq!(sample_information[2].channel_type, 2);
+                    assert_eq!(sample_information[3].channel_type, 3);
                     // Only same bit length for all channels
                     assert!(
-                        ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[1].bit_length
-                            && ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[2].bit_length
-                            && ktx2_dfd.samples[0].bit_length == ktx2_dfd.samples[3].bit_length
+                        sample_information[0].bit_length == sample_information[1].bit_length
+                            && sample_information[0].bit_length
+                                == sample_information[2].bit_length
+                            && sample_information[0].bit_length
+                                == sample_information[3].bit_length
                     );
                     // Only same channel type qualifiers for all channels
                     assert!(
-                        ktx2_dfd.samples[0].channel_type_qualifiers
-                            == ktx2_dfd.samples[1].channel_type_qualifiers
-                            && ktx2_dfd.samples[0].channel_type_qualifiers
-                                == ktx2_dfd.samples[2].channel_type_qualifiers
-                            && ktx2_dfd.samples[0].channel_type_qualifiers
-                                == ktx2_dfd.samples[3].channel_type_qualifiers
+                        sample_information[0].channel_type_qualifiers
+                            == sample_information[1].channel_type_qualifiers
+                            && sample_information[0].channel_type_qualifiers
+                                == sample_information[2].channel_type_qualifiers
+                            && sample_information[0].channel_type_qualifiers
+                                == sample_information[3].channel_type_qualifiers
                     );
                     // Only same sample range for all channels
                     assert!(
-                        ktx2_dfd.samples[0].lower == ktx2_dfd.samples[1].lower
-                            && ktx2_dfd.samples[0].lower == ktx2_dfd.samples[2].lower
-                            && ktx2_dfd.samples[0].lower == ktx2_dfd.samples[3].lower
+                        sample_information[0].lower == sample_information[1].lower
+                            && sample_information[0].lower == sample_information[2].lower
+                            && sample_information[0].lower == sample_information[3].lower
                     );
                     assert!(
-                        ktx2_dfd.samples[0].upper == ktx2_dfd.samples[1].upper
-                            && ktx2_dfd.samples[0].upper == ktx2_dfd.samples[2].upper
-                            && ktx2_dfd.samples[0].upper == ktx2_dfd.samples[3].upper
+                        sample_information[0].upper == sample_information[1].upper
+                            && sample_information[0].upper == sample_information[2].upper
+                            && sample_information[0].upper == sample_information[3].upper
                     );
 
-                    let sample = &ktx2_dfd.samples[0];
+                    let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
                     match sample.bit_length {
                         8 => match data_type {
@@ -636,104 +808,104 @@ pub fn ktx2_dfd_to_texture_format(
                 }
             }
         }
-        ColorModel::HSVAAng => {
+        Some(ColorModel::HSVAAng) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::HSLAAng => {
+        Some(ColorModel::HSLAAng) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::HSVAHex => {
+        Some(ColorModel::HSVAHex) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::HSLAHex => {
+        Some(ColorModel::HSLAHex) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::YCgCoA => {
+        Some(ColorModel::YCgCoA) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::YcCbcCrc => {
+        Some(ColorModel::YcCbcCrc) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::ICtCp => {
+        Some(ColorModel::ICtCp) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::CIEXYZ => {
+        Some(ColorModel::CIEXYZ) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::CIEXYY => {
+        Some(ColorModel::CIEXYY) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
-        ColorModel::BC1A => {
+        Some(ColorModel::BC1A) => {
             if is_srgb {
                 TextureFormat::Bc1RgbaUnormSrgb
             } else {
                 TextureFormat::Bc1RgbaUnorm
             }
         }
-        ColorModel::BC2 => {
+        Some(ColorModel::BC2) => {
             if is_srgb {
                 TextureFormat::Bc2RgbaUnormSrgb
             } else {
                 TextureFormat::Bc2RgbaUnorm
             }
         }
-        ColorModel::BC3 => {
+        Some(ColorModel::BC3) => {
             if is_srgb {
                 TextureFormat::Bc3RgbaUnormSrgb
             } else {
                 TextureFormat::Bc3RgbaUnorm
             }
         }
-        ColorModel::BC4 => {
-            if ktx2_dfd.samples[0].lower == 0 {
+        Some(ColorModel::BC4) => {
+            if sample_information[0].lower == 0 {
                 TextureFormat::Bc4RUnorm
             } else {
                 TextureFormat::Bc4RSnorm
             }
         }
         // FIXME: Red and green channels can be swapped for ATI2n/3Dc
-        ColorModel::BC5 => {
-            if ktx2_dfd.samples[0].lower == 0 {
+        Some(ColorModel::BC5) => {
+            if sample_information[0].lower == 0 {
                 TextureFormat::Bc5RgUnorm
             } else {
                 TextureFormat::Bc5RgSnorm
             }
         }
-        ColorModel::BC6H => {
-            if ktx2_dfd.samples[0].lower == 0 {
+        Some(ColorModel::BC6H) => {
+            if sample_information[0].lower == 0 {
                 TextureFormat::Bc6hRgbUfloat
             } else {
                 TextureFormat::Bc6hRgbSfloat
             }
         }
-        ColorModel::BC7 => {
+        Some(ColorModel::BC7) => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb
             } else {
@@ -741,17 +913,17 @@ pub fn ktx2_dfd_to_texture_format(
             }
         }
         // FIXME: Is ETC1 a subset of ETC2?
-        ColorModel::ETC1 => {
+        Some(ColorModel::ETC1) => {
             return Err(TextureError::UnsupportedTextureFormat(
                 "ETC1 is not supported".to_string(),
             ));
         }
-        ColorModel::ETC2 => match ktx2_dfd.samples.len() {
+        Some(ColorModel::ETC2) => match sample_information.len() {
             1 => {
-                let sample = &ktx2_dfd.samples[0];
+                let sample = &sample_information[0];
                 match sample.channel_type {
                     0 => {
-                        if ktx2_dfd.samples[0].is_signed() {
+                        if sample_information[0].is_signed() {
                             TextureFormat::EacR11Snorm
                         } else {
                             TextureFormat::EacR11Unorm
@@ -773,8 +945,8 @@ pub fn ktx2_dfd_to_texture_format(
                 }
             }
             2 => {
-                let sample0 = &ktx2_dfd.samples[0];
-                let sample1 = &ktx2_dfd.samples[1];
+                let sample0 = &sample_information[0];
+                let sample1 = &sample_information[1];
                 if sample0.channel_type == 0 && sample1.channel_type == 1 {
                     if sample0.is_signed() {
                         TextureFormat::EacRg11Snorm
@@ -807,8 +979,8 @@ pub fn ktx2_dfd_to_texture_format(
                 )));
             }
         },
-        ColorModel::ASTC => match ktx2_dfd.texel_block_dimensions[0] {
-            4 => match ktx2_dfd.texel_block_dimensions[1] {
+        Some(ColorModel::ASTC) => match data_format_descriptor.texel_block_dimensions[0] {
+            4 => match data_format_descriptor.texel_block_dimensions[1] {
                 4 => {
                     if is_srgb {
                         TextureFormat::Astc4x4RgbaUnormSrgb
@@ -823,7 +995,7 @@ pub fn ktx2_dfd_to_texture_format(
                     )))
                 }
             },
-            5 => match ktx2_dfd.texel_block_dimensions[1] {
+            5 => match data_format_descriptor.texel_block_dimensions[1] {
                 4 => {
                     if is_srgb {
                         TextureFormat::Astc5x4RgbaUnormSrgb
@@ -845,7 +1017,7 @@ pub fn ktx2_dfd_to_texture_format(
                     )))
                 }
             },
-            6 => match ktx2_dfd.texel_block_dimensions[1] {
+            6 => match data_format_descriptor.texel_block_dimensions[1] {
                 5 => {
                     if is_srgb {
                         TextureFormat::Astc6x5RgbaUnormSrgb
@@ -867,7 +1039,7 @@ pub fn ktx2_dfd_to_texture_format(
                     )))
                 }
             },
-            8 => match ktx2_dfd.texel_block_dimensions[1] {
+            8 => match data_format_descriptor.texel_block_dimensions[1] {
                 5 => {
                     if is_srgb {
                         TextureFormat::Astc8x5RgbaUnormSrgb
@@ -896,7 +1068,7 @@ pub fn ktx2_dfd_to_texture_format(
                     )))
                 }
             },
-            10 => match ktx2_dfd.texel_block_dimensions[1] {
+            10 => match data_format_descriptor.texel_block_dimensions[1] {
                 5 => {
                     if is_srgb {
                         TextureFormat::Astc10x5RgbaUnormSrgb
@@ -932,7 +1104,7 @@ pub fn ktx2_dfd_to_texture_format(
                     )))
                 }
             },
-            12 => match ktx2_dfd.texel_block_dimensions[1] {
+            12 => match data_format_descriptor.texel_block_dimensions[1] {
                 10 => {
                     if is_srgb {
                         TextureFormat::Astc12x10RgbaUnormSrgb
@@ -961,38 +1133,35 @@ pub fn ktx2_dfd_to_texture_format(
                 )))
             }
         },
-        // FIXME: Needs transcoding
-        ColorModel::ETC1S => {
-            return Err(TextureError::UnsupportedTextureFormat(
-                "ETC1S is not supported".to_string(),
+        Some(ColorModel::ETC1S) => {
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Etc1s,
             ));
         }
-        ColorModel::PVRTC => {
+        Some(ColorModel::PVRTC) => {
             return Err(TextureError::UnsupportedTextureFormat(
                 "PVRTC is not supported".to_string(),
             ));
         }
-        ColorModel::PVRTC2 => {
+        Some(ColorModel::PVRTC2) => {
             return Err(TextureError::UnsupportedTextureFormat(
                 "PVRTC2 is not supported".to_string(),
             ));
         }
-        // FIXME: Needs transcoding
-        ColorModel::UASTC => {
-            return Err(TextureError::UnsupportedTextureFormat(
-                "UASTC is not supported".to_string(),
+        Some(ColorModel::UASTC) => {
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Uastc,
             ));
         }
-        ColorModel::Unspecified => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "Unspecified KTX2 color model: {:?}",
-                ktx2_dfd.color_model
-            )));
+        None => {
+            return Err(TextureError::UnsupportedTextureFormat(
+                "Unspecified KTX2 color model".to_string(),
+            ));
         }
         _ => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "Unknown KTX2 color model: {:?}",
-                ktx2_dfd.color_model
+                data_format_descriptor.color_model
             )));
         }
     })
