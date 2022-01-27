@@ -23,16 +23,26 @@ impl ArchetypeId {
     pub const RESOURCE: ArchetypeId = unsafe { ArchetypeId::new_unchecked(1) };
     pub const INVALID: ArchetypeId = unsafe { ArchetypeId::new_unchecked(usize::MAX - 1) };
 
+    /// Creates a new [`ArchetypeId`].
+    ///
+    /// # Panics
+    /// This will panic if `index` is `usize::MAX`.
     #[inline]
     pub fn new(index: usize) -> Self {
         Self(NonMaxUsize::new(index).unwrap())
     }
 
+    /// Creates a new [`ArchetypeId`] without checking for validity of the
+    /// provided index.
+    ///
+    /// # Safety
+    /// The produced value is only safe if `index` is not `usize::MAX`.
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
         Self(NonMaxUsize::new_unchecked(index))
     }
 
+    /// Gets the corresponding index for the ID.
     #[inline]
     pub const fn index(self) -> usize {
         self.0.get()
