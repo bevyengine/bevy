@@ -63,6 +63,8 @@ impl SystemMeta {
 /// Borrow-checking is handled for you, allowing you to mutably acccess multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
 ///
+/// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
+///
 /// # Example
 /// ```rust
 /// use bevy::ecs::system::SystemState;
