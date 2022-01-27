@@ -66,20 +66,22 @@ impl TextureAtlas {
         }
     }
 
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid of `tile_size` is one of the textures in the atlas, is separated by
-    /// some `padding` in the texture and the grid starts at a point `origin` starting from
-    /// the top-left corner
+    /// Generate a `TextureAtlas` by splitting a texture into a grid.
+    ///
+    /// Each cell in the grid of `tile_size` corresponds to one texture in the atlas.
+    ///
+    /// * Cells can have horizontal and/or vertical separation specified by `padding`
+    /// * The grid can start at a point `offset` relative to the top-left corner of the texture
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
         padding: Option<Vec2>,
-        origin: Option<Vec2>,
+        offset: Option<Vec2>,
     ) -> TextureAtlas {
         let padding = padding.unwrap_or_default();
-        let origin = origin.unwrap_or_default();
+        let offset = offset.unwrap_or_default();
         let mut sprites = Vec::new();
         let mut x_padding = 0.0;
         let mut y_padding = 0.0;
@@ -94,8 +96,8 @@ impl TextureAtlas {
                 }
 
                 let rect_min = Vec2::new(
-                    origin.x + (tile_size.x + x_padding) * x as f32,
-                    origin.y + (tile_size.y + y_padding) * y as f32,
+                    offset.x + (tile_size.x + x_padding) * x as f32,
+                    offset.y + (tile_size.y + y_padding) * y as f32,
                 );
 
                 sprites.push(Rect {
