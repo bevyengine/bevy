@@ -28,8 +28,10 @@ struct ContributorSelection {
     idx: usize,
 }
 
-#[derive(Component)]
-struct SelectTimer;
+struct SelectTimerState {
+    timer: Timer,
+    has_triggered: bool,
+}
 
 #[derive(Component)]
 struct ContributorDisplay;
@@ -122,7 +124,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-    commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
+    commands.insert_resource(SelectTimerState {
+        timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+        has_triggered: false,
+    });
 
     commands
         .spawn()
@@ -161,21 +166,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn select_system(
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
-    mut timer_query: Query<&mut Timer, With<SelectTimer>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
+    mut timer_state: ResMut<SelectTimerState>,
     time: Res<Time>,
-    mut has_first_tick_occurred: Local<bool>,
 ) {
-    let mut timer = timer_query.single_mut();
-    if !timer.tick(time.delta()).just_finished() {
+    if !timer_state.timer.tick(time.delta()).just_finished() {
         return;
     }
-    if !*has_first_tick_occurred {
+    if !timer_state.has_triggered {
         let mut text = text_query.single_mut();
         text.sections[0].value.clear();
         text.sections[0].value.push_str("Contributor: ");
 
-        *has_first_tick_occurred = true;
+        timer_state.has_triggered = true;
     }
 
     {
