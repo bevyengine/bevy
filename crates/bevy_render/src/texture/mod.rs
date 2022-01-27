@@ -1,3 +1,5 @@
+#[cfg(feature = "basis-universal")]
+mod basis;
 #[cfg(feature = "dds")]
 mod dds;
 #[cfg(feature = "hdr")]

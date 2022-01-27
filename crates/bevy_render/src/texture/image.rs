@@ -1,3 +1,5 @@
+#[cfg(feature = "basis-universal")]
+use super::basis::*;
 #[cfg(feature = "dds")]
 use super::dds::*;
 #[cfg(feature = "ktx2")]
@@ -28,6 +30,7 @@ pub const DEFAULT_IMAGE_HANDLE: HandleUntyped =
 #[derive(Debug)]
 pub enum ImageFormat {
     Avif,
+    Basis,
     Bmp,
     Dds,
     Farbfeld,
@@ -61,6 +64,7 @@ impl ImageFormat {
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension {
             "avif" => ImageFormat::Avif,
+            "basis" => ImageFormat::Basis,
             "bmp" => ImageFormat::Bmp,
             "dds" => ImageFormat::Dds,
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
@@ -81,6 +85,7 @@ impl ImageFormat {
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
             ImageFormat::Avif => image::ImageFormat::Avif,
+            ImageFormat::Basis => return None,
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
@@ -296,6 +301,10 @@ impl Image {
         // cases.
 
         match format {
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => {
+                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+            }
             #[cfg(feature = "dds")]
             ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
             #[cfg(feature = "ktx2")]
@@ -340,6 +349,10 @@ pub enum TextureError {
     SuperCompressionNotSupported(String),
     #[error("failed to load an image: {0}")]
     SuperDecompressionError(String),
+    #[error("invalid data: {0}")]
+    InvalidData(String),
+    #[error("transcode error: {0}")]
+    TranscodeError(String),
 }
 
 /// The type of a raw image buffer.
