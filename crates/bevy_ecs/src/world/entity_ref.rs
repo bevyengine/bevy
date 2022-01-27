@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::Ticks,
+    change_detection::{MutUntyped, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -67,6 +67,13 @@ impl<'w> EntityRef<'w> {
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
                 .map(|value| &*value.cast::<T>())
+        }
+    }
+
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        unsafe {
+            get_component(self.world, component_id, self.entity, self.location)
+                .map(|ptr| ptr as *const ())
         }
     }
 
@@ -157,10 +164,33 @@ impl<'w> EntityMut<'w> {
         unsafe { self.get_unchecked::<T>() }
     }
 
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        unsafe {
+            get_component(self.world, component_id, self.entity, self.location)
+                .map(|ptr| ptr as *const ())
+        }
+    }
+
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: world access is unique, and lifetimes enforce correct usage of returned borrow
         unsafe { self.get_unchecked_mut::<T>() }
+    }
+
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped> {
+        // SAFE: world access is unique and entity location is valid
+        unsafe {
+            get_component_and_ticks(self.world, component_id, self.entity, self.location).map(
+                |(value, ticks)| MutUntyped {
+                    value: value.cast(),
+                    ticks: Ticks {
+                        component_ticks: &mut *ticks,
+                        last_change_tick: self.world.last_change_tick(),
+                        change_tick: self.world.read_change_tick(),
+                    },
+                },
+            )
+        }
     }
 
     /// Gets an immutable reference to the component of type `T` associated with

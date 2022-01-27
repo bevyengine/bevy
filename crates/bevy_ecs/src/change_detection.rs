@@ -199,3 +199,43 @@ pub struct ReflectMut<'a> {
 change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
 #[cfg(feature = "bevy_reflect")]
 impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
+
+pub struct MutUntyped<'a> {
+    pub(crate) value: *mut (),
+    pub(crate) ticks: Ticks<'a>,
+}
+
+impl<'a> MutUntyped<'a> {
+    /// Returns the pointer to the value, without marking it as changed.
+    /// The value is only valid for the lifetime `'a`, after which it must not be used anymore.
+    /// In order to mark the value as change, you need to call [`set_changed`] manually
+    pub fn ptr(&self) -> *mut () {
+        self.value
+    }
+}
+
+impl DetectChanges for MutUntyped<'_> {
+    fn is_added(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn is_changed(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn set_changed(&mut self) {
+        self.ticks
+            .component_ticks
+            .set_changed(self.ticks.change_tick);
+    }
+}
+
+impl std::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("MutDynamic").field(&self.value).finish()
+    }
+}
