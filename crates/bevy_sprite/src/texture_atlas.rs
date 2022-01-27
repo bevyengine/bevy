@@ -67,54 +67,19 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid  of `tile_size` is one of the textures in the atlas
+    /// cell of the grid of `tile_size` is one of the textures in the atlas, is separated by
+    /// some `padding` in the texture and the grid starts at a point `origin` starting from
+    /// the top-left corner
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
+        padding: Option<Vec2>,
+        origin: Option<Vec2>,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32), Vec2::new(0f32, 0f32))
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid of `tile_size` is one of the textures in the atlas and is separated by
-    /// some `padding` in the texture
-    pub fn from_grid_with_padding(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Vec2,
-    ) -> TextureAtlas {
-        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, padding, Vec2::new(0f32, 0f32))
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid of `tile_size` is one of the textures in the atlas and the grid starts
-    /// at a point `origin` starting from the top-left corner
-    pub fn from_grid_with_origin(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        origin: Vec2,
-    ) -> TextureAtlas {
-        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32), origin)
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid of `tile_size` is one of the textures in the atlas, is separated by
-    /// some `padding` in the texture and the grid starts at a point `origin` starting from 
-    /// the top-left corner
-    pub fn from_grid_with_padding_and_origin(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Vec2,
-        origin: Vec2
-    ) -> TextureAtlas {
+        let padding = padding.unwrap_or_default();
+        let origin = origin.unwrap_or_default();
         let mut sprites = Vec::new();
         let mut x_padding = 0.0;
         let mut y_padding = 0.0;
