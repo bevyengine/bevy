@@ -134,12 +134,18 @@ impl Node for MainPass3dNode {
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: For the transparent pass we load the depth buffer but do not write to it.
-                    // As the opaque and alpha mask passes run first, opaque meshes can occlude
-                    // transparent ones.
+                    // NOTE: There is a useful optimization to set `store: false` to prevent wasting bandwidth writing to the
+                    // depth buffer. This only works if the `main_transparent_pass_3d` render pass is the last one executed (because
+                    // no subsequent pass will need to use the depth buffer).
+                    // If it is not the last executed render pass then WGPU will re-initialize the depth buffer before the
+                    // next pass. This is affects users who want to perform post-processing using the depth buffer.
+                    //
+                    // Some time in the future it may be possible to inspect if we will be the last render pass and apply
+                    // this optimization, but for now this must always be `true`.
+                    // Some rendering linters may complain about this in the default case.
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
