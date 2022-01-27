@@ -284,6 +284,7 @@ impl Image {
     pub fn from_buffer(
         buffer: &[u8],
         image_type: ImageType,
+        supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
