@@ -134,7 +134,11 @@ impl Node for MainPass3dNode {
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: There is a useful optimization to set `store: false` to prevent wasting bandwidth writing to the
+                    // NOTE: For the transparent pass we load the depth buffer to allow opaque meshes from previous passes
+                    // to occlude transparent ones. When creating the specialized pipeline for Transparent Meshes the
+                    // depth buffer is set to read-only so even though `store: true` is set, the depth buffer is not updated.
+                    // 
+                    // There is a useful optimization to set `store: false` to prevent wasting bandwidth writing to the
                     // depth buffer. This only works if the `main_transparent_pass_3d` render pass is the last one executed (because
                     // no subsequent pass will need to use the depth buffer).
                     // If it is not the last executed render pass then wgpu will re-initialize the depth buffer before the
