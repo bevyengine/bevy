@@ -37,8 +37,8 @@ pub use identifier::WorldId;
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
 ///
-/// For split mutable access to the [`World`], use [`World::resource_scope`] or
-/// [`SystemState`](crate::system::SystemState).
+/// To mutate different parts of the world simultaneously,
+/// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
 ///
 /// # Resources
 ///
