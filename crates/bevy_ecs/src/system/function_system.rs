@@ -56,6 +56,40 @@ impl SystemMeta {
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
+///
+/// This is a very powerful and convenient tool for working with exclusive world access,
+/// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+///
+/// Borrow-checking is handled for you, allowing you to mutably acccess multiple compatible system parameters at once,
+/// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
+///
+/// # Example
+/// ```rust
+/// use bevy::ecs::system::SystemState;
+/// use bevy::ecs::world::World;
+///
+/// struct MyEvent;
+/// struct MyResource(u32);
+///
+/// #[derive(Component)]
+/// struct MyComponent;
+///
+/// // Work directly on the `World`
+/// let mut world = World::new();
+///
+/// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
+/// // as if you were writing an ordinary system.
+/// // This can be cached and reused for improved performance.
+/// let mut system_state: SystemState<(
+///     EventWriter<MyEvent>,
+///     Option<ResMut<MyResource>>,
+///     Query<&MyComponent>,
+///     )> = SystemState::new(&mut world);
+///
+/// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
+/// // You can use system_state.get(&world) instead for read-only versions of your system parameters
+/// let (event_writer, maybe_respource, query) = system_state.get_mut(&mut world);
+/// ```
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
