@@ -16,9 +16,9 @@ use bevy_render::{
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
-    options::WgpuOptions,
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -84,9 +84,8 @@ impl AssetLoader for GltfLoader {
 impl FromWorld for GltfLoader {
     fn from_world(world: &mut World) -> Self {
         Self {
-            supported_compressed_formats: world.get_resource::<WgpuOptions>().map_or_else(
-                || WgpuOptions::default().supported_compressed_formats(),
-                |wgpu_options| wgpu_options.supported_compressed_formats(),
+            supported_compressed_formats: CompressedImageFormats::from_features(
+                world.resource::<RenderDevice>().features(),
             ),
         }
     }

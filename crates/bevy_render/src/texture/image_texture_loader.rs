@@ -5,7 +5,7 @@ use bevy_utils::BoxedFuture;
 use thiserror::Error;
 
 use crate::{
-    options::WgpuOptions,
+    renderer::RenderDevice,
     texture::{Image, ImageType, TextureError},
 };
 
@@ -70,9 +70,8 @@ impl AssetLoader for ImageTextureLoader {
 impl FromWorld for ImageTextureLoader {
     fn from_world(world: &mut World) -> Self {
         Self {
-            supported_compressed_formats: world.get_resource::<WgpuOptions>().map_or_else(
-                || WgpuOptions::default().supported_compressed_formats(),
-                |wgpu_options| wgpu_options.supported_compressed_formats(),
+            supported_compressed_formats: CompressedImageFormats::from_features(
+                world.resource::<RenderDevice>().features(),
             ),
         }
     }
