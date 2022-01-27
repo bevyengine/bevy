@@ -29,7 +29,7 @@ impl ArchetypeId {
     /// This will panic if `index` is `usize::MAX`.
     #[inline]
     pub fn new(index: usize) -> Self {
-        Self(NonMaxUsize::new(index).unwrap())
+        Self(NonMaxUsize::new(index).expect("ArchetypeID cannot be created from usize::MAX"))
     }
 
     /// Creates a new [`ArchetypeId`] without checking for validity of the
