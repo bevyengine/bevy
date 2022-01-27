@@ -60,7 +60,7 @@ impl SystemMeta {
 /// This is a very powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
 ///
-/// Borrow-checking is handled for you, allowing you to mutably acccess multiple compatible system parameters at once,
+/// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
 ///
 /// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
