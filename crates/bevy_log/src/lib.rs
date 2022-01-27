@@ -31,6 +31,7 @@ use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use bevy_utils::tracing::Subscriber;
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -46,12 +47,14 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_internal::DefaultPlugins;
 /// # use bevy_app::App;
 /// # use bevy_log::LogSettings;
-/// # use bevy_utils::tracing::Level;
+/// # use bevy_utils::tracing::{ Level, Subscriber };
 /// fn main() {
+///     let subscriber = Subscriber::builder().pretty().without_time().finish();
 ///     App::new()
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info".to_string(),
+///             subscriber,
 ///         })
 ///         .add_plugins(DefaultPlugins)
 ///         .run();
@@ -92,6 +95,10 @@ pub struct LogSettings {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+	/// Allows user-defined tracing subscriber rather than default formatting.
+	/// See also: [`tracing_subscriber::fmt::Subscriber`]
+	pub subscriber: Option<Box<dyn Subscriber + Send + Sync>>,
 }
 
 impl Default for LogSettings {
@@ -99,21 +106,29 @@ impl Default for LogSettings {
         Self {
             filter: "wgpu=error".to_string(),
             level: Level::INFO,
+	        subscriber: None,
         }
     }
 }
 
 impl Plugin for LogPlugin {
-    fn build(&self, app: &mut App) {
-        let default_filter = {
-            let settings = app.world.get_resource_or_insert_with(LogSettings::default);
-            format!("{},{}", settings.level, settings.filter)
-        };
-        LogTracer::init().unwrap();
-        let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| EnvFilter::try_new(&default_filter))
-            .unwrap();
-        let subscriber = Registry::default().with(filter_layer);
+	fn build(&self, app: &mut App) {
+		let mut settings = app.world.get_resource_or_insert_with(LogSettings::default);
+		let default_filter = {
+			format!("{},{}", settings.level, settings.filter)
+		};
+		LogTracer::init().unwrap();
+		let filter_layer = EnvFilter::try_from_default_env()
+			.or_else(|_| EnvFilter::try_new(&default_filter))
+			.unwrap();
+
+		let subscriber: Box<dyn Subscriber + Send + Sync> =
+			if let Some(boxed_subscriber) = settings.subscriber.take() {
+				boxed_subscriber
+			} else {
+				// Todo: I think there is no way to avoid having to box here, as trait objs are !Sized?
+				Box::new(Registry::default().with(filter_layer))
+			};
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {
@@ -139,10 +154,6 @@ impl Plugin for LogPlugin {
 
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::new();
-
-            let fmt_layer = tracing_subscriber::fmt::Layer::default();
-            let subscriber = subscriber.with(fmt_layer);
-
             #[cfg(feature = "tracing-chrome")]
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
