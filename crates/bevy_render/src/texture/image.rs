@@ -297,7 +297,7 @@ impl Image {
 
         match format {
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, is_srgb),
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => ktx2_buffer_to_image(buffer, is_srgb),
             _ => {

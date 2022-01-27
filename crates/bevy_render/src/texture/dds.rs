@@ -2,11 +2,22 @@ use ddsfile::{D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
-use super::{Image, TextureError};
+use super::{CompressedImageFormats, Image, TextureError};
 
-pub fn dds_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Result<Image, TextureError> {
+pub fn dds_buffer_to_image(
+    buffer: &[u8],
+    supported_compressed_formats: CompressedImageFormats,
+    is_srgb: bool,
+) -> Result<Image, TextureError> {
     let mut cursor = Cursor::new(buffer);
     let dds = Dds::read(&mut cursor).expect("Failed to parse DDS file");
+    let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
+    if !supported_compressed_formats.supports(texture_format) {
+        return Err(TextureError::UnsupportedTextureFormat(format!(
+            "Format not supported by this GPU: {:?}",
+            texture_format
+        )));
+    }
     let mut image = Image::default();
     image.texture_descriptor.size = Extent3d {
         width: dds.get_width(),
@@ -18,7 +29,7 @@ pub fn dds_buffer_to_image(buffer: &[u8], is_srgb: bool) -> Result<Image, Textur
         },
     };
     image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
-    image.texture_descriptor.format = dds_format_to_texture_format(&dds, is_srgb)?;
+    image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
     } else if image.is_compressed() || dds.get_height() > 1 {
