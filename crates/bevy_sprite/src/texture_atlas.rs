@@ -74,7 +74,7 @@ impl TextureAtlas {
         columns: usize,
         rows: usize,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32))
+        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32), Vec2::new(0f32, 0f32))
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
@@ -86,6 +86,34 @@ impl TextureAtlas {
         columns: usize,
         rows: usize,
         padding: Vec2,
+    ) -> TextureAtlas {
+        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, padding, Vec2::new(0f32, 0f32))
+    }
+
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// cell of the grid of `tile_size` is one of the textures in the atlas and the grid starts
+    /// at a point `origin` starting from the top-left corner
+    pub fn from_grid_with_origin(
+        texture: Handle<Image>,
+        tile_size: Vec2,
+        columns: usize,
+        rows: usize,
+        origin: Vec2,
+    ) -> TextureAtlas {
+        Self::from_grid_with_padding_and_origin(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32), origin)
+    }
+
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// cell of the grid of `tile_size` is one of the textures in the atlas, is separated by
+    /// some `padding` in the texture and the grid starts at a point `origin` starting from 
+    /// the top-left corner
+    pub fn from_grid_with_padding_and_origin(
+        texture: Handle<Image>,
+        tile_size: Vec2,
+        columns: usize,
+        rows: usize,
+        padding: Vec2,
+        origin: Vec2
     ) -> TextureAtlas {
         let mut sprites = Vec::new();
         let mut x_padding = 0.0;
@@ -101,8 +129,8 @@ impl TextureAtlas {
                 }
 
                 let rect_min = Vec2::new(
-                    (tile_size.x + x_padding) * x as f32,
-                    (tile_size.y + y_padding) * y as f32,
+                    origin.x + (tile_size.x + x_padding) * x as f32,
+                    origin.y + (tile_size.y + y_padding) * y as f32,
                 );
 
                 sprites.push(Rect {
