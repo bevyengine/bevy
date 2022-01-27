@@ -164,15 +164,18 @@ fn select_system(
     mut timer_query: Query<&mut Timer, With<SelectTimer>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
+    mut has_first_tick_occurred: Local<bool>,
 ) {
     let mut timer = timer_query.single_mut();
     if !timer.tick(time.delta()).just_finished() {
         return;
     }
-    if timer.times_finished() == 1 {
+    if !*has_first_tick_occurred {
         let mut text = text_query.single_mut();
         text.sections[0].value.clear();
         text.sections[0].value.push_str("Contributor: ");
+
+        *has_first_tick_occurred = true;
     }
 
     {
