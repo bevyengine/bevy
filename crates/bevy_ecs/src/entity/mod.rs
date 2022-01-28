@@ -31,9 +31,10 @@ pub use map_entities::*;
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
     cmp::Ordering as CmpOrdering,
-    hash::{Hash, Hasher},
     convert::TryFrom,
-    fmt, mem,
+    fmt,
+    hash::{Hash, Hasher},
+    mem,
     sync::atomic::{AtomicI64, Ordering},
 };
 
