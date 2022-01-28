@@ -181,6 +181,7 @@ pub fn extract_uinodes(
 pub fn extract_atlas_uinodes(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
+    images: Res<Assets<Image>>,
     uinode_query: Query<(
         &Node,
         &GlobalTransform,
@@ -196,10 +197,6 @@ pub fn extract_atlas_uinodes(
         if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
-        // Skip loading images
-        if !texture_atlases.contains(ui_atlas.atlas.clone_weak()) {
-            continue;
-        }
         let atlas = match texture_atlases.get(ui_atlas.atlas.clone_weak()) {
             None => {
                 error!(
@@ -210,8 +207,12 @@ pub fn extract_atlas_uinodes(
             }
             Some(t) => t,
         };
-        let atlas_size = Some(atlas.size);
+        // Skip loading images
+        if !images.contains(atlas.texture.clone_weak()) {
+            continue;
+        }
         let image = atlas.texture.clone_weak();
+        let atlas_size = Some(atlas.size);
         let color = color.map_or(Color::default(), |c| c.0);
         let rect = match atlas.textures.get(ui_atlas.index) {
             None => {
