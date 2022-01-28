@@ -203,13 +203,14 @@ pub fn extract_atlas_uinodes(
         if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
-        let atlas = texture_atlases.get(ui_atlas.atlas.clone_weak()).expect(
-            format!(
-                "Failed to retrieve `TextureAtlas` from handle {:?}",
-                ui_atlas.atlas
-            )
-            .as_str(),
-        );
+        let atlas = texture_atlases
+            .get(ui_atlas.atlas.clone_weak())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Failed to retrieve `TextureAtlas` from handle {:?}",
+                    ui_atlas.atlas
+                )
+            });
         // Skip loading images
         if !images.contains(atlas.texture.clone_weak()) {
             continue;
@@ -217,13 +218,16 @@ pub fn extract_atlas_uinodes(
         let image = atlas.texture.clone_weak();
         let atlas_size = Some(atlas.size);
         let color = color.map_or(Color::default(), |c| c.0);
-        let rect = atlas.textures.get(ui_atlas.index).copied().expect(
-            format!(
-                "TextureAtlas {:?} as no texture at index {}",
-                ui_atlas.atlas, ui_atlas.index
-            )
-            .as_str(),
-        );
+        let rect = atlas
+            .textures
+            .get(ui_atlas.index)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!(
+                    "TextureAtlas {:?} as no texture at index {}",
+                    ui_atlas.atlas, ui_atlas.index
+                )
+            });
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color,

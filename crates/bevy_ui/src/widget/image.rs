@@ -52,13 +52,12 @@ pub fn image_sheet_node_system(
 ) {
     for (mut calculated_size, ui_atlas) in query.iter_mut() {
         if let Some(atlas) = texture_atlases.get(ui_atlas.atlas.clone_weak()) {
-            let rect = atlas.textures.get(ui_atlas.index).expect(
-                format!(
+            let rect = atlas.textures.get(ui_atlas.index).unwrap_or_else(|| {
+                panic!(
                     "TextureAtlas {:?} as no texture at index {}",
                     ui_atlas.atlas, ui_atlas.index
                 )
-                .as_str(),
-            );
+            });
             let size = Size {
                 width: rect.width(),
                 height: rect.height(),
