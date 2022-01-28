@@ -47,32 +47,15 @@ use std::{
 /// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
-#[cfg(target_endian = "little")]
 #[derive(Clone, Copy)]
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
-    // to make this struct equivalent to a u64 on little endian systems.
+    // to make this struct equivalent to a u64.
+    #[cfg(target_endian = "little")]
     pub(crate) id: u32,
     pub(crate) generation: u32,
-}
-
-/// Lightweight unique ID of an entity.
-///
-/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
-/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
-/// future.
-///
-/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
-/// Components of a specific entity can be accessed using
-/// [`Query::get`](crate::system::Query::get) and related methods.
-#[cfg(target_endian = "big")]
-#[derive(Clone, Copy)]
-#[repr(C, align(8))]
-pub struct Entity {
-    // Do not reorder the fields here. The ordering is explicitly used by repr(C)
-    // to make this struct equivalent to a u64 on big endian systems.
-    pub(crate) generation: u32,
+    #[cfg(target_endian = "big")]
     pub(crate) id: u32,
 }
 
