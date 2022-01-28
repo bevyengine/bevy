@@ -6,6 +6,7 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use bevy_sprite::TextureAtlas;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
@@ -381,6 +382,22 @@ impl Default for UiImage {
 impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
         Self(handle)
+    }
+}
+
+/// The texture atlas of the node
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct UiTextureAtlas {
+    /// Texture atlas index
+    pub index: usize,
+    /// Texture atlas handle
+    pub atlas: Handle<TextureAtlas>,
+}
+
+impl From<Handle<TextureAtlas>> for UiTextureAtlas {
+    fn from(atlas: Handle<TextureAtlas>) -> Self {
+        Self { index: 0, atlas }
     }
 }
 

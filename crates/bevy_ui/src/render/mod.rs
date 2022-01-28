@@ -12,6 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
+use bevy_log::prelude::error;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -34,7 +35,7 @@ use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use crate::{CalculatedClip, Node, UiColor, UiImage, UiTextureAtlas};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -87,6 +88,10 @@ pub fn build_ui_render(app: &mut App) {
         .add_system_to_stage(
             RenderStage::Extract,
             extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+        )
+        .add_system_to_stage(
+            RenderStage::Extract,
+            extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
         )
         .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
         .add_system_to_stage(RenderStage::Queue, queue_uinodes)
@@ -150,7 +155,8 @@ pub fn extract_uinodes(
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        // Skips if the node is not visible or if its size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
         let image = image.0.clone_weak();
@@ -167,6 +173,58 @@ pub fn extract_uinodes(
             },
             image,
             atlas_size: None,
+            clip: clip.map(|clip| clip.clip),
+        });
+    }
+}
+
+pub fn extract_atlas_uinodes(
+    mut render_world: ResMut<RenderWorld>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    uinode_query: Query<(
+        &Node,
+        &GlobalTransform,
+        Option<&UiColor>,
+        &UiTextureAtlas,
+        &Visibility,
+        Option<&CalculatedClip>,
+    )>,
+) {
+    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    for (uinode, transform, color, ui_atlas, visibility, clip) in uinode_query.iter() {
+        // Skips if the node is not visible or if its size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !visibility.is_visible || uinode.size == Vec2::ZERO {
+            continue;
+        }
+        let atlas = match texture_atlases.get(ui_atlas.atlas.clone_weak()) {
+            None => {
+                error!(
+                    "Failed to retrieve `TextureAtlas` from handle {:?}",
+                    ui_atlas.atlas
+                );
+                continue;
+            }
+            Some(t) => t,
+        };
+        let atlas_size = Some(atlas.size);
+        let image = atlas.texture.clone_weak();
+        let color = color.map_or(Color::default(), |c| c.0);
+        let rect = match atlas.textures.get(ui_atlas.index) {
+            None => {
+                error!(
+                    "Failed to retrieve `TextureAtlas` rect at index {}",
+                    ui_atlas.index
+                );
+                continue;
+            }
+            Some(r) => *r,
+        };
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            transform: transform.compute_matrix(),
+            color,
+            rect,
+            image,
+            atlas_size,
             clip: clip.map(|clip| clip.clip),
         });
     }
@@ -195,11 +253,8 @@ pub fn extract_text_uinodes(
     };
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
-            continue;
-        }
-        // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if uinode.size == Vec2::ZERO {
+        // Skips if the node is not visible or if its size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {

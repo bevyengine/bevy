@@ -8,7 +8,7 @@ mod margins;
 mod render;
 mod ui_node;
 
-pub mod entity;
+pub mod bundles;
 pub mod update;
 pub mod widget;
 
@@ -21,7 +21,7 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
+    pub use crate::{bundles::*, ui_node::*, widget::Button, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;
@@ -69,6 +69,7 @@ impl Plugin for UiPlugin {
             .register_type::<Style>()
             .register_type::<UiColor>()
             .register_type::<UiImage>()
+            .register_type::<UiTextureAtlas>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
