@@ -243,6 +243,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `button` | [`ui/button.rs`](./ui/button.rs) | Illustrates creating and updating a button
+`button_with_atlas` | [`ui/button_with_atlas.rs`](./ui/button_with_atlas.rs) | Illustrates creating and updating a button with a texture atlas
 `font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
