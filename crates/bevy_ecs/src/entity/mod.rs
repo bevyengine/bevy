@@ -31,6 +31,7 @@ pub use map_entities::*;
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
     cmp::Ordering as CmpOrdering,
+    hash::{Hash, Hasher},
     convert::TryFrom,
     fmt, mem,
     sync::atomic::{AtomicI64, Ordering},
@@ -46,7 +47,7 @@ use std::{
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[cfg(target_endian = "little")]
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -65,7 +66,7 @@ pub struct Entity {
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[cfg(target_endian = "big")]
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -175,6 +176,19 @@ impl Entity {
 impl PartialOrd for Entity {
     fn partial_cmp(&self, other: &Self) -> Option<CmpOrdering> {
         Some(self.to_bits().cmp(&other.to_bits()))
+    }
+}
+
+// Required for ordering correctness. Cannot be done with a derive macro.
+impl Ord for Entity {
+    fn cmp(&self, other: &Self) -> CmpOrdering {
+        self.to_bits().cmp(&other.to_bits())
+    }
+}
+
+impl Hash for Entity {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.to_bits().hash(hasher)
     }
 }
 
