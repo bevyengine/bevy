@@ -30,6 +30,7 @@ pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
+    cmp::Ordering as CmpOrdering,
     convert::TryFrom,
     fmt, mem,
     sync::atomic::{AtomicI64, Ordering},
@@ -44,8 +45,31 @@ use std::{
 /// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg(target_endian = "little")]
+#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq)]
+#[repr(C, align(8))]
 pub struct Entity {
+    // Do not reorder the fields here. The ordering is explicitly used by repr(C)
+    // to make this struct equivalent to a u64 on little endian systems.
+    pub(crate) id: u32,
+    pub(crate) generation: u32,
+}
+
+/// Lightweight unique ID of an entity.
+///
+/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
+/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
+/// future.
+///
+/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
+/// Components of a specific entity can be accessed using
+/// [`Query::get`](crate::system::Query::get) and related methods.
+#[cfg(target_endian = "big")]
+#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq)]
+#[repr(C, align(8))]
+pub struct Entity {
+    // Do not reorder the fields here. The ordering is explicitly used by repr(C)
+    // to make this struct equivalent to a u64 on big endian systems.
     pub(crate) generation: u32,
     pub(crate) id: u32,
 }
@@ -144,6 +168,13 @@ impl Entity {
     #[inline]
     pub fn generation(self) -> u32 {
         self.generation
+    }
+}
+
+// Required for ordering correctness. Cannot be done with a derive macro.
+impl PartialOrd for Entity {
+    fn partial_cmp(&self, other: &Self) -> Option<CmpOrdering> {
+        Some(self.to_bits().cmp(&other.to_bits()))
     }
 }
 
