@@ -125,7 +125,7 @@ pub fn ktx2_buffer_to_image(
                             .transcode_slice(
                                 level_data,
                                 slice_parameters,
-                                DecodeFlags::HIGH_QULITY,
+                                DecodeFlags::HIGH_QUALITY,
                                 transcode_block_format,
                             )
                             .map(|transcoded_level| transcoded.push(transcoded_level))
@@ -486,10 +486,8 @@ pub fn ktx2_dfd_to_texture_format(
                     // Only same bit length for all channels
                     assert!(
                         sample_information[0].bit_length == sample_information[1].bit_length
-                            && sample_information[0].bit_length
-                                == sample_information[2].bit_length
-                            && sample_information[0].bit_length
-                                == sample_information[3].bit_length
+                            && sample_information[0].bit_length == sample_information[2].bit_length
+                            && sample_information[0].bit_length == sample_information[3].bit_length
                     );
                     assert!(
                         sample_information[0].lower == sample_information[1].lower
@@ -715,10 +713,8 @@ pub fn ktx2_dfd_to_texture_format(
                     // Only same bit length for all channels
                     assert!(
                         sample_information[0].bit_length == sample_information[1].bit_length
-                            && sample_information[0].bit_length
-                                == sample_information[2].bit_length
-                            && sample_information[0].bit_length
-                                == sample_information[3].bit_length
+                            && sample_information[0].bit_length == sample_information[2].bit_length
+                            && sample_information[0].bit_length == sample_information[3].bit_length
                     );
                     // Only same channel type qualifiers for all channels
                     assert!(
