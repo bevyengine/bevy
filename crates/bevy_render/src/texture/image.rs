@@ -337,11 +337,20 @@ impl Image {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub enum DataFormat {
+    R8,
+    Rg8,
+    Rgb8,
+    Rgba8,
+    Rgba16Float,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
     // Has to be transcoded to Rgba8 for use with `wgpu`
     Rgb8,
-    Uastc,
+    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture

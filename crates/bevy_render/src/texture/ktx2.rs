@@ -9,7 +9,7 @@ use ktx2::{
 };
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
-use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
+use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],
@@ -100,9 +100,9 @@ pub fn ktx2_buffer_to_image(
                     }
                 }
                 #[cfg(feature = "basis-universal")]
-                TranscodeFormat::Uastc => {
+                TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
-                        get_transcoded_formats(supported_compressed_formats, is_srgb);
+                        get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
                     let (mut original_width, mut original_height) = (width, height);
                     let (block_width_pixels, block_height_pixels) = (4, 4);
                     // FIXME: How do we know whether it has alpha - from the data format descriptor
@@ -179,44 +179,75 @@ pub fn ktx2_buffer_to_image(
 
 pub fn get_transcoded_formats(
     supported_compressed_formats: CompressedImageFormats,
+    data_format: DataFormat,
     is_srgb: bool,
 ) -> (TranscoderBlockFormat, TextureFormat) {
-    if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-        (
-            TranscoderBlockFormat::BC7,
-            if is_srgb {
-                TextureFormat::Bc7RgbaUnormSrgb
+    match data_format {
+        DataFormat::R8 => {
+            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (TranscoderBlockFormat::BC4, TextureFormat::Bc4RUnorm)
+            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
+                (
+                    TranscoderBlockFormat::ETC2_EAC_R11,
+                    TextureFormat::EacR11Unorm,
+                )
             } else {
-                TextureFormat::Bc7RgbaUnorm
-            },
-        )
-    } else if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
-        (
-            TranscoderBlockFormat::ASTC_4x4,
-            if is_srgb {
-                TextureFormat::Astc4x4RgbaUnormSrgb
+                (TranscoderBlockFormat::RGBA32, TextureFormat::R8Unorm)
+            }
+        }
+        DataFormat::Rg8 => {
+            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (TranscoderBlockFormat::BC5, TextureFormat::Bc5RgUnorm)
+            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
+                (
+                    TranscoderBlockFormat::ETC2_EAC_RG11,
+                    TextureFormat::EacRg11Unorm,
+                )
             } else {
-                TextureFormat::Astc4x4RgbaUnorm
-            },
-        )
-    } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
-        (
-            TranscoderBlockFormat::ETC2_RGBA,
-            if is_srgb {
-                TextureFormat::Etc2Rgba8UnormSrgb
+                (TranscoderBlockFormat::RGBA32, TextureFormat::Rg8Unorm)
+            }
+        }
+        // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
+        // basis-universal, nor is ASTC_HDR supported by wgpu
+        DataFormat::Rgb8 | DataFormat::Rgba8 | DataFormat::Rgba16Float => {
+            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (
+                    TranscoderBlockFormat::BC7,
+                    if is_srgb {
+                        TextureFormat::Bc7RgbaUnormSrgb
+                    } else {
+                        TextureFormat::Bc7RgbaUnorm
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
+                (
+                    TranscoderBlockFormat::ASTC_4x4,
+                    if is_srgb {
+                        TextureFormat::Astc4x4RgbaUnormSrgb
+                    } else {
+                        TextureFormat::Astc4x4RgbaUnorm
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
+                (
+                    TranscoderBlockFormat::ETC2_RGBA,
+                    if is_srgb {
+                        TextureFormat::Etc2Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Etc2Rgba8Unorm
+                    },
+                )
             } else {
-                TextureFormat::Etc2Rgba8Unorm
-            },
-        )
-    } else {
-        (
-            TranscoderBlockFormat::RGBA32,
-            if is_srgb {
-                TextureFormat::Rgba8UnormSrgb
-            } else {
-                TextureFormat::Rgba8Unorm
-            },
-        )
+                (
+                    TranscoderBlockFormat::RGBA32,
+                    if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -1146,7 +1177,19 @@ pub fn ktx2_dfd_to_texture_format(
         }
         Some(ColorModel::UASTC) => {
             return Err(TextureError::FormatRequiresTranscodingError(
-                TranscodeFormat::Uastc,
+                TranscodeFormat::Uastc(match sample_information.len() {
+                    1 => DataFormat::R8,
+                    2 => DataFormat::Rg8,
+                    3 => DataFormat::Rgb8,
+                    4 => {
+                        if sample_information[0].bit_length == 8 {
+                            DataFormat::Rgba8
+                        } else {
+                            DataFormat::Rgba16Float
+                        }
+                    }
+                    _ => DataFormat::Rgba8,
+                }),
             ));
         }
         None => {
