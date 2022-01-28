@@ -68,7 +68,7 @@ pub struct ImageSheetBundle {
     pub calculated_size: CalculatedSize,
     /// The color of the node
     pub color: UiColor,
-    /// The image of the node
+    /// The texture atlas of the node
     pub texture_atlas: UiTextureAtlas,
     /// The transform of the node
     pub transform: Transform,

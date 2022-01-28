@@ -216,8 +216,8 @@ pub fn extract_atlas_uinodes(
         let rect = match atlas.textures.get(ui_atlas.index) {
             None => {
                 error!(
-                    "Failed to retrieve `TextureAtlas` rect at index {}",
-                    ui_atlas.index
+                    "TextureAtlas {:?} as no texture at index {}",
+                    ui_atlas.atlas, ui_atlas.index
                 );
                 continue;
             }
