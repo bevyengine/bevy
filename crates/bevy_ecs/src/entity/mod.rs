@@ -30,7 +30,7 @@ pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
-    cmp::Ordering as CmpOrdering,
+    cmp::{Ordering as CmpOrdering, PartialEq},
     convert::TryFrom,
     fmt,
     hash::{Hash, Hasher},
@@ -48,7 +48,7 @@ use std::{
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[cfg(target_endian = "little")]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy)]
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -67,7 +67,7 @@ pub struct Entity {
 /// Components of a specific entity can be accessed using
 /// [`Query::get`](crate::system::Query::get) and related methods.
 #[cfg(target_endian = "big")]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy)]
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -192,6 +192,14 @@ impl Hash for Entity {
         self.to_bits().hash(hasher)
     }
 }
+
+impl PartialEq for Entity {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_bits() == other.to_bits()
+    }
+}
+
+impl Eq for Entity {}
 
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
