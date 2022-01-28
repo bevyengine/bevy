@@ -481,6 +481,10 @@ path = "examples/ui/text_debug.rs"
 name = "ui"
 path = "examples/ui/ui.rs"
 
+[[example]]
+name = "button_with_atlas"
+path = "examples/ui/button_with_atlas.rs"
+
 # Window
 [[example]]
 name = "clear_color"

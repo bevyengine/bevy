@@ -196,6 +196,10 @@ pub fn extract_atlas_uinodes(
         if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
+        // Skip loading images
+        if !texture_atlases.contains(ui_atlas.atlas.clone_weak()) {
+            continue;
+        }
         let atlas = match texture_atlases.get(ui_atlas.atlas.clone_weak()) {
             None => {
                 error!(

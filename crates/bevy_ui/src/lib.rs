@@ -8,7 +8,7 @@ mod margins;
 mod render;
 mod ui_node;
 
-pub mod bundles;
+pub mod entity;
 pub mod update;
 pub mod widget;
 
@@ -21,7 +21,7 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{bundles::*, ui_node::*, widget::Button, Interaction, Margins};
+    pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;
@@ -85,6 +85,10 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::image_node_system.before(UiSystem::Flex),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::image_sheet_node_system.before(UiSystem::Flex),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
