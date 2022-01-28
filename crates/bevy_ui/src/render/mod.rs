@@ -12,7 +12,6 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_log::prelude::error;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -83,6 +82,12 @@ pub fn build_ui_render(app: &mut App) {
         .add_system_to_stage(RenderStage::Extract, extract_ui_camera_phases)
         .add_system_to_stage(
             RenderStage::Extract,
+            // This system is the first of `RenderStage::Extract` it is responsible for both:
+            // - Extracting Ui Nodes
+            // - Clearing the `ExtractedUiNodes` resource between frames.
+            //
+            // If you add extra systems they must all come after this system (see the label)
+            // and only add extra `ExtractedUiNode` to the resource.
             extract_uinodes.label(RenderUiSystem::ExtractNode),
         )
         .add_system_to_stage(
@@ -153,6 +158,7 @@ pub fn extract_uinodes(
     )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    // Resource clearing
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         // Skips if the node is not visible or if its size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -197,16 +203,13 @@ pub fn extract_atlas_uinodes(
         if !visibility.is_visible || uinode.size == Vec2::ZERO {
             continue;
         }
-        let atlas = match texture_atlases.get(ui_atlas.atlas.clone_weak()) {
-            None => {
-                error!(
-                    "Failed to retrieve `TextureAtlas` from handle {:?}",
-                    ui_atlas.atlas
-                );
-                continue;
-            }
-            Some(t) => t,
-        };
+        let atlas = texture_atlases.get(ui_atlas.atlas.clone_weak()).expect(
+            format!(
+                "Failed to retrieve `TextureAtlas` from handle {:?}",
+                ui_atlas.atlas
+            )
+            .as_str(),
+        );
         // Skip loading images
         if !images.contains(atlas.texture.clone_weak()) {
             continue;
@@ -214,16 +217,13 @@ pub fn extract_atlas_uinodes(
         let image = atlas.texture.clone_weak();
         let atlas_size = Some(atlas.size);
         let color = color.map_or(Color::default(), |c| c.0);
-        let rect = match atlas.textures.get(ui_atlas.index) {
-            None => {
-                error!(
-                    "TextureAtlas {:?} as no texture at index {}",
-                    ui_atlas.atlas, ui_atlas.index
-                );
-                continue;
-            }
-            Some(r) => *r,
-        };
+        let rect = atlas.textures.get(ui_atlas.index).copied().expect(
+            format!(
+                "TextureAtlas {:?} as no texture at index {}",
+                ui_atlas.atlas, ui_atlas.index
+            )
+            .as_str(),
+        );
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color,
