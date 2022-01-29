@@ -37,7 +37,7 @@ impl Plugin for ImagePlugin {
 
         #[cfg(feature = "hdr")]
         {
-            app.init_asset_loader::<HdrTextureLoader>()
+            app.init_asset_loader::<HdrTextureLoader>();
         }
 
         app.add_plugin(RenderAssetPlugin::<Image>::default())
