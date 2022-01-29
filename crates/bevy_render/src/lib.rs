@@ -1,5 +1,3 @@
-extern crate core;
-
 pub mod camera;
 pub mod color;
 pub mod mesh;
@@ -47,6 +45,7 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
+use wgpu::Surface;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -124,14 +123,7 @@ impl Plugin for RenderPlugin {
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                });
-                raw_handle
-            };
+            let surface = try_create_surface(app, &instance);
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
@@ -287,6 +279,19 @@ impl Plugin for RenderPlugin {
             // compressed texture formats
             .add_plugin(ImagePlugin);
     }
+}
+
+fn try_create_surface(app: &mut App, wgpu_instance: &wgpu::Instance) -> Option<Surface> {
+    let windows = app
+        .world
+        .get_resource_mut::<bevy_window::Windows>()
+        .unwrap();
+    windows.get_primary().and_then(|window| unsafe {
+        window.raw_window_handle().map(|handle_wrapper| {
+            let window_handle = handle_wrapper.get_handle();
+            wgpu_instance.create_surface(&window_handle)
+        })
+    })
 }
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.

@@ -143,6 +143,9 @@ impl WindowResizeConstraints {
 /// requested size due to operating system limits on the window size, or the
 /// quantization of the logical size when converting the physical size to the
 /// logical size through the scaling factor.
+///
+/// ## Headless Testing
+/// To run tests without needing to create an actual window, set `raw_window_handle` to `None`.
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
@@ -162,7 +165,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
-    raw_window_handle: RawWindowHandleWrapper,
+    raw_window_handle: Option<RawWindowHandleWrapper>,
     focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
@@ -243,7 +246,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
-        raw_window_handle: RawWindowHandle,
+        raw_window_handle: Option<RawWindowHandle>,
     ) -> Self {
         Window {
             id,
@@ -263,7 +266,7 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
+            raw_window_handle: raw_window_handle.map(|handle| RawWindowHandleWrapper::new(handle)),
             focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
@@ -581,7 +584,7 @@ impl Window {
         self.focused
     }
 
-    pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
+    pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
         self.raw_window_handle.clone()
     }
 }
