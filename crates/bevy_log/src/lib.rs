@@ -30,7 +30,7 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, EnvFilter, Layer};
+use tracing_subscriber::{prelude::*, EnvFilter, Layer, Registry};
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -105,7 +105,8 @@ impl Default for LogSettings {
         Self {
             filter: "wgpu=error".to_string(),
             level: Level::INFO,
-            layer: None,
+            // We need to create the default here, rather inside of build(), to appease trait bounds
+            layer: Some(Box::new(tracing_subscriber::fmt::Layer::default())),
         }
     }
 }
@@ -116,10 +117,13 @@ impl Plugin for LogPlugin {
         let default_filter = format!("{},{}", settings.level, settings.filter);
         LogTracer::init().unwrap();
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| EnvFilter::try_new(&default_filter))
+            .or_else(|_| {
+                println!("Using non-default filter");
+                EnvFilter::try_new(&default_filter)
+            })
             .unwrap();
 
-        let subscriber = tracing_subscriber::registry()
+        let subscriber = Registry::default()
             .with(settings.layer.take())
             .with(filter_layer);
 
