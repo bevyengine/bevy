@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visible},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -232,20 +232,15 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
-    atlas_query: Query<(
-        &Visibility,
-        &TextureAtlasSprite,
-        &GlobalTransform,
-        &Handle<TextureAtlas>,
-    )>,
+    sprite_query: Query<(&Sprite, &GlobalTransform, &Handle<Image>), With<Visible>>,
+    atlas_query: Query<
+        (&TextureAtlasSprite, &GlobalTransform, &Handle<TextureAtlas>),
+        With<Visible>,
+    >,
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible {
-            continue;
-        }
+    for (sprite, transform, handle) in sprite_query.iter() {
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
             color: sprite.color,
@@ -259,10 +254,7 @@ pub fn extract_sprites(
             image_handle_id: handle.id,
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible {
-            continue;
-        }
+    for (atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {

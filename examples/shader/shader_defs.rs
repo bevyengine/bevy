@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         IsRed(true),
         Transform::from_xyz(-1.0, 0.5, 0.0),
         GlobalTransform::default(),
-        Visibility::default(),
+        Visible::default(),
         ComputedVisibility::default(),
     ));
 
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         IsRed(false),
         Transform::from_xyz(1.0, 0.5, 0.0),
         GlobalTransform::default(),
-        Visibility::default(),
+        Visible::default(),
         ComputedVisibility::default(),
     ));
 

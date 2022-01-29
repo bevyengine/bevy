@@ -13,7 +13,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
-        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
+        view::{ComputedVisibility, ExtractedView, Msaa, Visible},
         RenderApp, RenderStage,
     },
 };
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         Transform::from_xyz(0.0, 0.5, 0.0),
         GlobalTransform::default(),
         CustomMaterial,
-        Visibility::default(),
+        Visible::default(),
         ComputedVisibility::default(),
     ));
 

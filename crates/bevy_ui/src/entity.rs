@@ -7,7 +7,7 @@ use crate::{
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
-    view::{Visibility, VisibleEntities},
+    view::{Visible, VisibleEntities},
 };
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -28,7 +28,7 @@ pub struct NodeBundle {
     /// The global transform of the node
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
-    pub visibility: Visibility,
+    pub visible: Visible,
 }
 
 /// A UI node that is an image
@@ -51,7 +51,7 @@ pub struct ImageBundle {
     /// The global transform of the node
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
-    pub visibility: Visibility,
+    pub visible: Visible,
 }
 
 /// A UI node that is text
@@ -72,7 +72,7 @@ pub struct TextBundle {
     /// The global transform of the node
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
-    pub visibility: Visibility,
+    pub visible: Visible,
 }
 
 impl Default for TextBundle {
@@ -85,7 +85,7 @@ impl Default for TextBundle {
             style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            visibility: Default::default(),
+            visible: Default::default(),
         }
     }
 }
@@ -112,7 +112,7 @@ pub struct ButtonBundle {
     /// The global transform of the node
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
-    pub visibility: Visibility,
+    pub visible: Visible,
 }
 
 impl Default for ButtonBundle {
@@ -127,7 +127,7 @@ impl Default for ButtonBundle {
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            visibility: Default::default(),
+            visible: Default::default(),
         }
     }
 }

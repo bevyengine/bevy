@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
-    view::Visibility,
+    view::Visible,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -17,7 +17,7 @@ pub struct SpriteBundle {
     pub global_transform: GlobalTransform,
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
-    pub visibility: Visibility,
+    pub visible: Visible,
 }
 
 impl Default for SpriteBundle {
@@ -27,7 +27,7 @@ impl Default for SpriteBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            visibility: Default::default(),
+            visible: Default::default(),
         }
     }
 }
@@ -43,5 +43,5 @@ pub struct SpriteSheetBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
-    pub visibility: Visibility,
+    pub visible: Visible,
 }

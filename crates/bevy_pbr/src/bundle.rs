@@ -5,7 +5,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CubemapFrusta, Frustum},
-    view::{ComputedVisibility, Visibility, VisibleEntities},
+    view::{ComputedVisibility, Visible, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -20,7 +20,7 @@ pub struct MaterialMeshBundle<M: SpecializedMaterial> {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
-    pub visibility: Visibility,
+    pub visible: Visible,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
 }
@@ -32,7 +32,7 @@ impl<M: SpecializedMaterial> Default for MaterialMeshBundle<M> {
             material: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            visibility: Default::default(),
+            visible: Default::default(),
             computed_visibility: Default::default(),
         }
     }

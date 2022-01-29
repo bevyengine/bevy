@@ -14,7 +14,7 @@ pub use projection::*;
 
 use crate::{
     primitives::Aabb,
-    view::{ComputedVisibility, ExtractedView, Visibility, VisibleEntities},
+    view::{ComputedVisibility, ExtractedView, Visible, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, CoreStage, Plugin};
@@ -34,7 +34,7 @@ impl Plugin for CameraPlugin {
         active_cameras.add(Self::CAMERA_2D);
         active_cameras.add(Self::CAMERA_3D);
         app.register_type::<Camera>()
-            .register_type::<Visibility>()
+            .register_type::<Visible>()
             .register_type::<ComputedVisibility>()
             .register_type::<OrthographicProjection>()
             .register_type::<PerspectiveProjection>()

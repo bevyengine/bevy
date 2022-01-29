@@ -98,7 +98,7 @@ fn star(
         // These other components are needed for 2d meshes to be rendered
         Transform::default(),
         GlobalTransform::default(),
-        Visibility::default(),
+        Visible::default(),
         ComputedVisibility::default(),
     ));
     commands

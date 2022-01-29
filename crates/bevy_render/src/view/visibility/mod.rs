@@ -14,18 +14,10 @@ use crate::{
     primitives::{Aabb, Frustum},
 };
 
-/// User indication of whether an entity is visible
-#[derive(Component, Clone, Reflect, Debug)]
+/// User indication of whether an entity is visible as a marker component
+#[derive(Component, Copy, Clone, Reflect, Debug, Default)]
 #[reflect(Component)]
-pub struct Visibility {
-    pub is_visible: bool,
-}
-
-impl Default for Visibility {
-    fn default() -> Self {
-        Self { is_visible: true }
-    }
-}
+pub struct Visible;
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug)]
@@ -140,15 +132,17 @@ pub fn check_visibility(
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_entity_query: QuerySet<(
         QueryState<&mut ComputedVisibility>,
-        QueryState<(
-            Entity,
-            &Visibility,
-            &mut ComputedVisibility,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            Option<&NoFrustumCulling>,
-            Option<&GlobalTransform>,
-        )>,
+        QueryState<
+            (
+                Entity,
+                &mut ComputedVisibility,
+                Option<&RenderLayers>,
+                Option<&Aabb>,
+                Option<&NoFrustumCulling>,
+                Option<&GlobalTransform>,
+            ),
+            With<Visible>,
+        >,
     )>,
 ) {
     // Reset the computed visibility to false
@@ -162,7 +156,6 @@ pub fn check_visibility(
 
         for (
             entity,
-            visibility,
             mut computed_visibility,
             maybe_entity_mask,
             maybe_aabb,
@@ -170,10 +163,6 @@ pub fn check_visibility(
             maybe_transform,
         ) in visible_entity_query.q1().iter_mut()
         {
-            if !visibility.is_visible {
-                continue;
-            }
-
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
                 continue;

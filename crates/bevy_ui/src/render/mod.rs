@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ViewUniforms, Visibility},
+    view::{ViewUniforms, Visible},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -138,21 +138,20 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut render_world: ResMut<RenderWorld>,
     images: Res<Assets<Image>>,
-    uinode_query: Query<(
-        &Node,
-        &GlobalTransform,
-        &UiColor,
-        &UiImage,
-        &Visibility,
-        Option<&CalculatedClip>,
-    )>,
+    uinode_query: Query<
+        (
+            &Node,
+            &GlobalTransform,
+            &UiColor,
+            &UiImage,
+            Option<&CalculatedClip>,
+        ),
+        With<Visible>,
+    >,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
-            continue;
-        }
+    for (uinode, transform, color, image, clip) in uinode_query.iter() {
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(image.clone_weak()) {
@@ -177,14 +176,16 @@ pub fn extract_text_uinodes(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    uinode_query: Query<(
-        Entity,
-        &Node,
-        &GlobalTransform,
-        &Text,
-        &Visibility,
-        Option<&CalculatedClip>,
-    )>,
+    uinode_query: Query<
+        (
+            Entity,
+            &Node,
+            &GlobalTransform,
+            &Text,
+            Option<&CalculatedClip>,
+        ),
+        With<Visible>,
+    >,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
 
@@ -194,10 +195,7 @@ pub fn extract_text_uinodes(
         1.
     };
 
-    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
-            continue;
-        }
+    for (entity, uinode, transform, text, clip) in uinode_query.iter() {
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
         if uinode.size == Vec2::ZERO {
             continue;

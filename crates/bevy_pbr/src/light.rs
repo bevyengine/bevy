@@ -7,7 +7,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
-    view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
+    view::{ComputedVisibility, RenderLayers, Visible, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
@@ -705,13 +705,12 @@ pub fn check_light_mesh_visibility(
     mut visible_entity_query: Query<
         (
             Entity,
-            &Visibility,
             &mut ComputedVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
         ),
-        Without<NotShadowCaster>,
+        (Without<NotShadowCaster>, With<Visible>),
     >,
 ) {
     // Directonal lights
@@ -727,19 +726,9 @@ pub fn check_light_mesh_visibility(
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (
-            entity,
-            visibility,
-            mut computed_visibility,
-            maybe_entity_mask,
-            maybe_aabb,
-            maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
+            visible_entity_query.iter_mut()
         {
-            if !visibility.is_visible {
-                continue;
-            }
-
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
                 continue;
@@ -788,17 +777,12 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    visibility,
                     mut computed_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
                 ) in visible_entity_query.iter_mut()
                 {
-                    if !visibility.is_visible {
-                        continue;
-                    }
-
                     let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
