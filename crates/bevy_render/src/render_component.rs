@@ -9,10 +9,7 @@ use bevy_ecs::{
     component::Component,
     prelude::*,
     query::{FilterFetch, QueryItem, WorldQuery},
-    system::{
-        lifetimeless::{Read, SCommands, SQuery},
-        RunSystem, SystemParamItem,
-    },
+    system::{lifetimeless::Read, StaticSystemParam},
 };
 use std::{marker::PhantomData, ops::Deref};
 
@@ -147,9 +144,8 @@ where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
 {
     fn build(&self, app: &mut App) {
-        let system = ExtractComponentSystem::<C>::system(&mut app.world);
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, system);
+            render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
         }
     }
 }
@@ -165,25 +161,17 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
-pub struct ExtractComponentSystem<C: ExtractComponent>(PhantomData<C>);
-
-impl<C: ExtractComponent> RunSystem for ExtractComponentSystem<C>
-where
+fn extract_components<C: ExtractComponent>(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    mut query: StaticSystemParam<Query<(Entity, C::Query), C::Filter>>,
+) where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
 {
-    type Param = (
-        SCommands,
-        // the previous amount of extracted components
-        Local<'static, usize>,
-        SQuery<(Entity, C::Query), C::Filter>,
-    );
-
-    fn run((mut commands, mut previous_len, mut query): SystemParamItem<Self::Param>) {
-        let mut values = Vec::with_capacity(*previous_len);
-        for (entity, query_item) in query.iter_mut() {
-            values.push((entity, (C::extract_component(query_item),)));
-        }
-        *previous_len = values.len();
-        commands.insert_or_spawn_batch(values);
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in query.iter_mut() {
+        values.push((entity, (C::extract_component(query_item),)));
     }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
 }
