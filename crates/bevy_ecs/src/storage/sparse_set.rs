@@ -3,11 +3,13 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use std::{cell::UnsafeCell, marker::PhantomData};
+use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit};
+
+const PAGE_SIZE: usize = 64;
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
-    values: Vec<Option<V>>,
+    values: Vec<Option<Box<[Option<V>; PAGE_SIZE]>>>,
     marker: PhantomData<I>,
 }
 
@@ -28,59 +30,87 @@ impl<I, V> SparseArray<I, V> {
 }
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
+    fn split_index(index: I) -> (usize, usize) {
+        let idx = index.sparse_set_index();
+        (idx / PAGE_SIZE, idx % PAGE_SIZE)
+    }
+
+    fn make_page() -> Box<[Option<V>; PAGE_SIZE]> {
+        // SAFE: The memory is all initialized to None upon return.
+        unsafe {
+            let mut page: MaybeUninit<[Option<V>; PAGE_SIZE]> = MaybeUninit::uninit();
+            let slice = page.as_mut_ptr();
+            for idx in 0..PAGE_SIZE {
+                (*slice)[idx] = None;
+            }
+            // TODO: Initialize with Box::assume_uninit when https://github.com/rust-lang/rust/issues/63291 lands in stable.
+            Box::new(page.assume_init())
+        }
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            values: Vec::with_capacity(capacity),
+            values: Vec::with_capacity(capacity / PAGE_SIZE),
             marker: PhantomData,
         }
     }
 
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
-        let index = index.sparse_set_index();
-        if index >= self.values.len() {
-            self.values.resize_with(index + 1, || None);
+        let (page, index) = Self::split_index(index);
+        if page > self.values.len() {
+            self.values.resize_with(page + 1, || None);
         }
-        self.values[index] = Some(value);
+        let page = self.values[page].get_or_insert_with(Self::make_page);
+        page[index] = Some(value);
     }
 
     #[inline]
     pub fn contains(&self, index: I) -> bool {
-        let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
+        let (page, index) = Self::split_index(index);
+        self.values
+            .get(page)
+            .and_then(|p| p.as_ref())
+            .and_then(|p| p.get(index))
+            .map(Option::is_some)
+            .unwrap_or(false)
     }
 
     #[inline]
     pub fn get(&self, index: I) -> Option<&V> {
-        let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.as_ref()).unwrap_or(None)
+        let (page, index) = Self::split_index(index);
+        self.values
+            .get(page)
+            .and_then(|p| p.as_ref())
+            .and_then(|p| p[index].as_ref())
     }
 
     #[inline]
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
-        let index = index.sparse_set_index();
+        let (page, index) = Self::split_index(index);
         self.values
-            .get_mut(index)
-            .map(|v| v.as_mut())
-            .unwrap_or(None)
+            .get_mut(page)
+            .and_then(|page| page.as_mut())
+            .and_then(|page| page[index].as_mut())
     }
 
     #[inline]
     pub fn remove(&mut self, index: I) -> Option<V> {
-        let index = index.sparse_set_index();
-        self.values.get_mut(index).and_then(|value| value.take())
+        let (page, index) = Self::split_index(index);
+        self.values
+            .get_mut(page)
+            .and_then(|page| page.as_mut())
+            .and_then(|page| page[index].take())
     }
 
     #[inline]
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
-        let index = index.sparse_set_index();
-        if index < self.values.len() {
-            return self.values[index].get_or_insert_with(func);
+        let (page, index) = Self::split_index(index);
+        if page > self.values.len() {
+            self.values.resize_with(page + 1, || None);
         }
-        self.values.resize_with(index + 1, || None);
-        let value = &mut self.values[index];
-        *value = Some(func());
-        value.as_mut().unwrap()
+        let page = self.values[page].get_or_insert_with(Self::make_page);
+        page[index].get_or_insert_with(func)
     }
 
     pub fn clear(&mut self) {
