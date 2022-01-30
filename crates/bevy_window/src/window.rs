@@ -35,7 +35,7 @@ pub enum PresentMode {
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image. The framerate will be capped at the display refresh rate,
     /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
-    Fifo = 2,
+    Fifo = 2, // NOTE: The explicit ordinal values mirror wgpu and the vulkan spec.
 }
 
 impl WindowId {
