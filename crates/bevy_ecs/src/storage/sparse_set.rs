@@ -58,7 +58,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
         let (page, index) = Self::split_index(index);
-        if page > self.values.len() {
+        if page >= self.values.len() {
             self.values.resize_with(page + 1, || None);
         }
         let page = self.values[page].get_or_insert_with(Self::make_page);
@@ -106,7 +106,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         let (page, index) = Self::split_index(index);
-        if page > self.values.len() {
+        if page >= self.values.len() {
             self.values.resize_with(page + 1, || None);
         }
         let page = self.values[page].get_or_insert_with(Self::make_page);
