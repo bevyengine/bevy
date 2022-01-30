@@ -28,7 +28,7 @@ serde = "1"
 
 [dev-dependencies]
 parking_lot = "0.11"
-rand = "0.8"
+rand = { version = "0.8", default-features = false, features = ["std"] }
 
 [[example]]
 name = "events"

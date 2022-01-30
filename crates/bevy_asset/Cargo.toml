@@ -30,7 +30,7 @@ thiserror = "1.0"
 downcast-rs = "1.2.0"
 notify = { version = "=5.0.0-pre.11", optional = true }
 parking_lot = "0.11.0"
-rand = "0.8.0"
+rand = { version = "0.8", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
