@@ -5,6 +5,26 @@ use raw_window_handle::RawWindowHandle;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
+/// Behavior of the presentation engine based on frame rate.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum PresentMode {
+    /// The presentation engine does **not** wait for a vertical blanking period and
+    /// the request is presented immediately. This is a low-latency presentation mode,
+    /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
+    /// selected  platform and backend. Not optimal for mobile.
+    Immediate = 0,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image, but frames may be submitted without delay. This is a low-latency
+    /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
+    /// if unavailable on the selected platform and backend. Not optimal for mobile.
+    Mailbox = 1,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image. The framerate will be capped at the display refresh rate,
+    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    Fifo = 2,
+}
+
 impl WindowId {
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
@@ -121,7 +141,7 @@ pub struct Window {
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
-    vsync: bool,
+    present_mode: PresentMode,
     resizable: bool,
     decorations: bool,
     cursor_icon: CursorIcon,
@@ -152,8 +172,8 @@ pub enum WindowCommand {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
-    SetVsync {
-        vsync: bool,
+    SetPresentMode {
+        present_mode: PresentMode,
     },
     SetResizable {
         resizable: bool,
@@ -222,7 +242,7 @@ impl Window {
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
-            vsync: window_descriptor.vsync,
+            present_mode: window_descriptor.present_mode,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
@@ -425,14 +445,15 @@ impl Window {
     }
 
     #[inline]
-    pub fn vsync(&self) -> bool {
-        self.vsync
+    pub fn present_mode(&self) -> PresentMode {
+        self.present_mode
     }
 
     #[inline]
-    pub fn set_vsync(&mut self, vsync: bool) {
-        self.vsync = vsync;
-        self.command_queue.push(WindowCommand::SetVsync { vsync });
+    pub fn set_present_mode(&mut self, present_mode: PresentMode) {
+        self.present_mode = present_mode;
+        self.command_queue
+            .push(WindowCommand::SetPresentMode { present_mode });
     }
 
     #[inline]
@@ -557,7 +578,7 @@ pub struct WindowDescriptor {
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
-    pub vsync: bool,
+    pub present_mode: PresentMode,
     pub resizable: bool,
     pub decorations: bool,
     pub cursor_visible: bool,
@@ -584,7 +605,7 @@ impl Default for WindowDescriptor {
             position: None,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
-            vsync: true,
+            present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
             cursor_locked: false,

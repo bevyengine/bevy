@@ -1,11 +1,15 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+use bevy::{
+    input::touch::TouchPhase,
+    prelude::*,
+    window::{PresentMode, WindowMode},
+};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: true,
+            present_mode: PresentMode::Fifo,
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
