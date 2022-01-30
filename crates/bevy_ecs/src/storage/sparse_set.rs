@@ -39,9 +39,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         // SAFE: The memory is all initialized to None upon return.
         unsafe {
             let mut page: MaybeUninit<[Option<V>; PAGE_SIZE]> = MaybeUninit::uninit();
-            let slice = page.as_mut_ptr();
-            for idx in 0..PAGE_SIZE {
-                (*slice)[idx] = None;
+            let array = page.as_mut_ptr().as_mut().unwrap();
+            for item in &mut array[..] {
+                *item = None;
             }
             // TODO: Initialize with Box::assume_uninit when https://github.com/rust-lang/rust/issues/63291 lands in stable.
             Box::new(page.assume_init())
