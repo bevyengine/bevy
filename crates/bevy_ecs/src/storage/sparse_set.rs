@@ -36,16 +36,16 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 
     fn make_page() -> Box<[Option<V>; PAGE_SIZE]> {
+        // TODO: Initialize with Box::assume_uninit when https://github.com/rust-lang/rust/issues/63291 lands in stable.
         // SAFE: The memory is all initialized to None upon return.
-        unsafe {
-            let mut page: MaybeUninit<[Option<V>; PAGE_SIZE]> = MaybeUninit::uninit();
-            let array = page.as_mut_ptr().as_mut().unwrap();
-            for item in &mut array[..] {
-                *item = None;
-            }
-            // TODO: Initialize with Box::assume_uninit when https://github.com/rust-lang/rust/issues/63291 lands in stable.
-            Box::new(page.assume_init())
+        let mut page: Box<[MaybeUninit<Option<V>>; PAGE_SIZE]> =
+            Box::new(unsafe { MaybeUninit::uninit().assume_init() });
+        // SAFE: Nothing in the following code can panic or be dropped leaving any uninitialized state.
+        for item in &mut page[..] {
+            item.write(None);
         }
+        // SAFE: This transmutation has the same ABI as the uninitialized boxed page.
+        unsafe { std::mem::transmute(page) }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
