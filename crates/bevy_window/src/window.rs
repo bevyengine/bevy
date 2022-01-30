@@ -15,8 +15,12 @@ pub struct WindowId(Uuid);
 /// `Fifo`.
 ///
 /// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
+///
+/// The presentaion mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
+/// or updated on a [`Window`](Window::set_present_mode).
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[doc(alias = "vsync")]
 pub enum PresentMode {
     /// The presentation engine does **not** wait for a vertical blanking period and
     /// the request is presented immediately. This is a low-latency presentation mode,
@@ -454,11 +458,13 @@ impl Window {
     }
 
     #[inline]
+    #[doc(alias = "vsync")]
     pub fn present_mode(&self) -> PresentMode {
         self.present_mode
     }
 
     #[inline]
+    #[doc(alias = "set_vsync")]
     pub fn set_present_mode(&mut self, present_mode: PresentMode) {
         self.present_mode = present_mode;
         self.command_queue
@@ -587,6 +593,7 @@ pub struct WindowDescriptor {
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
+    #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
     pub resizable: bool,
     pub decorations: bool,
