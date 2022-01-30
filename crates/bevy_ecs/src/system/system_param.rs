@@ -1254,6 +1254,89 @@ pub mod lifetimeless {
     pub type SCommands = crate::system::Commands<'static, 'static>;
 }
 
+/// A helper for using system parameters in generic contexts
+///
+/// This type is a system parameter which is statically proven to have
+/// `Self::Fetch::Item == Self` (ignoring lifetimes for brevity)
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{SystemParam, StaticSystemParam};
+///
+/// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
+///
+/// fn test_always_is<T: SystemParam + 'static>(){
+///     do_thing_generically::<T>.system();
+/// }
+/// ```
+pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
+
+impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
+    type Target = SystemParamItem<'w, 's, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'w, 's, P: SystemParam> DerefMut for StaticSystemParam<'w, 's, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
+    pub fn inner(self) -> SystemParamItem<'w, 's, P> {
+        self.0
+    }
+}
+
+pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
+
+impl<'world, 'state, P: SystemParam + 'static> SystemParam
+    for StaticSystemParam<'world, 'state, P>
+{
+    type Fetch = StaticSystemParamState<P::Fetch, P>;
+}
+
+impl<'world, 'state, S: SystemParamFetch<'world, 'state>, P: SystemParam + 'static>
+    SystemParamFetch<'world, 'state> for StaticSystemParamState<S, P>
+where
+    P: SystemParam<Fetch = S>,
+{
+    type Item = StaticSystemParam<'world, 'state, P>;
+
+    unsafe fn get_param(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item {
+        StaticSystemParam(S::get_param(&mut state.0, system_meta, world, change_tick))
+    }
+}
+
+unsafe impl<'w, 's, S: SystemParamState, P: SystemParam + 'static> SystemParamState
+    for StaticSystemParamState<S, P>
+{
+    type Config = S::Config;
+
+    fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+        Self(S::init(world, system_meta, config), PhantomData)
+    }
+
+    fn default_config() -> Self::Config {
+        S::default_config()
+    }
+    fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        self.0.new_archetype(archetype, system_meta)
+    }
+
+    fn apply(&mut self, world: &mut World) {
+        self.0.apply(world)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::SystemParam;
