@@ -5,7 +5,16 @@ use raw_window_handle::RawWindowHandle;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
-/// Behavior of the presentation engine based on frame rate.
+/// Presentation mode for a window.
+///
+/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// option corresponds to a traditional `VSync`, where the framerate is capped by the
+/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// capped by the refresh rate, but may not be availalbe on all platforms. Tearing
+/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
+/// `Fifo`.
+///
+/// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PresentMode {
