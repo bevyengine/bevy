@@ -649,7 +649,6 @@ mod test {
             .add_system_set(SystemSet::on_enter(TestState).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<TestState>>| {
                     r.push("enter");
-                    println!("{:#?}", r);
                     if r.len() == 1 {
                         s.push(TestState).unwrap();
                     } else if r.len() == 3 {
