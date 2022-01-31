@@ -267,13 +267,11 @@ where
     }
 
     /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    ///
+    /// # Errors
+    ///
+    /// This will fail if there is a scheduled operation
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -284,48 +282,34 @@ where
 
     /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
+    pub fn overwrite_set(&mut self, state: T) {
         self.scheduled = Some(ScheduledOperation::Set(state));
-        Ok(())
     }
 
     /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    ///
+    /// # Errors
+    ///
+    /// This will fail if there is a scheduled operation
     pub fn replace(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
-
         self.scheduled = Some(ScheduledOperation::Replace(state));
         Ok(())
     }
 
     /// Same as [`Self::replace`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
+    pub fn overwrite_replace(&mut self, state: T) {
         self.scheduled = Some(ScheduledOperation::Replace(state));
-        Ok(())
     }
 
     /// Same as [`Self::set`], but does a push operation instead of a next operation
+    /// # Errors
+    ///
+    /// This will fail if there is a scheduled operation
     pub fn push(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -336,13 +320,8 @@ where
 
     /// Same as [`Self::push`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
+    pub fn overwrite_push(&mut self, state: T) {
         self.scheduled = Some(ScheduledOperation::Push(state));
-        Ok(())
     }
 
     /// Same as [`Self::set`], but does a pop operation instead of a set operation
@@ -380,8 +359,6 @@ where
 
 #[derive(Debug, Error)]
 pub enum StateError {
-    #[error("Attempted to change the state to the current state.")]
-    AlreadyInState,
     #[error("Attempted to queue a state change, but there was already a state queued.")]
     StateAlreadyQueued,
     #[error("Attempted to queue a pop, but there is nothing to pop.")]
@@ -512,7 +489,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S1).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S1");
-                    s.overwrite_replace(MyState::S2).unwrap();
+                    s.overwrite_replace(MyState::S2);
                 },
             ))
             .add_system_set(
@@ -522,7 +499,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S2).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S2");
-                    s.overwrite_replace(MyState::S3).unwrap();
+                    s.overwrite_replace(MyState::S3);
                 },
             ))
             .add_system_set(
@@ -536,7 +513,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S3).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S3");
-                    s.overwrite_push(MyState::S4).unwrap();
+                    s.overwrite_push(MyState::S4);
                 },
             ))
             .add_system_set(
@@ -546,7 +523,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
-                    s.overwrite_push(MyState::S5).unwrap();
+                    s.overwrite_push(MyState::S5);
                 },
             ))
             .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
@@ -556,7 +533,7 @@ mod test {
                 State::on_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S5");
-                        s.overwrite_push(MyState::S6).unwrap();
+                        s.overwrite_push(MyState::S6);
                     })
                     .after("inactive s4"),
                 ),
@@ -572,7 +549,7 @@ mod test {
                 State::on_update_set(MyState::S6).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S6");
-                        s.overwrite_push(MyState::Final).unwrap();
+                        s.overwrite_push(MyState::Final);
                     })
                     .after("inactive s5"),
                 ),
@@ -654,5 +631,49 @@ mod test {
             .with_system(should_run_once);
         stage.run(&mut world);
         assert!(*world.get_resource::<bool>().unwrap(), "after test");
+    }
+
+    #[test]
+    fn state_reload() {
+        #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+        struct TestState;
+
+        let mut world = World::default();
+
+        world.insert_resource(Vec::<&'static str>::new());
+        world.insert_resource(State::new(TestState));
+
+        let mut stage = SystemStage::parallel();
+        stage.add_system_set(State::<TestState>::get_driver());
+        stage
+            .add_system_set(SystemSet::on_enter(TestState).with_system(
+                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<TestState>>| {
+                    r.push("enter");
+                    println!("{:#?}", r);
+                    if r.len() == 1 {
+                        s.push(TestState).unwrap();
+                    } else if r.len() == 3 {
+                        s.replace(TestState).unwrap();
+                    }
+                },
+            ))
+            .add_system_set(
+                SystemSet::on_exit(TestState)
+                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("exit")),
+            )
+            .add_system_set(
+                SystemSet::on_pause(TestState)
+                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("pause")),
+            )
+            .add_system_set(
+                SystemSet::on_resume(TestState)
+                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("resume")),
+            );
+        stage.run(&mut world);
+        let collected = world.get_resource::<Vec<&'static str>>().unwrap().clone();
+        assert_eq!(
+            collected,
+            vec!["enter", "pause", "enter", "exit", "resume", "exit", "enter",]
+        )
     }
 }
