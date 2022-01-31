@@ -586,18 +586,4 @@ mod tests {
         events.update();
         assert!(events.is_empty());
     }
-
-    #[test]
-    fn test_events_clone() {
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        events.update();
-        events.send(TestEvent { i: 1 });
-
-        let events_dupe = events.clone();
-        let mut reader = events_dupe.get_reader();
-        assert!(reader
-            .iter(&events_dupe)
-            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
-    }
 }
