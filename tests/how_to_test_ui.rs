@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_internal::asset::AssetPlugin;
 use bevy_internal::core_pipeline::CorePipelinePlugin;
 use bevy_internal::input::InputPlugin;
-use bevy_internal::render::options::WgpuOptions;
+use bevy_internal::render::settings::WgpuSettings;
 use bevy_internal::render::RenderPlugin;
 use bevy_internal::sprite::SpritePlugin;
 use bevy_internal::text::TextPlugin;
@@ -18,7 +18,7 @@ impl Plugin for HeadlessUiPlugin {
     fn build(&self, app: &mut App) {
         // These tests are meant to be ran on systems without gpu, or display.
         // To make this work, we tell bevy not to look for any rendering backends.
-        app.insert_resource(WgpuOptions {
+        app.insert_resource(WgpuSettings {
             backends: None,
             ..Default::default()
         })
@@ -65,7 +65,7 @@ fn test_button_translation() {
     let button = *query.iter(&app.world).collect::<Vec<_>>().first().unwrap();
 
     // The button's translation got updated because the UI system had a window to place it in.
-    // If we hadn't added a window, the button's translation would at this point be all zero's.
+    // If we hadn't added a window, the button's translation would at this point be all zeros.
     let button_transform = app.world.entity(button).get::<Transform>().unwrap();
     assert_eq!(
         button_transform.translation.x.floor() as u32,
