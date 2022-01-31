@@ -266,7 +266,7 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: raw_window_handle.map(|handle| RawWindowHandleWrapper::new(handle)),
+            raw_window_handle: raw_window_handle.map(RawWindowHandleWrapper::new),
             focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
