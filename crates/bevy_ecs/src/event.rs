@@ -43,13 +43,13 @@ impl<T> fmt::Debug for EventId<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct EventInstance<T> {
     pub event_id: EventId<T>,
     pub event: T,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum State {
     A,
     B,
@@ -585,5 +585,19 @@ mod tests {
         // due to double buffering.
         events.update();
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_events_clone() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.update();
+        events.send(TestEvent { i: 1 });
+
+        let events_dupe = events.clone();
+        let mut reader = events_dupe.get_reader();
+        assert!(reader
+            .iter(&events_dupe)
+            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
     }
 }
