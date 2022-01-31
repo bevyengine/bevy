@@ -65,7 +65,7 @@ fn test_button_translation() {
     let button = *query.iter(&app.world).collect::<Vec<_>>().first().unwrap();
 
     // The button's translation got updated because the UI system had a window to place it in.
-    // If we hadn't added a window, the button's translation would at this point be all zero's.
+    // If we hadn't added a window, the button's translation would at this point be all zeros.
     let button_transform = app.world.entity(button).get::<Transform>().unwrap();
     assert_eq!(
         button_transform.translation.x.floor() as u32,
