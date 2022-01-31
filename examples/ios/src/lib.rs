@@ -9,7 +9,6 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Fifo,
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
