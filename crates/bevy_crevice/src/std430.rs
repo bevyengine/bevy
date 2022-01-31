@@ -1,4 +1,4 @@
-//! Defines traits and types for working with data adhering to GLSL's `std140`
+//! Defines traits and types for working with data adhering to GLSL's `std430`
 //! layout specification.
 
 mod primitives;
