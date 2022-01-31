@@ -134,7 +134,7 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
+            let (device, queue, info) = futures_lite::future::block_on(renderer::initialize_renderer(
                 &instance,
                 &mut options,
                 &request_adapter_options,
@@ -144,6 +144,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(options.clone())
+                .insert_resource(info)
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();

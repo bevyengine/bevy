@@ -1,8 +1,10 @@
 mod graph_runner;
+mod info;
 mod render_device;
 
 use bevy_utils::tracing::{info, info_span};
 pub use graph_runner::*;
+pub use info::*;
 pub use render_device::*;
 
 use crate::{
@@ -67,7 +69,7 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &mut WgpuOptions,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue) {
+) -> (RenderDevice, RenderQueue, RendererInfo) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -113,7 +115,14 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (RenderDevice::from(device), queue)
+    let info = RendererInfo {
+        adapter_info: Some(adapter_info),
+        backends: options.backends,
+        power_preference: options.power_preference,
+        features: options.features,
+        limits: options.limits.clone(),
+    };
+    (RenderDevice::from(device), queue, info)
 }
 
 /// The context with all information required to interact with the GPU.
