@@ -42,12 +42,12 @@ impl App {
     /// // Checking that our resource was modified correctly
     /// app.assert_resource_eq(Toggle::Off);
     /// ```
-    pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: R) {
+    pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: &R) {
         self.world.assert_resource_eq(value);
     }
 
     /// Asserts that the current value of the non-send resource `NS` is `value`
-    pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: NS) {
+    pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: &NS) {
         self.world.assert_nonsend_resource_eq(value);
     }
 
@@ -90,7 +90,7 @@ impl App {
     /// // and life to regenerate once
     /// app.update();
     /// // The `()` value for `F` will result in an unfiltered query
-    /// app.assert_component_eq<()>(Life(9));
+    /// app.assert_component_eq<()>(&Life(9));
     ///
     /// app.update();
     /// // Because all of our entities with the `Life` component also
@@ -101,7 +101,7 @@ impl App {
     /// // Check that life regeneration caps at 10, as intended
     /// // Filtering by the component type you're looking for is useless,
     /// // but it's helpful to demonstrate composing query filters here
-    /// app.assert_component_eq<(With<Player>, With<Life>)>(Life(10));
+    /// app.assert_component_eq<(With<Player>, With<Life>)>(&Life(10));
     /// ```
     pub fn assert_component_eq<C, F>(&mut self, value: &C)
     where

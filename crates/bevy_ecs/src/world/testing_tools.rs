@@ -12,19 +12,19 @@ use std::fmt::Debug;
 
 impl World {
     /// Asserts that the current value of the resource `R` is `value`
-    pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: R) {
+    pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: &R) {
         let resource = self
             .get_resource::<R>()
             .expect("No resource matching the type of {value} was found in the world.");
-        assert_eq!(*resource, value);
+        assert_eq!(resource, value);
     }
 
     /// Asserts that the current value of the non-send resource `NS` is `value`
-    pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: NS) {
+    pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: &NS) {
         let resource = self
             .get_non_send_resource::<NS>()
             .expect("No non-send resource matching the type of {value} was found in the world.");
-        assert_eq!(*resource, value);
+        assert_eq!(resource, value);
     }
 
     /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
