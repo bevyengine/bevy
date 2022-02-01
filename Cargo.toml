@@ -502,6 +502,10 @@ path = "examples/window/transparent_window.rs"
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 
+[[example]]
+name = "window_resize"
+path = "examples/window/window_resize.rs"
+
 # Android
 [[example]]
 crate-type = ["cdylib"]
