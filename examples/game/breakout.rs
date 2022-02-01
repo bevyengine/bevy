@@ -288,6 +288,7 @@ fn ball_collision_system(
                 Collision::Right => reflect_x = velocity.x < 0.0,
                 Collision::Top => reflect_y = velocity.y < 0.0,
                 Collision::Bottom => reflect_y = velocity.y > 0.0,
+                Collision::Inside => { /* do nothing */ }
             }
 
             // reflect velocity on the x-axis if we hit something on the x-axis
