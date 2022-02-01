@@ -24,7 +24,7 @@ impl World {
 
     /// Asserts that each item returned by the provided query is equal to the provided `value`
     pub fn assert_query_eq<'w, 's, Q, F>(
-        &mut self,
+        &'s mut self,
         value: <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
     ) where
         Q: WorldQuery,
@@ -37,23 +37,6 @@ impl World {
             // FIXME: lifetime mismatch
             // ...but data from `self` flows into `value` here
             assert_eq!(item, value);
-        }
-    }
-
-    /// Asserts that when the provided `func` is applied to each item in the query, the result is `true`
-    pub fn assert_function_on_query<'w, 's, Q, F, Func>(&mut self, func: Func)
-    where
-        Q: WorldQuery,
-        F: WorldQuery,
-        <F as WorldQuery>::Fetch: FilterFetch,
-        Func: Fn(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item) -> bool,
-    {
-        let query_state = self.query_filtered::<Q, F>();
-        // FIXME: cannot infer an appropriate lifetime for lifetime parameter 'w in function call due to conflicting requirements
-        // expected `<<Q as fetch::WorldQuery>::ReadOnlyFetch as fetch::Fetch<'w, 's>>::Item`
-        // found `<<Q as fetch::WorldQuery>::ReadOnlyFetch as fetch::Fetch<'_, '_>>::Item`
-        for item in query_state.iter(self) {
-            assert!(func(item));
         }
     }
 
@@ -73,19 +56,6 @@ impl World {
         let events = self.get_resource::<Events<E>>().unwrap();
 
         assert_eq!(events.iter_current_update_events().count(), n);
-    }
-
-    /// Asserts that, for each event of type `E`, the result of `func(event)` is `true`
-    pub fn assert_function_on_events<E: Resource + PartialEq + Debug, Func>(&self, func: Func)
-    where
-        Func: Fn(&E) -> bool,
-    {
-        let events = self.get_resource::<Events<E>>().unwrap();
-        let mut reader = events.get_reader();
-
-        for event in reader.iter(events) {
-            assert!(func(event));
-        }
     }
 
     /// Asserts that when the supplied `system` is run on the world, its output will be `true`
