@@ -10,7 +10,7 @@ use bevy_ecs::system::Resource;
 use std::fmt::Debug;
 
 impl App {
-    /// Asserts that that the current value of the resource `R` is `value`
+    /// Asserts that the current value of the resource `R` is `value`
     ///
     /// # Example
     /// ```rust
@@ -46,7 +46,7 @@ impl App {
         self.world.assert_resource_eq(value);
     }
 
-    /// Asserts that that the current value of the non-send resource `NS` is `value`
+    /// Asserts that the current value of the non-send resource `NS` is `value`
     pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: NS) {
         self.world.assert_nonsend_resource_eq(value);
     }

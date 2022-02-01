@@ -11,7 +11,7 @@ use crate::world::{FilterFetch, Resource, World, WorldQuery};
 use std::fmt::Debug;
 
 impl World {
-    /// Asserts that that the current value of the resource `R` is `value`
+    /// Asserts that the current value of the resource `R` is `value`
     pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: R) {
         let resource = self
             .get_resource::<R>()
@@ -19,7 +19,7 @@ impl World {
         assert_eq!(*resource, value);
     }
 
-    /// Asserts that that the current value of the non-send resource `NS` is `value`
+    /// Asserts that the current value of the non-send resource `NS` is `value`
     pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: NS) {
         let resource = self
             .get_non_send_resource::<NS>()
