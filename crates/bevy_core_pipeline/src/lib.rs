@@ -38,7 +38,7 @@ use bevy_render::{
 /// When used as a resource, sets the color that is used to clear the screen between frames.
 ///
 /// This color appears as the "background" color for simple apps, when
-/// there are portions of the screen with nothing rendered over top.
+/// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
