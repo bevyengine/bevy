@@ -24,11 +24,13 @@ impl App {
     ///
     /// app.insert_resource(Toggle::On).add_system(toggle_off);
     ///
+    /// // Checking that the resource was initialized correctly
     /// app.assert_resource_eq(Toggle::On);
     ///
     /// // Run the `Schedule` once, causing our system to trigger
     /// app.update();
     ///
+    /// // Checking that our resource was modified correctly
     /// app.assert_resource_eq(Toggle::Off);
     /// ```
     pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: R) {
@@ -41,6 +43,34 @@ impl App {
     }
 
     /// Asserts that the number of entities returned by the query is exactly `n`
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Player;
+    ///
+    /// #[derive(Component)]
+    /// struct Life(usize);
+    ///
+    /// let mut app = App::new();
+    ///
+    /// fn spawn_player(mut commands: Commands){
+    /// 	commands.spawn().insert(Life(10).insert(Player);
+    /// }
+    ///
+    /// app.add_startup_system(spawn_player);
+    /// app.assert_n_in_query::<&Life, With<Player>>(0);
+    ///
+    /// // Run the `Schedule` once, causing our startup system to run
+    /// app.update();
+    /// app.assert_n_in_query::<&Life, With<Player>>(1);
+    ///
+    /// // Running the schedule again won't cause startup systems to rerun
+    /// app.update();
+    /// app.assert_n_in_query::<&Life, With<Player>>(1);
+    /// ```
     pub fn assert_n_in_query<Q, F>(&mut self, n: usize)
     where
         Q: WorldQuery,
@@ -51,6 +81,10 @@ impl App {
     }
 
     /// Asserts that the number of events of the type `E` that were sent this frame is exactly `n`
+    ///
+    /// # Example
+    /// ```rust
+    /// ```
     pub fn assert_n_events<E: Resource + PartialEq + Debug>(&self, n: usize) {
         self.world.assert_n_events::<E>(n);
     }
@@ -59,6 +93,70 @@ impl App {
     ///
     /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
     /// Because we are generating a new system; these filters will always be true.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Player;
+    ///
+    /// #[derive(Component)]
+    /// struct Life(usize);
+    ///
+    /// #[derive(Component)]
+    /// struct Dead;
+    ///
+    /// let mut app = App::new();
+    ///
+    /// fn spawn_player(mut commands: Commands){
+    /// 	commands.spawn().insert(Life(10).insert(Player);
+    /// }
+    ///
+    /// fn massive_damage(mut query: Query<&mut Life>){
+    /// 	for mut life in query.iter_mut(){
+    /// 		life.0 -= 9001;
+    /// 	}
+    /// }
+    ///
+    /// fn kill_units(query: Query<Entity, &Life>, mut commands: Commands){
+    ///    for (entity, life) in query.iter(){
+    /// 	  if life.0 == 0 {
+    /// 		commands.entity(entity).insert(Dead);
+    /// 	  }
+    ///    }
+    /// }
+    ///
+    /// app.add_startup_system(spawn_player)
+    ///    .add_system(massive_damage)
+    ///    .add_system(kill_units);
+    ///
+    /// // Run the `Schedule` once, causing both our startup systems
+    /// // and ordinary systems to run once
+    /// app.update();
+    ///
+    /// // Run a complex assertion on the world using a system
+    /// fn zero_life_is_dead(query: Query<&Life, Option<&Dead>>) -> bool {
+    /// 	for (life, maybe_dead) in query.iter(){
+    /// 		if life.0 == 0 {
+    /// 			if maybe_dead.is_none(){
+    /// 				return false;
+    /// 			}
+    /// 		}
+    ///
+    /// 		if maybe_dead.is_some(){
+    /// 			if life.0 != 0 {
+    /// 				return false;
+    /// 			}
+    /// 		}
+    /// 	}
+    /// 	// None of our checks failed, so our world state is clean
+    /// 	true
+    /// }
+    ///
+    /// app.update();
+    /// app.assert_system(zero_life_is_dead);
+    /// ```
     pub fn assert_system<Params>(&mut self, system: impl IntoSystem<(), bool, Params>) {
         self.world.assert_system(system);
     }
