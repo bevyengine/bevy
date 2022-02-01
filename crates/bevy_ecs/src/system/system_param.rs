@@ -587,6 +587,22 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
+///
+/// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
+/// To add configuration to a system, convert a capturing closure into the system instead:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// struct Config(u32);
+/// struct Myu32Wrapper(u32);
+/// fn reset_to(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+///     move |mut val| val.0 = value.0
+/// }
+///
+/// // .add_system(reset_to(my_config))
+/// # reset_to(Config(10)).system();
+/// ```
+
 pub struct Local<'a, T: Resource>(&'a mut T);
 
 // SAFE: Local only accesses internal state
