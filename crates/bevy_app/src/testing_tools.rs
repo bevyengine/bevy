@@ -121,7 +121,7 @@ impl App {
     ///
     /// WARNING: [`Changed`](bevy_ecs::query::Changed) and [`Added`](bevy_ecs::query::Added) filters
     /// are computed relative to "the last time this system ran".
-    /// Because we are running a new system; these filters will always be true.
+    /// Because we are running a new system, these filters will always be true.
     ///
     /// # Example
     /// ```rust
