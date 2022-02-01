@@ -80,6 +80,8 @@ mod game {
 fn test_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins).add_plugin(GamePlugin);
+    // It is generally unwise to run the initial update in convenience methods like this
+    // as startup systems added by later plugins will be missed
     app
 }
 
