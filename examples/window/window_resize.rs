@@ -1,4 +1,4 @@
-//! This example illustrates how to handle window resize
+//! This example illustrates how to handle window resize event
 
 use bevy::prelude::*;
 use bevy::window::WindowResized;
