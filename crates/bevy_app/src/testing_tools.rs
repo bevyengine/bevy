@@ -49,6 +49,8 @@ impl App {
 
     /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
     ///
+    /// This is commonly used with the corresponding `query_len` method to ensure that the returned query is not empty.
+    ///
     /// WARNING: because we are constructing the query from scratch,
     /// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters
     /// will always return true.
@@ -106,7 +108,7 @@ impl App {
         self.world.assert_component_eq::<C, F>(value);
     }
 
-    /// Asserts that the number of entities returned by the query is exactly `n`
+    /// Returns the number of entities found by the [`Query`](bevy_ecs::system::Query) with the type parameters `Q` and `F`
     ///
     /// # Example
     /// ```rust
@@ -126,23 +128,23 @@ impl App {
     /// }
     ///
     /// app.add_startup_system(spawn_player);
-    /// app.assert_n_in_query::<&Life, With<Player>>(0);
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 0);
     ///
     /// // Run the `Schedule` once, causing our startup system to run
     /// app.update();
-    /// app.assert_n_in_query::<&Life, With<Player>>(1);
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 1);
     ///
     /// // Running the schedule again won't cause startup systems to rerun
     /// app.update();
-    /// app.assert_n_in_query::<&Life, With<Player>>(1);
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 1);
     /// ```
-    pub fn assert_n_in_query<Q, F>(&mut self, n: usize)
+    pub fn query_len<Q, F>(&mut self)
     where
         Q: WorldQuery,
         F: WorldQuery,
         <F as WorldQuery>::Fetch: FilterFetch,
     {
-        self.world.assert_n_in_query::<Q, F>(n);
+        self.world.query_len::<Q, F>();
     }
 
     /// Sends an `event` of type `E`

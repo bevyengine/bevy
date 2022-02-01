@@ -29,6 +29,8 @@ impl World {
 
     /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
     ///
+    /// This is commonly used with the corresponding `query_len` method to ensure that the returned query is not empty.
+    ///
     /// WARNING: because we are constructing the query from scratch,
     /// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters
     /// will always return true.
@@ -48,15 +50,15 @@ impl World {
         }
     }
 
-    /// Asserts that the number of entities returned by the query is exactly `n`
-    pub fn assert_n_in_query<Q, F>(&mut self, n: usize)
+    /// Returns the number of entities found by the [`Query`](crate::system::Query) with the type parameters `Q` and `F`
+    pub fn query_len<Q, F>(&mut self) -> usize
     where
         Q: WorldQuery,
         F: WorldQuery,
         <F as WorldQuery>::Fetch: FilterFetch,
     {
         let mut query_state = self.query_filtered::<Q, F>();
-        assert_eq!(query_state.iter(self).count(), n);
+        query_state.iter(self).count()
     }
 
     /// Sends an `event` of type `E`
