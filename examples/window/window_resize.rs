@@ -2,11 +2,13 @@
 
 use bevy::prelude::*;
 use bevy::window::WindowResized;
+use bevy::input::system::exit_on_esc_system;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_system(on_resize_system)
+        .add_system(exit_on_esc_system)
         .run();
 }
 
