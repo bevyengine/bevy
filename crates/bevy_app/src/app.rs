@@ -2,6 +2,7 @@ use crate::{CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupS
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::{FromWorld, IntoExclusiveSystem},
+    query::{FilterFetch, WorldQuery},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
@@ -907,6 +908,104 @@ impl App {
             .get((&label) as &dyn AppLabel)
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+}
+
+// Testing adjacents tools
+impl App {
+    /// Returns the number of entities found by the [`Query`](bevy_ecs::system::Query) with the type parameters `Q` and `F`
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Player;
+    ///
+    /// #[derive(Component)]
+    /// struct Life(usize);
+    ///
+    /// let mut app = App::new();
+    ///
+    /// fn spawn_player(mut commands: Commands){
+    ///     commands.spawn().insert(Life(10)).insert(Player);
+    /// }
+    ///
+    /// app.add_startup_system(spawn_player);
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 0);
+    ///
+    /// // Run the `Schedule` once, causing our startup system to run
+    /// app.update();
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 1);
+    ///
+    /// // Running the schedule again won't cause startup systems to rerun
+    /// app.update();
+    /// assert_eq!(app.query_len::<&Life, With<Player>>(), 1);
+    /// ```
+    pub fn query_len<Q, F>(&mut self)
+    where
+        Q: WorldQuery,
+        F: WorldQuery,
+        <F as WorldQuery>::Fetch: FilterFetch,
+    {
+        self.world.query_len::<Q, F>();
+    }
+
+    /// Sends an `event` of type `E`
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// let mut app = App::new();
+    ///
+    /// struct Message(String);
+    ///
+    /// fn print_messages(mut messages: EventReader<Message>){
+    ///     for message in messages.iter(){
+    ///         println!("{}", message.0);
+    ///     }
+    /// }
+    ///
+    /// app.add_event::<Message>().add_system(print_messages);
+    /// app.send_event(Message("Hello!".to_string()));
+    ///
+    /// // Says "Hello!"
+    /// app.update();
+    ///
+    /// // All the events have been processed
+    /// app.update();
+    /// ```
+    pub fn send_event<E: Resource>(&mut self, event: E) {
+        self.world.send_event(event);
+    }
+
+    /// Returns the number of events of the type `E` that were sent this frame
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// // An event type
+    /// #[derive(Debug)]
+    ///	struct SelfDestruct;
+    ///
+    /// let mut app = App::new();
+    /// app.add_event::<SelfDestruct>();
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
+    ///
+    /// app.send_event(SelfDestruct);
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 1);
+    ///
+    /// // Time passes
+    /// app.update();
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
+    /// ```
+    pub fn events_len<E: Resource>(&self) -> usize {
+        self.world.events_len::<E>()
     }
 }
 

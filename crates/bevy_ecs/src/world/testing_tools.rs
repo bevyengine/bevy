@@ -2,12 +2,13 @@
 //!
 //! Each of these methods has a corresponding method on `App`;
 //! in many cases, these are more convenient to use.
+#![cfg(test)]
+
 use crate::component::Component;
 use crate::entity::Entity;
-use crate::event::Events;
 use crate::schedule::{Stage, SystemStage};
 use crate::system::{In, IntoChainSystem, IntoSystem};
-use crate::world::{FilterFetch, Mut, Resource, World, WorldQuery};
+use crate::world::{FilterFetch, Resource, World, WorldQuery};
 use std::fmt::Debug;
 
 impl World {
@@ -48,32 +49,6 @@ impl World {
                 );
             }
         }
-    }
-
-    /// Returns the number of entities found by the [`Query`](crate::system::Query) with the type parameters `Q` and `F`
-    pub fn query_len<Q, F>(&mut self) -> usize
-    where
-        Q: WorldQuery,
-        F: WorldQuery,
-        <F as WorldQuery>::Fetch: FilterFetch,
-    {
-        let mut query_state = self.query_filtered::<Q, F>();
-        query_state.iter(self).count()
-    }
-
-    /// Sends an `event` of type `E`
-    pub fn send_event<E: Resource>(&mut self, event: E) {
-        let mut events: Mut<Events<E>> = self.get_resource_mut()
-        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
-
-        events.send(event);
-    }
-
-    /// Returns the number of events of the type `E` that were sent this frame
-    pub fn events_len<E: Resource + Debug>(&self) -> usize {
-        let events = self.get_resource::<Events<E>>().unwrap();
-
-        events.iter_current_update_events().count()
     }
 
     /// Asserts that when the supplied `system` is run on the world, its output will be `true`

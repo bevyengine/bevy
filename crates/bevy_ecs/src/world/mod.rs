@@ -14,6 +14,7 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
+    event::Events,
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
@@ -1142,6 +1143,35 @@ impl World {
         self.storages.sparse_sets.clear();
         self.archetypes.clear_entities();
         self.entities.clear();
+    }
+}
+
+// Testing-adjacent tools
+impl World {
+    /// Returns the number of entities found by the [`Query`](crate::system::Query) with the type parameters `Q` and `F`
+    pub fn query_len<Q, F>(&mut self) -> usize
+    where
+        Q: WorldQuery,
+        F: WorldQuery,
+        <F as WorldQuery>::Fetch: FilterFetch,
+    {
+        let mut query_state = self.query_filtered::<Q, F>();
+        query_state.iter(self).count()
+    }
+
+    /// Sends an `event` of type `E`
+    pub fn send_event<E: Resource>(&mut self, event: E) {
+        let mut events: Mut<Events<E>> = self.get_resource_mut()
+        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
+
+        events.send(event);
+    }
+
+    /// Returns the number of events of the type `E` that were sent this frame
+    pub fn events_len<E: Resource>(&self) -> usize {
+        let events = self.get_resource::<Events<E>>().unwrap();
+
+        events.iter_current_update_events().count()
     }
 }
 
