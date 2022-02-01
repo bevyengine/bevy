@@ -53,7 +53,7 @@ impl World {
     /// Asserts that when the supplied `system` is run on the world, its output will be `true`
     ///
     /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
-    /// Because we are generating a new system; these filters will always be true.
+    /// Because we are generating a new system, these filters will always be true.
     pub fn assert_system<T: 'static, E: 'static, Params>(
         &mut self,
         system: impl IntoSystem<(), Result<T, E>, Params>,
