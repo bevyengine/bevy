@@ -9,10 +9,12 @@ impl App {
     ///
     /// # Example
     /// ```rust
-    /// use bevy::prelude::*;
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// // The resource we want to check the value of
-    /// enum Toggle{
+    /// #[derive(PartialEq, Debug)]
+    /// enum Toggle {
     ///     On,
     ///     Off,
     /// }
@@ -20,7 +22,9 @@ impl App {
     /// let mut app = App::new();
     ///
     /// // This system modifies our resource
-    /// fn toggle_off()
+    /// fn toggle_off(mut toggle: ResMut<Toggle>) {
+    /// 	*toggle = Toggle::Off;
+    /// }
     ///
     /// app.insert_resource(Toggle::On).add_system(toggle_off);
     ///
@@ -46,7 +50,8 @@ impl App {
     ///
     /// # Example
     /// ```rust
-    /// use bevy::prelude::*;
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
     /// struct Player;
@@ -57,7 +62,7 @@ impl App {
     /// let mut app = App::new();
     ///
     /// fn spawn_player(mut commands: Commands){
-    /// 	commands.spawn().insert(Life(10).insert(Player);
+    /// 	commands.spawn().insert(Life(10)).insert(Player);
     /// }
     ///
     /// app.add_startup_system(spawn_player);
@@ -84,20 +89,21 @@ impl App {
     ///
     /// # Example
     /// ```rust
-    /// use bevy::prelude::*;
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
     ///
-    /// let app = App::new();
+    /// let mut app = App::new();
     ///
     /// struct Message(String);
     ///
-    /// fn print_messages(messages: EventReader<Message>){
+    /// fn print_messages(mut messages: EventReader<Message>){
     /// 	for message in messages.iter(){
-    /// 		println!(message);
+    /// 		println!("{}", message.0);
     /// 	}
     /// }
     ///
     /// app.add_event::<Message>().add_system(print_messages);
-    /// app.send_event(Message("Hello!"));
+    /// app.send_event(Message("Hello!".to_string()));
     ///
     /// // Says "Hello!"
     /// app.update();
@@ -113,12 +119,15 @@ impl App {
     ///
     /// # Example
     /// ```rust
-    /// use bevy_app::App;
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// // An event type
+    /// #[derive(Debug)]
     ///	struct SelfDestruct;
     ///
-    /// let mut app = App::new().add_event::<SelfDestruct>();
+    /// let mut app = App::new();
+    /// app.add_event::<SelfDestruct>();
     /// app.assert_n_events::<SelfDestruct>(0);
     ///
     /// app.send_event(SelfDestruct);
@@ -128,7 +137,7 @@ impl App {
     /// app.update();
     /// app.assert_n_events::<SelfDestruct>(0);
     /// ```
-    pub fn assert_n_events<E: Resource + PartialEq + Debug>(&self, n: usize) {
+    pub fn assert_n_events<E: Resource + Debug>(&self, n: usize) {
         self.world.assert_n_events::<E>(n);
     }
 
@@ -139,7 +148,8 @@ impl App {
     ///
     /// # Example
     /// ```rust
-    /// use bevy::prelude::*;
+    /// # use bevy_app::App;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
     /// struct Player;
@@ -153,7 +163,7 @@ impl App {
     /// let mut app = App::new();
     ///
     /// fn spawn_player(mut commands: Commands){
-    /// 	commands.spawn().insert(Life(10).insert(Player);
+    /// 	commands.spawn().insert(Life(10)).insert(Player);
     /// }
     ///
     /// fn massive_damage(mut query: Query<&mut Life>){
@@ -162,7 +172,7 @@ impl App {
     /// 	}
     /// }
     ///
-    /// fn kill_units(query: Query<Entity, &Life>, mut commands: Commands){
+    /// fn kill_units(query: Query<(Entity, &Life)>, mut commands: Commands){
     ///    for (entity, life) in query.iter(){
     /// 	  if life.0 == 0 {
     /// 		commands.entity(entity).insert(Dead);
@@ -179,7 +189,7 @@ impl App {
     /// app.update();
     ///
     /// // Run a complex assertion on the world using a system
-    /// fn zero_life_is_dead(query: Query<&Life, Option<&Dead>>) -> bool {
+    /// fn zero_life_is_dead(query: Query<(&Life, Option<&Dead>)>) -> bool {
     /// 	for (life, maybe_dead) in query.iter(){
     /// 		if life.0 == 0 {
     /// 			if maybe_dead.is_none(){

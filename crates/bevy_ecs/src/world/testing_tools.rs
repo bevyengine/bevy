@@ -45,7 +45,7 @@ impl World {
     }
 
     /// Asserts that the number of events of the type `E` that were sent this frame is exactly `n`
-    pub fn assert_n_events<E: Resource + PartialEq + Debug>(&self, n: usize) {
+    pub fn assert_n_events<E: Resource + Debug>(&self, n: usize) {
         let events = self.get_resource::<Events<E>>().unwrap();
 
         assert_eq!(events.iter_current_update_events().count(), n);
