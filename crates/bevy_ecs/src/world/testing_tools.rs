@@ -2,7 +2,6 @@
 //!
 //! Each of these methods has a corresponding method on `App`;
 //! in many cases, these are more convenient to use.
-#![cfg(test)]
 
 use crate::component::Component;
 use crate::entity::Entity;

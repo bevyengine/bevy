@@ -1,7 +1,6 @@
 //! Tools for convenient integration testing of the ECS.
 //!
 //! Each of these methods has a corresponding method on `World`.
-#![cfg(test)]
 
 use crate::App;
 use bevy_ecs::component::Component;
