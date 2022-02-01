@@ -90,18 +90,18 @@ impl App {
     /// // and life to regenerate once
     /// app.update();
     /// // The `()` value for `F` will result in an unfiltered query
-    /// app.assert_component_eq<()>(&Life(9));
+    /// app.assert_component_eq<Life, ()>(&Life(9));
     ///
     /// app.update();
     /// // Because all of our entities with the `Life` component also
     /// // have the `Player` component, these will be equivalent.
-    /// app.assert_component_eq<With<Player>>(Life(10));
+    /// app.assert_component_eq<Life, With<Player>>(Life(10));
     ///
     /// app.update();
     /// // Check that life regeneration caps at 10, as intended
     /// // Filtering by the component type you're looking for is useless,
     /// // but it's helpful to demonstrate composing query filters here
-    /// app.assert_component_eq<(With<Player>, With<Life>)>(&Life(10));
+    /// app.assert_component_eq<Life, (With<Player>, With<Life>)>(&Life(10));
     /// ```
     pub fn assert_component_eq<C, F>(&mut self, value: &C)
     where
