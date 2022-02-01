@@ -60,12 +60,12 @@ impl World {
         system: impl IntoSystem<(), Result<T, E>, Params>,
     ) {
         let mut stage = SystemStage::single_threaded();
-        stage.add_system(system.chain(assert_system_input_true));
+        stage.add_system(system.chain(assert_input_system_ok));
         stage.run(self);
     }
 }
 
-/// A chainable system that panics if its `input` is not okay
-fn assert_system_input_true<T, E>(In(result): In<Result<T, E>>) {
+/// A chainable system that panics if its `input`'s [`Result`] is not okay
+fn assert_input_system_ok<T, E>(In(result): In<Result<T, E>>) {
     assert!(result.is_ok());
 }
