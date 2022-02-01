@@ -80,10 +80,53 @@ impl App {
         self.world.assert_n_in_query::<Q, F>(n);
     }
 
+    /// Sends an `event` of type `E`
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy::prelude::*;
+    ///
+    /// let app = App::new();
+    ///
+    /// struct Message(String);
+    ///
+    /// fn print_messages(messages: EventReader<Message>){
+    /// 	for message in messages.iter(){
+    /// 		println!(message);
+    /// 	}
+    /// }
+    ///
+    /// app.add_event::<Message>().add_system(print_messages);
+    /// app.send_event(Message("Hello!"));
+    ///
+    /// // Says "Hello!"
+    /// app.update();
+    ///
+    /// // All the events have been processed
+    /// app.update();
+    /// ```
+    pub fn send_event<E: Resource>(&mut self, event: E) {
+        self.world.send_event(event);
+    }
+
     /// Asserts that the number of events of the type `E` that were sent this frame is exactly `n`
     ///
     /// # Example
     /// ```rust
+    /// use bevy_app::App;
+    ///
+    /// // An event type
+    ///	struct SelfDestruct;
+    ///
+    /// let mut app = App::new().add_event::<SelfDestruct>();
+    /// app.assert_n_events::<SelfDestruct>(0);
+    ///
+    /// app.send_event(SelfDestruct);
+    /// app.assert_n_events::<SelfDestruct>(1);
+    ///
+    /// // Time passes
+    /// app.update();
+    /// app.assert_n_events::<SelfDestruct>(0);
     /// ```
     pub fn assert_n_events<E: Resource + PartialEq + Debug>(&self, n: usize) {
         self.world.assert_n_events::<E>(n);

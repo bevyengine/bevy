@@ -5,7 +5,7 @@
 use crate::event::Events;
 use crate::schedule::{Stage, SystemStage};
 use crate::system::{In, IntoChainSystem, IntoSystem};
-use crate::world::{FilterFetch, Resource, World, WorldQuery};
+use crate::world::{FilterFetch, Mut, Resource, World, WorldQuery};
 use std::fmt::Debug;
 
 impl World {
@@ -34,6 +34,14 @@ impl World {
     {
         let mut query_state = self.query_filtered::<Q, F>();
         assert_eq!(query_state.iter(self).count(), n);
+    }
+
+    /// Sends an `event` of type `E`
+    pub fn send_event<E: Resource>(&mut self, event: E) {
+        let mut events: Mut<Events<E>> = self.get_resource_mut()
+        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
+
+        events.send(event);
     }
 
     /// Asserts that the number of events of the type `E` that were sent this frame is exactly `n`
