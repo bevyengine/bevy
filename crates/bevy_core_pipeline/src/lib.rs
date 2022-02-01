@@ -35,7 +35,9 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-/// Resource that configures the clear color
+/// The color that is used to clear the screen between frames.
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered over top.
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
