@@ -22,32 +22,6 @@ impl World {
         assert_eq!(*resource, value);
     }
 
-    /// Asserts that each item returned by the provided query is equal to the provided `value`
-    pub fn assert_query_items_eq<'w, 's1, 's2, Q, F>(
-        // Reference to the world must live at least as long as the query state
-        // FIXME: first lifetime points to lifetime on &mut self
-        &'s2 mut self,
-        // Reference to the value must live at least as long as the query state
-        // FIXME: Second lifetime points to lifetime on Item
-        value: &'s2 <Q::ReadOnlyFetch as Fetch<'w, 's2>>::Item,
-    ) where
-        Q: WorldQuery,
-        F: WorldQuery,
-        <Q::ReadOnlyFetch as Fetch<'w, 's1>>::Item: PartialEq + Debug,
-        <F as WorldQuery>::Fetch: FilterFetch,
-        // World must outlive query state
-        'w: 's1,
-        'w: 's2,
-    {
-        let mut query_state = self.query_filtered::<Q, F>();
-        for item in query_state.iter(self) {
-            // item has lifetimes 'w, 's1
-            // value has lifetimes 'w, 's2
-            // FIXME: the lifetime `'s1` does not necessarily outlive the lifetime `'s2`
-            assert_eq!(item, *value);
-        }
-    }
-
     /// Asserts that the number of entities returned by the query is exactly `n`
     pub fn assert_n_in_query<Q, F>(&mut self, n: usize)
     where
