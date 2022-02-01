@@ -23,20 +23,28 @@ impl World {
     }
 
     /// Asserts that each item returned by the provided query is equal to the provided `value`
-    pub fn assert_query_eq<'w, 's, Q, F>(
-        &'s mut self,
-        value: <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
+    pub fn assert_query_items_eq<'w, 's1, 's2, Q, F>(
+        // Reference to the world must live at least as long as the query state
+        // FIXME: first lifetime points to lifetime on &mut self
+        &'s2 mut self,
+        // Reference to the value must live at least as long as the query state
+        // FIXME: Second lifetime points to lifetime on Item
+        value: &'s2 <Q::ReadOnlyFetch as Fetch<'w, 's2>>::Item,
     ) where
         Q: WorldQuery,
         F: WorldQuery,
-        <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item: PartialEq + Debug,
+        <Q::ReadOnlyFetch as Fetch<'w, 's1>>::Item: PartialEq + Debug,
         <F as WorldQuery>::Fetch: FilterFetch,
+        // World must outlive query state
+        'w: 's1,
+        'w: 's2,
     {
-        let query_state = self.query_filtered::<Q, F>();
+        let mut query_state = self.query_filtered::<Q, F>();
         for item in query_state.iter(self) {
-            // FIXME: lifetime mismatch
-            // ...but data from `self` flows into `value` here
-            assert_eq!(item, value);
+            // item has lifetimes 'w, 's1
+            // value has lifetimes 'w, 's2
+            // FIXME: the lifetime `'s1` does not necessarily outlive the lifetime `'s2`
+            assert_eq!(item, *value);
         }
     }
 
@@ -47,7 +55,7 @@ impl World {
         F: WorldQuery,
         <F as WorldQuery>::Fetch: FilterFetch,
     {
-        let query_state = self.query_filtered::<Q, F>();
+        let mut query_state = self.query_filtered::<Q, F>();
         assert_eq!(query_state.iter(self).count(), n);
     }
 
