@@ -5,6 +5,9 @@
 //!
 //! You can easily reuse functionality between your tests and game by organizing your logic with plugins,
 //! and then use direct methods on `App` / `World` to set up test scenarios.
+//!
+//! There are many helpful assertion methods on [`App`] that correspond to methods on [`World`];
+//! browse the docs to discover more!
 
 use bevy::{
     input::{ElementState, InputPlugin},
@@ -112,18 +115,14 @@ fn player_does_not_fall_through_floor() {
 
     // The player should start on the floor
     app.update();
-    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.single();
-    assert!(player_transform.translation.y == 0.0);
+    app.assert_component_eq::<With<Player>>(Transform::from_xyz(0.0, 0.0, 0.0));
 
     // Even after some time, the player should not fall through the floor
     for _ in 0..3 {
         app.update();
     }
 
-    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.single();
-    assert!(player_transform.translation.y == 0.0);
+    app.assert_component_eq::<With<Player>>(Transform::from_xyz(0.0, 0.0, 0.0));
 
     // If we drop the player from a height, they should eventually come to rest on the floor
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
@@ -136,9 +135,7 @@ fn player_does_not_fall_through_floor() {
     }
 
     // The player should have landed by now
-    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.single();
-    assert!(player_transform.translation.y == 0.0);
+    app.assert_component_eq::<With<Player>>(Transform::from_xyz(0.0, 0.0, 0.0));
 }
 
 #[test]

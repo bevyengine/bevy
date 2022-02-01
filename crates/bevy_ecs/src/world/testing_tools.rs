@@ -2,6 +2,8 @@
 //!
 //! Each of these methods has a corresponding method on `App`;
 //! in many cases, these are more convenient to use.
+use crate::component::Component;
+use crate::entity::Entity;
 use crate::event::Events;
 use crate::schedule::{Stage, SystemStage};
 use crate::system::{In, IntoChainSystem, IntoSystem};
@@ -23,6 +25,23 @@ impl World {
             .get_non_send_resource::<NS>()
             .expect("No non-send resource matching the type of {value} was found in the world.");
         assert_eq!(*resource, value);
+    }
+
+    /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
+    pub fn assert_component_eq<C, F>(&mut self, value: &C)
+    where
+        C: Component + PartialEq + Debug,
+        F: WorldQuery,
+        <F as WorldQuery>::Fetch: FilterFetch,
+    {
+        let mut query_state = self.query_filtered::<(Entity, &C), F>();
+        for (entity, component) in query_state.iter(&self) {
+            if component != value {
+                panic!(
+                    "Found component {component:?} for {entity:?}, but was expecting {value:?}."
+                );
+            }
+        }
     }
 
     /// Asserts that the number of entities returned by the query is exactly `n`

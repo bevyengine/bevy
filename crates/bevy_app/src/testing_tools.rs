@@ -1,4 +1,5 @@
 use crate::App;
+use bevy_ecs::component::Component;
 use bevy_ecs::query::{FilterFetch, WorldQuery};
 use bevy_ecs::system::IntoSystem;
 use bevy_ecs::system::Resource;
@@ -44,6 +45,16 @@ impl App {
     /// Asserts that that the current value of the non-send resource `NS` is `value`
     pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: NS) {
         self.world.assert_nonsend_resource_eq(value);
+    }
+
+    /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
+    pub fn assert_component_eq<C, F>(&mut self, value: &C)
+    where
+        C: Component + PartialEq + Debug,
+        F: WorldQuery,
+        <F as WorldQuery>::Fetch: FilterFetch,
+    {
+        self.world.assert_component_eq::<C, F>(value);
     }
 
     /// Asserts that the number of entities returned by the query is exactly `n`
