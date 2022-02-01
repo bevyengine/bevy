@@ -13,10 +13,12 @@ use bevy::{
     input::{ElementState, InputPlugin},
     prelude::*,
 };
-use game::GamePlugin;
+use game::{GamePlugin, Player, Velocity};
 
 // This module represents the code defined in your `src` folder, and exported from your project
 mod game {
+    use bevy::prelude::*;
+
     pub struct GamePlugin;
 
     impl Plugin for GamePlugin {
@@ -30,10 +32,10 @@ mod game {
     }
 
     #[derive(Component)]
-    struct Player;
+    pub struct Player;
 
     #[derive(Component, Default)]
-    struct Velocity(Vec3);
+    pub struct Velocity(Vec3);
 
     // These systems don't need to be `pub`, as they're hidden within your plugin
     fn spawn_player(mut commands: Commands) {
