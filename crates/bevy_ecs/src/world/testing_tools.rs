@@ -55,14 +55,17 @@ impl World {
     ///
     /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
     /// Because we are generating a new system; these filters will always be true.
-    pub fn assert_system<Params>(&mut self, system: impl IntoSystem<(), bool, Params>) {
+    pub fn assert_system<T: 'static, E: 'static, Params>(
+        &mut self,
+        system: impl IntoSystem<(), Result<T, E>, Params>,
+    ) {
         let mut stage = SystemStage::single_threaded();
         stage.add_system(system.chain(assert_system_input_true));
         stage.run(self);
     }
 }
 
-/// A chainable system that panics if its `input` is not `true`
-fn assert_system_input_true(In(result): In<bool>) {
-    assert!(result);
+/// A chainable system that panics if its `input` is not okay
+fn assert_system_input_true<T, E>(In(result): In<Result<T, E>>) {
+    assert!(result.is_ok());
 }

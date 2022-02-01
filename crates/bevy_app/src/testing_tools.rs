@@ -141,10 +141,16 @@ impl App {
         self.world.assert_n_events::<E>(n);
     }
 
-    /// Asserts that when the supplied `system` is run on the world, its output will be `true`
+    /// Asserts that when the supplied `system` is run on the world, its output will be `Ok`
     ///
-    /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
-    /// Because we are generating a new system; these filters will always be true.
+    /// The `system` must return a `Result`: if the return value is an error the app will panic.
+    ///
+    /// For more sophisticated error-handling, consider adding the system directly to the schedule
+    /// and using [system chaining](bevy_ecs::prelude::IntoChainSystem) to handle the result yourself.
+    ///
+    /// WARNING: [`Changed`](bevy_ecs::query::Changed) and [`Added`](bevy_ecs::query::Added) filters
+    /// are computed relative to "the last time this system ran".
+    /// Because we are running a new system; these filters will always be true.
     ///
     /// # Example
     /// ```rust
@@ -188,18 +194,23 @@ impl App {
     /// // and ordinary systems to run once
     /// app.update();
     ///
+    /// enum DeathError {
+    /// 	ZeroLifeIsNotDead,
+    /// 	DeadWithNonZeroLife,
+    /// }
+    ///
     /// // Run a complex assertion on the world using a system
-    /// fn zero_life_is_dead(query: Query<(&Life, Option<&Dead>)>) -> bool {
+    /// fn zero_life_is_dead(query: Query<(&Life, Option<&Dead>)>) -> Result<(), DeathError> {
     ///     for (life, maybe_dead) in query.iter(){
     ///        if life.0 == 0 {
     ///            if maybe_dead.is_none(){
-    ///                return false;
+    ///                return Err(DeathError::ZeroLifeIsNotDead);
     ///            }
     ///         }
     ///
     ///         if maybe_dead.is_some(){
     ///             if life.0 != 0 {
-    ///                 return false;
+    ///                return Err(DeathError::DeadWithNonZeroLife);
     ///             }
     ///         }
     ///     }
@@ -208,9 +219,12 @@ impl App {
     /// }
     ///
     /// app.update();
-    /// app.assert_system(zero_life_is_dead);
+    /// app.assert_system(zero_life_is_dead, None);
     /// ```
-    pub fn assert_system<Params>(&mut self, system: impl IntoSystem<(), bool, Params>) {
+    pub fn assert_system<T: 'static, E: 'static, SystemParams>(
+        &mut self,
+        system: impl IntoSystem<(), Result<T, E>, SystemParams>,
+    ) {
         self.world.assert_system(system);
     }
 }
