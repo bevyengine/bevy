@@ -1,8 +1,8 @@
 //! This example illustrates how to handle window resize event
 
+use bevy::input::system::exit_on_esc_system;
 use bevy::prelude::*;
 use bevy::window::WindowResized;
-use bevy::input::system::exit_on_esc_system;
 
 fn main() {
     App::new()
