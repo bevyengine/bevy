@@ -6,41 +6,165 @@
 //! You can easily reuse functionality between your tests and game by organizing your logic with plugins,
 //! and then use direct methods on `App` / `World` to set up test scenarios.
 
-use bevy::prelude::*;
+use bevy::{
+    input::{ElementState, InputPlugin},
+    prelude::*,
+};
+use game::GamePlugin;
 
-// This plugin should be defined in your `src` folder, and exported from your project
-pub struct GamePlugin;
+// This module represents the code defined in your `src` folder, and exported from your project
+mod game {
+    pub struct GamePlugin;
 
-impl Plugin for GamePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_player)
-            .add_system(jump)
-            .add_system(gravity)
-            .add_system(apply_velocity)
-            .add_system_to_stage(CoreStage::PostUpdate, clamp_position);
+    impl Plugin for GamePlugin {
+        fn build(&self, app: &mut App) {
+            app.add_startup_system(spawn_player)
+                .add_system(jump)
+                .add_system(gravity)
+                .add_system(apply_velocity)
+                .add_system_to_stage(CoreStage::PostUpdate, clamp_position);
+        }
+    }
+
+    #[derive(Component)]
+    struct Player;
+
+    #[derive(Component, Default)]
+    struct Velocity(Vec3);
+
+    // These systems don't need to be `pub`, as they're hidden within your plugin
+    fn spawn_player(mut commands: Commands) {
+        commands
+            .spawn()
+            .insert(Player)
+            .insert(Transform::default())
+            .insert(Velocity::default());
+    }
+
+    fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
+        for (mut transform, velocity) in query.iter_mut() {
+            transform.translation += velocity.0;
+        }
+    }
+
+    fn jump(mut query: Query<&mut Velocity, With<Player>>, keyboard_input: Res<Input<KeyCode>>) {
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            let mut player_velocity = query.single_mut();
+            player_velocity.0.y += 10.0;
+        }
+    }
+
+    fn gravity(mut query: Query<(&mut Velocity, &Transform)>) {
+        for (mut velocity, transform) in query.iter_mut() {
+            if transform.translation.y >= 0.0 {
+                velocity.0.y -= 1.0;
+            }
+        }
+    }
+
+    /// Players should not fall through the floor
+    fn clamp_position(mut query: Query<(&mut Velocity, &mut Transform)>) {
+        for (mut velocity, mut transform) in query.iter() {
+            if transform.translation.y <= 0.0 {
+                velocity.0.y = 0.0;
+                transform.translation.y == 0.0;
+            }
+        }
     }
 }
 
-#[derive(Component)]
-struct Player;
-
-#[derive(Component, Default)]
-struct Velocity(Vec3);
-
-// These systems don't need to be `pub`, as they're hidden within your plugin
-fn spawn_player(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(Player)
-        .insert(Transform::default())
-        .insert(Velocity::default());
+/// A convenenience method to reduce code duplication in tests
+fn test_app() -> App {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins).add_plugin(GamePlugin);
+    app
 }
 
-fn apply_velocity(query: Query<(&mut Transform, &Velocity)>) {}
+#[test]
+fn player_falls() {
+    let mut app = test_app();
 
-fn jump() {}
+    // Allowing the game to initialize,
+    // running all systems in the schedule once
+    app.update();
 
-fn gravity() {}
+    // Moving the player up
+    let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
+    let mut player_transform = player_query.single_mut();
+    player_transform.translation.y = 3.0;
 
-/// Players should not fall through the floor
-fn clamp_position() {}
+    // Running the app again
+    // This should cause gravity to take effect and make the player fall
+    app.update();
+
+    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
+    let player_transform = player_query.single();
+
+    // When possible, try to make assertions about behavior, rather than detailed outcomes
+    // This will help make your tests robust to irrelevant changes
+    assert!(player_transform.translation.y < 3.0);
+}
+
+#[test]
+fn player_does_not_fall_through_floor() {
+    // From the `player_falls` test, we know that gravity is working
+    let mut app = test_app();
+
+    // The player should start on the floor
+    app.update();
+    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
+    let player_transform = player_query.single();
+    assert!(player_transform.translation.y == 0.0);
+
+    // Even after some time, the player should not fall through the floor
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
+    let player_transform = player_query.single();
+    assert!(player_transform.translation.y == 0.0);
+
+    // If we drop the player from a height, they should eventually come to rest on the floor
+    let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
+    let mut player_transform = player_query.single_mut();
+    player_transform.translation.y = 10.0;
+
+    // A while later...
+    for _ in 0..10 {
+        app.update();
+    }
+
+    // The player should have landed by now
+    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
+    let player_transform = player_query.single();
+    assert!(player_transform.translation.y == 0.0);
+}
+
+#[test]
+fn jumping_moves_player_upwards() {
+    let mut app = test_app();
+
+    // We need to make sure to enable the standard input systems for this test
+    app.add_plugin(InputPlugin);
+
+    // Spawn everything in
+    app.update();
+
+    // Send a maximally realistic keyboard input
+    // In most cases, it's sufficient to just press the correct value of the `Input<KeyCode>` resource
+    app.send_event(KeyBoardInput {
+        // The scan code represents the physical button pressed
+        //
+        // In the case of "Space", this is commonly 44.
+        scan_code: 44,
+        // The KeyCode is the "logical key" that the input represents
+        key_code: Some(KeyCode::Space),
+        state: ElementState::Pressed,
+    });
+
+    // Check that the player has moved upwards due to jumping
+    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
+    let player_transform = player_query.single();
+    assert!(player_transform.translation.y > 0.0);
+}
