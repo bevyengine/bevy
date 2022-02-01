@@ -41,7 +41,7 @@ impl World {
         <F as WorldQuery>::Fetch: FilterFetch,
     {
         let mut query_state = self.query_filtered::<(Entity, &C), F>();
-        for (entity, component) in query_state.iter(&self) {
+        for (entity, component) in query_state.iter(self) {
             if component != value {
                 panic!(
                     "Found component {component:?} for {entity:?}, but was expecting {value:?}."
