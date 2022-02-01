@@ -43,7 +43,7 @@ impl<T> fmt::Debug for EventId<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct EventInstance<T> {
     pub event_id: EventId<T>,
     pub event: T,
