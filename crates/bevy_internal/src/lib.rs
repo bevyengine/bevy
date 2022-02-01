@@ -113,6 +113,7 @@ pub mod pbr {
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
+    //! Information about the current renderer can be accessed through the resource [`renderer::RendererInfo`].
     pub use bevy_render::*;
 }
 
