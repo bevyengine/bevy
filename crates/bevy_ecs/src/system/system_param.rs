@@ -1256,19 +1256,57 @@ pub mod lifetimeless {
 
 /// A helper for using system parameters in generic contexts
 ///
-/// This type is a system parameter which is statically proven to have
-/// `Self::Fetch::Item == Self` (ignoring lifetimes for brevity)
+/// This type is a [`SystemParam`] adapter which always has
+/// `Self::Fetch::Item == Self` (ignoring lifetimes for brevity),
+/// no matter the argument [`SystemParam`] (`P`) (other than
+/// that `P` must be `'static`)
+///
+/// This makes it useful for having arbitrary [`SystemParam`] type arguments
+/// to function systems, or for generic types using the [`derive@SystemParam`]
+/// derive:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, StaticSystemParam};
-///
+/// #[derive(SystemParam)]
+/// struct GenericParam<'w,'s, T: SystemParam + 'static> {
+///     field: StaticSystemParam<'w, 's, T>,
+/// }
 /// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
 ///
-/// fn test_always_is<T: SystemParam + 'static>(){
+/// fn check_always_is_system<T: SystemParam + 'static>(){
 ///     do_thing_generically::<T>.system();
 /// }
 /// ```
+/// Note that in a real case you'd generally want
+/// additional bounds on `P`, for your use of the parameter
+/// to have a reason to be generic.
+///
+/// For example, using this would allow a type to be generic over
+/// whether a resource is accessed mutably or not, with
+/// impls being bounded on [`P: Deref<Target=MyType>`](Deref), and
+/// [`P: DerefMut<Target=MyType>`](DerefMut) depending on whether the
+/// method requires mutable access or not.
+///
+/// The method which doesn't use this type will not compile:
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::{SystemParam, StaticSystemParam};
+///
+/// fn do_thing_generically<T: SystemParam + 'static>(t: T) {}
+///
+/// #[derive(SystemParam)]
+/// struct GenericParam<'w,'s, T: SystemParam> {
+///     field: T,
+///     #[system_param(ignore)]
+///     // Use the lifetimes, as the `SystemParam` derive requires them
+///     phantom: core::marker::PhantomData<&'w &'s ()>
+/// }
+/// # fn check_always_is_system<T: SystemParam + 'static>(){
+/// #    do_thing_generically::<T>.system();
+/// # }
+/// ```
+///
 pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
 
 impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
@@ -1286,12 +1324,20 @@ impl<'w, 's, P: SystemParam> DerefMut for StaticSystemParam<'w, 's, P> {
 }
 
 impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
-    pub fn inner(self) -> SystemParamItem<'w, 's, P> {
+    /// Get the value of the parameter
+    pub fn into_inner(self) -> SystemParamItem<'w, 's, P> {
         self.0
     }
 }
 
+/// The [`SystemParamState`] of [`SystemChangeTick`].
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
+
+// Safe: This doesn't add any more reads, and the delegated fetch confirms it
+unsafe impl<'w, 's, S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
+    for StaticSystemParamState<S, P>
+{
+}
 
 impl<'world, 'state, P: SystemParam + 'static> SystemParam
     for StaticSystemParam<'world, 'state, P>
@@ -1312,6 +1358,7 @@ where
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item {
+        // Safe: We properly delegate SystemParamState
         StaticSystemParam(S::get_param(&mut state.0, system_meta, world, change_tick))
     }
 }

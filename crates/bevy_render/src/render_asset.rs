@@ -143,7 +143,7 @@ fn prepare_assets<R: RenderAsset>(
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
     param: StaticSystemParam<<R as RenderAsset>::Param>,
 ) {
-    let mut param = param.inner();
+    let mut param = param.into_inner();
     let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, extracted_asset) in queued_assets.drain(..) {
         match R::prepare_asset(extracted_asset, &mut param) {
