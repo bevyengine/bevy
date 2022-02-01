@@ -153,7 +153,7 @@ impl App {
     ///     for (entity, life) in query.iter(){
     ///         if life.0 == 0 {
     ///             commands.entity(entity).insert(Dead);
-    /// 	    }
+    ///         }
     ///     }
     /// }
     ///
