@@ -203,6 +203,55 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns an [`EntityCommands`] for the requested [`Entity`].
+    ///
+    /// In case of a nonexisting entity, a [`None`] is
+    /// returned instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with the needed component bundle
+    ///     let entity = commands
+    ///     .spawn_bundle((Strength(1), Agility(2)))
+    ///     .id();
+    ///     // Check (most likely in another System) if the entity still/already exists
+    ///     if let Some(entity_builder) = commands.get_entity(entity) {
+    ///         entity_builder
+    ///         // adds a new component to the entity
+    ///         .insert(Label("hello world"));
+    ///     } else {
+    ///         commands
+    ///         // adds the needed component bundle to the entity
+    ///         .spawn_bundle((Strength(1), Agility(2)))
+    ///         //adds the new component to the entity
+    ///         .insert(Label("hello world"));
+    ///     }
+    /// }
+    /// # example_system.system();
+    /// ```
+    #[track_caller]
+    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+        if self.entities.contains(entity) {
+            Some(EntityCommands {
+                entity,
+                commands: self,
+            })
+        } else {
+            None
+        }
+    }
+
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
     /// be converted to it).
     ///
