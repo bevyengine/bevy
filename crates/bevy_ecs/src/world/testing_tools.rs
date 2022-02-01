@@ -1,8 +1,11 @@
+//! Tools for convenient integration testing of the ECS.
+//!
+//! Each of these methods has a corresponding method on `App`;
+//! in many cases, these are more convenient to use.
 use crate::event::Events;
-use crate::query::{Fetch, WorldQuery};
 use crate::schedule::{Stage, SystemStage};
 use crate::system::{In, IntoChainSystem, IntoSystem};
-use crate::world::{FilterFetch, Resource, World};
+use crate::world::{FilterFetch, Resource, World, WorldQuery};
 use std::fmt::Debug;
 
 impl World {
@@ -41,6 +44,9 @@ impl World {
     }
 
     /// Asserts that when the supplied `system` is run on the world, its output will be `true`
+    ///
+    /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
+    /// Because we are generating a new system; these filters will always be true.
     pub fn assert_system<Params>(&mut self, system: impl IntoSystem<(), bool, Params>) {
         let mut stage = SystemStage::single_threaded();
         stage.add_system(system.chain(assert_system_input_true));
