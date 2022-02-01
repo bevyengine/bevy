@@ -197,3 +197,4 @@ pub struct ReflectMut<'a> {
 
 #[cfg(feature = "bevy_reflect")]
 change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
+impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
