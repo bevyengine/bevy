@@ -69,8 +69,6 @@ impl<T: Inputlike> Default for Input<T> {
 }
 
 impl<T: Inputlike> Input<T>
-where
-    T: Copy + Eq + Hash,
 {
     /// Register a press for input `input`.
     #[inline]
