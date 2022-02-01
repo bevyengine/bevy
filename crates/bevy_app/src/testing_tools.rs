@@ -23,7 +23,7 @@ impl App {
     ///
     /// // This system modifies our resource
     /// fn toggle_off(mut toggle: ResMut<Toggle>) {
-    /// 	*toggle = Toggle::Off;
+    ///     *toggle = Toggle::Off;
     /// }
     ///
     /// app.insert_resource(Toggle::On).add_system(toggle_off);
@@ -62,7 +62,7 @@ impl App {
     /// let mut app = App::new();
     ///
     /// fn spawn_player(mut commands: Commands){
-    /// 	commands.spawn().insert(Life(10)).insert(Player);
+    ///     commands.spawn().insert(Life(10)).insert(Player);
     /// }
     ///
     /// app.add_startup_system(spawn_player);
@@ -97,9 +97,9 @@ impl App {
     /// struct Message(String);
     ///
     /// fn print_messages(mut messages: EventReader<Message>){
-    /// 	for message in messages.iter(){
-    /// 		println!("{}", message.0);
-    /// 	}
+    ///     for message in messages.iter(){
+    ///         println!("{}", message.0);
+    ///     }
     /// }
     ///
     /// app.add_event::<Message>().add_system(print_messages);
@@ -163,21 +163,21 @@ impl App {
     /// let mut app = App::new();
     ///
     /// fn spawn_player(mut commands: Commands){
-    /// 	commands.spawn().insert(Life(10)).insert(Player);
+    ///     commands.spawn().insert(Life(10)).insert(Player);
     /// }
     ///
     /// fn massive_damage(mut query: Query<&mut Life>){
-    /// 	for mut life in query.iter_mut(){
-    /// 		life.0 -= 9001;
-    /// 	}
+    ///     for mut life in query.iter_mut(){
+    ///         life.0 -= 9001;
+    ///     }
     /// }
     ///
     /// fn kill_units(query: Query<(Entity, &Life)>, mut commands: Commands){
-    ///    for (entity, life) in query.iter(){
-    /// 	  if life.0 == 0 {
-    /// 		commands.entity(entity).insert(Dead);
-    /// 	  }
-    ///    }
+    ///     for (entity, life) in query.iter(){
+    ///         if life.0 == 0 {
+    /// 		    commands.entity(entity).insert(Dead);
+    /// 	    }
+    ///     }
     /// }
     ///
     /// app.add_startup_system(spawn_player)
@@ -190,21 +190,21 @@ impl App {
     ///
     /// // Run a complex assertion on the world using a system
     /// fn zero_life_is_dead(query: Query<(&Life, Option<&Dead>)>) -> bool {
-    /// 	for (life, maybe_dead) in query.iter(){
-    /// 		if life.0 == 0 {
-    /// 			if maybe_dead.is_none(){
-    /// 				return false;
-    /// 			}
-    /// 		}
+    ///     for (life, maybe_dead) in query.iter(){
+    ///        if life.0 == 0 {
+    ///            if maybe_dead.is_none(){
+    ///                return false;
+    ///            }
+    ///         }
     ///
-    /// 		if maybe_dead.is_some(){
-    /// 			if life.0 != 0 {
-    /// 				return false;
-    /// 			}
-    /// 		}
-    /// 	}
+    ///         if maybe_dead.is_some(){
+    ///             if life.0 != 0 {
+    ///                 return false;
+    ///             }
+    ///         }
+    ///     }
     /// 	// None of our checks failed, so our world state is clean
-    /// 	true
+    ///     true
     /// }
     ///
     /// app.update();
