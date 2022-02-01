@@ -78,7 +78,7 @@ mod game {
     }
 }
 
-/// A convenenience method to reduce code duplication in tests
+/// A convenience method to reduce code duplication in tests
 fn test_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins).add_plugin(GamePlugin);
