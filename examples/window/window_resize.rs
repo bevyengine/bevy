@@ -18,6 +18,6 @@ fn main() {
 
 pub fn on_resize_system(mut resize_reader: EventReader<WindowResized>) {
     for e in resize_reader.iter() {
-       println!("event {:?}", e);
+        println!("event {:?}", e);
     }
 }
