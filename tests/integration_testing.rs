@@ -10,7 +10,7 @@
 //! browse the docs to discover more!
 
 use bevy::{
-    input::{ElementState, InputPlugin},
+    input::{keyboard::KeyboardInput, ElementState, InputPlugin},
     prelude::*,
 };
 use game::{GamePlugin, Player, Velocity};
@@ -154,7 +154,7 @@ fn jumping_moves_player_upwards() {
 
     // Send a maximally realistic keyboard input
     // In most cases, it's sufficient to just press the correct value of the `Input<KeyCode>` resource
-    app.send_event(KeyBoardInput {
+    app.send_event(KeyboardInput {
         // The scan code represents the physical button pressed
         //
         // In the case of "Space", this is commonly 44.
