@@ -1169,7 +1169,8 @@ impl World {
 
     /// Returns the number of events of the type `E` that were sent this frame
     pub fn events_len<E: Resource>(&self) -> usize {
-        let events = self.get_resource::<Events<E>>().unwrap();
+        let events = self.get_resource::<Events<E>>()
+        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
 
         events.iter_current_update_events().count()
     }
