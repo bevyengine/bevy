@@ -991,7 +991,7 @@ impl App {
     ///
     /// // An event type
     /// #[derive(Debug)]
-    ///	struct SelfDestruct;
+    /// struct SelfDestruct;
     ///
     /// let mut app = App::new();
     /// app.add_event::<SelfDestruct>();

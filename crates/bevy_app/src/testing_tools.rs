@@ -152,7 +152,7 @@ impl App {
     /// fn kill_units(query: Query<(Entity, &Life)>, mut commands: Commands){
     ///     for (entity, life) in query.iter(){
     ///         if life.0 == 0 {
-    /// 		    commands.entity(entity).insert(Dead);
+    ///             commands.entity(entity).insert(Dead);
     /// 	    }
     ///     }
     /// }
@@ -166,8 +166,8 @@ impl App {
     /// app.update();
     ///
     /// enum DeathError {
-    /// 	ZeroLifeIsNotDead,
-    /// 	DeadWithNonZeroLife,
+    ///     ZeroLifeIsNotDead,
+    ///     DeadWithNonZeroLife,
     /// }
     ///
     /// // Run a complex assertion on the world using a system
@@ -185,7 +185,7 @@ impl App {
     ///             }
     ///         }
     ///     }
-    /// 	// None of our checks failed, so our world state is clean
+    ///     // None of our checks failed, so our world state is clean
     ///     true
     /// }
     ///
