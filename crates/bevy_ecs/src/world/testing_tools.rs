@@ -69,11 +69,11 @@ impl World {
         events.send(event);
     }
 
-    /// Asserts that the number of events of the type `E` that were sent this frame is exactly `n`
-    pub fn assert_n_events<E: Resource + Debug>(&self, n: usize) {
+    /// Returns the number of events of the type `E` that were sent this frame
+    pub fn events_len<E: Resource + Debug>(&self) -> usize {
         let events = self.get_resource::<Events<E>>().unwrap();
 
-        assert_eq!(events.iter_current_update_events().count(), n);
+        events.iter_current_update_events().count()
     }
 
     /// Asserts that when the supplied `system` is run on the world, its output will be `true`

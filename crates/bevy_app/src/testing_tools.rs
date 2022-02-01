@@ -190,17 +190,17 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.add_event::<SelfDestruct>();
-    /// app.assert_n_events::<SelfDestruct>(0);
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
     ///
     /// app.send_event(SelfDestruct);
-    /// app.assert_n_events::<SelfDestruct>(1);
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 1);
     ///
     /// // Time passes
     /// app.update();
-    /// app.assert_n_events::<SelfDestruct>(0);
+    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
     /// ```
-    pub fn assert_n_events<E: Resource + Debug>(&self, n: usize) {
-        self.world.assert_n_events::<E>(n);
+    pub fn events_len<E: Resource + Debug>(&self) -> usize {
+        self.world.events_len::<E>()
     }
 
     /// Asserts that when the supplied `system` is run on the world, its output will be `Ok`
