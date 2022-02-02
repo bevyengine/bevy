@@ -97,7 +97,7 @@ fn player_falls() {
 
     // Moving the player up
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
-    let mut player_transform = player_query.single_mut();
+    let mut player_transform = player_query.iter_mut(&app.world).next().unwrap();
     player_transform.translation.y = 3.0;
 
     // Running the app again
@@ -105,7 +105,7 @@ fn player_falls() {
     app.update();
 
     let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.single();
+    let player_transform = player_query..iter().next().unwrap();
 
     // When possible, try to make assertions about behavior, rather than detailed outcomes
     // This will help make your tests robust to irrelevant changes
@@ -130,7 +130,7 @@ fn player_does_not_fall_through_floor() {
 
     // If we drop the player from a height, they should eventually come to rest on the floor
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
-    let mut player_transform = player_query.single_mut();
+    let mut player_transform = player_query.iter(&app.world).next().unwrap();
     player_transform.translation.y = 10.0;
 
     // A while later...
@@ -166,6 +166,6 @@ fn jumping_moves_player_upwards() {
 
     // Check that the player has moved upwards due to jumping
     let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.single();
+    let player_transform = player_query.iter(&app.world).next().unwrap();
     assert!(player_transform.translation.y > 0.0);
 }
