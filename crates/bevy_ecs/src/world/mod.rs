@@ -1087,7 +1087,7 @@ impl World {
         }
     }
 
-    /// Empties queued entities and adds them to the empty [Archetype].
+    /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [Component].
     pub(crate) fn flush(&mut self) {
