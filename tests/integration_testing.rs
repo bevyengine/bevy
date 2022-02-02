@@ -9,10 +9,7 @@
 //! There are many helpful assertion methods on [`App`] that correspond to methods on [`World`];
 //! browse the docs to discover more!
 
-use bevy::{
-    input::{keyboard::KeyboardInput, ElementState, InputPlugin},
-    prelude::*,
-};
+use bevy::{input::InputPlugin, prelude::*};
 use game::{HighestJump, PhysicsPlugin, Player};
 
 // This module represents the code defined in your `src` folder, and exported from your project
@@ -176,17 +173,9 @@ fn jumping_moves_player_upwards() {
     // Spawn everything in
     app.update();
 
-    // Send a maximally realistic keyboard input
-    // In most cases, it's sufficient to just press the correct value of the `Input<KeyCode>` resource
-    app.send_event(KeyboardInput {
-        // The scan code represents the physical button pressed
-        //
-        // In the case of "Space", this is commonly 44.
-        scan_code: 44,
-        // The KeyCode is the "logical key" that the input represents
-        key_code: Some(KeyCode::Space),
-        state: ElementState::Pressed,
-    });
+    // Send a fake keyboard press
+    let mut keyboard_input: Mut<Input<KeyCode>> = app.world.get_resource_mut().unwrap();
+    keyboard_input.press(KeyCode::Space);
 
     // Check that the player has moved upwards due to jumping
     let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
