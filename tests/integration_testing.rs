@@ -126,8 +126,6 @@ fn player_falls() {
     // This will help make your tests robust to irrelevant changes
     assert!(player_transform.translation.y < 3.0);
     assert_eq!(app.world.get_resource(), Some(&HighestJump(3.0)));
-    // FIXME: decide whether or not to keep this method
-    app.assert_resource_eq(&HighestJump(3.0));
 }
 
 #[test]

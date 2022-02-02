@@ -6,51 +6,9 @@ use crate::App;
 use bevy_ecs::component::Component;
 use bevy_ecs::query::{FilterFetch, WorldQuery};
 use bevy_ecs::system::IntoSystem;
-use bevy_ecs::system::Resource;
 use std::fmt::Debug;
 
 impl App {
-    /// Asserts that the current value of the resource `R` is `value`
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_app::App;
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// // The resource we want to check the value of
-    /// #[derive(PartialEq, Debug)]
-    /// enum Toggle {
-    ///     On,
-    ///     Off,
-    /// }
-    ///
-    /// let mut app = App::new();
-    ///
-    /// // This system modifies our resource
-    /// fn toggle_off(mut toggle: ResMut<Toggle>) {
-    ///     *toggle = Toggle::Off;
-    /// }
-    ///
-    /// app.insert_resource(Toggle::On).add_system(toggle_off);
-    ///
-    /// // Checking that the resource was initialized correctly
-    /// app.assert_resource_eq(Toggle::On);
-    ///
-    /// // Run the `Schedule` once, causing our system to trigger
-    /// app.update();
-    ///
-    /// // Checking that our resource was modified correctly
-    /// app.assert_resource_eq(Toggle::Off);
-    /// ```
-    pub fn assert_resource_eq<R: Resource + PartialEq + Debug>(&self, value: &R) {
-        self.world.assert_resource_eq(value);
-    }
-
-    /// Asserts that the current value of the non-send resource `NS` is `value`
-    pub fn assert_nonsend_resource_eq<NS: 'static + PartialEq + Debug>(&self, value: &NS) {
-        self.world.assert_nonsend_resource_eq(value);
-    }
-
     /// Asserts that all components of type `C` returned by a query with the filter `F` will equal `value`
     ///
     /// This is commonly used with the corresponding `query_len` method to ensure that the returned query is not empty.
