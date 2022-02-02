@@ -13,7 +13,7 @@ use bevy::{
     input::{keyboard::KeyboardInput, ElementState, InputPlugin},
     prelude::*,
 };
-use game::{GamePlugin, Player, Velocity};
+use game::{GamePlugin, Player};
 
 // This module represents the code defined in your `src` folder, and exported from your project
 mod game {
@@ -69,10 +69,10 @@ mod game {
 
     /// Players should not fall through the floor
     fn clamp_position(mut query: Query<(&mut Velocity, &mut Transform)>) {
-        for (mut velocity, mut transform) in query.iter() {
+        for (mut velocity, mut transform) in query.iter_mut() {
             if transform.translation.y <= 0.0 {
                 velocity.0.y = 0.0;
-                transform.translation.y == 0.0;
+                transform.translation.y = 0.0;
             }
         }
     }
@@ -97,7 +97,7 @@ fn player_falls() {
 
     // Moving the player up
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
-    let mut player_transform = player_query.iter_mut(&app.world).next().unwrap();
+    let mut player_transform = player_query.iter_mut(&mut app.world).next().unwrap();
     player_transform.translation.y = 3.0;
 
     // Running the app again
@@ -105,7 +105,7 @@ fn player_falls() {
     app.update();
 
     let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query..iter().next().unwrap();
+    let player_transform = player_query.iter(&mut app.world).next().unwrap();
 
     // When possible, try to make assertions about behavior, rather than detailed outcomes
     // This will help make your tests robust to irrelevant changes
@@ -130,7 +130,7 @@ fn player_does_not_fall_through_floor() {
 
     // If we drop the player from a height, they should eventually come to rest on the floor
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
-    let mut player_transform = player_query.iter(&app.world).next().unwrap();
+    let mut player_transform = player_query.iter_mut(&mut app.world).next().unwrap();
     player_transform.translation.y = 10.0;
 
     // A while later...
