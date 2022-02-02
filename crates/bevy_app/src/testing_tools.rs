@@ -25,7 +25,7 @@ impl App {
     /// #[derive(Component)]
     /// struct Player;
     ///
-    /// #[derive(Component)]
+    /// #[derive(Component, Debug, PartialEq)]
     /// struct Life(usize);
     ///
     /// let mut app = App::new();
@@ -34,8 +34,8 @@ impl App {
     ///     commands.spawn().insert(Life(8)).insert(Player);
     /// }
     ///
-    /// fn regenerate_life(query: Query<&Life>){
-    ///     for life in query.iter(){
+    /// fn regenerate_life(mut query: Query<&mut Life>){
+    ///     for mut life in query.iter_mut(){
     ///         if life.0 < 10 {
     ///             life.0 += 1;
     ///         }
@@ -48,18 +48,18 @@ impl App {
     /// // and life to regenerate once
     /// app.update();
     /// // The `()` value for `F` will result in an unfiltered query
-    /// app.assert_component_eq<Life, ()>(&Life(9));
+    /// app.assert_component_eq::<Life, ()>(&Life(9));
     ///
     /// app.update();
     /// // Because all of our entities with the `Life` component also
     /// // have the `Player` component, these will be equivalent.
-    /// app.assert_component_eq<Life, With<Player>>(Life(10));
+    /// app.assert_component_eq::<Life, With<Player>>(&Life(10));
     ///
     /// app.update();
     /// // Check that life regeneration caps at 10, as intended
     /// // Filtering by the component type you're looking for is useless,
     /// // but it's helpful to demonstrate composing query filters here
-    /// app.assert_component_eq<Life, (With<Player>, With<Life>)>(&Life(10));
+    /// app.assert_component_eq::<Life, (With<Player>, With<Life>)>(&Life(10));
     /// ```
     pub fn assert_component_eq<C, F>(&mut self, value: &C)
     where
@@ -89,7 +89,7 @@ impl App {
     /// #[derive(Component)]
     /// struct Player;
     ///
-    /// #[derive(Component)]
+    /// #[derive(Component, Debug, PartialEq)]
     /// struct Life(usize);
     ///
     /// #[derive(Component)]
@@ -103,7 +103,8 @@ impl App {
     ///
     /// fn massive_damage(mut query: Query<&mut Life>){
     ///     for mut life in query.iter_mut(){
-    ///         life.0 -= 9001;
+    ///         // Life totals can never go below zero
+    ///         life.0 = life.0.checked_sub(9001).unwrap_or_default();
     ///     }
     /// }
     ///
@@ -144,11 +145,11 @@ impl App {
     ///         }
     ///     }
     ///     // None of our checks failed, so our world state is clean
-    ///     true
+    ///     Ok(())
     /// }
     ///
     /// app.update();
-    /// app.assert_system(zero_life_is_dead, None);
+    /// app.assert_system(zero_life_is_dead);
     /// ```
     pub fn assert_system<T: 'static, E: 'static, SystemParams>(
         &mut self,
