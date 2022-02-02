@@ -17,6 +17,16 @@ fn main() {
         .run()
         .expect("Please fix clippy errors in output above.");
 
+    // Run tests
+    cmd!("cargo test")
+        .run()
+        .expect("Please fix failing tests in output above.");
+
+    // Run doc tests: these are ignored by `cargo test`
+    cmd!("cargo test --doc --workspace")
+        .run()
+        .expect("Please fix failing doc-tests in output above.");
+
     // Run UI tests (they do not get executed with the workspace tests)
     // - See crates/bevy_ecs_compile_fail_tests/README.md
     {
