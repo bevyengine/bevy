@@ -47,7 +47,7 @@ skip = [
     { name = "ndk", version = "0.5" },                  # from winit v0.26.1
     { name = "ndk-glue", version = "0.5" },             # from winit v0.26.1
     { name = "ndk-sys", version = "0.2" },              # from winit v0.26.1
-    { name = "stdweb", version = "0.1" },               # from rodio v0.14.0
+    { name = "stdweb", version = "0.1" },               # from rodio v0.15.0
 ]
 
 [sources]
