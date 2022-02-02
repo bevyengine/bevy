@@ -175,10 +175,18 @@ fn jumping_moves_player_upwards() {
 
     // Send a fake keyboard press
     let mut keyboard_input: Mut<Input<KeyCode>> = app.world.get_resource_mut().unwrap();
+    assert!(!keyboard_input.pressed(KeyCode::Space));
     keyboard_input.press(KeyCode::Space);
 
     // Process the keyboard press
     app.update();
+
+    // Verify that the input is pressed
+    let keyboard_input: &Input<KeyCode> = app.world.get_resource().unwrap();
+    assert!(keyboard_input.pressed(KeyCode::Space));
+    // FIXME: externally sent presses will not be just_pressed
+    // as they are updated in `keyboard_input_system`'s call to `.clear()`
+    assert!(keyboard_input.just_pressed(KeyCode::Space));
 
     // Check that the player has upwards velocity due to jumping
     let mut player_query = app
