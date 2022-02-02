@@ -168,15 +168,24 @@ fn player_does_not_fall_through_floor() {
 
 #[test]
 fn jumping_moves_player_upwards() {
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::input::ElementState;
+
     let mut app = test_app();
 
     // Spawn everything in
     app.update();
 
     // Send a fake keyboard press
-    let mut keyboard_input: Mut<Input<KeyCode>> = app.world.get_resource_mut().unwrap();
-    assert!(!keyboard_input.pressed(KeyCode::Space));
-    keyboard_input.press(KeyCode::Space);
+
+    // WARNING: inputs sent via pressing / releasing an Input<T> resource
+    // are never just-pressed or just-released.
+    // Track this bug at: https://github.com/bevyengine/bevy/issues/3847
+    app.send_event(KeyboardInput {
+        scan_code: 44,
+        key_code: Some(KeyCode::Space),
+        state: ElementState::Pressed,
+    });
 
     // Process the keyboard press
     app.update();
@@ -184,8 +193,6 @@ fn jumping_moves_player_upwards() {
     // Verify that the input is pressed
     let keyboard_input: &Input<KeyCode> = app.world.get_resource().unwrap();
     assert!(keyboard_input.pressed(KeyCode::Space));
-    // FIXME: externally sent presses will not be just_pressed
-    // as they are updated in `keyboard_input_system`'s call to `.clear()`
     assert!(keyboard_input.just_pressed(KeyCode::Space));
 
     // Check that the player has upwards velocity due to jumping
