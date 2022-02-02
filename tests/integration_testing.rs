@@ -13,23 +13,32 @@ use bevy::{
     input::{keyboard::KeyboardInput, ElementState, InputPlugin},
     prelude::*,
 };
-use game::{GamePlugin, HighestJump, Player};
+use game::{HighestJump, PhysicsPlugin, Player};
 
 // This module represents the code defined in your `src` folder, and exported from your project
 mod game {
     use bevy::prelude::*;
 
-    pub struct GamePlugin;
+    pub struct PhysicsPlugin;
 
-    impl Plugin for GamePlugin {
+    #[derive(SystemLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    enum PhysicsLabels {
+        PlayerControl,
+        Gravity,
+        Velocity,
+    }
+
+    impl Plugin for PhysicsPlugin {
         fn build(&self, app: &mut App) {
+            use PhysicsLabels::*;
+
             app.add_startup_system(spawn_player)
                 .init_resource::<HighestJump>()
-                .add_system(jump)
-                .add_system(gravity)
-                .add_system(apply_velocity)
+                .add_system(jump.label(PlayerControl))
+                .add_system(gravity.label(Gravity).after(PlayerControl))
+                .add_system(apply_velocity.label(Velocity).after(Gravity))
                 .add_system_to_stage(CoreStage::PostUpdate, clamp_position)
-                .add_system_to_stage(CoreStage::PostUpdate, update_highest_jump);
+                .add_system_to_stage(CoreStage::PreUpdate, update_highest_jump);
         }
     }
 
@@ -96,7 +105,9 @@ mod game {
 /// A convenience method to reduce code duplication in tests
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_plugins(MinimalPlugins).add_plugin(GamePlugin);
+    app.add_plugins(MinimalPlugins)
+        .add_plugin(PhysicsPlugin)
+        .add_plugin(InputPlugin);
     // It is generally unwise to run the initial update in convenience methods like this
     // as startup systems added by later plugins will be missed
     app
@@ -161,9 +172,6 @@ fn player_does_not_fall_through_floor() {
 #[test]
 fn jumping_moves_player_upwards() {
     let mut app = test_app();
-
-    // We need to make sure to enable the standard input systems for this test
-    app.add_plugin(InputPlugin);
 
     // Spawn everything in
     app.update();
