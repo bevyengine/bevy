@@ -1,6 +1,9 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
 use bevy_reflect::TypeUuid;
-use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
+use bevy_render::{
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    texture::Image,
+};
 
 #[derive(Debug, TypeUuid)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
@@ -15,7 +18,7 @@ impl Font {
         Ok(Font { font })
     }
 
-    pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Texture {
+    pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Image {
         let bounds = outlined_glyph.px_bounds();
         let width = bounds.width() as usize;
         let height = bounds.height() as usize;
@@ -25,8 +28,12 @@ impl Font {
         });
 
         // TODO: make this texture grayscale
-        Texture::new(
-            Extent3d::new(width as u32, height as u32, 1),
+        Image::new(
+            Extent3d {
+                width: width as u32,
+                height: height as u32,
+                depth_or_array_layers: 1,
+            },
             TextureDimension::D2,
             alpha
                 .iter()
