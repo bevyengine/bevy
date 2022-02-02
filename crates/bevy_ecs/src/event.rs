@@ -194,13 +194,13 @@ impl<T> Default for ManualEventReader<T> {
 
 impl<T> ManualEventReader<T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+    pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
     /// See [`EventReader::iter_with_id`]
     pub fn iter_with_id<'a>(
-        &mut self,
+        &'a mut self,
         events: &'a Events<T>,
     ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
         internal_event_reader(&mut self.last_event_count, events)
@@ -210,7 +210,7 @@ impl<T> ManualEventReader<T> {
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
 /// messages.
 fn internal_event_reader<'a, T>(
-    last_event_count: &mut usize,
+    last_event_count: &'a mut usize,
     events: &'a Events<T>,
 ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
@@ -225,37 +225,17 @@ fn internal_event_reader<'a, T>(
     } else {
         0
     };
-    *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
+    let a = events.events_a.get(a_index..).unwrap_or_else(|| &[]);
+    let b = events.events_b.get(b_index..).unwrap_or_else(|| &[]);
+    let unread_count = a.len() + b.len();
+    *last_event_count = events.event_count - unread_count;
+    let iterator = match events.state {
+        State::A => b.iter().chain(a.iter()),
+        State::B => a.iter().chain(b.iter()),
+    };
+    iterator
+        .map(map_instance_event_with_id)
+        .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
