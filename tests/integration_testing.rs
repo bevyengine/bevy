@@ -10,7 +10,7 @@
 //! browse the docs to discover more!
 
 use bevy::{input::InputPlugin, prelude::*};
-use game::{HighestJump, PhysicsPlugin, Player};
+use game::{HighestJump, PhysicsPlugin, Player, Velocity};
 
 // This module represents the code defined in your `src` folder, and exported from your project
 mod game {
@@ -46,7 +46,7 @@ mod game {
     pub struct Player;
 
     #[derive(Component, Default)]
-    pub struct Velocity(Vec3);
+    pub struct Velocity(pub Vec3);
 
     // These systems don't need to be `pub`, as they're hidden within your plugin
     fn spawn_player(mut commands: Commands) {
@@ -177,8 +177,16 @@ fn jumping_moves_player_upwards() {
     let mut keyboard_input: Mut<Input<KeyCode>> = app.world.get_resource_mut().unwrap();
     keyboard_input.press(KeyCode::Space);
 
+    // Process the keyboard press
+    app.update();
+
+    // Check that the player has upwards velocity due to jumping
+    let mut player_query = app
+        .world
+        .query_filtered::<(&Velocity, &Transform), With<Player>>();
+    let (player_velocity, player_transform) = player_query.iter(&app.world).next().unwrap();
+
     // Check that the player has moved upwards due to jumping
-    let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.iter(&app.world).next().unwrap();
+    assert!(player_velocity.0.y > 0.0);
     assert!(player_transform.translation.y > 0.0);
 }
