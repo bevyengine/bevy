@@ -5,7 +5,8 @@ use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
 use ktx2::{
-    BasicDataFormatDescriptor, ColorModel, Header, SampleInformation, SupercompressionScheme,
+    BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
+    Header, SampleInformation, SupercompressionScheme,
 };
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
@@ -256,17 +257,28 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
     if let Some(format) = ktx2.header().format {
-        ktx2_format_to_texture_format(format, is_srgb)
-    } else if let Some(data_format_descriptor) = ktx2.data_format_descriptors().next() {
-        let sample_information = data_format_descriptor
-            .sample_information()
-            .collect::<Vec<_>>();
-        ktx2_dfd_to_texture_format(&data_format_descriptor, &sample_information, is_srgb)
-    } else {
-        Err(TextureError::UnsupportedTextureFormat(
-            "Unknown".to_string(),
-        ))
+        return ktx2_format_to_texture_format(format, is_srgb);
     }
+
+    for data_format_descriptor in ktx2.data_format_descriptors() {
+        if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
+            let basic_data_format_descriptor =
+                BasicDataFormatDescriptor::parse(data_format_descriptor.data)
+                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {:?}", err)))?;
+            let sample_information = basic_data_format_descriptor
+                .sample_information()
+                .collect::<Vec<_>>();
+            return ktx2_dfd_to_texture_format(
+                &basic_data_format_descriptor,
+                &sample_information,
+                is_srgb,
+            );
+        }
+    }
+
+    Err(TextureError::UnsupportedTextureFormat(
+        "Unknown".to_string(),
+    ))
 }
 
 enum DataType {
@@ -278,34 +290,52 @@ enum DataType {
     Sint,
 }
 
+// This can be obtained from std::mem::transmute::<f32, u32>(1.0f32). It is used for identifying
+// normalized sample types as in Unorm or Snorm.
+const F32_1_AS_U32: u32 = 1065353216;
+
 fn sample_information_to_data_type(
     sample: &SampleInformation,
     is_srgb: bool,
 ) -> Result<DataType, TextureError> {
     // Exponent flag not supported
-    if sample.is_exponent() {
+    if sample
+        .channel_type_qualifiers
+        .contains(ChannelTypeQualifiers::EXPONENT)
+    {
         return Err(TextureError::UnsupportedTextureFormat(
             "Unsupported KTX2 channel type qualifier: exponent".to_string(),
         ));
     }
-    Ok(if sample.is_float() {
-        // If lower bound of range is 0 then unorm, else if upper bound is 1.0f32 as u32
-        if sample.is_signed() {
-            if sample.is_norm() {
-                DataType::Snorm
+    Ok(
+        if sample
+            .channel_type_qualifiers
+            .contains(ChannelTypeQualifiers::FLOAT)
+        {
+            // If lower bound of range is 0 then unorm, else if upper bound is 1.0f32 as u32
+            if sample
+                .channel_type_qualifiers
+                .contains(ChannelTypeQualifiers::SIGNED)
+            {
+                if sample.upper == F32_1_AS_U32 {
+                    DataType::Snorm
+                } else {
+                    DataType::Float
+                }
+            } else if is_srgb {
+                DataType::UnormSrgb
             } else {
-                DataType::Float
+                DataType::Unorm
             }
-        } else if is_srgb {
-            DataType::UnormSrgb
+        } else if sample
+            .channel_type_qualifiers
+            .contains(ChannelTypeQualifiers::SIGNED)
+        {
+            DataType::Sint
         } else {
-            DataType::Unorm
-        }
-    } else if sample.is_signed() {
-        DataType::Sint
-    } else {
-        DataType::Uint
-    })
+            DataType::Uint
+        },
+    )
 }
 
 pub fn ktx2_dfd_to_texture_format(
@@ -950,7 +980,10 @@ pub fn ktx2_dfd_to_texture_format(
                 let sample = &sample_information[0];
                 match sample.channel_type {
                     0 => {
-                        if sample_information[0].is_signed() {
+                        if sample_information[0]
+                            .channel_type_qualifiers
+                            .contains(ChannelTypeQualifiers::SIGNED)
+                        {
                             TextureFormat::EacR11Snorm
                         } else {
                             TextureFormat::EacR11Unorm
@@ -975,7 +1008,10 @@ pub fn ktx2_dfd_to_texture_format(
                 let sample0 = &sample_information[0];
                 let sample1 = &sample_information[1];
                 if sample0.channel_type == 0 && sample1.channel_type == 1 {
-                    if sample0.is_signed() {
+                    if sample0
+                        .channel_type_qualifiers
+                        .contains(ChannelTypeQualifiers::SIGNED)
+                    {
                         TextureFormat::EacRg11Snorm
                     } else {
                         TextureFormat::EacRg11Unorm
@@ -1330,10 +1366,9 @@ pub fn ktx2_format_to_texture_format(
             )))
         }
         ktx2::Format::R8G8B8_SRGB => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                ktx2_format
-            )))
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Rgb8,
+            ))
         }
         ktx2::Format::B8G8R8_UNORM => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
