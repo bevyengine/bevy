@@ -13,7 +13,7 @@ use bevy::{
     input::{keyboard::KeyboardInput, ElementState, InputPlugin},
     prelude::*,
 };
-use game::{GamePlugin, Player};
+use game::{GamePlugin, HighestJump, Player};
 
 // This module represents the code defined in your `src` folder, and exported from your project
 mod game {
@@ -24,12 +24,17 @@ mod game {
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
             app.add_startup_system(spawn_player)
+                .init_resource::<HighestJump>()
                 .add_system(jump)
                 .add_system(gravity)
                 .add_system(apply_velocity)
-                .add_system_to_stage(CoreStage::PostUpdate, clamp_position);
+                .add_system_to_stage(CoreStage::PostUpdate, clamp_position)
+                .add_system_to_stage(CoreStage::PostUpdate, update_highest_jump);
         }
     }
+
+    #[derive(Debug, PartialEq, Default)]
+    pub struct HighestJump(pub f32);
 
     #[derive(Component)]
     pub struct Player;
@@ -76,6 +81,16 @@ mod game {
             }
         }
     }
+
+    fn update_highest_jump(
+        query: Query<&Transform, With<Player>>,
+        mut highest_jump: ResMut<HighestJump>,
+    ) {
+        let player_transform = query.single();
+        if player_transform.translation.y > highest_jump.0 {
+            highest_jump.0 = player_transform.translation.y;
+        }
+    }
 }
 
 /// A convenience method to reduce code duplication in tests
@@ -110,6 +125,12 @@ fn player_falls() {
     // When possible, try to make assertions about behavior, rather than detailed outcomes
     // This will help make your tests robust to irrelevant changes
     assert!(player_transform.translation.y < 3.0);
+    assert_eq!(
+        app.world.get_resource::<HighestJump>(),
+        Some(&HighestJump(3.0))
+    );
+    // FIXME: decide whether or not to keep this method
+    app.assert_resource_eq(&HighestJump(3.0));
 }
 
 #[test]
