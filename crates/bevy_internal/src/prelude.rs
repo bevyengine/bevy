@@ -12,6 +12,10 @@ pub use bevy_derive::bevy_main;
 pub use crate::audio::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_core_pipeline")]
+pub use crate::core_pipeline::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
 pub use crate::pbr::prelude::*;
 

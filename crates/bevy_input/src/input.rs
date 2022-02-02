@@ -63,6 +63,11 @@ where
         self.pressed.contains(&input)
     }
 
+    /// Check if any item in `inputs` has been pressed.
+    pub fn any_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().any(|it| self.pressed(it))
+    }
+
     /// Register a release for input `input`.
     pub fn release(&mut self, input: T) {
         self.pressed.remove(&input);
@@ -72,6 +77,11 @@ where
     /// Check if `input` has been just pressed.
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
+    }
+
+    /// Check if any item in `inputs` has just been pressed.
+    pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().any(|it| self.just_pressed(it))
     }
 
     /// Clear the "just pressed" state of `input`. Future calls to [`Input::just_pressed`] for the
@@ -84,6 +94,11 @@ where
     /// Check if `input` has been just released.
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
+    }
+
+    /// Check if any item in `inputs` has just been released.
+    pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().any(|it| self.just_released(it))
     }
 
     /// Clear the "just released" state of `input`. Future calls to [`Input::just_released`] for the

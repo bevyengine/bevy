@@ -3,10 +3,10 @@ use bevy::prelude::*;
 // the `bevy_main` proc_macro generates the required android boilerplate
 #[bevy_main]
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 2 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

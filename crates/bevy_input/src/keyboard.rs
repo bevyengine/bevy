@@ -10,7 +10,7 @@ pub struct KeyboardInput {
     pub state: ElementState,
 }
 
-/// Updates the Input<KeyCode> resource with the latest KeyboardInput events
+/// Updates the `Input<KeyCode>` resource with the latest `KeyboardInput` events
 pub fn keyboard_input_system(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
@@ -177,10 +177,12 @@ pub enum KeyCode {
     Grave,
     Kana,
     Kanji,
+    /// The left alt key. Maps to left option on Mac.
     LAlt,
     LBracket,
     LControl,
     LShift,
+    /// The left Windows key. Maps to left Command on Mac.
     LWin,
     Mail,
     MediaSelect,
@@ -201,10 +203,12 @@ pub enum KeyCode {
     PlayPause,
     Power,
     PrevTrack,
+    /// The right alt key. Maps to right option on Mac.
     RAlt,
     RBracket,
     RControl,
     RShift,
+    /// The right Windows key. Maps to right Command on Mac.
     RWin,
     Semicolon,
     Slash,

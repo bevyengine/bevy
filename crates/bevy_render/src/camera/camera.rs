@@ -1,12 +1,12 @@
-use super::CameraProjection;
+use crate::camera::CameraProjection;
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::{DetectChanges, QueryState},
     query::Added,
     reflect::ReflectComponent,
-    system::{Query, QuerySet, Res},
+    system::{QuerySet, Res},
 };
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -14,7 +14,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
@@ -23,6 +23,8 @@ pub struct Camera {
     pub window: WindowId,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
+    pub near: f32,
+    pub far: f32,
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -54,13 +56,17 @@ impl Camera {
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
-        // NDC z-values outside of 0 < z < 1 are behind the camera and are thus not in screen space
+        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-        Some(screen_space_coords)
+        if !screen_space_coords.is_nan() {
+            Some(screen_space_coords)
+        } else {
+            None
+        }
     }
 }
 
@@ -70,8 +76,8 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_created_events: EventReader<WindowCreated>,
     windows: Res<Windows>,
     mut queries: QuerySet<(
-        Query<(Entity, &mut Camera, &mut T)>,
-        Query<Entity, Added<Camera>>,
+        QueryState<(Entity, &mut Camera, &mut T)>,
+        QueryState<Entity, Added<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -99,7 +105,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     for entity in &mut queries.q1().iter() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.q0_mut().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
         if let Some(window) = windows.get(camera.window) {
             if changed_window_ids.contains(&window.id())
                 || added_cameras.contains(&entity)

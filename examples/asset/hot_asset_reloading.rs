@@ -4,9 +4,9 @@ use bevy::prelude::*;
 /// game is running. This lets you immediately see the results of your changes without restarting
 /// the game. This example illustrates hot reloading mesh changes.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

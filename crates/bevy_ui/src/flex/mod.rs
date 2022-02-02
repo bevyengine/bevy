@@ -22,6 +22,8 @@ pub struct FlexSurface {
 }
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
+// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
@@ -243,15 +245,15 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in query.iter() {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, &style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
             } else {
-                flex_surface.upsert_node(entity, &style, scaling_factor);
+                flex_surface.upsert_node(entity, style, scaling_factor);
             }
         }
     }
 
     for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
     }
 
     // TODO: handle removed nodes
@@ -263,7 +265,7 @@ pub fn flex_node_system(
 
     // update children
     for (entity, children) in children_query.iter() {
-        flex_surface.update_children(entity, &children);
+        flex_surface.update_children(entity, children);
     }
 
     // compute layouts
