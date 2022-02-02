@@ -1,28 +1,24 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(sprite_movement)
         .run();
 }
 
+#[derive(Component)]
 enum Direction {
     Up,
     Down,
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture_handle = asset_server.load("branding/icon.png");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(texture_handle.into()),
+            texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..Default::default()
         })
