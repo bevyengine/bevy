@@ -128,7 +128,7 @@ fn player_falls() {
     app.update();
 
     let mut player_query = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = player_query.iter(&mut app.world).next().unwrap();
+    let player_transform = player_query.iter(&app.world).next().unwrap();
 
     // When possible, try to make assertions about behavior, rather than detailed outcomes
     // This will help make your tests robust to irrelevant changes
