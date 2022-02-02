@@ -14,7 +14,7 @@ impl App {
     /// This is commonly used with the corresponding `query_len` method to ensure that the returned query is not empty.
     ///
     /// WARNING: because we are constructing the query from scratch,
-    /// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters
+    /// [`Changed`](bevy_ecs::query::Changed) and [`Added`](bevy_ecs::query::Added) filters
     /// will always return true.
     ///
     /// # Example
