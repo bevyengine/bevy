@@ -18,7 +18,7 @@ fn main() {
         .expect("Please fix clippy errors in output above.");
 
     // Run tests
-    cmd!("cargo test")
+    cmd!("cargo test --workspace")
         .run()
         .expect("Please fix failing tests in output above.");
 
