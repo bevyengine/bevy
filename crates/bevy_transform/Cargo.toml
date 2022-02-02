@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+trace = []
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.7.0-dev" }
