@@ -943,13 +943,13 @@ impl App {
     /// app.update();
     /// assert_eq!(app.query_len::<&Life, With<Player>>(), 1);
     /// ```
-    pub fn query_len<Q, F>(&mut self)
+    pub fn query_len<Q, F>(&mut self) -> usize
     where
         Q: WorldQuery,
         F: WorldQuery,
         <F as WorldQuery>::Fetch: FilterFetch,
     {
-        self.world.query_len::<Q, F>();
+        self.world.query_len::<Q, F>()
     }
 
     /// Sends an `event` of type `E`
