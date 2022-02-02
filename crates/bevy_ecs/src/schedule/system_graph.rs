@@ -183,10 +183,10 @@ impl SystemGraph {
     }
 }
 
-/// A draining conversion to [SystemSet]. All other clones of the same graph will be empty
+/// A draining conversion to [`SystemSet`]. All other clones of the same graph will be empty
 /// afterwards.
 ///
-/// [SystemSet]: crate::schedule::SystemSet
+/// [`SystemSet`]: crate::schedule::SystemSet
 impl From<SystemGraph> for SystemSet {
     fn from(graph: SystemGraph) -> Self {
         let mut system_set = SystemSet::new();
