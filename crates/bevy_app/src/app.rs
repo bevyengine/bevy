@@ -995,14 +995,14 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.add_event::<SelfDestruct>();
-    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
+    /// assert_eq!(app.events_len::<SelfDestruct>(), 0);
     ///
     /// app.send_event(SelfDestruct);
-    /// assert_eq!(app.n_events::<SelfDestruct>(), 1);
+    /// assert_eq!(app.events_len::<SelfDestruct>(), 1);
     ///
     /// // Time passes
     /// app.update();
-    /// assert_eq!(app.n_events::<SelfDestruct>(), 0);
+    /// assert_eq!(app.events_len::<SelfDestruct>(), 0);
     /// ```
     pub fn events_len<E: Resource>(&self) -> usize {
         self.world.events_len::<E>()
