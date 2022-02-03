@@ -20,6 +20,7 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
+    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -1003,13 +1004,13 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
+            let mut value = ManuallyDrop::new(value);
             // SAFE: column is of type T and has been allocated above
-            let data = (&mut value as *mut T).cast::<u8>();
-            std::mem::forget(value);
+            let data = (&mut *value as *mut T).cast::<u8>();
             column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
