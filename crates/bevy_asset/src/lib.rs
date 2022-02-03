@@ -14,7 +14,9 @@ mod path;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{
+        AddAsset, AssetEvent, AssetEventUntyped, AssetServer, Assets, Handle, HandleUntyped,
+    };
 }
 
 pub use asset_server::*;
@@ -100,6 +102,7 @@ impl Plugin for AssetPlugin {
             AssetStage::AssetEvents,
             SystemStage::parallel(),
         )
+        .add_event::<AssetEventUntyped>()
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::CoreStage::PreUpdate,
