@@ -43,13 +43,19 @@ impl<T: Asset> LoadedAsset<T> {
         }
     }
 
-    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+    pub fn add_dependency(&mut self, asset_path: AssetPath) {
         self.dependencies.push(asset_path.to_owned());
+    }
+
+    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+        self.add_dependency(asset_path);
         self
     }
 
-    pub fn with_dependencies(mut self, asset_paths: Vec<AssetPath<'static>>) -> Self {
-        self.dependencies.extend(asset_paths);
+    pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
+        for asset_path in asset_paths.drain(..) {
+            self.add_dependency(asset_path);
+        }
         self
     }
 }
@@ -149,7 +155,7 @@ pub struct AssetResult<T> {
     pub version: usize,
 }
 
-/// A channel to send and receive [AssetResult]s
+/// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
 pub struct AssetLifecycleChannel<T> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
@@ -197,7 +203,7 @@ impl<T> Default for AssetLifecycleChannel<T> {
     }
 }
 
-/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
+/// Updates the [`Assets`] collection according to the changes queued up by [`AssetServer`].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     assets: ResMut<Assets<T>>,

@@ -282,7 +282,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set], but if there is already a next state, it will be overwritten
+    /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
@@ -309,7 +309,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::replace], but if there is already a next state, it will be overwritten
+    /// Same as [`Self::replace`], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
@@ -320,7 +320,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set], but does a push operation instead of a next operation
+    /// Same as [`Self::set`], but does a push operation instead of a next operation
     pub fn push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
@@ -334,7 +334,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::push], but if there is already a next state, it will be overwritten
+    /// Same as [`Self::push`], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
@@ -345,7 +345,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set], but does a pop operation instead of a set operation
+    /// Same as [`Self::set`], but does a pop operation instead of a set operation
     pub fn pop(&mut self) -> Result<(), StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
@@ -359,7 +359,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::pop], but if there is already a next state, it will be overwritten
+    /// Same as [`Self::pop`], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
         if self.stack.len() == 1 {

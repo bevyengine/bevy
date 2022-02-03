@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! This crate is about everything concerning the highest-level, application layer of a Bevy
 //! app.
 
@@ -16,6 +17,7 @@ pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage};
