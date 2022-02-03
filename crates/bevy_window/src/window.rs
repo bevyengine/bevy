@@ -10,13 +10,13 @@ pub struct WindowId(Uuid);
 /// The presentation mode specifies when a frame is presented to the window. The `Fifo`
 /// option corresponds to a traditional `VSync`, where the framerate is capped by the
 /// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
-/// capped by the refresh rate, but may not be availalbe on all platforms. Tearing
+/// capped by the refresh rate, but may not be available on all platforms. Tearing
 /// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
 /// `Fifo`.
 ///
 /// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
 ///
-/// The presentaion mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
+/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window::set_present_mode).
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
