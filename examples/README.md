@@ -257,7 +257,7 @@ Example | File | Description
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
-`window_resize` | [`window/window_resize.rs`](./window/window_resize.rs) | Demonstrates how to handle window resize event
+`window_resize` | [`window/window_resize.rs`](./window/window_resize.rs) | Demonstrates how to handle window resize events and fit the window
 
 # Platform-Specific Examples
 
