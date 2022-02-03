@@ -265,7 +265,7 @@ fn internal_event_reader<'a, T>(
 }
 
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the [`EventReader`]'s
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.
     pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
@@ -280,7 +280,7 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
         })
     }
 
-    /// Determines the number of events available to be read from this EventReader without consuming any.
+    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
     pub fn len(&self) -> usize {
         self.events.event_reader_len(self.last_event_count.0)
     }
@@ -292,7 +292,7 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
 }
 
 impl<T: Resource> Events<T> {
-    /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
+    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
         let event_id = EventId {
@@ -391,7 +391,7 @@ impl<T: Resource> Events<T> {
 
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
-    /// `EventReader`. You should only use this if you know you only need to consume events
+    /// [`EventReader`]. You should only use this if you know you only need to consume events
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
