@@ -534,7 +534,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
 /// SAFE: only reads world
 unsafe impl ReadOnlySystemParamFetch for WorldState {}
 
-/// The [`SystemParamState`] of [`&World`].
+/// The [`SystemParamState`] of [`&World`](crate::world::World).
 pub struct WorldState;
 
 impl<'w, 's> SystemParam for &'w World {
