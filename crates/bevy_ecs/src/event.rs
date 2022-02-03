@@ -250,7 +250,6 @@ fn internal_event_reader<'a, T>(
 }
 
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
-
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
