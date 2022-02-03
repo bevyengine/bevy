@@ -20,6 +20,7 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
+    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -163,7 +164,7 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves a [WorldCell], which safely enables multiple mutable World accesses at the same
+    /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
     /// time, provided those accesses do not conflict with each other.
     #[inline]
     pub fn cell(&mut self) -> WorldCell<'_> {
@@ -174,8 +175,8 @@ impl World {
         self.components.init_component::<T>(&mut self.storages)
     }
 
-    /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [World::get_entity] if you want
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
@@ -202,8 +203,8 @@ impl World {
             .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
-    /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [World::get_entity_mut] if you want
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
@@ -230,8 +231,8 @@ impl World {
             .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
     }
 
-    /// Returns an [EntityMut] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [None] if the `entity` exists with a different generation.
+    /// Returns an [`EntityMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// This will return [`None`] if the `entity` exists with a different generation.
     ///
     /// # Note
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
@@ -253,9 +254,9 @@ impl World {
         }
     }
 
-    /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
-    /// Returns [None] if the `entity` does not exist. Use [World::entity] if you don't want
-    /// to unwrap the [EntityRef] yourself.
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity`] if you don't want
+    /// to unwrap the [`EntityRef`] yourself.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -281,9 +282,9 @@ impl World {
         Some(EntityRef::new(self, entity, location))
     }
 
-    /// Retrieves an [EntityMut] that exposes read and write operations for the given `entity`.
-    /// Returns [None] if the `entity` does not exist. Use [World::entity_mut] if you don't want
-    /// to unwrap the [EntityMut] yourself.
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity_mut`] if you don't want
+    /// to unwrap the [`EntityMut`] yourself.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -310,7 +311,7 @@ impl World {
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
-    /// Spawns a new [Entity] and returns a corresponding [EntityMut], which can be used
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
     /// ```
@@ -474,8 +475,8 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState].
+    /// Returns [`QueryState`] for the given [`WorldQuery`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
     ///
@@ -493,15 +494,15 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entities = world.spawn_batch(vec![
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),    
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
     /// ]).collect::<Vec<Entity>>();
     ///
     /// let mut query = world.query::<(&mut Position, &Velocity)>();
     /// for (mut position, velocity) in query.iter_mut(&mut world) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
-    /// }     
+    /// }
     ///
     /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
@@ -541,8 +542,8 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState].
+    /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
     ///
@@ -569,7 +570,7 @@ impl World {
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
-    /// since the last call to [World::clear_trackers].
+    /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
             self.removed_with_id(component_id)
@@ -579,7 +580,7 @@ impl World {
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
-    /// since the last call to [World::clear_trackers].
+    /// since the last call to [`World::clear_trackers`].
     pub fn removed_with_id(
         &self,
         component_id: ComponentId,
@@ -1003,13 +1004,13 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
+            let mut value = ManuallyDrop::new(value);
             // SAFE: column is of type T and has been allocated above
-            let data = (&mut value as *mut T).cast::<u8>();
-            std::mem::forget(value);
+            let data = (&mut *value as *mut T).cast::<u8>();
             column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
@@ -1087,7 +1088,7 @@ impl World {
         }
     }
 
-    /// Empties queued entities and adds them to the empty [Archetype].
+    /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [Component].
     pub(crate) fn flush(&mut self) {
@@ -1159,6 +1160,8 @@ impl fmt::Debug for World {
     }
 }
 
+// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
 
@@ -1189,5 +1192,138 @@ impl Default for MainThreadValidator {
         Self {
             main_thread: std::thread::current().id(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::World;
+    use bevy_ecs_macros::Component;
+    use std::{
+        panic,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc, Mutex,
+        },
+    };
+
+    // For bevy_ecs_macros
+    use crate as bevy_ecs;
+
+    type ID = u8;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum DropLogItem {
+        Create(ID),
+        Drop(ID),
+    }
+
+    #[derive(Component)]
+    struct MayPanicInDrop {
+        drop_log: Arc<Mutex<Vec<DropLogItem>>>,
+        expected_panic_flag: Arc<AtomicBool>,
+        should_panic: bool,
+        id: u8,
+    }
+
+    impl MayPanicInDrop {
+        fn new(
+            drop_log: &Arc<Mutex<Vec<DropLogItem>>>,
+            expected_panic_flag: &Arc<AtomicBool>,
+            should_panic: bool,
+            id: u8,
+        ) -> Self {
+            println!("creating component with id {}", id);
+            drop_log.lock().unwrap().push(DropLogItem::Create(id));
+
+            Self {
+                drop_log: Arc::clone(drop_log),
+                expected_panic_flag: Arc::clone(expected_panic_flag),
+                should_panic,
+                id,
+            }
+        }
+    }
+
+    impl Drop for MayPanicInDrop {
+        fn drop(&mut self) {
+            println!("dropping component with id {}", self.id);
+
+            {
+                let mut drop_log = self.drop_log.lock().unwrap();
+                drop_log.push(DropLogItem::Drop(self.id));
+                // Don't keep the mutex while panicking, or we'll poison it.
+                drop(drop_log);
+            }
+
+            if self.should_panic {
+                self.expected_panic_flag.store(true, Ordering::SeqCst);
+                panic!("testing what happens on panic inside drop");
+            }
+        }
+    }
+
+    struct DropTestHelper {
+        drop_log: Arc<Mutex<Vec<DropLogItem>>>,
+        /// Set to `true` right before we intentionally panic, so that if we get
+        /// a panic, we know if it was intended or not.
+        expected_panic_flag: Arc<AtomicBool>,
+    }
+
+    impl DropTestHelper {
+        pub fn new() -> Self {
+            Self {
+                drop_log: Arc::new(Mutex::new(Vec::<DropLogItem>::new())),
+                expected_panic_flag: Arc::new(AtomicBool::new(false)),
+            }
+        }
+
+        pub fn make_component(&self, should_panic: bool, id: ID) -> MayPanicInDrop {
+            MayPanicInDrop::new(&self.drop_log, &self.expected_panic_flag, should_panic, id)
+        }
+
+        pub fn finish(self, panic_res: std::thread::Result<()>) -> Vec<DropLogItem> {
+            let drop_log = Arc::try_unwrap(self.drop_log)
+                .unwrap()
+                .into_inner()
+                .unwrap();
+            let expected_panic_flag = self.expected_panic_flag.load(Ordering::SeqCst);
+
+            if !expected_panic_flag {
+                match panic_res {
+                    Ok(()) => panic!("Expected a panic but it didn't happen"),
+                    Err(e) => panic::resume_unwind(e),
+                }
+            }
+
+            drop_log
+        }
+    }
+
+    #[test]
+    fn panic_while_overwriting_component() {
+        let helper = DropTestHelper::new();
+
+        let res = panic::catch_unwind(|| {
+            let mut world = World::new();
+            world
+                .spawn()
+                .insert(helper.make_component(true, 0))
+                .insert(helper.make_component(false, 1));
+
+            println!("Done inserting! Dropping world...");
+        });
+
+        let drop_log = helper.finish(res);
+
+        assert_eq!(
+            &*drop_log,
+            [
+                DropLogItem::Create(0),
+                DropLogItem::Create(1),
+                DropLogItem::Drop(0),
+                DropLogItem::Drop(1)
+            ]
+        );
     }
 }

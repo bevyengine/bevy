@@ -1,0 +1,8 @@
+---
+source: tests/test.rs
+expression: "TestGlsl::glsl_definition()"
+
+---
+struct TestGlsl {
+	vec3 foo[8][4];
+};

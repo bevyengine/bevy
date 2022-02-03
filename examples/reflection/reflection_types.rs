@@ -41,7 +41,7 @@ pub struct D {
 
 /// By default, deriving with Reflect assumes the type is a "struct". You can tell reflect to treat
 /// your type as a "value type" by using the `reflect_value` attribute instead of `reflect`. It is
-/// generally a good idea to implement (and reflect) the PartialEq, Serialize, and Deserialize
+/// generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
 /// traits on `reflect_value` types to ensure that these values behave as expected when nested
 /// underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Serialize, Deserialize)]

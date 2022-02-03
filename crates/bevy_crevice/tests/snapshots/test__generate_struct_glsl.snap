@@ -1,0 +1,9 @@
+---
+source: tests/test.rs
+expression: "TestGlsl::glsl_definition()"
+
+---
+struct TestGlsl {
+	vec3 foo;
+	mat2 bar;
+};
