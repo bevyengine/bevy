@@ -186,6 +186,10 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.with.union_with(&access.with);
         self.without.union_with(&access.without);
     }
+
+    pub fn read_all(&mut self) {
+        self.access.read_all();
+    }
 }
 
 pub struct FilteredAccessSet<T: SparseSetIndex> {

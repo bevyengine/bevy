@@ -6,7 +6,8 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
-        FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
+        Access, FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch,
+        WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
@@ -529,6 +530,60 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
+    }
+}
+
+/// SAFE: only reads world
+unsafe impl ReadOnlySystemParamFetch for WorldState {}
+
+/// The [`SystemParamState`] of [`&World`](crate::world::World).
+pub struct WorldState;
+
+impl<'w, 's> SystemParam for &'w World {
+    type Fetch = WorldState;
+}
+
+unsafe impl<'w, 's> SystemParamState for WorldState {
+    type Config = ();
+
+    fn init(_world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+        let mut access = Access::default();
+        access.read_all();
+        if !system_meta
+            .archetype_component_access
+            .is_compatible(&access)
+        {
+            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+        }
+        system_meta.archetype_component_access.extend(&access);
+
+        let mut filtered_access = FilteredAccess::default();
+
+        filtered_access.read_all();
+        if !system_meta
+            .component_access_set
+            .get_conflicts(&filtered_access)
+            .is_empty()
+        {
+            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+        }
+        system_meta.component_access_set.add(filtered_access);
+
+        WorldState
+    }
+
+    fn default_config() -> Self::Config {}
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
+    type Item = &'w World;
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        world
     }
 }
 
