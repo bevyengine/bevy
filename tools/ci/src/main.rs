@@ -17,16 +17,6 @@ fn main() {
         .run()
         .expect("Please fix clippy errors in output above.");
 
-    // Run tests
-    cmd!("cargo test --workspace")
-        .run()
-        .expect("Please fix failing tests in output above.");
-
-    // Run doc tests: these are ignored by `cargo test`
-    cmd!("cargo test --doc --workspace")
-        .run()
-        .expect("Please fix failing doc-tests in output above.");
-
     // Run UI tests (they do not get executed with the workspace tests)
     // - See crates/bevy_ecs_compile_fail_tests/README.md
     {
@@ -35,5 +25,21 @@ fn main() {
         cmd!("cargo test")
             .run()
             .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+    }
+
+    // These tests are already run on the CI
+    // Using a double-negative here allows end-users to have a nicer experience
+    // as we can pass in the extra argument to the CI script
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(0) != Some(&"nonlocal".to_string()) {
+        // Run tests
+        cmd!("cargo test --workspace")
+            .run()
+            .expect("Please fix failing tests in output above.");
+
+        // Run doc tests: these are ignored by `cargo test`
+        cmd!("cargo test --doc --workspace")
+            .run()
+            .expect("Please fix failing doc-tests in output above.");
     }
 }
