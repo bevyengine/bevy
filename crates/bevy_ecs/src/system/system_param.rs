@@ -1253,3 +1253,27 @@ pub mod lifetimeless {
     pub type SResMut<T> = super::ResMut<'static, T>;
     pub type SCommands = crate::system::Commands<'static, 'static>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SystemParam;
+    use crate::{
+        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
+        query::{FilterFetch, WorldQuery},
+        system::Query,
+    };
+
+    // Compile test for #2838
+    #[derive(SystemParam)]
+    pub struct SpecialQuery<
+        'w,
+        's,
+        Q: WorldQuery + Send + Sync + 'static,
+        F: WorldQuery + Send + Sync + 'static = (),
+    >
+    where
+        F::Fetch: FilterFetch,
+    {
+        _query: Query<'w, 's, Q, F>,
+    }
+}
