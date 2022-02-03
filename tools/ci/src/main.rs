@@ -31,7 +31,7 @@ fn main() {
     // Using a double-negative here allows end-users to have a nicer experience
     // as we can pass in the extra argument to the CI script
     let args: Vec<String> = std::env::args().collect();
-    if args.get(0) != Some(&"nonlocal".to_string()) {
+    if args.get(1) != Some(&"nonlocal".to_string()) {
         // Run tests
         cmd!("cargo test --workspace")
             .run()
