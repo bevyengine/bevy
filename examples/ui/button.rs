@@ -15,7 +15,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
     // button with text content
     commands.spawn_bundle(button()).with_children(|parent| {
-        parent.spawn_bundle(button_text(&asset_server));
+        parent.spawn_bundle(button_text(&asset_server, "Button"));
     });
 }
 
@@ -49,10 +49,10 @@ fn button_system(
     }
 }
 
-fn button_text(asset_server: &AssetServer) -> TextBundle {
+fn button_text(asset_server: &Res<AssetServer>, text: impl Into<String>) -> TextBundle {
     TextBundle {
         text: Text::with_section(
-            "Button",
+            text,
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
