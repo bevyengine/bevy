@@ -1,5 +1,4 @@
 use super::{Indices, Mesh};
-use crate::pipeline::PrimitiveTopology;
 use bevy_math::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -25,6 +24,7 @@ impl From<Cube> for Mesh {
     }
 }
 
+/// An axis-aligned box defined by its minimum and maximum point.
 #[derive(Debug, Copy, Clone)]
 pub struct Box {
     pub min_x: f32,
@@ -38,6 +38,7 @@ pub struct Box {
 }
 
 impl Box {
+    /// Creates a new box centered at the origin with the supplied side lengths.
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Box {
         Box {
             max_x: x_length / 2.0,
@@ -119,7 +120,7 @@ impl From<Box> for Mesh {
     }
 }
 
-/// A rectangle on the XY plane.
+/// A rectangle on the XY plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Quad {
     /// Full width and height of the rectangle.
@@ -221,7 +222,7 @@ impl From<Quad> for Mesh {
     }
 }
 
-/// A square on the XZ plane.
+/// A square on the XZ plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
     /// The total side length of the square.
@@ -274,3 +275,4 @@ pub use capsule::{Capsule, CapsuleUvProfile};
 pub use icosphere::Icosphere;
 pub use torus::Torus;
 pub use uvsphere::UVSphere;
+use wgpu::PrimitiveTopology;

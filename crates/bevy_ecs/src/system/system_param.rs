@@ -48,14 +48,16 @@ pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
 
+pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
+
 /// The state of a [`SystemParam`].
 ///
 /// # Safety
 ///
 /// It is the implementor's responsibility to ensure `system_meta` is populated with the _exact_
-/// [`World`] access used by the `SystemParamState` (and associated [`SystemParamFetch`]).
+/// [`World`] access used by the [`SystemParamState`] (and associated [`SystemParamFetch`]).
 /// Additionally, it is the implementor's responsibility to ensure there is no
-/// conflicting access across all SystemParams.
+/// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     /// Values of this type can be used to adjust the behavior of the
     /// system parameter. For instance, this can be used to pass
@@ -185,7 +187,7 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
+    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
                 query_type, filter_type, system_name, accesses);
 }
 
@@ -287,7 +289,7 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
-                "Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_read(component_id);
@@ -398,11 +400,11 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
-                "ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_write(component_id);
@@ -622,6 +624,18 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 
 /// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
 ///
+/// Note that this does not allow you to see which data existed before removal.
+/// If you need this, you will need to track the component data value on your own,
+/// using a regularly scheduled system that requests `Query<(Entity, &T), Changed<T>>`
+/// and stores the data somewhere safe to later cross-reference.
+///
+/// If you are using `bevy_ecs` as a standalone crate,
+/// note that the `RemovedComponents` list will not be automatically cleared for you,
+/// and will need to be manually flushed using [`World::clear_trackers`]
+///
+/// For users of `bevy` itself, this is automatically done in a system added by `MinimalPlugins`
+/// or `DefaultPlugins` at the end of each pass of the game loop.
+///
 /// # Examples
 ///
 /// Basic usage:
@@ -775,7 +789,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
-                "NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_read(component_id);
@@ -891,11 +905,11 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         let combined_access = system_meta.component_access_set.combined_access_mut();
         if combined_access.has_write(component_id) {
             panic!(
-                "NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Allowing this would break Rust's mutability rules. Consider removing the duplicate access.",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_write(component_id);
@@ -1199,7 +1213,7 @@ macro_rules! impl_system_param_tuple {
             }
         }
 
-        /// SAFE: implementors of each SystemParamState in the tuple have validated their impls
+        /// SAFE: implementors of each `SystemParamState` in the tuple have validated their impls
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
             type Config = ($(<$param as SystemParamState>::Config,)*);
@@ -1230,3 +1244,36 @@ macro_rules! impl_system_param_tuple {
 }
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
+
+pub mod lifetimeless {
+    pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    pub type Read<T> = &'static T;
+    pub type Write<T> = &'static mut T;
+    pub type SRes<T> = super::Res<'static, T>;
+    pub type SResMut<T> = super::ResMut<'static, T>;
+    pub type SCommands = crate::system::Commands<'static, 'static>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SystemParam;
+    use crate::{
+        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
+        query::{FilterFetch, WorldQuery},
+        system::Query,
+    };
+
+    // Compile test for #2838
+    #[derive(SystemParam)]
+    pub struct SpecialQuery<
+        'w,
+        's,
+        Q: WorldQuery + Send + Sync + 'static,
+        F: WorldQuery + Send + Sync + 'static = (),
+    >
+    where
+        F::Fetch: FilterFetch,
+    {
+        _query: Query<'w, 's, Q, F>,
+    }
+}

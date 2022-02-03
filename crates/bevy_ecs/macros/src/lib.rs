@@ -2,17 +2,16 @@ extern crate proc_macro;
 
 mod component;
 
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, LitInt, Path, Result,
-    Token,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -86,12 +85,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let named_fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
 
     let is_bundle = named_fields
@@ -148,7 +144,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
@@ -304,12 +300,9 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
     let path = bevy_ecs_path();
 
@@ -364,12 +357,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
-    punctuated_generics.extend(lifetimeless_generics.iter());
+    punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
+        GenericParam::Type(g) => GenericParam::Type(TypeParam {
+            default: None,
+            ..g.clone()
+        }),
+        _ => unreachable!(),
+    }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
-        _ => panic!(),
+        _ => unreachable!(),
     }));
 
     let struct_name = &ast.ident;
@@ -377,7 +376,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
             type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
@@ -409,8 +408,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
-            type Item = #struct_name#ty_generics;
+        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
+            type Item = #struct_name #ty_generics;
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &#path::system::SystemMeta,
@@ -429,46 +428,43 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-
-    derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("SystemLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("StageLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path.segments.push(format_ident!("StageLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("AmbiguitySetLabel").into());
+    derive_label(input, trait_path)
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
-}
-
-fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
-    let ident = input.ident;
-    let ecs_path: Path = bevy_ecs_path();
-
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
-        where_token: Default::default(),
-        predicates: Default::default(),
-    });
-    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
-
-    quote! {
-        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
-                Box::new(Clone::clone(self))
-            }
-        }
-    }
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("RunCriteriaLabel").into());
+    derive_label(input, trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

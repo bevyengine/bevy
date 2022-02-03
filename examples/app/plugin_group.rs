@@ -1,6 +1,6 @@
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
-/// PluginGroups are a way to group sets of plugins that should be registered together.
+/// [`PluginGroups`] are a way to group sets of plugins that should be registered together.
 fn main() {
     App::new()
         // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins

@@ -63,12 +63,16 @@ enum State {
 /// Each event can be consumed by multiple systems, in parallel,
 /// with consumption tracked by the [`EventReader`] on a per-system basis.
 ///
+/// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs)
+/// is applied between writing and reading systems, there is a risk of a race condition.
+/// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
+///
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`App::add_event`]. [EventReader]s are expected to read events from this collection at
-/// least once per loop/frame.
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
+/// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
@@ -103,20 +107,21 @@ enum State {
 ///
 /// # Details
 ///
-/// [Events] is implemented using a double buffer. Each call to [Events::update] swaps buffers and
-/// clears out the oldest buffer. [EventReader]s that read at least once per update will never drop
-/// events. [EventReader]s that read once within two updates might still receive some events.
-/// [EventReader]s that read after two updates are guaranteed to drop all events that occurred
+/// [`Events`] is implemented using a variation of a double buffer strategy.
+/// Each call to [`update`](Events::update) swaps buffers and clears out the oldest one.
+/// - [`EventReader`]s will read events from both buffers.
+/// - [`EventReader`]s that read at least once per update will never drop events.
+/// - [`EventReader`]s that read once within two updates might still receive some events
+/// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
 /// before those updates.
 ///
-/// The buffers in [Events] will grow indefinitely if [Events::update] is never called.
+/// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
-/// An alternative call pattern would be to call [Events::update] manually across frames to control
-/// when events are cleared.
+/// An alternative call pattern would be to call [`update`](Events::update)
+/// manually across frames to control when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`App::add_event`].
-///
-/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
+/// but can be done by adding your event as a resource instead of using
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
@@ -189,13 +194,13 @@ impl<T> Default for ManualEventReader<T> {
 
 impl<T> ManualEventReader<T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+    pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
     /// See [`EventReader::iter_with_id`]
     pub fn iter_with_id<'a>(
-        &mut self,
+        &'a mut self,
         events: &'a Events<T>,
     ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
         internal_event_reader(&mut self.last_event_count, events)
@@ -205,7 +210,7 @@ impl<T> ManualEventReader<T> {
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
 /// messages.
 fn internal_event_reader<'a, T>(
-    last_event_count: &mut usize,
+    last_event_count: &'a mut usize,
     events: &'a Events<T>,
 ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
@@ -220,43 +225,23 @@ fn internal_event_reader<'a, T>(
     } else {
         0
     };
-    *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
+    let a = events.events_a.get(a_index..).unwrap_or_else(|| &[]);
+    let b = events.events_b.get(b_index..).unwrap_or_else(|| &[]);
+    let unread_count = a.len() + b.len();
+    *last_event_count = events.event_count - unread_count;
+    let iterator = match events.state {
+        State::A => b.iter().chain(a.iter()),
+        State::B => a.iter().chain(b.iter()),
+    };
+    iterator
+        .map(map_instance_event_with_id)
+        .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
 impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened
-    /// before now.
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
+    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
     pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
         self.iter_with_id().map(|(event, _id)| event)
     }
@@ -271,7 +256,7 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
 }
 
 impl<T: Resource> Events<T> {
-    /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
+    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
         let event_id = EventId {
@@ -290,7 +275,7 @@ impl<T: Resource> Events<T> {
         self.event_count += 1;
     }
 
-    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
+    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
     pub fn get_reader(&self) -> ManualEventReader<T> {
         ManualEventReader {
             last_event_count: 0,
@@ -298,8 +283,8 @@ impl<T: Resource> Events<T> {
         }
     }
 
-    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It
-    /// will read all future events.
+    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
     pub fn get_reader_current(&self) -> ManualEventReader<T> {
         ManualEventReader {
             last_event_count: self.event_count,
@@ -324,7 +309,7 @@ impl<T: Resource> Events<T> {
         }
     }
 
-    /// A system that calls [Events::update] once per frame.
+    /// A system that calls [`Events::update`] once per frame.
     pub fn update_system(mut events: ResMut<Self>) {
         events.update();
     }

@@ -1,0 +1,36 @@
+[package]
+name = "bevy_crevice"
+description = "Create GLSL-compatible versions of structs with explicitly-initialized padding (Bevy version)"
+version = "0.6.0"
+edition = "2021"
+authors = ["Lucien Greathouse <me@lpghatguy.com>"]
+documentation = "https://docs.rs/crevice"
+homepage = "https://github.com/LPGhatguy/crevice"
+repository = "https://github.com/bevyengine/bevy"
+readme = "README.md"
+keywords = ["glsl", "std140", "std430"]
+license = "MIT OR Apache-2.0"
+# resolver = "2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std"]
+std = []
+
+# [workspace]
+# members = ["crevice-derive", "crevice-tests"]
+# default-members = ["crevice-derive", "crevice-tests"]
+
+[dependencies]
+bevy-crevice-derive = { version = "0.6.0", path = "bevy-crevice-derive" }
+
+bytemuck = "1.4.1"
+mint = "0.5.8"
+
+cgmath = { version = "0.18.0", optional = true }
+glam = { version = "0.20.0", features = ["mint"], optional = true }
+nalgebra = { version = "0.30.0", features = ["mint"], optional = true }
+
+[dev-dependencies]
+insta = "0.16.1"

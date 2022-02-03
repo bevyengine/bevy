@@ -1,92 +1,382 @@
-use bevy_asset::{self, Handle};
-use bevy_reflect::TypeUuid;
-use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
+use crate::{
+    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+    SetMeshViewBindGroup,
+};
+use bevy_app::{App, Plugin};
+use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
+use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_ecs::{
+    entity::Entity,
+    prelude::World,
+    system::{
+        lifetimeless::{Read, SQuery, SRes},
+        Query, Res, ResMut, SystemParamItem,
+    },
+    world::FromWorld,
+};
+use bevy_render::{
+    mesh::Mesh,
+    render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_component::ExtractComponentPlugin,
+    render_phase::{
+        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
+        SetItemPipeline, TrackedRenderPass,
+    },
+    render_resource::{
+        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
+        SpecializedPipeline, SpecializedPipelines,
+    },
+    renderer::RenderDevice,
+    view::{ExtractedView, Msaa, VisibleEntities},
+    RenderApp, RenderStage,
+};
+use std::hash::Hash;
+use std::marker::PhantomData;
 
-/// A material with "standard" properties used in PBR lighting
-/// Standard property values with pictures here <https://google.github.io/filament/Material%20Properties.pdf>
-#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
-#[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
-pub struct StandardMaterial {
-    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
-    /// in between If used together with a base_color_texture, this is factored into the final
-    /// base color as `base_color * base_color_texture_value`
-    pub base_color: Color,
-    #[shader_def]
-    pub base_color_texture: Option<Handle<Texture>>,
-    /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
-    /// Defaults to minimum of 0.089
-    /// If used together with a roughness/metallic texture, this is factored into the final base
-    /// color as `roughness * roughness_texture_value`
-    pub roughness: f32,
-    /// From [0.0, 1.0], dielectric to pure metallic
-    /// If used together with a roughness/metallic texture, this is factored into the final base
-    /// color as `metallic * metallic_texture_value`
-    pub metallic: f32,
-    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
-    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
-    #[shader_def]
-    pub metallic_roughness_texture: Option<Handle<Texture>>,
-    pub reflectance: f32,
-    #[shader_def]
-    pub normal_map: Option<Handle<Texture>>,
-    #[render_resources(ignore)]
-    #[shader_def]
-    pub double_sided: bool,
-    #[shader_def]
-    pub occlusion_texture: Option<Handle<Texture>>,
-    // Use a color for user friendliness even though we technically don't use the alpha channel
-    // Might be used in the future for exposure correction in HDR
-    pub emissive: Color,
-    #[shader_def]
-    pub emissive_texture: Option<Handle<Texture>>,
-    #[render_resources(ignore)]
-    #[shader_def]
-    pub unlit: bool,
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
+/// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
+/// way to render [`Mesh`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
+/// based on specific material values, see [`SpecializedMaterial`]. [`Material`] automatically implements [`SpecializedMaterial`]
+/// and can be used anywhere that type is used (such as [`MaterialPlugin`]).
+pub trait Material: Asset + RenderAsset {
+    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material::bind_group_layout`].
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+
+    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`Material::bind_group`].
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+
+    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
+    /// Defaults to [`None`].
+    #[allow(unused_variables)]
+    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        None
+    }
+
+    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
+    /// Defaults to [`None`].
+    #[allow(unused_variables)]
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        None
+    }
+
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
+    #[allow(unused_variables)]
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+        AlphaMode::Opaque
+    }
+
+    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
+    /// Defaults to an empty array / no dynamic uniform indices.
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        &[]
+    }
 }
 
-impl Default for StandardMaterial {
+impl<M: Material> SpecializedMaterial for M {
+    type Key = ();
+
+    #[inline]
+    fn key(_material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
+
+    #[inline]
+    fn specialize(_key: Self::Key, _descriptor: &mut RenderPipelineDescriptor) {}
+
+    #[inline]
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
+        <M as Material>::bind_group(material)
+    }
+
+    #[inline]
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        <M as Material>::bind_group_layout(render_device)
+    }
+
+    #[inline]
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+        <M as Material>::alpha_mode(material)
+    }
+
+    #[inline]
+    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        <M as Material>::vertex_shader(asset_server)
+    }
+
+    #[inline]
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        <M as Material>::fragment_shader(asset_server)
+    }
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        <M as Material>::dynamic_uniform_indices(material)
+    }
+}
+
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
+/// to spawn entities that are rendered with a specific [`SpecializedMaterial`] type. They serve as an easy to use high level
+/// way to render [`Mesh`] entities with custom shader logic. [`SpecializedMaterials`](SpecializedMaterial) use their [`SpecializedMaterial::Key`]
+/// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material`] trait
+/// should be used for materials that do not need specialization. [`Material`] types automatically implement [`SpecializedMaterial`].
+pub trait SpecializedMaterial: Asset + RenderAsset {
+    /// The key used to specialize this material's [`RenderPipelineDescriptor`].
+    type Key: PartialEq + Eq + Hash + Clone + Send + Sync;
+
+    /// Extract the [`SpecializedMaterial::Key`] for the "prepared" version of this material. This key will be
+    /// passed in to the [`SpecializedMaterial::specialize`] function when compiling the [`RenderPipeline`](bevy_render::render_resource::RenderPipeline)
+    /// for a given entity's material.
+    fn key(material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
+
+    /// Specializes the given `descriptor` according to the given `key`.
+    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor);
+
+    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial::bind_group_layout`].
+    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
+
+    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`SpecializedMaterial::bind_group`].
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+
+    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
+    /// Defaults to [`None`].
+    #[allow(unused_variables)]
+    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        None
+    }
+
+    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
+    /// Defaults to [`None`].
+    #[allow(unused_variables)]
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        None
+    }
+
+    /// Returns this material's [`AlphaMode`]. Defaults to [`AlphaMode::Opaque`].
+    #[allow(unused_variables)]
+    fn alpha_mode(material: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
+        AlphaMode::Opaque
+    }
+
+    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
+    /// Defaults to an empty array / no dynamic uniform indices.
+    #[allow(unused_variables)]
+    #[inline]
+    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
+        &[]
+    }
+}
+
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial`]
+/// asset type (which includes [`Material`] types).
+pub struct MaterialPlugin<M: SpecializedMaterial>(PhantomData<M>);
+
+impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
     fn default() -> Self {
-        StandardMaterial {
-            base_color: Color::rgb(1.0, 1.0, 1.0),
-            base_color_texture: None,
-            // This is the minimum the roughness is clamped to in shader code
-            // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
-            // It's the minimum floating point value that won't be rounded down to 0 in the
-            // calculations used. Although technically for 32-bit floats, 0.045 could be
-            // used.
-            roughness: 0.089,
-            // Few materials are purely dielectric or metallic
-            // This is just a default for mostly-dielectric
-            metallic: 0.01,
-            // Minimum real-world reflectance is 2%, most materials between 2-5%
-            // Expressed in a linear scale and equivalent to 4% reflectance see
-            // https://google.github.io/filament/Material%20Properties.pdf
-            metallic_roughness_texture: None,
-            reflectance: 0.5,
-            normal_map: None,
-            double_sided: false,
-            occlusion_texture: None,
-            emissive: Color::BLACK,
-            emissive_texture: None,
-            unlit: false,
+        Self(Default::default())
+    }
+}
+
+impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
+    fn build(&self, app: &mut App) {
+        app.add_asset::<M>()
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
+            .add_plugin(RenderAssetPlugin::<M>::default());
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .add_render_command::<Transparent3d, DrawMaterial<M>>()
+                .add_render_command::<Opaque3d, DrawMaterial<M>>()
+                .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+                .init_resource::<MaterialPipeline<M>>()
+                .init_resource::<SpecializedPipelines<MaterialPipeline<M>>>()
+                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }
 }
 
-impl From<Color> for StandardMaterial {
-    fn from(color: Color) -> Self {
-        StandardMaterial {
-            base_color: color,
-            ..Default::default()
+pub struct MaterialPipeline<M: SpecializedMaterial> {
+    pub mesh_pipeline: MeshPipeline,
+    pub material_layout: BindGroupLayout,
+    pub vertex_shader: Option<Handle<Shader>>,
+    pub fragment_shader: Option<Handle<Shader>>,
+    marker: PhantomData<M>,
+}
+
+impl<M: SpecializedMaterial> SpecializedPipeline for MaterialPipeline<M> {
+    type Key = (MeshPipelineKey, M::Key);
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut descriptor = self.mesh_pipeline.specialize(key.0);
+        if let Some(vertex_shader) = &self.vertex_shader {
+            descriptor.vertex.shader = vertex_shader.clone();
+        }
+
+        if let Some(fragment_shader) = &self.fragment_shader {
+            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
+        }
+        descriptor.layout = Some(vec![
+            self.mesh_pipeline.view_layout.clone(),
+            self.material_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
+        ]);
+
+        M::specialize(key.1, &mut descriptor);
+        descriptor
+    }
+}
+
+impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let material_layout = M::bind_group_layout(render_device);
+
+        MaterialPipeline {
+            mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
+            material_layout,
+            vertex_shader: M::vertex_shader(asset_server),
+            fragment_shader: M::fragment_shader(asset_server),
+            marker: PhantomData,
         }
     }
 }
 
-impl From<Handle<Texture>> for StandardMaterial {
-    fn from(texture: Handle<Texture>) -> Self {
-        StandardMaterial {
-            base_color_texture: Some(texture),
-            ..Default::default()
+type DrawMaterial<M> = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    DrawMesh,
+);
+
+pub struct SetMaterialBindGroup<M: SpecializedMaterial, const I: usize>(PhantomData<M>);
+impl<M: SpecializedMaterial, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M, I> {
+    type Param = (SRes<RenderAssets<M>>, SQuery<Read<Handle<M>>>);
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let material_handle = query.get(item).unwrap();
+        let material = materials.into_inner().get(material_handle).unwrap();
+        pass.set_bind_group(
+            I,
+            M::bind_group(material),
+            M::dynamic_uniform_indices(material),
+        );
+        RenderCommandResult::Success
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn queue_material_meshes<M: SpecializedMaterial>(
+    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
+    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    material_pipeline: Res<MaterialPipeline<M>>,
+    mut pipelines: ResMut<SpecializedPipelines<MaterialPipeline<M>>>,
+    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    msaa: Res<Msaa>,
+    render_meshes: Res<RenderAssets<Mesh>>,
+    render_materials: Res<RenderAssets<M>>,
+    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    mut views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        &mut RenderPhase<Opaque3d>,
+        &mut RenderPhase<AlphaMask3d>,
+        &mut RenderPhase<Transparent3d>,
+    )>,
+) {
+    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
+        views.iter_mut()
+    {
+        let draw_opaque_pbr = opaque_draw_functions
+            .read()
+            .get_id::<DrawMaterial<M>>()
+            .unwrap();
+        let draw_alpha_mask_pbr = alpha_mask_draw_functions
+            .read()
+            .get_id::<DrawMaterial<M>>()
+            .unwrap();
+        let draw_transparent_pbr = transparent_draw_functions
+            .read()
+            .get_id::<DrawMaterial<M>>()
+            .unwrap();
+
+        let inverse_view_matrix = view.transform.compute_matrix().inverse();
+        let inverse_view_row_2 = inverse_view_matrix.row(2);
+        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+
+        for visible_entity in &visible_entities.entities {
+            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+                material_meshes.get(*visible_entity)
+            {
+                if let Some(material) = render_materials.get(material_handle) {
+                    let mut mesh_key = mesh_key;
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        if mesh.has_tangents {
+                            mesh_key |= MeshPipelineKey::VERTEX_TANGENTS;
+                        }
+                        mesh_key |=
+                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    }
+                    let alpha_mode = M::alpha_mode(material);
+                    if let AlphaMode::Blend = alpha_mode {
+                        mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
+                    }
+
+                    let specialized_key = M::key(material);
+                    let pipeline_id = pipelines.specialize(
+                        &mut pipeline_cache,
+                        &material_pipeline,
+                        (mesh_key, specialized_key),
+                    );
+
+                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space
+                    let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
+                    match alpha_mode {
+                        AlphaMode::Opaque => {
+                            opaque_phase.add(Opaque3d {
+                                entity: *visible_entity,
+                                draw_function: draw_opaque_pbr,
+                                pipeline: pipeline_id,
+                                // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                distance: -mesh_z,
+                            });
+                        }
+                        AlphaMode::Mask(_) => {
+                            alpha_mask_phase.add(AlphaMask3d {
+                                entity: *visible_entity,
+                                draw_function: draw_alpha_mask_pbr,
+                                pipeline: pipeline_id,
+                                // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
+                                // lowest sort key and getting further away should increase. As we have
+                                // -z in front of the camera, values in view space decrease away from the
+                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                distance: -mesh_z,
+                            });
+                        }
+                        AlphaMode::Blend => {
+                            transparent_phase.add(Transparent3d {
+                                entity: *visible_entity,
+                                draw_function: draw_transparent_pbr,
+                                pipeline: pipeline_id,
+                                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                                // lowest sort key and getting closer should increase. As we have
+                                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                                // camera. As such we can just use mesh_z as the distance
+                                distance: mesh_z,
+                            });
+                        }
+                    }
+                }
+            }
         }
     }
 }

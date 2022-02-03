@@ -1,7 +1,7 @@
 [package]
 name = "bevy_reflect"
-version = "0.5.0"
-edition = "2018"
+version = "0.6.0"
+edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -14,8 +14,8 @@ bevy = ["glam", "smallvec"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.5.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.6.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
 
 # other
 erased-serde = "0.3"
@@ -24,7 +24,7 @@ parking_lot = "0.11.0"
 thiserror = "1.0"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.18.0", features = ["serde"], optional = true }
+glam = { version = "0.20.0", features = ["serde"], optional = true }
 
 [dev-dependencies]
-ron = "0.6.2"
+ron = "0.7.0"

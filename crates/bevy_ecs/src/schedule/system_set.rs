@@ -6,6 +6,7 @@ use crate::schedule::{
 use super::IntoSystemDescriptor;
 
 /// A builder for describing several systems at the same time.
+#[derive(Default)]
 pub struct SystemSet {
     pub(crate) systems: Vec<SystemDescriptor>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
@@ -13,19 +14,6 @@ pub struct SystemSet {
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
-}
-
-impl Default for SystemSet {
-    fn default() -> SystemSet {
-        SystemSet {
-            systems: Vec::new(),
-            run_criteria: None,
-            labels: Vec::new(),
-            before: Vec::new(),
-            after: Vec::new(),
-            ambiguity_sets: Vec::new(),
-        }
-    }
 }
 
 impl SystemSet {
