@@ -344,8 +344,9 @@ pub fn prepare_uinodes(
             positions[3] + positions_diff[3].extend(0.),
         ];
 
-        let rect_size_v4 = uinode_rect.size().extend(0.).extend(0.);
-        let transformed_rect_size = (extracted_uinode.transform * rect_size_v4).xy().extend(1.);
+        
+        let transformed_rect_size =
+            (extracted_uinode.transform * uinode_rect.size().extend(0.).extend(0.)).xy();
 
         // Cull nodes that are completely clipped
         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
