@@ -12,8 +12,8 @@ fn main() {
         .run();
 }
 
-/// The system iterates resize events and print them.
 
+/// The system iterates resize events and print them.
 pub fn on_resize_system(mut resize_reader: EventReader<WindowResized>) {
     for e in resize_reader.iter() {
         println!("event {:?}", e);
