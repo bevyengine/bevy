@@ -211,22 +211,25 @@ pub fn get_transcoded_formats(
         // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
         // basis-universal, nor is ASTC_HDR supported by wgpu
         DataFormat::Rgb8 | DataFormat::Rgba8 | DataFormat::Rgba16Float => {
-            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-                (
-                    TranscoderBlockFormat::BC7,
-                    if is_srgb {
-                        TextureFormat::Bc7RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Bc7RgbaUnorm
-                    },
-                )
-            } else if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
+            // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
+            // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
+            // transcoding speed and quality.
+            if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
                 (
                     TranscoderBlockFormat::ASTC_4x4,
                     if is_srgb {
                         TextureFormat::Astc4x4RgbaUnormSrgb
                     } else {
                         TextureFormat::Astc4x4RgbaUnorm
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (
+                    TranscoderBlockFormat::BC7,
+                    if is_srgb {
+                        TextureFormat::Bc7RgbaUnormSrgb
+                    } else {
+                        TextureFormat::Bc7RgbaUnorm
                     },
                 )
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {

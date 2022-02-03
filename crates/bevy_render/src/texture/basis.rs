@@ -98,22 +98,25 @@ pub fn get_transcoded_formats(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> (TranscoderTextureFormat, TextureFormat) {
-    if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-        (
-            TranscoderTextureFormat::BC7_RGBA,
-            if is_srgb {
-                TextureFormat::Bc7RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc7RgbaUnorm
-            },
-        )
-    } else if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
+    // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
+    // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
+    // transcoding speed and quality.
+    if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
         (
             TranscoderTextureFormat::ASTC_4x4_RGBA,
             if is_srgb {
                 TextureFormat::Astc4x4RgbaUnormSrgb
             } else {
                 TextureFormat::Astc4x4RgbaUnorm
+            },
+        )
+    } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+        (
+            TranscoderTextureFormat::BC7_RGBA,
+            if is_srgb {
+                TextureFormat::Bc7RgbaUnormSrgb
+            } else {
+                TextureFormat::Bc7RgbaUnorm
             },
         )
     } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
