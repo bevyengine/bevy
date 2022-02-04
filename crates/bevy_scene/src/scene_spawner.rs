@@ -211,7 +211,7 @@ impl SceneSpawner {
             spawned.push(instance_id);
             let mut scene_spawned_event_writer = world
                 .get_resource_mut::<Events<SceneSpawnedEvent>>()
-                .expect("events exist");
+                .expect("SceneSpawnedEvent not found");
             scene_spawned_event_writer.send(SceneSpawnedEvent { instance_id });
 
             Ok(instance_id)
