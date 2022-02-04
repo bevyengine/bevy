@@ -7,13 +7,12 @@ This document targets plugin authors.
 ## Checklist
 
 * [ ] [Pick a reasonable, descriptive name](#naming)
-* [ ] [Bevy/plugin version support table](#bevy-version-supported)
-* [ ] [Turn off default Bevy features](#bevy-features)
-* [ ] [Choose a Bevy git/main tracking badge](#main-branch-tracking)
+* [ ] [Depend on Bevy git/main or latest release](#main-branch-tracking)
 * [ ] [Pick a license](#licensing)
-* [ ] [Remove unnecessary or redundant dependencies](#small-crate-size)
-* [ ] [Add cargo tests and CI](#tests-and-ci)
+* [ ] [Keep your crate as small as possible](#small-crate-size)
 * [ ] [Documentation and examples](#documentation-and-examples)
+* [ ] [Indicate compatible plugin/Bevy versions](#indicate-compatible-versions)
+* [ ] [Add cargo tests and CI](#tests-and-ci)
 * [ ] [Publish your plugin](#publishing-your-plugin)
 * [ ] [Promote your plugin](#promotion)
 
@@ -21,42 +20,19 @@ This document targets plugin authors.
 
 You are free to use a `bevy_xxx` name for your plugin, but please be reasonable. If you are about to claim a generic name like `bevy_animation`, `bevy_color`, or `bevy_editor`, please ask first. The rationale is explained [here](https://github.com/bevyengine/bevy/discussions/1202#discussioncomment-258907).
 
-## Promotion
-
-You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
-
-* Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy).
-* Announce it on [Discord](https://discord.gg/bevy), in the `#showcase` channel.
-* Announce it on [Reddit](https://reddit.com/r/bevy).
-
-## Bevy Version Supported
-
-Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons. You can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
-
-|bevy|bevy_awesome_plugin|
-|---|---|
-|0.4|0.3|
-|0.3|0.1|
-
-## Bevy Features
-
-You should disable Bevy features that you don't use. This is because with Cargo, features are additive. Features that are enabled for Bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
-
-```toml
-bevy = { version = "0.4", default-features = false, features = ["..."] }
-```
-
 ## Main Branch Tracking
+
+Bevy is evolving very fast. Regularly new features are working on the main branch, but are not yet released. Your plugin might depend on Bevy main or the latest release. You can also do both on different branches (e.g. have a `bevy_main` branch).
 
 If you intend to track Bevy's main branch, you can specify the latest commit you support in your `Cargo.toml` file:
 
 ```toml
-bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b138e8fa3ea250393de40c33cc857c72134d3", default-features = false }
+bevy = { version = "0.5", git = "https://github.com/bevyengine/bevy", rev="9788b386c7846c99978ab5c1a33698ec5a471d84", default-features = false }
 ```
 
-You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations), the version will be used if using the dependency from [crates.io](https://crates.io), the git dependency will be used otherwise.
+You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations). The version will be used if the dependency is pulled from [crates.io](https://crates.io). Otherwise, the git dependency will be used.
 
-Bevy is evolving very fast. You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
+You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
 <!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
 <!-- markdownlint-disable-next-line MD033 -->
@@ -65,39 +41,54 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I intend to track main as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I will only follow released Bevy versions|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
 
-## General Advices for a Rust Crate
+## Licensing
 
-This advice is valid for any Rust crate.
+Bevy is dual licensed under [MIT or Apache 2.0](https://www.rust-lang.org/policies/licenses), at your option. Most other Rust projects (including Rust itself) also use this dual-license approach. MIT-only is very popular and you might be tempted to just use that (Bevy also used to be MIT-only), but there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both licenses. We highly recommend using the dual MIT / Apache-2.0 license for your Bevy Plugins and crates:
 
-### Licensing
+* Including the Apache 2.0 license option significantly reduces the difficulty and boilerplate of proper license compliance in published games because you only need to include one copy of the Apache 2.0 license.
+* Provides maximum compatibility with Bevy and Rust, making it easier to upstream your changes.
 
-Rust projects are often dual licensed with [MIT and Apache 2.0](https://www.rust-lang.org/policies/licenses). Bevy is licensed with [MIT](https://github.com/bevyengine/bevy/blob/main/LICENSE). Those are great options to license your plugin.
+## Small Crate Size
 
-### Small Crate Size
-
-To avoid long build times in your crate and in projects using your plugin, you should aim for a small crate size:
+To avoid long build times in your plugin and in projects using it, you should aim for a small crate size:
 
 * Disable Bevy features that you don't use
+  * Features are additive => Bevy features enabled in your plugin cannot be disabled by someone using your plugin
+  * You can find Bevy's features [here](cargo_features.md).
+
+    ```toml
+    bevy = { version = "0.5", default-features = false, features = ["..."] }
+    ```
+
 * Avoid large dependencies
 * Put optional functionality and dependencies behind a feature
 
-### Documentation and Examples
+## Documentation and Examples
 
 Documentation and examples are very useful for a crate.
 
-In the case of a plugin for Bevy, a few screenshots or movies/animated GIFs from your examples can really help understanding what your plugin can do.
+In the case of a Bevy plugin, a few screenshots or movies/animated GIFs from your examples can really help to understand what your plugin is capable of.
 
 Additionally, it can be helpful to list:
 
 * Stages added by the plugin
 * Systems used
-* New components available
+* Components available from your plugin
 
-### Tests and CI
+### Indicate Compatible Versions
 
-Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project, [here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/cf0e9f9968bb1bceb92a61cd773478675d35cbd6/.github/workflows/ci.yml#L39). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
+Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons. You can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
 
-### Publishing your Plugin
+|bevy|bevy_awesome_plugin|
+|---|---|
+|0.5|0.3|
+|0.4|0.1|
+
+## Tests and CI
+
+Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project ([here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/9788b386c7846c99978ab5c1a33698ec5a471d84/.github/workflows/ci.yml#L40)). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
+
+## Publishing your Plugin
 
 There are some [extra fields](https://doc.rust-lang.org/cargo/reference/manifest.html) that you can add to your `Cargo.toml` manifest, in the `[package]` section:
 
@@ -116,3 +107,11 @@ Once a crate is published to [crates.io](https://crates.io), there are two badge
 |-|-|
 |[![crates.io](https://img.shields.io/crates/v/bevy)](https://crates.io/crates/bevy)|`[![crates.io](https://img.shields.io/crates/v/bevy_awesome_plugin)](https://crates.io/crates/bevy_awesome_plugin)`|
 |[![docs.rs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy)|`[![docs.rs](https://docs.rs/bevy_awesome_plugin/badge.svg)](https://docs.rs/bevy_awesome_plugin)`|
+
+## Promotion
+
+You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
+
+* Add it as an [Asset on the official website](https://github.com/bevyengine/bevy-assets)
+* Announce it on [Discord](https://discord.gg/bevy), in the `#showcase` channel
+* Announce it on [Reddit](https://reddit.com/r/bevy)

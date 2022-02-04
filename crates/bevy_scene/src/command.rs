@@ -13,7 +13,7 @@ pub struct SpawnScene {
 }
 
 impl Command for SpawnScene {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
         spawner.spawn(self.scene_handle);
     }
@@ -23,7 +23,7 @@ pub trait SpawnSceneCommands {
     fn spawn_scene(&mut self, scene: Handle<Scene>);
 }
 
-impl<'a> SpawnSceneCommands for Commands<'a> {
+impl<'w, 's> SpawnSceneCommands for Commands<'w, 's> {
     fn spawn_scene(&mut self, scene_handle: Handle<Scene>) {
         self.add(SpawnScene { scene_handle });
     }
@@ -35,7 +35,7 @@ pub struct SpawnSceneAsChild {
 }
 
 impl Command for SpawnSceneAsChild {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self, world: &mut World) {
         let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
         spawner.spawn_as_child(self.scene_handle, self.parent);
     }
@@ -45,7 +45,7 @@ pub trait SpawnSceneAsChildCommands {
     fn spawn_scene(&mut self, scene: Handle<Scene>) -> &mut Self;
 }
 
-impl<'a, 'b> SpawnSceneAsChildCommands for ChildBuilder<'a, 'b> {
+impl<'w, 's, 'a> SpawnSceneAsChildCommands for ChildBuilder<'w, 's, 'a> {
     fn spawn_scene(&mut self, scene_handle: Handle<Scene>) -> &mut Self {
         self.add_command(SpawnSceneAsChild {
             scene_handle,

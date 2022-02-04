@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an AssetServer
+/// Errors that occur while loading assets with an `AssetServer`
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     #[error("asset folder path is not a directory: {0}")]
@@ -53,7 +53,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
-    loaders: RwLock<Vec<Arc<Box<dyn AssetLoader>>>>,
+    loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
     task_pool: TaskPool,
@@ -112,9 +112,11 @@ impl AssetServer {
                 .write()
                 .insert(extension.to_string(), loader_index);
         }
-        loaders.push(Arc::new(Box::new(loader)));
+        loaders.push(Arc::new(loader));
     }
 
+    /// Enable watching of the filesystem for changes, if support is available, starting from after
+    /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         self.server.asset_io.watch_for_changes()?;
         Ok(())
@@ -130,15 +132,14 @@ impl AssetServer {
         HandleUntyped::strong(id.into(), sender)
     }
 
-    fn get_asset_loader(
-        &self,
-        extension: &str,
-    ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
-        self.server
-            .extension_to_loader_index
-            .read()
-            .get(extension)
-            .map(|index| self.server.loaders.read()[*index].clone())
+    fn get_asset_loader(&self, extension: &str) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
+        let index = {
+            // scope map to drop lock as soon as possible
+            let map = self.server.extension_to_loader_index.read();
+            map.get(extension).copied()
+        };
+        index
+            .map(|index| self.server.loaders.read()[index].clone())
             .ok_or_else(|| AssetServerError::MissingAssetLoader {
                 extensions: vec![extension.to_string()],
             })
@@ -147,7 +148,7 @@ impl AssetServer {
     fn get_path_asset_loader<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
+    ) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
         let s = path
             .as_ref()
             .file_name()
@@ -214,18 +215,23 @@ impl AssetServer {
         load_state
     }
 
-    /// Loads an Asset at the provided relative path.
+    /// Queue an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
+    /// The absolute Path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
     ///
     /// By default the ROOT is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable (see https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+    /// setting the `"CARGO_MANIFEST_DIR"` environment variable
+    /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
     /// `"assets"`.
+    ///
+    /// The asset is loaded asynchronously, and will generally not be available by the time
+    /// this calls returns. Use [`AssetServer::get_load_state`] to determine when the asset is
+    /// effectively loaded and available in the [`Assets`] collection.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
@@ -476,7 +482,7 @@ impl AssetServer {
                 .expect("Asset should exist at this point.");
             if let Some(asset_lifecycle) = asset_lifecycles.get(&asset_value.type_uuid()) {
                 let asset_path =
-                    AssetPath::new_ref(&load_context.path, label.as_ref().map(|l| l.as_str()));
+                    AssetPath::new_ref(load_context.path, label.as_ref().map(|l| l.as_str()));
                 asset_lifecycle.create_asset(asset_path.into(), asset_value, load_context.version);
             } else {
                 panic!(
@@ -618,7 +624,7 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path)),
+                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
             }),
         }
     }

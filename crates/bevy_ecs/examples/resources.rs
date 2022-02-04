@@ -16,8 +16,8 @@ fn main() {
     let mut update = SystemStage::parallel();
 
     // Add systems to increase the counter and to print out the current value
-    update.add_system(increase_counter.system().label(CounterSystem::Increase));
-    update.add_system(print_counter.system().after(CounterSystem::Increase));
+    update.add_system(increase_counter.label(CounterSystem::Increase));
+    update.add_system(print_counter.after(CounterSystem::Increase));
     schedule.add_stage("update", update);
 
     for iteration in 1..=10 {
