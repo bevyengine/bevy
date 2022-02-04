@@ -346,8 +346,6 @@ where
 
     /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    /// Same as [Self::set], but if there is already a next state, it will be overwritten
-    /// instead of failing.
     pub fn overwrite_set(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
