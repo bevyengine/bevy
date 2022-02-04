@@ -372,6 +372,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # my_system.system();
     /// ```
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -540,6 +541,15 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
+    }
+}
+
+impl<F> Command for F
+where
+    F: FnOnce(&mut World) + Send + Sync + 'static,
+{
+    fn write(self, world: &mut World) {
+        self(world)
     }
 }
 
@@ -759,6 +769,10 @@ mod tests {
     #[derive(Component)]
     struct W<T>(T);
 
+    fn simple_command(world: &mut World) {
+        world.spawn().insert_bundle((W(0u32), W(42u64)));
+    }
+
     #[test]
     fn commands() {
         let mut world = World::default();
@@ -787,6 +801,27 @@ mod tests {
             .map(|(a, b)| (a.0, b.0))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
+
+        // test adding simple (FnOnce) commands
+        {
+            let mut commands = Commands::new(&mut command_queue, &world);
+
+            // set up a simple command using a closure that adds one additional entity
+            commands.add(|world: &mut World| {
+                world.spawn().insert_bundle((W(42u32), W(0u64)));
+            });
+
+            // set up a simple command using a function that adds one additional entity
+            commands.add(simple_command);
+        }
+        command_queue.apply(&mut world);
+        let results3 = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+
+        assert_eq!(results3, vec![(42u32, 0u64), (0u32, 42u64)]);
     }
 
     #[test]

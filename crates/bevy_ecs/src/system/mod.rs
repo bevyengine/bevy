@@ -56,6 +56,7 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -493,8 +494,8 @@ mod tests {
         world.clear_trackers();
 
         // Then, try removing a component
-        world.spawn().insert(W(3)).id();
-        world.spawn().insert(W(4)).id();
+        world.spawn().insert(W(3));
+        world.spawn().insert(W(4));
         world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
 
         fn validate_remove(

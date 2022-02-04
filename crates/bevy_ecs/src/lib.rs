@@ -1130,18 +1130,12 @@ mod tests {
     #[test]
     fn remove_bundle() {
         let mut world = World::default();
-        world
-            .spawn()
-            .insert_bundle((A(1), B(1), TableStored("1")))
-            .id();
+        world.spawn().insert_bundle((A(1), B(1), TableStored("1")));
         let e2 = world
             .spawn()
             .insert_bundle((A(2), B(2), TableStored("2")))
             .id();
-        world
-            .spawn()
-            .insert_bundle((A(3), B(3), TableStored("3")))
-            .id();
+        world.spawn().insert_bundle((A(3), B(3), TableStored("3")));
 
         let mut query = world.query::<(&B, &TableStored)>();
         let results = query
