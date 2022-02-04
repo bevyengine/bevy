@@ -101,29 +101,21 @@ mod test {
         // Root entity
         world
             .spawn()
-            .insert_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                1.0, 0.0, 0.0,
-            )));
+            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
 
         let mut children = Vec::new();
         world
             .spawn()
-            .insert_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                1.0, 0.0, 0.0,
-            )))
+            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                            0.0, 2.0, 0.,
-                        )))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                            0.0, 0.0, 3.,
-                        )))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
                         .id(),
                 );
             });
@@ -156,22 +148,16 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                1.0, 0.0, 0.0,
-            )))
+            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                            0.0, 2.0, 0.0,
-                        )))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
-                            0.0, 0.0, 3.0,
-                        )))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
                         .id(),
                 );
             });

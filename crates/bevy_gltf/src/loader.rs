@@ -463,9 +463,9 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle(TransformBundle::from_transform(
-        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-    ));
+    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+        Mat4::from_cols_array_2d(&transform.matrix()),
+    )));
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));

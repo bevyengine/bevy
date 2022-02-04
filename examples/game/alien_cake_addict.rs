@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rand::thread_rng().gen_range(-0.1..0.1);
                     commands
-                        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(
                             i as f32,
                             height - 0.2,
                             j as f32,
@@ -134,7 +134,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn_bundle(TransformBundle::from_transform(Transform {
+            .spawn_bundle(TransformBundle::from(Transform {
                 translation: Vec3::new(
                     game.player.i as f32,
                     game.board[game.player.j][game.player.i].height,
@@ -322,7 +322,7 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
+            .spawn_bundle(TransformBundle::from(Transform::from_xyz(
                 game.bonus.i as f32,
                 game.board[game.bonus.j][game.bonus.i].height + 0.2,
                 game.bonus.j as f32,
