@@ -59,7 +59,7 @@ pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamF
 /// 1. Ensure `system_meta` is populated with the _exact_
 /// [`World`] access used by the `SystemParamState` (and associated [`SystemParamFetch`]).
 /// 2. Ensure there is no conflicting access across all [`SystemParams`](SystemParam).
-/// 3. Ensure that `archetype_component_access` and `component_access_set` correctly returns the accesses performed by the parameter.
+/// 3. Ensure that `archetype_component_access` and `component_access_set` correctly returns the accesses used by the parameter.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     /// Values of this type can be used to adjust the behavior of the
     /// system parameter. For instance, this can be used to pass
