@@ -212,7 +212,10 @@ impl<T> Default for ManualEventReader<T> {
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<T: Event> ManualEventReader<T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+    pub fn iter<'a>(
+        &'a mut self,
+        events: &'a Events<T>,
+    ) -> impl DoubleEndedIterator<Item = &'a T> + ExactSizeIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
@@ -220,13 +223,14 @@ impl<T: Event> ManualEventReader<T> {
     pub fn iter_with_id<'a>(
         &'a mut self,
         events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)>
+           + ExactSizeIterator<Item = (&'a T, EventId<T>)> {
         internal_event_reader(&mut self.last_event_count, events)
     }
 
     /// See [`EventReader::len`]
     pub fn len(&self, events: &Events<T>) -> usize {
-        events.event_reader_len(self.last_event_count)
+        internal_event_reader(&mut self.last_event_count.clone(), events).len()
     }
 
     /// See [`EventReader::is_empty`]
@@ -240,7 +244,8 @@ impl<T: Event> ManualEventReader<T> {
 fn internal_event_reader<'a, T>(
     last_event_count: &'a mut usize,
     events: &'a Events<T>,
-) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> + ExactSizeIterator<Item = (&'a T, EventId<T>)>
+{
     // if the reader has seen some of the events in a buffer, find the proper index offset.
     // otherwise read all events in the buffer
     let a_index = if *last_event_count > events.a_start_event_count {
@@ -263,19 +268,77 @@ fn internal_event_reader<'a, T>(
     };
     iterator
         .map(map_instance_event_with_id)
+        .with_exact_size(unread_count)
         .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
+}
+
+trait IteratorExt {
+    fn with_exact_size(self, len: usize) -> ExactSize<Self>
+    where
+        Self: Sized,
+    {
+        ExactSize::new(self, len)
+    }
+}
+impl<I> IteratorExt for I where I: Iterator {}
+
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+#[derive(Clone)]
+struct ExactSize<I> {
+    iter: I,
+    len: usize,
+}
+impl<I> ExactSize<I> {
+    fn new(iter: I, len: usize) -> Self {
+        ExactSize { iter, len }
+    }
+}
+
+impl<I: Iterator> Iterator for ExactSize<I> {
+    type Item = I::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<I::Item> {
+        self.iter.next().map(|e| {
+            self.len -= 1;
+            e
+        })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<I: DoubleEndedIterator> DoubleEndedIterator for ExactSize<I> {
+    #[inline]
+    fn next_back(&mut self) -> Option<I::Item> {
+        self.iter.next_back().map(|e| {
+            self.len -= 1;
+            e
+        })
+    }
+}
+impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
+    fn len(&self) -> usize {
+        self.len
+    }
 }
 
 impl<'w, 's, T: Event> EventReader<'w, 's, T> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> + ExactSizeIterator<Item = &T> {
         self.iter_with_id().map(|(event, _id)| event)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
+    pub fn iter_with_id(
+        &mut self,
+    ) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> + ExactSizeIterator<Item = (&T, EventId<T>)>
+    {
         internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
             trace!("EventReader::iter() -> {}", id);
             (event, id)
@@ -284,7 +347,7 @@ impl<'w, 's, T: Event> EventReader<'w, 's, T> {
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
     pub fn len(&self) -> usize {
-        self.events.event_reader_len(self.last_event_count.0)
+        internal_event_reader(&mut self.last_event_count.0.clone(), &self.events).len()
     }
 
     /// Determines if are any events available to be read without consuming any.
@@ -405,34 +468,13 @@ impl<T: Event> Events<T> {
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
+    pub fn iter_current_update_events(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &T> + ExactSizeIterator<Item = &T> {
         match self.state {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
-    }
-
-    /// Determines how many events are in the reader after the given `last_event_count` parameter
-    fn event_reader_len(&self, last_event_count: usize) -> usize {
-        let a_count = if last_event_count <= self.a_start_event_count {
-            self.events_a.len()
-        } else {
-            self.events_a
-                .len()
-                .checked_sub(last_event_count - self.a_start_event_count)
-                .unwrap_or_default()
-        };
-
-        let b_count = if last_event_count <= self.b_start_event_count {
-            self.events_b.len()
-        } else {
-            self.events_b
-                .len()
-                .checked_sub(last_event_count - self.b_start_event_count)
-                .unwrap_or_default()
-        };
-
-        a_count + b_count
     }
 }
 
@@ -649,6 +691,21 @@ mod tests {
         events.send(TestEvent { i: 0 });
         assert_eq!(events.get_reader().len(&events), 1);
         assert!(!events.get_reader().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_iter_len_updated() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        events.send(TestEvent { i: 2 });
+        let mut reader = events.get_reader();
+        let mut iter = reader.iter(&events);
+        assert_eq!(iter.len(), 3);
+        iter.next();
+        assert_eq!(iter.len(), 2);
+        iter.next_back();
+        assert_eq!(iter.len(), 1);
     }
 
     #[test]
