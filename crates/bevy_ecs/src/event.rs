@@ -1,13 +1,16 @@
 //! Event handling types.
 
+use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, SystemParam};
-use crate::{self as bevy_ecs, system::Resource};
 use bevy_utils::tracing::trace;
 use std::{
     fmt::{self},
     hash::Hash,
     marker::PhantomData,
 };
+
+pub trait Event: Send + Sync + 'static {}
+impl<T> Event for T where T: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event.
 ///
@@ -159,20 +162,20 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'w, 's, T: Resource> {
+pub struct EventReader<'w, 's, T: Event> {
     last_event_count: Local<'s, (usize, PhantomData<T>)>,
     events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, T: Resource> {
+pub struct EventWriter<'w, 's, T: Event> {
     events: ResMut<'w, Events<T>>,
     #[system_param(ignore)]
     marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, T: Resource> EventWriter<'w, 's, T> {
+impl<'w, 's, T: Event> EventWriter<'w, 's, T> {
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: T) {
@@ -207,7 +210,7 @@ impl<T> Default for ManualEventReader<T> {
 }
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<T: Resource> ManualEventReader<T> {
+impl<T: Event> ManualEventReader<T> {
     /// See [`EventReader::iter`]
     pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
@@ -263,7 +266,7 @@ fn internal_event_reader<'a, T>(
         .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
-impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
+impl<'w, 's, T: Event> EventReader<'w, 's, T> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
@@ -290,7 +293,7 @@ impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
     }
 }
 
-impl<T: Resource> Events<T> {
+impl<T: Event> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
@@ -562,7 +565,7 @@ mod tests {
         );
     }
 
-    fn get_events<T: Resource + Clone>(
+    fn get_events<T: Event + Clone>(
         events: &Events<T>,
         reader: &mut ManualEventReader<T>,
     ) -> Vec<T> {
