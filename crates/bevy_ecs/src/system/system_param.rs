@@ -270,6 +270,17 @@ impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
     }
 }
 
+impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+    fn from(res: ResMut<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks.component_ticks,
+            change_tick: res.ticks.change_tick,
+            last_change_tick: res.ticks.last_change_tick,
+        }
+    }
+}
+
 /// The [`SystemParamState`] of [`Res<T>`].
 pub struct ResState<T> {
     component_id: ComponentId,
@@ -819,6 +830,16 @@ impl<'w, T> Deref for NonSend<'w, T> {
 
     fn deref(&self) -> &Self::Target {
         self.value
+    }
+}
+impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
+    fn from(nsm: NonSendMut<'a, T>) -> Self {
+        Self {
+            value: nsm.value,
+            ticks: nsm.ticks.component_ticks.to_owned(),
+            change_tick: nsm.ticks.change_tick,
+            last_change_tick: nsm.ticks.last_change_tick,
+        }
     }
 }
 
