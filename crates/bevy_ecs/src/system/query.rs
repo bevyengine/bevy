@@ -985,6 +985,7 @@ where
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
+        // SAFE: NopFetch does not access any members while &self ensures no one has exclusive access
         unsafe {
             self.state
                 .get_unchecked_manual::<NopFetch<Q::State>>(
