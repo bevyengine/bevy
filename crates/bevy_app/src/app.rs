@@ -915,5 +915,5 @@ fn run_once(mut app: App) {
 }
 
 /// An event that indicates the app should exit. This will fully exit the app process.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppExit;
