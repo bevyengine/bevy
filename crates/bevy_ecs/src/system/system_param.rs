@@ -713,6 +713,18 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
         WorldState
     }
 
+    fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
+        let mut access = Access::default();
+        access.read_all();
+        access
+    }
+
+    fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.read_all();
+        filtered_access.into()
+    }
+
     fn default_config() -> Self::Config {}
 }
 
