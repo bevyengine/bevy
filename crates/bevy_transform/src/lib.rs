@@ -44,7 +44,9 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 /// before the [`GlobalTransform`] is updated.
 #[derive(Default, Bundle, Clone, Debug)]
 pub struct TransformBundle {
+    /// The transform of the entity.
     pub local: Transform,
+    /// The global transform of the entity.
     pub global: GlobalTransform,
 }
 
