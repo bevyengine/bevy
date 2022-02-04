@@ -44,8 +44,6 @@ fn event_trigger(
         my_events.send(MyEvent {
             message: "MyEvent just happened!".to_string(),
         });
-        // When sending an event which implements `Default` you can use `fire()` to send the default
-        // value.
         play_sound_events.send_default();
     }
 }
