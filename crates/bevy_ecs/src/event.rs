@@ -122,6 +122,10 @@ enum State {
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
 /// but can be done by adding your event as a resource instead of using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
+///
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
+/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/bevy_ecs/examples/events.rs)
+///
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
@@ -169,12 +173,22 @@ pub struct EventWriter<'w, 's, T: Resource> {
 }
 
 impl<'w, 's, T: Resource> EventWriter<'w, 's, T> {
+    /// Sends an `event`. [`EventReader`]s can then read the event.
+    /// See [`Events`] for details.
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
 
     pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
         self.events.extend(events);
+    }
+
+    /// Sends the default value of the event. Useful when the event is an empty struct.
+    pub fn send_default(&mut self)
+    where
+        T: Default,
+    {
+        self.events.send_default();
     }
 }
 
@@ -294,6 +308,14 @@ impl<T: Resource> Events<T> {
         }
 
         self.event_count += 1;
+    }
+
+    /// Sends the default value of the event. Useful when the event is an empty struct.
+    pub fn send_default(&mut self)
+    where
+        T: Default,
+    {
+        self.send(Default::default());
     }
 
     /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
@@ -540,11 +562,11 @@ mod tests {
         );
     }
 
-    fn get_events(
-        events: &Events<TestEvent>,
-        reader: &mut ManualEventReader<TestEvent>,
-    ) -> Vec<TestEvent> {
-        reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    fn get_events<T: Resource + Clone>(
+        events: &Events<T>,
+        reader: &mut ManualEventReader<T>,
+    ) -> Vec<T> {
+        reader.iter(events).cloned().collect::<Vec<T>>()
     }
 
     #[derive(PartialEq, Eq, Debug)]
@@ -651,5 +673,20 @@ mod tests {
         assert_eq!(reader.len(&events), 1);
         events.update();
         assert!(reader.is_empty(&events));
+    }
+
+    #[derive(Clone, PartialEq, Debug, Default)]
+    struct EmptyTestEvent;
+
+    #[test]
+    fn test_firing_empty_event() {
+        let mut events = Events::<EmptyTestEvent>::default();
+        events.send_default();
+
+        let mut reader = events.get_reader();
+        assert_eq!(
+            get_events(&events, &mut reader),
+            vec![EmptyTestEvent::default()]
+        );
     }
 }
