@@ -1,6 +1,7 @@
 # if crate A depends on crate B, B must come before A in this list
 crates=(
     bevy_utils
+    bevy_macro_utils
     bevy_derive
     bevy_math
     bevy_tasks
@@ -17,7 +18,10 @@ crates=(
     bevy_diagnostic
     bevy_transform
     bevy_window
+    bevy_crevice/bevy-crevice-derive
+    bevy_crevice
     bevy_render
+    bevy_core_pipeline
     bevy_input
     bevy_gilrs
     bevy_pbr
@@ -27,7 +31,6 @@ crates=(
     bevy_text
     bevy_ui
     bevy_winit
-    bevy_wgpu
     bevy_internal
     bevy_dylib
 )
@@ -36,7 +39,7 @@ cd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  (cd $crate; cargo publish --no-verify)
+  (cd "$crate"; cargo publish --no-verify)
   sleep 20
 done
 

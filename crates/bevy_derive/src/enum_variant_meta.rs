@@ -1,5 +1,5 @@
-use crate::modules::{get_modules, get_path};
-use proc_macro::TokenStream;
+use bevy_macro_utils::BevyManifest;
+use proc_macro::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput};
 
@@ -7,11 +7,14 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let variants = match &ast.data {
         Data::Enum(v) => &v.variants,
-        _ => panic!("Expected an enum."),
+        _ => {
+            return syn::Error::new(Span::call_site().into(), "Only enums are supported")
+                .into_compile_error()
+                .into()
+        }
     };
 
-    let modules = get_modules(&ast.attrs);
-    let bevy_util_path = get_path(&modules.bevy_utils);
+    let bevy_util_path = BevyManifest::default().get_path(crate::modules::BEVY_UTILS);
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -22,7 +25,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     let indices = 0..names.len();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_util_path::EnumVariantMeta for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #bevy_util_path::EnumVariantMeta for #struct_name #ty_generics #where_clause {
             fn enum_variant_index(&self) -> usize {
                 match self {
                     #(#struct_name::#idents {..} => #indices,)*

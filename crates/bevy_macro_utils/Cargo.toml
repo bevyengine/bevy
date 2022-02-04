@@ -1,0 +1,14 @@
+[package]
+name = "bevy_macro_utils"
+version = "0.6.0"
+edition = "2021"
+description = "A collection of utils for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+cargo-manifest = "0.2.6"
+syn = "1.0"
+quote = "1.0"

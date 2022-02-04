@@ -1,3 +1,5 @@
+#![allow(clippy::single_component_path_imports)]
+
 //! [![](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
 //!
 //! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity
@@ -13,8 +15,8 @@
 //! use bevy::prelude::*;
 //!
 //! fn main() {
-//!    App::build()
-//!        .add_system(hello_world_system.system())
+//!    App::new()
+//!        .add_system(hello_world_system)
 //!        .run();
 //! }
 //!
@@ -22,7 +24,7 @@
 //!    println!("hello world");
 //! }
 //! ```
-
+//!
 //! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevyengine.org)
 //! and it gets more powerful every day!
 //!
@@ -45,5 +47,4 @@ pub use bevy_internal::*;
 
 #[cfg(feature = "dynamic")]
 #[allow(unused_imports)]
-#[allow(clippy::single_component_path_imports)]
 use bevy_dylib;

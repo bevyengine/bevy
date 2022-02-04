@@ -1,175 +1,151 @@
-use super::Node;
+//! This module contains the bundles used in Bevy's UI
+
 use crate::{
-    render::UI_PIPELINE_HANDLE,
-    widget::{Button, Image},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    widget::{Button, ImageMode},
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI,
 };
-use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
-    draw::Draw,
-    mesh::Mesh,
-    pipeline::{RenderPipeline, RenderPipelines},
-    prelude::Visible,
+    camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
+    view::{Visibility, VisibleEntities},
 };
-use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone, Debug)]
+/// The basic UI node
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
+    /// Describes the size of the node
     pub node: Node,
+    /// Describes the style including flexbox settings
     pub style: Style,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
+    /// Describes the color of the node
+    pub color: UiColor,
+    /// Describes the image of the node
+    pub image: UiImage,
+    /// The transform of the node
     pub transform: Transform,
+    /// The global transform of the node
     pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
 }
 
-impl Default for NodeBundle {
-    fn default() -> Self {
-        NodeBundle {
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
-            )]),
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            node: Default::default(),
-            style: Default::default(),
-            material: Default::default(),
-            draw: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-        }
-    }
-}
-
-#[derive(Bundle, Clone, Debug)]
+/// A UI node that is an image
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ImageBundle {
+    /// Describes the size of the node
     pub node: Node,
+    /// Describes the style including flexbox settings
     pub style: Style,
-    pub image: Image,
+    /// Configures how the image should scale
+    pub image_mode: ImageMode,
+    /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
+    /// The color of the node
+    pub color: UiColor,
+    /// The image of the node
+    pub image: UiImage,
+    /// The transform of the node
     pub transform: Transform,
+    /// The global transform of the node
     pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
 }
 
-impl Default for ImageBundle {
-    fn default() -> Self {
-        ImageBundle {
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
-            )]),
-            node: Default::default(),
-            image: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            material: Default::default(),
-            draw: Default::default(),
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            transform: Default::default(),
-            global_transform: Default::default(),
-        }
-    }
-}
-
+/// A UI node that is text
 #[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
+    /// Describes the size of the node
     pub node: Node,
+    /// Describes the style including flexbox settings
     pub style: Style,
-    pub draw: Draw,
-    pub visible: Visible,
+    /// Contains the text of the node
     pub text: Text,
+    /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
+    /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The transform of the node
     pub transform: Transform,
+    /// The global transform of the node
     pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
 }
 
 impl Default for TextBundle {
     fn default() -> Self {
         TextBundle {
             focus_policy: FocusPolicy::Pass,
-            draw: Draw {
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
             text: Default::default(),
             node: Default::default(),
             calculated_size: Default::default(),
             style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            visibility: Default::default(),
         }
     }
 }
 
+/// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
+    /// Describes the size of the node
     pub node: Node,
+    /// Marker component that signals this node is a button
     pub button: Button,
+    /// Describes the style including flexbox settings
     pub style: Style,
+    /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
+    /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
+    /// The color of the node
+    pub color: UiColor,
+    /// The image of the node
+    pub image: UiImage,
+    /// The transform of the node
     pub transform: Transform,
+    /// The global transform of the node
     pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
 }
 
 impl Default for ButtonBundle {
     fn default() -> Self {
         ButtonBundle {
             button: Button,
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
-            )]),
             interaction: Default::default(),
             focus_policy: Default::default(),
             node: Default::default(),
             style: Default::default(),
-            material: Default::default(),
-            draw: Default::default(),
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
+            color: Default::default(),
+            image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            visibility: Default::default(),
         }
     }
 }
 
+/// The camera that is needed to see UI elements
 #[derive(Bundle, Debug)]
 pub struct UiCameraBundle {
+    /// The camera component
     pub camera: Camera,
+    /// The orthographic projection settings
     pub orthographic_projection: OrthographicProjection,
-    pub visible_entities: VisibleEntities,
+    /// The transform of the camera
     pub transform: Transform,
+    /// The global transform of the camera
     pub global_transform: GlobalTransform,
+    /// Contains visible entities
+    // FIXME there is no frustrum culling for UI
+    pub visible_entities: VisibleEntities,
 }
 
 impl Default for UiCameraBundle {
@@ -179,7 +155,7 @@ impl Default for UiCameraBundle {
         let far = 1000.0;
         UiCameraBundle {
             camera: Camera {
-                name: Some(crate::camera::CAMERA_UI.to_string()),
+                name: Some(CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
@@ -188,9 +164,9 @@ impl Default for UiCameraBundle {
                 depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             },
-            visible_entities: Default::default(),
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
+            visible_entities: Default::default(),
         }
     }
 }

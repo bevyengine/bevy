@@ -1,47 +1,55 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::world::World;
+use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::marker::PhantomData;
 
 /// Used internally to play audio on the current "audio device"
-pub struct AudioOutput<P = AudioSource>
+pub struct AudioOutput<Source = AudioSource>
 where
-    P: Decodable,
+    Source: Decodable,
 {
-    _stream: OutputStream,
-    stream_handle: OutputStreamHandle,
-    phantom: PhantomData<P>,
+    _stream: Option<OutputStream>,
+    stream_handle: Option<OutputStreamHandle>,
+    phantom: PhantomData<Source>,
 }
 
-impl<P> Default for AudioOutput<P>
+impl<Source> Default for AudioOutput<Source>
 where
-    P: Decodable,
+    Source: Decodable,
 {
     fn default() -> Self {
-        let (stream, stream_handle) = OutputStream::try_default().unwrap();
-
-        Self {
-            _stream: stream,
-            stream_handle,
-            phantom: PhantomData,
+        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
+            Self {
+                _stream: Some(stream),
+                stream_handle: Some(stream_handle),
+                phantom: PhantomData,
+            }
+        } else {
+            warn!("No audio device found.");
+            Self {
+                _stream: None,
+                stream_handle: None,
+                phantom: PhantomData,
+            }
         }
     }
 }
 
-impl<P> AudioOutput<P>
+impl<Source> AudioOutput<Source>
 where
-    P: Asset + Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+    Source: Asset + Decodable,
 {
-    fn play_source(&self, audio_source: &P) {
-        let sink = Sink::try_new(&self.stream_handle).unwrap();
-        sink.append(audio_source.decoder());
-        sink.detach();
+    fn play_source(&self, audio_source: &Source) {
+        if let Some(stream_handle) = &self.stream_handle {
+            let sink = Sink::try_new(stream_handle).unwrap();
+            sink.append(audio_source.decoder());
+            sink.detach();
+        }
     }
 
-    fn try_play_queued(&self, audio_sources: &Assets<P>, audio: &mut Audio<P>) {
+    fn try_play_queued(&self, audio_sources: &Assets<Source>, audio: &mut Audio<Source>) {
         let mut queue = audio.queue.write();
         let len = queue.len();
         let mut i = 0;
@@ -58,18 +66,16 @@ where
     }
 }
 
-/// Plays audio currently queued in the [Audio] resource through the [AudioOutput] resource
-pub fn play_queued_audio_system<P: Asset>(world: &mut World)
+/// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
+pub fn play_queued_audio_system<Source: Asset>(world: &mut World)
 where
-    P: Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+    Source: Decodable,
 {
     let world = world.cell();
-    let audio_output = world.get_non_send::<AudioOutput<P>>().unwrap();
-    let mut audio = world.get_resource_mut::<Audio<P>>().unwrap();
+    let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();
+    let mut audio = world.get_resource_mut::<Audio<Source>>().unwrap();
 
-    if let Some(audio_sources) = world.get_resource::<Assets<P>>() {
+    if let Some(audio_sources) = world.get_resource::<Assets<Source>>() {
         audio_output.try_play_queued(&*audio_sources, &mut *audio);
     };
 }

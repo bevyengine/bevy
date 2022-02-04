@@ -82,12 +82,19 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         *value = Some(func());
         value.as_mut().unwrap()
     }
+
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
 }
 
+/// A sparse data structure of [Components](crate::component::Component)
+///
+/// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
-    ticks: UnsafeCell<Vec<ComponentTicks>>,
+    ticks: Vec<UnsafeCell<ComponentTicks>>,
     entities: Vec<Entity>,
     sparse: SparseArray<Entity, usize>,
 }
@@ -96,10 +103,17 @@ impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
             dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
-            ticks: UnsafeCell::new(Vec::with_capacity(capacity)),
+            ticks: Vec::with_capacity(capacity),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.dense.clear();
+        self.ticks.clear();
+        self.entities.clear();
+        self.sparse.clear();
     }
 
     #[inline]
@@ -112,25 +126,33 @@ impl ComponentSparseSet {
         self.dense.len() == 0
     }
 
-    /// Inserts the `entity` key and component `value` pair into this sparse set.
-    /// The caller is responsible for ensuring the value is not dropped. This collection will drop
-    /// the value when needed.
+    /// Inserts the `entity` key and component `value` pair into this sparse
+    /// set. This collection takes ownership of the contents of `value`, and
+    /// will drop the value when needed. Also, it may overwrite the contents of
+    /// the `value` pointer if convenient. The caller is responsible for
+    /// ensuring it does not drop `*value` after calling `insert`.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout`
-    ///  inside the `ComponentInfo` given when constructing this sparse set.
+    /// * The `value` pointer must point to a valid address that matches the
+    ///   `Layout` inside the `ComponentInfo` given when constructing this
+    ///   sparse set.
+    /// * The caller is responsible for ensuring it does not drop `*value` after
+    ///   calling `insert`.
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
-        let dense = &mut self.dense;
-        let entities = &mut self.entities;
-        let ticks_list = self.ticks.get_mut();
-        let dense_index = *self.sparse.get_or_insert_with(entity, move || {
-            ticks_list.push(ComponentTicks::new(change_tick));
-            entities.push(entity);
-            dense.push_uninit()
-        });
-        // SAFE: dense_index exists thanks to the call above
-        self.dense.set_unchecked(dense_index, value);
-        ((*self.ticks.get()).get_unchecked_mut(dense_index)).set_changed(change_tick);
+        if let Some(&dense_index) = self.sparse.get(entity) {
+            self.dense.replace_unchecked(dense_index, value);
+            *self.ticks.get_unchecked_mut(dense_index) =
+                UnsafeCell::new(ComponentTicks::new(change_tick));
+        } else {
+            let dense_index = self.dense.push_uninit();
+            self.dense.initialize_unchecked(dense_index, value);
+            self.sparse.insert(entity, dense_index);
+            debug_assert_eq!(self.ticks.len(), dense_index);
+            debug_assert_eq!(self.entities.len(), dense_index);
+            self.ticks
+                .push(UnsafeCell::new(ComponentTicks::new(change_tick)));
+            self.entities.push(entity);
+        }
     }
 
     #[inline]
@@ -152,27 +174,19 @@ impl ComponentSparseSet {
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
     pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentTicks)> {
-        let ticks = &mut *self.ticks.get();
-        self.sparse.get(entity).map(move |dense_index| {
-            let dense_index = *dense_index;
-            // SAFE: if the sparse index points to something in the dense vec, it exists
-            (
-                self.dense.get_unchecked(dense_index),
-                ticks.get_unchecked_mut(dense_index) as *mut ComponentTicks,
-            )
-        })
+        let dense_index = *self.sparse.get(entity)?;
+        // SAFE: if the sparse index points to something in the dense vec, it exists
+        Some((
+            self.dense.get_unchecked(dense_index),
+            self.ticks.get_unchecked(dense_index).get(),
+        ))
     }
 
-    /// # Safety
-    /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_ticks(&self, entity: Entity) -> Option<&mut ComponentTicks> {
-        let ticks = &mut *self.ticks.get();
-        self.sparse.get(entity).map(move |dense_index| {
-            let dense_index = *dense_index;
-            // SAFE: if the sparse index points to something in the dense vec, it exists
-            ticks.get_unchecked_mut(dense_index)
-        })
+    pub fn get_ticks(&self, entity: Entity) -> Option<&ComponentTicks> {
+        let dense_index = *self.sparse.get(entity)?;
+        // SAFE: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(&*self.ticks.get_unchecked(dense_index).get()) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
@@ -180,10 +194,7 @@ impl ComponentSparseSet {
     /// returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
-            // SAFE: unique access to ticks
-            unsafe {
-                (*self.ticks.get()).swap_remove(dense_index);
-            }
+            self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
             // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid
@@ -198,7 +209,7 @@ impl ComponentSparseSet {
 
     pub fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity) {
-            self.ticks.get_mut().swap_remove(dense_index);
+            self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
             // SAFE: if the sparse index points to something in the dense vec, it exists
@@ -214,13 +225,15 @@ impl ComponentSparseSet {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        let ticks = self.ticks.get_mut().iter_mut();
-        for component_ticks in ticks {
-            component_ticks.check_ticks(change_tick);
+        for component_ticks in &mut self.ticks {
+            component_ticks.get_mut().check_ticks(change_tick);
         }
     }
 }
 
+/// A data structure that blends dense and sparse storage
+///
+/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
@@ -384,6 +397,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+///
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,
@@ -409,6 +425,12 @@ impl SparseSets {
         self.sets.get_mut(component_id)
     }
 
+    pub fn clear(&mut self) {
+        for set in self.sets.values_mut() {
+            set.clear();
+        }
+    }
+
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for set in self.sets.values_mut() {
             set.check_change_ticks(change_tick);
@@ -426,11 +448,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::new(0);
-        let e1 = Entity::new(1);
-        let e2 = Entity::new(2);
-        let e3 = Entity::new(3);
-        let e4 = Entity::new(4);
+        let e0 = Entity::from_raw(0);
+        let e1 = Entity::from_raw(1);
+        let e2 = Entity::from_raw(2);
+        let e3 = Entity::from_raw(3);
+        let e4 = Entity::from_raw(4);
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));

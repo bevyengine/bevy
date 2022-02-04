@@ -1,17 +1,20 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(animate_translation.system())
-        .add_system(animate_rotation.system())
-        .add_system(animate_scale.system())
+        .add_startup_system(setup)
+        .add_system(animate_translation)
+        .add_system(animate_rotation)
+        .add_system(animate_scale)
         .run();
 }
 
+#[derive(Component)]
 struct AnimateTranslation;
+#[derive(Component)]
 struct AnimateRotation;
+#[derive(Component)]
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

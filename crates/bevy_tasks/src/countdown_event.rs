@@ -21,7 +21,7 @@ pub struct CountdownEvent {
 }
 
 impl CountdownEvent {
-    /// Creates a CountdownEvent that must be decremented `n` times for listeners to be
+    /// Creates a [`CountdownEvent`] that must be decremented `n` times for listeners to be
     /// signalled
     pub fn new(n: isize) -> Self {
         let inner = CountdownEventInner {
@@ -125,10 +125,7 @@ mod tests {
         let listener3 = event.listen();
 
         // Verify that we are still blocked
-        assert_eq!(
-            false,
-            listener2.wait_timeout(instant::Duration::from_millis(10))
-        );
+        assert!(!listener2.wait_timeout(instant::Duration::from_millis(10)));
 
         // Notify all and verify the remaining listener is notified
         event.notify(std::usize::MAX);

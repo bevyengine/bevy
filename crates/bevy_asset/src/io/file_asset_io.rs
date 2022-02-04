@@ -1,15 +1,23 @@
-use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
+#[cfg(feature = "filesystem_watcher")]
+use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
+use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
+#[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::Res;
-use bevy_utils::{BoxedFuture, HashSet};
+use bevy_utils::BoxedFuture;
+#[cfg(feature = "filesystem_watcher")]
+use bevy_utils::HashSet;
+#[cfg(feature = "filesystem_watcher")]
 use crossbeam_channel::TryRecvError;
 use fs::File;
-use io::Read;
+#[cfg(feature = "filesystem_watcher")]
 use parking_lot::RwLock;
+#[cfg(feature = "filesystem_watcher")]
+use std::sync::Arc;
 use std::{
-    env, fs, io,
+    env, fs,
+    io::Read,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 pub struct FileAssetIo {
@@ -19,11 +27,26 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        FileAssetIo {
+    pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
+        let file_asset_io = FileAssetIo {
+            #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
             root_path: Self::get_root_path().join(path.as_ref()),
+        };
+        if watch_for_changes {
+            #[cfg(any(
+                not(feature = "filesystem_watcher"),
+                target_arch = "wasm32",
+                target_os = "android"
+            ))]
+            panic!(
+                "Watch for changes requires the filesystem_watcher feature and cannot be used on \
+                wasm32 / android targets"
+            );
+            #[cfg(feature = "filesystem_watcher")]
+            file_asset_io.watch_for_changes().unwrap();
         }
+        file_asset_io
     }
 
     pub fn get_root_path() -> PathBuf {
@@ -75,10 +98,10 @@ impl AssetIo for FileAssetIo {
         )))
     }
 
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            let path = self.root_path.join(path);
+            let path = self.root_path.join(_path);
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
                 watcher
@@ -95,6 +118,8 @@ impl AssetIo for FileAssetIo {
         {
             *self.filesystem_watcher.write() = Some(FilesystemWatcher::default());
         }
+        #[cfg(not(feature = "filesystem_watcher"))]
+        bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
 
         Ok(())
     }

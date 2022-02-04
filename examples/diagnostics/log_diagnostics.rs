@@ -4,7 +4,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         // Adds frame time diagnostics
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
