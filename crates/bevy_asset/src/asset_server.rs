@@ -115,6 +115,8 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
+    /// Enable watching of the filesystem for changes, if support is available, starting from after
+    /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         self.server.asset_io.watch_for_changes()?;
         Ok(())
@@ -622,7 +624,7 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path)),
+                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
             }),
         }
     }

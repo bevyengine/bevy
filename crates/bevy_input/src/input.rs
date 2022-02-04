@@ -28,7 +28,7 @@ use std::hash::Hash;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Input<T> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,

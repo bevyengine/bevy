@@ -73,7 +73,8 @@ pub async fn initialize_renderer(
         .await
         .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
-    info!("{:?}", adapter.get_info());
+    let adapter_info = adapter.get_info();
+    info!("{:?}", adapter_info);
 
     #[cfg(feature = "wgpu_trace")]
     let trace_path = {
@@ -86,8 +87,16 @@ pub async fn initialize_renderer(
     let trace_path = None;
 
     if matches!(options.priority, WgpuOptionsPriority::Functionality) {
-        options.features =
+        let mut features =
             adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+            // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
+            // discrete GPUs due to having to transfer data across the PCI-E bus and so it
+            // should not be automatically enabled in this case. It is however beneficial for
+            // integrated GPUs.
+            features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+        }
+        options.features = features;
         options.limits = adapter.limits();
     }
 

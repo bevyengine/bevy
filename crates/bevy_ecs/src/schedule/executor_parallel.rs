@@ -444,6 +444,35 @@ mod tests {
     }
 
     #[test]
+    fn world() {
+        let mut world = World::new();
+        world.spawn().insert(W(0usize));
+        fn wants_world(_: &World) {}
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_mut);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_world);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_world)
+            .with_system(wants_world);
+        stage.run(&mut world);
+        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+    }
+
+    #[test]
     fn non_send_resource() {
         use std::thread;
         let mut world = World::new();

@@ -84,6 +84,7 @@ Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
 `rect` | [`2d/rect.rs`](./2d/rect.rs) | Renders a rectangle
@@ -92,6 +93,7 @@ Example | File | Description
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+`rotation` | [`2d/rotation.rs`](./2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 
 ## 3D Rendering
 
@@ -366,24 +368,34 @@ cargo install wasm-bindgen-cli
 
 ### Build & Run
 
-Following is an example for `headless_wasm`. For other examples in wasm/ directory,
-change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
-to point to the correct `.js` file.
+Following is an example for `lighting`. For other examples, change the `lighting` in the
+following commands.
 
 ```sh
-cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
-wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+cargo build --release --example lighting --target wasm32-unknown-unknown
+wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
 ```
 
-Then serve `examples/wasm` dir to browser. i.e.
+The first command will build the example for the wasm target, creating a binary. Then,
+[wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
+javascript bindings to this wasm file, which can be loaded using this
+[example HTML file](./wasm/index.html).
+
+Then serve `examples/wasm` directory to browser. i.e.
 
 ```sh
+# cargo install basic-http-server
 basic-http-server examples/wasm
+
+# with python
+python3 -m http.server --directory examples/wasm
+
+# with ruby
+ruby -run -ehttpd examples/wasm
 ```
 
-Example | File | Description
---- | --- | ---
-`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Runs a minimal example that logs "hello world" to the browser's console
-`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
-`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
+### Loading Assets
+
+To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
+repository will set it up as a symlink on Linux and macOS, but you will need to manually move
+the assets on Windows.

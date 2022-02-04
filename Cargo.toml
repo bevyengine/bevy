@@ -120,6 +120,14 @@ name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
 
 [[example]]
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
+
+[[example]]
+name = "2d_rotation"
+path = "examples/2d/rotation.rs"
+
+[[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
 
@@ -497,27 +505,6 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-
-# WASM
-[[example]]
-name = "hello_wasm"
-path = "examples/wasm/hello_wasm.rs"
-required-features = []
-
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
-[[example]]
-name = "headless_wasm"
-path = "examples/wasm/headless_wasm.rs"
-required-features = []
-
-[[example]]
-name = "winit_wasm"
-path = "examples/wasm/winit_wasm.rs"
-required-features = ["bevy_winit"]
 
 # Android
 [[example]]

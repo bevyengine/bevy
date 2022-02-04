@@ -56,7 +56,7 @@ mod splash {
     pub struct SplashPlugin;
 
     impl Plugin for SplashPlugin {
-        fn build(&self, app: &mut bevy::prelude::App) {
+        fn build(&self, app: &mut App) {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
             app
                 // When entering the state, spawn everything needed for this screen
@@ -245,7 +245,7 @@ mod menu {
     pub struct MenuPlugin;
 
     impl Plugin for MenuPlugin {
-        fn build(&self, app: &mut bevy::prelude::App) {
+        fn build(&self, app: &mut App) {
             app
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.
