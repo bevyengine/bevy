@@ -1,6 +1,6 @@
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -47,8 +47,8 @@ pub struct GlobalTransform {
 impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self::from_translation(Vec3::new(x, y, z))
+    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(const_vec3!([x, y, z]))
     }
 
     /// Creates a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
@@ -76,28 +76,28 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_translation(translation: Vec3) -> Self {
+    pub const fn from_translation(translation: Vec3) -> Self {
         GlobalTransform {
             translation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
+    pub const fn from_rotation(rotation: Quat) -> Self {
         GlobalTransform {
             rotation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_scale(scale: Vec3) -> Self {
+    pub const fn from_scale(scale: Vec3) -> Self {
         GlobalTransform {
             scale,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
@@ -110,21 +110,21 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
