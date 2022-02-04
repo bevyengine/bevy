@@ -5,6 +5,7 @@ use bevy::{
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
 use crossbeam_channel::{bounded, Receiver};
 use rand::Rng;
+use std::time::{Duration, Instant};
 
 fn main() {
     App::new()
@@ -35,10 +36,14 @@ fn setup(
         loop {
             // Everything here happens in a thread from the pool `AsyncComputeTaskPool`
             // This is where you could connect to an external data source
-            tx.send(rand::thread_rng().gen_range(0..2000)).unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(
-                rand::thread_rng().gen_range(0..200),
-            ));
+            let mut rng = rand::thread_rng();
+            let start_time = Instant::now();
+            let duration = Duration::from_secs_f32(rng.gen_range(0.0..0.2));
+            while Instant::now() - start_time < duration {
+                // Spinning for 'duration', simulating doing hard work!
+            }
+
+            tx.send(rng.gen_range(0..2000)).unwrap();
         }
     })));
     commands.insert_resource(StreamReceiver(rx));
