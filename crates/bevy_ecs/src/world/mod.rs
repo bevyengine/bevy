@@ -926,24 +926,30 @@ impl World {
             // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type T
-        let value = Mut {
-            value: unsafe { &mut *ptr.cast::<T>() },
+        // SAFE: pointer is of type T and valid to move out of
+        // Read the value onto the stack to avoid potential mut aliasing.
+        let mut value = unsafe { std::ptr::read(ptr.cast::<T>()) };
+        let value_mut = Mut {
+            value: &mut value,
             ticks: Ticks {
                 component_ticks: &mut ticks,
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.change_tick(),
             },
         };
-        let result = f(self, value);
+        let result = f(self, value_mut);
+        assert!(!self.contains_resource::<T>());
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+
+        // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
+        let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
         unsafe {
-            // SAFE: pointer is of type T
-            column.push(ptr, ticks);
+            // SAFE: pointer is of type T, and valid to move out of
+            column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
         }
         result
     }
