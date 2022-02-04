@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
-        WorldQuery,
+        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        QueryState, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -984,11 +984,17 @@ where
     /// # targeting_system.system();
     /// ```
     #[inline]
-    pub fn contains(&self, entity: Entity) -> bool
-    where
-        Q::Fetch: ReadOnlyFetch,
-    {
-        self.get(entity).is_ok()
+    pub fn contains(&self, entity: Entity) -> bool {
+        unsafe {
+            self.state
+                .get_unchecked_manual::<NopFetch<Q::State>>(
+                    self.world,
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
+                .is_ok()
+        }
     }
 }
 
