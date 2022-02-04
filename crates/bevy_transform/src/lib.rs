@@ -42,7 +42,7 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Default, Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Copy, Debug, Default)]
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,
