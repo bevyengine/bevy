@@ -196,6 +196,13 @@ impl GlobalTransform {
         self.rotation = rotation * self.rotation;
     }
 
+    #[doc(hidden)]
+    #[inline]
+    pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
+        self.rotation *= rotation;
+    }
+
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]

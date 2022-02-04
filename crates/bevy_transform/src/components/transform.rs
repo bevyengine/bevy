@@ -205,6 +205,14 @@ impl Transform {
         self.rotation = rotation * self.rotation;
     }
 
+    /// Rotates this [`Transform`] around a point in space.
+    /// If the point is a zero vector, this will rotate around the parent (if any) or the origin.
+    #[inline]
+    pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
+        self.rotation *= rotation;
+    }
+
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`Transform`]
     #[inline]
@@ -235,8 +243,8 @@ impl Transform {
         self.scale *= scale_factor;
     }
 
-    /// Rotates this [`Transform`] so that its unit vector in the local z direction is toward
-    /// `target` and its unit vector in the local y direction is toward `up`.
+    /// Rotates this [`Transform`] so that its local z direction is toward
+    /// `target` and its local y direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);
