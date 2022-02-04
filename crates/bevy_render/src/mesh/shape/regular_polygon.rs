@@ -48,6 +48,7 @@ impl From<RegularPolygon> for Mesh {
     }
 }
 
+/// A circle on the xy plane
 pub struct Circle {
     /// Inscribed radius on the xy plane.
     pub radius: f32,
