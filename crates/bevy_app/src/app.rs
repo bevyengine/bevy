@@ -370,6 +370,10 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
+        use std::any::TypeId;
+        if stage_label.type_id() == TypeId::of::<StartupStage>() {
+            panic!("add systems to a startup stage using App::add_startup_system_to_stage");
+        }
         self.schedule.add_system_to_stage(stage_label, system);
         self
     }
@@ -400,6 +404,10 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
+        use std::any::TypeId;
+        if stage_label.type_id() == TypeId::of::<StartupStage>() {
+            panic!("add system sets to a startup stage using App::add_startup_system_set_to_stage");
+        }
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
         self
