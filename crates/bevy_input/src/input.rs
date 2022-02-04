@@ -28,7 +28,7 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Input<T> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,
