@@ -384,7 +384,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::restart], but if there is already a scheduled state operation,
+    /// Same as [`Self::restart`], but if there is already a scheduled state operation,
     /// it will be overwritten instead of failing
     pub fn overwrite_restart(&mut self) {
         let state = self.stack.last().unwrap();
