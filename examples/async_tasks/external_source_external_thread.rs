@@ -4,20 +4,9 @@ use crossbeam_channel::{bounded, Receiver};
 use rand::Rng;
 
 fn main() {
-    let (tx, rx) = bounded::<u32>(10);
-    std::thread::spawn(move || loop {
-        // Everything here happens in another thread
-        // This is where you could connect to an external data source
-        tx.send(rand::thread_rng().gen_range(0..2000)).unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(
-            rand::thread_rng().gen_range(0..200),
-        ));
-    });
-
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .insert_resource(StreamReceiver(rx))
         .add_startup_system(setup)
         .add_system(read_stream)
         .add_system(spawn_text)
@@ -32,6 +21,18 @@ struct LoadedFont(Handle<Font>);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+
+    let (tx, rx) = bounded::<u32>(10);
+    std::thread::spawn(move || loop {
+        // Everything here happens in another thread
+        // This is where you could connect to an external data source
+        tx.send(rand::thread_rng().gen_range(0..2000)).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(
+            rand::thread_rng().gen_range(0..200),
+        ));
+    });
+
+    commands.insert_resource(StreamReceiver(rx));
     commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
 }
 
