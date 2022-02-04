@@ -706,7 +706,7 @@ mod test {
         // This is 3 even though we run twice, because the first actually does two so MyState::S2 is also updated.
         assert_eq!(*world.get_resource::<u32>().unwrap(), 3);
     }
-  
+
     #[test]
     fn restart_state_tests() {
         #[derive(Clone, PartialEq, Eq, Debug, Hash)]
