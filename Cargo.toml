@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -91,11 +91,11 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false, features = ["webgl"] }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = ["webgl"] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -118,6 +118,22 @@ path = "examples/2d/contributors.rs"
 [[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
+
+[[example]]
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
+
+[[example]]
+name = "2d_rotation"
+path = "examples/2d/rotation.rs"
+
+[[example]]
+name = "mesh2d"
+path = "examples/2d/mesh2d.rs"
+
+[[example]]
+name = "mesh2d_manual"
+path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
 name = "rect"
@@ -242,6 +258,10 @@ name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
 [[example]]
+name = "headless_defaults"
+path = "examples/app/headless_defaults.rs"
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 
@@ -346,6 +366,10 @@ path = "examples/game/alien_cake_addict.rs"
 [[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
+
+[[example]]
+name = "game_menu"
+path = "examples/game/game_menu.rs"
 
 # Input
 [[example]]
@@ -481,27 +505,6 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-
-# WASM
-[[example]]
-name = "hello_wasm"
-path = "examples/wasm/hello_wasm.rs"
-required-features = []
-
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
-[[example]]
-name = "headless_wasm"
-path = "examples/wasm/headless_wasm.rs"
-required-features = []
-
-[[example]]
-name = "winit_wasm"
-path = "examples/wasm/winit_wasm.rs"
-required-features = ["bevy_winit"]
 
 # Android
 [[example]]

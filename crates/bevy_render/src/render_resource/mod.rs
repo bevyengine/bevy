@@ -42,3 +42,5 @@ pub use wgpu::{
 };
 
 pub use bevy_crevice::*;
+
+pub use naga::ShaderStage;

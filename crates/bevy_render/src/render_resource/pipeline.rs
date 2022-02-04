@@ -11,7 +11,7 @@ use wgpu::{
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RenderPipelineId(Uuid);
 
-/// A RenderPipeline represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
+/// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
 /// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
@@ -50,7 +50,7 @@ impl Deref for RenderPipeline {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ComputePipelineId(Uuid);
 
-/// A ComputePipeline represents a compute pipeline and its single shader stage.
+/// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
 /// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).

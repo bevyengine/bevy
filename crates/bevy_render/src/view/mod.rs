@@ -26,21 +26,36 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<ViewUniforms>()
-            .add_system_to_stage(RenderStage::Extract, extract_msaa)
-            .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_view_targets.after(WindowSystem::Prepare),
-            );
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<ViewUniforms>()
+                .add_system_to_stage(RenderStage::Extract, extract_msaa)
+                .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    prepare_view_targets.after(WindowSystem::Prepare),
+                );
+        }
     }
 }
 
 #[derive(Clone)]
+/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+///
+/// # Example
+/// ```
+/// # use bevy_app::prelude::App;
+/// # use bevy_render::prelude::Msaa;
+/// App::new()
+///     .insert_resource(Msaa { samples: 4 })
+///     .run();
+/// ```
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-    /// smoother edges. Note that WGPU currently only supports 1 or 4 samples.
+    /// smoother edges.
+    /// Defaults to 4.
+    ///
+    /// Note that WGPU currently only supports 1 or 4 samples.
     /// Ultimately we plan on supporting whatever is natively supported on a given device.
     /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
     /// It defaults to 1 in wasm - <https://github.com/gfx-rs/wgpu/issues/2149>

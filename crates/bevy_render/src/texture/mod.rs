@@ -35,9 +35,11 @@ impl Plugin for ImagePlugin {
             .unwrap()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<TextureCache>()
-            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<TextureCache>()
+                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+        }
     }
 }
 

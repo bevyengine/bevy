@@ -14,7 +14,6 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-
 bevy_utils::define_label!(AppLabel);
 
 #[allow(clippy::needless_doctest_main)]
@@ -22,8 +21,9 @@ bevy_utils::define_label!(AppLabel);
 ///
 /// Bundles together the necessary elements, like [`World`] and [`Schedule`], to create
 /// an ECS-based application. It also stores a pointer to a
-/// [runner function](App::set_runner), which by default executes the App schedule
-/// once. Apps are constructed with the builder pattern.
+/// [runner function](Self::set_runner). The runner is responsible for managing the application's
+/// event loop and applying the [`Schedule`] to the [`World`] to drive application logic.
+/// Apps are constructed with the builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
@@ -42,12 +42,22 @@ bevy_utils::define_label!(AppLabel);
 /// }
 /// ```
 pub struct App {
+    /// The main ECS [`World`] of the [`App`].
+    /// This stores and provides access to all the main data of the application.
+    /// The systems of the [`App`] will run using this [`World`].
+    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`][App::add_sub_app]s.
     pub world: World,
+    /// The [runner function](Self::set_runner) is primarily responsible for managing
+    /// the application's event loop and advancing the [`Schedule`].
+    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
+    /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
+    /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
+/// Each [`SubApp`] has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
@@ -73,10 +83,15 @@ impl Default for App {
 }
 
 impl App {
+    /// Creates a new [`App`] with some default structure to enable core engine features.
+    /// This is the preferred constructor for most use cases.
     pub fn new() -> App {
         App::default()
     }
 
+    /// Creates a new empty [`App`] with minimal default configuration.
+    ///
+    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
             world: Default::default(),
@@ -87,6 +102,8 @@ impl App {
     }
 
     /// Advances the execution of the [`Schedule`] by one cycle.
+    ///
+    /// This method also updates sub apps. See [`add_sub_app`](Self::add_sub_app) for more details.
     ///
     /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
@@ -353,6 +370,10 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
+        use std::any::TypeId;
+        if stage_label.type_id() == TypeId::of::<StartupStage>() {
+            panic!("add systems to a startup stage using App::add_startup_system_to_stage");
+        }
         self.schedule.add_system_to_stage(stage_label, system);
         self
     }
@@ -383,6 +404,10 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
+        use std::any::TypeId;
+        if stage_label.type_id() == TypeId::of::<StartupStage>() {
+            panic!("add system sets to a startup stage using App::add_startup_system_set_to_stage");
+        }
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
         self
@@ -837,17 +862,22 @@ impl App {
         self
     }
 
+    /// Adds an `App` as a child of the current one.
+    ///
+    /// The provided function `f` is called by the [`update`](Self::update) method. The `World`
+    /// parameter represents the main app world, while the `App` parameter is just a mutable
+    /// reference to the sub app itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         app: App,
-        f: impl Fn(&mut World, &mut App) + 'static,
+        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             Box::new(label),
             SubApp {
                 app,
-                runner: Box::new(f),
+                runner: Box::new(sub_app_runner),
             },
         );
         self
@@ -893,5 +923,5 @@ fn run_once(mut app: App) {
 }
 
 /// An event that indicates the app should exit. This will fully exit the app process.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppExit;

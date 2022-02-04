@@ -187,7 +187,7 @@ use thiserror::Error;
 /// # tuple_system.system();
 ///
 /// # fn non_tuple_system(
-/// // This is the preferred method.    
+/// // This is the preferred method.
 /// query: Query<&MyComponent>
 /// # ) {}
 /// # non_tuple_system.system();

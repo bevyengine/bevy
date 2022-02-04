@@ -3,6 +3,7 @@ use std::num::ParseIntError;
 use crate::{Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
 
+/// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
     #[error("expected an identifier at the given index")]
@@ -30,13 +31,41 @@ pub enum ReflectPathError<'a> {
     InvalidDowncast,
 }
 
+/// A trait which allows nested values to be retrieved with path strings.
+///
+/// Path strings use Rust syntax:
+/// - [`Struct`] items are accessed with a dot and a field name: `.field_name`
+/// - [`TupleStruct`] and [`Tuple`] items are accessed with a dot and a number: `.0`
+/// - [`List`] items are accessed with brackets: `[0]`
+///
+/// If the initial path element is a field of a struct, tuple struct, or tuple,
+/// the initial '.' may be omitted.
+///
+/// For example, given a struct with a field `foo` which is a reflected list of
+/// 2-tuples (like a `Vec<(T, U)>`), the path string `foo[3].0` would access tuple
+/// element 0 of element 3 of `foo`.
+///
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Tuple`]: crate::Tuple
+/// [`List`]: crate::List
 pub trait GetPath {
+    /// Returns a reference to the value specified by `path`.
+    ///
+    /// To retrieve a statically typed reference, use
+    /// [`get_path`][GetPath::get_path].
     fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
+
+    /// Returns a mutable reference to the value specified by `path`.
+    ///
+    /// To retrieve a statically typed mutable reference, use
+    /// [`get_path_mut`][GetPath::get_path_mut].
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
 
+    /// Returns a statically typed reference to the value specified by `path`.
     fn get_path<'r, 'p, T: Reflect>(
         &'r self,
         path: &'p str,
@@ -47,6 +76,8 @@ pub trait GetPath {
         })
     }
 
+    /// Returns a statically typed mutable reference to the value specified by
+    /// `path`.
     fn get_path_mut<'r, 'p, T: Reflect>(
         &'r mut self,
         path: &'p str,

@@ -247,36 +247,40 @@ async fn load_gltf<'a, 'b>(
         .collect();
 
     // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
-    #[cfg(target_arch = "wasm32")]
-    for gltf_texture in gltf.textures() {
-        let (texture, label) =
-            load_texture(gltf_texture, &buffer_data, &linear_textures, &load_context).await?;
-        load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    load_context
-        .task_pool()
-        .scope(|scope| {
-            gltf.textures().for_each(|gltf_texture| {
-                let linear_textures = &linear_textures;
-                let load_context: &LoadContext = load_context;
-                let buffer_data = &buffer_data;
-                scope.spawn(async move {
-                    load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
-                });
-            });
-        })
-        .into_iter()
-        .filter_map(|res| {
-            if let Err(err) = res.as_ref() {
-                warn!("Error loading glTF texture: {}", err);
-            }
-            res.ok()
-        })
-        .for_each(|(texture, label)| {
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
+    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
+        for gltf_texture in gltf.textures() {
+            let (texture, label) =
+                load_texture(gltf_texture, &buffer_data, &linear_textures, load_context).await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-        });
+        }
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        load_context
+            .task_pool()
+            .scope(|scope| {
+                gltf.textures().for_each(|gltf_texture| {
+                    let linear_textures = &linear_textures;
+                    let load_context: &LoadContext = load_context;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
+                    });
+                });
+            })
+            .into_iter()
+            .filter_map(|res| {
+                if let Err(err) = res.as_ref() {
+                    warn!("Error loading glTF texture: {}", err);
+                }
+                res.ok()
+            })
+            .for_each(|(texture, label)| {
+                load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
+            });
+    }
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();

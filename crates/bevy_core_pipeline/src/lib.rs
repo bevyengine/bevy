@@ -15,6 +15,8 @@ pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
 
+use std::ops::Range;
+
 use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
@@ -23,8 +25,8 @@ use bevy_render::{
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        PhaseItem, RenderPhase,
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedPipelinePhaseItem,
+        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::*,
     renderer::RenderDevice,
@@ -33,7 +35,10 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-/// Resource that configures the clear color
+/// When used as a resource, sets the color that is used to clear the screen between frames.
+///
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
@@ -84,11 +89,20 @@ pub mod clear_graph {
 #[derive(Default)]
 pub struct CorePipelinePlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum CorePipelineRenderSystems {
+    SortTransparent2d,
+}
+
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>();
 
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Opaque3d>>()
@@ -97,7 +111,16 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::Extract, extract_clear_color)
             .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)
             .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                sort_phase_system::<Transparent2d>
+                    .label(CorePipelineRenderSystems::SortTransparent2d),
+            )
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                batch_phase_system::<Transparent2d>
+                    .after(CorePipelineRenderSystems::SortTransparent2d),
+            )
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -160,6 +183,8 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedPipelineId,
     pub draw_function: DrawFunctionId,
+    /// Range in the vertex buffer of this item
+    pub batch_range: Option<Range<u32>>,
 }
 
 impl PhaseItem for Transparent2d {
@@ -173,6 +198,30 @@ impl PhaseItem for Transparent2d {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+}
+
+impl EntityPhaseItem for Transparent2d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedPipelinePhaseItem for Transparent2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedPipelineId {
+        self.pipeline
+    }
+}
+
+impl BatchedPhaseItem for Transparent2d {
+    fn batch_range(&self) -> &Option<Range<u32>> {
+        &self.batch_range
+    }
+
+    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
+        &mut self.batch_range
     }
 }
 

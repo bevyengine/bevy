@@ -14,7 +14,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
+        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
         RenderApp, RenderStage,
     },
 };
@@ -45,6 +45,14 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         ),
         Visibility::default(),
         ComputedVisibility::default(),
+        // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
+        // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
+        // instanced cubes will be culled.
+        // The InstanceMaterialData contains the 'GlobalTransform' information for this custom
+        // instancing, and that is not taken into account with the built-in frustum culling.
+        // We must disable the built-in frustum culling by adding the `NoFrustumCulling` marker
+        // component to avoid incorrect culling.
+        NoFrustumCulling,
     ));
 
     // camera
@@ -231,7 +239,6 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,
@@ -242,7 +249,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
                 pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
             }
             GpuBufferInfo::NonIndexed { vertex_count } => {
-                pass.draw_indexed(0..*vertex_count, 0, 0..instance_buffer.length as u32);
+                pass.draw(0..*vertex_count, 0..instance_buffer.length as u32);
             }
         }
         RenderCommandResult::Success

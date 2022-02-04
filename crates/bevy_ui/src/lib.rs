@@ -1,3 +1,7 @@
+//! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
+//! # Basic usage
+//! Spawn [`entity::UiCameraBundle`] and spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
+//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
 mod focus;
 mod margins;
@@ -14,6 +18,7 @@ pub use margins::*;
 pub use render::*;
 pub use ui_node::*;
 
+#[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
@@ -26,13 +31,16 @@ use bevy_math::{Rect, Size};
 use bevy_transform::TransformSystem;
 use update::{ui_z_system, update_clipping_system};
 
+/// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;
 
+/// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiSystem {
     /// After this label, the ui flex state has been updated
     Flex,
+    /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
 }
 

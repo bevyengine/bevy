@@ -66,7 +66,11 @@ pub fn build_ui_render(app: &mut App) {
     let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
     active_cameras.add(CAMERA_UI);
 
-    let render_app = app.sub_app_mut(RenderApp);
+    let render_app = match app.get_sub_app_mut(RenderApp) {
+        Ok(render_app) => render_app,
+        Err(_) => return,
+    };
+
     render_app
         .init_resource::<UiPipeline>()
         .init_resource::<SpecializedPipelines<UiPipeline>>()

@@ -75,7 +75,6 @@ impl Plugin for PbrPlugin {
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .init_resource::<AmbientLight>()
             .init_resource::<VisiblePointLights>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -138,7 +137,11 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,

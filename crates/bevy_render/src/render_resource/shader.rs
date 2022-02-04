@@ -308,7 +308,7 @@ impl ShaderImportProcessor {
 
     pub fn get_imports_from_str(&self, shader: &str) -> Vec<ShaderImport> {
         let mut imports = Vec::new();
-        for line in shader.split('\n') {
+        for line in shader.lines() {
             if let Some(cap) = self.import_asset_path_regex.captures(line) {
                 let import = cap.get(1).unwrap();
                 imports.push(ShaderImport::AssetPath(import.as_str().to_string()));
@@ -366,7 +366,7 @@ impl ShaderProcessor {
         let shader_defs_unique = HashSet::<String>::from_iter(shader_defs.iter().cloned());
         let mut scopes = vec![true];
         let mut final_string = String::new();
-        for line in shader_str.split('\n') {
+        for line in shader_str.lines() {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
                 scopes.push(*scopes.last().unwrap() && shader_defs_unique.contains(def.as_str()));
@@ -417,7 +417,6 @@ impl ShaderProcessor {
                 final_string.push('\n');
             }
         }
-        final_string.pop();
 
         if scopes.len() != 1 {
             return Err(ProcessShaderError::NotEnoughEndIfs);
