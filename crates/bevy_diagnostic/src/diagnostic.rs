@@ -42,13 +42,17 @@ pub struct Diagnostic {
 impl Diagnostic {
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
-        if self.history.len() == self.max_history_length {
-            if let Some(removed_diagnostic) = self.history.pop_front() {
-                self.sum -= removed_diagnostic.value;
+        if self.max_history_length > 1 {
+            if self.history.len() == self.max_history_length {
+                if let Some(removed_diagnostic) = self.history.pop_front() {
+                    self.sum -= removed_diagnostic.value;
+                }
             }
-        }
 
-        self.sum += value;
+            self.sum += value;
+        } else {
+            self.history.pop_front();
+        }
         self.history
             .push_back(DiagnosticMeasurement { time, value });
     }
@@ -97,7 +101,7 @@ impl Diagnostic {
     }
 
     pub fn average(&self) -> Option<f64> {
-        if !self.history.is_empty() {
+        if !self.history.is_empty() && self.max_history_length > 1 {
             Some(self.sum / self.history.len() as f64)
         } else {
             None
