@@ -268,8 +268,8 @@ fn counter_system(
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(average) = fps.average() {
-            text.sections[3].value = format!("{:.2}", average);
+        if let Some(value) = fps.value() {
+            text.sections[3].value = format!("{:.2}", value);
         }
     };
 }
