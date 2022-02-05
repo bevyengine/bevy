@@ -115,6 +115,18 @@ impl<T: SparseSetIndex> Access<T> {
             .map(SparseSetIndex::get_sparse_set_index)
             .collect()
     }
+
+    /// Returns all read accesses.
+    pub fn reads(&self) -> impl Iterator<Item = T> + '_ {
+        self.reads_and_writes
+            .difference(&self.writes)
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns all write accesses.
+    pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.writes.ones().map(T::get_sparse_set_index)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -173,6 +185,10 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.access.extend(&access.access);
         self.with.union_with(&access.with);
         self.without.union_with(&access.without);
+    }
+
+    pub fn read_all(&mut self) {
+        self.access.read_all();
     }
 }
 

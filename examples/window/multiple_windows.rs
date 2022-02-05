@@ -1,40 +1,53 @@
 use bevy::{
+    core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
     render::{
-        camera::{ActiveCameras, Camera},
-        pass::*,
-        render_graph::{
-            base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
-            WindowTextureNode,
-        },
-        texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
+        camera::{ActiveCameras, ExtractedCameraNames},
+        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
+        render_phase::RenderPhase,
+        renderer::RenderContext,
+        RenderApp, RenderStage,
     },
-    window::{CreateWindow, WindowDescriptor, WindowId},
+    window::{CreateWindow, PresentMode, WindowId},
 };
 
-/// This example creates a second window and draws a mesh from two different cameras.
+/// This example creates a second window and draws a mesh from two different cameras, one in each window
 fn main() {
-    App::new()
-        .insert_resource(Msaa { samples: 4 })
-        .add_state(AppState::CreateWindow)
-        .add_plugins(DefaultPlugins)
-        .add_system_set(SystemSet::on_update(AppState::CreateWindow).with_system(setup_window))
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline))
-        .run();
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
+        .add_startup_system(setup)
+        .add_startup_system(create_new_window);
+
+    let render_app = app.sub_app_mut(RenderApp);
+    render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
+    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
+    graph
+        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
+        .unwrap();
+    app.run();
 }
 
-// NOTE: this "state based" approach to multiple windows is a short term workaround.
-// Future Bevy releases shouldn't require such a strict order of operations.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-enum AppState {
-    CreateWindow,
-    Setup,
-    Done,
+fn extract_secondary_camera_phases(mut commands: Commands, active_cameras: Res<ActiveCameras>) {
+    if let Some(secondary) = active_cameras.get(SECONDARY_CAMERA_NAME) {
+        if let Some(entity) = secondary.entity {
+            commands.get_or_spawn(entity).insert_bundle((
+                RenderPhase::<Opaque3d>::default(),
+                RenderPhase::<AlphaMask3d>::default(),
+                RenderPhase::<Transparent3d>::default(),
+            ));
+        }
+    }
 }
 
-fn setup_window(
-    mut app_state: ResMut<State<AppState>>,
+const SECONDARY_CAMERA_NAME: &str = "Secondary";
+const SECONDARY_PASS_DRIVER: &str = "secondary_pass_driver";
+
+fn create_new_window(
     mut create_window_events: EventWriter<CreateWindow>,
+
+    mut commands: Commands,
+    mut active_cameras: ResMut<ActiveCameras>,
 ) {
     let window_id = WindowId::new();
 
@@ -44,144 +57,45 @@ fn setup_window(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            vsync: false,
-            title: "second window".to_string(),
+            present_mode: PresentMode::Immediate,
+            title: "Second window".to_string(),
             ..Default::default()
         },
     });
-
-    app_state.set(AppState::Setup).unwrap();
-}
-
-fn setup_pipeline(
-    mut commands: Commands,
-    windows: Res<Windows>,
-    mut active_cameras: ResMut<ActiveCameras>,
-    mut render_graph: ResMut<RenderGraph>,
-    asset_server: Res<AssetServer>,
-    msaa: Res<Msaa>,
-    mut app_state: ResMut<State<AppState>>,
-) {
-    // get the non-default window id
-    let window_id = windows
-        .iter()
-        .find(|w| w.id() != WindowId::default())
-        .map(|w| w.id());
-
-    let window_id = match window_id {
-        Some(window_id) => window_id,
-        None => return,
-    };
-
-    // here we setup our render graph to draw our second camera to the new window's swap chain
-
-    // add a swapchain node for our new window
-    render_graph.add_node(
-        "second_window_swap_chain",
-        WindowSwapChainNode::new(window_id),
-    );
-
-    // add a new depth texture node for our new window
-    render_graph.add_node(
-        "second_window_depth_texture",
-        WindowTextureNode::new(
-            window_id,
-            TextureDescriptor {
-                format: TextureFormat::Depth32Float,
-                usage: TextureUsage::OUTPUT_ATTACHMENT,
-                sample_count: msaa.samples,
-                ..Default::default()
-            },
-        ),
-    );
-
-    // add a new camera node for our new window
-    render_graph.add_system_node("secondary_camera", CameraNode::new("Secondary"));
-
-    // add a new render pass for our new window / camera
-    let mut second_window_pass = PassNode::<&MainPass>::new(PassDescriptor {
-        color_attachments: vec![msaa.color_attachment(
-            TextureAttachment::Input("color_attachment".to_string()),
-            TextureAttachment::Input("color_resolve_target".to_string()),
-            Operations {
-                load: LoadOp::Clear(Color::rgb(0.5, 0.5, 0.8)),
-                store: true,
-            },
-        )],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-            attachment: TextureAttachment::Input("depth".to_string()),
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(1.0),
-                store: true,
-            }),
-            stencil_ops: None,
-        }),
-        sample_count: msaa.samples,
+    // second window camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        camera: Camera {
+            window: window_id,
+            name: Some(SECONDARY_CAMERA_NAME.into()),
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
     });
 
-    second_window_pass.add_camera("Secondary");
-    active_cameras.add("Secondary");
+    active_cameras.add(SECONDARY_CAMERA_NAME);
+}
 
-    render_graph.add_node("second_window_pass", second_window_pass);
-
-    render_graph
-        .add_slot_edge(
-            "second_window_swap_chain",
-            WindowSwapChainNode::OUT_TEXTURE,
-            "second_window_pass",
-            if msaa.samples > 1 {
-                "color_resolve_target"
-            } else {
-                "color_attachment"
-            },
-        )
-        .unwrap();
-
-    render_graph
-        .add_slot_edge(
-            "second_window_depth_texture",
-            WindowTextureNode::OUT_TEXTURE,
-            "second_window_pass",
-            "depth",
-        )
-        .unwrap();
-
-    render_graph
-        .add_node_edge("secondary_camera", "second_window_pass")
-        .unwrap();
-
-    if msaa.samples > 1 {
-        render_graph.add_node(
-            "second_multi_sampled_color_attachment",
-            WindowTextureNode::new(
-                window_id,
-                TextureDescriptor {
-                    size: Extent3d {
-                        depth_or_array_layers: 1,
-                        width: 1,
-                        height: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: msaa.samples,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::default(),
-                    usage: TextureUsage::OUTPUT_ATTACHMENT,
-                },
-            ),
-        );
-
-        render_graph
-            .add_slot_edge(
-                "second_multi_sampled_color_attachment",
-                WindowSwapChainNode::OUT_TEXTURE,
-                "second_window_pass",
-                "color_attachment",
-            )
-            .unwrap();
+struct SecondaryCameraDriver;
+impl Node for SecondaryCameraDriver {
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        _render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        if let Some(camera_3d) = extracted_cameras.entities.get(SECONDARY_CAMERA_NAME) {
+            graph.run_sub_graph(
+                crate::draw_3d_graph::NAME,
+                vec![SlotValue::Entity(*camera_3d)],
+            )?;
+        }
+        Ok(())
     }
+}
 
-    // SETUP SCENE
-
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
     commands.spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"));
     // light
@@ -194,16 +108,4 @@ fn setup_pipeline(
         transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
-    // second window camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        camera: Camera {
-            name: Some("Secondary".to_string()),
-            window: window_id,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    });
-
-    app_state.set(AppState::Done).unwrap();
 }

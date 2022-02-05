@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{CalculatedSize, ControlNode, Node, Style};
+use crate::{CalculatedSize, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
@@ -22,6 +22,8 @@ pub struct FlexSurface {
 }
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
+// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
@@ -111,60 +113,17 @@ impl FlexSurface {
         }
     }
 
-    pub fn update_children(
-        &mut self,
-        entity: Entity,
-        children: &Children,
-        control_node_query: &mut Query<&mut ControlNode>,
-        unfiltered_children_query: &Query<&Children>,
-    ) {
+    pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut stretch_children = Vec::with_capacity(children.len());
-        fn inner(
-            true_parent: Entity,
-            child: Entity,
-            control_node_query: &mut Query<&mut ControlNode>,
-            unfiltered_children_query: &Query<&Children>,
-            do_on_real: &mut impl FnMut(Entity),
-        ) {
-            if let Ok(mut control_node) = control_node_query.get_mut(child) {
-                control_node.true_parent = Some(true_parent);
-                for &child in unfiltered_children_query
-                    .get(child)
-                    .ok()
-                    .into_iter()
-                    .map(|c| &**c)
-                    .flatten()
-                {
-                    inner(
-                        true_parent,
-                        child,
-                        control_node_query,
-                        unfiltered_children_query,
-                        do_on_real,
-                    );
-                }
+        for child in children.iter() {
+            if let Some(stretch_node) = self.entity_to_stretch.get(child) {
+                stretch_children.push(*stretch_node);
             } else {
-                do_on_real(child);
+                warn!(
+                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+without UI components as a child of an entity with UI components, results may be unexpected."
+                );
             }
-        }
-
-        for &child in children.iter() {
-            inner(
-                entity,
-                child,
-                control_node_query,
-                unfiltered_children_query,
-                &mut |e| {
-                    if let Some(stretch_node) = self.entity_to_stretch.get(&e) {
-                        stretch_children.push(*stretch_node);
-                    } else {
-                        warn!(
-                            "Unstyled child in a UI entity hierarchy. You are using an entity \
-    without UI components as a child of an entity with UI components, results may be unexpected."
-                        );
-                    }
-                },
-            );
         }
 
         let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
@@ -250,10 +209,7 @@ pub fn flex_node_system(
         (Entity, &Style, &CalculatedSize),
         (With<Node>, Changed<CalculatedSize>),
     >,
-    changed_children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    unfiltered_children_query: Query<&Children>,
-    mut control_node_query: Query<&mut ControlNode>,
-    changed_cnc_query: Query<Entity, (Changed<Children>, With<ControlNode>)>,
+    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes
@@ -308,28 +264,8 @@ pub fn flex_node_system(
     }
 
     // update children
-    for (entity, children) in changed_children_query.iter() {
-        flex_surface.update_children(
-            entity,
-            children,
-            &mut control_node_query,
-            &unfiltered_children_query,
-        );
-    }
-
-    for entity in changed_cnc_query.iter() {
-        let true_parent = if let Some(e) = control_node_query.get_mut(entity).unwrap().true_parent {
-            e
-        } else {
-            continue;
-        };
-        let children = unfiltered_children_query.get(true_parent).unwrap();
-        flex_surface.update_children(
-            true_parent,
-            children,
-            &mut control_node_query,
-            &unfiltered_children_query,
-        );
+    for (entity, children) in children_query.iter() {
+        flex_surface.update_children(entity, children);
     }
 
     // compute layouts
@@ -342,19 +278,18 @@ pub fn flex_node_system(
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
-        node.size = Vec2::new(
+        let new_size = Vec2::new(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
+        if node.size != new_size {
+            node.size = new_size;
+        }
         let position = &mut transform.translation;
         position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
-            let parent = control_node_query
-                .get_mut(parent.0)
-                .map(|cn| cn.true_parent.unwrap())
-                .unwrap_or(parent.0);
-            if let Ok(parent_layout) = flex_surface.get_layout(parent) {
+            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
                 position.x -= to_logical(parent_layout.size.width / 2.0);
                 position.y -= to_logical(parent_layout.size.height / 2.0);
             }

@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+mod from_reflect;
 mod reflect_trait;
 mod type_uuid;
 
@@ -739,4 +740,118 @@ pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenS
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     reflect_trait::reflect_trait(args, input)
+}
+
+#[proc_macro_derive(FromReflect)]
+pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let unit_struct_punctuated = Punctuated::new();
+    let (fields, mut derive_type) = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => (&fields.named, DeriveType::Struct),
+        Data::Struct(DataStruct {
+            fields: Fields::Unnamed(fields),
+            ..
+        }) => (&fields.unnamed, DeriveType::TupleStruct),
+        Data::Struct(DataStruct {
+            fields: Fields::Unit,
+            ..
+        }) => (&unit_struct_punctuated, DeriveType::UnitStruct),
+        _ => (&unit_struct_punctuated, DeriveType::Value),
+    };
+
+    let fields_and_args = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            (
+                f,
+                f.attrs
+                    .iter()
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+                    .map(|a| {
+                        syn::custom_keyword!(ignore);
+                        let mut attribute_args = PropAttributeArgs { ignore: None };
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                attribute_args.ignore = Some(true);
+                                return Ok(());
+                            }
+                            Ok(())
+                        })
+                        .expect("Invalid 'property' attribute format.");
+
+                        attribute_args
+                    }),
+                i,
+            )
+        })
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
+    let active_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+    let ignored_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs
+                .as_ref()
+                .map(|attrs| attrs.ignore.unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let type_name = &ast.ident;
+
+    for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+        let meta_list = if let Meta::List(meta_list) = attribute {
+            meta_list
+        } else {
+            continue;
+        };
+
+        if let Some(ident) = meta_list.path.get_ident() {
+            if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                derive_type = DeriveType::Value;
+            }
+        }
+    }
+
+    match derive_type {
+        DeriveType::Struct | DeriveType::UnitStruct => from_reflect::impl_struct(
+            type_name,
+            &ast.generics,
+            &bevy_reflect_path,
+            &active_fields,
+            &ignored_fields,
+        ),
+        DeriveType::TupleStruct => from_reflect::impl_tuple_struct(
+            type_name,
+            &ast.generics,
+            &bevy_reflect_path,
+            &active_fields,
+            &ignored_fields,
+        ),
+        DeriveType::Value => from_reflect::impl_value(type_name, &ast.generics, &bevy_reflect_path),
+    }
+}
+
+#[proc_macro]
+pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
+    let reflect_value_def = parse_macro_input!(input as ReflectDef);
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let ty = &reflect_value_def.type_name;
+    from_reflect::impl_value(ty, &reflect_value_def.generics, &bevy_reflect_path)
 }

@@ -1,9 +1,9 @@
 //! These implementations allow you to
-//! convert std::vec::Vec<T> to VertexAttributeValues::T and back.
+//! convert `std::vec::Vec<T>` to `VertexAttributeValues::T` and back.
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```
 //! use bevy_render::mesh::VertexAttributeValues;
 //!
 //! // creating std::vec::Vec

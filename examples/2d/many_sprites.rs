@@ -3,7 +3,6 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
-    sprite::SpriteSettings,
 };
 
 use rand::Rng;
@@ -11,27 +10,19 @@ use rand::Rng;
 const CAMERA_SPEED: f32 = 1000.0;
 
 /// This example is for performance testing purposes.
-/// See https://github.com/bevyengine/bevy/pull/1492
+/// See <https://github.com/bevyengine/bevy/pull/1492>
 fn main() {
     App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(SpriteSettings {
-            // NOTE: this is an experimental feature that doesn't work in all cases
-            frustum_culling_enabled: true,
-        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(tick_system.label("Tick"))
-        .add_system(move_camera_system.after("Tick"))
+        .add_system(print_sprite_count.label("Tick"))
+        .add_system(move_camera.after("Tick"))
         .run()
 }
 
-fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);
@@ -40,13 +31,12 @@ fn setup(
     let half_x = (map_size.x / 2.0) as i32;
     let half_y = (map_size.y / 2.0) as i32;
 
-    let sprite_handle = materials.add(assets.load("branding/icon.png").into());
+    let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(Timer::from_seconds(1.0, true))
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     // Builds and spawns the sprites
@@ -59,13 +49,16 @@ fn setup(
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
             sprites.push(SpriteBundle {
-                material: sprite_handle.clone(),
+                texture: sprite_handle.clone(),
                 transform: Transform {
                     translation,
                     rotation,
                     scale,
                 },
-                sprite: Sprite::new(tile_size),
+                sprite: Sprite {
+                    custom_size: Some(tile_size),
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         }
@@ -74,19 +67,26 @@ fn setup(
 }
 
 // System for rotating and translating the camera
-fn move_camera_system(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
     camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }
 
-// System for printing the number of sprites on every tick of the timer
-fn tick_system(time: Res<Time>, sprites_query: Query<&Sprite>, mut timer_query: Query<&mut Timer>) {
-    let mut timer = timer_query.single_mut();
-    timer.tick(time.delta());
+struct PrintingTimer(Timer);
 
-    if timer.just_finished() {
-        info!("Sprites: {}", sprites_query.iter().count(),);
+impl Default for PrintingTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(1.0, true))
+    }
+}
+
+// System for printing the number of sprites on every tick of the timer
+fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&Sprite>) {
+    timer.0.tick(time.delta());
+
+    if timer.0.just_finished() {
+        info!("Sprites: {}", sprites.iter().count(),);
     }
 }

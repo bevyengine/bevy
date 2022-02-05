@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an AssetServer
+/// Errors that occur while loading assets with an `AssetServer`
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     #[error("asset folder path is not a directory: {0}")]
@@ -115,6 +115,8 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
+    /// Enable watching of the filesystem for changes, if support is available, starting from after
+    /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         self.server.asset_io.watch_for_changes()?;
         Ok(())
@@ -213,9 +215,9 @@ impl AssetServer {
         load_state
     }
 
-    /// Loads an Asset at the provided relative path.
+    /// Queue an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
+    /// The absolute Path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
     ///
     /// By default the ROOT is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable
@@ -226,6 +228,10 @@ impl AssetServer {
     /// The name of the asset folder is set inside the
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
     /// `"assets"`.
+    ///
+    /// The asset is loaded asynchronously, and will generally not be available by the time
+    /// this calls returns. Use [`AssetServer::get_load_state`] to determine when the asset is
+    /// effectively loaded and available in the [`Assets`] collection.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
@@ -618,7 +624,7 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path)),
+                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
             }),
         }
     }

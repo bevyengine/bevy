@@ -26,17 +26,11 @@ fn main() {
 #[derive(Component)]
 struct MyComponent;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture = asset_server.load("branding/icon.png");
-
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(texture.into()),
+            texture: asset_server.load("branding/icon.png"),
             ..Default::default()
         })
         .insert(MyComponent); // Add the `Component`.
@@ -55,22 +49,12 @@ fn remove_component(
     }
 }
 
-fn react_on_removal(
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    removed: RemovedComponents<MyComponent>,
-    query: Query<(Entity, &Handle<ColorMaterial>)>,
-) {
-    // Note: usually this isn't how you would handle a `Query`. In this example it makes things
-    // a bit easier to read.
-    let (query_entity, material) = query.iter().next().unwrap();
-
+fn react_on_removal(removed: RemovedComponents<MyComponent>, mut query: Query<&mut Sprite>) {
     // `RemovedComponents<T>::iter()` returns an interator with the `Entity`s that had their
     // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
     for entity in removed.iter() {
-        // We compare the `Entity` that had its `MyComponent` `Component` removed with the `Entity`
-        // in the current `Query`. If they match all red is removed from the material.
-        if query_entity == entity {
-            materials.get_mut(material).unwrap().color.set_r(0.0);
+        if let Ok(mut sprite) = query.get_mut(entity) {
+            sprite.color.set_r(0.0);
         }
     }
 }

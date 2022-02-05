@@ -1,7 +1,38 @@
+//! Audio support for the game engine Bevy
+//!
+//! ```
+//! # use bevy_ecs::{system::Res, event::EventWriter};
+//! # use bevy_audio::{Audio, AudioPlugin};
+//! # use bevy_asset::{AssetPlugin, AssetServer};
+//! # use bevy_app::{App, AppExit};
+//! # use bevy_internal::MinimalPlugins;
+//! fn main() {
+//!    App::new()
+//!         .add_plugins(MinimalPlugins)
+//!         .add_plugin(AssetPlugin)
+//!         .add_plugin(AudioPlugin)
+//! #       .add_system(stop)
+//!         .add_startup_system(play_background_audio)
+//!         .run();
+//! }
+//!
+//! fn play_background_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+//!     audio.play(asset_server.load("background_audio.ogg"));
+//! }
+//!
+//! # fn stop(mut events: EventWriter<AppExit>) {
+//! #     events.send(AppExit)
+//! # }
+//! ```
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
 mod audio;
 mod audio_output;
 mod audio_source;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable};
@@ -15,7 +46,9 @@ use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::system::IntoExclusiveSystem;
 
-/// Adds support for audio playback to an App
+/// Adds support for audio playback to a Bevy Application
+///
+/// Use the [`Audio`] resource to play audio.
 #[derive(Default)]
 pub struct AudioPlugin;
 
@@ -30,6 +63,6 @@ impl Plugin for AudioPlugin {
             );
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
-        app.init_asset_loader::<Mp3Loader>();
+        app.init_asset_loader::<AudioLoader>();
     }
 }
