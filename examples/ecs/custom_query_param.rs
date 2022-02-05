@@ -1,8 +1,5 @@
 use bevy::{
-    ecs::{
-        component::Component,
-        query::{Fetch, FilterFetch},
-    },
+    ecs::{component::Component, query::WorldQuery},
     prelude::*,
 };
 use std::{fmt::Debug, marker::PhantomData};
@@ -49,7 +46,7 @@ struct ComponentD;
 #[derive(Component, Debug)]
 struct ComponentZ;
 
-#[derive(Fetch)]
+#[derive(WorldQuery)]
 struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'w ComponentA,
@@ -83,8 +80,8 @@ fn print_components_read_only(
 // suffix.
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
 // using the `read_only_derive` attribute.
-#[derive(Fetch, Debug)]
-#[fetch(mutable, read_only_derive(Debug))]
+#[derive(WorldQuery, Debug)]
+#[world_query(mutable, read_only_derive(Debug))]
 struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
@@ -99,34 +96,35 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(Fetch, Debug)]
+#[derive(WorldQuery, Debug)]
 struct EmptyQuery<'w> {
     // The Fetch derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
     // to use `PhantomData` as a work around.
-    #[fetch(ignore)]
+    #[world_query(ignore)]
     _w: std::marker::PhantomData<&'w ()>,
 }
 
-#[derive(Fetch, Debug)]
+#[derive(WorldQuery, Debug)]
 #[allow(dead_code)]
 struct NestedQuery<'w> {
     c: &'w ComponentC,
     d: Option<&'w ComponentD>,
 }
 
-#[derive(Fetch, Debug)]
+#[derive(WorldQuery, Debug)]
 #[allow(dead_code)]
 struct GenericQuery<'w, T: Component, P: Component> {
     generic: (&'w T, &'w P),
 }
 
-#[derive(FilterFetch)]
+#[derive(WorldQuery)]
+#[world_query(filter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
     _generic_tuple: (With<T>, With<P>),
-    #[filter_fetch(ignore)]
+    #[world_query(ignore)]
     _tp: PhantomData<(T, P)>,
 }
 

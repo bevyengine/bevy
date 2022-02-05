@@ -3,7 +3,10 @@ extern crate proc_macro;
 mod component;
 mod fetch;
 
-use crate::fetch::{derive_fetch_impl, derive_filter_fetch_impl};
+use crate::fetch::{
+    derive_world_query_filter_impl, derive_world_query_impl, FILTER_ATTRIBUTE_NAME,
+    WORLD_QUERY_ATTRIBUTE_NAME,
+};
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -428,15 +431,45 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 }
 
 /// Implement `WorldQuery` to use a struct as a parameter in a query
-#[proc_macro_derive(Fetch, attributes(fetch))]
-pub fn derive_fetch(input: TokenStream) -> TokenStream {
-    derive_fetch_impl(input)
-}
+#[proc_macro_derive(WorldQuery, attributes(world_query))]
+pub fn derive_world_query(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
 
-/// Implement `FilterFetch` to use a struct as a filter parameter in a query
-#[proc_macro_derive(FilterFetch, attributes(filter_fetch))]
-pub fn derive_filter_fetch(input: TokenStream) -> TokenStream {
-    derive_filter_fetch_impl(input)
+    let mut is_filter = false;
+
+    for attr in &ast.attrs {
+        if !attr
+            .path
+            .get_ident()
+            .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
+        {
+            continue;
+        }
+        attr.parse_args_with(|input: ParseStream| {
+            let meta = input.parse_terminated::<syn::Meta, syn::token::Comma>(syn::Meta::parse)?;
+            for meta in meta {
+                let ident = meta.path().get_ident();
+                if ident.map_or(false, |ident| ident == FILTER_ATTRIBUTE_NAME) {
+                    if let syn::Meta::Path(_) = meta {
+                        is_filter = true;
+                    } else {
+                        panic!(
+                            "The `{}` attribute is expected to have no value or arguments",
+                            FILTER_ATTRIBUTE_NAME
+                        );
+                    }
+                }
+            }
+            Ok(())
+        })
+        .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
+    }
+
+    if is_filter {
+        derive_world_query_filter_impl(ast)
+    } else {
+        derive_world_query_impl(ast)
+    }
 }
 
 #[proc_macro_derive(SystemLabel)]

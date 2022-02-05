@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
+    parse_quote,
     punctuated::Punctuated,
     Attribute, Data, DataStruct, DeriveInput, Field, Fields, GenericArgument, GenericParam,
     ImplGenerics, Lifetime, LifetimeDef, Path, PathArguments, ReturnType, Token, Type,
@@ -18,6 +18,7 @@ struct FetchStructAttributes {
     pub read_only_derive_args: Punctuated<syn::NestedMeta, syn::token::Comma>,
 }
 
+pub static FILTER_ATTRIBUTE_NAME: &str = "filter";
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
 static READ_ONLY_DERIVE_ATTRIBUTE_NAME: &str = "read_only_derive";
 
@@ -25,18 +26,15 @@ mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
-static FETCH_ATTRIBUTE_NAME: &str = "fetch";
-static FILTER_FETCH_ATTRIBUTE_NAME: &str = "filter_fetch";
+pub static WORLD_QUERY_ATTRIBUTE_NAME: &str = "world_query";
 
-pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
+pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let mut fetch_struct_attributes = FetchStructAttributes::default();
     for attr in &ast.attrs {
         if !attr
             .path
             .get_ident()
-            .map_or(false, |ident| ident == FETCH_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
         {
             continue;
         }
@@ -74,7 +72,7 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
             }
             Ok(())
         })
-        .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", FETCH_ATTRIBUTE_NAME));
+        .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
     }
 
     let FetchImplTokens {
@@ -101,7 +99,11 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
         field_types: _,
         query_types,
         fetch_init_types,
-    } = fetch_impl_tokens(&ast, FETCH_ATTRIBUTE_NAME, fetch_struct_attributes.mutable);
+    } = fetch_impl_tokens(
+        &ast,
+        WORLD_QUERY_ATTRIBUTE_NAME,
+        fetch_struct_attributes.mutable,
+    );
 
     if !has_world_lifetime {
         panic!("Expected a struct with a lifetime");
@@ -319,9 +321,7 @@ pub fn derive_fetch_impl(input: TokenStream) -> TokenStream {
     tokens
 }
 
-pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
+pub fn derive_world_query_filter_impl(ast: DeriveInput) -> TokenStream {
     let FetchImplTokens {
         struct_name,
         struct_name_read_only: _,
@@ -346,7 +346,7 @@ pub fn derive_filter_fetch_impl(input: TokenStream) -> TokenStream {
         field_types,
         query_types: _,
         fetch_init_types: _,
-    } = fetch_impl_tokens(&ast, FILTER_FETCH_ATTRIBUTE_NAME, false);
+    } = fetch_impl_tokens(&ast, WORLD_QUERY_ATTRIBUTE_NAME, false);
 
     if has_world_lifetime {
         panic!("Expected a struct without a lifetime");

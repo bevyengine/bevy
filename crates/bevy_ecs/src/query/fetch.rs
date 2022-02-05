@@ -8,7 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
-pub use bevy_ecs_macros::{Fetch, FilterFetch};
+pub use bevy_ecs_macros::WorldQuery;
 use std::{
     cell::UnsafeCell,
     marker::PhantomData,
@@ -21,10 +21,6 @@ use std::{
 /// allowing you to query for components immutably and mutably accordingly.
 ///
 /// See [`Query`](crate::system::Query) for a primer on queries.
-///
-/// If you want to implement a custom query, see [`Fetch`] trait documentation.
-///
-/// If you want to implement a custom query filter, see [`FilterFetch`] trait documentation.
 ///
 /// # Basic [`WorldQuery`]'s
 ///
@@ -45,32 +41,12 @@ use std::{
 /// For more information on these consult the item's corresponding documentation.
 ///
 /// [`Or`]: crate::query::Or
-pub trait WorldQuery {
-    type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
-    type State: FetchState;
-    type ReadOnlyFetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>
-        + ReadOnlyFetch;
-}
-
-pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
-
-/// Types that appear as [`Fetch::Item`] associated types.
 ///
-/// This trait comes in useful when it's needed to correlate between types (such as `Mut<T>` to `&mut T`).
-/// In most cases though, [`FetchedItem::Query`] corresponds to a type that implements the trait.
-pub trait FetchedItem {
-    type Query: WorldQuery;
-}
-
-/// Types that implement this trait are responsible for fetching query items from tables or
-/// archetypes.
+/// # Derive
 ///
-/// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`] and
-/// [`WorldQuery::State`] types that are essential for fetching component data. If you want to
-/// implement a custom query type, you'll need to implement [`Fetch`] and [`FetchState`] for
-/// those associated types.
+/// This trait can be derived with the [`derive@super::WorldQuery`] macro.
 ///
-/// You may want to implement a custom query for the following reasons:
+/// You may want to implement a custom query with the derive macro for the following reasons:
 /// - Named structs can be clearer and easier to use than complex query tuples. Access via struct
 ///   fields is more convenient than destructuring tuples or accessing them via `q.0, q.1, ...`
 ///   pattern and saves a lot of maintenance burden when adding or removing components.
@@ -79,27 +55,25 @@ pub trait FetchedItem {
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// # Derive
-///
-/// This trait can be derived with the [`derive@super::Fetch`] macro.
-/// To do so, all fields in the struct must themselves impl [`WorldQuery`].
-///
 /// The derive macro implements [`WorldQuery`] for your type and declares two structs that
 /// implement [`Fetch`] and [`FetchState`] and are used as [`WorldQuery::Fetch`] and
 /// [`WorldQuery::State`] associated types respectively.
+///
+/// The derive macro requires each member to implement the [`FetchedItem`] trait. This trait
+/// is automatically implemented when using the derive macro as well, to allow nested queries.
 ///
 /// **Note:** currently, the macro only supports named structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::Fetch;
+/// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(Component)]
 /// struct Foo;
 /// #[derive(Component)]
 /// struct Bar;
 ///
-/// #[derive(Fetch)]
+/// #[derive(WorldQuery)]
 /// struct MyQuery<'w> {
 ///     entity: Entity,
 ///     foo: &'w Foo,
@@ -117,21 +91,21 @@ pub trait FetchedItem {
 ///
 /// ## Mutable queries
 ///
-/// All queries that are derived with `Fetch` macro provide only an immutable access by default.
+/// All queries that are derived with the `WorldQuery` macro provide only an immutable access by default.
 /// If you need a mutable access to components, you can mark a struct with the `mutable` attribute.
 /// The macro will still generate a read-only variant of a query suffixed with `ReadOnly`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+/// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(Component)]
 /// struct Health(f32);
 /// #[derive(Component)]
 /// struct Buff(f32);
 ///
-/// #[derive(Fetch)]
-/// #[fetch(mutable)]
+/// #[derive(WorldQuery)]
+/// #[world_query(mutable)]
 /// struct HealthQuery<'w> {
 ///     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
 ///     health: Mut<'w, Health>,
@@ -178,13 +152,13 @@ pub trait FetchedItem {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+/// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(Component, Debug)]
 /// struct Foo;
 ///
-/// #[derive(Fetch, Debug)]
-/// #[fetch(mutable, read_only_derive(Debug))]
+/// #[derive(WorldQuery, Debug)]
+/// #[world_query(mutable, read_only_derive(Debug))]
 /// struct FooQuery<'w> {
 ///     foo: &'w Foo,
 /// }
@@ -202,21 +176,21 @@ pub trait FetchedItem {
 ///
 /// ```compile_fail
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::{Fetch, ReadOnlyFetch, WorldQuery};
+/// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(Component)]
 /// struct Foo;
 /// #[derive(Component)]
 /// struct Bar;
 ///
-/// #[derive(Fetch)]
+/// #[derive(WorldQuery)]
 /// struct FooQuery<'w> {
 ///     foo: &'w Foo,
 ///     bar_query: BarQuery<'w>,
 /// }
 ///
-/// #[derive(Fetch)]
-/// #[fetch(mutable)]
+/// #[derive(WorldQuery)]
+/// #[world_query(mutable)]
 /// struct BarQuery<'w> {
 ///     bar: Mut<'w, Bar>,
 /// }
@@ -230,7 +204,7 @@ pub trait FetchedItem {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::Fetch;
+/// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(Component)]
 /// struct Foo;
@@ -241,13 +215,13 @@ pub trait FetchedItem {
 /// #[derive(Component)]
 /// struct OptionalBar;
 ///
-/// #[derive(Fetch)]
+/// #[derive(WorldQuery)]
 /// struct MyQuery<'w> {
 ///     foo: FooQuery<'w>,
 ///     bar: (&'w Bar, Option<&'w OptionalBar>)
 /// }
 ///
-/// #[derive(Fetch)]
+/// #[derive(WorldQuery)]
 /// struct FooQuery<'w> {
 ///     foo: &'w Foo,
 ///     optional_foo: Option<&'w OptionalFoo>,
@@ -272,11 +246,11 @@ pub trait FetchedItem {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::Fetch;
+/// use bevy_ecs::query::WorldQuery;
 ///
-/// #[derive(Fetch, Debug)]
+/// #[derive(WorldQuery, Debug)]
 /// struct EmptyQuery<'w> {
-///     #[fetch(ignore)]
+///     #[world_query(ignore)]
 ///     _w: std::marker::PhantomData<&'w ()>,
 /// }
 ///
@@ -286,6 +260,67 @@ pub trait FetchedItem {
 ///
 /// # my_system.system();
 /// ```
+///
+/// ## Filters
+///
+/// Using [`derive@super::WorldQuery`] macro in conjunctions with the `#[world_query(filter)]`
+/// attribute allows creating custom query filters.
+///
+/// To do so, all fields in the struct must be filters themselves (their [`WorldQuery::Fetch`]
+/// associated types should implement [`super::FilterFetch`]).
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::{query::WorldQuery, component::Component};
+///
+/// #[derive(Component)]
+/// struct Foo;
+/// #[derive(Component)]
+/// struct Bar;
+/// #[derive(Component)]
+/// struct Baz;
+/// #[derive(Component)]
+/// struct Qux;
+///
+/// #[derive(WorldQuery)]
+/// #[world_query(filter)]
+/// struct MyFilter<T: Component, P: Component> {
+///     _foo: With<Foo>,
+///     _bar: With<Bar>,
+///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
+///     _generic_tuple: (With<T>, Without<P>),
+///     #[world_query(ignore)]
+///     _tp: std::marker::PhantomData<(T, P)>,
+/// }
+///
+/// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
+///     for _ in query.iter() {}
+/// }
+///
+/// # my_system.system();
+/// ```
+pub trait WorldQuery {
+    type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
+    type State: FetchState;
+    type ReadOnlyFetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>
+        + ReadOnlyFetch;
+}
+
+pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
+
+/// Types that appear as [`Fetch::Item`] associated types.
+///
+/// This trait comes in useful when it's needed to correlate between types (such as `Mut<T>` to `&mut T`).
+/// In most cases though, [`FetchedItem::Query`] corresponds to a type that implements the trait.
+pub trait FetchedItem {
+    type Query: WorldQuery;
+}
+
+/// Types that implement this trait are responsible for fetching query items from tables or
+/// archetypes.
+///
+/// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`] and
+/// [`WorldQuery::State`] types that are essential for fetching component data.
 pub trait Fetch<'world, 'state>: Sized {
     type Item: FetchedItem;
     type State: FetchState;
