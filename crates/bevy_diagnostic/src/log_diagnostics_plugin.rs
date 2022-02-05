@@ -62,9 +62,7 @@ impl LogDiagnosticsPlugin {
                     // The ) hugging the value is more aesthetically pleasing
                     "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
                     name = diagnostic.name,
-                    value = value,
                     suffix = diagnostic.suffix,
-                    average = average,
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             } else {
@@ -72,7 +70,6 @@ impl LogDiagnosticsPlugin {
                     target: "bevy diagnostic",
                     "{name:<name_width$}: {value:>.6}{suffix:}",
                     name = diagnostic.name,
-                    value = value,
                     suffix = diagnostic.suffix,
                     name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
