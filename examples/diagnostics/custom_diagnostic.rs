@@ -33,5 +33,5 @@ fn setup_diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
 
 fn my_system(mut diagnostics: ResMut<Diagnostics>) {
     // Add a measurement of 10.0 for our diagnostic each time this system runs.
-    diagnostics.add_measurement(SYSTEM_ITERATION_COUNT, 10.0);
+    diagnostics.add_measurement(SYSTEM_ITERATION_COUNT, || 10.0);
 }

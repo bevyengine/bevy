@@ -162,9 +162,12 @@ impl Diagnostics {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    pub fn add_measurement(&mut self, id: DiagnosticId, value: f64) {
+    pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
+    where
+        F: FnOnce() -> f64,
+    {
         if let Some(diagnostic) = self.diagnostics.get_mut(&id) {
-            diagnostic.add_measurement(value);
+            diagnostic.add_measurement(value());
         }
     }
 
