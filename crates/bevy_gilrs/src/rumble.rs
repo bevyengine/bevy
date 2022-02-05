@@ -91,11 +91,39 @@ struct RunningRumble {
     effect: ff::Effect,
 }
 
+enum RumbleError {
+    GamepadNotFound,
+    GilrsError(ff::Error),
+}
+impl From<ff::Error> for RumbleError {
+    fn from(err: ff::Error) -> Self {
+        RumbleError::GilrsError(err)
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct RumblesManager {
     rumbles: HashMap<GamepadId, RunningRumble>,
 }
 
+fn add_rumble(
+    manager: &mut RumblesManager,
+    gilrs: &mut Gilrs,
+    mut rumble: RumbleRequest,
+    current_time: f32,
+) -> Result<(), RumbleError> {
+    let (pad_id, _) = gilrs
+        .gamepads()
+        .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == rumble.pad)
+        .ok_or(RumbleError::GamepadNotFound)?;
+    let deadline = current_time + rumble.duration_seconds;
+    let effect = rumble.gilrs_effect.gamepads(&[pad_id]).finish(gilrs)?;
+    effect.play()?;
+    manager
+        .rumbles
+        .insert(pad_id, RunningRumble { deadline, effect });
+    Ok(())
+}
 pub(crate) fn gilrs_rumble_system(
     time: Res<Time>,
     mut gilrs: NonSendMut<Gilrs>,
@@ -117,39 +145,16 @@ pub(crate) fn gilrs_rumble_system(
         }
     }
     // Add new effects.
-    for mut rumble in requests.iter().cloned() {
-        let gilrs_pad = gilrs
-            .gamepads()
-            .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == rumble.pad);
-        if let Some((pad_id, _)) = gilrs_pad {
-            let current_time = time.seconds_since_startup() as f32;
-            let deadline = current_time + rumble.duration_seconds;
-            let effect = rumble.gilrs_effect.gamepads(&[pad_id]).finish(&mut gilrs);
-            match effect {
-                Ok(effect) => {
-                    if let Err(err) = effect.play() {
-                        log::error!(
-                            "Tried to rumble {:?} but an error occurred: {err}",
-                            rumble.pad
-                        );
-                        continue;
-                    };
-                    manager
-                        .rumbles
-                        .insert(pad_id, RunningRumble { deadline, effect });
-                }
-                Err(err) => {
-                    log::debug!(
-                        "Tried to rumble {:?} but an error occurred: {err}",
-                        rumble.pad
-                    );
-                }
+    for rumble in requests.iter().cloned() {
+        let pad = rumble.pad;
+        match add_rumble(&mut manager, &mut gilrs, rumble, current_time) {
+            Ok(()) => {}
+            Err(RumbleError::GilrsError(err)) => {
+                log::debug!("Tried to rumble {pad:?} but an error occurred: {err}")
             }
-        } else {
-            log::warn!(
-                "Tried to trigger rumble on gamepad {:?}, but that gamepad doesn't exist",
-                rumble.pad,
-            );
-        }
+            Err(RumbleError::GamepadNotFound) => {
+                log::error!("Tried to rumble {pad:?} but it doesn't exist!")
+            }
+        };
     }
 }
