@@ -1103,9 +1103,9 @@ macro_rules! impl_tuple_fetch {
     };
 }
 
-/// The AnyOf query parameter fetches entities with any of the component types included in T.
+/// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
-/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), (Or(With<A>, With<B>, With<C>)>.
+/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), (Or(With<A>, With<B>, With<C>)>`.
 /// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(T);
