@@ -10,7 +10,7 @@ pub struct KeyboardInput {
     pub state: ElementState,
 }
 
-/// Updates the Input<KeyCode> resource with the latest KeyboardInput events
+/// Updates the `Input<KeyCode>` resource with the latest `KeyboardInput` events
 pub fn keyboard_input_system(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,

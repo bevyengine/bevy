@@ -6,12 +6,13 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
+    options::{WgpuOptions, WgpuOptionsPriority},
     render_graph::RenderGraph,
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
+use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -64,16 +65,16 @@ pub type RenderInstance = Instance;
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
+    options: &mut WgpuOptions,
     request_adapter_options: &RequestAdapterOptions<'_>,
-    device_descriptor: &DeviceDescriptor<'_>,
 ) -> (RenderDevice, RenderQueue) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
         .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
-    #[cfg(not(target_arch = "wasm32"))]
-    info!("{:?}", adapter.get_info());
+    let adapter_info = adapter.get_info();
+    info!("{:?}", adapter_info);
 
     #[cfg(feature = "wgpu_trace")]
     let trace_path = {
@@ -85,8 +86,29 @@ pub async fn initialize_renderer(
     #[cfg(not(feature = "wgpu_trace"))]
     let trace_path = None;
 
+    if matches!(options.priority, WgpuOptionsPriority::Functionality) {
+        let mut features =
+            adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+            // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
+            // discrete GPUs due to having to transfer data across the PCI-E bus and so it
+            // should not be automatically enabled in this case. It is however beneficial for
+            // integrated GPUs.
+            features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+        }
+        options.features = features;
+        options.limits = adapter.limits();
+    }
+
     let (device, queue) = adapter
-        .request_device(device_descriptor, trace_path)
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                features: options.features,
+                limits: options.limits.clone(),
+            },
+            trace_path,
+        )
         .await
         .unwrap();
     let device = Arc::new(device);

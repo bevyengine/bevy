@@ -1130,18 +1130,12 @@ mod tests {
     #[test]
     fn remove_bundle() {
         let mut world = World::default();
-        world
-            .spawn()
-            .insert_bundle((A(1), B(1), TableStored("1")))
-            .id();
+        world.spawn().insert_bundle((A(1), B(1), TableStored("1")));
         let e2 = world
             .spawn()
             .insert_bundle((A(2), B(2), TableStored("2")))
             .id();
-        world
-            .spawn()
-            .insert_bundle((A(3), B(3), TableStored("3")))
-            .id();
+        world.spawn().insert_bundle((A(3), B(3), TableStored("3")));
 
         let mut query = world.query::<(&B, &TableStored)>();
         let results = query
@@ -1307,8 +1301,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::new(0));
-        let _ = query.get(&world_b, Entity::new(0));
+        let _ = query.get(&world_a, Entity::from_raw(0));
+        let _ = query.get(&world_b, Entity::from_raw(0));
     }
 
     #[test]
@@ -1531,7 +1525,7 @@ mod tests {
     fn insert_or_spawn_batch() {
         let mut world = World::default();
         let e0 = world.spawn().insert(A(0)).id();
-        let e1 = Entity::new(1);
+        let e1 = Entity::from_raw(1);
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
 
@@ -1568,7 +1562,7 @@ mod tests {
     fn insert_or_spawn_batch_invalid() {
         let mut world = World::default();
         let e0 = world.spawn().insert(A(0)).id();
-        let e1 = Entity::new(1);
+        let e1 = Entity::from_raw(1);
         let e2 = world.spawn().id();
         let invalid_e2 = Entity {
             generation: 1,

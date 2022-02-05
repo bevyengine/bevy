@@ -5,7 +5,6 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: true,
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
@@ -91,6 +90,6 @@ fn setup_scene(
 }
 
 fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.mp3");
+    let music = asset_server.load("sounds/Windless Slopes.ogg");
     audio.play(music);
 }

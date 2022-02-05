@@ -68,9 +68,9 @@ impl Mesh {
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
 
-    /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
+    /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
-    /// `PrimitiveTopology::TriangleList`.
+    /// [`PrimitiveTopology::TriangleList`].
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
@@ -269,7 +269,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
-    /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
+    /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         if self.indices().is_some() {
             panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
@@ -404,8 +404,8 @@ pub enum VertexAttributeValues {
 }
 
 impl VertexAttributeValues {
-    /// Returns the number of vertices in this VertexAttribute. For a single
-    /// mesh, all of the VertexAttributeValues must have the same length.
+    /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
+    /// mesh, all of the [`VertexAttributeValues`] must have the same length.
     pub fn len(&self) -> usize {
         match *self {
             VertexAttributeValues::Float32(ref values) => values.len(),
@@ -439,7 +439,7 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Returns `true` if there are no vertices in this VertexAttributeValue.
+    /// Returns `true` if there are no vertices in this [`VertexAttributeValues`].
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -453,7 +453,7 @@ impl VertexAttributeValues {
     }
 
     // TODO: add vertex format as parameter here and perform type conversions
-    /// Flattens the VertexAttributeArray into a sequence of bytes. This is
+    /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
     pub fn get_bytes(&self) -> &[u8] {
         match self {
@@ -591,18 +591,23 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
-    pub index_info: Option<GpuIndexInfo>,
+    pub buffer_info: GpuBufferInfo,
     pub has_tangents: bool,
     pub primitive_topology: PrimitiveTopology,
 }
 
-/// The index info of a [`GpuMesh`].
+/// The index/vertex buffer info of a [`GpuMesh`].
 #[derive(Debug, Clone)]
-pub struct GpuIndexInfo {
-    /// Contains all index data of a mesh.
-    pub buffer: Buffer,
-    pub count: u32,
-    pub index_format: IndexFormat,
+pub enum GpuBufferInfo {
+    Indexed {
+        /// Contains all index data of a mesh.
+        buffer: Buffer,
+        count: u32,
+        index_format: IndexFormat,
+    },
+    NonIndexed {
+        vertex_count: u32,
+    },
 }
 
 impl RenderAsset for Mesh {
@@ -623,23 +628,28 @@ impl RenderAsset for Mesh {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: None,
+            label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let index_info = mesh.get_index_buffer_bytes().map(|data| GpuIndexInfo {
-            buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                usage: BufferUsages::INDEX,
-                contents: data,
-                label: None,
-            }),
-            count: mesh.indices().unwrap().len() as u32,
-            index_format: mesh.indices().unwrap().into(),
-        });
+        let buffer_info = mesh.get_index_buffer_bytes().map_or(
+            GpuBufferInfo::NonIndexed {
+                vertex_count: mesh.count_vertices() as u32,
+            },
+            |data| GpuBufferInfo::Indexed {
+                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                    usage: BufferUsages::INDEX,
+                    contents: data,
+                    label: Some("Mesh Index Buffer"),
+                }),
+                count: mesh.indices().unwrap().len() as u32,
+                index_format: mesh.indices().unwrap().into(),
+            },
+        );
 
         Ok(GpuMesh {
             vertex_buffer,
-            index_info,
+            buffer_info,
             has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),
         })

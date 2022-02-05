@@ -144,8 +144,10 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct CubemapFrusta {
+    #[reflect(ignore)]
     pub frusta: [Frustum; 6],
 }
 

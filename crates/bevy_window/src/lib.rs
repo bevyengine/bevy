@@ -1,3 +1,4 @@
+mod cursor;
 mod event;
 mod raw_window_handle;
 mod system;
@@ -5,6 +6,7 @@ mod window;
 mod windows;
 
 pub use crate::raw_window_handle::*;
+pub use cursor::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
@@ -13,8 +15,8 @@ pub use windows::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, Window,
-        WindowDescriptor, WindowMoved, Windows,
+        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
+        Window, WindowDescriptor, WindowMoved, Windows,
     };
 }
 

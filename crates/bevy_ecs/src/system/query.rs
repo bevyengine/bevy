@@ -187,7 +187,7 @@ use thiserror::Error;
 /// # tuple_system.system();
 ///
 /// # fn non_tuple_system(
-/// // This is the preferred method.    
+/// // This is the preferred method.
 /// query: Query<&MyComponent>
 /// # ) {}
 /// # non_tuple_system.system();
@@ -211,7 +211,7 @@ use thiserror::Error;
 /// # struct ComponentA;
 /// # #[derive(Component)]
 /// # struct ComponentB;
-/// fn immutable_query_system(mut query: Query<(&ComponentA, &ComponentB)>) {
+/// fn immutable_query_system(query: Query<(&ComponentA, &ComponentB)>) {
 ///     for (a, b) in query.iter() {
 ///         // Here, `a` and `b` are normal references to components, relatively of
 ///         // `&ComponentA` and `&ComponentB` types.

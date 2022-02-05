@@ -68,7 +68,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci
+        run: cargo run -p ci -- nonlocal
 
   check-benches:
     runs-on: ubuntu-latest
@@ -273,7 +273,7 @@ jobs:
       - name: Installs cargo-deadlinks
         run: cargo install --force cargo-deadlinks
       - name: Build and check doc
-        run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps
+        run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps --document-private-items
       - name: Checks dead links
         run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true

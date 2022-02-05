@@ -1,6 +1,6 @@
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -36,16 +36,19 @@ use std::ops::Mul;
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform {
+    /// The position of the global transform
     pub translation: Vec3,
+    /// The rotation of the global transform
     pub rotation: Quat,
+    /// The scale of the global transform
     pub scale: Vec3,
 }
 
 impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self::from_translation(Vec3::new(x, y, z))
+    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(const_vec3!([x, y, z]))
     }
 
     /// Creates a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
@@ -73,28 +76,28 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_translation(translation: Vec3) -> Self {
+    pub const fn from_translation(translation: Vec3) -> Self {
         GlobalTransform {
             translation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
+    pub const fn from_rotation(rotation: Quat) -> Self {
         GlobalTransform {
             rotation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_scale(scale: Vec3) -> Self {
+    pub const fn from_scale(scale: Vec3) -> Self {
         GlobalTransform {
             scale,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
@@ -107,21 +110,21 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
@@ -139,13 +142,13 @@ impl GlobalTransform {
         self.rotation * Vec3::X
     }
 
-    /// Equivalent to -local_x()
+    /// Equivalent to [`-local_x()`][GlobalTransform::local_x]
     #[inline]
     pub fn left(&self) -> Vec3 {
         -self.local_x()
     }
 
-    /// Equivalent to local_x()
+    /// Equivalent to [`local_x()`][GlobalTransform::local_x]
     #[inline]
     pub fn right(&self) -> Vec3 {
         self.local_x()
@@ -157,13 +160,13 @@ impl GlobalTransform {
         self.rotation * Vec3::Y
     }
 
-    /// Equivalent to local_y()
+    /// Equivalent to [`local_y()`][GlobalTransform::local_y]
     #[inline]
     pub fn up(&self) -> Vec3 {
         self.local_y()
     }
 
-    /// Equivalent to -local_y()
+    /// Equivalent to [`-local_y()`][GlobalTransform::local_y]
     #[inline]
     pub fn down(&self) -> Vec3 {
         -self.local_y()
@@ -175,13 +178,13 @@ impl GlobalTransform {
         self.rotation * Vec3::Z
     }
 
-    /// Equivalent to -local_z()
+    /// Equivalent to [`-local_z()`][GlobalTransform::local_z]
     #[inline]
     pub fn forward(&self) -> Vec3 {
         -self.local_z()
     }
 
-    /// Equivalent to local_z()
+    /// Equivalent to [`local_z()`][GlobalTransform::local_z]
     #[inline]
     pub fn back(&self) -> Vec3 {
         self.local_z()
@@ -191,6 +194,13 @@ impl GlobalTransform {
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
+        self.rotation *= rotation;
     }
 
     /// Multiplies `self` with `transform` component by component, returning the

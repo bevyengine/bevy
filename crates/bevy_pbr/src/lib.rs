@@ -4,21 +4,24 @@ mod alpha;
 mod bundle;
 mod light;
 mod material;
+mod pbr_material;
 mod render;
 
 pub use alpha::*;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
+pub use pbr_material::*;
 pub use render::*;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, PbrBundle, PointLightBundle},
+        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
         light::{AmbientLight, DirectionalLight, PointLight},
-        material::StandardMaterial,
+        material::{Material, MaterialPlugin},
+        pbr_material::StandardMaterial,
     };
 }
 
@@ -31,12 +34,10 @@ pub mod draw_3d_graph {
 
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
-    render_component::ExtractComponentPlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedPipelines},
@@ -66,13 +67,14 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl(include_str!("render/depth.wgsl")),
         );
 
-        app.add_plugin(StandardMaterialPlugin)
+        app.register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<PointLight>()
             .add_plugin(MeshRenderPlugin)
-            .add_plugin(ExtractComponentPlugin::<Handle<StandardMaterial>>::default())
+            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .init_resource::<AmbientLight>()
             .init_resource::<VisiblePointLights>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -127,7 +129,7 @@ impl Plugin for PbrPlugin {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap()
             .set_untracked(
-                DEFAULT_STANDARD_MATERIAL_HANDLE,
+                Handle::<StandardMaterial>::default(),
                 StandardMaterial {
                     base_color: Color::rgb(1.0, 0.0, 0.5),
                     unlit: true,
@@ -135,7 +137,11 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let render_app = app.sub_app(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .add_system_to_stage(
                 RenderStage::Extract,
@@ -166,21 +172,15 @@ impl Plugin for PbrPlugin {
                 RenderStage::Queue,
                 render::queue_shadows.label(RenderLightSystems::QueueShadows),
             )
-            .add_system_to_stage(RenderStage::Queue, queue_meshes)
             .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
-            .init_resource::<PbrPipeline>()
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
             .init_resource::<GlobalLightMeta>()
-            .init_resource::<SpecializedPipelines<PbrPipeline>>()
             .init_resource::<SpecializedPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        render_app.add_render_command::<Opaque3d, DrawPbr>();
-        render_app.add_render_command::<AlphaMask3d, DrawPbr>();
-        render_app.add_render_command::<Transparent3d, DrawPbr>();
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
         let draw_3d_graph = graph

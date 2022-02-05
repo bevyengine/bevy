@@ -18,6 +18,8 @@ crates=(
     bevy_diagnostic
     bevy_transform
     bevy_window
+    bevy_crevice/bevy-crevice-derive
+    bevy_crevice
     bevy_render
     bevy_core_pipeline
     bevy_input

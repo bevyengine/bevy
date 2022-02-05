@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_math::{Size, Vec2};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
 use wgpu::{
@@ -117,6 +118,14 @@ impl Image {
         self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
     }
 
+    /// Returns the size of a 2D image.
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(
+            self.texture_descriptor.size.width as f32,
+            self.texture_descriptor.size.height as f32,
+        )
+    }
+
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
     /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
@@ -187,8 +196,8 @@ impl Image {
             .map(super::image_texture_conversion::image_to_texture)
     }
 
-    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
-    /// crate`
+    /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
+    /// crate
     pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
@@ -373,12 +382,13 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 /// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`].
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's [`Size`].
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub sampler: Sampler,
+    pub size: Size,
 }
 
 impl RenderAsset for Image {
@@ -426,10 +436,45 @@ impl RenderAsset for Image {
         );
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let size = Size::new(
+            image.texture_descriptor.size.width as f32,
+            image.texture_descriptor.size.height as f32,
+        );
         Ok(GpuImage {
             texture,
             texture_view,
             sampler,
+            size,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn image_size() {
+        let size = Extent3d {
+            width: 200,
+            height: 100,
+            depth_or_array_layers: 1,
+        };
+        let image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+        );
+        assert_eq!(
+            Vec2::new(size.width as f32, size.height as f32),
+            image.size()
+        );
+    }
+    #[test]
+    fn image_default_size() {
+        let image = Image::default();
+        assert_eq!(Vec2::new(1.0, 1.0), image.size());
     }
 }

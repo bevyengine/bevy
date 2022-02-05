@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an AssetServer
+/// Errors that occur while loading assets with an `AssetServer`
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     #[error("asset folder path is not a directory: {0}")]
@@ -115,6 +115,8 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
+    /// Enable watching of the filesystem for changes, if support is available, starting from after
+    /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         self.server.asset_io.watch_for_changes()?;
         Ok(())
@@ -215,7 +217,7 @@ impl AssetServer {
 
     /// Queue an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
+    /// The absolute Path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
     ///
     /// By default the ROOT is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable
@@ -622,7 +624,7 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path)),
+                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
             }),
         }
     }

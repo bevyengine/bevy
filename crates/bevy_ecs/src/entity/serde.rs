@@ -32,6 +32,6 @@ impl<'de> Visitor<'de> for EntityVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Entity::new(v))
+        Ok(Entity::from_raw(v))
     }
 }

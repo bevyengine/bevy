@@ -28,9 +28,9 @@ impl Default for Time {
 }
 
 impl Time {
+    /// Updates the internal time measurements.
     pub fn update(&mut self) {
-        let now = Instant::now();
-        self.update_with_instant(now);
+        self.update_with_instant(Instant::now());
     }
 
     pub(crate) fn update_with_instant(&mut self, instant: Instant) {
