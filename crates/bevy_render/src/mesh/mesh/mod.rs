@@ -835,6 +835,7 @@ struct MikktspaceGeometryHelper<'a> {
     uvs: &'a Vec<[f32; 2]>,
     tangents: Vec<[f32; 4]>,
 }
+
 impl MikktspaceGeometryHelper<'_> {
     fn index(&self, face: usize, vert: usize) -> usize {
         let index_index = face * 3 + vert;
@@ -845,6 +846,7 @@ impl MikktspaceGeometryHelper<'_> {
         }
     }
 }
+
 impl mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
         self.indices.len() / 3
@@ -886,6 +888,7 @@ pub enum GenerateTangentsError {
     #[error("mesh not suitable for tangent generation")]
     MikktspaceError,
 }
+
 fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
     match mesh.primitive_topology() {
         PrimitiveTopology::TriangleList => {}
@@ -941,6 +944,11 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     let success = mikktspace::generate_tangents(&mut mikktspace_mesh);
     if !success {
         return Err(GenerateTangentsError::MikktspaceError);
+    }
+
+    // mikktspace seems to assume left-handedness so we can flip the sign to correct for this
+    for tangent in &mut mikktspace_mesh.tangents {
+        tangent[3] = -tangent[3];
     }
 
     Ok(mikktspace_mesh.tangents)

@@ -313,7 +313,12 @@ async fn load_gltf<'a, 'b>(
                 bevy_log::debug!(
                     "Missing vertex tangents, computing them using the mikktspace algorithm"
                 );
-                mesh.generate_tangents()?;
+                if let Err(err) = mesh.generate_tangents() {
+                    bevy_log::warn!(
+                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
+                        err
+                    );
+                }
             }
 
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
