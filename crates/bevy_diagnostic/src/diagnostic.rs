@@ -53,6 +53,7 @@ impl Diagnostic {
             self.sum += value;
         } else {
             self.history.pop_front();
+            self.sum = value;
         }
         self.history
             .push_back(DiagnosticMeasurement { time, value });
@@ -103,7 +104,7 @@ impl Diagnostic {
 
     /// If this diagnostic has more than one value, return the average.
     pub fn average(&self) -> Option<f64> {
-        if !self.history.is_empty() && self.max_history_length > 1 {
+        if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
         } else {
             None
