@@ -530,7 +530,7 @@ macro_rules! impl_tick_filter {
                 table.has_column(self.component_id)
             }
 
-            fn get_id<Comp: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+            fn get_id<Comp: Component>(&self) -> Option<(ComponentId, RWAccess)> {
                 (TypeId::of::<Comp>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
             }
         }

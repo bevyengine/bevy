@@ -191,7 +191,7 @@ unsafe impl FetchState for EntityState {
         true
     }
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)> {
         None
     }
 }
@@ -290,7 +290,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
         table.has_column(self.component_id)
     }
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)> {
         (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
     }
 }
@@ -496,7 +496,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
         table.has_column(self.component_id)
     }
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)> {
         (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Write))
     }
 }
@@ -916,7 +916,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
         table.has_column(self.component_id)
     }
 
-    fn get_id<C: 'static>(&self) -> Option<(ComponentId, RWAccess)> {
+    fn get_id<C: Component>(&self) -> Option<(ComponentId, RWAccess)> {
         (TypeId::of::<C>() == TypeId::of::<T>()).then(|| (self.component_id, RWAccess::Read))
     }
 }
