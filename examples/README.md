@@ -145,6 +145,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+`external_source_external_thread` | [`async_tasks/external_source_external_thread.rs`](async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
 ## Audio
 
