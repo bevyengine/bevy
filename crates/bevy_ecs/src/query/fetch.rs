@@ -1204,6 +1204,8 @@ macro_rules! impl_anytuple_fetch {
 
         impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type Fetch = AnyOf<($(($name::Fetch, bool),)*)>;
+            type ReadOnlyFetch = AnyOf<($(($name::ReadOnlyFetch, bool),)*)>;
+
             type State = AnyOf<($($name::State,)*)>;
         }
 
