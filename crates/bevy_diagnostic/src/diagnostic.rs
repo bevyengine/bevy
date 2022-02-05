@@ -155,6 +155,10 @@ pub struct Diagnostics {
 
 impl Diagnostics {
     pub fn add(&mut self, diagnostic: Diagnostic) {
+        if self.state(diagnostic.id) == Some(DiagnosticState::Disabled) {
+            self.diagnostics
+                .remove(&(diagnostic.id, DiagnosticState::Disabled));
+        }
         self.diagnostics
             .insert((diagnostic.id, DiagnosticState::Enabled), diagnostic);
     }
