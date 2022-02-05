@@ -96,10 +96,6 @@ impl Diagnostic {
         self.measurement().map(|measurement| measurement.value)
     }
 
-    pub fn sum(&self) -> f64 {
-        self.sum
-    }
-
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() && self.max_history_length > 1 {
             Some(self.sum / self.history.len() as f64)
