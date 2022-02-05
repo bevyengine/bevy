@@ -133,6 +133,10 @@ impl Diagnostic {
     pub fn measurements(&self) -> impl Iterator<Item = &DiagnosticMeasurement> {
         self.history.iter()
     }
+
+    pub fn clear_history(&mut self) {
+        self.history.clear();
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -166,10 +170,11 @@ impl Diagnostics {
     }
 
     pub fn disable(&mut self, diagnostic_id: DiagnosticId) {
-        if let Some(diagnostic) = self
+        if let Some(mut diagnostic) = self
             .diagnostics
             .remove(&(diagnostic_id, DiagnosticState::Enabled))
         {
+            diagnostic.clear_history();
             self.diagnostics
                 .insert((diagnostic.id, DiagnosticState::Disabled), diagnostic);
         }
