@@ -8,8 +8,9 @@ use std::ops::Mul;
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -20,16 +21,6 @@ use std::ops::Mul;
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
 /// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
-///
-/// In pseudo code:
-/// ```ignore
-/// for entity in entities_without_parent:
-///     set entity.global_transform to entity.transform
-///     recursively:
-///         set parent to current entity
-///         for child in parent.children:
-///             set child.global_transform to parent.global_transform * child.transform
-/// ```
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
