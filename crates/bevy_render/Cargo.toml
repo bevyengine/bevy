@@ -65,4 +65,4 @@ ktx2 = { version = "0.3.0", optional = true }
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.1.1", git = "https://github.com/aclysma/basis-universal-rs", rev = "2ae4264", optional = true }
+basis-universal = { version = "0.2.0", optional = true }
