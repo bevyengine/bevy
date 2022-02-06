@@ -66,3 +66,9 @@ impl FrameTimeDiagnosticsPlugin {
         }
     }
 }
+
+impl FrameTimeDiagnosticsState {
+    pub fn reset_frame_count(&mut self) {
+        self.frame_count = 0.0;
+    }
+}
