@@ -41,5 +41,11 @@ fn main() {
         cmd!("cargo test --doc --workspace")
             .run()
             .expect("Please fix failing doc-tests in output above.");
+
+        // Check that building docs work and does not emit warnings
+        std::env::set_var("RUSTDOCFLAGS", "-D warnings");
+        cmd!("cargo doc --workspace --all-features --no-deps --document-private-items")
+            .run()
+            .expect("Please fix doc warnings in output above.");
     }
 }
