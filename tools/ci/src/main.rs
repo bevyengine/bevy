@@ -56,7 +56,7 @@ fn main() {
         // - See crates/bevy_ecs_compile_fail_tests/README.md
         let _bevy_ecs_compile_fail_tests = pushd("crates/bevy_ecs_compile_fail_tests")
             .expect("Failed to navigate to the 'bevy_ecs_compile_fail_tests' crate");
-        cmd!("cargo test")
+        cmd!("cargo test --target-dir ../../target")
             .run()
             .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
     }
@@ -87,7 +87,7 @@ fn main() {
     if what_to_run.contains(Check::COMPILE_FAIL) {
         // Check that benches are building
         let _benches = pushd("benches").expect("Failed to navigate to the 'benches' folder");
-        cmd!("cargo check --benches")
+        cmd!("cargo check --benches --target-dir ../target")
             .run()
             .expect("Failed to check the benches.");
     }
