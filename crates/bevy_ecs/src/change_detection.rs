@@ -3,8 +3,11 @@
 use crate::{component::ComponentTicks, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use std::ops::{Deref, DerefMut};
-
+use std::ops::{
+    Add, AddAssign, BitAnd, BitOr, BitOrAssign, BitXor, Deref, DerefMut, Div, DivAssign, Index,
+    IndexMut, Mul, MulAssign, Neg, Not, RangeBounds, Rem, RemAssign, Shl, ShlAssign, Shr,
+    ShrAssign, Sub, SubAssign,
+};
 /// Types that implement reliable change detection.
 ///
 /// ## Example
@@ -182,6 +185,241 @@ impl_debug!(NonSendMut<'a, T>,);
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
+}
+
+impl<'a, T, U, V> Add<U> for Mut<'a, T>
+where
+    T: Add<U, Output = V> + Copy,
+{
+    type Output = V;
+
+    fn add(self, rhs: U) -> Self::Output {
+        *self + rhs
+    }
+}
+
+impl<'a, T, U> AddAssign<U> for Mut<'a, T>
+where
+    T: AddAssign<U>,
+{
+    fn add_assign(&mut self, rhs: U) {
+        *self.value += rhs;
+    }
+}
+
+impl<'a, T, U, V> BitAnd<U> for Mut<'a, T>
+where
+    T: BitAnd<U, Output = V> + Copy,
+{
+    type Output = V;
+
+    fn bitand(self, rhs: U) -> Self::Output {
+        *self & rhs
+    }
+}
+
+impl<'a, T, U, V> BitOr<U> for Mut<'a, T>
+where
+    T: BitOr<U, Output = V> + Copy,
+{
+    type Output = V;
+
+    fn bitor(self, rhs: U) -> Self::Output {
+        *self | rhs
+    }
+}
+
+impl<'a, T, U> BitOrAssign<U> for Mut<'a, T>
+where
+    T: BitOrAssign<U>,
+{
+    fn bitor_assign(&mut self, rhs: U) {
+        *self.value |= rhs;
+    }
+}
+
+impl<'a, T, U, V> BitXor<U> for Mut<'a, T>
+where
+    T: BitXor<U, Output = V> + Copy,
+{
+    type Output = V;
+
+    fn bitxor(self, rhs: U) -> Self::Output {
+        *self ^ rhs
+    }
+}
+
+impl<'a, T, U> Div<U> for Mut<'a, T>
+where
+    T: Div<U, Output = T> + Copy,
+{
+    type Output = T;
+
+    fn div(self, rhs: U) -> Self::Output {
+        *self / rhs
+    }
+}
+
+impl<'a, T, U> DivAssign<U> for Mut<'a, T>
+where
+    T: DivAssign<U>,
+{
+    fn div_assign(&mut self, rhs: U) {
+        *self.value /= rhs;
+    }
+}
+
+impl<'a, T, U> Mul<U> for Mut<'a, T>
+where
+    T: Mul<U, Output = T> + Copy,
+{
+    type Output = T;
+
+    fn mul(self, rhs: U) -> Self::Output {
+        *self * rhs
+    }
+}
+
+impl<'a, T, U> MulAssign<U> for Mut<'a, T>
+where
+    T: MulAssign<U>,
+{
+    fn mul_assign(&mut self, rhs: U) {
+        *self.value *= rhs;
+    }
+}
+
+impl<'a, T> RangeBounds<T> for Mut<'a, T>
+where
+    T: RangeBounds<T>,
+{
+    fn start_bound(&self) -> std::ops::Bound<&T> {
+        self.as_ref().start_bound()
+    }
+
+    fn end_bound(&self) -> std::ops::Bound<&T> {
+        self.as_ref().end_bound()
+    }
+}
+
+impl<'a, T, U> Rem<T> for Mut<'a, T>
+where
+    T: Rem<T, Output = U> + Copy,
+{
+    type Output = U;
+    fn rem(self, rhs: T) -> Self::Output {
+        *self % rhs
+    }
+}
+
+impl<'a, T, U> RemAssign<U> for Mut<'a, T>
+where
+    T: RemAssign<U>,
+{
+    fn rem_assign(&mut self, rhs: U) {
+        *self.value %= rhs;
+    }
+}
+
+impl<'a, T, U> Shl<T> for Mut<'a, T>
+where
+    T: Shl<T, Output = U> + Copy,
+{
+    type Output = U;
+    fn shl(self, rhs: T) -> Self::Output {
+        *self << rhs
+    }
+}
+
+impl<'a, T, U> ShlAssign<U> for Mut<'a, T>
+where
+    T: ShlAssign<U>,
+{
+    fn shl_assign(&mut self, rhs: U) {
+        *self.value <<= rhs;
+    }
+}
+
+impl<'a, T, U> Shr<T> for Mut<'a, T>
+where
+    T: Shr<T, Output = U> + Copy,
+{
+    type Output = U;
+    fn shr(self, rhs: T) -> Self::Output {
+        *self >> rhs
+    }
+}
+
+impl<'a, T, U> ShrAssign<U> for Mut<'a, T>
+where
+    T: ShrAssign<U>,
+{
+    fn shr_assign(&mut self, rhs: U) {
+        *self.value >>= rhs;
+    }
+}
+
+impl<'a, T, U> SubAssign<U> for Mut<'a, T>
+where
+    T: SubAssign<U>,
+{
+    fn sub_assign(&mut self, rhs: U) {
+        *self.value -= rhs;
+    }
+}
+
+impl<'a, T, U> Sub<U> for Mut<'a, T>
+where
+    T: Sub<U, Output = T>,
+    T: Copy,
+{
+    type Output = T;
+
+    fn sub(self, rhs: U) -> Self::Output {
+        *self - rhs
+    }
+}
+
+impl<'a, T, U, V> Index<U> for Mut<'a, T>
+where
+    T: Index<U, Output = V>,
+{
+    type Output = V;
+
+    fn index(&self, index: U) -> &Self::Output {
+        &self.as_ref()[index]
+    }
+}
+
+impl<'a, T, U, V> IndexMut<U> for Mut<'a, T>
+where
+    T: IndexMut<U, Output = V>,
+{
+    fn index_mut(&mut self, index: U) -> &mut Self::Output {
+        &mut self.as_mut()[index]
+    }
+}
+
+impl<'a, T, U> Neg for Mut<'a, T>
+where
+    T: Neg<Output = U> + Copy,
+{
+    type Output = U;
+
+    fn neg(self) -> Self::Output {
+        -*self
+    }
+}
+
+impl<'a, T, U> Not for Mut<'a, T>
+where
+    T: Not<Output = U> + Copy,
+{
+    type Output = U;
+
+    fn not(self) -> Self::Output {
+        !*self
+    }
 }
 
 change_detection_impl!(Mut<'a, T>, T,);
