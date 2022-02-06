@@ -11,7 +11,7 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -357,12 +357,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
-    punctuated_generics.extend(lifetimeless_generics.iter());
+    punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
+        GenericParam::Type(g) => GenericParam::Type(TypeParam {
+            default: None,
+            ..g.clone()
+        }),
+        _ => unreachable!(),
+    }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
-        _ => panic!(),
+        _ => unreachable!(),
     }));
 
     let struct_name = &ast.ident;
@@ -402,7 +408,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
             type Item = #struct_name #ty_generics;
             unsafe fn get_param(
                 state: &'s mut Self,

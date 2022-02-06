@@ -8,7 +8,7 @@ use bevy::{
         renderer::RenderContext,
         RenderApp, RenderStage,
     },
-    window::{CreateWindow, WindowId},
+    window::{CreateWindow, PresentMode, WindowId},
 };
 
 /// This example creates a second window and draws a mesh from two different cameras, one in each window
@@ -57,7 +57,7 @@ fn create_new_window(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            vsync: false,
+            present_mode: PresentMode::Immediate,
             title: "Second window".to_string(),
             ..Default::default()
         },

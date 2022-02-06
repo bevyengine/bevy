@@ -20,6 +20,7 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
+    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -925,24 +926,30 @@ impl World {
             // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type T
-        let value = Mut {
-            value: unsafe { &mut *ptr.cast::<T>() },
+        // SAFE: pointer is of type T and valid to move out of
+        // Read the value onto the stack to avoid potential mut aliasing.
+        let mut value = unsafe { std::ptr::read(ptr.cast::<T>()) };
+        let value_mut = Mut {
+            value: &mut value,
             ticks: Ticks {
                 component_ticks: &mut ticks,
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.change_tick(),
             },
         };
-        let result = f(self, value);
+        let result = f(self, value_mut);
+        assert!(!self.contains_resource::<T>());
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+
+        // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
+        let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
         unsafe {
-            // SAFE: pointer is of type T
-            column.push(ptr, ticks);
+            // SAFE: pointer is of type T, and valid to move out of
+            column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
         }
         result
     }
@@ -1003,13 +1010,13 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
+            let mut value = ManuallyDrop::new(value);
             // SAFE: column is of type T and has been allocated above
-            let data = (&mut value as *mut T).cast::<u8>();
-            std::mem::forget(value);
+            let data = (&mut *value as *mut T).cast::<u8>();
             column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
@@ -1087,7 +1094,7 @@ impl World {
         }
     }
 
-    /// Empties queued entities and adds them to the empty [Archetype].
+    /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [Component].
     pub(crate) fn flush(&mut self) {
