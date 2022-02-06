@@ -37,6 +37,7 @@ pub struct Diagnostic {
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
     max_history_length: usize,
+    pub is_enabled: bool,
 }
 
 impl Diagnostic {
@@ -81,6 +82,7 @@ impl Diagnostic {
             history: VecDeque::with_capacity(max_history_length),
             max_history_length,
             sum: 0.0,
+            is_enabled: true,
         }
     }
 
@@ -150,77 +152,33 @@ impl Diagnostic {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DiagnosticState {
-    Enabled,
-    Disabled,
-}
-
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
     // runs when all diagnostics are inserted in the same order.
-    diagnostics: StableHashMap<(DiagnosticId, DiagnosticState), Diagnostic>,
+    diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {
-    /// Add a new [`Diagnostic`]. If it was already present, it is reseted to the
-    /// [`DiagnosticState::Enabled`].
+    /// Add a new [`Diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
-        if self.state(diagnostic.id) == Some(DiagnosticState::Disabled) {
-            self.diagnostics
-                .remove(&(diagnostic.id, DiagnosticState::Disabled));
-        }
-        self.diagnostics
-            .insert((diagnostic.id, DiagnosticState::Enabled), diagnostic);
+        self.diagnostics.insert(diagnostic.id, diagnostic);
     }
 
-    /// Enable a [`Diagnostic`] by its [`DiagnosticId`].
-    pub fn enable(&mut self, diagnostic_id: DiagnosticId) {
-        if let Some(diagnostic) = self
-            .diagnostics
-            .remove(&(diagnostic_id, DiagnosticState::Disabled))
-        {
-            self.diagnostics
-                .insert((diagnostic.id, DiagnosticState::Enabled), diagnostic);
-        }
-    }
-
-    /// Disable a [`Diagnostic`] by its [`DiagnosticId`].
-    pub fn disable(&mut self, diagnostic_id: DiagnosticId) {
-        if let Some(mut diagnostic) = self
-            .diagnostics
-            .remove(&(diagnostic_id, DiagnosticState::Enabled))
-        {
-            diagnostic.clear_history();
-            self.diagnostics
-                .insert((diagnostic.id, DiagnosticState::Disabled), diagnostic);
-        }
-    }
-
-    /// Returns the state of a [`Diagnostic`], or `None` if it's not known.
-    pub fn state(&self, diagnostic_id: DiagnosticId) -> Option<DiagnosticState> {
-        self.diagnostics
-            .keys()
-            .find(|diag| diag.0 == diagnostic_id)
-            .map(|diag| diag.1)
-    }
-
-    /// Get an enabled [`Diagnostic`].
     pub fn get(&self, id: DiagnosticId) -> Option<&Diagnostic> {
-        self.diagnostics.get(&(id, DiagnosticState::Enabled))
+        self.diagnostics.get(&id)
     }
 
-    /// Get an enabled [`Diagnostic`].
     pub fn get_mut(&mut self, id: DiagnosticId) -> Option<&mut Diagnostic> {
-        self.diagnostics.get_mut(&(id, DiagnosticState::Enabled))
+        self.diagnostics.get_mut(&id)
     }
 
     /// Get the latest [`DiagnosticMeasurement`] from an enabled [`Diagnostic`].
     pub fn get_measurement(&self, id: DiagnosticId) -> Option<&DiagnosticMeasurement> {
         self.diagnostics
-            .get(&(id, DiagnosticState::Enabled))
+            .get(&id)
+            .filter(|diagnostic| diagnostic.is_enabled)
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
@@ -231,21 +189,17 @@ impl Diagnostics {
     where
         F: FnOnce() -> f64,
     {
-        if let Some(diagnostic) = self.diagnostics.get_mut(&(id, DiagnosticState::Enabled)) {
+        if let Some(diagnostic) = self
+            .diagnostics
+            .get_mut(&id)
+            .filter(|diagnostic| diagnostic.is_enabled)
+        {
             diagnostic.add_measurement(value());
         }
     }
 
-    /// Return an iterator over all enabled [`Diagnostic`].
+    /// Return an iterator over all [`Diagnostic`].
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics
-            .iter()
-            .filter_map(|((_, state), diagnostic)| {
-                if state == &DiagnosticState::Enabled {
-                    Some(diagnostic)
-                } else {
-                    None
-                }
-            })
+        self.diagnostics.values()
     }
 }
