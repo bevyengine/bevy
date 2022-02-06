@@ -40,7 +40,7 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    /// Add a new value measured now.
+    /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
         if self.max_history_length > 1 {
