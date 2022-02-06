@@ -1,10 +1,15 @@
-use bevy::prelude::*;
+use bevy::{asset::AssetServerSettings, prelude::*};
 
 /// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your
 /// game is running. This lets you immediately see the results of your changes without restarting
 /// the game. This example illustrates hot reloading mesh changes.
 fn main() {
     App::new()
+        // Tell the asset server to watch for asset changes on disk:
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();
@@ -13,9 +18,6 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
     let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
-
-    // Tell the asset server to watch for asset changes on disk:
-    asset_server.watch_for_changes().unwrap();
 
     // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
     // You should see the changes immediately show up in your app.

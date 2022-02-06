@@ -68,7 +68,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci
+        run: cargo run -p ci -- nonlocal
 
   check-benches:
     runs-on: ubuntu-latest

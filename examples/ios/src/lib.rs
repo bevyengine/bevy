@@ -5,7 +5,6 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: true,
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
