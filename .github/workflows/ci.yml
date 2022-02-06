@@ -302,14 +302,14 @@ jobs:
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
         if: runner.os == 'linux'
-      - name: Installs cargo-deadlinks
-        run: cargo install --force cargo-deadlinks
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc
-      - name: Checks dead links
-        run: cargo deadlinks --dir target/doc/bevy
-        continue-on-error: true
+      # - name: Installs cargo-deadlinks
+      #   run: cargo install --force cargo-deadlinks
+      # - name: Checks dead links
+      #   run: cargo deadlinks --dir target/doc/bevy
+      #   continue-on-error: true
 
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
