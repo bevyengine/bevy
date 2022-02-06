@@ -99,8 +99,8 @@ impl AssetServer {
             .read()
             .contains_key(&T::TYPE_UUID)
         {
-            panic!("Error while registering new asset type. Asset with UUID: {:?} is already registered. Can not register another type with the same UUID",
-                T::TYPE_UUID);
+            panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
+                std::any::type_name::<T>(), T::TYPE_UUID);
         }
         self.server.asset_lifecycles.write().insert(
             T::TYPE_UUID,
