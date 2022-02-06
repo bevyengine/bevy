@@ -4,7 +4,7 @@ use bevy::{
 };
 use std::{fmt::Debug, marker::PhantomData};
 
-/// This examples illustrates the usage of `Fetch` and `FilterFetch` derive macros, that allow
+/// This examples illustrates the usage of the `WorldQuery` derive macro, which allows
 /// defining custom query and filter types.
 ///
 /// While regular tuple queries work great in most of simple scenarios, using custom queries
@@ -16,7 +16,7 @@ use std::{fmt::Debug, marker::PhantomData};
 /// - Named structs enable the composition pattern, that makes query types easier to re-use.
 /// - You can bypass the limit of 15 components that exists for query tuples.
 ///
-/// For more details on the `Fetch` and `FilterFetch` derive macros, see their documentation.
+/// For more details on the `WorldQuery` derive macro, see the trait documentation.
 fn main() {
     App::new()
         .add_startup_system(spawn)
@@ -47,6 +47,7 @@ struct ComponentD;
 struct ComponentZ;
 
 #[derive(WorldQuery)]
+#[world_query(derive(Debug))]
 struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'w ComponentA,
@@ -55,7 +56,6 @@ struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     optional_nested: Option<NestedQuery<'w>>,
     optional_tuple: Option<(&'w ComponentB, &'w ComponentZ)>,
     generic: GenericQuery<'w, T, P>,
-    #[allow(dead_code)]
     empty: EmptyQuery<'w>,
 }
 
@@ -76,27 +76,26 @@ fn print_components_read_only(
 }
 
 // If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
-// The `Fetch` derive macro will still create a read-only version, which will be have `ReadOnly`
+// The `WorldQuery` derive macro will still create a read-only version, which will be have `ReadOnly`
 // suffix.
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
-// using the `read_only_derive` attribute.
-#[derive(WorldQuery, Debug)]
-#[world_query(mutable, read_only_derive(Debug))]
+// using the `derive` attribute.
+#[derive(WorldQuery)]
+#[world_query(mutable, derive(Debug))]
 struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
-    a: Mut<'w, ComponentA>,
-    b: Option<Mut<'w, ComponentB>>,
+    a: &'w mut ComponentA,
+    b: Option<&'w mut ComponentB>,
     nested: NestedQuery<'w>,
     optional_nested: Option<NestedQuery<'w>>,
-    optional_tuple: Option<(NestedQuery<'w>, Mut<'w, ComponentZ>)>,
+    optional_tuple: Option<(NestedQuery<'w>, &'w mut ComponentZ)>,
     generic: GenericQuery<'w, T, P>,
-    #[allow(dead_code)]
     empty: EmptyQuery<'w>,
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(WorldQuery, Debug)]
+#[derive(WorldQuery)]
+#[world_query(derive(Debug))]
 struct EmptyQuery<'w> {
     // The Fetch derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
     // to use `PhantomData` as a work around.
@@ -104,15 +103,15 @@ struct EmptyQuery<'w> {
     _w: std::marker::PhantomData<&'w ()>,
 }
 
-#[derive(WorldQuery, Debug)]
-#[allow(dead_code)]
+#[derive(WorldQuery)]
+#[world_query(derive(Debug))]
 struct NestedQuery<'w> {
     c: &'w ComponentC,
     d: Option<&'w ComponentD>,
 }
 
-#[derive(WorldQuery, Debug)]
-#[allow(dead_code)]
+#[derive(WorldQuery)]
+#[world_query(derive(Debug))]
 struct GenericQuery<'w, T: Component, P: Component> {
     generic: (&'w T, &'w P),
 }
@@ -142,6 +141,8 @@ fn print_components_iter_mut(
 ) {
     println!("Print components (iter_mut):");
     for e in query.iter_mut() {
+        // Re-declaring the variable to illustrate the type of the actual iterator item.
+        let e: CustomQueryItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
@@ -158,8 +159,8 @@ fn print_components_iter(
 ) {
     println!("Print components (iter):");
     for e in query.iter() {
-        // Note that the actual type is different when you iterate over mutable queries with `iter`.
-        let e: CustomQueryReadOnly<'_, _, _> = e;
+        // Re-declaring the variable to illustrate the type of the actual iterator item.
+        let e: CustomQueryReadOnlyItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);

@@ -55,12 +55,12 @@ use std::{
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// The derive macro implements [`WorldQuery`] for your type and declares two structs that
-/// implement [`Fetch`] and [`FetchState`] and are used as [`WorldQuery::Fetch`] and
+/// The derive macro implements [`WorldQuery`] for your type and declares an additional struct
+/// which will be used as an item for query iterators. The implementation also generates two other
+/// structs that implement [`Fetch`] and [`FetchState`] and are used as [`WorldQuery::Fetch`] and
 /// [`WorldQuery::State`] associated types respectively.
 ///
-/// The derive macro requires each member to implement the [`FetchedItem`] trait. This trait
-/// is automatically implemented when using the derive macro as well, to allow nested queries.
+/// The derive macro requires every struct field to implement the `WorldQuery` trait.
 ///
 /// **Note:** currently, the macro only supports named structs.
 ///
@@ -82,6 +82,8 @@ use std::{
 ///
 /// fn my_system(query: Query<MyQuery>) {
 ///     for q in query.iter() {
+///         // Note the type of the returned item.
+///         let q: MyQueryItem<'_> = q;
 ///         q.foo;
 ///     }
 /// }
@@ -93,7 +95,6 @@ use std::{
 ///
 /// All queries that are derived with the `WorldQuery` macro provide only an immutable access by default.
 /// If you need a mutable access to components, you can mark a struct with the `mutable` attribute.
-/// The macro will still generate a read-only variant of a query suffixed with `ReadOnly`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -107,13 +108,12 @@ use std::{
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable)]
 /// struct HealthQuery<'w> {
-///     // `Mut<'w, T>` is a necessary replacement for `&'w mut T`
-///     health: Mut<'w, Health>,
-///     buff: Option<Mut<'w, Buff>>,
+///     health: &'w mut Health,
+///     buff: Option<&'w mut Buff>,
 /// }
 ///
 /// // This implementation is only available when iterating with `iter_mut`.
-/// impl<'w> HealthQuery<'w> {
+/// impl<'w> HealthQueryItem<'w> {
 ///     fn damage(&mut self, value: f32) {
 ///         self.health.0 -= value;
 ///     }
@@ -124,49 +124,24 @@ use std::{
 /// }
 ///
 /// // If you want to use it with `iter`, you'll need to write an additional implementation.
-/// impl<'w> HealthQueryReadOnly<'w> {
+/// impl<'w> HealthQueryReadOnlyItem<'w> {
 ///     fn total(&self) -> f32 {
 ///         self.health.0 + self.buff.map_or(0.0, |Buff(buff)| *buff)
 ///     }
 /// }
 ///
 /// fn my_system(mut health_query: Query<HealthQuery>) {
-///     // Iterator's item is `HealthQueryReadOnly`.
+///     // Iterator's item is `HealthQueryReadOnlyItem`.
 ///     for health in health_query.iter() {
 ///         println!("Total: {}", health.total());
 ///     }
-///     // Iterator's item is `HealthQuery`.
+///     // Iterator's item is `HealthQueryItem`.
 ///     for mut health in health_query.iter_mut() {
 ///         health.damage(1.0);
 ///         println!("Total (mut): {}", health.total());
 ///     }
 /// }
 /// # my_system.system();
-/// ```
-///
-/// If you want to use derive macros with read-only query variants, you need to pass them with
-/// using the `read_only_derive` attribute. When the `Fetch` macro generates an additional struct
-/// for a mutable query, it doesn't automatically inherit the same derives. Since derive macros
-/// can't access information about other derives, they need to be passed manually with the
-/// `read_only_derive` attribute.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component, Debug)]
-/// struct Foo;
-///
-/// #[derive(WorldQuery, Debug)]
-/// #[world_query(mutable, read_only_derive(Debug))]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-/// }
-///
-/// fn assert_debug<T: std::fmt::Debug>() {}
-///
-/// assert_debug::<FooQuery>();
-/// assert_debug::<FooQueryReadOnly>();
 /// ```
 ///
 /// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
@@ -192,8 +167,35 @@ use std::{
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable)]
 /// struct BarQuery<'w> {
-///     bar: Mut<'w, Bar>,
+///     bar: &'w mut Bar,
 /// }
+/// ```
+///
+/// ## Derives for items
+///
+/// If you want query items to have derivable traits, you can pass them with using
+/// the `world_query(derive)` attribute. When the `WorldQuery` macro generates the structs
+/// for query items, it doesn't automatically inherit derives of a query itself. Since derive macros
+/// can't access information about other derives, they need to be passed manually with the
+/// `world_query(derive)` attribute.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::WorldQuery;
+///
+/// #[derive(Component, Debug)]
+/// struct Foo;
+///
+/// #[derive(WorldQuery)]
+/// #[world_query(mutable, derive(Debug))]
+/// struct FooQuery<'w> {
+///     foo: &'w Foo,
+/// }
+///
+/// fn assert_debug<T: std::fmt::Debug>() {}
+///
+/// assert_debug::<FooQueryItem>();
+/// assert_debug::<FooQueryReadOnlyItem>();
 /// ```
 ///
 /// ## Nested queries
@@ -308,21 +310,13 @@ pub trait WorldQuery {
 
 pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
 
-/// Types that appear as [`Fetch::Item`] associated types.
-///
-/// This trait comes in useful when it's needed to correlate between types (such as `Mut<T>` to `&mut T`).
-/// In most cases though, [`FetchedItem::Query`] corresponds to a type that implements the trait.
-pub trait FetchedItem {
-    type Query: WorldQuery;
-}
-
 /// Types that implement this trait are responsible for fetching query items from tables or
 /// archetypes.
 ///
 /// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`] and
 /// [`WorldQuery::State`] types that are essential for fetching component data.
 pub trait Fetch<'world, 'state>: Sized {
-    type Item: FetchedItem;
+    type Item;
     type State: FetchState;
 
     /// Creates a new instance of this fetch.
@@ -417,10 +411,6 @@ impl WorldQuery for Entity {
     type ReadOnlyFetch = EntityFetch;
 }
 
-impl FetchedItem for Entity {
-    type Query = Self;
-}
-
 /// The [`Fetch`] of [`Entity`].
 #[derive(Clone)]
 pub struct EntityFetch {
@@ -506,10 +496,6 @@ impl<T: Component> WorldQuery for &T {
     type Fetch = ReadFetch<T>;
     type State = ReadState<T>;
     type ReadOnlyFetch = ReadFetch<T>;
-}
-
-impl<T: Component> FetchedItem for &T {
-    type Query = Self;
 }
 
 /// The [`FetchState`] of `&T`.
@@ -665,10 +651,6 @@ impl<T: Component> WorldQuery for &mut T {
     type Fetch = WriteFetch<T>;
     type State = WriteState<T>;
     type ReadOnlyFetch = ReadOnlyWriteFetch<T>;
-}
-
-impl<'a, T: Component> FetchedItem for Mut<'a, T> {
-    type Query = &'a mut T;
 }
 
 /// The [`Fetch`] of `&mut T`.
@@ -954,10 +936,6 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
     type ReadOnlyFetch = OptionFetch<T::ReadOnlyFetch>;
 }
 
-impl<T: FetchedItem> FetchedItem for Option<T> {
-    type Query = Option<T::Query>;
-}
-
 /// The [`Fetch`] of `Option<T>`.
 #[derive(Clone)]
 pub struct OptionFetch<T> {
@@ -1132,10 +1110,6 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type Fetch = ChangeTrackersFetch<T>;
     type State = ChangeTrackersState<T>;
     type ReadOnlyFetch = ChangeTrackersFetch<T>;
-}
-
-impl<T: Component> FetchedItem for ChangeTrackers<T> {
-    type Query = Self;
 }
 
 /// The [`FetchState`] of [`ChangeTrackers`].
@@ -1389,10 +1363,6 @@ macro_rules! impl_tuple_fetch {
             type ReadOnlyFetch = ($($name::ReadOnlyFetch,)*);
         }
 
-        impl<$($name: FetchedItem),*> FetchedItem for ($($name,)*) {
-            type Query = ($($name::Query,)*);
-        }
-
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyFetch),*> ReadOnlyFetch for ($($name,)*) {}
 
@@ -1554,10 +1524,4 @@ impl<'w, 's, State: FetchState> Fetch<'w, 's> for NopFetch<State> {
 
     #[inline(always)]
     unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {}
-}
-
-/// This implementation won't allow us to correlate a boolean to a filter type. But having a dummy
-/// for `bool` allows us to add `FetchedItem` bound to [`Fetch::Item`].
-impl FetchedItem for bool {
-    type Query = ();
 }
