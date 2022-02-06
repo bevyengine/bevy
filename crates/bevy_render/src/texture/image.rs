@@ -538,6 +538,7 @@ impl TextureFormatPixelInfo for TextureFormat {
 pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
+    pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Size,
 }
@@ -602,6 +603,7 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
+            texture_format: image.texture_descriptor.format,
             sampler,
             size,
         })
