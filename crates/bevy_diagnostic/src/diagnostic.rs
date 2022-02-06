@@ -207,20 +207,6 @@ impl Diagnostics {
             .map(|diag| diag.1)
     }
 
-    /// Toggle a [`Diagnostic`] by its [`DiagnosticId`], and returns the new state.
-    pub fn toggle(&mut self, diagnostic_id: DiagnosticId) -> Option<DiagnosticState> {
-        self.state(diagnostic_id).map(|state| match state {
-            DiagnosticState::Enabled => {
-                self.disable(diagnostic_id);
-                DiagnosticState::Disabled
-            }
-            DiagnosticState::Disabled => {
-                self.enable(diagnostic_id);
-                DiagnosticState::Enabled
-            }
-        })
-    }
-
     /// Get an enabled [`Diagnostic`].
     pub fn get(&self, id: DiagnosticId) -> Option<&Diagnostic> {
         self.diagnostics.get(&(id, DiagnosticState::Enabled))
