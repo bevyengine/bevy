@@ -188,7 +188,7 @@ where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
     use winit::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(event_handler)
+    event_loop.run_return(event_handler);
 }
 
 #[cfg(not(any(
