@@ -1,5 +1,6 @@
 mod entity_ref;
 mod spawn_batch;
+mod testing_tools;
 mod world_cell;
 
 pub use crate::change_detection::Mut;

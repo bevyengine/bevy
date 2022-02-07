@@ -171,18 +171,14 @@ fn player_does_not_fall_through_floor() {
 
     // The player should start on the floor
     app.update();
-    let mut query_state = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = query_state.iter(&app.world).next().unwrap();
-    assert_eq!(player_transform, &Transform::from_xyz(0.0, 0.0, 0.0));
+    app.assert_component_eq::<Transform, With<Player>>(&Transform::from_xyz(0.0, 0.0, 0.0));
 
     // Even after some time, the player should not fall through the floor
     for _ in 0..3 {
         app.update();
     }
 
-    let mut query_state = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = query_state.iter(&app.world).next().unwrap();
-    assert_eq!(player_transform, &Transform::from_xyz(0.0, 0.0, 0.0));
+    app.assert_component_eq::<Transform, With<Player>>(&Transform::from_xyz(0.0, 0.0, 0.0));
 
     // If we drop the player from a height, they should eventually come to rest on the floor
     let mut player_query = app.world.query_filtered::<&mut Transform, With<Player>>();
@@ -195,9 +191,7 @@ fn player_does_not_fall_through_floor() {
     }
 
     // The player should have landed by now
-    let mut query_state = app.world.query_filtered::<&Transform, With<Player>>();
-    let player_transform = query_state.iter(&app.world).next().unwrap();
-    assert_eq!(player_transform, &Transform::from_xyz(0.0, 0.0, 0.0));
+    app.assert_component_eq::<Transform, With<Player>>(&Transform::from_xyz(0.0, 0.0, 0.0));
 }
 
 #[test]
