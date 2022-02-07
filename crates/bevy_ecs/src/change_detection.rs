@@ -3,15 +3,11 @@
 use crate::{component::ComponentTicks, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-<<<<<<< HEAD
 use std::ops::{
     Add, AddAssign, BitAnd, BitOr, BitOrAssign, BitXor, Deref, DerefMut, Div, DivAssign, Index,
     IndexMut, Mul, MulAssign, Neg, Not, RangeBounds, Rem, RemAssign, Shl, ShlAssign, Shr,
     ShrAssign, Sub, SubAssign,
 };
-=======
-use std::ops::{Deref, DerefMut, Index, IndexMut, Neg, Not, BitAnd, BitOr, BitOrAssign, BitXor, Div, RangeBounds, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Mul, Add, Sub, AddAssign, SubAssign, DivAssign, MulAssign};
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
 /// Types that implement reliable change detection.
 ///
 /// ## Example
@@ -191,7 +187,6 @@ pub struct Mut<'a, T> {
     pub(crate) ticks: Ticks<'a>,
 }
 
-<<<<<<< HEAD
 impl<'a, T, U, V> Add<U> for Mut<'a, T>
 where
     T: Add<U, Output = V> + Copy,
@@ -207,30 +202,15 @@ impl<'a, T, U> AddAssign<U> for Mut<'a, T>
 where
     T: AddAssign<U>,
 {
-=======
-impl <'a, T, U, V> Add<U> for Mut<'a, T> where T: Add<U, Output = V> + Copy {
-    type Output = V;
-
-    fn add(self, rhs: U) -> Self::Output {
-        self.value.clone() + rhs
-    }
-}
-
-impl <'a, T, U> AddAssign<U> for Mut<'a, T> where T: AddAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn add_assign(&mut self, rhs: U) {
         *self.value += rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U, V> BitAnd<U> for Mut<'a, T>
 where
     T: BitAnd<U, Output = V> + Copy,
 {
-=======
-impl <'a, T, U, V> BitAnd<U> for Mut<'a, T> where T: BitAnd<U, Output = V> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = V;
 
     fn bitand(self, rhs: U) -> Self::Output {
@@ -238,14 +218,10 @@ impl <'a, T, U, V> BitAnd<U> for Mut<'a, T> where T: BitAnd<U, Output = V> + Cop
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U, V> BitOr<U> for Mut<'a, T>
 where
     T: BitOr<U, Output = V> + Copy,
 {
-=======
-impl <'a, T, U, V> BitOr<U> for Mut<'a, T> where T: BitOr<U, Output = V> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = V;
 
     fn bitor(self, rhs: U) -> Self::Output {
@@ -253,27 +229,19 @@ impl <'a, T, U, V> BitOr<U> for Mut<'a, T> where T: BitOr<U, Output = V> + Copy 
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> BitOrAssign<U> for Mut<'a, T>
 where
     T: BitOrAssign<U>,
 {
-=======
-impl <'a, T, U> BitOrAssign<U> for Mut<'a, T> where T: BitOrAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn bitor_assign(&mut self, rhs: U) {
         *self.value |= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U, V> BitXor<U> for Mut<'a, T>
 where
     T: BitXor<U, Output = V> + Copy,
 {
-=======
-impl <'a, T, U, V> BitXor<U> for Mut<'a, T> where T: BitXor<U, Output = V> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = V;
 
     fn bitxor(self, rhs: U) -> Self::Output {
@@ -281,7 +249,6 @@ impl <'a, T, U, V> BitXor<U> for Mut<'a, T> where T: BitXor<U, Output = V> + Cop
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Div<U> for Mut<'a, T>
 where
     T: Div<U, Output = T> + Copy,
@@ -297,23 +264,11 @@ impl<'a, T, U> DivAssign<U> for Mut<'a, T>
 where
     T: DivAssign<U>,
 {
-=======
-impl <'a, T, U> Div<U> for Mut<'a, T> where T: Div<U, Output = T> + Copy {
-    type Output = T;
-
-    fn div(self, rhs: U) -> Self::Output {
-        *self.value / rhs
-    }
-}
-
-impl <'a, T, U> DivAssign<U> for Mut<'a, T> where T: DivAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn div_assign(&mut self, rhs: U) {
         *self.value /= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Mul<U> for Mut<'a, T>
 where
     T: Mul<U, Output = T> + Copy,
@@ -329,30 +284,15 @@ impl<'a, T, U> MulAssign<U> for Mut<'a, T>
 where
     T: MulAssign<U>,
 {
-=======
-impl <'a, T, U> Mul<U> for Mut<'a, T> where T: Mul<U, Output = T> + Copy {
-    type Output = T;
-
-    fn mul(self, rhs: U) -> Self::Output {
-        *self.value * rhs
-    }
-}
-
-impl <'a, T, U> MulAssign<U> for Mut<'a, T> where T: MulAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn mul_assign(&mut self, rhs: U) {
         *self.value *= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T> RangeBounds<T> for Mut<'a, T>
 where
     T: RangeBounds<T>,
 {
-=======
-impl <'a, T> RangeBounds<T> for Mut<'a, T> where T: RangeBounds<T> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn start_bound(&self) -> std::ops::Bound<&T> {
         self.as_ref().start_bound()
     }
@@ -362,101 +302,72 @@ impl <'a, T> RangeBounds<T> for Mut<'a, T> where T: RangeBounds<T> {
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Rem<T> for Mut<'a, T>
 where
     T: Rem<T, Output = U> + Copy,
 {
-=======
-impl <'a, T, U> Rem<T> for Mut<'a, T> where T: Rem<T, Output = U> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = U;
     fn rem(self, rhs: T) -> Self::Output {
         *self % rhs
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> RemAssign<U> for Mut<'a, T>
 where
     T: RemAssign<U>,
 {
-=======
-impl <'a, T, U> RemAssign<U> for Mut<'a, T> where T: RemAssign<U>  {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn rem_assign(&mut self, rhs: U) {
         *self.value %= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Shl<T> for Mut<'a, T>
 where
     T: Shl<T, Output = U> + Copy,
 {
-=======
-impl <'a, T, U> Shl<T> for Mut<'a, T> where T: Shl<T, Output = U> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = U;
     fn shl(self, rhs: T) -> Self::Output {
         *self << rhs
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> ShlAssign<U> for Mut<'a, T>
 where
     T: ShlAssign<U>,
 {
-=======
-impl <'a, T, U> ShlAssign<U> for Mut<'a, T> where T: ShlAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn shl_assign(&mut self, rhs: U) {
         *self.value <<= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Shr<T> for Mut<'a, T>
 where
     T: Shr<T, Output = U> + Copy,
 {
-=======
-impl <'a, T, U> Shr<T> for Mut<'a, T> where T: Shr<T, Output = U> + Copy {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = U;
     fn shr(self, rhs: T) -> Self::Output {
         *self >> rhs
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> ShrAssign<U> for Mut<'a, T>
 where
     T: ShrAssign<U>,
 {
-=======
-impl <'a, T, U> ShrAssign<U> for Mut<'a, T> where T: ShrAssign<U> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn shr_assign(&mut self, rhs: U) {
         *self.value >>= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> SubAssign<U> for Mut<'a, T>
 where
     T: SubAssign<U>,
 {
-=======
-impl <'a, T, U> SubAssign<U> for Mut<'a, T> where T: SubAssign<U>  {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn sub_assign(&mut self, rhs: U) {
         *self.value -= rhs;
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Sub<U> for Mut<'a, T>
 where
     T: Sub<U, Output = T>,
@@ -473,17 +384,6 @@ impl<'a, T, U, V> Index<U> for Mut<'a, T>
 where
     T: Index<U, Output = V>,
 {
-=======
-impl <'a, T, U> Sub<U> for Mut <'a, T> where T: Sub<U, Output = T>, T: Copy {
-    type Output = T;
-
-    fn sub(self, rhs: U) -> Self::Output {
-        *self.value - rhs
-    }
-}
-
-impl <'a, T, U, V> Index<U> for Mut<'a, T> where T: Index<U, Output = V> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     type Output = V;
 
     fn index(&self, index: U) -> &Self::Output {
@@ -491,20 +391,15 @@ impl <'a, T, U, V> Index<U> for Mut<'a, T> where T: Index<U, Output = V> {
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U, V> IndexMut<U> for Mut<'a, T>
 where
     T: IndexMut<U, Output = V>,
 {
-=======
-impl <'a, T, U, V> IndexMut<U> for Mut<'a, T> where T: IndexMut<U, Output = V> {
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     fn index_mut(&mut self, index: U) -> &mut Self::Output {
         &mut self.as_mut()[index]
     }
 }
 
-<<<<<<< HEAD
 impl<'a, T, U> Neg for Mut<'a, T>
 where
     T: Neg<Output = U> + Copy,
@@ -524,21 +419,6 @@ where
 
     fn not(self) -> Self::Output {
         !*self
-=======
-impl <'a, T, U> Neg for Mut<'a, T> where T: Neg<Output = U> + Copy {
-    type Output = U;
-
-    fn neg(self) -> Self::Output {
-       - *self
-    }
-}
-
-impl <'a, T, U> Not for Mut<'a, T> where T: Not<Output = U> + Copy {
-    type Output = U;
-
-    fn not(self) -> Self::Output {
-        ! *self
->>>>>>> 4f838e0b4d5bc4c7d6b60dadcc5097fc6329e6ea
     }
 }
 
