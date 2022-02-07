@@ -15,4 +15,4 @@ proc-macro = true
 bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.8.0-dev" }
 
 quote = "1.0"
-syn = "1.0"
+syn = { version = "1.0", features = ["full"] }
