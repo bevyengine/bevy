@@ -16,7 +16,7 @@ use crate::{
     event::Events,
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
-    system::{Query, Resource},
+    system::Resource,
 };
 use std::{
     any::TypeId,
@@ -567,27 +567,6 @@ impl World {
         F::Fetch: FilterFetch,
     {
         QueryState::new(self)
-    }
-
-    /// Returns a [`Query`] for the given [`WorldQuery`]
-    ///
-    /// To access a [`Query`] at the same time as other parts of the [`World`],
-    /// consider using [`SystemState`](crate::system::SystemState) instead.
-    ///
-    /// ## Warning
-    /// This method is primarily intended for integration testing purposes.
-    /// No state is cached, or provided to be cached, which means:
-    ///  1. Overhead will be measurably higher.
-    ///  2. [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters will be true for all compoenents.
-    #[inline]
-    pub fn query_stateless<Q: WorldQuery, F: WorldQuery>(&mut self) -> Query<Q, F>
-    where
-        F::Fetch: FilterFetch,
-    {
-        let query_state = QueryState::new(self);
-
-        // SAFE: we have unique mutable access to the world
-        unsafe { Query::new(self, &query_state, self.change_tick(), self.change_tick()) }
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
