@@ -763,6 +763,35 @@ impl World {
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
+    /// Get a mutable smart pointer to the [`Events`] [`Resource`] corresponding to type `E`
+    ///
+    /// ```rust
+    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::event::Events;
+    ///
+    /// #[derive(Debug)]
+    /// struct Message(String);
+    ///
+    /// let mut world = World::new();
+    /// world.insert_resource(Events::<Message>::default());
+    ///
+    /// world.events::<Message>().send(Message("Hello World!".to_string()));
+    /// world.events::<Message>().send(Message("Welcome to Bevy!".to_string()));
+    ///
+    /// // Cycles the event buffer; typically automatically done once each frame
+    /// // using `app.add_event::<E>()`
+    /// world.events::<Message>().update();
+    ///
+    /// for event in world.events::<Message>().iter_stateless(){
+    ///     dbg!(event);
+    /// }
+    /// ```
+    pub fn events<E: Resource>(&mut self) -> Mut<Events<E>> {
+        self.get_resource_mut::<Events<E>>().expect(
+            "No Events<E> resource found. Did you forget to call `.init_resource` or `.add_event`?",
+        )
+    }
+
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
     /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
     /// This is faster than doing equivalent operations one-by-one.
@@ -1157,22 +1186,6 @@ impl World {
     {
         let mut query_state = self.query_filtered::<Q, F>();
         query_state.iter(self).count()
-    }
-
-    /// Sends an `event` of type `E`
-    pub fn send_event<E: Resource>(&mut self, event: E) {
-        let mut events: Mut<Events<E>> = self.get_resource_mut()
-        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
-
-        events.send(event);
-    }
-
-    /// Returns the number of events of the type `E` that were sent this frame
-    pub fn events_len<E: Resource>(&self) -> usize {
-        let events = self.get_resource::<Events<E>>()
-        .expect("The specified event resource was not found in the world. Did you forget to call `app.add_event::<E>()`?");
-
-        events.len()
     }
 }
 

@@ -373,6 +373,26 @@ impl<T: Resource> Events<T> {
         }
     }
 
+    /// Iterate over all of the events in this collection
+    ///
+    /// WARNING: This method is stateless, and, because events are double-buffered,
+    /// repeated calls (even in adjacent frames) will result in double-counting events.
+    ///
+    /// In most cases, you want to create an `EventReader` to statefully track which events have been seen.
+    pub fn iter_stateless(&self) -> impl DoubleEndedIterator<Item = &T> {
+        let fresh_events = match self.state {
+            State::A => self.events_a.iter().map(map_instance_event),
+            State::B => self.events_b.iter().map(map_instance_event),
+        };
+
+        let old_events = match self.state {
+            State::B => self.events_a.iter().map(map_instance_event),
+            State::A => self.events_b.iter().map(map_instance_event),
+        };
+
+        old_events.chain(fresh_events)
+    }
+
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
     /// `EventReader`. You should only use this if you know you only need to consume events

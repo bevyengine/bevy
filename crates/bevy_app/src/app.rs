@@ -951,62 +951,6 @@ impl App {
     {
         self.world.query_len::<Q, F>()
     }
-
-    /// Sends an `event` of type `E`
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_app::App;
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// let mut app = App::new();
-    ///
-    /// struct Message(String);
-    ///
-    /// fn print_messages(mut messages: EventReader<Message>){
-    ///     for message in messages.iter(){
-    ///         println!("{}", message.0);
-    ///     }
-    /// }
-    ///
-    /// app.add_event::<Message>().add_system(print_messages);
-    /// app.send_event(Message("Hello!".to_string()));
-    ///
-    /// // Says "Hello!"
-    /// app.update();
-    ///
-    /// // All the events have been processed
-    /// app.update();
-    /// ```
-    pub fn send_event<E: Resource>(&mut self, event: E) {
-        self.world.send_event(event);
-    }
-
-    /// Returns the number of events of the type `E` that were sent this frame
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_app::App;
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// // An event type
-    /// #[derive(Debug)]
-    /// struct SelfDestruct;
-    ///
-    /// let mut app = App::new();
-    /// app.add_event::<SelfDestruct>();
-    /// assert_eq!(app.events_len::<SelfDestruct>(), 0);
-    ///
-    /// app.send_event(SelfDestruct);
-    /// assert_eq!(app.events_len::<SelfDestruct>(), 1);
-    ///
-    /// // Time passes
-    /// app.update();
-    /// assert_eq!(app.events_len::<SelfDestruct>(), 0);
-    /// ```
-    pub fn events_len<E: Resource>(&self) -> usize {
-        self.world.events_len::<E>()
-    }
 }
 
 fn run_once(mut app: App) {

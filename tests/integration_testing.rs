@@ -181,7 +181,7 @@ fn jumping_moves_player_upwards() {
     // WARNING: inputs sent via pressing / releasing an Input<T> resource
     // are never just-pressed or just-released.
     // Track this bug at: https://github.com/bevyengine/bevy/issues/3847
-    app.send_event(KeyboardInput {
+    app.world.events().send(KeyboardInput {
         scan_code: 44,
         key_code: Some(KeyCode::Space),
         state: ElementState::Pressed,
