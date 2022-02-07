@@ -5,8 +5,6 @@
 
 use crate::component::Component;
 use crate::entity::Entity;
-use crate::schedule::{Stage, SystemStage};
-use crate::system::{In, IntoChainSystem, IntoSystem};
 use crate::world::{FilterFetch, World, WorldQuery};
 use std::fmt::Debug;
 
@@ -33,22 +31,4 @@ impl World {
             }
         }
     }
-
-    /// Asserts that when the supplied `system` is run on the world, its output will be `true`
-    ///
-    /// WARNING: [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters are computed relative to "the last time this system ran".
-    /// Because we are generating a new system, these filters will always be true.
-    pub fn assert_system<T: 'static, E: 'static, Params>(
-        &mut self,
-        system: impl IntoSystem<(), Result<T, E>, Params>,
-    ) {
-        let mut stage = SystemStage::single_threaded();
-        stage.add_system(system.chain(assert_input_system_ok));
-        stage.run(self);
-    }
-}
-
-/// A chainable system that panics if its `input`'s [`Result`] is not okay
-fn assert_input_system_ok<T, E>(In(result): In<Result<T, E>>) {
-    assert!(result.is_ok());
 }
