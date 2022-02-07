@@ -57,9 +57,9 @@ mod game {
             .insert(Velocity::default());
     }
 
-    fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
+    fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
         for (mut transform, velocity) in query.iter_mut() {
-            transform.translation += velocity.0;
+            transform.translation += velocity.0 * time.delta_seconds();
         }
     }
 
@@ -70,10 +70,10 @@ mod game {
         }
     }
 
-    fn gravity(mut query: Query<(&mut Velocity, &Transform)>) {
+    fn gravity(mut query: Query<(&mut Velocity, &Transform)>, time: Res<Time>) {
         for (mut velocity, transform) in query.iter_mut() {
             if transform.translation.y >= 0.0 {
-                velocity.0.y -= 1.0;
+                velocity.0.y -= 1.0 * time.delta_seconds();
             }
         }
     }
