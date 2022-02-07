@@ -1,11 +1,22 @@
 use crate::entity::Entity;
 use bevy_utils::{Entry, HashMap};
-use thiserror::Error;
+use std::fmt;
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum MapEntitiesError {
-    #[error("the given entity does not exist in the map")]
     EntityNotFound(Entity),
+}
+
+impl std::error::Error for MapEntitiesError {}
+
+impl fmt::Display for MapEntitiesError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MapEntitiesError::EntityNotFound(_) => {
+                write!(f, "the given entity does not exist in the map")
+            }
+        }
+    }
 }
 
 pub trait MapEntities {

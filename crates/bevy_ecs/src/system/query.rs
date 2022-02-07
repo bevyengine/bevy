@@ -9,7 +9,6 @@ use crate::{
 };
 use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
-use thiserror::Error;
 
 /// Provides scoped access to components in a [`World`].
 ///
@@ -670,7 +669,7 @@ where
     ///     for (targeting_entity, targets, origin) in targeting_query.iter(){
     ///         // We can use "destructuring" to unpack the results nicely
     ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
-    ///         
+    ///
     ///         assert!(target_1.distance(origin) <= 5);
     ///         assert!(target_2.distance(origin) <= 5);
     ///         assert!(target_3.distance(origin) <= 5);
@@ -779,10 +778,10 @@ where
     ///     for spring in spring_query.iter(){
     ///          // We can use "destructuring" to unpack our query items nicely
     ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
-    ///             
+    ///
     ///          force_1.x += spring.strength * (position_1.x - position_2.x);
     ///          force_1.y += spring.strength * (position_1.y - position_2.y);
-    ///          
+    ///
     ///          // Silence borrow-checker: I have split your mutable borrow!
     ///          force_2.x += spring.strength * (position_2.x - position_1.x);
     ///          force_2.y += spring.strength * (position_2.y - position_1.y);
@@ -1157,28 +1156,61 @@ where
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum QueryComponentError {
-    #[error("This query does not have read access to the requested component.")]
     MissingReadAccess,
-    #[error("This query does not have write access to the requested component.")]
     MissingWriteAccess,
-    #[error("The given entity does not have the requested component.")]
     MissingComponent,
-    #[error("The requested entity does not exist.")]
     NoSuchEntity,
+}
+
+impl std::error::Error for QueryComponentError {}
+
+impl std::fmt::Display for QueryComponentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            QueryComponentError::MissingReadAccess => {
+                write!(
+                    f,
+                    "This query does not have read access to the requested component."
+                )
+            }
+            QueryComponentError::MissingWriteAccess => {
+                write!(
+                    f,
+                    "This query does not have write access to the requested component."
+                )
+            }
+            QueryComponentError::MissingComponent => {
+                write!(f, "The given entity does not have the requested component.")
+            }
+            QueryComponentError::NoSuchEntity => {
+                write!(f, "The requested entity does not exist.")
+            }
+        }
+    }
 }
 
 /// An error that occurs when evaluating a [`Query`] as a single expected resulted via
 /// [`Query::single`] or [`Query::single_mut`].
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum QuerySingleError {
-    #[error("No entities fit the query {0}")]
     NoEntities(&'static str),
-    #[error("Multiple entities fit the query {0}!")]
     MultipleEntities(&'static str),
 }
 
+impl std::error::Error for QuerySingleError {}
+
+impl std::fmt::Display for QuerySingleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
+            QuerySingleError::MultipleEntities(query) => {
+                write!(f, "Multiple entities fit the query {}!", query)
+            }
+        }
+    }
+}
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
