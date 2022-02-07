@@ -99,12 +99,40 @@ mod game {
     }
 }
 
+/// This plugin runs constantly in our tests,
+/// and verifies that none of our internal rules have been broken.
+///
+/// We can also add it to our game during development in order to proactively catch issues,
+/// at the risk of sudden crashes and a small performance overhead.
+///
+/// We could also handle failure more gracefully, by returning a `Result` from our systems
+/// and using system chaining to log and then respond to the violation.
+struct InvariantsPlugin;
+
+impl Plugin for InvariantsPlugin {
+    fn build(&self, app: &mut App) {
+        // Generally, assertions about invariants should be checked
+        // at the end or beginning of the frame, where we are "guaranteed" to have a clean state.
+        app.add_system_to_stage(CoreStage::Last, assert_player_does_not_fall_through_floor);
+    }
+}
+
+fn assert_player_does_not_fall_through_floor(query: Query<&Transform, With<Player>>) {
+    // Note that query.single() also enforces an invariant: there is always exactly one Player
+    let player_transform = query.single();
+    assert!(player_transform.translation.y >= 0.0);
+}
+
 /// A convenience method to reduce code duplication in tests
 fn test_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_plugin(PhysicsPlugin)
-        .add_plugin(InputPlugin);
+        .add_plugin(InputPlugin)
+        // By adding this invariant-checking plugin to our test setup,
+        // we can automatically check for common or complex failure modes,
+        // without having to predict exactly when they might occur
+        .add_plugin(InvariantsPlugin);
     // It is generally unwise to run the initial update in convenience methods like this
     // as startup systems added by later plugins will be missed
     app
