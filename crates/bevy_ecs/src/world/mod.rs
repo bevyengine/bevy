@@ -642,7 +642,7 @@ impl World {
 
     /// Inserts a new non-send resource with the given `value`.
     ///
-    /// NonSend resources cannot be sent across threads,
+    /// `NonSend` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
     /// Systems with `NonSend` resources are always scheduled on the main thread.
     #[inline]
@@ -669,7 +669,7 @@ impl World {
 
     #[inline]
     /// # Safety
-    /// Only remove NonSend resources from the main thread
+    /// Only remove `NonSend` resources from the main thread
     /// as they cannot be sent across theads
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
