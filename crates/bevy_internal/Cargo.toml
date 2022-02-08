@@ -48,7 +48,11 @@ webgl = ["bevy_pbr/webgl", "bevy_render/webgl"]
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
 # Enable hot-reloading of core bevy shaders (for development of bevy)
-bevy_shader_hot_reloading = ["bevy_pbr/bevy_shader_hot_reloading"]
+bevy_shader_hot_reloading = [
+    # For AssetServerSettings watch_for_changes true
+    "bevy_asset/bevy_shader_hot_reloading",
+    "bevy_pbr/bevy_shader_hot_reloading"
+]
 
 [dependencies]
 # bevy

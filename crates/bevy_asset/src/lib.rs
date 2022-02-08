@@ -53,7 +53,7 @@ impl Default for AssetServerSettings {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
-            watch_for_changes: false,
+            watch_for_changes: cfg!(feature = "bevy_shader_hot_reloading"),
         }
     }
 }

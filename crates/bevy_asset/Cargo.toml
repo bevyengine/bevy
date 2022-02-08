@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = []
+bevy_shader_hot_reloading = []
 filesystem_watcher = ["notify"]
 
 [dependencies]
