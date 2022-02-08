@@ -1,5 +1,6 @@
-mod enum_variant_meta;
 pub mod label;
+
+mod enum_variant_meta;
 
 pub use ahash::AHasher;
 pub use enum_variant_meta::*;
@@ -15,22 +16,6 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
-
-/// A hasher builder that will create a fixed hasher.
-#[derive(Debug, Clone, Default)]
-pub struct FixedState;
-
-impl std::hash::BuildHasher for FixedState {
-    type Hasher = AHasher;
-
-    #[inline]
-    fn build_hasher(&self) -> AHasher {
-        AHasher::new_with_keys(
-            0b1001010111101110000001001100010000000011001001101011001001111000,
-            0b1100111101101011011110001011010100000100001111100011010011010101,
-        )
-    }
-}
 
 /// A [`HashMap`][std::collections::HashMap] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
@@ -70,29 +55,6 @@ impl std::hash::BuildHasher for FixedState {
 ///
 /// [`aHash`]: https://github.com/tkaitchuck/aHash
 pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
-
-pub trait AHashExt {
-    fn with_capacity(capacity: usize) -> Self;
-}
-
-impl<K, V> AHashExt for HashMap<K, V> {
-    /// Creates an empty `HashMap` with the specified capacity with aHash.
-    ///
-    /// The hash map will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash map will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{HashMap, AHashExt};
-    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
-    /// assert!(map.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
-    }
-}
 
 /// A stable std hash map implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -205,5 +167,44 @@ impl<K> AHashExt for StableHashSet<K> {
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
         StableHashSet::with_capacity_and_hasher(capacity, FixedState::default())
+    }
+}
+
+pub trait AHashExt {
+    fn with_capacity(capacity: usize) -> Self;
+}
+
+impl<K, V> AHashExt for HashMap<K, V> {
+    /// Creates an empty `HashMap` with the specified capacity with aHash.
+    ///
+    /// The hash map will be able to hold at least `capacity` elements without
+    /// reallocating. If `capacity` is 0, the hash map will not allocate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_utils::{HashMap, AHashExt};
+    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
+    /// assert!(map.capacity() >= 10);
+    /// ```
+    #[inline]
+    fn with_capacity(capacity: usize) -> Self {
+        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
+    }
+}
+
+/// A hasher builder that will create a fixed hasher.
+#[derive(Debug, Clone, Default)]
+pub struct FixedState;
+
+impl std::hash::BuildHasher for FixedState {
+    type Hasher = AHasher;
+
+    #[inline]
+    fn build_hasher(&self) -> AHasher {
+        AHasher::new_with_keys(
+            0b1001010111101110000001001100010000000011001001101011001001111000,
+            0b1100111101101011011110001011010100000100001111100011010011010101,
+        )
     }
 }

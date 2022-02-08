@@ -1,5 +1,4 @@
-#![warn(missing_docs)]
-//! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
+//! This crate provides logging functions and configuration for [`bevy`](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
@@ -11,16 +10,19 @@
 //! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
 //! adding [`LogPlugin`] or `DefaultPlugins` during app initialization.
 
+#![warn(missing_docs)]
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
+/// The `bevy_log` prelude.
 pub mod prelude {
-    //! The Bevy Log Prelude.
     #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
 }
+
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
@@ -83,25 +85,6 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// rerunning the same initialization multiple times will lead to a panic.
 #[derive(Default)]
 pub struct LogPlugin;
-
-/// `LogPlugin` settings
-pub struct LogSettings {
-    /// Filters logs using the [`EnvFilter`] format
-    pub filter: String,
-
-    /// Filters out logs that are "less than" the given level.
-    /// This can be further filtered using the `filter` setting.
-    pub level: Level,
-}
-
-impl Default for LogSettings {
-    fn default() -> Self {
-        Self {
-            filter: "wgpu=error".to_string(),
-            level: Level::INFO,
-        }
-    }
-}
 
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
@@ -167,6 +150,25 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
                 .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+        }
+    }
+}
+
+/// `LogPlugin` settings
+pub struct LogSettings {
+    /// Filters logs using the [`EnvFilter`] format
+    pub filter: String,
+
+    /// Filters out logs that are "less than" the given level.
+    /// This can be further filtered using the `filter` setting.
+    pub level: Level,
+}
+
+impl Default for LogSettings {
+    fn default() -> Self {
+        Self {
+            filter: "wgpu=error".to_string(),
+            level: Level::INFO,
         }
     }
 }

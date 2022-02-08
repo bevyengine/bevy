@@ -1,22 +1,23 @@
+//! This crate provides core functionality for the `bevy` game engine.
+
 #![warn(missing_docs)]
-//! This crate provides core functionality for Bevy Engine.
 
 mod float_ord;
 mod name;
 mod task_pool_options;
 mod time;
 
+/// The `bevy_core` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
+}
+
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use float_ord::*;
 pub use name::*;
 pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
-
-pub mod prelude {
-    //! The Bevy Core Prelude.
-    #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
-}
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
@@ -30,14 +31,6 @@ use std::ops::Range;
 /// Adds core functionality to Apps.
 #[derive(Default)]
 pub struct CorePlugin;
-
-/// A `SystemLabel` enum for ordering systems relative to core Bevy systems.
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
-pub enum CoreSystem {
-    /// Updates the elapsed time. Any system that interacts with [Time] component should run after
-    /// this.
-    Time,
-}
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
@@ -66,6 +59,14 @@ impl Plugin for CorePlugin {
         register_rust_types(app);
         register_math_types(app);
     }
+}
+
+/// A `SystemLabel` enum for ordering systems relative to core Bevy systems.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+pub enum CoreSystem {
+    /// Updates the elapsed time. Any system that interacts with [Time] component should run after
+    /// this.
+    Time,
 }
 
 fn register_rust_types(app: &mut App) {

@@ -1,22 +1,24 @@
+pub mod serde;
+
 mod command;
 mod dynamic_scene;
 mod scene;
 mod scene_loader;
 mod scene_spawner;
-pub mod serde;
 
-pub use command::*;
-pub use dynamic_scene::*;
-pub use scene::*;
-pub use scene_loader::*;
-pub use scene_spawner::*;
-
+/// The `bevy_scene` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         DynamicScene, Scene, SceneSpawner, SpawnSceneAsChildCommands, SpawnSceneCommands,
     };
 }
+
+pub use command::*;
+pub use dynamic_scene::*;
+pub use scene::*;
+pub use scene_loader::*;
+pub use scene_spawner::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;

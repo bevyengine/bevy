@@ -1,58 +1,3 @@
-mod clear_pass;
-mod clear_pass_driver;
-mod main_pass_2d;
-mod main_pass_3d;
-mod main_pass_driver;
-
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::ClearColor;
-}
-
-pub use clear_pass::*;
-pub use clear_pass_driver::*;
-pub use main_pass_2d::*;
-pub use main_pass_3d::*;
-pub use main_pass_driver::*;
-
-use std::ops::Range;
-
-use bevy_app::{App, Plugin};
-use bevy_core::FloatOrd;
-use bevy_ecs::prelude::*;
-use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin},
-    color::Color,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
-    },
-    render_resource::*,
-    renderer::RenderDevice,
-    texture::TextureCache,
-    view::{ExtractedView, Msaa, ViewDepthTexture},
-    RenderApp, RenderStage, RenderWorld,
-};
-
-/// When used as a resource, sets the color that is used to clear the screen between frames.
-///
-/// This color appears as the "background" color for simple apps, when
-/// there are portions of the screen with nothing rendered.
-#[derive(Clone, Debug)]
-pub struct ClearColor(pub Color);
-
-impl Default for ClearColor {
-    fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
-    }
-}
-
-// Plugins that contribute to the RenderGraph should use the following label conventions:
-// 1. Graph modules should have a NAME, input module, and node module (where relevant)
-// 2. The "top level" graph is the plugin module root. Just add things like `pub mod node` directly under the plugin module
-// 3. "sub graph" modules should be nested beneath their parent graph module
-
 pub mod node {
     pub const MAIN_PASS_DEPENDENCIES: &str = "main_pass_dependencies";
     pub const MAIN_PASS_DRIVER: &str = "main_pass_driver";
@@ -86,13 +31,50 @@ pub mod clear_graph {
     }
 }
 
+mod clear_pass;
+mod clear_pass_driver;
+mod main_pass_2d;
+mod main_pass_3d;
+mod main_pass_driver;
+
+/// The `bevy_core_pipeline` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::ClearColor;
+}
+
+pub use clear_pass::*;
+pub use clear_pass_driver::*;
+pub use main_pass_2d::*;
+pub use main_pass_3d::*;
+pub use main_pass_driver::*;
+
+use bevy_app::{App, Plugin};
+use bevy_core::FloatOrd;
+use bevy_ecs::prelude::*;
+use bevy_render::{
+    camera::{ActiveCameras, CameraPlugin},
+    color::Color,
+    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_phase::{
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedPipelinePhaseItem,
+        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
+    },
+    render_resource::*,
+    renderer::RenderDevice,
+    texture::TextureCache,
+    view::{ExtractedView, Msaa, ViewDepthTexture},
+    RenderApp, RenderStage, RenderWorld,
+};
+use std::ops::Range;
+
+// Plugins that contribute to the RenderGraph should use the following label conventions:
+// 1. Graph modules should have a NAME, input module, and node module (where relevant)
+// 2. The "top level" graph is the plugin module root. Just add things like `pub mod node` directly under the plugin module
+// 3. "sub graph" modules should be nested beneath their parent graph module
+
 #[derive(Default)]
 pub struct CorePipelinePlugin;
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum CorePipelineRenderSystems {
-    SortTransparent2d,
-}
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
@@ -175,6 +157,24 @@ impl Plugin for CorePipelinePlugin {
         graph
             .add_node_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
             .unwrap();
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum CorePipelineRenderSystems {
+    SortTransparent2d,
+}
+
+/// When used as a resource, sets the color that is used to clear the screen between frames.
+///
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered.
+#[derive(Clone, Debug)]
+pub struct ClearColor(pub Color);
+
+impl Default for ClearColor {
+    fn default() -> Self {
+        Self(Color::rgb(0.4, 0.4, 0.4))
     }
 }
 

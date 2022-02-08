@@ -7,13 +7,14 @@ mod material;
 mod pbr_material;
 mod render;
 
-pub use alpha::*;
-pub use bundle::*;
-pub use light::*;
-pub use material::*;
-pub use pbr_material::*;
-pub use render::*;
+pub mod draw_3d_graph {
+    pub mod node {
+        /// Label for the shadow pass node.
+        pub const SHADOW_PASS: &str = "shadow_pass";
+    }
+}
 
+/// The `bevy_pbr` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -25,12 +26,12 @@ pub mod prelude {
     };
 }
 
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the shadow pass node.
-        pub const SHADOW_PASS: &str = "shadow_pass";
-    }
-}
+pub use alpha::*;
+pub use bundle::*;
+pub use light::*;
+pub use material::*;
+pub use pbr_material::*;
+pub use render::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};

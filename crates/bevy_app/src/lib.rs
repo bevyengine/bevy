@@ -1,14 +1,20 @@
-#![warn(missing_docs)]
-//! This crate is about everything concerning the highest-level, application layer of a Bevy
+//! This crate is about everything concerning the highest-level, application layer of a `bevy`
 //! app.
 
+#![warn(missing_docs)]
+
 mod app;
+#[cfg(feature = "bevy_ci_testing")]
+mod ci_testing;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
 
-#[cfg(feature = "bevy_ci_testing")]
-mod ci_testing;
+/// The `bevy_app` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage};
+}
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
@@ -16,12 +22,6 @@ pub use bevy_ecs::event::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
-
-#[allow(missing_docs)]
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage};
-}
 
 use bevy_ecs::schedule::StageLabel;
 
@@ -47,6 +47,7 @@ pub enum CoreStage {
     /// Name of app stage that runs after all other app stages
     Last,
 }
+
 /// The names of the default App startup stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum StartupStage {

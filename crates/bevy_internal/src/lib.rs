@@ -1,11 +1,6 @@
+//! This module is separated into its own crate to enable simple dynamic linking for `bevy`, and should not be used directly.
+
 #![warn(missing_docs)]
-//! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
-
-/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
-pub mod prelude;
-
-mod default_plugins;
-pub use default_plugins::*;
 
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
@@ -17,9 +12,21 @@ pub mod asset {
     pub use bevy_asset::*;
 }
 
+#[cfg(feature = "bevy_audio")]
+pub mod audio {
+    //! Provides types and plugins for audio playback.
+    pub use bevy_audio::*;
+}
+
 pub mod core {
     //! Contains core plugins and utilities for time.
     pub use bevy_core::*;
+}
+
+#[cfg(feature = "bevy_core_pipeline")]
+pub mod core_pipeline {
+    //! Core render pipeline.
+    pub use bevy_core_pipeline::*;
 }
 
 pub mod diagnostic {
@@ -27,9 +34,27 @@ pub mod diagnostic {
     pub use bevy_diagnostic::*;
 }
 
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub mod dynamic_plugin {
+    //! Dynamic linking of plugins
+    pub use bevy_dynamic_plugin::*;
+}
+
 pub mod ecs {
     //! Bevy's entity-component-system.
     pub use bevy_ecs::*;
+}
+
+#[cfg(feature = "bevy_gilrs")]
+pub mod gilrs {
+    //! Bevy interface with `GilRs` - "Game Input Library for Rust" - to handle gamepad inputs.
+    pub use bevy_gilrs::*;
+}
+
+#[cfg(feature = "bevy_gltf")]
+pub mod gltf {
+    //! Support for GLTF file loading.
+    pub use bevy_gltf::*;
 }
 
 pub mod input {
@@ -47,6 +72,12 @@ pub mod math {
     pub use bevy_math::*;
 }
 
+#[cfg(feature = "bevy_pbr")]
+pub mod pbr {
+    //! Physically based rendering.
+    pub use bevy_pbr::*;
+}
+
 pub mod reflect {
     // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.
@@ -55,9 +86,21 @@ pub mod reflect {
     };
 }
 
+#[cfg(feature = "bevy_render")]
+pub mod render {
+    //! Cameras, meshes, textures, shaders, and pipelines.
+    pub use bevy_render::*;
+}
+
 pub mod scene {
     //! Save/load collections of entities and components to/from file.
     pub use bevy_scene::*;
+}
+
+#[cfg(feature = "bevy_sprite")]
+pub mod sprite {
+    //! Items for sprites, rects, texture atlases, etc.
+    pub use bevy_sprite::*;
 }
 
 pub mod tasks {
@@ -65,9 +108,21 @@ pub mod tasks {
     pub use bevy_tasks::*;
 }
 
+#[cfg(feature = "bevy_text")]
+pub mod text {
+    //! Text drawing, styling, and font assets.
+    pub use bevy_text::*;
+}
+
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
+}
+
+#[cfg(feature = "bevy_ui")]
+pub mod ui {
+    //! User interface components and widgets.
+    pub use bevy_ui::*;
 }
 
 pub mod utils {
@@ -80,71 +135,17 @@ pub mod window {
     pub use bevy_window::*;
 }
 
-#[cfg(feature = "bevy_audio")]
-pub mod audio {
-    //! Provides types and plugins for audio playback.
-    pub use bevy_audio::*;
-}
-
-#[cfg(feature = "bevy_core_pipeline")]
-pub mod core_pipeline {
-    //! Core render pipeline.
-    pub use bevy_core_pipeline::*;
-}
-
-#[cfg(feature = "bevy_gilrs")]
-pub mod gilrs {
-    //! Bevy interface with `GilRs` - "Game Input Library for Rust" - to handle gamepad inputs.
-    pub use bevy_gilrs::*;
-}
-
-#[cfg(feature = "bevy_gltf")]
-pub mod gltf {
-    //! Support for GLTF file loading.
-    pub use bevy_gltf::*;
-}
-
-#[cfg(feature = "bevy_pbr")]
-pub mod pbr {
-    //! Physically based rendering.
-    pub use bevy_pbr::*;
-}
-
-#[cfg(feature = "bevy_render")]
-pub mod render {
-    //! Cameras, meshes, textures, shaders, and pipelines.
-    pub use bevy_render::*;
-}
-
-#[cfg(feature = "bevy_sprite")]
-pub mod sprite {
-    //! Items for sprites, rects, texture atlases, etc.
-    pub use bevy_sprite::*;
-}
-
-#[cfg(feature = "bevy_text")]
-pub mod text {
-    //! Text drawing, styling, and font assets.
-    pub use bevy_text::*;
-}
-
-#[cfg(feature = "bevy_ui")]
-pub mod ui {
-    //! User interface components and widgets.
-    pub use bevy_ui::*;
-}
-
 #[cfg(feature = "bevy_winit")]
 pub mod winit {
     //! Window creation, configuration, and handling
     pub use bevy_winit::*;
 }
 
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub mod dynamic_plugin {
-    //! Dynamic linking of plugins
-    pub use bevy_dynamic_plugin::*;
-}
+mod default_plugins;
 
+/// The `bevy_internal` prelude.
+pub mod prelude;
+
+pub use default_plugins::*;
 #[cfg(target_os = "android")]
 pub use ndk_glue;

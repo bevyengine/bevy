@@ -2,16 +2,16 @@ mod converters;
 mod winit_config;
 mod winit_windows;
 
-use bevy_input::{
-    keyboard::KeyboardInput,
-    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touch::TouchInput,
-};
 pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_input::{
+    keyboard::KeyboardInput,
+    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    touch::TouchInput,
+};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -19,13 +19,12 @@ use bevy_window::{
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
+use winit::dpi::LogicalSize;
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
-
-use winit::dpi::LogicalSize;
 
 #[derive(Default)]
 pub struct WinitPlugin;

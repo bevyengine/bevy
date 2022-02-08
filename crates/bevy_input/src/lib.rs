@@ -1,14 +1,11 @@
-mod axis;
 pub mod gamepad;
-mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod system;
 pub mod touch;
 
-pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
-pub use input::*;
+mod axis;
+mod input;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -24,23 +21,23 @@ pub mod prelude {
     };
 }
 
+pub use axis::*;
+pub use input::*;
+
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use gamepad::{
+    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
+    GamepadEventRaw, GamepadSettings,
+};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
-use gamepad::{
-    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
-    GamepadEventRaw, GamepadSettings,
-};
-
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
 pub struct InputPlugin;
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
-pub struct InputSystem;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
@@ -86,6 +83,9 @@ impl Plugin for InputPlugin {
             );
     }
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+pub struct InputSystem;
 
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

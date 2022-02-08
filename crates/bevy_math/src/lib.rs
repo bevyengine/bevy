@@ -5,6 +5,7 @@ pub use face_toward::*;
 pub use geometry::*;
 pub use glam::*;
 
+/// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

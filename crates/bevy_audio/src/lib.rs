@@ -1,4 +1,4 @@
-//! Audio support for the game engine Bevy
+//! Audio support for the `bevy` game engine.
 //!
 //! ```
 //! # use bevy_ecs::{system::Res, event::EventWriter};
@@ -32,7 +32,7 @@ mod audio;
 mod audio_output;
 mod audio_source;
 
-#[allow(missing_docs)]
+/// The `bevy_audio` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable};

@@ -1,3 +1,5 @@
+pub mod collide_aabb;
+
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -7,8 +9,7 @@ mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-pub mod collide_aabb;
-
+/// The `bevy_sprite` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -39,16 +40,11 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 
-#[derive(Default)]
-pub struct SpritePlugin;
-
 pub const SPRITE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum SpriteSystem {
-    ExtractSprites,
-}
+#[derive(Default)]
+pub struct SpritePlugin;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -77,4 +73,9 @@ impl Plugin for SpritePlugin {
                 .add_system_to_stage(RenderStage::Queue, queue_sprites);
         };
     }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum SpriteSystem {
+    ExtractSprites,
 }

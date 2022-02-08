@@ -1,7 +1,4 @@
-#![warn(missing_docs)]
-#![allow(clippy::single_component_path_imports)]
-
-//! Forces dynamic linking of Bevy.
+//! Forces dynamic linking of `bevy`.
 //!
 //! Dynamic linking causes Bevy to be built and linked as a dynamic library. This will make
 //! incremental builds compile much faster.
@@ -49,6 +46,9 @@
 //! #[cfg(debug_assertions)] // new
 //! use bevy_dylib;
 //! ```
+
+#![warn(missing_docs)]
+#![allow(clippy::single_component_path_imports)]
 
 // Force linking of the main bevy crate
 #[allow(unused_imports)]

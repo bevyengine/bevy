@@ -5,13 +5,6 @@ mod system;
 mod window;
 mod windows;
 
-pub use crate::raw_window_handle::*;
-pub use cursor::*;
-pub use event::*;
-pub use system::*;
-pub use window::*;
-pub use windows::*;
-
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -19,6 +12,13 @@ pub mod prelude {
         Window, WindowDescriptor, WindowMoved, Windows,
     };
 }
+
+pub use crate::raw_window_handle::*;
+pub use cursor::*;
+pub use event::*;
+pub use system::*;
+pub use window::*;
+pub use windows::*;
 
 use bevy_app::{prelude::*, Events};
 

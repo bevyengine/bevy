@@ -1,6 +1,5 @@
-use bevy_utils::HashMap;
-
 mod loader;
+
 pub use loader::*;
 
 use bevy_app::prelude::*;
@@ -9,6 +8,7 @@ use bevy_pbr::StandardMaterial;
 use bevy_reflect::TypeUuid;
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
+use bevy_utils::HashMap;
 
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]

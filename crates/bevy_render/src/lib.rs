@@ -12,6 +12,7 @@ pub mod renderer;
 pub mod texture;
 pub mod view;
 
+/// The `bevy_render` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -27,7 +28,6 @@ pub mod prelude {
     };
 }
 
-use bevy_utils::tracing::debug;
 pub use once_cell;
 
 use crate::{
@@ -44,66 +44,12 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
+use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin;
-
-/// The labels of the default App rendering stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum RenderStage {
-    /// Extract data from the "app world" and insert it into the "render world".
-    /// This step should be kept as short as possible to increase the "pipelining potential" for
-    /// running the next frame while rendering the current frame.
-    Extract,
-
-    /// Prepare render resources from the extracted data for the GPU.
-    Prepare,
-
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
-    /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
-    /// [`Render`](RenderStage::Render) stage.
-    Queue,
-
-    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
-    /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
-    PhaseSort,
-
-    /// Actual rendering happens here.
-    /// In most cases, only the render backend should insert resources here.
-    Render,
-
-    /// Cleanup render resources here.
-    Cleanup,
-}
-
-/// The Render App World. This is only available as a resource during the Extract step.
-#[derive(Default)]
-pub struct RenderWorld(World);
-
-impl Deref for RenderWorld {
-    type Target = World;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RenderWorld {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-/// A Label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
-pub struct RenderApp;
-
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`RenderWorld`].
-#[derive(Default)]
-struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
@@ -293,6 +239,61 @@ impl Plugin for RenderPlugin {
             .add_plugin(ImagePlugin);
     }
 }
+
+/// The labels of the default App rendering stages.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum RenderStage {
+    /// Extract data from the "app world" and insert it into the "render world".
+    /// This step should be kept as short as possible to increase the "pipelining potential" for
+    /// running the next frame while rendering the current frame.
+    Extract,
+
+    /// Prepare render resources from the extracted data for the GPU.
+    Prepare,
+
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
+    /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
+    /// [`Render`](RenderStage::Render) stage.
+    Queue,
+
+    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
+    /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
+    PhaseSort,
+
+    /// Actual rendering happens here.
+    /// In most cases, only the render backend should insert resources here.
+    Render,
+
+    /// Cleanup render resources here.
+    Cleanup,
+}
+
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Default)]
+pub struct RenderWorld(World);
+
+impl Deref for RenderWorld {
+    type Target = World;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RenderWorld {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// A Label for the rendering sub-app.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+pub struct RenderApp;
+
+/// A "scratch" world used to avoid allocating new worlds every frame when
+/// swapping out the [`RenderWorld`].
+#[derive(Default)]
+struct ScratchRenderWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.

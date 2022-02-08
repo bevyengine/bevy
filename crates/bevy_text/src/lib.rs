@@ -8,6 +8,14 @@ mod pipeline;
 mod text;
 mod text2d;
 
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
+        TextStyle, VerticalAlign,
+    };
+}
+
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -17,14 +25,6 @@ pub use glyph_brush::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
-
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{
-        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
-        TextStyle, VerticalAlign,
-    };
-}
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;

@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod serde;
+
 mod list;
 mod map;
 mod path;
@@ -23,7 +25,7 @@ mod impls {
     pub use self::std::*;
 }
 
-pub mod serde;
+/// The `bevy_reflect` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -32,6 +34,8 @@ pub mod prelude {
     };
 }
 
+pub use bevy_reflect_derive::*;
+pub use erased_serde;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -42,9 +46,6 @@ pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_registry::*;
 pub use type_uuid::*;
-
-pub use bevy_reflect_derive::*;
-pub use erased_serde;
 
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
