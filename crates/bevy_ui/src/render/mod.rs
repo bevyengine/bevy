@@ -76,7 +76,7 @@ pub fn build_ui_render(app: &mut App) {
     {
         let asset_server = app.world.get_resource::<AssetServer>().unwrap();
         let ui_shader_handle: Handle<Shader> = asset_server.load("shaders/bevy_ui/ui.wgsl");
-        shaders.add_alias(ui_shader_handle, UI_SHADER_HANDLE);
+        shaders.add_alias(&ui_shader_handle, UI_SHADER_HANDLE);
 
         // NOTE: We need to store the strong handles created from the asset paths
         app.world.insert_resource(UiShaders { ui_shader_handle });

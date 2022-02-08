@@ -61,7 +61,7 @@ impl Plugin for SpritePlugin {
         #[cfg(not(feature = "bevy_shader_hot_reloading"))]
         {
             shaders.set_untracked(
-                COLOR_MATERIAL_SHADER_HANDLE,
+                SPRITE_SHADER_HANDLE,
                 Shader::from_wgsl(include_str!(
                     "../../../assets/shaders/bevy_sprite/sprite.wgsl"
                 )),
@@ -72,7 +72,7 @@ impl Plugin for SpritePlugin {
             let asset_server = app.world.get_resource::<AssetServer>().unwrap();
             let sprite_shader_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/sprite.wgsl");
-            shaders.add_alias(sprite_shader_handle, SPRITE_SHADER_HANDLE);
+            shaders.add_alias(&sprite_shader_handle, SPRITE_SHADER_HANDLE);
 
             // NOTE: We need to store the strong handles created from the asset paths
             app.world.insert_resource(SpriteShaders {
