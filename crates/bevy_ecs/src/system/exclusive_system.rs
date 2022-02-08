@@ -107,7 +107,7 @@ where
 {
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {
-            system: Box::new(self.system()),
+            system: Box::new(IntoSystem::into_system(self)),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }

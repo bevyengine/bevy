@@ -324,6 +324,10 @@ name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
 
 [[example]]
+name = "generic_system"
+path = "examples/ecs/generic_system.rs"
+
+[[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
 

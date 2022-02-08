@@ -43,14 +43,14 @@ impl Diagnostic {
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
         if self.history.len() == self.max_history_length {
-            if let Some(removed_diagnostic) = self.history.pop_back() {
+            if let Some(removed_diagnostic) = self.history.pop_front() {
                 self.sum -= removed_diagnostic.value;
             }
         }
 
         self.sum += value;
         self.history
-            .push_front(DiagnosticMeasurement { time, value });
+            .push_back(DiagnosticMeasurement { time, value });
     }
 
     pub fn new(
@@ -82,8 +82,13 @@ impl Diagnostic {
         self
     }
 
+    #[inline]
+    pub fn measurement(&self) -> Option<&DiagnosticMeasurement> {
+        self.history.back()
+    }
+
     pub fn value(&self) -> Option<f64> {
-        self.history.back().map(|measurement| measurement.value)
+        self.measurement().map(|measurement| measurement.value)
     }
 
     pub fn sum(&self) -> f64 {
@@ -107,8 +112,8 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(oldest) = self.history.back() {
-            if let Some(newest) = self.history.front() {
+        if let Some(newest) = self.history.back() {
+            if let Some(oldest) = self.history.front() {
                 return Some(newest.time.duration_since(oldest.time));
             }
         }
@@ -153,7 +158,7 @@ impl Diagnostics {
     pub fn get_measurement(&self, id: DiagnosticId) -> Option<&DiagnosticMeasurement> {
         self.diagnostics
             .get(&id)
-            .and_then(|diagnostic| diagnostic.history.front())
+            .and_then(|diagnostic| diagnostic.measurement())
     }
 
     pub fn add_measurement(&mut self, id: DiagnosticId, value: f64) {
