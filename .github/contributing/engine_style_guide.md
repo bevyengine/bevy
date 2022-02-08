@@ -6,14 +6,42 @@ For more advice on contributing to the engine, see the [relevant section](../../
 
 ## General guidelines
 
-1. Prefer granular imports over glob imports of `bevy::prelude::*` and `bevy::sub_crate::*`.
-2. Use a consistent comment style:
+### Imports
+
+1. Prefer granular imports (eg. `bevy::prelude::App`) over glob imports (eg. `bevy::prelude::*`).
+
+### Documentation
+
+1. Use a consistent comment style:
    1. `///` doc comments belong above `#[derive(Trait)]` invocations.
    2. `//` comments should generally go above the line in question, rather than in-line.
    3. Avoid `/* */` block comments, even when writing long comments.
    4. Use \`variable_name\` code blocks in comments to signify that you're referring to specific types and variables.
    5. Start comments with capital letters. End them with a period if they are sentence-like.
-3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
+2. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
+
+### File structure
+
+#### Library files
+
+The content of a library file (`lib.rs`) should be structured in the following way:
+
+1. crate comment `//!`
+2. lints
+3. `extern crate`s
+4. `pub mod`s
+5. `mod`s
+6. `pub mod prelude`
+7. `pub use`s
+8. `use`s
+9. `const`s
+10. `pub type`s
+11. `type`s
+12. `pub trait`s
+13. `pub struct XyzPlugin`
+14. `impl Plugin for x`
+15. `struct`s, `enum`s and so on
+16. `mod tests`
 
 ## Rust API guidelines
 
