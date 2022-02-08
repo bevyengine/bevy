@@ -56,7 +56,7 @@ impl Plugin for SpritePlugin {
         #[cfg(not(feature = "no_srgb"))]
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         #[cfg(feature = "no_srgb")]
-        let sprite_shader = Shader::from_wgsl("#define ENABLE_GAMMA_CORRECTION\n".to_owned() + include_str!("render/sprite.wgsl"));
+        let sprite_shader = Shader::from_wgsl("#define ENABLE_GAMMA_CORRECTION;\n".to_owned() + include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
