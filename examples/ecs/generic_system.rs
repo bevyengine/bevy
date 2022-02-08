@@ -17,9 +17,16 @@ enum AppState {
     InGame,
 }
 
+#[derive(Component)]
 struct TextToPrint(String);
 
+#[derive(Component)]
+struct Timer(bevy::prelude::Timer);
+
+#[derive(Component)]
 struct MenuClose;
+
+#[derive(Component)]
 struct LevelUnload;
 
 fn main() {
@@ -45,7 +52,7 @@ fn main() {
 fn setup_system(mut commands: Commands) {
     commands
         .spawn()
-        .insert(Timer::from_seconds(1.0, true))
+        .insert(Timer(bevy::prelude::Timer::from_seconds(1.0, true)))
         .insert(TextToPrint(
             "I will print until you press space.".to_string(),
         ))
@@ -53,14 +60,14 @@ fn setup_system(mut commands: Commands) {
 
     commands
         .spawn()
-        .insert(Timer::from_seconds(1.0, true))
+        .insert(Timer(bevy::prelude::Timer::from_seconds(1.0, true)))
         .insert(TextToPrint("I will always print".to_string()))
         .insert(LevelUnload);
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut Timer, &TextToPrint)>) {
     for (mut timer, text) in query.iter_mut() {
-        if timer.tick(time.delta()).just_finished() {
+        if timer.0.tick(time.delta()).just_finished() {
             info!("{}", text.0);
         }
     }
