@@ -26,6 +26,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -113,6 +114,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -194,7 +196,7 @@ impl<'w> EntityMut<'w> {
         let bundle_info = self
             .world
             .bundles
-            .init_info::<T>(&mut self.world.components);
+            .init_info::<T>(&mut self.world.components, &mut self.world.storages);
         let mut bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
@@ -219,7 +221,7 @@ impl<'w> EntityMut<'w> {
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
-        let bundle_info = self.world.bundles.init_info::<T>(components);
+        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
         let old_location = self.location;
         let new_archetype_id = unsafe {
             remove_bundle_from_archetype(
@@ -341,7 +343,7 @@ impl<'w> EntityMut<'w> {
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
-        let bundle_info = self.world.bundles.init_info::<T>(components);
+        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
         let old_location = self.location;
         let new_archetype_id = unsafe {
             remove_bundle_from_archetype(
@@ -448,16 +450,16 @@ impl<'w> EntityMut<'w> {
 
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
-    /// If the caller _does_ do something that could change the location, self.update_location()
-    /// must be called before using any other methods in EntityMut
+    /// If the caller _does_ do something that could change the location, `self.update_location()`
+    /// must be called before using any other methods in [`EntityMut`]
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
         self.world
     }
 
-    /// Updates the internal entity location to match the current location in the internal [World].
-    /// This is only needed if the user called [EntityMut::world], which enables the location to
-    /// change.
+    /// Updates the internal entity location to match the current location in the internal
+    /// [`World`]. This is only needed if the user called [`EntityMut::world`], which enables the
+    /// location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }

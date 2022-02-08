@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemId, SystemParam,
-        SystemParamFetch, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
+        SystemParamItem, SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -13,7 +13,6 @@ use std::{borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
-    pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
@@ -30,7 +29,6 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            id: SystemId::new(),
             last_change_tick: 0,
         }
     }
@@ -48,11 +46,16 @@ impl SystemMeta {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    #[inline]
+    pub(crate) fn check_change_tick(&mut self, change_tick: u32) {
+        check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
-/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].  
+/// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
@@ -112,7 +115,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
     /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
-    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]  
+    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
         self.param_state.apply(world);
@@ -121,6 +124,10 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn matches_world(&self, world: &World) -> bool {
         self.world_id == world.id()
+    }
+
+    pub(crate) fn new_archetype(&mut self, archetype: &Archetype) {
+        self.param_state.new_archetype(archetype, &mut self.meta);
     }
 
     fn validate_world_and_update_archetypes(&mut self, world: &World) {
@@ -143,7 +150,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
-    /// created with.   
+    /// created with.
     #[inline]
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
@@ -161,6 +168,74 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 }
 
+/// A trait for defining systems with a [`SystemParam`] associated type.
+///
+/// This facilitates the creation of systems that are generic over some trait
+/// and that use that trait's associated types as `SystemParam`s.
+pub trait RunSystem: Send + Sync + 'static {
+    /// The `SystemParam` type passed to the system when it runs.
+    type Param: SystemParam;
+
+    /// Runs the system.
+    fn run(param: SystemParamItem<Self::Param>);
+
+    /// Creates a concrete instance of the system for the specified `World`.
+    fn system(world: &mut World) -> ParamSystem<Self::Param> {
+        ParamSystem {
+            run: Self::run,
+            state: SystemState::new(world),
+        }
+    }
+}
+
+pub struct ParamSystem<P: SystemParam> {
+    state: SystemState<P>,
+    run: fn(SystemParamItem<P>),
+}
+
+impl<P: SystemParam + 'static> System for ParamSystem<P> {
+    type In = ();
+
+    type Out = ();
+
+    fn name(&self) -> Cow<'static, str> {
+        self.state.meta().name.clone()
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        self.state.new_archetype(archetype);
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.state.meta().component_access_set.combined_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.state.meta().archetype_component_access
+    }
+
+    fn is_send(&self) -> bool {
+        self.state.meta().is_send()
+    }
+
+    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
+        let param = self.state.get_unchecked_manual(world);
+        (self.run)(param);
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.state.apply(world);
+    }
+
+    fn initialize(&mut self, _world: &mut World) {
+        // already initialized by nature of the SystemState being constructed
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.state.meta.check_change_tick(change_tick);
+    }
+}
+
 /// Conversion trait to turn something into a [`System`].
 ///
 /// Use this to get a system from a function. Also note that every system implements this trait as
@@ -174,15 +249,35 @@ impl<Param: SystemParam> SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = my_system_function.system();
+/// let system = IntoSystem::system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params> {
+pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    fn system(self) -> Self::System;
+    ///
+    /// Use of this method was formerly required whenever adding a `system` to an `App`.
+    /// or other cases where a system is required.
+    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
+    /// this is no longer required.
+    ///
+    /// In future, this method will be removed.
+    ///
+    /// One use of this method is to assert that a given function is a valid system.
+    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
+    ///
+    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
+    #[deprecated(
+        since = "0.7.0",
+        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
+    )]
+    fn system(self) -> Self::System {
+        IntoSystem::into_system(self)
+    }
+    /// Turns this value into its corresponding [`System`].
+    fn into_system(this: Self) -> Self::System;
 }
 
 pub struct AlreadyWasSystem;
@@ -190,8 +285,8 @@ pub struct AlreadyWasSystem;
 // Systems implicitly implement IntoSystem
 impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
     type System = Sys;
-    fn system(self) -> Sys {
-        self
+    fn into_system(this: Self) -> Sys {
+        this
     }
 }
 
@@ -210,7 +305,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// use bevy_ecs::prelude::*;
 ///
 /// fn main() {
-///     let mut square_system = square.system();
+///     let mut square_system = IntoSystem::into_system(square);
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
@@ -298,7 +393,7 @@ where
         self,
         f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
     ) -> Self::System {
-        self.system().config(f)
+        IntoSystem::into_system(self).config(f)
     }
 }
 
@@ -313,9 +408,9 @@ where
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
     type System = FunctionSystem<In, Out, Param, Marker, F>;
-    fn system(self) -> Self::System {
+    fn into_system(func: Self) -> Self::System {
         FunctionSystem {
-            func: self,
+            func,
             param_state: None,
             config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_meta: SystemMeta::new::<F>(),
@@ -338,11 +433,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn id(&self) -> SystemId {
-        self.system_meta.id
     }
 
     #[inline]

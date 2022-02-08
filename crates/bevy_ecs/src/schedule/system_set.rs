@@ -1,15 +1,12 @@
-use crate::{
-    component::Component,
-    schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-        RunCriteriaDescriptorOrLabel, State, SystemDescriptor, SystemLabel,
-    },
+use crate::schedule::{
+    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
 };
-use std::{fmt::Debug, hash::Hash};
 
 use super::IntoSystemDescriptor;
 
 /// A builder for describing several systems at the same time.
+#[derive(Default)]
 pub struct SystemSet {
     pub(crate) systems: Vec<SystemDescriptor>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
@@ -19,19 +16,6 @@ pub struct SystemSet {
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
-impl Default for SystemSet {
-    fn default() -> SystemSet {
-        SystemSet {
-            systems: Vec::new(),
-            run_criteria: None,
-            labels: Vec::new(),
-            before: Vec::new(),
-            after: Vec::new(),
-            ambiguity_sets: Vec::new(),
-        }
-    }
-}
-
 impl SystemSet {
     pub fn new() -> Self {
         Default::default()
@@ -39,49 +23,49 @@ impl SystemSet {
 
     pub fn on_update<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_update(s))
     }
 
     pub fn on_inactive_update<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
     }
 
     pub fn on_in_stack_update<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_in_stack_update(s))
     }
 
     pub fn on_enter<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_enter(s))
     }
 
     pub fn on_exit<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_exit(s))
     }
 
     pub fn on_pause<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_pause(s))
     }
 
     pub fn on_resume<T>(s: T) -> SystemSet
     where
-        T: Component + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }

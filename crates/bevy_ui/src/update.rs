@@ -1,13 +1,24 @@
+//! This module contains systems that update the UI when something changes
+
+use crate::{CalculatedClip, Overflow, Style};
+
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
     query::{With, Without},
-    system::Query,
+    system::{Commands, Query},
 };
-use bevy_transform::prelude::{Children, Parent, Transform};
+use bevy_math::Vec2;
+use bevy_sprite::Rect;
+use bevy_transform::{
+    components::GlobalTransform,
+    prelude::{Children, Parent, Transform},
+};
 
+/// The resolution of Z values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
+/// Updates transforms of nodes to fit with the z system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
@@ -50,9 +61,78 @@ fn update_hierarchy(
     }
     current_global_z
 }
+
+/// Updates clipping for all nodes
+pub fn update_clipping_system(
+    mut commands: Commands,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    children_query: Query<&Children>,
+) {
+    for root_node in root_node_query.iter() {
+        update_clipping(
+            &mut commands,
+            &children_query,
+            &mut node_query,
+            root_node,
+            None,
+        )
+    }
+}
+
+fn update_clipping(
+    commands: &mut Commands,
+    children_query: &Query<&Children>,
+    node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    entity: Entity,
+    clip: Option<Rect>,
+) {
+    let (node, global_transform, style, calculated_clip) = node_query.get_mut(entity).unwrap();
+    // Update this node's CalculatedClip component
+    match (clip, calculated_clip) {
+        (None, None) => {}
+        (None, Some(_)) => {
+            commands.entity(entity).remove::<CalculatedClip>();
+        }
+        (Some(clip), None) => {
+            commands.entity(entity).insert(CalculatedClip { clip });
+        }
+        (Some(clip), Some(mut old_clip)) => {
+            *old_clip = CalculatedClip { clip };
+        }
+    }
+
+    // Calculate new clip for its children
+    let children_clip = match style.overflow {
+        Overflow::Visible => clip,
+        Overflow::Hidden => {
+            let node_center = global_transform.translation.truncate();
+            let node_rect = Rect {
+                min: node_center - node.size / 2.,
+                max: node_center + node.size / 2.,
+            };
+            if let Some(clip) = clip {
+                Some(Rect {
+                    min: Vec2::max(clip.min, node_rect.min),
+                    max: Vec2::min(clip.max, node_rect.max),
+                })
+            } else {
+                Some(node_rect)
+            }
+        }
+    };
+
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.iter().cloned() {
+            update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
+        component::Component,
         schedule::{Schedule, Stage, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
@@ -63,12 +143,15 @@ mod tests {
 
     use super::{ui_z_system, UI_Z_STEP};
 
-    fn node_with_transform(name: &str) -> (String, Node, Transform) {
-        (name.to_owned(), Node::default(), Transform::identity())
+    #[derive(Component, PartialEq, Debug, Clone)]
+    struct Label(&'static str);
+
+    fn node_with_transform(name: &'static str) -> (Label, Node, Transform) {
+        (Label(name), Node::default(), Transform::identity())
     }
 
-    fn node_without_transform(name: &str) -> (String, Node) {
-        (name.to_owned(), Node::default())
+    fn node_without_transform(name: &'static str) -> (Label, Node) {
+        (Label(name), Node::default())
     }
 
     fn get_steps(transform: &Transform) -> u32 {
@@ -127,29 +210,29 @@ mod tests {
         schedule.run(&mut world);
 
         let mut actual_result = world
-            .query::<(&String, &Transform)>()
+            .query::<(&Label, &Transform)>()
             .iter(&world)
             .map(|(name, transform)| (name.clone(), get_steps(transform)))
-            .collect::<Vec<(String, u32)>>();
-        actual_result.sort_unstable_by_key(|(name, _)| name.clone());
+            .collect::<Vec<(Label, u32)>>();
+        actual_result.sort_unstable_by_key(|(name, _)| name.0);
         let expected_result = vec![
-            ("0".to_owned(), 1),
-            ("1".to_owned(), 1),
-            ("1-0".to_owned(), 1),
-            ("1-0-0".to_owned(), 1),
+            (Label("0"), 1),
+            (Label("1"), 1),
+            (Label("1-0"), 1),
+            (Label("1-0-0"), 1),
             // 1-0-1 has no transform
-            ("1-0-2".to_owned(), 3),
-            ("1-1".to_owned(), 5),
+            (Label("1-0-2"), 3),
+            (Label("1-1"), 5),
             // 1-2 has no transform
-            ("1-2-0".to_owned(), 1),
-            ("1-2-1".to_owned(), 2),
-            ("1-2-2".to_owned(), 3),
-            ("1-2-3".to_owned(), 4),
-            ("1-3".to_owned(), 11),
+            (Label("1-2-0"), 1),
+            (Label("1-2-1"), 2),
+            (Label("1-2-2"), 3),
+            (Label("1-2-3"), 4),
+            (Label("1-3"), 11),
             // 2 has no transform
-            ("2-0".to_owned(), 1),
-            ("2-1".to_owned(), 2),
-            ("2-1-0".to_owned(), 1),
+            (Label("2-0"), 1),
+            (Label("2-1"), 2),
+            (Label("2-1-0"), 1),
         ];
         assert_eq!(actual_result, expected_result);
     }

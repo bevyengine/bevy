@@ -1,10 +1,14 @@
+//! Types that enable reflection support.
+
 pub use crate::change_detection::ReflectMut;
 use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     world::{FromWorld, World},
 };
-use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
+use bevy_reflect::{
+    impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
+};
 
 #[derive(Clone)]
 pub struct ReflectComponent {
@@ -119,6 +123,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 }
 
 impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
+impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {

@@ -88,6 +88,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// A sparse data structure of [Components](crate::component::Component)
+///
+/// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
@@ -123,13 +126,18 @@ impl ComponentSparseSet {
         self.dense.len() == 0
     }
 
-    /// Inserts the `entity` key and component `value` pair into this sparse set.
-    /// The caller is responsible for ensuring the value is not dropped. This collection will drop
-    /// the value when needed.
+    /// Inserts the `entity` key and component `value` pair into this sparse
+    /// set. This collection takes ownership of the contents of `value`, and
+    /// will drop the value when needed. Also, it may overwrite the contents of
+    /// the `value` pointer if convenient. The caller is responsible for
+    /// ensuring it does not drop `*value` after calling `insert`.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout`
-    ///  inside the `ComponentInfo` given when constructing this sparse set.
+    /// * The `value` pointer must point to a valid address that matches the
+    ///   `Layout` inside the `ComponentInfo` given when constructing this
+    ///   sparse set.
+    /// * The caller is responsible for ensuring it does not drop `*value` after
+    ///   calling `insert`.
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
@@ -223,6 +231,9 @@ impl ComponentSparseSet {
     }
 }
 
+/// A data structure that blends dense and sparse storage
+///
+/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
@@ -386,6 +397,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+///
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,
@@ -434,11 +448,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::new(0);
-        let e1 = Entity::new(1);
-        let e2 = Entity::new(2);
-        let e3 = Entity::new(3);
-        let e4 = Entity::new(4);
+        let e0 = Entity::from_raw(0);
+        let e1 = Entity::from_raw(1);
+        let e2 = Entity::from_raw(2);
+        let e3 = Entity::from_raw(3);
+        let e4 = Entity::from_raw(4);
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));

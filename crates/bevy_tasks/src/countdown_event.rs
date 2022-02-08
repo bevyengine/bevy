@@ -21,7 +21,7 @@ pub struct CountdownEvent {
 }
 
 impl CountdownEvent {
-    /// Creates a CountdownEvent that must be decremented `n` times for listeners to be
+    /// Creates a [`CountdownEvent`] that must be decremented `n` times for listeners to be
     /// signalled
     pub fn new(n: isize) -> Self {
         let inner = CountdownEventInner {

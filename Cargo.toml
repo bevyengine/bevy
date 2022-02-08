@@ -1,7 +1,7 @@
 [package]
 name = "bevy"
-version = "0.5.0"
-edition = "2018"
+version = "0.6.0"
+edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
@@ -12,29 +12,30 @@ readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
-exclude = ["benches"]
-members = ["crates/*", "examples/ios", "tools/ci"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
   "bevy_audio",
   "bevy_gilrs",
-  "bevy_gltf",
-  "bevy_wgpu",
   "bevy_winit",
   "render",
   "png",
   "hdr",
-  "mp3",
+  "vorbis",
   "x11",
+  "filesystem_watcher",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
 
-# Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
+# Rendering support
 render = [
+  "bevy_internal/bevy_core_pipeline",
   "bevy_internal/bevy_pbr",
+  "bevy_internal/bevy_gltf",
   "bevy_internal/bevy_render",
   "bevy_internal/bevy_sprite",
   "bevy_internal/bevy_text",
@@ -43,13 +44,20 @@ render = [
 
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
-bevy_wgpu = ["bevy_internal/bevy_wgpu"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
-trace_chrome = ["bevy_internal/trace_chrome"]
+# Tracing features
+trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
@@ -67,8 +75,8 @@ mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
 
-# WASM support for audio (Currently only works with flac, wav and vorbis. Not with mp3)
-wasm_audio = ["bevy_internal/wasm_audio"]
+# Enable watching file system for asset hot reload
+filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 serialize = ["bevy_internal/serialize"]
 
@@ -76,23 +84,28 @@ serialize = ["bevy_internal/serialize"]
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
+# Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = ["webgl"] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
-ron = "0.6.2"
+ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
+bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+crossbeam-channel = "0.5.0"
 
 [[example]]
 name = "hello_world"
@@ -104,12 +117,28 @@ name = "contributors"
 path = "examples/2d/contributors.rs"
 
 [[example]]
-name = "mesh"
-path = "examples/2d/mesh.rs"
-
-[[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
+
+[[example]]
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
+
+[[example]]
+name = "2d_rotation"
+path = "examples/2d/rotation.rs"
+
+[[example]]
+name = "mesh2d"
+path = "examples/2d/mesh2d.rs"
+
+[[example]]
+name = "mesh2d_manual"
+path = "examples/2d/mesh2d_manual.rs"
+
+[[example]]
+name = "rect"
+path = "examples/2d/rect.rs"
 
 [[example]]
 name = "sprite"
@@ -137,8 +166,16 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "lighting"
+path = "examples/3d/lighting.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+
+[[example]]
+name = "many_cubes"
+path = "examples/3d/many_cubes.rs"
 
 [[example]]
 name = "msaa"
@@ -157,12 +194,16 @@ name = "pbr"
 path = "examples/3d/pbr.rs"
 
 [[example]]
-name = "render_to_texture"
-path = "examples/3d/render_to_texture.rs"
+name = "shadow_biases"
+path = "examples/3d/shadow_biases.rs"
 
 [[example]]
-name = "spawner"
-path = "examples/3d/spawner.rs"
+name = "shadow_caster_receiver"
+path = "examples/3d/shadow_caster_receiver.rs"
+
+[[example]]
+name = "spherical_area_lights"
+path = "examples/3d/spherical_area_lights.rs"
 
 [[example]]
 name = "texture"
@@ -175,10 +216,6 @@ path = "examples/3d/update_gltf_scene.rs"
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
-
-[[example]]
-name = "z_sort_debug"
-path = "examples/3d/z_sort_debug.rs"
 
 # Application
 [[example]]
@@ -221,6 +258,14 @@ path = "examples/app/return_after_run.rs"
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
+[[example]]
+name = "headless_defaults"
+path = "examples/app/headless_defaults.rs"
+
+[[example]]
+name = "without_winit"
+path = "examples/app/without_winit.rs"
+
 # Assets
 [[example]]
 name = "asset_loading"
@@ -242,6 +287,10 @@ path = "examples/asset/hot_asset_reloading.rs"
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
+
+[[example]]
+name = "external_source_external_thread"
+path = "examples/async_tasks/external_source_external_thread.rs"
 
 # Audio
 [[example]]
@@ -327,6 +376,10 @@ path = "examples/game/alien_cake_addict.rs"
 name = "breakout"
 path = "examples/game/breakout.rs"
 
+[[example]]
+name = "game_menu"
+path = "examples/game/game_menu.rs"
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -392,28 +445,28 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "shader_defs"
+path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "shader_material"
+path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_glsl"
+path = "examples/shader/shader_material_glsl.rs"
+
+[[example]]
+name = "shader_instancing"
+path = "examples/shader/shader_instancing.rs"
+
+[[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
 
 [[example]]
-name = "array_texture"
-path = "examples/shader/array_texture.rs"
-
-[[example]]
-name = "hot_shader_reloading"
-path = "examples/shader/hot_shader_reloading.rs"
-
-[[example]]
-name = "mesh_custom_attribute"
-path = "examples/shader/mesh_custom_attribute.rs"
-
-[[example]]
-name = "shader_custom_material"
-path = "examples/shader/shader_custom_material.rs"
-
-[[example]]
-name = "shader_defs"
-path = "examples/shader/shader_defs.rs"
+name = "compute_shader_game_of_life"
+path = "examples/shader/compute_shader_game_of_life.rs"
 
 # Tools
 [[example]]
@@ -455,29 +508,12 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [[example]]
+name = "transparent_window"
+path = "examples/window/transparent_window.rs"
+
+[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-
-# WASM
-[[example]]
-name = "hello_wasm"
-path = "examples/wasm/hello_wasm.rs"
-required-features = []
-
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
-[[example]]
-name = "headless_wasm"
-path = "examples/wasm/headless_wasm.rs"
-required-features = []
-
-[[example]]
-name = "winit_wasm"
-path = "examples/wasm/winit_wasm.rs"
-required-features = ["bevy_winit"]
 
 # Android
 [[example]]

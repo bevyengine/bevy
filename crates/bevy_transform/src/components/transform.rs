@@ -1,6 +1,6 @@
 use super::GlobalTransform;
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -8,8 +8,9 @@ use std::ops::Mul;
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -21,20 +22,10 @@ use std::ops::Mul;
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
 /// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
 ///
-/// In pseudo code:
-/// ```ignore
-/// for entity in entities_without_parent:
-///     set entity.global_transform to entity.transform
-///     recursively:
-///         set parent to current entity
-///         for child in parent.children:
-///             set child.global_transform to parent.global_transform * child.transform
-/// ```
-///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
@@ -50,8 +41,8 @@ impl Transform {
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self::from_translation(Vec3::new(x, y, z))
+    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(const_vec3!([x, y, z]))
     }
 
     /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
@@ -81,30 +72,30 @@ impl Transform {
     /// Creates a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
     /// all axes.
     #[inline]
-    pub fn from_translation(translation: Vec3) -> Self {
+    pub const fn from_translation(translation: Vec3) -> Self {
         Transform {
             translation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     /// Creates a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
     /// all axes.
     #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
+    pub const fn from_rotation(rotation: Quat) -> Self {
         Transform {
             rotation,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
     /// Creates a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
     /// all axes.
     #[inline]
-    pub fn from_scale(scale: Vec3) -> Self {
+    pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
-            ..Default::default()
+            ..Self::identity()
         }
     }
 
@@ -119,21 +110,21 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new translation.
     #[inline]
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
+    pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
     }
 
     /// Returns this [`Transform`] with a new rotation.
     #[inline]
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
+    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
     }
 
     /// Returns this [`Transform`] with a new scale.
     #[inline]
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
     }
@@ -151,13 +142,13 @@ impl Transform {
         self.rotation * Vec3::X
     }
 
-    /// Equivalent to -local_x()
+    /// Equivalent to [`-local_x()`][Transform::local_x()]
     #[inline]
     pub fn left(&self) -> Vec3 {
         -self.local_x()
     }
 
-    /// Equivalent to local_x()
+    /// Equivalent to [`local_x()`][Transform::local_x()]
     #[inline]
     pub fn right(&self) -> Vec3 {
         self.local_x()
@@ -169,13 +160,13 @@ impl Transform {
         self.rotation * Vec3::Y
     }
 
-    /// Equivalent to local_y()
+    /// Equivalent to [`local_y()`][Transform::local_y]
     #[inline]
     pub fn up(&self) -> Vec3 {
         self.local_y()
     }
 
-    /// Equivalent to -local_y()
+    /// Equivalent to [`-local_y()`][Transform::local_y]
     #[inline]
     pub fn down(&self) -> Vec3 {
         -self.local_y()
@@ -187,13 +178,13 @@ impl Transform {
         self.rotation * Vec3::Z
     }
 
-    /// Equivalent to -local_z()
+    /// Equivalent to [`-local_z()`][Transform::local_z]
     #[inline]
     pub fn forward(&self) -> Vec3 {
         -self.local_z()
     }
 
-    /// Equivalent to local_z()
+    /// Equivalent to [`local_z()`][Transform::local_z]
     #[inline]
     pub fn back(&self) -> Vec3 {
         self.local_z()
@@ -202,6 +193,14 @@ impl Transform {
     /// Rotates the transform by the given rotation.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
+        self.rotation = rotation * self.rotation;
+    }
+
+    /// Rotates this [`Transform`] around a point in space.
+    /// If the point is a zero vector, this will rotate around the parent (if any) or the origin.
+    #[inline]
+    pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
         self.rotation *= rotation;
     }
 
@@ -235,8 +234,8 @@ impl Transform {
         self.scale *= scale_factor;
     }
 
-    /// Rotates this [`Transform`] so that its unit vector in the local z direction is toward
-    /// `target` and its unit vector in the local y direction is toward `up`.
+    /// Rotates this [`Transform`] so that its local z direction is toward
+    /// `target` and its local y direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);

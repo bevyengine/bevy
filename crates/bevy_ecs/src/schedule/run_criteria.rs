@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, IntoSystem, System, SystemId},
+    system::{BoxedSystem, IntoSystem, System},
     world::World,
 };
 use std::borrow::Cow;
@@ -235,7 +235,7 @@ where
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(
-            self.system(),
+            IntoSystem::into_system(self),
         )))
     }
 }
@@ -333,19 +333,20 @@ where
     S: IntoSystem<(), ShouldRun, Param>,
 {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
     fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label_discard_if_duplicate(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self)))
+            .label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).before(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
     fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).after(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 }
 
@@ -366,6 +367,8 @@ impl RunCriteria {
 
 pub trait RunCriteriaPiping {
     /// See [`RunCriteria::pipe()`].
+    // TODO: Support `IntoSystem` here instead, and stop using
+    // `IntoSystem::into_system` in the call sites
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
@@ -396,22 +399,11 @@ where
     }
 }
 
+#[derive(Default)]
 pub struct RunOnce {
     ran: bool,
-    system_id: SystemId,
     archetype_component_access: Access<ArchetypeComponentId>,
     component_access: Access<ComponentId>,
-}
-
-impl Default for RunOnce {
-    fn default() -> Self {
-        Self {
-            ran: false,
-            system_id: SystemId::new(),
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
-    }
 }
 
 impl System for RunOnce {
@@ -420,10 +412,6 @@ impl System for RunOnce {
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<RunOnce>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.system_id
     }
 
     fn new_archetype(&mut self, _archetype: &Archetype) {}

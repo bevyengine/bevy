@@ -4,68 +4,91 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System, SystemId},
+    system::{ConfigurableSystem, IntoSystem, Local, Res, ResMut, System},
     world::World,
 };
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
+/// The internal state of each [`FixedTimestep`].
+#[derive(Debug)]
 pub struct FixedTimestepState {
-    pub step: f64,
-    pub accumulator: f64,
+    step: f64,
+    accumulator: f64,
 }
 
 impl FixedTimestepState {
-    /// The amount of time each step takes
+    /// The amount of time each step takes.
     pub fn step(&self) -> f64 {
         self.step
     }
 
-    /// The number of steps made in a second
+    /// The number of steps made in a second.
     pub fn steps_per_second(&self) -> f64 {
         1.0 / self.step
     }
 
-    /// The amount of time (in seconds) left over from the last step
+    /// The amount of time (in seconds) left over from the last step.
     pub fn accumulator(&self) -> f64 {
         self.accumulator
     }
 
-    /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step
+    /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step.
     pub fn overstep_percentage(&self) -> f64 {
         self.accumulator / self.step
     }
 }
 
+/// A global resource that tracks the individual [`FixedTimestepState`]s
+/// for every labeled [`FixedTimestep`].
 #[derive(Default)]
 pub struct FixedTimesteps {
     fixed_timesteps: HashMap<String, FixedTimestepState>,
 }
 
 impl FixedTimesteps {
+    /// Gets the [`FixedTimestepState`] for a given label.
     pub fn get(&self, name: &str) -> Option<&FixedTimestepState> {
         self.fixed_timesteps.get(name)
     }
 }
 
+/// A system run criteria that enables systems or stages to run at a fixed timestep between executions.
+///
+/// This does not guarentee that the time elapsed between executions is exactly the provided
+/// fixed timestep, but will guarentee that the execution will run multiple times per game tick
+/// until the number of repetitions is as expected.
+///
+/// For example, a system with a fixed timestep run criteria of 120 times per second will run
+/// two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
+/// with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
+/// between each execution.
+///
+/// When using this run criteria, it is advised not to rely on [`Time::delta`] or any of it's
+/// variants for game simulation, but rather use the constant time delta used to initialize the
+/// [`FixedTimestep`] instead.
+///
+/// For more fine tuned information about the execution status of a given fixed timestep,
+/// use the [`FixedTimesteps`] resource.
 pub struct FixedTimestep {
-    state: State,
+    state: LocalFixedTimestepState,
     internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
 }
 
 impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
-            state: State::default(),
-            internal_system: Box::new(Self::prepare_system.system()),
+            state: LocalFixedTimestepState::default(),
+            internal_system: Box::new(IntoSystem::into_system(Self::prepare_system)),
         }
     }
 }
 
 impl FixedTimestep {
+    /// Creates a [`FixedTimestep`] that ticks once every `step` seconds.
     pub fn step(step: f64) -> Self {
         Self {
-            state: State {
+            state: LocalFixedTimestepState {
                 step,
                 ..Default::default()
             },
@@ -73,9 +96,10 @@ impl FixedTimestep {
         }
     }
 
+    /// Creates a [`FixedTimestep`] that ticks once every `rate` times per second.
     pub fn steps_per_second(rate: f64) -> Self {
         Self {
-            state: State {
+            state: LocalFixedTimestepState {
                 step: 1.0 / rate,
                 ..Default::default()
             },
@@ -83,13 +107,15 @@ impl FixedTimestep {
         }
     }
 
+    /// Sets the label for the timestep. Setting a label allows a timestep
+    /// to be observed by the global [`FixedTimesteps`] resource.
     pub fn with_label(mut self, label: &str) -> Self {
         self.state.label = Some(label.to_string());
         self
     }
 
     fn prepare_system(
-        mut state: Local<State>,
+        mut state: Local<LocalFixedTimestepState>,
         time: Res<Time>,
         mut fixed_timesteps: ResMut<FixedTimesteps>,
     ) -> ShouldRun {
@@ -105,14 +131,14 @@ impl FixedTimestep {
 }
 
 #[derive(Clone)]
-pub struct State {
+struct LocalFixedTimestepState {
     label: Option<String>, // TODO: consider making this a TypedLabel
     step: f64,
     accumulator: f64,
     looping: bool,
 }
 
-impl Default for State {
+impl Default for LocalFixedTimestepState {
     fn default() -> Self {
         Self {
             step: 1.0 / 60.0,
@@ -123,7 +149,7 @@ impl Default for State {
     }
 }
 
-impl State {
+impl LocalFixedTimestepState {
     fn update(&mut self, time: &Time) -> ShouldRun {
         if !self.looping {
             self.accumulator += time.delta_seconds_f64();
@@ -146,10 +172,6 @@ impl System for FixedTimestep {
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<FixedTimestep>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.internal_system.id()
     }
 
     fn new_archetype(&mut self, archetype: &Archetype) {
@@ -196,5 +218,82 @@ impl System for FixedTimestep {
 
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_ecs::prelude::*;
+    use bevy_utils::Instant;
+    use std::ops::{Add, Mul};
+    use std::time::Duration;
+
+    type Count = usize;
+    const LABEL: &str = "test_step";
+
+    #[test]
+    fn test() {
+        let mut world = World::default();
+        let mut time = Time::default();
+        let instance = Instant::now();
+        time.update_with_instant(instance);
+        world.insert_resource(time);
+        world.insert_resource(FixedTimesteps::default());
+        world.insert_resource::<Count>(0);
+        let mut schedule = Schedule::default();
+
+        schedule.add_stage(
+            "update",
+            SystemStage::parallel()
+                .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
+                .with_system(fixed_update),
+        );
+
+        // if time does not progress, the step does not run
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(0., get_accumulator_deciseconds(&world));
+
+        // let's progress less than one step
+        advance_time(&mut world, instance, 0.4);
+        schedule.run(&mut world);
+        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(4., get_accumulator_deciseconds(&world));
+
+        // finish the first step with 0.1s above the step length
+        advance_time(&mut world, instance, 0.6);
+        schedule.run(&mut world);
+        assert_eq!(1, *world.get_resource::<Count>().unwrap());
+        assert_eq!(1., get_accumulator_deciseconds(&world));
+
+        // runs multiple times if the delta is multiple step lengths
+        advance_time(&mut world, instance, 1.7);
+        schedule.run(&mut world);
+        assert_eq!(3, *world.get_resource::<Count>().unwrap());
+        assert_eq!(2., get_accumulator_deciseconds(&world));
+    }
+
+    fn fixed_update(mut count: ResMut<Count>) {
+        *count += 1;
+    }
+
+    fn advance_time(world: &mut World, instance: Instant, seconds: f32) {
+        world
+            .get_resource_mut::<Time>()
+            .unwrap()
+            .update_with_instant(instance.add(Duration::from_secs_f32(seconds)));
+    }
+
+    fn get_accumulator_deciseconds(world: &World) -> f64 {
+        world
+            .get_resource::<FixedTimesteps>()
+            .unwrap()
+            .get(LABEL)
+            .unwrap()
+            .accumulator
+            .mul(10.)
+            .round()
     }
 }

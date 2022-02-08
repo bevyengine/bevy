@@ -18,6 +18,7 @@ use std::fmt::Debug;
 
 use super::IntoSystemDescriptor;
 
+/// A type that can run as a step of a [`Schedule`](super::Schedule).
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
@@ -83,6 +84,8 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
+    apply_buffers: bool,
 }
 
 impl SystemStage {
@@ -104,6 +107,7 @@ impl SystemStage {
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
+            apply_buffers: true,
         }
     }
 
@@ -203,6 +207,21 @@ impl SystemStage {
         }
     }
 
+    pub fn apply_buffers(&mut self, world: &mut World) {
+        for container in self.parallel.iter_mut() {
+            let system = container.system_mut();
+            #[cfg(feature = "trace")]
+            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
+            #[cfg(feature = "trace")]
+            let _guard = span.enter();
+            system.apply_buffers(world);
+        }
+    }
+
+    pub fn set_apply_buffers(&mut self, apply_buffers: bool) {
+        self.apply_buffers = apply_buffers;
+    }
+
     /// Topologically sorted parallel systems.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
@@ -293,7 +312,7 @@ impl SystemStage {
         mut self,
         system: S,
     ) -> Self {
-        self.set_run_criteria(system.system());
+        self.set_run_criteria(system);
         self
     }
 
@@ -301,7 +320,8 @@ impl SystemStage {
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.stage_run_criteria.set(Box::new(system.system()));
+        self.stage_run_criteria
+            .set(Box::new(IntoSystem::into_system(system)));
         self
     }
 
@@ -811,6 +831,13 @@ impl Stage for SystemStage {
                 // Run systems that want to be at the start of stage.
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
@@ -826,20 +853,43 @@ impl Stage for SystemStage {
                 // Run systems that want to be between parallel systems and their command buffers.
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
 
                 // Apply parallel systems' buffers.
-                for container in &mut self.parallel {
-                    if container.should_run {
-                        container.system_mut().apply_buffers(world);
+                if self.apply_buffers {
+                    for container in &mut self.parallel {
+                        if container.should_run {
+                            #[cfg(feature = "trace")]
+                            let span = bevy_utils::tracing::info_span!(
+                                "system_commands",
+                                name = &*container.name()
+                            );
+                            #[cfg(feature = "trace")]
+                            let _guard = span.enter();
+                            container.system_mut().apply_buffers(world);
+                        }
                     }
                 }
 
                 // Run systems that want to be at the end of stage.
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
+                        #[cfg(feature = "trace")]
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "exclusive_system",
+                            name = &*container.name()
+                        );
+                        #[cfg(feature = "trace")]
+                        let _guard = system_span.enter();
                         container.system_mut().run(world);
                     }
                 }
@@ -903,6 +953,11 @@ mod tests {
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,
     };
+
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    #[derive(Component)]
+    struct W<T>(T);
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
         move |world| world.get_resource_mut::<Vec<usize>>().unwrap().push(tag)
@@ -1459,17 +1514,15 @@ mod tests {
                     .after("0")
                     .with_run_criteria(every_other_time.label("every other time")),
             )
+            .with_system(make_parallel(2).label("2").after("1").with_run_criteria(
+                RunCriteria::pipe("every other time", IntoSystem::into_system(eot_piped)),
+            ))
             .with_system(
-                make_parallel(2)
-                    .label("2")
-                    .after("1")
-                    .with_run_criteria(RunCriteria::pipe("every other time", eot_piped.system())),
-            )
-            .with_system(
-                make_parallel(3)
-                    .label("3")
-                    .after("2")
-                    .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
+                make_parallel(3).label("3").after("2").with_run_criteria(
+                    "every other time"
+                        .pipe(IntoSystem::into_system(eot_piped))
+                        .label("piped"),
+                ),
             )
             .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
         for _ in 0..4 {
@@ -1572,7 +1625,7 @@ mod tests {
 
         fn empty() {}
         fn resource(_: ResMut<usize>) {}
-        fn component(_: Query<&mut f32>) {}
+        fn component(_: Query<&mut W<f32>>) {}
 
         let mut world = World::new();
 
@@ -1956,7 +2009,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
 
-        world.get_entity_mut(entity).unwrap().insert(1);
+        world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
@@ -1979,7 +2032,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
 
-        world.get_entity_mut(entity).unwrap().insert(1);
+        world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
@@ -1990,7 +2043,7 @@ mod tests {
         const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
 
         let mut world = World::new();
-        world.spawn().insert(0usize);
+        world.spawn().insert(W(0usize));
         *world.change_tick.get_mut() += MAX_DELTA + 1;
 
         let mut stage = SystemStage::parallel();
@@ -2000,7 +2053,7 @@ mod tests {
         // Overflow twice
         for _ in 0..10 {
             stage.run(&mut world);
-            for tracker in world.query::<ChangeTrackers<usize>>().iter(&world) {
+            for tracker in world.query::<ChangeTrackers<W<usize>>>().iter(&world) {
                 let time_since_last_check = tracker
                     .change_tick
                     .wrapping_sub(tracker.component_ticks.added);
@@ -2017,6 +2070,9 @@ mod tests {
 
     #[test]
     fn change_query_wrapover() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct C;
         let mut world = World::new();
 
@@ -2052,6 +2108,9 @@ mod tests {
 
     #[test]
     fn run_criteria_with_query() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct Foo;
 
         fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {
@@ -2088,6 +2147,9 @@ mod tests {
 
     #[test]
     fn stage_run_criteria_with_query() {
+        use crate::{self as bevy_ecs, component::Component};
+
+        #[derive(Component)]
         struct Foo;
 
         fn even_number_of_entities_critiera(query: Query<&Foo>) -> ShouldRun {

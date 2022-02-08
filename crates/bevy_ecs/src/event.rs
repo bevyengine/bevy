@@ -1,8 +1,7 @@
-use crate as bevy_ecs;
-use crate::{
-    component::Component,
-    system::{Local, Res, ResMut, SystemParam},
-};
+//! Event handling types.
+
+use crate::system::{Local, Res, ResMut, SystemParam};
+use crate::{self as bevy_ecs, system::Resource};
 use bevy_utils::tracing::trace;
 use std::{
     fmt::{self},
@@ -64,12 +63,16 @@ enum State {
 /// Each event can be consumed by multiple systems, in parallel,
 /// with consumption tracked by the [`EventReader`] on a per-system basis.
 ///
+/// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs)
+/// is applied between writing and reading systems, there is a risk of a race condition.
+/// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
+///
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
 /// [`Events::update_system`] is a system that does this, typically intialized automatically using
-/// [`App::add_event`]. [EventReader]s are expected to read events from this collection at
-/// least once per loop/frame.
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
+/// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
 /// If events are not handled by the end of the frame after they are updated, they will be
@@ -104,20 +107,25 @@ enum State {
 ///
 /// # Details
 ///
-/// [Events] is implemented using a double buffer. Each call to [Events::update] swaps buffers and
-/// clears out the oldest buffer. [EventReader]s that read at least once per update will never drop
-/// events. [EventReader]s that read once within two updates might still receive some events.
-/// [EventReader]s that read after two updates are guaranteed to drop all events that occurred
+/// [`Events`] is implemented using a variation of a double buffer strategy.
+/// Each call to [`update`](Events::update) swaps buffers and clears out the oldest one.
+/// - [`EventReader`]s will read events from both buffers.
+/// - [`EventReader`]s that read at least once per update will never drop events.
+/// - [`EventReader`]s that read once within two updates might still receive some events
+/// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
 /// before those updates.
 ///
-/// The buffers in [Events] will grow indefinitely if [Events::update] is never called.
+/// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
-/// An alternative call pattern would be to call [Events::update] manually across frames to control
-/// when events are cleared.
+/// An alternative call pattern would be to call [`update`](Events::update)
+/// manually across frames to control when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using [`App::add_event`].
+/// but can be done by adding your event as a resource instead of using
+/// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 ///
-/// [`App::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
+/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/bevy_ecs/examples/events.rs)
+///
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
@@ -151,26 +159,36 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'w, 's, T: Component> {
+pub struct EventReader<'w, 's, T: Resource> {
     last_event_count: Local<'s, (usize, PhantomData<T>)>,
     events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, T: Component> {
+pub struct EventWriter<'w, 's, T: Resource> {
     events: ResMut<'w, Events<T>>,
     #[system_param(ignore)]
     marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, T: Component> EventWriter<'w, 's, T> {
+impl<'w, 's, T: Resource> EventWriter<'w, 's, T> {
+    /// Sends an `event`. [`EventReader`]s can then read the event.
+    /// See [`Events`] for details.
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
 
     pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
         self.events.extend(events);
+    }
+
+    /// Sends the default value of the event. Useful when the event is an empty struct.
+    pub fn send_default(&mut self)
+    where
+        T: Default,
+    {
+        self.events.send_default();
     }
 }
 
@@ -188,25 +206,36 @@ impl<T> Default for ManualEventReader<T> {
     }
 }
 
-impl<T> ManualEventReader<T> {
+#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
+impl<T: Resource> ManualEventReader<T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+    pub fn iter<'a>(&'a mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
     /// See [`EventReader::iter_with_id`]
     pub fn iter_with_id<'a>(
-        &mut self,
+        &'a mut self,
         events: &'a Events<T>,
     ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
         internal_event_reader(&mut self.last_event_count, events)
+    }
+
+    /// See [`EventReader::len`]
+    pub fn len(&self, events: &Events<T>) -> usize {
+        events.event_reader_len(self.last_event_count)
+    }
+
+    /// See [`EventReader::is_empty`]
+    pub fn is_empty(&self, events: &Events<T>) -> bool {
+        self.len(events) == 0
     }
 }
 
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
 /// messages.
 fn internal_event_reader<'a, T>(
-    last_event_count: &mut usize,
+    last_event_count: &'a mut usize,
     events: &'a Events<T>,
 ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
@@ -221,43 +250,23 @@ fn internal_event_reader<'a, T>(
     } else {
         0
     };
-    *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
+    let a = events.events_a.get(a_index..).unwrap_or_else(|| &[]);
+    let b = events.events_b.get(b_index..).unwrap_or_else(|| &[]);
+    let unread_count = a.len() + b.len();
+    *last_event_count = events.event_count - unread_count;
+    let iterator = match events.state {
+        State::A => b.iter().chain(a.iter()),
+        State::B => a.iter().chain(b.iter()),
+    };
+    iterator
+        .map(map_instance_event_with_id)
+        .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
-impl<'w, 's, T: Component> EventReader<'w, 's, T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened
-    /// before now.
+impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
+    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
     pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
         self.iter_with_id().map(|(event, _id)| event)
     }
@@ -269,10 +278,20 @@ impl<'w, 's, T: Component> EventReader<'w, 's, T> {
             (event, id)
         })
     }
+
+    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    pub fn len(&self) -> usize {
+        self.events.event_reader_len(self.last_event_count.0)
+    }
+
+    /// Determines if are any events available to be read without consuming any.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
-impl<T: Component> Events<T> {
-    /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
+impl<T: Resource> Events<T> {
+    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
         let event_id = EventId {
@@ -291,7 +310,15 @@ impl<T: Component> Events<T> {
         self.event_count += 1;
     }
 
-    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
+    /// Sends the default value of the event. Useful when the event is an empty struct.
+    pub fn send_default(&mut self)
+    where
+        T: Default,
+    {
+        self.send(Default::default());
+    }
+
+    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
     pub fn get_reader(&self) -> ManualEventReader<T> {
         ManualEventReader {
             last_event_count: 0,
@@ -299,8 +326,8 @@ impl<T: Component> Events<T> {
         }
     }
 
-    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It
-    /// will read all future events.
+    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
     pub fn get_reader_current(&self) -> ManualEventReader<T> {
         ManualEventReader {
             last_event_count: self.event_count,
@@ -313,19 +340,19 @@ impl<T: Component> Events<T> {
     pub fn update(&mut self) {
         match self.state {
             State::A => {
-                self.events_b = Vec::new();
+                self.events_b.clear();
                 self.state = State::B;
                 self.b_start_event_count = self.event_count;
             }
             State::B => {
-                self.events_a = Vec::new();
+                self.events_a.clear();
                 self.state = State::A;
                 self.a_start_event_count = self.event_count;
             }
         }
     }
 
-    /// A system that calls [Events::update] once per frame.
+    /// A system that calls [`Events::update`] once per frame.
     pub fn update_system(mut events: ResMut<Self>) {
         events.update();
     }
@@ -371,7 +398,7 @@ impl<T: Component> Events<T> {
 
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
-    /// `EventReader`. You should only use this if you know you only need to consume events
+    /// [`EventReader`]. You should only use this if you know you only need to consume events
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
@@ -380,6 +407,29 @@ impl<T: Component> Events<T> {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
+    }
+
+    /// Determines how many events are in the reader after the given `last_event_count` parameter
+    fn event_reader_len(&self, last_event_count: usize) -> usize {
+        let a_count = if last_event_count <= self.a_start_event_count {
+            self.events_a.len()
+        } else {
+            self.events_a
+                .len()
+                .checked_sub(last_event_count - self.a_start_event_count)
+                .unwrap_or_default()
+        };
+
+        let b_count = if last_event_count <= self.b_start_event_count {
+            self.events_b.len()
+        } else {
+            self.events_b
+                .len()
+                .checked_sub(last_event_count - self.b_start_event_count)
+                .unwrap_or_default()
+        };
+
+        a_count + b_count
     }
 }
 
@@ -508,15 +558,15 @@ mod tests {
         assert_eq!(
             get_events(&events, &mut reader_missed),
             vec![event_2],
-            "reader_missed missed events unread after to update() calls"
+            "reader_missed missed events unread after two update() calls"
         );
     }
 
-    fn get_events(
-        events: &Events<TestEvent>,
-        reader: &mut ManualEventReader<TestEvent>,
-    ) -> Vec<TestEvent> {
-        reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    fn get_events<T: Resource + Clone>(
+        events: &Events<T>,
+        reader: &mut ManualEventReader<T>,
+    ) -> Vec<T> {
+        reader.iter(events).cloned().collect::<Vec<T>>()
     }
 
     #[derive(PartialEq, Eq, Debug)]
@@ -581,5 +631,62 @@ mod tests {
         // due to double buffering.
         events.update();
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_event_reader_len_empty() {
+        let events = Events::<TestEvent>::default();
+        assert_eq!(events.get_reader().len(&events), 0);
+        assert!(events.get_reader().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_filled() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(events.get_reader().len(&events), 1);
+        assert!(!events.get_reader().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_current() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        let reader = events.get_reader_current();
+        assert!(reader.is_empty(&events));
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 1);
+        assert!(!reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_len_update() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 0 });
+        let reader = events.get_reader();
+        assert_eq!(reader.len(&events), 2);
+        events.update();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 3);
+        events.update();
+        assert_eq!(reader.len(&events), 1);
+        events.update();
+        assert!(reader.is_empty(&events));
+    }
+
+    #[derive(Clone, PartialEq, Debug, Default)]
+    struct EmptyTestEvent;
+
+    #[test]
+    fn test_firing_empty_event() {
+        let mut events = Events::<EmptyTestEvent>::default();
+        events.send_default();
+
+        let mut reader = events.get_reader();
+        assert_eq!(
+            get_events(&events, &mut reader),
+            vec![EmptyTestEvent::default()]
+        );
     }
 }

@@ -1,18 +1,18 @@
 use crate::components::*;
 use bevy_ecs::{
     entity::Entity,
+    prelude::Changed,
     query::Without,
     system::{Commands, Query},
 };
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
+/// Updates parents when the hierarchy is changed
 pub fn parent_update_system(
     mut commands: Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
-    // The next query could be run with a Changed<Parent> filter. However, this would mean that
-    // modifications later in the frame are lost. See issue 891: https://github.com/bevyengine/bevy/issues/891
-    mut parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
+    mut parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>), Changed<Parent>>,
     mut children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
@@ -50,11 +50,10 @@ pub fn parent_update_system(
         // `children_additions`).
         if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
             // This is the parent
-            debug_assert!(
-                !(*new_parent_children).0.contains(&entity),
-                "children already added"
-            );
-            (*new_parent_children).0.push(entity);
+            // PERF: Ideally we shouldn't need to check for duplicates
+            if !(*new_parent_children).0.contains(&entity) {
+                (*new_parent_children).0.push(entity);
+            }
         } else {
             // The parent doesn't have a children entity, lets add it
             children_additions

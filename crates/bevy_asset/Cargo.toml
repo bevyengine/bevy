@@ -1,7 +1,7 @@
 [package]
 name = "bevy_asset"
-version = "0.5.0"
-edition = "2018"
+version = "0.6.0"
+edition = "2021"
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -9,18 +9,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["filesystem_watcher"]
+default = []
 filesystem_watcher = ["notify"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.5.0" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.5.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
-bevy_log = { path = "../bevy_log", version = "0.5.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_app = { path = "../bevy_app", version = "0.6.0" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.6.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.6.0" }
+bevy_log = { path = "../bevy_log", version = "0.6.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.6.0", features = ["bevy"] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.6.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
 
 # other
 serde = { version = "1", features = ["derive"] }
@@ -34,13 +34,14 @@ rand = "0.8.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Request", "Window", "Response"]}
+web-sys = { version = "0.3", features = ["Request", "Window", "Response"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = { version = "0.4" }
+ndk-glue = { version = "0.5" }
 
 [dev-dependencies]
 futures-lite = "1.4.0"
 tempfile = "3.2.0"
+bevy_core = { path = "../bevy_core", version = "0.6.0" }

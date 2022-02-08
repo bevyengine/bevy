@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
-    system::{IntoSystem, System, SystemId},
+    system::{IntoSystem, System},
     world::World,
 };
 use std::borrow::Cow;
@@ -48,7 +48,6 @@ pub struct ChainSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,
     name: Cow<'static, str>,
-    id: SystemId,
     component_access: Access<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
@@ -59,10 +58,6 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
-    }
-
-    fn id(&self) -> SystemId {
-        self.id
     }
 
     fn new_archetype(&mut self, archetype: &Archetype) {
@@ -135,15 +130,14 @@ where
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
     fn chain(self, system: SystemB) -> ChainSystem<SystemA::System, SystemB::System> {
-        let system_a = self.system();
-        let system_b = system.system();
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
         ChainSystem {
             name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
             system_a,
             system_b,
             archetype_component_access: Default::default(),
             component_access: Default::default(),
-            id: SystemId::new(),
         }
     }
 }

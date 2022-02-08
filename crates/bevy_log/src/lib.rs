@@ -1,7 +1,21 @@
+#![warn(missing_docs)]
+//! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
+//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//!
+//! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
+//! and behave identically to it.
+//!
+//! By default, the [`LogPlugin`] from this crate is included in Bevy's `DefaultPlugins`
+//! and the logging macros can be used out of the box, if used.
+//!
+//! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
+//! adding [`LogPlugin`] or `DefaultPlugins` during app initialization.
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
 pub mod prelude {
+    //! The Bevy Log Prelude.
     #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
@@ -13,6 +27,7 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{App, Plugin};
+use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
@@ -45,6 +60,8 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
 /// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+/// If you define the `RUST_LOG` environment variable, the [`LogSettings`] resource
+/// will be ignored.
 ///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
@@ -58,10 +75,16 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .run();
 /// }
 /// ```
+///
+/// # Panics
+///
+/// This plugin should not be added multiple times in the same process. This plugin
+/// sets up global logging configuration for **all** Apps in a given process, and
+/// rerunning the same initialization multiple times will lead to a panic.
 #[derive(Default)]
 pub struct LogPlugin;
 
-/// LogPlugin settings
+/// `LogPlugin` settings
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
@@ -86,7 +109,7 @@ impl Plugin for LogPlugin {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
-
+        LogTracer::init().unwrap();
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
@@ -94,10 +117,8 @@ impl Plugin for LogPlugin {
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {
-            let fmt_layer = tracing_subscriber::fmt::Layer::default();
-            let subscriber = subscriber.with(fmt_layer);
             #[cfg(feature = "tracing-chrome")]
-            {
+            let chrome_layer = {
                 let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
                     .name_fn(Box::new(|event_or_span| match event_or_span {
                         tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
@@ -113,16 +134,22 @@ impl Plugin for LogPlugin {
                     }))
                     .build();
                 app.world.insert_non_send(guard);
-                let subscriber = subscriber.with(chrome_layer);
-                bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
-            }
+                chrome_layer
+            };
 
-            #[cfg(not(feature = "tracing-chrome"))]
-            {
-                bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
-            }
+            #[cfg(feature = "tracing-tracy")]
+            let tracy_layer = tracing_tracy::TracyLayer::new();
+
+            let fmt_layer = tracing_subscriber::fmt::Layer::default();
+            let subscriber = subscriber.with(fmt_layer);
+
+            #[cfg(feature = "tracing-chrome")]
+            let subscriber = subscriber.with(chrome_layer);
+            #[cfg(feature = "tracing-tracy")]
+            let subscriber = subscriber.with(tracy_layer);
+
+            bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
 
         #[cfg(target_arch = "wasm32")]

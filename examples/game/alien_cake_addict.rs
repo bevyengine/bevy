@@ -1,8 +1,5 @@
 use bevy::{
-    core::FixedTimestep,
-    ecs::schedule::SystemSet,
-    prelude::*,
-    render::{camera::Camera, render_graph::base::camera::CAMERA_3D},
+    core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::CameraPlugin,
 };
 use rand::Rng;
 
@@ -102,7 +99,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
 
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        transform: Transform::from_xyz(4.0, 10.0, 4.0),
+        point_light: PointLight {
+            intensity: 3000.0,
+            shadows_enabled: true,
+            range: 30.0,
+            ..Default::default()
+        },
         ..Default::default()
     });
 
@@ -114,10 +117,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rand::thread_rng().gen_range(-0.1..0.1);
                     commands
-                        .spawn_bundle((
-                            Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                            GlobalTransform::identity(),
-                        ))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(
+                            i as f32,
+                            height - 0.2,
+                            j as f32,
+                        )))
                         .with_children(|cell| {
                             cell.spawn_scene(cell_scene.clone());
                         });
@@ -130,18 +134,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
-                    translation: Vec3::new(
-                        game.player.i as f32,
-                        game.board[game.player.j][game.player.i].height,
-                        game.player.j as f32,
-                    ),
-                    rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
-                    ..Default::default()
-                },
-                GlobalTransform::identity(),
-            ))
+            .spawn_bundle(TransformBundle::from(Transform {
+                translation: Vec3::new(
+                    game.player.i as f32,
+                    game.board[game.player.j][game.player.i].height,
+                    game.player.j as f32,
+                ),
+                rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
+                ..Default::default()
+            }))
             .with_children(|cell| {
                 cell.spawn_scene(asset_server.load("models/AlienCake/alien.glb#Scene0"));
             })
@@ -285,7 +286,7 @@ fn focus_camera(
     }
     // look at that new camera's actual focus
     for (mut transform, camera) in transforms.q0().iter_mut() {
-        if camera.name == Some(CAMERA_3D.to_string()) {
+        if camera.name == Some(CameraPlugin::CAMERA_3D.to_string()) {
             *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
         }
     }
@@ -305,7 +306,8 @@ fn spawn_bonus(
         commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
-            state.set(GameState::GameOver).unwrap();
+            // We don't particularly care if this operation fails
+            let _ = state.overwrite_set(GameState::GameOver);
             return;
         }
     }
@@ -320,19 +322,23 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
-                    translation: Vec3::new(
-                        game.bonus.i as f32,
-                        game.board[game.bonus.j][game.bonus.i].height + 0.2,
-                        game.bonus.j as f32,
-                    ),
+            .spawn_bundle(TransformBundle::from(Transform::from_xyz(
+                game.bonus.i as f32,
+                game.board[game.bonus.j][game.bonus.i].height + 0.2,
+                game.bonus.j as f32,
+            )))
+            .with_children(|children| {
+                children.spawn_bundle(PointLightBundle {
+                    point_light: PointLight {
+                        color: Color::rgb(1.0, 1.0, 0.0),
+                        intensity: 1000.0,
+                        range: 10.0,
+                        ..Default::default()
+                    },
+                    transform: Transform::from_xyz(0.0, 2.0, 0.0),
                     ..Default::default()
-                },
-                GlobalTransform::identity(),
-            ))
-            .with_children(|cell| {
-                cell.spawn_scene(game.bonus.handle.clone());
+                });
+                children.spawn_scene(game.bonus.handle.clone());
             })
             .id(),
     );
@@ -364,12 +370,7 @@ fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<In
 }
 
 // display the number of cake eaten before losing
-fn display_score(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    game: Res<Game>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -378,7 +379,7 @@ fn display_score(
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            material: materials.add(Color::NONE.into()),
+            color: Color::NONE.into(),
             ..Default::default()
         })
         .with_children(|parent| {

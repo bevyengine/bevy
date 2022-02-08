@@ -3,10 +3,7 @@ use crate::{
     RefChangeChannel,
 };
 use anyhow::Result;
-use bevy_ecs::{
-    component::Component,
-    system::{Res, ResMut},
-};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
 use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
@@ -46,13 +43,19 @@ impl<T: Asset> LoadedAsset<T> {
         }
     }
 
-    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+    pub fn add_dependency(&mut self, asset_path: AssetPath) {
         self.dependencies.push(asset_path.to_owned());
+    }
+
+    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+        self.add_dependency(asset_path);
         self
     }
 
-    pub fn with_dependencies(mut self, asset_paths: Vec<AssetPath<'static>>) -> Self {
-        self.dependencies.extend(asset_paths);
+    pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
+        for asset_path in asset_paths.drain(..) {
+            self.add_dependency(asset_path);
+        }
         self
     }
 }
@@ -146,20 +149,20 @@ impl<'a> LoadContext<'a> {
 
 /// The result of loading an asset of type `T`
 #[derive(Debug)]
-pub struct AssetResult<T: Component> {
+pub struct AssetResult<T> {
     pub asset: Box<T>,
     pub id: HandleId,
     pub version: usize,
 }
 
-/// A channel to send and receive [AssetResult]s
+/// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
-pub struct AssetLifecycleChannel<T: Component> {
+pub struct AssetLifecycleChannel<T> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
     pub receiver: Receiver<AssetLifecycleEvent<T>>,
 }
 
-pub enum AssetLifecycleEvent<T: Component> {
+pub enum AssetLifecycleEvent<T> {
     Create(AssetResult<T>),
     Free(HandleId),
 }
@@ -193,14 +196,14 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 }
 
-impl<T: Component> Default for AssetLifecycleChannel<T> {
+impl<T> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetLifecycleChannel { sender, receiver }
     }
 }
 
-/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
+/// Updates the [`Assets`] collection according to the changes queued up by [`AssetServer`].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     assets: ResMut<Assets<T>>,
