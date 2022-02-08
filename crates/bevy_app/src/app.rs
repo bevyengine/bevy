@@ -430,7 +430,7 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .add_startup_system(my_startup_system.system());
+    ///     .add_startup_system(my_startup_system);
     /// ```
     pub fn add_startup_system<Params>(
         &mut self,

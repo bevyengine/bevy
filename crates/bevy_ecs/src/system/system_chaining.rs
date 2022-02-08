@@ -130,8 +130,8 @@ where
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
     fn chain(self, system: SystemB) -> ChainSystem<SystemA::System, SystemB::System> {
-        let system_a = self.system();
-        let system_b = system.system();
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
         ChainSystem {
             name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
             system_a,
