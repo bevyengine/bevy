@@ -476,7 +476,7 @@ mod tests {
     fn non_send_resource() {
         use std::thread;
         let mut world = World::new();
-        world.insert_non_send(thread::current().id());
+        world.insert_non_send_resource(thread::current().id());
         fn non_send(thread_id: NonSend<thread::ThreadId>) {
             assert_eq!(thread::current().id(), *thread_id);
         }

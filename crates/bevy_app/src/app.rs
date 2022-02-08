@@ -647,18 +647,15 @@ impl App {
     /// App::new()
     ///    .insert_resource(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
-    where
-        T: Resource,
-    {
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
         self.world.insert_resource(resource);
         self
     }
 
     /// Inserts a non-send resource to the app
     ///
-    /// You usually want to use `insert_resource`, but there are some special cases when a resource must
-    /// be non-send.
+    /// You usually want to use `insert_resource`,
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// ## Example
     /// ```
@@ -671,19 +668,18 @@ impl App {
     /// App::new()
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_non_send_resource<T>(&mut self, resource: T) -> &mut Self
-    where
-        T: 'static,
-    {
-        self.world.insert_non_send(resource);
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world.insert_non_send_resource(resource);
         self
     }
 
-    /// Initialize a resource in the current [`App`], if it does not exist yet
+    /// Initialize a resource with standard starting values by adding it to the [`World`]
     ///
     /// If the resource already exists, nothing happens.
     ///
-    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
+    /// The resource must implement the [`FromWorld`] trait.
+    /// If the `Default` trait is implemented, the `FromWorld` trait will use
+    /// the `Default::default` method to initialize the resource.
     ///
     /// ## Example
     /// ```
@@ -704,32 +700,18 @@ impl App {
     /// App::new()
     ///     .init_resource::<MyCounter>();
     /// ```
-    pub fn init_resource<R>(&mut self) -> &mut Self
-    where
-        R: FromWorld + Send + Sync + 'static,
-    {
-        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
-        // not to modify the map. However, we would need to be borrowing resources both
-        // mutably and immutably, so we would need to be extremely certain this is correct
-        if !self.world.contains_resource::<R>() {
-            let resource = R::from_world(&mut self.world);
-            self.insert_resource(resource);
-        }
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.world.init_resource::<R>();
         self
     }
 
-    /// Initialize a non-send resource in the current [`App`], if it does not exist yet.
+    /// Initialize a non-send resource with standard starting values by adding it to the [`World`]
     ///
-    /// Adds a resource that implements `Default` or [`FromWorld`] trait.
-    pub fn init_non_send_resource<R>(&mut self) -> &mut Self
-    where
-        R: FromWorld + 'static,
-    {
-        // See perf comment in init_resource
-        if self.world.get_non_send_resource::<R>().is_none() {
-            let resource = R::from_world(&mut self.world);
-            self.world.insert_non_send(resource);
-        }
+    /// The resource must implement the [`FromWorld`] trait.
+    /// If the `Default` trait is implemented, the `FromWorld` trait will use
+    /// the `Default::default` method to initialize the resource.
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.world.init_non_send_resource::<R>();
         self
     }
 
