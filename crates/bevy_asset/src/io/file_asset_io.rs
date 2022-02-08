@@ -44,7 +44,9 @@ impl FileAssetIo {
                 wasm32 / android targets"
             );
             #[cfg(feature = "filesystem_watcher")]
-            file_asset_io.watch_for_changes().unwrap();
+            file_asset_io
+                .watch_for_changes()
+                .expect("Could not watch for changes.");
         }
         file_asset_io
     }
@@ -57,9 +59,9 @@ impl FileAssetIo {
                 .map(|path| {
                     path.parent()
                         .map(|exe_parent_path| exe_parent_path.to_owned())
-                        .unwrap()
+                        .expect("Path does not have a parent.")
                 })
-                .unwrap()
+                .expect("Acquiring the path to the current executable failed.")
         }
     }
 }
@@ -92,8 +94,10 @@ impl AssetIo for FileAssetIo {
         let root_path = self.root_path.to_owned();
         Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
             move |entry| {
-                let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                let path = entry.expect("Could not read entry in folder.").path();
+                path.strip_prefix(&root_path)
+                    .expect("Could not strip prefix from path.")
+                    .to_owned()
             },
         )))
     }
@@ -157,7 +161,9 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
             {
                 for path in paths.iter() {
                     if !changed.contains(path) {
-                        let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
+                        let relative_path = path
+                            .strip_prefix(&asset_io.root_path)
+                            .expect("Could not strip prefix from path.");
                         let _ = asset_server.load_untracked(relative_path.into(), true);
                     }
                 }

@@ -348,7 +348,11 @@ impl AssetServer {
         // load asset dependencies and prepare asset type hashmap
         for (label, loaded_asset) in load_context.labeled_assets.iter_mut() {
             let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
-            let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
+            let type_uuid = loaded_asset
+                .value
+                .as_ref()
+                .expect("Asset {label_id} was not loaded.")
+                .type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in loaded_asset.dependencies.iter() {
                 self.load_untracked(dependency.clone(), false);
@@ -358,7 +362,7 @@ impl AssetServer {
         self.server
             .asset_io
             .watch_path_for_changes(asset_path.path())
-            .unwrap();
+            .expect("Could not watch path for changes.");
         self.create_assets_in_load_context(&mut load_context);
         Ok(asset_path_id)
     }
@@ -399,7 +403,9 @@ impl AssetServer {
         let path = path.as_ref();
         if !self.server.asset_io.is_directory(path) {
             return Err(AssetServerError::AssetFolderNotADirectory(
-                path.to_str().unwrap().to_string(),
+                path.to_str()
+                    .expect("Could not convert path to string.")
+                    .to_string(),
             ));
         }
 
@@ -500,11 +506,13 @@ impl AssetServer {
     // triggered unless the `Assets` collection is actually updated.
     pub(crate) fn update_asset_storage<T: Asset>(&self, mut assets: ResMut<Assets<T>>) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).unwrap();
+        let asset_lifecycle = asset_lifecycles
+            .get(&T::TYPE_UUID)
+            .expect("Could not find an asset of the appropriate type UUID.");
         let mut asset_sources_guard = None;
         let channel = asset_lifecycle
             .downcast_ref::<AssetLifecycleChannel<T>>()
-            .unwrap();
+            .expect("Could not downcast successfully.");
 
         loop {
             match channel.receiver.try_recv() {

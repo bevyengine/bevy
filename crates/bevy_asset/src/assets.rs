@@ -281,7 +281,9 @@ impl AddAsset for App {
             return self;
         }
         let assets = {
-            let asset_server = self.world.get_resource::<AssetServer>().unwrap();
+            let asset_server = self.world.get_resource::<AssetServer>().expect(
+                "Could not find `AssetServer` resource in the `World`. Did you forget to add it?",
+            );
             asset_server.register_asset_type::<T>()
         };
 

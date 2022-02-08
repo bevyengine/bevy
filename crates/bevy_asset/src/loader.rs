@@ -136,7 +136,11 @@ impl<'a> LoadContext<'a> {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),
-                type_uuid: asset.value.as_ref().unwrap().type_uuid(),
+                type_uuid: asset
+                    .value
+                    .as_ref()
+                    .expect("No value was found for BoxedLoadedAsset")
+                    .type_uuid(),
             });
         }
         asset_metas
@@ -182,7 +186,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     id,
                     version,
                 }))
-                .unwrap()
+                .expect("Could not send an AssetLifecycleEvent::Create correctly.")
         } else {
             panic!(
                 "Failed to downcast asset to {}.",
@@ -192,7 +196,9 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 
     fn free_asset(&self, id: HandleId) {
-        self.sender.send(AssetLifecycleEvent::Free(id)).unwrap();
+        self.sender
+            .send(AssetLifecycleEvent::Free(id))
+            .expect("Could not send an AssetLifecycleEvent::Free correctly.");
     }
 }
 

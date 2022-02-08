@@ -23,8 +23,8 @@ impl AssetIo for WasmAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
             let path = self.root_path.join(path);
-            let window = web_sys::window().unwrap();
-            let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
+            let window = web_sys::window().expect("Could not get window.");
+            let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().expect("Could not convert path to string")))
                 .await
                 .unwrap();
             let resp: Response = resp_value.dyn_into().unwrap();

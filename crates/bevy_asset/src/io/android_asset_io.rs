@@ -23,7 +23,7 @@ impl AssetIo for AndroidAssetIo {
         Box::pin(async move {
             let asset_manager = ndk_glue::native_activity().asset_manager();
             let mut opened_asset = asset_manager
-                .open(&CString::new(path.to_str().unwrap()).unwrap())
+                .open(&CString::new(path.to_str().expect("Could not convert path to string")).expect("Could not open file"))
                 .ok_or(AssetIoError::NotFound(path.to_path_buf()))?;
             let bytes = opened_asset.get_buffer()?;
             Ok(bytes.to_vec())
