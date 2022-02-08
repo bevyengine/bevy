@@ -37,6 +37,8 @@ pub struct TextureAtlasBuilder {
     format: TextureFormat,
     /// Enable automatic format conversion for textures if they are not in the atlas format.
     auto_format_conversion: bool,
+    /// make sure the added texture is in order
+    seqs : Vec<Handle<Image>>
 }
 
 impl Default for TextureAtlasBuilder {
@@ -47,6 +49,7 @@ impl Default for TextureAtlasBuilder {
             max_size: Vec2::new(2048., 2048.),
             format: TextureFormat::Rgba8UnormSrgb,
             auto_format_conversion: true,
+            seqs : vec![],
         }
     }
 }
@@ -80,6 +83,7 @@ impl TextureAtlasBuilder {
 
     /// Adds a texture to be copied to the texture atlas.
     pub fn add_texture(&mut self, texture_handle: Handle<Image>, texture: &Image) {
+        self.seqs.push(texture_handle.clone());
         self.rects_to_place.push_rect(
             texture_handle,
             None,
@@ -207,24 +211,26 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::default();
-        for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
-            let texture = textures.get(texture_handle).unwrap();
-            let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
-            let max = min
-                + Vec2::new(
+        for texture_handle in &self.seqs {
+            if let Some((_, packed_location)) = rect_placements.packed_locations().get(texture_handle) {
+                let texture = textures.get(texture_handle).unwrap();
+                let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
+                let max = min
+                    + Vec2::new(
                     packed_location.width() as f32,
                     packed_location.height() as f32,
                 );
-            texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
-            texture_rects.push(Rect { min, max });
-            if texture.texture_descriptor.format != self.format && !self.auto_format_conversion {
-                warn!(
+                texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
+                texture_rects.push(Rect { min, max });
+                if texture.texture_descriptor.format != self.format && !self.auto_format_conversion {
+                    warn!(
                     "Loading a texture of format '{:?}' in an atlas with format '{:?}'",
                     texture.texture_descriptor.format, self.format
                 );
-                return Err(TextureAtlasBuilderError::WrongFormat);
+                    return Err(TextureAtlasBuilderError::WrongFormat);
+                }
+                self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
             }
-            self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
             size: Vec2::new(
