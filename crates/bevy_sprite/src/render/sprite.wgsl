@@ -41,5 +41,8 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 #ifdef COLORED
     color = in.color * color;
 #endif
+#ifdef ENABLE_GAMMA_CORRECTION
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
+#endif
     return color;
 }

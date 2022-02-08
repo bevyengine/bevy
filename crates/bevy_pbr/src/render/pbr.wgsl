@@ -1,4 +1,3 @@
-//#define ENABLE_GAMMA_CORRECTION
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -639,9 +638,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
         // Gamma correction.
         // Not needed with sRGB buffer, but needed if sRGB is disabled
-//#ifdef ENABLE_GAMMA_CORRECTION
+#ifdef ENABLE_GAMMA_CORRECTION
         output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
-//#endif // ENABLE_GAMMA_CORRECTION
+#endif // ENABLE_GAMMA_CORRECTION
     }
 
     return output_color;
