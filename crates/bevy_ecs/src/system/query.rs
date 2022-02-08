@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
-        WorldQuery,
+        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        QueryState, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -960,6 +960,42 @@ where
     pub fn is_empty(&self) -> bool {
         self.state
             .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct InRange;
+    /// #
+    /// # struct Target {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>, target: Res<Target>) {
+    ///     if in_range_query.contains(target.entity) {
+    ///         println!("Bam!")
+    ///     }
+    /// }
+    /// # targeting_system.system();
+    /// ```
+    #[inline]
+    pub fn contains(&self, entity: Entity) -> bool {
+        // SAFE: NopFetch does not access any members while &self ensures no one has exclusive access
+        unsafe {
+            self.state
+                .get_unchecked_manual::<NopFetch<Q::State>>(
+                    self.world,
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
+                .is_ok()
+        }
     }
 }
 
