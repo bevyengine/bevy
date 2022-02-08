@@ -1,4 +1,5 @@
-use bevy_asset::{AssetLoader, Handle, LoadContext, LoadedAsset};
+use bevy_asset::{AssetLoader, AssetServer, Assets, Handle, LoadContext, LoadState, LoadedAsset};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::back::wgsl::WriterFlags;
@@ -470,6 +471,50 @@ impl ShaderProcessor {
         }
 
         Ok(())
+    }
+}
+
+struct HotReloadShader {
+    strong_handle: Handle<Shader>,
+    import_path: String,
+}
+
+#[derive(Default)]
+pub struct HotReloadShaders {
+    loading: Vec<HotReloadShader>,
+    // Needed to keep the shader alive
+    keep_alive: Vec<Handle<Shader>>,
+}
+
+impl HotReloadShaders {
+    pub fn add_hot_reload_shader(&mut self, strong_handle: Handle<Shader>, import_path: String) {
+        self.loading.push(HotReloadShader {
+            strong_handle,
+            import_path,
+        });
+    }
+
+    pub fn keep_shader_alive(&mut self, strong_handle: Handle<Shader>) {
+        self.keep_alive.push(strong_handle);
+    }
+}
+
+pub(crate) fn set_up_hot_reloading_shader_import_paths(
+    asset_server: Res<AssetServer>,
+    mut shaders: ResMut<Assets<Shader>>,
+    mut hot_reload_shaders: ResMut<HotReloadShaders>,
+) {
+    for i in (0..hot_reload_shaders.loading.len()).rev() {
+        if asset_server.get_load_state(hot_reload_shaders.loading[i].strong_handle.clone())
+            == LoadState::Loaded
+        {
+            let shader = hot_reload_shaders.loading.swap_remove(i);
+            shaders
+                .get_mut(shader.strong_handle.clone())
+                .unwrap()
+                .set_import_path(shader.import_path.clone());
+            hot_reload_shaders.keep_alive.push(shader.strong_handle);
+        }
     }
 }
 

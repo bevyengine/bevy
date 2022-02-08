@@ -9,6 +9,8 @@ pub use render_pass::*;
 use std::ops::Range;
 
 use bevy_app::prelude::*;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::AssetServer;
 use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
@@ -58,15 +60,10 @@ pub enum RenderUiSystem {
     ExtractNode,
 }
 
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct UiShaders {
-    ui_shader_handle: Handle<Shader>,
-}
-
 pub fn build_ui_render(app: &mut App) {
-    let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
     #[cfg(not(feature = "bevy_shader_hot_reloading"))]
     {
+        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.set_untracked(
             UI_SHADER_HANDLE,
             Shader::from_wgsl(include_str!("../../../../assets/shaders/bevy_ui/ui.wgsl")),
@@ -76,10 +73,13 @@ pub fn build_ui_render(app: &mut App) {
     {
         let asset_server = app.world.get_resource::<AssetServer>().unwrap();
         let ui_shader_handle: Handle<Shader> = asset_server.load("shaders/bevy_ui/ui.wgsl");
+
+        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.add_alias(&ui_shader_handle, UI_SHADER_HANDLE);
 
         // NOTE: We need to store the strong handles created from the asset paths
-        app.world.insert_resource(UiShaders { ui_shader_handle });
+        let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+        hot_reload_shaders.keep_shader_alive(ui_shader_handle);
     }
 
     let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();

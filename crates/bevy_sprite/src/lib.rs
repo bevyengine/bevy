@@ -30,9 +30,13 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::{AssetServer, Handle};
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_reflect::TypeUuid;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_render::render_resource::HotReloadShaders;
 use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedPipelines},
@@ -50,16 +54,11 @@ pub enum SpriteSystem {
     ExtractSprites,
 }
 
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct SpriteShaders {
-    sprite_shader_handle: Handle<Shader>,
-}
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         #[cfg(not(feature = "bevy_shader_hot_reloading"))]
         {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
             shaders.set_untracked(
                 SPRITE_SHADER_HANDLE,
                 Shader::from_wgsl(include_str!(
@@ -70,14 +69,16 @@ impl Plugin for SpritePlugin {
         #[cfg(feature = "bevy_shader_hot_reloading")]
         {
             let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+            println!("Loading sprite.wgsl");
             let sprite_shader_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/sprite.wgsl");
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
             shaders.add_alias(&sprite_shader_handle, SPRITE_SHADER_HANDLE);
 
             // NOTE: We need to store the strong handles created from the asset paths
-            app.world.insert_resource(SpriteShaders {
-                sprite_shader_handle,
-            });
+            let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+            hot_reload_shaders.keep_shader_alive(sprite_shader_handle);
         }
 
         app.add_asset::<TextureAtlas>()

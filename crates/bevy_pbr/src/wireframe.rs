@@ -7,6 +7,8 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_render::render_resource::HotReloadShaders;
 use bevy_render::render_resource::PolygonMode;
 use bevy_render::{
     mesh::Mesh,
@@ -22,13 +24,6 @@ pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
-
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct WireframeShaders {
-    // NOTE: This is needed to keep the shader alive.
-    #[allow(dead_code)]
-    wireframe_shader_handle: Handle<Shader>,
-}
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -52,9 +47,8 @@ impl Plugin for WireframePlugin {
             shaders.add_alias(wireframe_shader_handle.clone(), WIREFRAME_SHADER_HANDLE);
 
             // NOTE: We need to store the strong handles created from the asset paths
-            app.world.insert_resource(WireframeShaders {
-                wireframe_shader_handle,
-            });
+            let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+            hot_reload_shaders.keep_shader_alive(wireframe_shader_handle);
         }
 
         app.init_resource::<WireframeConfig>();

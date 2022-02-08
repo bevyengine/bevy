@@ -23,16 +23,11 @@ pub const COLOR_MATERIAL_SHADER_HANDLE: HandleUntyped =
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
 
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct ColorMaterialShaders {
-    color_material_shader_handle: Handle<Shader>,
-}
-
 impl Plugin for ColorMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         #[cfg(not(feature = "bevy_shader_hot_reloading"))]
         {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
             shaders.set_untracked(
                 COLOR_MATERIAL_SHADER_HANDLE,
                 Shader::from_wgsl(include_str!(
@@ -45,12 +40,13 @@ impl Plugin for ColorMaterialPlugin {
             let asset_server = app.world.get_resource::<AssetServer>().unwrap();
             let color_material_shader_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/color_material.wgsl");
-            shaders.add_alias(color_material_shader_handle, COLOR_MATERIAL_SHADER_HANDLE);
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.add_alias(&color_material_shader_handle, COLOR_MATERIAL_SHADER_HANDLE);
 
             // NOTE: We need to store the strong handles created from the asset paths
-            app.world.insert_resource(ColorMaterialShaders {
-                color_material_shader_handle,
-            });
+            let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+            hot_reload_shaders.keep_shader_alive(color_material_shader_handle);
         }
 
         app.add_plugin(Material2dPlugin::<ColorMaterial>::default());

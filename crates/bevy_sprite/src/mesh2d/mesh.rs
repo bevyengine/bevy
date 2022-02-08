@@ -1,4 +1,6 @@
 use bevy_app::Plugin;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_asset::AssetServer;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
@@ -36,25 +38,18 @@ pub struct Mesh2dRenderPlugin;
 
 pub const MESH2D_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
-const MESH2D_BIEW_BIND_GROUP_IMPORT_PATH: &str = "bevy_sprite::mesh2d_view_bind_group";
+const MESH2D_VIEW_BIND_GROUP_IMPORT_PATH: &str = "bevy_sprite::mesh2d_view_bind_group";
 pub const MESH2D_STRUCT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
 const MESH2D_STRUCT_IMPORT_PATH: &str = "bevy_sprite::mesh2d_struct";
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct Mesh2dShaders {
-    mesh2d_shader_handle: Handle<Shader>,
-    mesh2d_struct_handle: Handle<Shader>,
-    mesh2d_view_bind_group_handle: Handle<Shader>,
-}
-
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         #[cfg(not(feature = "bevy_shader_hot_reloading"))]
         {
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
             shaders.set_untracked(
                 MESH2D_SHADER_HANDLE,
                 Shader::from_wgsl(include_str!(
@@ -73,7 +68,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 Shader::from_wgsl(include_str!(
                     "../../../../assets/shaders/bevy_sprite/mesh2d_view_bind_group.wgsl"
                 ))
-                .with_import_path(MESH2D_BIEW_BIND_GROUP_IMPORT_PATH),
+                .with_import_path(MESH2D_VIEW_BIND_GROUP_IMPORT_PATH),
             );
         }
         #[cfg(feature = "bevy_shader_hot_reloading")]
@@ -81,24 +76,28 @@ impl Plugin for Mesh2dRenderPlugin {
             let asset_server = app.world.get_resource::<AssetServer>().unwrap();
             let mesh2d_shader_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/mesh2d.wgsl");
-            shaders.add_alias(&mesh2d_shader_handle, MESH_SHADER_HANDLE);
             let mesh2d_struct_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/mesh2d_struct.wgsl");
-            shaders.add_alias(&mesh2d_struct_handle, MESH_STRUCT_HANDLE);
             let mesh2d_view_bind_group_handle: Handle<Shader> =
                 asset_server.load("shaders/bevy_sprite/mesh2d_view_bind_group.wgsl");
-            shaders.add_alias(&mesh2d_view_bind_group_handle, MESH_VIEW_BIND_GROUP_HANDLE);
+
+            let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+            shaders.add_alias(&mesh2d_shader_handle, MESH2D_SHADER_HANDLE);
+            shaders.add_alias(&mesh2d_struct_handle, MESH2D_STRUCT_HANDLE);
+            shaders.add_alias(
+                &mesh2d_view_bind_group_handle,
+                MESH2D_VIEW_BIND_GROUP_HANDLE,
+            );
 
             // NOTE: We need to store the strong handles created from the asset paths
-            app.world.insert_resource(Mesh2dShaders {
-                mesh2d_shader_handle,
-                mesh2d_struct_handle,
-                mesh2d_struct_loaded: false,
+            let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+            hot_reload_shaders.keep_shader_alive(mesh2d_shader_handle);
+            hot_reload_shaders
+                .add_hot_reload_shader(mesh2d_struct_handle, MESH2D_STRUCT_IMPORT_PATH.to_string());
+            hot_reload_shaders.add_hot_reload_shader(
                 mesh2d_view_bind_group_handle,
-                mesh2d_view_bind_group_loaded: false,
-            });
-
-            app.add_system_to_stage(CoreStage::PostUpdate, set_shader_import_paths);
+                MESH2D_VIEW_BIND_GROUP_IMPORT_PATH.to_string(),
+            );
         }
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
@@ -111,34 +110,6 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
         }
-    }
-}
-
-#[cfg(feature = "bevy_shader_hot_reloading")]
-fn set_shader_import_paths(
-    asset_server: Res<AssetServer>,
-    mut shaders: ResMut<Assets<Shader>>,
-    mut mesh2d_shader_handles: ResMut<Mesh2dShaders>,
-) {
-    if !mesh2d_shader_handles.mesh2d_struct_loaded
-        && asset_server.get_load_state(mesh2d_shader_handles.mesh2d_struct_handle.clone())
-            == LoadState::Loaded
-    {
-        shaders
-            .get_mut(mesh2d_shader_handles.mesh2d_struct_handle.clone())
-            .unwrap()
-            .set_import_path(MESH2D_STRUCT_IMPORT_PATH);
-        mesh2d_shader_handles.mesh2d_struct_loaded = true;
-    }
-    if !mesh2d_shader_handles.mesh2d_view_bind_group_loaded
-        && asset_server.get_load_state(mesh2d_shader_handles.mesh2d_view_bind_group_handle.clone())
-            == LoadState::Loaded
-    {
-        shaders
-            .get_mut(mesh2d_shader_handles.mesh2d_view_bind_group_handle.clone())
-            .unwrap()
-            .set_import_path(MESH2D_BIEW_BIND_GROUP_IMPORT_PATH);
-        mesh2d_shader_handles.mesh2d_view_bind_group_loaded = true;
     }
 }
 

@@ -38,6 +38,8 @@ use bevy_asset::AssetServer;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
+#[cfg(feature = "bevy_shader_hot_reloading")]
+use bevy_render::render_resource::HotReloadShaders;
 use bevy_render::{
     prelude::Color,
     render_graph::RenderGraph,
@@ -56,15 +58,6 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 /// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
 pub struct PbrPlugin;
-
-#[cfg(feature = "bevy_shader_hot_reloading")]
-pub struct PbrShaderHandles {
-    // NOTE: This is needed to keep the shaders alive.
-    #[allow(dead_code)]
-    pbr_shader_handle: Handle<Shader>,
-    #[allow(dead_code)]
-    shadow_shader_handle: Handle<Shader>,
-}
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
@@ -92,10 +85,9 @@ impl Plugin for PbrPlugin {
             shaders.add_alias(&shadow_shader_handle, SHADOW_SHADER_HANDLE);
 
             // NOTE: We need to store the strong handles created from the asset paths
-            app.world.insert_resource(PbrShaderHandles {
-                pbr_shader_handle,
-                shadow_shader_handle,
-            });
+            let mut hot_reload_shaders = app.world.get_resource_mut::<HotReloadShaders>().unwrap();
+            hot_reload_shaders.keep_shader_alive(pbr_shader_handle);
+            hot_reload_shaders.keep_shader_alive(shadow_shader_handle);
         }
 
         app.register_type::<CubemapVisibleEntities>()

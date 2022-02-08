@@ -29,6 +29,7 @@ pub mod prelude {
 
 use bevy_utils::tracing::debug;
 pub use once_cell;
+use render_resource::HotReloadShaders;
 
 use crate::{
     camera::CameraPlugin,
@@ -41,7 +42,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, CoreStage, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use std::ops::{Deref, DerefMut};
@@ -116,6 +117,11 @@ impl Plugin for RenderPlugin {
 
         app.add_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
+            .init_resource::<HotReloadShaders>()
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                render_resource::set_up_hot_reloading_shader_import_paths,
+            )
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
