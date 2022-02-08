@@ -56,7 +56,7 @@ where
     S: IntoSystem<(), (), Params>,
 {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).into_descriptor()
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).into_descriptor()
     }
 }
 
@@ -174,23 +174,24 @@ where
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).with_run_criteria(run_criteria)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self)))
+            .with_run_criteria(run_criteria)
     }
 
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).label(label)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
     fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).before(label)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
     fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).after(label)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).in_ambiguity_set(set)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).in_ambiguity_set(set)
     }
 }
 

@@ -34,7 +34,7 @@ rand = "0.8.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Request", "Window", "Response"]}
+web-sys = { version = "0.3", features = ["Request", "Window", "Response"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
@@ -44,3 +44,4 @@ ndk-glue = { version = "0.5" }
 [dev-dependencies]
 futures-lite = "1.4.0"
 tempfile = "3.2.0"
+bevy_core = { path = "../bevy_core", version = "0.6.0" }

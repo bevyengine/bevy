@@ -3,8 +3,8 @@ use crate::{
     component::{Component, ComponentStorage},
     entity::Entity,
     query::{
-        Fetch, FetchState, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter,
-        QueryState, RWAccess, WorldQuery,
+        Fetch, FetchState, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError,
+        QueryIter, QueryState, RWAccess, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -54,7 +54,7 @@ use thiserror::Error;
 /// # fn system(
 /// query: Query<(&ComponentA, &ComponentB)>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// ## Mutable component access
@@ -75,7 +75,7 @@ use thiserror::Error;
 /// // `ComponentA` is accessed mutably, while `ComponentB` is accessed immutably.
 /// mut query: Query<(&mut ComponentA, &ComponentB)>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// Two systems cannot be executed in parallel if both access a certain component and
@@ -100,7 +100,7 @@ use thiserror::Error;
 /// # fn system(
 /// query: Query<(Entity, &ComponentA, &ComponentB)>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// ## Query filtering
@@ -120,7 +120,7 @@ use thiserror::Error;
 /// // `ComponentC` data won't be accessed, but only entities that contain it will be queried.
 /// query: Query<(&ComponentA, &ComponentB), With<ComponentC>>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// If you need to apply more filters in a single query, group them into a tuple:
@@ -137,7 +137,7 @@ use thiserror::Error;
 /// // Similar to the previous query, but with the addition of a `Changed` filter.
 /// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Changed<ComponentA>)>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// The following list contains all the available query filters:
@@ -163,7 +163,7 @@ use thiserror::Error;
 /// # fn system(
 /// query: Query<(&ComponentA, Option<&ComponentB>)>
 /// # ) {}
-/// # system.system();
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// If an entity does not contain a component, its corresponding query result value will be
@@ -185,13 +185,13 @@ use thiserror::Error;
 /// // This is correct, but can be avoided.
 /// query: Query<(&MyComponent,)>
 /// # ) {}
-/// # tuple_system.system();
+/// # bevy_ecs::system::assert_is_system(tuple_system);
 ///
 /// # fn non_tuple_system(
 /// // This is the preferred method.
 /// query: Query<&MyComponent>
 /// # ) {}
-/// # non_tuple_system.system();
+/// # bevy_ecs::system::assert_is_system(non_tuple_system);
 /// ```
 ///
 /// # Usage of query results
@@ -218,7 +218,7 @@ use thiserror::Error;
 ///         // `&ComponentA` and `&ComponentB` types.
 ///     }
 /// }
-/// # immutable_query_system.system();
+/// # bevy_ecs::system::assert_is_system(immutable_query_system);
 ///
 /// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
 ///     for (mut a, b) in query.iter_mut() {
@@ -226,7 +226,7 @@ use thiserror::Error;
 ///         // Note the usage of `mut` in the tuple and the call to `iter_mut` instead of `iter`.
 ///     }
 /// }
-/// # mutable_query_system.system();
+/// # bevy_ecs::system::assert_is_system(mutable_query_system);
 /// ```
 ///
 /// ## Getting the query result for a particular entity
@@ -297,7 +297,7 @@ where
     ///         println!("Say hello to {}!", player.name);
     ///     }
     /// }
-    /// # report_names_system.system();
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
     pub fn iter(&'s self) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F> {
@@ -327,7 +327,7 @@ where
     ///         velocity.y -= 9.8 * DELTA;
     ///     }
     /// }
-    /// # gravity_system.system();
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, Q::Fetch, F> {
@@ -452,7 +452,7 @@ where
     ///         println!("Say hello to {}!", player.name);
     ///     });
     /// }
-    /// # report_names_system.system();
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
     pub fn for_each<FN: FnMut(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item)>(&'s self, f: FN) {
@@ -488,7 +488,7 @@ where
     ///         velocity.y -= 9.8 * DELTA;
     ///     });
     /// }
-    /// # gravity_system.system();
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
     pub fn for_each_mut<'a, FN: FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)>(&'a mut self, f: FN) {
@@ -581,7 +581,7 @@ where
     ///         println!("{}", selected_character.name);
     ///     }
     /// }
-    /// # print_selected_character_name_system.system();
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
     pub fn get(
@@ -622,7 +622,7 @@ where
     ///         health.0 -= 1;
     ///     }
     /// }
-    /// # poison_system.system();
+    /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
     #[inline]
     pub fn get_mut(
@@ -691,7 +691,7 @@ where
     ///         println!("{}", selected_character.name);
     ///     }
     /// }
-    /// # print_selected_character_name_system.system();
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
@@ -758,7 +758,7 @@ where
     ///         health.0 -= 1;
     ///     }
     /// }
-    /// # poison_system.system();
+    /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
     #[inline]
     pub fn get_component_mut<T: Component>(
@@ -852,7 +852,7 @@ where
     ///     let player_position = query.single();
     ///     // do something with player_position
     /// }
-    /// # player_system.system();
+    /// # bevy_ecs::system::assert_is_system(player_system);
     /// ```
     ///
     /// # Panics
@@ -893,7 +893,7 @@ where
     ///         }
     ///     }
     /// }
-    /// # player_scoring_system.system();
+    /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
     pub fn get_single(
         &'s self,
@@ -928,7 +928,7 @@ where
     ///     let mut health = query.single_mut();
     ///     health.0 += 1;
     /// }
-    /// # regenerate_player_health_system.system();
+    /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
     ///
     /// # Panics
@@ -960,7 +960,7 @@ where
     ///     let mut health = query.get_single_mut().expect("Error: Could not find a single player.");
     ///     health.0 += 1;
     /// }
-    /// # regenerate_player_health_system.system();
+    /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
     pub fn get_single_mut(
         &mut self,
@@ -997,12 +997,48 @@ where
     ///         score.0 += 1;
     ///     }
     /// }
-    /// # update_score_system.system();
+    /// # bevy_ecs::system::assert_is_system(update_score_system);
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.state
             .is_empty(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct InRange;
+    /// #
+    /// # struct Target {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>, target: Res<Target>) {
+    ///     if in_range_query.contains(target.entity) {
+    ///         println!("Bam!")
+    ///     }
+    /// }
+    /// # targeting_system.system();
+    /// ```
+    #[inline]
+    pub fn contains(&self, entity: Entity) -> bool {
+        // SAFE: NopFetch does not access any members while &self ensures no one has exclusive access
+        unsafe {
+            self.state
+                .get_unchecked_manual::<NopFetch<Q::State>>(
+                    self.world,
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
+                .is_ok()
+        }
     }
 }
 

@@ -86,6 +86,7 @@ pub struct ExtractedView {
 #[derive(Clone, AsStd140)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
     world_position: Vec3,
@@ -145,10 +146,12 @@ fn prepare_view_uniforms(
     view_uniforms.uniforms.clear();
     for (entity, camera) in views.iter() {
         let projection = camera.projection;
-        let inverse_view = camera.transform.compute_matrix().inverse();
+        let view = camera.transform.compute_matrix();
+        let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,
+                view,
                 inverse_view,
                 projection,
                 world_position: camera.transform.translation,

@@ -270,10 +270,16 @@ pub trait AddAsset {
 }
 
 impl AddAsset for App {
+    /// Add an [`Asset`] to the [`App`].
+    ///
+    /// Adding the same [`Asset`] again after it has been added does nothing.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
     {
+        if self.world.contains_resource::<Assets<T>>() {
+            return self;
+        }
         let assets = {
             let asset_server = self.world.get_resource::<AssetServer>().unwrap();
             asset_server.register_asset_type::<T>()
@@ -303,5 +309,28 @@ impl AddAsset for App {
             .expect("AssetServer does not exist. Consider adding it as a resource.")
             .add_loader(loader);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+
+    use crate::{AddAsset, Assets};
+
+    #[test]
+    fn asset_overwriting() {
+        #[derive(bevy_reflect::TypeUuid)]
+        #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
+        struct MyAsset;
+        let mut app = App::new();
+        app.add_plugin(bevy_core::CorePlugin)
+            .add_plugin(crate::AssetPlugin);
+        app.add_asset::<MyAsset>();
+        let mut assets_before = app.world.get_resource_mut::<Assets<MyAsset>>().unwrap();
+        let handle = assets_before.add(MyAsset);
+        app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
+        let assets_after = app.world.get_resource_mut::<Assets<MyAsset>>().unwrap();
+        assert!(assets_after.get(handle).is_some())
     }
 }
