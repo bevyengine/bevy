@@ -506,9 +506,12 @@ impl AssetServer {
     // triggered unless the `Assets` collection is actually updated.
     pub(crate) fn update_asset_storage<T: Asset>(&self, mut assets: ResMut<Assets<T>>) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        let asset_lifecycle = asset_lifecycles
-            .get(&T::TYPE_UUID)
-            .expect("Could not find an asset of the appropriate type UUID.");
+        let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).expect_or_else(|| {
+            format!(
+                "Could not find an asset of the appropriate type UUID={}.",
+                T::TYPE_UUID
+            )
+        });
         let mut asset_sources_guard = None;
         let channel = asset_lifecycle
             .downcast_ref::<AssetLifecycleChannel<T>>()
