@@ -11,7 +11,6 @@ mod schedule_runner;
 mod ci_testing;
 
 pub use app::*;
-pub use bevy_derive::DynamicPlugin;
 pub use bevy_ecs::event::*;
 pub use plugin::*;
 pub use plugin_group::*;
@@ -20,9 +19,7 @@ pub use schedule_runner::*;
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupStage,
-    };
+    pub use crate::{app::App, CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 }
 
 use bevy_ecs::schedule::StageLabel;

@@ -9,7 +9,6 @@ crates=(
     bevy_ecs
     bevy_app
     bevy_log
-    bevy_dynamic_plugin
     bevy_reflect/bevy_reflect_derive
     bevy_reflect
     bevy_asset

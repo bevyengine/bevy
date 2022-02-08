@@ -36,9 +36,5 @@ pub use crate::text::prelude::*;
 pub use crate::ui::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub use crate::dynamic_plugin::*;
-
-#[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;
