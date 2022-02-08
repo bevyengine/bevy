@@ -616,8 +616,8 @@ impl World {
     /// If you insert a resource of a type that already exists,
     /// you will overwrite any existing data.
     #[inline]
-    pub fn insert_resource<T: Resource>(&mut self, value: T) {
-        let component_id = self.components.init_resource::<T>();
+    pub fn insert_resource<R: Resource>(&mut self, value: R) {
+        let component_id = self.components.init_resource::<R>();
         // SAFE: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
@@ -968,7 +968,7 @@ impl World {
         };
         // SAFE: pointer is of type T and valid to move out of
         // Read the value onto the stack to avoid potential mut aliasing.
-        let mut value = unsafe { std::ptr::read(ptr.cast::<T>()) };
+        let mut value = unsafe { std::ptr::read(ptr.cast::<R>()) };
         let value_mut = Mut {
             value: &mut value,
             ticks: Ticks {
@@ -978,12 +978,12 @@ impl World {
             },
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<T>());
+        assert!(!self.contains_resource::<R>());
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
         // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
         let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
@@ -995,27 +995,27 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T
+    /// `component_id` must be assigned to a component of type `R`
     #[inline]
-    pub(crate) unsafe fn get_resource_with_id<T: 'static>(
+    pub(crate) unsafe fn get_resource_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<&T> {
+    ) -> Option<&R> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_data_ptr().as_ptr().cast::<T>())
+        Some(&*column.get_data_ptr().as_ptr().cast::<R>())
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T.
+    /// `component_id` must be assigned to a component of type `R`
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
     #[inline]
-    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<T>(
+    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
         &self,
         component_id: ComponentId,
-    ) -> Option<Mut<'_, T>> {
+    ) -> Option<Mut<'_, R>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            value: &mut *column.get_data_ptr().cast::<R>().as_ptr(),
             ticks: Ticks {
                 component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
                 last_change_tick: self.last_change_tick(),
@@ -1025,38 +1025,38 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T
+    /// `component_id` must be assigned to a component of type `R`
     #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<T: 'static>(
+    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<&T> {
-        self.validate_non_send_access::<T>();
+    ) -> Option<&R> {
+        self.validate_non_send_access::<R>();
         self.get_resource_with_id(component_id)
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T.
+    /// `component_id` must be assigned to a component of type `R`.
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
     #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<T: 'static>(
+    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<Mut<'_, T>> {
-        self.validate_non_send_access::<T>();
+    ) -> Option<Mut<'_, R>> {
+        self.validate_non_send_access::<R>();
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
     /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type R
+    /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
+    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             let mut value = ManuallyDrop::new(value);
-            // SAFE: column is of type T and has been allocated above
-            let data = (&mut *value as *mut T).cast::<u8>();
+            // SAFE: column is of type R and has been allocated above
+            let data = (&mut *value as *mut R).cast::<u8>();
             column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type R and has already been allocated
@@ -1066,7 +1066,7 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type T
+    /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
@@ -1095,15 +1095,15 @@ impl World {
             })
     }
 
-    pub(crate) fn initialize_resource<T: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.init_resource::<T>();
+    pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
+        let component_id = self.components.init_resource::<R>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
     }
 
-    pub(crate) fn initialize_non_send_resource<T: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<T>();
+    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
+        let component_id = self.components.init_non_send::<R>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
