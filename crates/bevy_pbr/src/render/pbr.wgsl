@@ -1,3 +1,4 @@
+#define ENABLE_GAMMA_CORRECTION
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
