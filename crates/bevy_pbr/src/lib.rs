@@ -61,9 +61,15 @@ impl Plugin for PbrPlugin {
         shaders.set_untracked(
             PBR_SHADER_HANDLE,
             #[cfg(not(feature = "no_srgb"))]
-            Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: bool = false;\n".to_owned() + include_str!("render/pbr.wgsl")),
+            Shader::from_wgsl(
+                "let ENABLE_GAMMA_CORRECTION: bool = false;\n".to_owned()
+                    + include_str!("render/pbr.wgsl"),
+            ),
             #[cfg(feature = "no_srgb")]
-            Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: bool = true;\n".to_owned() + include_str!("render/pbr.wgsl")),
+            Shader::from_wgsl(
+                "let ENABLE_GAMMA_CORRECTION: bool = true;\n".to_owned()
+                    + include_str!("render/pbr.wgsl"),
+            ),
         );
         shaders.set_untracked(
             SHADOW_SHADER_HANDLE,
