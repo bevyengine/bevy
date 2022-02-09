@@ -54,9 +54,9 @@ impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         #[cfg(not(feature = "no_srgb"))]
-        let sprite_shader = Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: u32 = 0u;\n".to_owned() + include_str!("render/sprite.wgsl"));
+        let sprite_shader = Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: bool = false;\n".to_owned() + include_str!("render/sprite.wgsl"));
         #[cfg(feature = "no_srgb")]
-        let sprite_shader = Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: u32 = 1u;\n".to_owned() + include_str!("render/sprite.wgsl"));
+        let sprite_shader = Shader::from_wgsl("let ENABLE_GAMMA_CORRECTION: bool = true;\n".to_owned() + include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
