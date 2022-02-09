@@ -42,7 +42,7 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     color = in.color * color;
 #endif
     if (ENABLE_GAMMA_CORRECTION) {
-        color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
+        *color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
     }
     return color;
 }
