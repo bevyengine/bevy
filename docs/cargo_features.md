@@ -20,6 +20,7 @@
 |feature name|description|
 |-|-|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading)).|
+|bevy_shader_hot_reloading|Loads core bevy shaders from the assets directory, watches them for changes, and hot-reloads them if they change.|
 |dynamic|Forces bevy to be dynamically linked, which improves iterative compile times.|
 |trace|Enables system tracing.|
 |trace_chrome|Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.|
