@@ -35,4 +35,5 @@
 |serialize|Enables serialization of `bevy_input` types.|
 |wayland|Enable this to use Wayland display server protocol other than X11.|
 |subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|
+|no_srgb|Disable sRGB texture formats for devices that don't support it.|
 |bevy_ci_testing|Used for running examples in CI.|
