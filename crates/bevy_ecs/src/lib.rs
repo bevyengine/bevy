@@ -1181,8 +1181,8 @@ mod tests {
     #[test]
     fn non_send_resource() {
         let mut world = World::default();
-        world.insert_non_send(123i32);
-        world.insert_non_send(456i64);
+        world.insert_non_send_resource(123i32);
+        world.insert_non_send_resource(456i64);
         assert_eq!(*world.get_non_send_resource::<i32>().unwrap(), 123);
         assert_eq!(*world.get_non_send_resource_mut::<i64>().unwrap(), 456);
     }
@@ -1191,7 +1191,7 @@ mod tests {
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
-        world.insert_non_send(0i32);
+        world.insert_non_send_resource(0i32);
         std::thread::spawn(move || {
             let _ = world.get_non_send_resource_mut::<i32>();
         })
