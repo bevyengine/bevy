@@ -24,24 +24,19 @@ For more advice on contributing to the engine, see the [relevant section](../../
 
 #### Library files
 
-The content of a library file (`lib.rs`) should be structured in the following way:
+The content of a library file (`lib.rs`) should be obey the following order:
 
-1. crate comment `//!`
+1. crate comment using `//!`
 2. lints
-3. `extern crate`s
-4. `pub mod`s
-5. `mod`s
-6. `pub mod prelude`
-7. `pub use`s
-8. `use`s
-9. `const`s
-10. `pub type`s
-11. `type`s
-12. `pub trait`s
-13. `pub struct XyzPlugin`
-14. `impl Plugin for x`
-15. `struct`s, `enum`s and so on
-16. `mod tests`
+3. `pub mod`s
+4. `mod`s
+5. `pub mod prelude`
+6. `pub use`s
+7. `use`s
+8. `pub struct BevyPlugin`
+9. `impl Plugin for BevyPlugin`
+10. rust types in logical context order
+11. `mod tests`
 
 ## Rust API guidelines
 
