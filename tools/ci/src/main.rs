@@ -46,7 +46,7 @@ fn main() {
     if what_to_run.contains(Check::CLIPPY) {
         // See if clippy has any complaints.
         // - Type complexity must be ignored because we use huge templates for queries
-        cmd!("cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -W clippy::doc_markdown")
+        cmd!("cargo clippy --workspace --all-targets --all-features -- -A clippy::type_complexity -W clippy::doc_markdown -D warnings")
         .run()
         .expect("Please fix clippy errors in output above.");
     }
@@ -62,14 +62,14 @@ fn main() {
     }
 
     if what_to_run.contains(Check::TEST) {
-        // Run tests
+        // Run tests (except doc tests and without building examples)
         cmd!("cargo test --workspace --lib --bins --tests --benches")
             .run()
             .expect("Please fix failing tests in output above.");
     }
 
     if what_to_run.contains(Check::DOC_TEST) {
-        // Run doc tests: these are ignored by `cargo test`
+        // Run doc tests
         cmd!("cargo test --workspace --doc")
             .run()
             .expect("Please fix failing doc-tests in output above.");
@@ -92,7 +92,7 @@ fn main() {
     }
 
     if what_to_run.contains(Check::EXAMPLE_CHECK) {
-        // Run doc tests: these are ignored by `cargo test`
+        // Build examples and check they compile
         cmd!("cargo check --workspace --examples")
             .run()
             .expect("Please fix failing doc-tests in output above.");
