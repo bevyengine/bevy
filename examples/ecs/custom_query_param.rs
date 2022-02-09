@@ -97,7 +97,7 @@ struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
 struct EmptyQuery<'w> {
-    // The Fetch derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
+    // The derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
     // to use `PhantomData` as a work around.
     #[world_query(ignore)]
     _w: std::marker::PhantomData<&'w ()>,

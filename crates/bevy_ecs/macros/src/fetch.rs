@@ -5,19 +5,19 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     Attribute, Data, DataStruct, DeriveInput, Field, Fields, GenericArgument, GenericParam,
-    ImplGenerics, Lifetime, LifetimeDef, Path, PathArguments, ReturnType, Token, Type,
-    TypeGenerics, TypePath, Visibility, WhereClause,
+    Lifetime, LifetimeDef, Path, PathArguments, ReturnType, Token, Type, TypePath,
 };
 
 use crate::bevy_ecs_path;
 
 #[derive(Default)]
 struct FetchStructAttributes {
-    pub mutable: bool,
+    pub is_filter: bool,
+    pub is_mutable: bool,
     pub derive_args: Punctuated<syn::NestedMeta, syn::token::Comma>,
 }
 
-pub static FILTER_ATTRIBUTE_NAME: &str = "filter";
+static FILTER_ATTRIBUTE_NAME: &str = "filter";
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
 static DERIVE_ATTRIBUTE_NAME: &str = "derive";
 
@@ -44,7 +44,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 let ident = meta.path().get_ident();
                 if ident.map_or(false, |ident| ident == MUTABLE_ATTRIBUTE_NAME) {
                     if let syn::Meta::Path(_) = meta {
-                        fetch_struct_attributes.mutable = true;
+                        fetch_struct_attributes.is_mutable = true;
                     } else {
                         panic!(
                             "The `{}` attribute is expected to have no value or arguments",
@@ -62,6 +62,15 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             DERIVE_ATTRIBUTE_NAME
                         );
                     }
+                } else if ident.map_or(false, |ident| ident == FILTER_ATTRIBUTE_NAME) {
+                    if let syn::Meta::Path(_) = meta {
+                        fetch_struct_attributes.is_filter = true;
+                    } else {
+                        panic!(
+                            "The `{}` attribute is expected to have no value or arguments",
+                            FILTER_ATTRIBUTE_NAME
+                        );
+                    }
                 } else {
                     panic!(
                         "Unrecognized attribute: `{}`",
@@ -74,416 +83,13 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
     }
 
-    let FetchImplTokens {
-        struct_name,
-        item_struct_name,
-        read_only_item_struct_name,
-        fetch_struct_name,
-        state_struct_name,
-        read_only_fetch_struct_name,
-        fetch_trait_punctuated_lifetimes,
-        impl_generics,
-        ty_generics,
-        where_clause,
-        has_world_lifetime,
-        world_lifetime,
-        state_lifetime,
-        fetch_lifetime,
-        ignored_field_attrs,
-        ignored_field_visibilities,
-        ignored_field_idents,
-        ignored_field_types,
-        field_attrs,
-        field_visibilities,
-        field_idents,
-        field_types: _,
-        query_types,
-        fetch_init_types,
-    } = fetch_impl_tokens(
-        &ast,
-        WORLD_QUERY_ATTRIBUTE_NAME,
-        fetch_struct_attributes.mutable,
-    );
-
-    if !has_world_lifetime {
-        panic!("Expected a struct with a lifetime");
+    if fetch_struct_attributes.is_filter && fetch_struct_attributes.is_mutable {
+        panic!(
+            "The `{}` attribute is not expected to be used in conjunction with the `{}` attribute",
+            FILTER_ATTRIBUTE_NAME, MUTABLE_ATTRIBUTE_NAME
+        );
     }
 
-    let derive_macro_call = if fetch_struct_attributes.derive_args.is_empty() {
-        quote! {}
-    } else {
-        let derive_args = &fetch_struct_attributes.derive_args;
-        quote! { #[derive(#derive_args)] }
-    };
-
-    // Add `'state` and `'fetch` lifetimes that will be used in `Fetch` implementation.
-    let mut fetch_generics = ast.generics.clone();
-    fetch_generics.params.insert(1, state_lifetime);
-    fetch_generics.params.insert(2, fetch_lifetime.clone());
-    let (fetch_impl_generics, _, _) = fetch_generics.split_for_impl();
-
-    // Replace lifetime `'world` with `'fetch`. See `replace_lifetime_for_type` for more details.
-    let mut fetch_generics = ast.generics.clone();
-    *fetch_generics.params.first_mut().unwrap() = fetch_lifetime;
-    let (_, fetch_ty_generics, _) = fetch_generics.split_for_impl();
-
-    let path = bevy_ecs_path();
-
-    let struct_read_only_declaration = if fetch_struct_attributes.mutable {
-        quote! {
-            // TODO: it would be great to be able to dedup this by just deriving `WorldQuery` again
-            //  without the `mutable` attribute, but we'd need a way to avoid creating a redundant
-            //  `State` struct.
-            #derive_macro_call
-            struct #read_only_item_struct_name #impl_generics #where_clause {
-                #(#(#field_attrs)* #field_visibilities #field_idents: <<#query_types as #path::query::WorldQuery>::ReadOnlyFetch as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
-                #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
-            }
-
-            struct #read_only_fetch_struct_name #impl_generics #where_clause {
-                #(#field_idents: <#query_types as #path::query::WorldQuery>::ReadOnlyFetch,)*
-                #(#ignored_field_idents: #ignored_field_types,)*
-            }
-
-            impl #fetch_impl_generics #path::query::Fetch<#fetch_trait_punctuated_lifetimes> for #read_only_fetch_struct_name #fetch_ty_generics #where_clause {
-                type Item = #read_only_item_struct_name #ty_generics;
-                type State = #state_struct_name #fetch_ty_generics;
-
-                unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
-                    #read_only_fetch_struct_name {
-                        #(#field_idents: <#fetch_init_types as #path::query::WorldQuery>::ReadOnlyFetch::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                const IS_DENSE: bool = true #(&& <#query_types as #path::query::WorldQuery>::ReadOnlyFetch::IS_DENSE)*;
-
-                /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
-                #[inline]
-                unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &#path::archetype::Archetype, _tables: &#path::storage::Tables) {
-                    #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
-                }
-
-                /// SAFETY: we call `set_table` for each member that implements `Fetch`
-                #[inline]
-                unsafe fn set_table(&mut self, _state: &Self::State, _table: &#path::storage::Table) {
-                    #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
-                }
-
-                /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
-                    Self::Item {
-                        #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                    Self::Item {
-                        #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-            }
-
-            impl #impl_generics #path::query::WorldQuery for #read_only_item_struct_name #ty_generics #where_clause {
-                type Fetch = #read_only_fetch_struct_name #ty_generics;
-                type State = #state_struct_name #ty_generics;
-                type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
-            }
-        }
-    } else {
-        quote! {
-            // Statically checks that the safety guarantee actually holds true. We need this to make
-            // sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
-            // members that don't implement it.
-            #[allow(dead_code)]
-            const _: () = {
-                fn assert_readonly<T: #path::query::ReadOnlyFetch>() {}
-
-                // We generate a readonly assertion for every struct member.
-                fn assert_all #impl_generics () #where_clause {
-                    #(assert_readonly::<<#query_types as #path::query::WorldQuery>::Fetch>();)*
-                }
-            };
-        }
-    };
-
-    let tokens = TokenStream::from(quote! {
-        #derive_macro_call
-        struct #item_struct_name #impl_generics #where_clause {
-            #(#(#field_attrs)* #field_visibilities #field_idents: <<#query_types as #path::query::WorldQuery>::Fetch as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
-            #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
-        }
-
-        struct #fetch_struct_name #impl_generics #where_clause {
-            #(#field_idents: <#query_types as #path::query::WorldQuery>::Fetch,)*
-            #(#ignored_field_idents: #ignored_field_types,)*
-        }
-
-        struct #state_struct_name #impl_generics #where_clause {
-            #(#field_idents: <#query_types as #path::query::WorldQuery>::State,)*
-            #(#ignored_field_idents: #ignored_field_types,)*
-        }
-
-        impl #fetch_impl_generics #path::query::Fetch<#fetch_trait_punctuated_lifetimes> for #fetch_struct_name #fetch_ty_generics #where_clause {
-            type Item = #item_struct_name #ty_generics;
-            type State = #state_struct_name #fetch_ty_generics;
-
-            unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
-                Self {
-                    #(#field_idents: <#fetch_init_types as #path::query::WorldQuery>::Fetch::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            const IS_DENSE: bool = true #(&& <#query_types as #path::query::WorldQuery>::Fetch::IS_DENSE)*;
-
-            /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
-            #[inline]
-            unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &#path::archetype::Archetype, _tables: &#path::storage::Tables) {
-                #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
-            }
-
-            /// SAFETY: we call `set_table` for each member that implements `Fetch`
-            #[inline]
-            unsafe fn set_table(&mut self, _state: &Self::State, _table: &#path::storage::Table) {
-                #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
-            }
-
-            /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-            #[inline]
-            unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
-                Self::Item {
-                    #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-            #[inline]
-            unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                Self::Item {
-                    #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-        }
-
-        // SAFETY: `update_component_access` and `update_archetype_component_access` are called for each item in the struct
-        unsafe impl #impl_generics #path::query::FetchState for #state_struct_name #ty_generics #where_clause {
-            fn init(world: &mut #path::world::World) -> Self {
-                #state_struct_name {
-                    #(#field_idents: <<#query_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
-                #(self.#field_idents.update_component_access(_access);)*
-            }
-
-            fn update_archetype_component_access(&self, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
-                #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
-            }
-
-            fn matches_archetype(&self, _archetype: &#path::archetype::Archetype) -> bool {
-                true #(&& self.#field_idents.matches_archetype(_archetype))*
-            }
-
-            fn matches_table(&self, _table: &#path::storage::Table) -> bool {
-                true #(&& self.#field_idents.matches_table(_table))*
-            }
-        }
-
-        #struct_read_only_declaration
-
-        impl #impl_generics #path::query::WorldQuery for #struct_name #ty_generics #where_clause {
-            type Fetch = #fetch_struct_name #ty_generics;
-            type State = #state_struct_name #ty_generics;
-            type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
-        }
-
-        /// SAFETY: each item in the struct is read only
-        unsafe impl #impl_generics #path::query::ReadOnlyFetch for #read_only_fetch_struct_name #ty_generics #where_clause {}
-
-        // The original struct will most likely be left unused. As we don't want our users having
-        // to specify `#[allow(dead_code)]` for their custom queries, we are using this cursed
-        // workaround.
-        #[allow(dead_code)]
-        const _: () = {
-            fn dead_code_workaround #impl_generics (q: #struct_name #ty_generics) #where_clause {
-                #(q.#field_idents;)*
-                #(q.#ignored_field_idents;)*
-            }
-        };
-    });
-    tokens
-}
-
-pub fn derive_world_query_filter_impl(ast: DeriveInput) -> TokenStream {
-    let FetchImplTokens {
-        struct_name,
-        item_struct_name: _,
-        read_only_item_struct_name: _,
-        fetch_struct_name,
-        state_struct_name,
-        read_only_fetch_struct_name: _,
-        fetch_trait_punctuated_lifetimes,
-        impl_generics,
-        ty_generics,
-        where_clause,
-        has_world_lifetime,
-        world_lifetime,
-        state_lifetime,
-        fetch_lifetime,
-        ignored_field_attrs: _,
-        ignored_field_visibilities: _,
-        ignored_field_idents,
-        ignored_field_types,
-        field_attrs: _,
-        field_visibilities: _,
-        field_idents,
-        field_types,
-        query_types: _,
-        fetch_init_types: _,
-    } = fetch_impl_tokens(&ast, WORLD_QUERY_ATTRIBUTE_NAME, false);
-
-    if has_world_lifetime {
-        panic!("Expected a struct without a lifetime");
-    }
-
-    // Add `'world`, `'state` and `'fetch` lifetimes that will be used in `Fetch` implementation.
-    let mut fetch_generics = ast.generics.clone();
-    fetch_generics.params.insert(0, world_lifetime);
-    fetch_generics.params.insert(1, state_lifetime);
-    fetch_generics.params.insert(2, fetch_lifetime);
-    let (fetch_impl_generics, _, _) = fetch_generics.split_for_impl();
-
-    let path = bevy_ecs_path();
-
-    let tokens = TokenStream::from(quote! {
-        struct #fetch_struct_name #impl_generics #where_clause {
-            #(#field_idents: <#field_types as #path::query::WorldQuery>::Fetch,)*
-            #(#ignored_field_idents: #ignored_field_types,)*
-        }
-
-        struct #state_struct_name #impl_generics #where_clause {
-            #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
-            #(#ignored_field_idents: #ignored_field_types,)*
-        }
-
-        impl #fetch_impl_generics #path::query::Fetch<#fetch_trait_punctuated_lifetimes> for #fetch_struct_name #ty_generics #where_clause {
-            type Item = bool;
-            type State = #state_struct_name #ty_generics;
-
-            unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
-                #fetch_struct_name {
-                    #(#field_idents: <#field_types as #path::query::WorldQuery>::ReadOnlyFetch::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            const IS_DENSE: bool = true #(&& <#field_types as #path::query::WorldQuery>::ReadOnlyFetch::IS_DENSE)*;
-
-            #[inline]
-            unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &#path::archetype::Archetype, _tables: &#path::storage::Tables) {
-                #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
-            }
-
-            #[inline]
-            unsafe fn set_table(&mut self, _state: &Self::State, _table: &#path::storage::Table) {
-                #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
-            }
-
-            #[inline]
-            unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
-                use #path::query::FilterFetch;
-                true #(&& self.#field_idents.table_filter_fetch(_table_row))*
-            }
-
-            #[inline]
-            unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                use #path::query::FilterFetch;
-                true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
-            }
-        }
-
-        // SAFETY: update_component_access and update_archetype_component_access are called for each item in the struct
-        unsafe impl #impl_generics #path::query::FetchState for #state_struct_name #ty_generics #where_clause {
-            fn init(world: &mut #path::world::World) -> Self {
-                #state_struct_name {
-                    #(#field_idents: <<#field_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
-                #(self.#field_idents.update_component_access(_access);)*
-            }
-
-            fn update_archetype_component_access(&self, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
-                #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
-            }
-
-            fn matches_archetype(&self, _archetype: &#path::archetype::Archetype) -> bool {
-                true #(&& self.#field_idents.matches_archetype(_archetype))*
-            }
-
-            fn matches_table(&self, _table: &#path::storage::Table) -> bool {
-                true #(&& self.#field_idents.matches_table(_table))*
-            }
-        }
-
-        impl #impl_generics #path::query::WorldQuery for #struct_name #ty_generics #where_clause {
-            type Fetch = #fetch_struct_name #ty_generics;
-            type State = #state_struct_name #ty_generics;
-            type ReadOnlyFetch = #fetch_struct_name #ty_generics;
-        }
-
-        /// SAFETY: each item in the struct is read-only as filters never actually fetch any data that could be mutated
-        unsafe impl #impl_generics #path::query::ReadOnlyFetch for #fetch_struct_name #ty_generics #where_clause {}
-    });
-    tokens
-}
-
-// This struct is used to share common tokens between query and filter implementations.
-struct FetchImplTokens<'a> {
-    struct_name: Ident,
-    item_struct_name: Ident,
-    // Equals `item_struct_name` if `has_mutable_attr` is false.
-    read_only_item_struct_name: Ident,
-    fetch_struct_name: Ident,
-    state_struct_name: Ident,
-    read_only_fetch_struct_name: Ident,
-    fetch_trait_punctuated_lifetimes: Punctuated<GenericParam, Token![,]>,
-    impl_generics: ImplGenerics<'a>,
-    ty_generics: TypeGenerics<'a>,
-    where_clause: Option<&'a WhereClause>,
-    has_world_lifetime: bool,
-    world_lifetime: GenericParam,
-    state_lifetime: GenericParam,
-    fetch_lifetime: GenericParam,
-    ignored_field_attrs: Vec<Vec<Attribute>>,
-    ignored_field_visibilities: Vec<Visibility>,
-    ignored_field_idents: Vec<Ident>,
-    ignored_field_types: Vec<Type>,
-    field_attrs: Vec<Vec<Attribute>>,
-    field_visibilities: Vec<Visibility>,
-    field_idents: Vec<Ident>,
-    field_types: Vec<Type>,
-    query_types: Vec<Type>,
-    fetch_init_types: Vec<Type>,
-}
-
-fn fetch_impl_tokens<'a>(
-    ast: &'a DeriveInput,
-    field_attr_name: &'static str,
-    has_mutable_attr: bool,
-) -> FetchImplTokens<'a> {
     let world_lifetime = ast.generics.params.first().and_then(|param| match param {
         lt @ GenericParam::Lifetime(_) => Some(lt.clone()),
         _ => None,
@@ -511,18 +117,20 @@ fn fetch_impl_tokens<'a>(
 
     let struct_name = ast.ident.clone();
     let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
-    let read_only_item_struct_name = if has_mutable_attr {
+    let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site())
     } else {
         item_struct_name.clone()
     };
     let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
     let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
-    let read_only_fetch_struct_name = if has_mutable_attr {
+    let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site())
     } else {
         fetch_struct_name.clone()
     };
+    let fetch_associated_type = Ident::new("Fetch", Span::call_site());
+    let read_only_fetch_associated_type = Ident::new("ReadOnlyFetch", Span::call_site());
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -540,7 +148,6 @@ fn fetch_impl_tokens<'a>(
     let mut field_visibilities = Vec::new();
     let mut field_idents = Vec::new();
     let mut field_types = Vec::new();
-    let mut query_types = Vec::new();
     let mut fetch_init_types = Vec::new();
 
     let (world_lifetime, fetch_lifetime) = match (&world_lifetime_param, &fetch_lifetime_param) {
@@ -549,13 +156,14 @@ fn fetch_impl_tokens<'a>(
         }
         _ => unreachable!(),
     };
+
     for field in fields.iter() {
         let WorldQueryFieldInfo {
-            query_type,
+            field_type,
             fetch_init_type: init_type,
             is_ignored,
             attrs,
-        } = read_world_query_field_info(field, field_attr_name, world_lifetime, fetch_lifetime);
+        } = read_world_query_field_info(field, world_lifetime, fetch_lifetime);
 
         let field_ident = field.ident.as_ref().unwrap().clone();
         if is_ignored {
@@ -567,43 +175,268 @@ fn fetch_impl_tokens<'a>(
             field_attrs.push(attrs);
             field_visibilities.push(field.vis.clone());
             field_idents.push(field_ident.clone());
-            field_types.push(field.ty.clone());
-            query_types.push(query_type);
+            field_types.push(field_type);
             fetch_init_types.push(init_type);
         }
     }
 
-    FetchImplTokens {
-        struct_name,
-        item_struct_name,
-        read_only_item_struct_name,
-        fetch_struct_name,
-        state_struct_name,
-        read_only_fetch_struct_name,
-        fetch_trait_punctuated_lifetimes,
-        impl_generics,
-        ty_generics,
-        where_clause,
-        has_world_lifetime,
-        world_lifetime: world_lifetime_param,
-        state_lifetime: state_lifetime_param,
-        fetch_lifetime: fetch_lifetime_param,
-        ignored_field_attrs,
-        ignored_field_visibilities,
-        ignored_field_idents,
-        ignored_field_types,
-        field_attrs,
-        field_visibilities,
-        field_idents,
-        field_types,
-        query_types,
-        fetch_init_types,
+    if fetch_struct_attributes.is_filter {
+        if has_world_lifetime {
+            panic!("Expected a struct without a lifetime");
+        }
+    } else if !has_world_lifetime {
+        panic!("Expected a struct with a lifetime");
     }
+
+    let derive_macro_call = if fetch_struct_attributes.derive_args.is_empty() {
+        quote! {}
+    } else {
+        let derive_args = &fetch_struct_attributes.derive_args;
+        quote! { #[derive(#derive_args)] }
+    };
+
+    // Add `'state` and `'fetch` lifetimes that will be used in `Fetch` implementation.
+    let mut fetch_generics = ast.generics.clone();
+    if !has_world_lifetime {
+        fetch_generics
+            .params
+            .insert(0, world_lifetime_param.clone());
+    }
+    fetch_generics.params.insert(1, state_lifetime_param);
+    fetch_generics
+        .params
+        .insert(2, fetch_lifetime_param.clone());
+    let (fetch_impl_generics, _, _) = fetch_generics.split_for_impl();
+
+    // Replace lifetime `'world` with `'fetch`. See `replace_lifetime_for_type` for more details.
+    let mut fetch_generics = ast.generics.clone();
+    *fetch_generics.params.first_mut().unwrap() = fetch_lifetime_param;
+
+    let fetch_ty_generics = if fetch_struct_attributes.is_filter {
+        ty_generics.clone()
+    } else {
+        let (_, fetch_ty_generics, _) = fetch_generics.split_for_impl();
+        fetch_ty_generics
+    };
+
+    let path = bevy_ecs_path();
+
+    let impl_fetch = |is_filter: bool,
+                      fetch_associated_type: Ident,
+                      fetch_struct_name: Ident,
+                      item_struct_name: Ident| {
+        if is_filter {
+            quote! {
+                struct #fetch_struct_name #impl_generics #where_clause {
+                    #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
+                    #(#ignored_field_idents: #ignored_field_types,)*
+                }
+
+                impl #fetch_impl_generics #path::query::Fetch<#fetch_trait_punctuated_lifetimes> for #fetch_struct_name #ty_generics #where_clause {
+                    type Item = bool;
+                    type State = #state_struct_name #ty_generics;
+
+                    unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
+                        #fetch_struct_name {
+                            #(#field_idents: <#field_types as #path::query::WorldQuery>::ReadOnlyFetch::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    }
+
+                    const IS_DENSE: bool = true #(&& <#field_types as #path::query::WorldQuery>::ReadOnlyFetch::IS_DENSE)*;
+
+                    #[inline]
+                    unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &#path::archetype::Archetype, _tables: &#path::storage::Tables) {
+                        #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
+                    }
+
+                    #[inline]
+                    unsafe fn set_table(&mut self, _state: &Self::State, _table: &#path::storage::Table) {
+                        #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
+                    }
+
+                    #[inline]
+                    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+                        use #path::query::FilterFetch;
+                        true #(&& self.#field_idents.table_filter_fetch(_table_row))*
+                    }
+
+                    #[inline]
+                    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
+                        use #path::query::FilterFetch;
+                        true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
+                    }
+                }
+            }
+        } else {
+            quote! {
+                #derive_macro_call
+                struct #item_struct_name #impl_generics #where_clause {
+                    #(#(#field_attrs)* #field_visibilities #field_idents: <<#field_types as #path::query::WorldQuery>::#fetch_associated_type as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
+                    #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
+                }
+
+                struct #fetch_struct_name #impl_generics #where_clause {
+                    #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
+                    #(#ignored_field_idents: #ignored_field_types,)*
+                }
+
+                impl #fetch_impl_generics #path::query::Fetch<#fetch_trait_punctuated_lifetimes> for #fetch_struct_name #fetch_ty_generics #where_clause {
+                    type Item = #item_struct_name #ty_generics;
+                    type State = #state_struct_name #fetch_ty_generics;
+
+                    unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
+                        Self {
+                            #(#field_idents: <#fetch_init_types as #path::query::WorldQuery>::#fetch_associated_type::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    }
+
+                    const IS_DENSE: bool = true #(&& <#field_types as #path::query::WorldQuery>::#fetch_associated_type::IS_DENSE)*;
+
+                    /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
+                    #[inline]
+                    unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &#path::archetype::Archetype, _tables: &#path::storage::Tables) {
+                        #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
+                    }
+
+                    /// SAFETY: we call `set_table` for each member that implements `Fetch`
+                    #[inline]
+                    unsafe fn set_table(&mut self, _state: &Self::State, _table: &#path::storage::Table) {
+                        #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
+                    }
+
+                    /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
+                    #[inline]
+                    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+                        Self::Item {
+                            #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    }
+
+                    /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
+                    #[inline]
+                    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
+                        Self::Item {
+                            #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    let fetch_impl = impl_fetch(
+        fetch_struct_attributes.is_filter,
+        fetch_associated_type,
+        fetch_struct_name.clone(),
+        item_struct_name,
+    );
+
+    let state_impl = quote! {
+        struct #state_struct_name #impl_generics #where_clause {
+            #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
+            #(#ignored_field_idents: #ignored_field_types,)*
+        }
+
+        // SAFETY: `update_component_access` and `update_archetype_component_access` are called for each item in the struct
+        unsafe impl #impl_generics #path::query::FetchState for #state_struct_name #ty_generics #where_clause {
+            fn init(world: &mut #path::world::World) -> Self {
+                #state_struct_name {
+                    #(#field_idents: <<#field_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
+                    #(#ignored_field_idents: Default::default(),)*
+                }
+            }
+
+            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
+                #(self.#field_idents.update_component_access(_access);)*
+            }
+
+            fn update_archetype_component_access(&self, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
+                #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
+            }
+
+            fn matches_archetype(&self, _archetype: &#path::archetype::Archetype) -> bool {
+                true #(&& self.#field_idents.matches_archetype(_archetype))*
+            }
+
+            fn matches_table(&self, _table: &#path::storage::Table) -> bool {
+                true #(&& self.#field_idents.matches_table(_table))*
+            }
+        }
+    };
+
+    let read_only_impl = if fetch_struct_attributes.is_filter {
+        quote! {}
+    } else if fetch_struct_attributes.is_mutable {
+        let fetch_impl = impl_fetch(
+            false,
+            read_only_fetch_associated_type,
+            read_only_fetch_struct_name.clone(),
+            read_only_item_struct_name.clone(),
+        );
+
+        quote! {
+            #fetch_impl
+
+            impl #impl_generics #path::query::WorldQuery for #read_only_item_struct_name #ty_generics #where_clause {
+                type Fetch = #read_only_fetch_struct_name #ty_generics;
+                type State = #state_struct_name #ty_generics;
+                type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
+            }
+        }
+    } else {
+        quote! {
+            // Statically checks that the safety guarantee actually holds true. We need this to make
+            // sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
+            // members that don't implement it.
+            #[allow(dead_code)]
+            const _: () = {
+                fn assert_readonly<T: #path::query::ReadOnlyFetch>() {}
+
+                // We generate a readonly assertion for every struct member.
+                fn assert_all #impl_generics () #where_clause {
+                    #(assert_readonly::<<#field_types as #path::query::WorldQuery>::Fetch>();)*
+                }
+            };
+        }
+    };
+
+    let tokens = TokenStream::from(quote! {
+        #fetch_impl
+
+        #state_impl
+
+        #read_only_impl
+
+        impl #impl_generics #path::query::WorldQuery for #struct_name #ty_generics #where_clause {
+            type Fetch = #fetch_struct_name #ty_generics;
+            type State = #state_struct_name #ty_generics;
+            type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
+        }
+
+        /// SAFETY: each item in the struct is read only
+        unsafe impl #impl_generics #path::query::ReadOnlyFetch for #read_only_fetch_struct_name #ty_generics #where_clause {}
+
+        // The original struct will most likely be left unused. As we don't want our users having
+        // to specify `#[allow(dead_code)]` for their custom queries, we are using this cursed
+        // workaround.
+        #[allow(dead_code)]
+        const _: () = {
+            fn dead_code_workaround #impl_generics (q: #struct_name #ty_generics) #where_clause {
+                #(q.#field_idents;)*
+                #(q.#ignored_field_idents;)*
+            }
+        };
+    });
+    tokens
 }
 
 struct WorldQueryFieldInfo {
     /// The original field type.
-    query_type: Type,
+    field_type: Type,
     /// The same as `query_type` but with `'fetch` lifetime.
     fetch_init_type: Type,
     /// Has `#[fetch(ignore)]` or `#[filter_fetch(ignore)]` attribute.
@@ -614,7 +447,6 @@ struct WorldQueryFieldInfo {
 
 fn read_world_query_field_info(
     field: &Field,
-    field_attr_name: &'static str,
     world_lifetime: &Lifetime,
     fetch_lifetime: &Lifetime,
 ) -> WorldQueryFieldInfo {
@@ -624,7 +456,7 @@ fn read_world_query_field_info(
         .find(|attr| {
             attr.path
                 .get_ident()
-                .map_or(false, |ident| ident == field_attr_name)
+                .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
         })
         .map_or(false, |attr| {
             let mut is_ignored = false;
@@ -637,7 +469,9 @@ fn read_world_query_field_info(
                 }
                 Ok(())
             })
-            .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", field_attr_name));
+            .unwrap_or_else(|_| {
+                panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME)
+            });
 
             is_ignored
         });
@@ -649,17 +483,17 @@ fn read_world_query_field_info(
         .filter(|attr| {
             attr.path
                 .get_ident()
-                .map_or(true, |ident| ident != field_attr_name)
+                .map_or(true, |ident| ident != WORLD_QUERY_ATTRIBUTE_NAME)
         })
         .collect();
 
-    let query_type: Type = field.ty.clone();
-    let mut fetch_init_type: Type = query_type.clone();
+    let field_type = field.ty.clone();
+    let mut fetch_init_type: Type = field_type.clone();
 
     replace_lifetime_for_type(&mut fetch_init_type, world_lifetime, fetch_lifetime);
 
     WorldQueryFieldInfo {
-        query_type,
+        field_type,
         fetch_init_type,
         is_ignored,
         attrs,
