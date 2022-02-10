@@ -39,7 +39,7 @@ impl TryFrom<std::fs::FileType> for FileType {
 
 /// Metadata information about a file.
 ///
-/// This structure is returned from the [`AssetIo::get_metadata`] method.
+/// This structure is returned from the [`AssetIo::get_metadata`](crate::AssetIo) method.
 #[derive(Debug, Clone)]
 pub struct Metadata {
     file_type: FileType,
