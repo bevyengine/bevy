@@ -67,6 +67,6 @@ impl Decodable for AudioSource {
     type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
 
     fn decoder(&self) -> Self::Decoder {
-        rodio::Decoder::new(Cursor::new(self.clone())).unwrap()
+        rodio::Decoder::new(Cursor::new(self.clone())).expect("Could not create `Decoder`.")
     }
 }

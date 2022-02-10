@@ -43,7 +43,8 @@ where
 {
     fn play_source(&self, audio_source: &Source) {
         if let Some(stream_handle) = &self.stream_handle {
-            let sink = Sink::try_new(stream_handle).unwrap();
+            let sink =
+                Sink::try_new(stream_handle).expect("Could not create Sink from stream_handle.");
             sink.append(audio_source.decoder());
             sink.detach();
         }
@@ -54,7 +55,9 @@ where
         let len = queue.len();
         let mut i = 0;
         while i < len {
-            let audio_source_handle = queue.pop_back().unwrap();
+            let audio_source_handle = queue
+                .pop_back()
+                .expect("Could not find anything in the queue.");
             if let Some(audio_source) = audio_sources.get(&audio_source_handle) {
                 self.play_source(audio_source);
             } else {
@@ -72,8 +75,12 @@ where
     Source: Decodable,
 {
     let world = world.cell();
-    let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();
-    let mut audio = world.get_resource_mut::<Audio<Source>>().unwrap();
+    let audio_output = world
+        .get_non_send::<AudioOutput<Source>>()
+        .expect("Could not find `AudioOutput` in the `World`.");
+    let mut audio = world
+        .get_resource_mut::<Audio<Source>>()
+        .expect("Could not find `Audio` in the `World`.");
 
     if let Some(audio_sources) = world.get_resource::<Assets<Source>>() {
         audio_output.try_play_queued(&*audio_sources, &mut *audio);
