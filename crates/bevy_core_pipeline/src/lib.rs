@@ -128,7 +128,10 @@ impl Plugin for CorePipelinePlugin {
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app
+            .world
+            .get_resource_mut::<RenderGraph>()
+            .expect("Could not find `RenderGraph` resource in the `World`.");
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
@@ -143,7 +146,7 @@ impl Plugin for CorePipelinePlugin {
                 draw_2d_graph::node::MAIN_PASS,
                 MainPass2dNode::IN_VIEW,
             )
-            .unwrap();
+            .expect("Could not add slot edge to `RenderGraph`.");
         graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
@@ -159,7 +162,7 @@ impl Plugin for CorePipelinePlugin {
                 draw_3d_graph::node::MAIN_PASS,
                 MainPass3dNode::IN_VIEW,
             )
-            .unwrap();
+            .expect("Could not add slot edge to `RenderGraph`.");
         graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
 
         let mut clear_graph = RenderGraph::default();
@@ -170,11 +173,11 @@ impl Plugin for CorePipelinePlugin {
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
         graph
             .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
-            .unwrap();
+            .expect("Could not add node edge to `RenderGraph`.");
         graph.add_node(node::CLEAR_PASS_DRIVER, ClearPassDriverNode);
         graph
             .add_node_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
-            .unwrap();
+            .expect("Could not add node edge to `RenderGraph`.");
     }
 }
 

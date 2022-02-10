@@ -48,7 +48,9 @@ impl Node for ClearPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let mut cleared_windows = HashSet::new();
-        let clear_color = world.get_resource::<ClearColor>().unwrap();
+        let clear_color = world
+            .get_resource::<ClearColor>()
+            .expect("Could not find `ClearColor` resource in the `World`.");
 
         // This gets all ViewTargets and ViewDepthTextures and clears its attachments
         // TODO: This has the potential to clear the same target multiple times, if there
@@ -82,7 +84,9 @@ impl Node for ClearPassNode {
         // TODO: This is a hack to ensure we don't call present() on frames without any work,
         // which will cause panics. The real fix here is to clear "render targets" directly
         // instead of "views". This should be removed once full RenderTargets are implemented.
-        let windows = world.get_resource::<ExtractedWindows>().unwrap();
+        let windows = world
+            .get_resource::<ExtractedWindows>()
+            .expect("Could not find `ExtractedWindows` resource in `World`.");
         for window in windows.values() {
             // skip windows that have already been cleared
             if cleared_windows.contains(&window.id) {
@@ -91,7 +95,10 @@ impl Node for ClearPassNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
                 color_attachments: &[RenderPassColorAttachment {
-                    view: window.swap_chain_texture.as_ref().unwrap(),
+                    view: window
+                        .swap_chain_texture
+                        .as_ref()
+                        .expect("Could not find a `swap_chain_texture` in the window."),
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(clear_color.0.into()),

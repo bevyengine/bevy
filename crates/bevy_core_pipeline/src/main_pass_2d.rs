@@ -55,7 +55,7 @@ impl Node for MainPass2dNode {
 
         let draw_functions = world
             .get_resource::<DrawFunctions<Transparent2d>>()
-            .unwrap();
+            .expect("Could not find `DrawFunctions` resouce in the `World`.");
 
         let render_pass = render_context
             .command_encoder
@@ -64,7 +64,9 @@ impl Node for MainPass2dNode {
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
         for item in transparent_phase.items.iter() {
-            let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+            let draw_function = draw_functions
+                .get_mut(item.draw_function)
+                .expect("Could not get draw function.");
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
         Ok(())
