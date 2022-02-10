@@ -41,8 +41,13 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         attr.parse_args_with(|input: ParseStream| {
             let meta = input.parse_terminated::<syn::Meta, syn::token::Comma>(syn::Meta::parse)?;
             for meta in meta {
-                let ident = meta.path().get_ident();
-                if ident.map_or(false, |ident| ident == MUTABLE_ATTRIBUTE_NAME) {
+                let ident = meta.path().get_ident().unwrap_or_else(|| {
+                    panic!(
+                        "Unrecognized attribute: `{}`",
+                        meta.path().to_token_stream()
+                    )
+                });
+                if ident == MUTABLE_ATTRIBUTE_NAME {
                     if let syn::Meta::Path(_) = meta {
                         fetch_struct_attributes.is_mutable = true;
                     } else {
@@ -51,7 +56,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             MUTABLE_ATTRIBUTE_NAME
                         );
                     }
-                } else if ident.map_or(false, |ident| ident == DERIVE_ATTRIBUTE_NAME) {
+                } else if ident == DERIVE_ATTRIBUTE_NAME {
                     if let syn::Meta::List(meta_list) = meta {
                         fetch_struct_attributes
                             .derive_args
@@ -62,7 +67,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             DERIVE_ATTRIBUTE_NAME
                         );
                     }
-                } else if ident.map_or(false, |ident| ident == FILTER_ATTRIBUTE_NAME) {
+                } else if ident == FILTER_ATTRIBUTE_NAME {
                     if let syn::Meta::Path(_) = meta {
                         fetch_struct_attributes.is_filter = true;
                     } else {
@@ -180,6 +185,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         }
     }
 
+    // We expect that only regular query declarations have a lifetime.
     if fetch_struct_attributes.is_filter {
         if has_world_lifetime {
             panic!("Expected a struct without a lifetime");
@@ -479,12 +485,12 @@ fn read_world_query_field_info(
     let attrs = field
         .attrs
         .iter()
-        .cloned()
         .filter(|attr| {
             attr.path
                 .get_ident()
                 .map_or(true, |ident| ident != WORLD_QUERY_ATTRIBUTE_NAME)
         })
+        .cloned()
         .collect();
 
     let field_type = field.ty.clone();
