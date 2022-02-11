@@ -1275,7 +1275,7 @@ pub mod lifetimeless {
 /// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
 ///
 /// fn check_always_is_system<T: SystemParam + 'static>(){
-///     do_thing_generically::<T>.system();
+///     bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
 /// }
 /// ```
 /// Note that in a real case you'd generally want
@@ -1303,7 +1303,7 @@ pub mod lifetimeless {
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
-/// #    do_thing_generically::<T>.system();
+/// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
 /// # }
 /// ```
 ///
