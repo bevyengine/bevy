@@ -124,7 +124,7 @@ impl FixedTimestep {
             let res_state = fixed_timesteps
                 .fixed_timesteps
                 .get_mut(label)
-                .expect("Could not find fixed_timesteps");
+                .unwrap_or_else(|| panic!("Could not find a FixedTimestep labeled {label}"));
             res_state.step = state.step;
             res_state.accumulator = state.accumulator;
         }
