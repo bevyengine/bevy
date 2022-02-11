@@ -718,10 +718,10 @@ pub fn prepare_lights(
         };
 
         let mut shadow_casting_point_lights: Vec<_> = 
-        point_lights
-        .iter()
-        .filter(|(_, light)| light.shadows_enabled)
-        .collect::<Vec<_>>();
+            point_lights
+            .iter()
+            .filter(|(_, light)| light.shadows_enabled)
+            .collect::<Vec<_>>();
 
         // Sort the point lights with shadows enabled by a stable key so that the index can be used
         // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
