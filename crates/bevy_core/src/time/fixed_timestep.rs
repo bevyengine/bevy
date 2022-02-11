@@ -317,10 +317,7 @@ mod test {
             .expect("Could not find `FixedTimesteps` in the 'World'.")
             .get(LABEL)
             .unwrap_or_else(|| {
-                panic!(
-                    "Could not find a resource of the appropriate label LABEL={}",
-                    LABEL
-                )
+                panic!("Could not find a resource of the appropriate label: {LABEL}",)
             })
             .accumulator
             .mul(10.)

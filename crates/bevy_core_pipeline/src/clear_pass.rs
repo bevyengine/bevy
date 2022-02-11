@@ -98,7 +98,7 @@ impl Node for ClearPassNode {
                     view: window
                         .swap_chain_texture
                         .as_ref()
-                        .expect("Could not find a `swap_chain_texture` in the window."),
+                        .expect("Window has dropped the swap chain frame."),
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(clear_color.0.into()),

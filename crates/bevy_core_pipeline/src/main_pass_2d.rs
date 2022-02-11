@@ -55,7 +55,7 @@ impl Node for MainPass2dNode {
 
         let draw_functions = world
             .get_resource::<DrawFunctions<Transparent2d>>()
-            .expect("Could not find `DrawFunctions` resouce in the `World`.");
+            .expect("Could not find `DrawFunctions` resource in the `World`.");
 
         let render_pass = render_context
             .command_encoder

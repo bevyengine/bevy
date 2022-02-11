@@ -16,7 +16,7 @@ impl Node for MainPassDriverNode {
     ) -> Result<(), NodeRunError> {
         let extracted_cameras = world
             .get_resource::<ExtractedCameraNames>()
-            .expect("Could not get `ExtractedCameraNames` resouce from the `World`.");
+            .expect("Could not get `ExtractedCameraNames` resource from the `World`.");
         if let Some(camera_2d) = extracted_cameras.entities.get(CameraPlugin::CAMERA_2D) {
             graph.run_sub_graph(
                 crate::draw_2d_graph::NAME,
