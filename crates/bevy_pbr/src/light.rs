@@ -14,7 +14,7 @@ use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z,
+    CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z, MAX_POINT_LIGHTS,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -487,6 +487,20 @@ pub fn assign_lights_to_clusters(
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
     lights: Query<(Entity, &GlobalTransform, &PointLight)>,
 ) {
+    let mut lights = lights.iter().collect::<Vec<_>>();
+
+    // select at most MAX_POINT_LIGHT lights, ordered by shadow casters first, then by intensity, and finally by entity to remain stable.
+    if lights.len() > MAX_POINT_LIGHTS {
+        lights.sort_by(|(entity_1, _, light_1), (entity_2, _, light_2)| {
+            light_1
+                .shadows_enabled
+                .cmp(&light_2.shadows_enabled)
+                .reverse()
+                .then_with(|| light_2.intensity.partial_cmp(&light_1.intensity).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| entity_1.cmp(entity_2))
+        });
+    }
+
     let light_count = lights.iter().count();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, mut clusters) in views.iter_mut() {
@@ -506,7 +520,7 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
-        for (light_entity, light_transform, light) in lights.iter() {
+        for &(light_entity, light_transform, light) in lights.iter().take(MAX_POINT_LIGHTS) {
             let light_sphere = Sphere {
                 center: light_transform.translation,
                 radius: light.range,
