@@ -10,6 +10,7 @@ use bevy_render::{
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
 use crate::{
@@ -521,11 +522,8 @@ pub fn assign_lights_to_clusters(
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
         let mut point_lights_taken = 0;
+        let mut point_lights_full = false;
         for &(light_entity, light_transform, light) in lights.iter() {
-            if point_lights_taken >= MAX_POINT_LIGHTS {
-                continue;
-            }
-
             let light_sphere = Sphere {
                 center: light_transform.translation,
                 radius: light.range,
@@ -537,6 +535,14 @@ pub fn assign_lights_to_clusters(
             }
 
             // now we know this light affects our view, increment the count of lights we have taken
+            if point_lights_taken >= MAX_POINT_LIGHTS {
+                if !point_lights_full {
+                    warn!("MAX_POINT_LIGHTS exceeded");
+                    point_lights_full = true;
+                }
+                continue;
+            }
+
             point_lights_taken += 1;
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max

@@ -979,9 +979,6 @@ impl ViewClusterBindings {
             warn!("cluster offset and count out of bounds!");
             return;
         }
-        if count > CLUSTER_COUNT_MASK as usize {
-            warn!("point light count for cluster > cluster count mask")
-        }
         let component = self.n_offsets & ((1 << 2) - 1);
         let packed = pack_offset_and_count(offset, count.min(CLUSTER_COUNT_MASK as usize));
 
