@@ -520,7 +520,12 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
-        for &(light_entity, light_transform, light) in lights.iter().take(MAX_POINT_LIGHTS) {
+        let mut point_lights_taken = 0;
+        for &(light_entity, light_transform, light) in lights.iter() {
+            if point_lights_taken >= MAX_POINT_LIGHTS {
+                continue;
+            }
+
             let light_sphere = Sphere {
                 center: light_transform.translation,
                 radius: light.range,
@@ -530,6 +535,9 @@ pub fn assign_lights_to_clusters(
             if !frustum.intersects_sphere(&light_sphere) {
                 continue;
             }
+
+            // now we know this light affects our view, increment the count of lights we have taken
+            point_lights_taken += 1;
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
@@ -602,6 +610,7 @@ pub fn assign_lights_to_clusters(
             );
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
+                
             for y in min_cluster.y..=max_cluster.y {
                 for x in min_cluster.x..=max_cluster.x {
                     for z in min_cluster.z..=max_cluster.z {
