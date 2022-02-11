@@ -44,7 +44,7 @@ impl Plugin for ImagePlugin {
         }
 
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
-            PrepareAssetLabel::PreAssetExtract,
+            PrepareAssetLabel::PreAssetPrepare,
         ))
         .add_asset::<Image>();
         app.world

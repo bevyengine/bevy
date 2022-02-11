@@ -41,14 +41,14 @@ pub trait RenderAsset: Asset {
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub enum PrepareAssetLabel {
-    PreAssetExtract,
-    AssetExtract,
-    PostAssetExtract,
+    PreAssetPrepare,
+    AssetPrepare,
+    PostAssetPrepare,
 }
 
 impl Default for PrepareAssetLabel {
     fn default() -> Self {
-        Self::AssetExtract
+        Self::AssetPrepare
     }
 }
 
@@ -87,12 +87,12 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .label(self.prepare_asset_label.clone());
 
             let prepare_asset_system = match self.prepare_asset_label {
-                PrepareAssetLabel::PreAssetExtract => prepare_asset_system,
-                PrepareAssetLabel::AssetExtract => {
-                    prepare_asset_system.after(PrepareAssetLabel::PreAssetExtract)
+                PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
+                PrepareAssetLabel::AssetPrepare => {
+                    prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
                 }
-                PrepareAssetLabel::PostAssetExtract => {
-                    prepare_asset_system.after(PrepareAssetLabel::AssetExtract)
+                PrepareAssetLabel::PostAssetPrepare => {
+                    prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
                 }
             };
 
