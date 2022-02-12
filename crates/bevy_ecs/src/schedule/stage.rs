@@ -947,8 +947,8 @@ mod tests {
         query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
+            SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,
@@ -1519,8 +1519,7 @@ mod tests {
             ))
             .with_system(
                 make_parallel(3).label("3").after("2").with_run_criteria(
-                    "every other time"
-                        .pipe(IntoSystem::into_system(eot_piped))
+                    RunCriteria::pipe("every other time", IntoSystem::into_system(eot_piped))
                         .label("piped"),
                 ),
             )

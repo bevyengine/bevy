@@ -240,12 +240,6 @@ where
     }
 }
 
-impl IntoRunCriteria<BoxedRunCriteriaLabel> for BoxedRunCriteriaLabel {
-    fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Label(self)
-    }
-}
-
 impl<L> IntoRunCriteria<BoxedRunCriteriaLabel> for L
 where
     L: RunCriteriaLabel,
@@ -357,44 +351,16 @@ pub struct RunCriteria {
 impl RunCriteria {
     /// Constructs a new run criteria that will retrieve the result of the criteria `label`
     /// and pipe it as input to `system`.
-    pub fn pipe(
+    pub fn pipe<P>(
         label: impl RunCriteriaLabel,
-        system: impl System<In = ShouldRun, Out = ShouldRun>,
+        system: impl IntoSystem<ShouldRun, ShouldRun, P>,
     ) -> RunCriteriaDescriptor {
-        label.pipe(system)
-    }
-}
-
-pub trait RunCriteriaPiping {
-    /// See [`RunCriteria::pipe()`].
-    // TODO: Support `IntoSystem` here instead, and stop using
-    // `IntoSystem::into_system` in the call sites
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
-}
-
-impl RunCriteriaPiping for BoxedRunCriteriaLabel {
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Piped(Box::new(system)),
+            system: RunCriteriaSystem::Piped(Box::new(IntoSystem::into_system(system))),
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
-            after: vec![self],
-        }
-    }
-}
-
-impl<L> RunCriteriaPiping for L
-where
-    L: RunCriteriaLabel,
-{
-    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Piped(Box::new(system)),
-            label: None,
-            duplicate_label_strategy: DuplicateLabelStrategy::Panic,
-            before: vec![],
-            after: vec![Box::new(self)],
+            after: vec![Box::new(label)],
         }
     }
 }
