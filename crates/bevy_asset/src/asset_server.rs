@@ -93,15 +93,19 @@ impl AssetServer {
     }
 
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
-        let mut asset_lifecycles = self.server.asset_lifecycles.write();
-        if asset_lifecycles.contains_key(&T::TYPE_UUID) {
+        if self
+            .server
+            .asset_lifecycles
+            .write()
+            .insert(
+                T::TYPE_UUID,
+                Box::new(AssetLifecycleChannel::<T>::default()),
+            )
+            .is_some()
+        {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
                 std::any::type_name::<T>(), T::TYPE_UUID);
         }
-        asset_lifecycles.insert(
-            T::TYPE_UUID,
-            Box::new(AssetLifecycleChannel::<T>::default()),
-        );
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
