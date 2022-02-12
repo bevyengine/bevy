@@ -97,11 +97,5 @@ macro_rules! define_label {
                 Box::new(<&str>::clone(self))
             }
         }
-
-        impl $label_trait_name for Box<dyn $label_trait_name> {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                (&*self).dyn_clone()
-            }
-        }
     };
 }
