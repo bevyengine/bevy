@@ -143,6 +143,20 @@ pub fn ktx2_buffer_to_image(
                     }
                     texture_format
                 }
+                // ETC1S is a subset of ETC1 which is a subset of ETC2
+                // TODO: Implement transcoding
+                TranscodeFormat::Etc1s => {
+                    let texture_format = if is_srgb {
+                        TextureFormat::Etc2Rgb8UnormSrgb
+                    } else {
+                        TextureFormat::Etc2Rgb8Unorm
+                    };
+                    if !supported_compressed_formats.supports(texture_format) {
+                        return Err(error);
+                    }
+                    transcoded = levels.to_vec();
+                    texture_format
+                }
                 _ => return Err(error),
             };
             levels = transcoded;
@@ -972,11 +986,13 @@ pub fn ktx2_dfd_to_texture_format(
                 TextureFormat::Bc7RgbaUnorm
             }
         }
-        // FIXME: Is ETC1 a subset of ETC2?
+        // ETC1 a subset of ETC2 only supporting Rgb8
         Some(ColorModel::ETC1) => {
-            return Err(TextureError::UnsupportedTextureFormat(
-                "ETC1 is not supported".to_string(),
-            ));
+            if is_srgb {
+                TextureFormat::Etc2Rgb8UnormSrgb
+            } else {
+                TextureFormat::Etc2Rgb8Unorm
+            }
         }
         Some(ColorModel::ETC2) => match sample_information.len() {
             1 => {
