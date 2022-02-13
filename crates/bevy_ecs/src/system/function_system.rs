@@ -182,6 +182,7 @@ pub trait RunSystem: Send + Sync + 'static {
     /// Creates a concrete instance of the system for the specified `World`.
     fn system(world: &mut World) -> ParamSystem<Self::Param> {
         ParamSystem {
+            name: std::any::type_name::<Self>(),
             run: Self::run,
             state: SystemState::new(world),
         }
@@ -189,6 +190,7 @@ pub trait RunSystem: Send + Sync + 'static {
 }
 
 pub struct ParamSystem<P: SystemParam> {
+    name: &'static str,
     state: SystemState<P>,
     run: fn(SystemParamItem<P>),
 }
@@ -199,7 +201,7 @@ impl<P: SystemParam + 'static> System for ParamSystem<P> {
     type Out = ();
 
     fn name(&self) -> Cow<'static, str> {
-        self.state.meta().name.clone()
+        Cow::Borrowed(self.name)
     }
 
     fn new_archetype(&mut self, archetype: &Archetype) {
