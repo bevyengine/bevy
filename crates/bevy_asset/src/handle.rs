@@ -438,6 +438,12 @@ impl CloneWeak for HandleUntyped {
     }
 }
 
+impl<H: CloneWeak> CloneWeak for Option<H> {
+    fn clone_weak(&self) -> Self {
+        self.as_ref().map(|h| h.clone_weak())
+    }
+}
+
 impl<H: CloneWeak> CloneWeak for Vec<H> {
     fn clone_weak(&self) -> Self {
         self.iter().map(|h| h.clone_weak()).collect()
