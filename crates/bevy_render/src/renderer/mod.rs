@@ -6,7 +6,7 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    options::{WgpuOptions, WgpuOptionsPriority},
+    options::{WgpuSettings, WgpuSettingsPriority},
     render_graph::RenderGraph,
     view::{ExtractedWindows, ViewTarget},
 };
@@ -65,7 +65,7 @@ pub type RenderInstance = Instance;
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
-    options: &WgpuOptions,
+    options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
 ) -> (RenderDevice, RenderQueue, AdapterInfo) {
     let adapter = instance
@@ -89,7 +89,7 @@ pub async fn initialize_renderer(
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuOptionsPriority::Functionality) {
+    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for

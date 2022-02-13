@@ -110,7 +110,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         let options = app
             .world
-            .get_resource::<options::WgpuOptions>()
+            .get_resource::<options::WgpuSettings>()
             .cloned()
             .unwrap_or_default();
 
