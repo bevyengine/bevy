@@ -20,10 +20,7 @@ pub fn basis_buffer_to_image(
         return Err(TextureError::InvalidData("Invalid header".to_string()));
     }
 
-    assert_eq!(transcoder.image_count(buffer), 1);
-    let image_index = 0;
-
-    let image_info = if let Some(image_info) = transcoder.image_info(buffer, image_index) {
+    let image0_info = if let Some(image_info) = transcoder.image_info(buffer, 0) {
         image_info
     } else {
         return Err(TextureError::InvalidData(
@@ -49,45 +46,83 @@ pub fn basis_buffer_to_image(
         ))
     })?;
     let mut transcoded = Vec::new();
-    let mip_level_count = transcoder.image_level_count(buffer, image_index);
-    for level_index in 0..mip_level_count {
-        let mut data = transcoder
-            .transcode_image_level(
-                buffer,
-                transcode_format,
-                TranscodeParameters {
+
+    let image_count = transcoder.image_count(buffer);
+    let texture_type = transcoder.basis_texture_type(buffer);
+    if texture_type == BasisTextureType::TextureTypeCubemapArray && image_count % 6 != 0 {
+        return Err(TextureError::InvalidData(format!(
+            "Basis file with cube map array texture with non-modulo 6 number of images: {}",
+            image_count,
+        )));
+    }
+
+    let image0_mip_level_count = transcoder.image_level_count(buffer, 0);
+    for image_index in 0..image_count {
+        if let Some(image_info) = transcoder.image_info(buffer, image_index) {
+            if texture_type == BasisTextureType::TextureType2D
+                && (image_info.m_orig_width != image0_info.m_orig_width
+                    || image_info.m_orig_height != image0_info.m_orig_height)
+            {
+                return Err(TextureError::UnsupportedTextureFormat(format!(
+                    "Basis file with multiple 2D textures with different sizes not supported. Image {} {}x{}, image 0 {}x{}",
                     image_index,
-                    level_index,
-                    decode_flags: Some(DecodeFlags::HIGH_QUALITY),
-                    ..Default::default()
-                },
-            )
-            .map_err(|error| {
-                TextureError::TranscodeError(format!(
-                    "Failed to transcode mip level {} from {:?} to {:?}: {:?}",
-                    level_index, basis_texture_format, transcode_format, error
-                ))
-            })?;
-        transcoded.append(&mut data);
+                    image_info.m_orig_width,
+                    image_info.m_orig_height,
+                    image0_info.m_orig_width,
+                    image0_info.m_orig_height,
+                )));
+            }
+        }
+        let mip_level_count = transcoder.image_level_count(buffer, image_index);
+        if mip_level_count != image0_mip_level_count {
+            return Err(TextureError::InvalidData(format!(
+                "Array or volume texture has inconsistent number of mip levels. Image {} has {} but image 0 has {}",
+                image_index,
+                mip_level_count,
+                image0_mip_level_count,
+            )));
+        }
+        for level_index in 0..mip_level_count {
+            let mut data = transcoder
+                .transcode_image_level(
+                    buffer,
+                    transcode_format,
+                    TranscodeParameters {
+                        image_index,
+                        level_index,
+                        decode_flags: Some(DecodeFlags::HIGH_QUALITY),
+                        ..Default::default()
+                    },
+                )
+                .map_err(|error| {
+                    TextureError::TranscodeError(format!(
+                        "Failed to transcode mip level {} from {:?} to {:?}: {:?}",
+                        level_index, basis_texture_format, transcode_format, error
+                    ))
+                })?;
+            transcoded.append(&mut data);
+        }
     }
 
     // Then prepare the Image
     let mut image = Image::default();
     image.texture_descriptor.size = Extent3d {
-        width: image_info.m_orig_width,
-        height: image_info.m_orig_height,
-        // FIXME: Support 3D and array textures
-        depth_or_array_layers: 1,
+        width: image0_info.m_orig_width,
+        height: image0_info.m_orig_height,
+        depth_or_array_layers: image_count,
     };
-    image.texture_descriptor.mip_level_count = mip_level_count;
+    image.texture_descriptor.mip_level_count = image0_mip_level_count;
     image.texture_descriptor.format = texture_format;
-    image.texture_descriptor.dimension = match transcoder.basis_texture_type(buffer) {
+    image.texture_descriptor.dimension = match texture_type {
         BasisTextureType::TextureType2D => TextureDimension::D2,
+        BasisTextureType::TextureType2DArray => TextureDimension::D2,
+        BasisTextureType::TextureTypeCubemapArray => TextureDimension::D2,
+        BasisTextureType::TextureTypeVolume => TextureDimension::D3,
         basis_texture_type => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
                 basis_texture_type
-            )));
+            )))
         }
     };
     image.data = transcoded;
