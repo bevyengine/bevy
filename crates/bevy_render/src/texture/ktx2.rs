@@ -20,7 +20,9 @@ pub fn ktx2_buffer_to_image(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
-    let ktx2 = ktx2::Reader::new(buffer).expect("Can't create reader");
+    let ktx2 = ktx2::Reader::new(buffer).map_err(|err| {
+        TextureError::InvalidData(format!("Failed to parse ktx2 file: {:?}", err))
+    })?;
     let Header {
         pixel_width: width,
         pixel_height: height,
