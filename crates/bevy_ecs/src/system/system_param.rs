@@ -518,9 +518,7 @@ impl<'w, 's> SystemParam for &'w World {
 }
 
 unsafe impl<'w, 's> SystemParamState for WorldState {
-    type Config = ();
-
-    fn init(_world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let mut access = Access::default();
         access.read_all();
         if !system_meta
@@ -545,8 +543,6 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
 
         WorldState
     }
-
-    fn default_config() -> Self::Config {}
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
@@ -593,16 +589,16 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
 /// struct Myu32Wrapper(u32);
-/// fn reset_to(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
 /// // .add_system(reset_to(my_config))
-/// # reset_to(Config(10)).system();
+/// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-
 pub struct Local<'a, T: Resource>(&'a mut T);
 
 // SAFE: Local only accesses internal state
