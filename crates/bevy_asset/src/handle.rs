@@ -9,7 +9,7 @@ use crate::{
     path::{AssetPath, AssetPathId},
     Asset, Assets,
 };
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{all_tuples, component::Component, reflect::ReflectComponent};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
@@ -421,3 +421,40 @@ impl Default for RefChangeChannel {
         RefChangeChannel { sender, receiver }
     }
 }
+
+pub trait CloneWeak {
+    fn clone_weak(&self) -> Self;
+}
+
+impl<T: Asset> CloneWeak for Handle<T> {
+    fn clone_weak(&self) -> Self {
+        self.clone_weak()
+    }
+}
+
+impl CloneWeak for HandleUntyped {
+    fn clone_weak(&self) -> Self {
+        self.clone_weak()
+    }
+}
+
+impl<H: CloneWeak> CloneWeak for Vec<H> {
+    fn clone_weak(&self) -> Self {
+        self.iter().map(|h| h.clone_weak()).collect()
+    }
+}
+
+macro_rules! impl_tuple_handle_clone_weak {
+    ($($name: ident),*) => {
+        impl<$($name: CloneWeak,)*>  CloneWeak for ($($name,)*) {
+            #[allow(clippy::unused_unit)]
+            fn clone_weak(&self) -> Self {
+                #[allow(non_snake_case)]
+                let ($($name,)*) = self;
+                ($($name.clone_weak(),)*)
+            }
+        }
+    }
+}
+
+all_tuples!(impl_tuple_handle_clone_weak, 0, 15, H);
