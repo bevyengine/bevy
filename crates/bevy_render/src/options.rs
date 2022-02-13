@@ -15,8 +15,16 @@ pub struct WgpuOptions {
     pub backends: Option<Backends>,
     pub power_preference: PowerPreference,
     pub priority: WgpuOptionsPriority,
+    /// The enabled features. Setting features will require them to be enabled when initializing
+    /// the renderer.
     pub features: WgpuFeatures,
+    /// The features to ensure are disabled regardless of what the adapter/backend supports
+    pub disabled_features: Option<WgpuFeatures>,
+    /// The imposed limits. Updated based on adapter/backend limits when initializing the renderer
+    /// if using WgpuOptionsPriority::Functionality
     pub limits: WgpuLimits,
+    /// The constraints on limits allowed regardless of what the adapter/backend supports
+    pub constrained_limits: Option<WgpuLimits>,
 }
 
 impl Default for WgpuOptions {
@@ -50,7 +58,9 @@ impl Default for WgpuOptions {
             power_preference: PowerPreference::HighPerformance,
             priority,
             features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+            disabled_features: None,
             limits,
+            constrained_limits: None,
         }
     }
 }
