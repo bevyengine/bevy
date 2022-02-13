@@ -11,10 +11,12 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec2, Vec2};
+use bevy_math::{const_vec2, Vec2, Vec3};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
+    prelude::ComputedVisibility,
+    primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
@@ -23,7 +25,7 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{Msaa, NoFrustumCulling, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -178,6 +180,26 @@ impl SpecializedPipeline for SpritePipeline {
     }
 }
 
+pub fn calculate_bounds(
+    mut commands: Commands,
+    images: Res<Assets<Image>>,
+    without_aabb: Query<
+        (Entity, &Sprite, &Handle<Image>),
+        (Without<Aabb>, Without<NoFrustumCulling>),
+    >,
+) {
+    for (entity, sprite, texture_handle) in without_aabb.iter() {
+        if let Some(image) = images.get(texture_handle) {
+            let size = sprite.custom_size.unwrap_or_else(|| image.size());
+            let aabb = Aabb {
+                center: Vec3::ZERO,
+                half_extents: size.extend(0.0) * 0.5,
+            };
+            commands.entity(entity).insert(aabb);
+        }
+    }
+}
+
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
     pub transform: GlobalTransform,
@@ -232,7 +254,12 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
+    sprite_query: Query<(
+        &ComputedVisibility,
+        &Sprite,
+        &GlobalTransform,
+        &Handle<Image>,
+    )>,
     atlas_query: Query<(
         &Visibility,
         &TextureAtlasSprite,
@@ -242,8 +269,8 @@ pub fn extract_sprites(
 ) {
     let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible {
+    for (computed_visibility, sprite, transform, handle) in sprite_query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
