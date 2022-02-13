@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::options::WgpuSettings};
+use bevy::{prelude::*, render::settings::WgpuSettings};
 
 fn main() {
     App::new()

@@ -6,8 +6,8 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    options::{WgpuSettings, WgpuSettingsPriority},
     render_graph::RenderGraph,
+    settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;

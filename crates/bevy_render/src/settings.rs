@@ -38,7 +38,8 @@ impl Default for WgpuSettings {
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
-        let limits = if cfg!(feature = "webgl") || matches!(priority, WgpuSettingsPriority::WebGL2) {
+        let limits = if cfg!(feature = "webgl") || matches!(priority, WgpuSettingsPriority::WebGL2)
+        {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
             #[allow(unused_mut)]

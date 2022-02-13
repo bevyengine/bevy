@@ -1,7 +1,6 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
-pub mod options;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
@@ -9,6 +8,7 @@ pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
+pub mod settings;
 pub mod texture;
 pub mod view;
 
@@ -110,7 +110,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         let options = app
             .world
-            .get_resource::<options::WgpuSettings>()
+            .get_resource::<settings::WgpuSettings>()
             .cloned()
             .unwrap_or_default();
 
