@@ -24,7 +24,7 @@ bevy_scene = { path = "../bevy_scene", version = "0.6.0" }
 bevy_log = { path = "../bevy_log", version = "0.6.0" }
 
 # other
-gltf = { version = "0.16.0", default-features = false, features = [
+gltf = { version = "1.0.0", default-features = false, features = [
     "KHR_lights_punctual",
     "KHR_materials_unlit",
     "names",

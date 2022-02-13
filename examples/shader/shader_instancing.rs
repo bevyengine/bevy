@@ -239,7 +239,6 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,
@@ -250,7 +249,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
                 pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
             }
             GpuBufferInfo::NonIndexed { vertex_count } => {
-                pass.draw_indexed(0..*vertex_count, 0, 0..instance_buffer.length as u32);
+                pass.draw(0..*vertex_count, 0..instance_buffer.length as u32);
             }
         }
         RenderCommandResult::Success

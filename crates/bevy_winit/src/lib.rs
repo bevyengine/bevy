@@ -94,7 +94,7 @@ fn change_window(world: &mut World) {
                             .to_physical::<f64>(scale_factor),
                     );
                 }
-                bevy_window::WindowCommand::SetVsync { .. } => (),
+                bevy_window::WindowCommand::SetPresentMode { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_resizable(resizable);
@@ -188,7 +188,7 @@ where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
     use winit::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(event_handler)
+    event_loop.run_return(event_handler);
 }
 
 #[cfg(not(any(
@@ -223,10 +223,14 @@ pub fn winit_runner(app: App) {
 // }
 
 pub fn winit_runner_with(mut app: App) {
-    let mut event_loop = app.world.remove_non_send::<EventLoop<()>>().unwrap();
+    let mut event_loop = app
+        .world
+        .remove_non_send_resource::<EventLoop<()>>()
+        .unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-    app.world.insert_non_send(event_loop.create_proxy());
+    app.world
+        .insert_non_send_resource(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 

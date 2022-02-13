@@ -249,15 +249,35 @@ impl<P: SystemParam + 'static> System for ParamSystem<P> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = my_system_function.system();
+/// let system = IntoSystem::system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params> {
+pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    fn system(self) -> Self::System;
+    ///
+    /// Use of this method was formerly required whenever adding a `system` to an `App`.
+    /// or other cases where a system is required.
+    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
+    /// this is no longer required.
+    ///
+    /// In future, this method will be removed.
+    ///
+    /// One use of this method is to assert that a given function is a valid system.
+    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
+    ///
+    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
+    #[deprecated(
+        since = "0.7.0",
+        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
+    )]
+    fn system(self) -> Self::System {
+        IntoSystem::into_system(self)
+    }
+    /// Turns this value into its corresponding [`System`].
+    fn into_system(this: Self) -> Self::System;
 }
 
 pub struct AlreadyWasSystem;
@@ -265,8 +285,8 @@ pub struct AlreadyWasSystem;
 // Systems implicitly implement IntoSystem
 impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
     type System = Sys;
-    fn system(self) -> Sys {
-        self
+    fn into_system(this: Self) -> Sys {
+        this
     }
 }
 
@@ -285,7 +305,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// use bevy_ecs::prelude::*;
 ///
 /// fn main() {
-///     let mut square_system = square.system();
+///     let mut square_system = IntoSystem::into_system(square);
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
@@ -373,7 +393,7 @@ where
         self,
         f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
     ) -> Self::System {
-        self.system().config(f)
+        IntoSystem::into_system(self).config(f)
     }
 }
 
@@ -388,9 +408,9 @@ where
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
     type System = FunctionSystem<In, Out, Param, Marker, F>;
-    fn system(self) -> Self::System {
+    fn into_system(func: Self) -> Self::System {
         FunctionSystem {
-            func: self,
+            func,
             param_state: None,
             config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_meta: SystemMeta::new::<F>(),

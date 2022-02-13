@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PresentMode};
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -7,7 +7,7 @@ fn main() {
             title: "I am a window!".to_string(),
             width: 500.,
             height: 300.,
-            vsync: true,
+            present_mode: PresentMode::Fifo,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)

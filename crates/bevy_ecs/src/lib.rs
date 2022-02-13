@@ -26,7 +26,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
@@ -1130,18 +1130,12 @@ mod tests {
     #[test]
     fn remove_bundle() {
         let mut world = World::default();
-        world
-            .spawn()
-            .insert_bundle((A(1), B(1), TableStored("1")))
-            .id();
+        world.spawn().insert_bundle((A(1), B(1), TableStored("1")));
         let e2 = world
             .spawn()
             .insert_bundle((A(2), B(2), TableStored("2")))
             .id();
-        world
-            .spawn()
-            .insert_bundle((A(3), B(3), TableStored("3")))
-            .id();
+        world.spawn().insert_bundle((A(3), B(3), TableStored("3")));
 
         let mut query = world.query::<(&B, &TableStored)>();
         let results = query
@@ -1187,8 +1181,8 @@ mod tests {
     #[test]
     fn non_send_resource() {
         let mut world = World::default();
-        world.insert_non_send(123i32);
-        world.insert_non_send(456i64);
+        world.insert_non_send_resource(123i32);
+        world.insert_non_send_resource(456i64);
         assert_eq!(*world.get_non_send_resource::<i32>().unwrap(), 123);
         assert_eq!(*world.get_non_send_resource_mut::<i64>().unwrap(), 456);
     }
@@ -1197,7 +1191,7 @@ mod tests {
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
-        world.insert_non_send(0i32);
+        world.insert_non_send_resource(0i32);
         std::thread::spawn(move || {
             let _ = world.get_non_send_resource_mut::<i32>();
         })

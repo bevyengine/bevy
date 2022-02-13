@@ -312,7 +312,7 @@ impl SystemStage {
         mut self,
         system: S,
     ) -> Self {
-        self.set_run_criteria(system.system());
+        self.set_run_criteria(system);
         self
     }
 
@@ -320,7 +320,8 @@ impl SystemStage {
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.stage_run_criteria.set(Box::new(system.system()));
+        self.stage_run_criteria
+            .set(Box::new(IntoSystem::into_system(system)));
         self
     }
 
@@ -1513,17 +1514,15 @@ mod tests {
                     .after("0")
                     .with_run_criteria(every_other_time.label("every other time")),
             )
+            .with_system(make_parallel(2).label("2").after("1").with_run_criteria(
+                RunCriteria::pipe("every other time", IntoSystem::into_system(eot_piped)),
+            ))
             .with_system(
-                make_parallel(2)
-                    .label("2")
-                    .after("1")
-                    .with_run_criteria(RunCriteria::pipe("every other time", eot_piped.system())),
-            )
-            .with_system(
-                make_parallel(3)
-                    .label("3")
-                    .after("2")
-                    .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
+                make_parallel(3).label("3").after("2").with_run_criteria(
+                    "every other time"
+                        .pipe(IntoSystem::into_system(eot_piped))
+                        .label("piped"),
+                ),
             )
             .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
         for _ in 0..4 {

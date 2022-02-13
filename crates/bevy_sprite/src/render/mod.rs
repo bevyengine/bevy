@@ -601,7 +601,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
-            1,
+            I,
             image_bind_groups
                 .values
                 .get(&Handle::weak(sprite_batch.image_handle_id))

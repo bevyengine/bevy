@@ -110,8 +110,8 @@ pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<String>,
-    /// The name of the entry point in the compiled shader. There must be a function that returns
-    /// void with this name in the shader.
+    /// The name of the entry point in the compiled shader. There must be a
+    /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
@@ -134,8 +134,8 @@ pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<String>,
-    /// The name of the entry point in the compiled shader. There must be a function that returns
-    /// void with this name in the shader.
+    /// The name of the entry point in the compiled shader. There must be a
+    /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
     /// The color state of the render targets.
     pub targets: Vec<ColorTargetState>,

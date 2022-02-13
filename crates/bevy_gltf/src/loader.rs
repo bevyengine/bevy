@@ -26,7 +26,8 @@ use bevy_render::{
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::{GlobalTransform, Transform},
+    prelude::Transform,
+    TransformBundle,
 };
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -289,7 +290,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
+            .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -462,10 +463,9 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle((
-        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::identity(),
-    ));
+    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+        Mat4::from_cols_array_2d(&transform.matrix()),
+    )));
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
