@@ -88,7 +88,7 @@ use std::{
 ///     }
 /// }
 ///
-/// # my_system.system();
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// ## Mutable queries
@@ -141,7 +141,8 @@ use std::{
 ///         println!("Total (mut): {}", health.total());
 ///     }
 /// }
-/// # my_system.system();
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
@@ -236,7 +237,7 @@ use std::{
 ///     }
 /// }
 ///
-/// # my_system.system();
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// ## Ignored fields
@@ -260,7 +261,7 @@ use std::{
 ///     for _ in query.iter() {}
 /// }
 ///
-/// # my_system.system();
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// ## Filters
@@ -299,7 +300,7 @@ use std::{
 ///     for _ in query.iter() {}
 /// }
 ///
-/// # my_system.system();
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub trait WorldQuery {
     type Fetch: for<'world, 'state> Fetch<'world, 'state, State = Self::State>;
