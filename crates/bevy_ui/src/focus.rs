@@ -72,14 +72,9 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = if let Some(cursor_position) = windows
+    let cursor_position = windows
         .get_primary()
-        .and_then(|window| window.cursor_position())
-    {
-        cursor_position
-    } else {
-        return;
-    };
+        .and_then(|window| window.cursor_position());
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
@@ -120,13 +115,20 @@ pub fn ui_focus_system(
                 }
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                if (min.x..max.x).contains(&cursor_position.x)
-                    && (min.y..max.y).contains(&cursor_position.y)
-                {
+                let contains_cursor = if let Some(cursor_position) = cursor_position {
+                    (min.x..max.x).contains(&cursor_position.x)
+                        && (min.y..max.y).contains(&cursor_position.y)
+                } else {
+                    false
+                };
+
+                if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
                     if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered {
+                        if *interaction == Interaction::Hovered
+                            || (cursor_position.is_none() && *interaction != Interaction::None)
+                        {
                             *interaction = Interaction::None;
                         }
                     }
