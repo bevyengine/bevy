@@ -142,16 +142,14 @@ impl Mesh {
     }
 
     /// Returns an iterator that yields references to the data of each vertex attribute.
-    pub fn attributes(&self) -> impl Iterator<Item = (&'_ str, &'_ VertexAttributeValues)> + '_ {
+    pub fn attributes(&self) -> impl Iterator<Item = (&str, &VertexAttributeValues)> {
         self.attributes
             .iter()
             .map(|(name, values)| (name.as_ref(), values))
     }
 
     /// Returns an iterator that yields mutable references to the data of each vertex attribute.
-    pub fn attributes_mut(
-        &mut self,
-    ) -> impl Iterator<Item = (&'_ str, &'_ mut VertexAttributeValues)> {
+    pub fn attributes_mut(&mut self) -> impl Iterator<Item = (&str, &mut VertexAttributeValues)> {
         self.attributes
             .iter_mut()
             .map(|(name, values)| (name.as_ref(), values))
