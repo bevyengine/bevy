@@ -2,6 +2,8 @@ pub mod camera;
 pub mod color;
 pub mod mesh;
 pub mod primitives;
+#[cfg(feature="gpu_profiler")]
+pub mod gpu_profiler;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
@@ -41,6 +43,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
+
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
@@ -153,6 +156,15 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             let mut extract_stage =
                 SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
+
+            #[cfg(feature="gpu_profiler")]
+            {
+                let gpu_profiler = gpu_profiler::GpuProfiler::new(&queue);
+                app.insert_resource(gpu_profiler.clone());
+                render_app.insert_resource(gpu_profiler.clone());
+                extract_stage = extract_stage.with_system(gpu_profiler::gpu_profiler_system);
+            }
+
             // don't apply buffers when the stage finishes running
             // extract stage runs on the app world, but the buffers are applied to the render world
             extract_stage.set_apply_buffers(false);
@@ -175,7 +187,6 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_pipeline_cache)
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>();
-
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
                 let render_span = bevy_utils::tracing::info_span!("renderer subapp");
