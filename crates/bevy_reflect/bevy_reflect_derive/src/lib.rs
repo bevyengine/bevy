@@ -138,7 +138,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         DeriveType::Struct | DeriveType::UnitStruct => impl_struct(
             type_name,
             &ast.generics,
-            get_type_registration_impl,
+            &get_type_registration_impl,
             &bevy_reflect_path,
             &reflect_attrs,
             &active_fields,
@@ -164,7 +164,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 fn impl_struct(
     struct_name: &Ident,
     generics: &Generics,
-    get_type_registration_impl: proc_macro2::TokenStream,
+    get_type_registration_impl: &proc_macro2::TokenStream,
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
     active_fields: &[(&Field, usize)],
@@ -739,7 +739,7 @@ pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenS
 
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
-    reflect_trait::reflect_trait(args, input)
+    reflect_trait::reflect_trait(&args, input)
 }
 
 #[proc_macro_derive(FromReflect)]
