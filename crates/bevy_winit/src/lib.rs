@@ -11,7 +11,11 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_ecs::{
+    event::EventWriter,
+    system::{Res, ResMut},
+    world::World,
+};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -34,18 +38,18 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+            .add_system_to_stage(CoreStage::PostUpdate, change_window);
         let event_loop = EventLoop::new();
         handle_initial_window_events(&mut app.world, &event_loop);
         app.insert_non_send_resource(event_loop);
     }
 }
 
-fn change_window(world: &mut World) {
-    let world = world.cell();
-    let winit_windows = world.get_resource::<WinitWindows>().unwrap();
-    let mut windows = world.get_resource_mut::<Windows>().unwrap();
-
+fn change_window(
+    winit_windows: Res<WinitWindows>,
+    mut windows: ResMut<Windows>,
+    window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
+) {
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
         for command in bevy_window.drain_commands() {
@@ -80,9 +84,6 @@ fn change_window(world: &mut World) {
                     window.set_title(&title);
                 }
                 bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
-                    let mut window_dpi_changed_events = world
-                        .get_resource_mut::<Events<WindowScaleFactorChanged>>()
-                        .unwrap();
                     window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
                 }
                 bevy_window::WindowCommand::SetResolution {

@@ -1,6 +1,6 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::world::World;
+use bevy_ecs::system::{NonSend, Res, ResMut};
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::marker::PhantomData;
@@ -67,15 +67,14 @@ where
 }
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
-pub fn play_queued_audio_system<Source: Asset>(world: &mut World)
-where
+pub fn play_queued_audio_system<Source: Asset>(
+    audio_output: NonSend<AudioOutput<Source>>,
+    mut audio: ResMut<Audio<Source>>,
+    audio_assets: Option<Res<Assets<Source>>>,
+) where
     Source: Decodable,
 {
-    let world = world.cell();
-    let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();
-    let mut audio = world.get_resource_mut::<Audio<Source>>().unwrap();
-
-    if let Some(audio_sources) = world.get_resource::<Assets<Source>>() {
+    if let Some(audio_sources) = audio_assets {
         audio_output.try_play_queued(&*audio_sources, &mut *audio);
     };
 }
