@@ -1,12 +1,15 @@
+#[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use std::io::Read;
 
 #[cfg(feature = "basis-universal")]
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+#[cfg(any(feature = "flate2", feature = "ruzstd"))]
+use ktx2::SupercompressionScheme;
 use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
-    Header, SampleInformation, SupercompressionScheme,
+    Header, SampleInformation,
 };
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
@@ -31,30 +34,33 @@ pub fn ktx2_buffer_to_image(
     // Handle supercompression
     let mut levels = Vec::new();
     if let Some(supercompression_scheme) = supercompression_scheme {
-        for (level, level_data) in ktx2.levels().enumerate() {
-            let mut decompressed = Vec::new();
+        for (_level, _level_data) in ktx2.levels().enumerate() {
             match supercompression_scheme {
                 #[cfg(feature = "flate2")]
                 SupercompressionScheme::ZLIB => {
-                    let mut decoder = flate2::bufread::ZlibDecoder::new(level_data);
+                    let mut decoder = flate2::bufread::ZlibDecoder::new(_level_data);
+                    let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
                             "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, level, err
+                            supercompression_scheme, _level, err
                         ))
                     })?;
+                    levels.push(decompressed);
                 }
                 #[cfg(feature = "ruzstd")]
                 SupercompressionScheme::Zstandard => {
-                    let mut cursor = std::io::Cursor::new(level_data);
+                    let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
                         .map_err(TextureError::SuperDecompressionError)?;
+                    let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
                             "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, level, err
+                            supercompression_scheme, _level, err
                         ))
                     })?;
+                    levels.push(decompressed);
                 }
                 _ => {
                     return Err(TextureError::SuperDecompressionError(format!(
@@ -63,7 +69,6 @@ pub fn ktx2_buffer_to_image(
                     )));
                 }
             }
-            levels.push(decompressed);
         }
     } else {
         levels = ktx2.levels().map(|level| level.to_vec()).collect();
@@ -157,6 +162,7 @@ pub fn ktx2_buffer_to_image(
                     transcoded = levels.to_vec();
                     texture_format
                 }
+                #[cfg(not(feature = "basis-universal"))]
                 _ => return Err(error),
             };
             levels = transcoded;
@@ -192,6 +198,7 @@ pub fn ktx2_buffer_to_image(
     Ok(image)
 }
 
+#[cfg(feature = "basis-universal")]
 pub fn get_transcoded_formats(
     supported_compressed_formats: CompressedImageFormats,
     data_format: DataFormat,
