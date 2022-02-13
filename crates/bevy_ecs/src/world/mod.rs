@@ -897,24 +897,21 @@ impl World {
                     };
                 }
                 AllocAtWithoutReplacement::DidNotExist => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Spawn(ref mut spawner) => {
-                            // SAFE: `entity` is allocated (but non existent), bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                        }
-                        _ => {
-                            let mut spawner = bundle_info.get_bundle_spawner(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &mut self.components,
-                                &mut self.storages,
-                                change_tick,
-                            );
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                            spawn_or_insert = SpawnOrInsert::Spawn(spawner);
-                        }
-                    };
+                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
+                        // SAFE: `entity` is allocated (but non existent), bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                    } else {
+                        let mut spawner = bundle_info.get_bundle_spawner(
+                            &mut self.entities,
+                            &mut self.archetypes,
+                            &mut self.components,
+                            &mut self.storages,
+                            change_tick,
+                        );
+                        // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
+                    }
                 }
                 AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
                     invalid_entities.push(entity);
@@ -959,9 +956,11 @@ impl World {
             let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
                 panic!("resource does not exist: {}", std::any::type_name::<R>())
             });
-            if column.is_empty() {
-                panic!("resource does not exist: {}", std::any::type_name::<R>());
-            }
+            assert!(
+                !column.is_empty(),
+                "resource does not exist: {}",
+                std::any::type_name::<R>()
+            );
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when R is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
@@ -1126,12 +1125,11 @@ impl World {
     }
 
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
-        if !self.main_thread_validator.is_main_thread() {
-            panic!(
-                "attempted to access NonSend resource {} off of the main thread",
-                std::any::type_name::<T>()
-            );
-        }
+        assert!(
+            self.main_thread_validator.is_main_thread(),
+            "attempted to access NonSend resource {} off of the main thread",
+            std::any::type_name::<T>(),
+        );
     }
 
     /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).

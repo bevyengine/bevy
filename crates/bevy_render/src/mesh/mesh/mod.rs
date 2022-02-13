@@ -162,7 +162,7 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_name, attribute_data) in self.attributes.iter() {
+        for (attribute_name, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
@@ -230,7 +230,7 @@ impl Mesh {
             Some(indices) => indices,
             None => return,
         };
-        for (_, attributes) in self.attributes.iter_mut() {
+        for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
             match attributes {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
@@ -271,9 +271,7 @@ impl Mesh {
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
-        if self.indices().is_some() {
-            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
-        }
+        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
 
         let positions = self
             .attribute(Mesh::ATTRIBUTE_POSITION)

@@ -1237,7 +1237,7 @@ impl Node for ShadowPassNode {
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
                 let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in shadow_phase.items.iter() {
+                for item in &shadow_phase.items {
                     let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                     draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
                 }

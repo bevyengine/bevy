@@ -289,7 +289,7 @@ unsafe impl Reflect for DynamicStruct {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {

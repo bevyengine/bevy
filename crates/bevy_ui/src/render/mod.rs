@@ -292,7 +292,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
-    for extracted_uinode in extracted_uinodes.uinodes.iter() {
+    for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
                 commands.spawn_bundle((UiBatch {

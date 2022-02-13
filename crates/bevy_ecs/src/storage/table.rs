@@ -221,7 +221,7 @@ impl Table {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.entities.capacity()),
-        )
+        );
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -495,13 +495,13 @@ impl Tables {
     }
 
     pub fn clear(&mut self) {
-        for table in self.tables.iter_mut() {
+        for table in &mut self.tables {
             table.clear();
         }
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for table in self.tables.iter_mut() {
+        for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
     }
@@ -541,7 +541,7 @@ mod tests {
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
-        for entity in entities.iter() {
+        for entity in &entities {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
