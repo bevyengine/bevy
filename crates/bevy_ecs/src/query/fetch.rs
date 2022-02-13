@@ -551,7 +551,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
                 Mut {
                     value: &mut *self.table_components.as_ptr().add(table_row),
                     ticks: Ticks {
-                        component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                        component_ticks: &mut *(*self.table_ticks.add(table_row)).get(),
                         change_tick: self.change_tick,
                         last_change_tick: self.last_change_tick,
                     },
@@ -578,7 +578,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
         Mut {
             value: &mut *self.table_components.as_ptr().add(table_row),
             ticks: Ticks {
-                component_ticks: &mut *(&*self.table_ticks.add(table_row)).get(),
+                component_ticks: &mut *(*self.table_ticks.add(table_row)).get(),
                 change_tick: self.change_tick,
                 last_change_tick: self.last_change_tick,
             },
@@ -989,7 +989,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: (&*self.table_ticks.add(table_row)).clone(),
+                    component_ticks: (*self.table_ticks.add(table_row)).clone(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -998,7 +998,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
                 ChangeTrackers {
-                    component_ticks: (&*self.sparse_set).get_ticks(entity).cloned().unwrap(),
+                    component_ticks: (*self.sparse_set).get_ticks(entity).cloned().unwrap(),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
@@ -1010,7 +1010,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         ChangeTrackers {
-            component_ticks: (&*self.table_ticks.add(table_row)).clone(),
+            component_ticks: (*self.table_ticks.add(table_row)).clone(),
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
