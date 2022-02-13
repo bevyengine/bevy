@@ -101,10 +101,11 @@ where
 
     #[inline]
     pub fn validate_world(&self, world: &World) {
-        if world.id() != self.world_id {
-            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>());
-        }
+        assert!(
+            world.id() == self.world_id,
+            "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
+                std::any::type_name::<Self>(),
+        );
     }
 
     /// Creates a new [`Archetype`].

@@ -155,9 +155,10 @@ impl RenderDevice {
     pub fn map_buffer(&self, buffer: &wgpu::BufferSlice, map_mode: wgpu::MapMode) {
         let data = buffer.map_async(map_mode);
         self.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
-            panic!("Failed to map buffer to host.");
-        }
+        assert!(
+            future::block_on(data).is_ok(),
+            "Failed to map buffer to host."
+        );
     }
 
     pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {

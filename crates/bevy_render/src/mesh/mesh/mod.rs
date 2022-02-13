@@ -271,9 +271,7 @@ impl Mesh {
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
-        if self.indices().is_some() {
-            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
-        }
+        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
 
         let positions = self
             .attribute(Mesh::ATTRIBUTE_POSITION)

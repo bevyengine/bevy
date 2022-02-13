@@ -114,9 +114,7 @@ impl Schedule {
         let label: Box<dyn StageLabel> = Box::new(label);
         self.stage_order.push(label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
@@ -149,9 +147,7 @@ impl Schedule {
 
         self.stage_order.insert(target_index + 1, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
@@ -185,9 +181,7 @@ impl Schedule {
 
         self.stage_order.insert(target_index, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
