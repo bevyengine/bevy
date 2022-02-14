@@ -113,7 +113,6 @@ pub fn ktx2_buffer_to_image(
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
                     let (mut original_width, mut original_height) = (width, height);
                     let (block_width_pixels, block_height_pixels) = (4, 4);
-                    // FIXME: How do we know whether it has alpha - from the data format descriptor
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
@@ -374,8 +373,12 @@ pub fn ktx2_dfd_to_texture_format(
             match sample_information.len() {
                 1 => {
                     // Only red channel allowed
-                    // FIXME: What about depth?
-                    assert_eq!(sample_information[0].channel_type, 0);
+                    if sample_information[0].channel_type != 0 {
+                        return Err(TextureError::UnsupportedTextureFormat(
+                            "Only red-component single-component KTX2 RGBSDA formats supported"
+                                .to_string(),
+                        ));
+                    }
 
                     let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
@@ -438,9 +441,14 @@ pub fn ktx2_dfd_to_texture_format(
                 }
                 2 => {
                     // Only red and green channels allowed
-                    // FIXME: What about depth stencil?
-                    assert_eq!(sample_information[0].channel_type, 0);
-                    assert_eq!(sample_information[1].channel_type, 1);
+                    if sample_information[0].channel_type != 0
+                        || sample_information[1].channel_type != 1
+                    {
+                        return Err(TextureError::UnsupportedTextureFormat(
+                            "Only red-green-component two-component KTX2 RGBSDA formats supported"
+                                .to_string(),
+                        ));
+                    }
                     // Only same bit length for all channels
                     assert_eq!(
                         sample_information[0].bit_length,
@@ -621,9 +629,8 @@ pub fn ktx2_dfd_to_texture_format(
                             }
                             DataType::Uint => {
                                 if is_rgba {
-                                    // FIXME: This seems to be more about how you
-                                    // want to use the data so TextureFormat::Rgba8Uint
-                                    // is incorrect here?
+                                    // NOTE: This is more about how you want to use the data so
+                                    // TextureFormat::Rgba8Uint is incorrect here
                                     if is_srgb {
                                         TextureFormat::Rgba8UnormSrgb
                                     } else {
@@ -637,9 +644,8 @@ pub fn ktx2_dfd_to_texture_format(
                             }
                             DataType::Sint => {
                                 if is_rgba {
-                                    // FIXME: This seems to be more about how you
-                                    // want to use the data so TextureFormat::Rgba8Sint
-                                    // is incorrect here?
+                                    // NOTE: This is more about how you want to use the data so
+                                    // TextureFormat::Rgba8Sint is incorrect here
                                     TextureFormat::Rgba8Snorm
                                 } else {
                                     return Err(TextureError::UnsupportedTextureFormat(
@@ -1477,7 +1483,6 @@ pub fn ktx2_format_to_texture_format(
                 TextureFormat::Bgra8Unorm
             }
         }
-        // FIXME: Is this correct?
         ktx2::Format::A2R10G10B10_UNORM_PACK32 => TextureFormat::Rgb10a2Unorm,
         ktx2::Format::A2R10G10B10_SNORM_PACK32 => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
@@ -1665,9 +1670,7 @@ pub fn ktx2_format_to_texture_format(
                 ktx2_format
             )))
         }
-        // FIXME: Is this correct?
         ktx2::Format::B10G11R11_UFLOAT_PACK32 => TextureFormat::Rg11b10Float,
-        // FIXME: Is this correct?
         ktx2::Format::E5B9G9R9_UFLOAT_PACK32 => TextureFormat::Rgb9e5Ufloat,
         ktx2::Format::D16_UNORM => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
