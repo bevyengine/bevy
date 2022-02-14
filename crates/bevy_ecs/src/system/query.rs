@@ -288,7 +288,7 @@ where
     /// As queries can modify the entity-component data in ways that could conflict dangerously,
     /// this method requires a mutable reference to the [`World`],
     /// ensuring only one query is active at once.
-    /// This can be quite restrictive: consider using [`SystemState::new`](bevy_ecs::system::SystemState::new) if this is a problem.
+    /// This can be quite restrictive: consider using [`SystemState::new`](crate::system::SystemState::new) if this is a problem.
     ///
     /// # Example
     /// ```rust
