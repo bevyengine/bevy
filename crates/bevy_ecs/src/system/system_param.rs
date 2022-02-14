@@ -625,7 +625,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
-pub struct Local<'a, T: Resource>(&'a mut T);
+pub struct Local<'a, T: Resource>(pub(crate) &'a mut T);
 
 // SAFE: Local only accesses internal state
 unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
