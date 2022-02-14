@@ -102,6 +102,8 @@ where
 /// # use bevy_ecs::system::{Local, Res};
 /// # use bevy_asset::{Assets, Handle};
 /// # use bevy_audio::AudioSink;
+/// // Execution of this system should be controlled by a state or input,
+/// // otherwise it would just toggle between play and pause every frame.
 /// fn pause(
 ///     audio_sinks: Res<Assets<AudioSink>>,
 ///     music_controller: Local<Handle<AudioSink>>,
