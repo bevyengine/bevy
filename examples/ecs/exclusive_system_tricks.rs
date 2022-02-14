@@ -19,7 +19,7 @@ struct MyCustomSchedule(Schedule);
 struct MyComponent;
 
 /// Just a simple exclusive system - this function will run with mutable access to
-/// the main app world. This lets it call into other schedules, or modify and query the
+/// the main app world. This lets it run other schedules, or modify and query the
 /// world in hard-to-predict ways, which makes it a powerful primitive. However, because
 /// this is usually not needed, and because such wide access makes parallelism impossible,
 /// it should generally be avoided.
