@@ -932,10 +932,9 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [`World`], then re-adds it before
-    /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access
+    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
     ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
     /// # Example
