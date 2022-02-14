@@ -34,6 +34,7 @@ impl Default for SpriteBundle {
         }
     }
 }
+
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]
@@ -47,4 +48,6 @@ pub struct SpriteSheetBundle {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }

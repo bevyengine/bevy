@@ -15,7 +15,6 @@ use bevy_math::{const_vec2, Vec2, Vec3};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
-    prelude::ComputedVisibility,
     primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
@@ -25,7 +24,9 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, NoFrustumCulling, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{
+        ComputedVisibility, Msaa, NoFrustumCulling, ViewUniform, ViewUniformOffset, ViewUniforms,
+    },
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -183,12 +184,17 @@ impl SpecializedPipeline for SpritePipeline {
 pub fn calculate_bounds(
     mut commands: Commands,
     images: Res<Assets<Image>>,
-    without_aabb: Query<
+    atlases: Res<Assets<TextureAtlas>>,
+    sprite_without_aabb: Query<
         (Entity, &Sprite, &Handle<Image>),
         (Without<Aabb>, Without<NoFrustumCulling>),
     >,
+    atlas_without_aabb: Query<
+        (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
+        (Without<Aabb>, Without<NoFrustumCulling>),
+    >,
 ) {
-    for (entity, sprite, texture_handle) in without_aabb.iter() {
+    for (entity, sprite, texture_handle) in sprite_without_aabb.iter() {
         if let Some(image) = images.get(texture_handle) {
             let size = sprite.custom_size.unwrap_or_else(|| image.size());
             let aabb = Aabb {
@@ -196,6 +202,20 @@ pub fn calculate_bounds(
                 half_extents: size.extend(0.0) * 0.5,
             };
             commands.entity(entity).insert(aabb);
+        }
+    }
+    for (entity, atlas_sprite, atlas_handle) in atlas_without_aabb.iter() {
+        if let Some(atlas) = atlases.get(atlas_handle) {
+            if let Some(rect) = atlas.textures.get(atlas_sprite.index) {
+                let size = atlas_sprite
+                    .custom_size
+                    .unwrap_or_else(|| (rect.min - rect.max).abs());
+                let aabb = Aabb {
+                    center: Vec3::ZERO,
+                    half_extents: size.extend(0.0) * 0.5,
+                };
+                commands.entity(entity).insert(aabb);
+            }
         }
     }
 }
@@ -261,7 +281,7 @@ pub fn extract_sprites(
         &Handle<Image>,
     )>,
     atlas_query: Query<(
-        &Visibility,
+        &ComputedVisibility,
         &TextureAtlasSprite,
         &GlobalTransform,
         &Handle<TextureAtlas>,
@@ -286,8 +306,8 @@ pub fn extract_sprites(
             image_handle_id: handle.id,
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible {
+    for (computed_visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
