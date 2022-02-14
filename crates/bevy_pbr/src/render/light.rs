@@ -622,8 +622,26 @@ pub fn prepare_lights(
     global_light_meta.gpu_point_lights.clear();
     global_light_meta.entity_to_index.clear();
 
+    let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
+
+    // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
+    // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
+    point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+        light_1
+            .shadows_enabled
+            .cmp(&light_2.shadows_enabled)
+            .reverse()
+            .then_with(|| entity_1.cmp(entity_2))
+    });
+
+    if global_light_meta.entity_to_index.capacity() < point_lights.len() {
+        global_light_meta
+            .entity_to_index
+            .reserve(point_lights.len());
+    }
+
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, (entity, light)) in point_lights.iter().enumerate() {
+    for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
@@ -717,28 +735,12 @@ pub fn prepare_lights(
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
-        let mut shadow_casting_point_lights: Vec<_> = 
-            point_lights
-            .iter()
-            .filter(|(_, light)| light.shadows_enabled)
-            .collect::<Vec<_>>();
-
-        // Sort the point lights with shadows enabled by a stable key so that the index can be used
-        // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
-        shadow_casting_point_lights.sort_by_key(|(entity, _)| *entity);
-
-        let point_light_count = point_lights.iter().count();
-        if global_light_meta.entity_to_index.capacity() < point_light_count {
-            global_light_meta
-                .entity_to_index
-                .reserve(point_light_count);
-        }
-
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for &(light_entity, light) in shadow_casting_point_lights
+        for &(light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
             .take(MAX_POINT_LIGHT_SHADOW_MAPS)
+            .filter(|(_, light)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
                 .entity_to_index
