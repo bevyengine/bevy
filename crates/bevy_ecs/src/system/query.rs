@@ -234,10 +234,6 @@ use thiserror::Error;
 /// If you have an [`Entity`] ID, you can use the [`get`](Self::get) or
 /// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
-/// To access the data of exactly two specific entities at once, use [`get_pair`](Self::get_pair),
-/// or [`get_pair_mut`](Self::get_pair_mut).
-/// This is a surprisingly common pattern, and the API provided is both faster and more convenient than [`get_multiple_mut`](Self::get_multiple_mut).
-///
 /// If you require access to the data of multiple entities at once,
 /// you can use the [`get_multiple`](Self::get_multiple) or [`get_multiple_mut`](Self::get_multiple_mut) methods.
 ///
