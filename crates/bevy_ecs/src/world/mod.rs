@@ -20,8 +20,8 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
-    mem::ManuallyDrop,
     iter::IntoIterator,
+    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -312,7 +312,7 @@ impl World {
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
-    /// Spawns a new [Entity] and returns a corresponding [EntityMut], which can be used
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
     /// ```

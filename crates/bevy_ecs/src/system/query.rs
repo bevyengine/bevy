@@ -235,11 +235,11 @@ use thiserror::Error;
 /// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
 /// To access the data of exactly two specific entities at once, use [`get_pair`](Self::get_pair),
-/// or ['get_pair_mut'](Self::get_pair_mut).
-/// This is a surprisingly common pattern, and the API provided is both faster and more convenient than ['get_multiple_mut'](Self::get_multiple_mut).
+/// or [`get_pair_mut`](Self::get_pair_mut).
+/// This is a surprisingly common pattern, and the API provided is both faster and more convenient than [`get_multiple_mut`](Self::get_multiple_mut).
 ///
 /// If you require access to the data of multiple entities at once,
-/// you can use the ['get_multiple'](Self::get_multiple) or ['get_multiple_mut'](Self::get_multiple_mut) methods.
+/// you can use the [`get_multiple`](Self::get_multiple) or [`get_multiple_mut`](Self::get_multiple_mut) methods.
 ///
 /// ## Getting a single query result
 ///
@@ -292,7 +292,7 @@ where
     /// As queries can modify the entity-component data in ways that could conflict dangerously,
     /// this method requires a mutable reference to the [`World`],
     /// ensuring only one query is active at once.
-    /// This can be quite restrictive: consider using ['SystemState::new'](bevy_ecs::system::SystemState::new) if this is a problem.
+    /// This can be quite restrictive: consider using [`SystemState::new`](bevy_ecs::system::SystemState::new) if this is a problem.
     ///
     /// # Example
     /// ```rust
@@ -688,7 +688,7 @@ where
     /// returned instead.
     ///
     /// If you need to get the data from more than two specific entities at once,
-    /// use ['get_multiple'](Self::get_multiple)
+    /// use [`get_multiple`](Self::get_multiple)
     ///
     /// # Example
     /// ```rust
@@ -731,7 +731,7 @@ where
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to get the data from more than two specific entities at once,
-    /// use ['get_multiple_mut'](Self::get_multiple)
+    /// use [`get_multiple_mut`](Self::get_multiple)
     ///
     /// # Example
     /// ```rust
@@ -787,7 +787,7 @@ where
     /// add [`Entity`] to your [`Query`].
     ///
     /// If you need to get the data from exactly two specific entities at once,
-    /// use ['get_pair'](Self::get_pair).
+    /// use [`get_pair`](Self::get_pair).
     ///
     /// # Example
     /// ```rust
@@ -815,7 +815,7 @@ where
         entities.into_iter().map(|entity| self.get(entity))
     }
 
-    /// Returns the query results for the ['BTreeSet'](std::collections::BTreeSet) of [`Entity`]s provided.
+    /// Returns the query results for the [`BTreeSet`](std::collections::BTreeSet) of [`Entity`]s provided.
     ///
     /// These values follow the order of your input iterator (if any).
     /// In case of nonunique entities, a nonexisting entity or a mismatched component,
@@ -828,7 +828,7 @@ where
     /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
     ///
     /// If you need to get the data from exactly two specific entities at once,
-    /// use ['get_pair_mut'](Self::get_pair_mut).
+    /// use [`get_pair_mut`](Self::get_pair_mut).
     ///
     /// # Example
     /// ```rust
@@ -1239,7 +1239,7 @@ where
 }
 
 /// Iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
-/// See https://stackoverflow.com/a/49813195 for more exposition
+/// See <https://stackoverflow.com/a/49813195> for more exposition
 struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, I>
 where
     F::Fetch: FilterFetch,
