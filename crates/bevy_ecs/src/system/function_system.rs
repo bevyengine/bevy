@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
+    prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
@@ -165,6 +166,12 @@ impl<Param: SystemParam> SystemState<Param> {
         );
         self.meta.last_change_tick = change_tick;
         param
+    }
+}
+
+impl<Param: SystemParam> FromWorld for SystemState<Param> {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(world)
     }
 }
 

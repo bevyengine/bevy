@@ -3,6 +3,7 @@ mod spawn_batch;
 mod world_cell;
 
 pub use crate::change_detection::Mut;
+use bevy_ecs_macros::all_tuples;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -1223,6 +1224,25 @@ impl<T: Default> FromWorld for T {
         T::default()
     }
 }
+
+/// Wrapper type to enable getting multiple [`FromWorld`] types in one type.
+///
+/// This wrapper is necessary because a [`FromWorld`] implementation for a tuple of
+/// [`FromWorld`] implementing types would conflict with the [`FromWorld`] impl over all
+/// [`Default`] type.
+pub struct FromWorldWrap<T>(pub T);
+
+macro_rules! impl_from_world {
+    ($($t:ident),*) => {
+        impl<$($t: FromWorld,)*> FromWorld for FromWorldWrap<($($t,)*)> {
+            fn from_world(_world: &mut World) -> Self {
+                FromWorldWrap(($($t::from_world(_world),)*))
+            }
+        }
+    };
+}
+
+all_tuples!(impl_from_world, 0, 12, T);
 
 struct MainThreadValidator {
     main_thread: std::thread::ThreadId,
