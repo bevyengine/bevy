@@ -13,7 +13,6 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
