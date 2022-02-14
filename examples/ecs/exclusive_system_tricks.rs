@@ -6,7 +6,7 @@ use bevy::{
 fn main() {
     App::new()
         .init_resource::<MyCustomSchedule>()
-        .insert_resource(5u32)
+        .insert_resource(SpawnCount(5))
         .add_system(simple_exclusive_system.exclusive_system())
         .add_system(stateful_exclusive_system.exclusive_system())
         .run();
@@ -15,14 +15,14 @@ fn main() {
 #[derive(Default)]
 struct MyCustomSchedule(Schedule);
 
+struct SpawnCount(usize);
+
 #[derive(Component)]
 struct MyComponent;
 
 /// Just a simple exclusive system - this function will run with mutable access to
 /// the main app world. This lets it run other schedules, or modify and query the
-/// world in hard-to-predict ways, which makes it a powerful primitive. However, because
-/// this is usually not needed, and because such wide access makes parallelism impossible,
-/// it should generally be avoided.
+/// world in hard-to-predict ways, which makes it a powerful primitive.
 fn simple_exclusive_system(world: &mut World) {
     world.resource_scope(|world, mut my_schedule: Mut<MyCustomSchedule>| {
         // The resource_scope method is one of the main tools for working with &mut World.
@@ -35,15 +35,15 @@ fn simple_exclusive_system(world: &mut World) {
     });
 }
 
-/// While it's usually not recommended due to parallelism concerns, you can also use exclusive systems
-/// as mostly-normal systems but with the ability to change parameter sets and flush commands midway through.
+/// You can also use exclusive systems as mostly-normal systems but with the ability to
+/// change parameter sets and flush commands midway through.
 fn stateful_exclusive_system(
     world: &mut World,
-    mut part_one_state: Local<SystemState<(SRes<u32>, SCommands)>>,
+    mut part_one_state: Local<SystemState<(SRes<SpawnCount>, SCommands)>>,
     mut part_two_state: Local<SystemState<SQuery<Read<MyComponent>>>>,
 ) {
     let (resource, mut commands) = part_one_state.get(world);
-    let res = *resource as usize;
+    let res = resource.0;
     commands.spawn_batch((0..res).map(|_| (MyComponent,)));
 
     // Don't forget to apply your state, or commands won't take effect!
