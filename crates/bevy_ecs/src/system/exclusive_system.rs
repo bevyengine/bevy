@@ -27,6 +27,7 @@ pub struct ExclusiveSystemFn<F, L> {
 
 macro_rules! impl_exclusive_system {
     ($($t:ident),*) => {
+        #[allow(non_snake_case)]
         impl<F, $($t: FromWorld + Resource,)*> ExclusiveSystem for ExclusiveSystemFn<F, ($($t,)*)>
         where
             F: FnMut(&mut World, $(Local<$t>,)*) + Send + Sync + 'static,
@@ -42,7 +43,7 @@ macro_rules! impl_exclusive_system {
                 world.last_change_tick = self.last_change_tick;
 
                 let ($($t,)*) = self.locals.as_mut().unwrap();
-                (self.func)(world, $(Local(&mut $t),)*);
+                (self.func)(world, $(Local::wrap($t),)*);
 
                 let change_tick = world.change_tick.get_mut();
                 self.last_change_tick = *change_tick;
