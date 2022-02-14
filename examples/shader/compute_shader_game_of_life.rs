@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     });
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
-    commands.insert_resource(GameOfLifeImage(image))
+    commands.insert_resource(GameOfLifeImage(image));
 }
 
 pub struct GameOfLifeComputePlugin;

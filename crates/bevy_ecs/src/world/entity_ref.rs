@@ -391,7 +391,7 @@ impl<'w> EntityMut<'w> {
                 archetypes,
                 storages,
                 new_archetype_id,
-            )
+            );
         }
     }
 
@@ -722,7 +722,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
         } else {
             true
         }
-    })
+    });
 }
 
 #[cfg(test)]

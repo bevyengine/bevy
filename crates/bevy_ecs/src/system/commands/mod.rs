@@ -107,7 +107,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
     /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
-        self.queue.push(Spawn { bundle })
+        self.queue.push(Spawn { bundle });
     }
 
     /// Creates a new entity with the components contained in `bundle`.
@@ -292,7 +292,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         self.queue.push(InitResource::<R> {
             _phantom: PhantomData::<R>::default(),
-        })
+        });
     }
 
     /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
@@ -320,7 +320,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(InsertResource { resource })
+        self.queue.push(InsertResource { resource });
     }
 
     /// Removes a resource from the [`World`].
@@ -571,7 +571,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
-        })
+        });
     }
 
     /// Returns the underlying [`Commands`].
@@ -585,7 +585,7 @@ where
     F: FnOnce(&mut World) + Send + Sync + 'static,
 {
     fn write(self, world: &mut World) {
-        self(world)
+        self(world);
     }
 }
 

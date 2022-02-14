@@ -364,27 +364,27 @@ mod tests {
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
@@ -564,7 +564,7 @@ mod tests {
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
                 bundle_components.sort();
-                for component_id in bundle_components.iter() {
+                for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
                         "every bundle component exists in Components"

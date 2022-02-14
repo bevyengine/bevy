@@ -793,18 +793,18 @@ mod menu {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game).unwrap();
-                        menu_state.set(MenuState::Disabled).unwrap()
+                        menu_state.set(MenuState::Disabled).unwrap();
                     }
                     MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
                     MenuButtonAction::SettingsDisplay => {
-                        menu_state.set(MenuState::SettingsDisplay).unwrap()
+                        menu_state.set(MenuState::SettingsDisplay).unwrap();
                     }
                     MenuButtonAction::SettingsSound => {
-                        menu_state.set(MenuState::SettingsSound).unwrap()
+                        menu_state.set(MenuState::SettingsSound).unwrap();
                     }
                     MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
                     MenuButtonAction::BackToSettings => {
-                        menu_state.set(MenuState::Settings).unwrap()
+                        menu_state.set(MenuState::Settings).unwrap();
                     }
                 }
             }

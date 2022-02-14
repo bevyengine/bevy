@@ -90,12 +90,11 @@ impl<'w, T> WorldBorrow<'w, T> {
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Self {
-        if !access.borrow_mut().read(archetype_component_id) {
-            panic!(
-                "Attempted to immutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
+        assert!(
+            access.borrow_mut().read(archetype_component_id),
+            "Attempted to immutably access {}, but it is already mutably borrowed",
+            std::any::type_name::<T>(),
+        );
         Self {
             value,
             archetype_component_id,
@@ -132,12 +131,11 @@ impl<'w, T> WorldBorrowMut<'w, T> {
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Self {
-        if !access.borrow_mut().write(archetype_component_id) {
-            panic!(
-                "Attempted to mutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
+        assert!(
+            access.borrow_mut().write(archetype_component_id),
+            "Attempted to mutably access {}, but it is already mutably borrowed",
+            std::any::type_name::<T>(),
+        );
         Self {
             value,
             archetype_component_id,
