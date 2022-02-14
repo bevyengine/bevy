@@ -66,7 +66,6 @@ impl SystemMeta {
 /// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
 ///
 /// # Warning
-/// This API has more performance overhead than more direct methods: prefer them when possible.
 ///
 /// [`SystemState`] values created can be cached to improve performance,
 /// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
