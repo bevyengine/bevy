@@ -1,37 +1,3 @@
-// From the Filament design doc
-// https://google.github.io/filament/Filament.html#table_symbols
-// Symbol Definition
-// v    View unit vector
-// l    Incident light unit vector
-// n    Surface normal unit vector
-// h    Half unit vector between l and v
-// f    BRDF
-// f_d    Diffuse component of a BRDF
-// f_r    Specular component of a BRDF
-// α    Roughness, remapped from using input perceptualRoughness
-// σ    Diffuse reflectance
-// Ω    Spherical domain
-// f0    Reflectance at normal incidence
-// f90    Reflectance at grazing angle
-// χ+(a)    Heaviside function (1 if a>0 and 0 otherwise)
-// nior    Index of refraction (IOR) of an interface
-// ⟨n⋅l⟩    Dot product clamped to [0..1]
-// ⟨a⟩    Saturated value (clamped to [0..1])
-
-// The Bidirectional Reflectance Distribution Function (BRDF) describes the surface response of a standard material
-// and consists of two components, the diffuse component (f_d) and the specular component (f_r):
-// f(v,l) = f_d(v,l) + f_r(v,l)
-//
-// The form of the microfacet model is the same for diffuse and specular
-// f_r(v,l) = f_d(v,l) = 1 / { |n⋅v||n⋅l| } ∫_Ω D(m,α) G(v,l,m) f_m(v,l,m) (v⋅m) (l⋅m) dm
-//
-// In which:
-// D, also called the Normal Distribution Function (NDF) models the distribution of the microfacets
-// G models the visibility (or occlusion or shadow-masking) of the microfacets
-// f_m is the microfacet BRDF and differs between specular and diffuse components
-//
-// The above integration needs to be approximated.
-
 #import bevy_pbr::mesh_view_types
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_types
