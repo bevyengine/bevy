@@ -81,6 +81,7 @@ impl SystemMeta {
 /// ```rust
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
 /// struct MyResource(u32);
@@ -90,6 +91,7 @@ impl SystemMeta {
 ///
 /// // Work directly on the `World`
 /// let mut world = World::new();
+/// world.init_resource::<Events<MyEvent>>();
 ///
 /// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
 /// // as if you were writing an ordinary system.
@@ -107,22 +109,29 @@ impl SystemMeta {
 /// ```rust
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// struct CachedSystemState<'w, 's>{
+///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// }
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
-/// let initial_state: SystemState<EventReader<MyEvent>> = SystemState::new(&mut world);
-/// // The system state is cached directly as a resource
-/// world.insert_resource(initial_state);
+/// world.init_resource::<Events<MyEvent>>();
+/// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
+///
+/// // The system state is cached in a resource
+/// world.insert_resource(CachedSystemState{event_state: initial_state});
 ///
 /// // Later, fetch the cached system state, saving on overhead
-/// let cached_state = world.get_resource_mut::<SystemState<EventReader<MyEvent>>>().unwrap();
-/// let mut event_reader = cached_state.get_mut(&mut world);
+/// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
+///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
-/// for events in event_reader.iter(){
-///    // Handle events!
-/// };
+///     for events in event_reader.iter(){
+///         println!("Hello World!");
+///     };
+/// });
 /// ```
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
