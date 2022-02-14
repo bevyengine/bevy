@@ -682,101 +682,6 @@ where
         }
     }
 
-    /// Returns the read-only query result for the given pair of [`Entity`]s.
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
-    /// returned instead.
-    ///
-    /// If you need to get the data from more than two specific entities at once,
-    /// use [`get_multiple`](Self::get_multiple)
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct Life(u64);
-    ///
-    /// let mut world = World::new();
-    /// let entity_1 = world.spawn().insert(Life(1)).id();
-    /// let entity_2 = world.spawn().insert(Life(2)).id();
-    ///
-    /// let query_state = world.query::<&Life>();
-    /// let life_query = Query::from_state(&mut world, &query_state);
-    /// let (entity_1_life, entity_2_life) = life_query.get_pair(entity_1, entity_2).unwrap();
-    ///
-    /// assert_eq!(*entity_1_life, Life(1));
-    /// assert_eq!(*entity_2_life, Life(2));
-    /// ```
-    #[inline]
-    pub fn get_pair(
-        &'s self,
-        entity_0: Entity,
-        entity_1: Entity,
-    ) -> Result<
-        (
-            <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
-            <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item,
-        ),
-        QueryEntityError,
-    > {
-        let data_0 = self.get(entity_0)?;
-        let data_1 = self.get(entity_1)?;
-
-        Ok((data_0, data_1))
-    }
-
-    /// Returns the query result for the given pair of [`Entity`]s.
-    ///
-    /// In case of nonunique entities, a nonexisting entity or mismatched component,
-    /// a [`QueryEntityError`] is returned instead.
-    ///
-    /// If you need to get the data from more than two specific entities at once,
-    /// use [`get_multiple_mut`](Self::get_multiple)
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct Life(u64);
-    ///
-    /// let mut world = World::new();
-    /// let entity_1 = world.spawn().insert(Life(1)).id();
-    /// let entity_2 = world.spawn().insert(Life(2)).id();
-    ///
-    /// let query_state = world.query::<&mut Life>();
-    /// let life_query = Query::from_state(&mut world, &query_state);
-    /// let (mut entity_1_life, mut entity_2_life) = life_query.get_pair_mut(entity_1, entity_2).unwrap();
-    ///
-    /// *entity_1_life = Life(0);
-    /// *entity_2_life = Life(100);
-    ///
-    /// assert_eq!(*entity_1_life, Life(0));
-    /// assert_eq!(*entity_2_life, Life(100));
-    /// ```
-    #[inline]
-    pub fn get_pair_mut(
-        &'s self,
-        entity_0: Entity,
-        entity_1: Entity,
-    ) -> Result<
-        (
-            <Q::Fetch as Fetch<'w, 's>>::Item,
-            <Q::Fetch as Fetch<'w, 's>>::Item,
-        ),
-        QueryEntityError,
-    > {
-        if entity_0 == entity_1 {
-            return Err(QueryEntityError::AliasedMutability);
-        }
-
-        // SAFE: entities do not match
-        unsafe {
-            let data_0 = self.get_unchecked(entity_0)?;
-            let data_1 = self.get_unchecked(entity_1)?;
-            Ok((data_0, data_1))
-        }
-    }
-
     /// Returns the read-only query results for the iterator of [`Entity`]s provided.
     ///
     /// These values follow the order of your input iterator (if any).
@@ -785,9 +690,6 @@ where
     ///
     /// If you need to verify the identity of each item returned,
     /// add [`Entity`] to your [`Query`].
-    ///
-    /// If you need to get the data from exactly two specific entities at once,
-    /// use [`get_pair`](Self::get_pair).
     ///
     /// # Example
     /// ```rust
@@ -808,9 +710,9 @@ where
     /// assert_eq!(*a_iterator.next().unwrap(), A(1));
     /// ```
     #[inline]
-    pub fn get_multiple(
+    pub fn get_multiple<const N: usize>(
         &'s self,
-        entities: impl IntoIterator<Item = Entity>,
+        entities: [Entity; N],
     ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
         entities.into_iter().map(|entity| self.get(entity))
     }
@@ -826,9 +728,6 @@ where
     ///
     /// If you absolutely cannot afford the overhead of verifying uniqueness in this way,
     /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
-    ///
-    /// If you need to get the data from exactly two specific entities at once,
-    /// use [`get_pair_mut`](Self::get_pair_mut).
     ///
     /// # Example
     /// ```rust
@@ -859,23 +758,20 @@ where
     /// assert_eq!(*world.get::<A>(entity_3).unwrap(), A(33));
     /// ```
     #[inline]
-    pub fn get_multiple_mut(
+    pub fn get_multiple_mut<const N: usize>(
         &mut self,
-        entities: impl IntoIterator<Item = Entity>,
+        entities: [Entity; N],
     ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
-        let entities_iter = entities.into_iter();
-
         // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
-        let (lower_bound, maybe_upper_bound) = entities_iter.size_hint();
-        let best_bound = maybe_upper_bound.unwrap_or(lower_bound);
-        let entities_seen = HashSet::with_capacity(best_bound);
+        let entities_seen = HashSet::with_capacity(N);
 
         // This is an iterator adaptor struct
         // used to capture the value of `entities_seen` into the iterator returned
         GetMultipleMut {
             seen: entities_seen,
             query: self,
-            iter: entities_iter,
+            index: 0,
+            array: entities,
         }
     }
 
@@ -1240,32 +1136,39 @@ where
 
 /// Iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
 /// See <https://stackoverflow.com/a/49813195> for more exposition
-struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, I>
+struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize>
 where
     F::Fetch: FilterFetch,
 {
     seen: HashSet<Entity>,
     query: &'q Query<'w, 's, Q, F>,
-    iter: I,
+    index: usize,
+    array: [Entity; N],
 }
 
-impl<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, I: Iterator<Item = Entity>> Iterator
-    for GetMultipleMut<'w, 's, 'q, Q, F, I>
+impl<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize> Iterator
+    for GetMultipleMut<'w, 's, 'q, Q, F, N>
 where
     F::Fetch: FilterFetch,
 {
     type Item = Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some({
-            let entity = self.iter.next()?;
-            if self.seen.insert(entity) {
-                // SAFE: entities are checked for uniqueness using a HashSet
-                unsafe { Query::<'w, 's, Q, F>::get_unchecked(self.query, entity) }
-            } else {
-                Err(QueryEntityError::AliasedMutability)
-            }
-        })
+        if self.index < N {
+            self.index += 1;
+            Some({
+                let entity = self.array[self.index];
+                if self.seen.insert(entity) {
+                    // SAFE: entities are checked for uniqueness using a HashSet
+                    unsafe { Query::<'w, 's, Q, F>::get_unchecked(self.query, entity) }
+                } else {
+                    Err(QueryEntityError::AliasedMutability)
+                }
+            })
+        } else {
+            self.index += 1;
+            None
+        }
     }
 }
 
