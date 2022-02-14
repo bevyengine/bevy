@@ -323,10 +323,8 @@ pub fn dds_format_to_texture_format(
             DxgiFormat::R32_Float => TextureFormat::R32Float,
             DxgiFormat::R32_UInt => TextureFormat::R32Uint,
             DxgiFormat::R32_SInt => TextureFormat::R32Sint,
-            // FIXME: Is this correct?
             DxgiFormat::R24G8_Typeless => TextureFormat::Depth24PlusStencil8,
             DxgiFormat::D24_UNorm_S8_UInt => TextureFormat::Depth24PlusStencil8,
-            // FIXME: Is this correct?
             DxgiFormat::R24_UNorm_X8_Typeless => TextureFormat::Depth24Plus,
             DxgiFormat::X24_Typeless_G8_UInt => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
