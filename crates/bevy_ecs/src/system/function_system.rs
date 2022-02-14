@@ -70,7 +70,7 @@ impl SystemMeta {
 /// [`SystemState`] values created can be cached to improve performance,
 /// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
 /// These include:
-/// - [`Added`](crate::system::query::Added) and [`Changed`](crate::system::query::Changed) query filters
+/// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
