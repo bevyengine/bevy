@@ -143,7 +143,7 @@ impl Plugin for CorePipelinePlugin {
                 draw_2d_graph::node::MAIN_PASS,
                 MainPass2dNode::IN_VIEW,
             )
-            .expect("Could not add slot edge to `RenderGraph`.");
+            .unwrap();
         graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
