@@ -305,6 +305,8 @@ pub struct InputMarker;
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+///
+/// [`FunctionSystem`] must be `.initialized` before they can be run.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
