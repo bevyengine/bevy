@@ -378,7 +378,7 @@ where
         let change_tick = world.increment_change_tick();
         let out = self.func.run(
             input,
-            self.param_state.as_mut().unwrap(),
+            self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?"),
             &self.system_meta,
             world,
             change_tick,
@@ -389,7 +389,7 @@ where
 
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
-        let param_state = self.param_state.as_mut().unwrap();
+        let param_state = self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?");
         param_state.apply(world);
     }
 
