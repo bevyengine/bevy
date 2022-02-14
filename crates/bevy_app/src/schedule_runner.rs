@@ -123,7 +123,7 @@ impl Plugin for ScheduleRunnerPlugin {
                     {
                         fn set_timeout(f: &Closure<dyn FnMut()>, dur: Duration) {
                             web_sys::window()
-                                .expect("Could not get window.")
+                                .expect("A browser is required to run wasm, but none was found")
                                 .set_timeout_with_callback_and_timeout_and_arguments_0(
                                     f.as_ref().unchecked_ref(),
                                     dur.as_millis() as i32,
@@ -140,22 +140,14 @@ impl Plugin for ScheduleRunnerPlugin {
                             let mut app = Rc::get_mut(&mut rc).unwrap();
                             let delay = tick(&mut app, wait);
                             match delay {
-                                Ok(delay) => set_timeout(
-                                    f.borrow()
-                                        .as_ref()
-                                        .expect("No closure was found for set_timeout."),
-                                    delay.unwrap_or(asap),
-                                ),
+                                Ok(delay) => {
+                                    set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap))
+                                }
                                 Err(_) => {}
                             }
                         };
                         *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));
-                        set_timeout(
-                            g.borrow()
-                                .as_ref()
-                                .expect("No closure was found for set_timeout."),
-                            asap,
-                        );
+                        set_timeout(g.borrow().as_ref().unwrap(), asap);
                     };
                 }
             }

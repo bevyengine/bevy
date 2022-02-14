@@ -43,8 +43,7 @@ where
 {
     fn play_source(&self, audio_source: &Source) {
         if let Some(stream_handle) = &self.stream_handle {
-            let sink =
-                Sink::try_new(stream_handle).expect("Could not create Sink from stream_handle.");
+            let sink = Sink::try_new(stream_handle).expect("Could not play audio");
             sink.append(audio_source.decoder());
             sink.detach();
         }
@@ -55,9 +54,7 @@ where
         let len = queue.len();
         let mut i = 0;
         while i < len {
-            let audio_source_handle = queue
-                .pop_back()
-                .expect("Could not find anything in the queue.");
+            let audio_source_handle = queue.pop_back().unwrap();
             if let Some(audio_source) = audio_sources.get(&audio_source_handle) {
                 self.play_source(audio_source);
             } else {

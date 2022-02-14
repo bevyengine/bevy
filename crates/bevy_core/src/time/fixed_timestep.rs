@@ -210,7 +210,7 @@ impl System for FixedTimestep {
         if let Some(ref label) = self.state.label {
             let mut fixed_timesteps = world
                 .get_resource_mut::<FixedTimesteps>()
-                .expect("Could not find `FixedTimesteps` in the `World`.");
+                .expect("Could not find resource FixedTimesteps. It can be added with CorePlugin, DefaultPlugins, or MinimalPlugins");
             fixed_timesteps.fixed_timesteps.insert(
                 label.clone(),
                 FixedTimestepState {
