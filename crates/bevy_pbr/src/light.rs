@@ -481,6 +481,18 @@ fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
     ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
 }
 
+// Sort point lights with shadows enabled first, then by a stable key so that the index 
+// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows, and
+// we keep a stable set of lights visible
+pub(crate) fn point_light_order(
+    (entity_1, shadows_enabled_1): (&Entity, &bool),
+    (entity_2, shadows_enabled_2): (&Entity, &bool),
+) -> std::cmp::Ordering {
+    shadows_enabled_1.cmp(shadows_enabled_2)
+        .reverse()
+        .then_with(|| entity_1.cmp(entity_2))
+}
+
 // NOTE: Run this before update_point_light_frusta!
 pub fn assign_lights_to_clusters(
     mut commands: Commands,
@@ -491,19 +503,8 @@ pub fn assign_lights_to_clusters(
     let mut lights = lights.iter().collect::<Vec<_>>();
 
     if lights.len() > MAX_POINT_LIGHTS {
-        // select at most MAX_POINT_LIGHT lights, ordered by shadow casters first, then by intensity, and finally by entity to remain stable.
         lights.sort_by(|(entity_1, _, light_1), (entity_2, _, light_2)| {
-            light_1
-                .shadows_enabled
-                .cmp(&light_2.shadows_enabled)
-                .reverse()
-                .then_with(|| {
-                    light_2
-                        .intensity
-                        .partial_cmp(&light_1.intensity)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .then_with(|| entity_1.cmp(entity_2))
+            point_light_order((entity_1, &light_1.shadows_enabled), (entity_2, &light_2.shadows_enabled))
         });
 
         // check each light against each view's frustum, keep only those that affect at least one of our views
