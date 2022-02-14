@@ -1,5 +1,4 @@
-use bevy::audio::AudioSink;
-use bevy::prelude::*;
+use bevy::{audio::AudioSink, prelude::*};
 
 /// This example illustrates how to load and play an audio file, and control how it's played
 fn main() {
@@ -8,6 +7,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(update_speed)
         .add_system(pause)
+        .add_system(volume)
         .run();
 }
 
@@ -46,6 +46,20 @@ fn pause(
             } else {
                 sink.pause()
             }
+        }
+    }
+}
+
+fn volume(
+    keyboard_input: Res<Input<KeyCode>>,
+    audio_sinks: Res<Assets<AudioSink>>,
+    music_controler: Res<MusicControler>,
+) {
+    if let Some(sink) = audio_sinks.get(&music_controler.0) {
+        if keyboard_input.just_pressed(KeyCode::Plus) {
+            sink.set_volume(sink.volume() + 0.1);
+        } else if keyboard_input.just_pressed(KeyCode::Minus) {
+            sink.set_volume(sink.volume() - 0.1);
         }
     }
 }
