@@ -56,9 +56,9 @@ where
     /// }
     /// ```
     ///
-    /// It returns a weak [`Handle`] to the [`AudioSink`]. If this handle isn't changed to a
+    /// Returns a weak [`Handle`] to the [`AudioSink`]. If this handle isn't changed to a
     /// strong one, the sink will be detached and the sound will continue playing. Changing it
-    /// to a strong allows for control on the playback through the [`AudioSink`] asset.
+    /// to a strong handle allows for control on the playback through the [`AudioSink`] asset.
     ///
     /// ```
     /// # use bevy_ecs::system::Res;

@@ -119,7 +119,7 @@ where
 #[derive(TypeUuid)]
 #[uuid = "8BEE570C-57C2-4FC0-8CFB-983A22F7D981"]
 pub struct AudioSink {
-    // This is an option to have a safe drop that will detach the sink.
+    // This field is an Option in order to allow us to have a safe drop that will detach the sink.
     // It will never be None during its life
     sink: Option<Sink>,
 }
