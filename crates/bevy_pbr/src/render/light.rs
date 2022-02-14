@@ -162,52 +162,53 @@ pub struct ShadowPipeline {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
-
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+        world.resource_scope(|world: &mut World, render_device: Mut<RenderDevice>| {
+            let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    // View
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: BufferSize::new(
+                                ViewUniform::std140_size_static() as u64
+                            ),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
-            label: Some("shadow_view_layout"),
-        });
+                ],
+                label: Some("shadow_view_layout"),
+            });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+            let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
-        ShadowPipeline {
-            view_layout,
-            mesh_layout: mesh_pipeline.mesh_layout.clone(),
-            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::GreaterEqual),
-                ..Default::default()
-            }),
-            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                compare: Some(CompareFunction::GreaterEqual),
-                ..Default::default()
-            }),
-        }
+            ShadowPipeline {
+                view_layout,
+                mesh_layout: mesh_pipeline.mesh_layout.clone(),
+                point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+                    address_mode_u: AddressMode::ClampToEdge,
+                    address_mode_v: AddressMode::ClampToEdge,
+                    address_mode_w: AddressMode::ClampToEdge,
+                    mag_filter: FilterMode::Linear,
+                    min_filter: FilterMode::Linear,
+                    mipmap_filter: FilterMode::Nearest,
+                    compare: Some(CompareFunction::GreaterEqual),
+                    ..Default::default()
+                }),
+                directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+                    address_mode_u: AddressMode::ClampToEdge,
+                    address_mode_v: AddressMode::ClampToEdge,
+                    address_mode_w: AddressMode::ClampToEdge,
+                    mag_filter: FilterMode::Linear,
+                    min_filter: FilterMode::Linear,
+                    mipmap_filter: FilterMode::Nearest,
+                    compare: Some(CompareFunction::GreaterEqual),
+                    ..Default::default()
+                }),
+            }
+        })
     }
 }
 

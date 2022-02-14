@@ -121,8 +121,10 @@ impl Plugin for RenderPlugin {
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                let world = app.world.cell();
-                let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+                let windows = app
+                    .world
+                    .get_resource_mut::<bevy_window::Windows>()
+                    .unwrap();
                 let raw_handle = windows.get_primary().map(|window| unsafe {
                     let handle = window.raw_window_handle().get_handle();
                     instance.create_surface(&handle)
