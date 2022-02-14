@@ -1140,6 +1140,8 @@ struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize>
 where
     F::Fetch: FilterFetch,
 {
+    // PERF: we could probably make this faster in common cases using a PetitSet
+    // or other set optimized for small sizes
     seen: HashSet<Entity>,
     query: &'q Query<'w, 's, Q, F>,
     index: usize,
@@ -1155,9 +1157,10 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < N {
+            let entity = self.array[self.index];
             self.index += 1;
             Some({
-                let entity = self.array[self.index];
+                // Returns true if the entity was not already present in the HashSet
                 if self.seen.insert(entity) {
                     // SAFE: entities are checked for uniqueness using a HashSet
                     unsafe { Query::<'w, 's, Q, F>::get_unchecked(self.query, entity) }
