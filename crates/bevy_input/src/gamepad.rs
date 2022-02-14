@@ -129,7 +129,7 @@ impl GamepadSettings {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ButtonSettings {
     pub press: f32,
     pub release: f32,
@@ -162,7 +162,7 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AxisSettings {
     pub positive_high: f32,
     pub positive_low: f32,
@@ -206,7 +206,7 @@ impl AxisSettings {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ButtonAxisSettings {
     pub high: f32,
     pub low: f32,
