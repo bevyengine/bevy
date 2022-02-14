@@ -66,15 +66,15 @@ where
         let len = queue.len();
         let mut i = 0;
         while i < len {
-            let (config, audio_source_handle) = queue.pop_front().unwrap();
-            if let Some(audio_source) = audio_sources.get(&audio_source_handle) {
+            let config = queue.pop_front().unwrap();
+            if let Some(audio_source) = audio_sources.get(&config.source_handle) {
                 if let Some(sink) = self.play_source(audio_source, config.repeat) {
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
-                    let _ = sinks.set(config.handle, AudioSink { sink: Some(sink) });
+                    let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
                 }
             } else {
                 // audio source hasn't loaded yet. add it back to the queue
-                queue.push_back((config, audio_source_handle));
+                queue.push_back(config);
             }
             i += 1;
         }

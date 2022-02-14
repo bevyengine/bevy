@@ -18,7 +18,7 @@ where
     Source: Asset + Decodable,
 {
     /// Queue for playing audio from asset handles
-    pub(crate) queue: RwLock<VecDeque<(AudioConfig, Handle<Source>)>>,
+    pub(crate) queue: RwLock<VecDeque<AudioToPlay<Source>>>,
 }
 
 impl<Source: Asset> fmt::Debug for Audio<Source>
@@ -77,11 +77,12 @@ where
     /// ```
     pub fn play(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
         let id = HandleId::random::<AudioSink>();
-        let config = AudioConfig {
+        let config = AudioToPlay {
             repeat: false,
-            handle: id,
+            sink_handle: id,
+            source_handle: audio_source,
         };
-        self.queue.write().push_back((config, audio_source));
+        self.queue.write().push_back(config);
         Handle::<AudioSink>::weak(id)
     }
 
@@ -90,17 +91,35 @@ where
     /// See [`Self::play`] on how to control playback.
     pub fn play_in_loop(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
         let id = HandleId::random::<AudioSink>();
-        let config = AudioConfig {
+        let config = AudioToPlay {
             repeat: true,
-            handle: id,
+            sink_handle: id,
+            source_handle: audio_source,
         };
-        self.queue.write().push_back((config, audio_source));
+        self.queue.write().push_back(config);
         Handle::<AudioSink>::weak(id)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct AudioConfig {
-    pub(crate) handle: HandleId,
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct AudioToPlay<Source>
+where
+    Source: Asset + Decodable,
+{
+    pub(crate) sink_handle: HandleId,
+    pub(crate) source_handle: Handle<Source>,
     pub(crate) repeat: bool,
+}
+
+impl<Source> fmt::Debug for AudioToPlay<Source>
+where
+    Source: Asset + Decodable,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AudioToPlay")
+            .field("sink_handle", &self.sink_handle)
+            .field("source_handle", &self.source_handle)
+            .field("repeat", &self.repeat)
+            .finish()
+    }
 }
