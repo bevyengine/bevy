@@ -104,9 +104,9 @@ where
 /// # use bevy_audio::AudioSink;
 /// fn pause(
 ///     audio_sinks: Res<Assets<AudioSink>>,
-///     music_controler: Local<Handle<AudioSink>>,
+///     music_controller: Local<Handle<AudioSink>>,
 /// ) {
-///     if let Some(sink) = audio_sinks.get(&*music_controler) {
+///     if let Some(sink) = audio_sinks.get(&*music_controller) {
 ///         if sink.is_paused() {
 ///             sink.play()
 ///         } else {
