@@ -15,7 +15,7 @@ use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z, MAX_POINT_LIGHTS,
+    CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -490,19 +490,47 @@ pub fn assign_lights_to_clusters(
 ) {
     let mut lights = lights.iter().collect::<Vec<_>>();
 
-    // select at most MAX_POINT_LIGHT lights, ordered by shadow casters first, then by intensity, and finally by entity to remain stable.
     if lights.len() > MAX_POINT_LIGHTS {
+        // select at most MAX_POINT_LIGHT lights, ordered by shadow casters first, then by intensity, and finally by entity to remain stable.
         lights.sort_by(|(entity_1, _, light_1), (entity_2, _, light_2)| {
             light_1
                 .shadows_enabled
                 .cmp(&light_2.shadows_enabled)
                 .reverse()
-                .then_with(|| light_2.intensity.partial_cmp(&light_1.intensity).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    light_2
+                        .intensity
+                        .partial_cmp(&light_1.intensity)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
                 .then_with(|| entity_1.cmp(entity_2))
         });
+
+        // check each light against each view's frustum, keep only those that affect at least one of our views
+        let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _)| *frustum).collect();
+        lights = lights
+            .into_iter()
+            .filter(|(_, light_transform, light)| {
+                let light_sphere = Sphere {
+                    center: light_transform.translation,
+                    radius: light.range,
+                };
+
+                frusta
+                    .iter()
+                    .any(|frustum| frustum.intersects_sphere(&light_sphere))
+            })
+            // take one extra light to check if we should emit the warning
+            .take(MAX_POINT_LIGHTS + 1)
+            .collect();
+
+        if lights.len() > MAX_POINT_LIGHTS {
+            warn!("MAX_POINT_LIGHTS exceeded");
+            lights.truncate(MAX_POINT_LIGHTS);
+        }
     }
 
-    let light_count = lights.iter().count();
+    let light_count = lights.len();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, mut clusters) in views.iter_mut() {
         let view_transform = view_transform.compute_matrix();
@@ -521,8 +549,6 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
-        let mut point_lights_taken = 0;
-        let mut point_lights_full = false;
         for &(light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
                 center: light_transform.translation,
@@ -533,17 +559,6 @@ pub fn assign_lights_to_clusters(
             if !frustum.intersects_sphere(&light_sphere) {
                 continue;
             }
-
-            // now we know this light affects our view, increment the count of lights we have taken
-            if point_lights_taken >= MAX_POINT_LIGHTS {
-                if !point_lights_full {
-                    warn!("MAX_POINT_LIGHTS exceeded");
-                    point_lights_full = true;
-                }
-                continue;
-            }
-
-            point_lights_taken += 1;
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
@@ -616,7 +631,6 @@ pub fn assign_lights_to_clusters(
             );
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
-                
             for y in min_cluster.y..=max_cluster.y {
                 for x in min_cluster.x..=max_cluster.x {
                     for z in min_cluster.z..=max_cluster.z {
