@@ -178,9 +178,9 @@ impl AudioSink {
         self.sink.as_ref().unwrap().pause();
     }
 
-    /// Gets if a sink is paused
+    /// Is this sink paused?
     ///
-    /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play). This returns true if the sink is paused.
+    /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
     pub fn is_paused(&self) -> bool {
         self.sink.as_ref().unwrap().is_paused()
     }
