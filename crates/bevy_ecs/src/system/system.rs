@@ -76,7 +76,7 @@ pub(crate) fn check_system_change_tick(
         warn!(
             "{} intervening systems have run since system '{}' last ran. \
             Systems cannot detect changes older than {}.",
-            delta, system_name, CHANGE_DETECTION_MAX_DELTA,
+            delta, system_name, CHANGE_DETECTION_MAX_DELTA - 1,
         );
         *last_change_tick = change_tick.wrapping_sub(CHANGE_DETECTION_MAX_DELTA);
     }
