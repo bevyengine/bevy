@@ -56,6 +56,82 @@ impl SystemMeta {
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
+///
+/// This is a very powerful and convenient tool for working with exclusive world access,
+/// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+///
+/// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
+/// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
+///
+/// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
+///
+/// # Warning
+///
+/// [`SystemState`] values created can be cached to improve performance,
+/// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
+/// These include:
+/// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
+/// - [`Local`](crate::system::Local) variables that hold state
+/// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
+///
+/// # Example
+///
+/// Basic usage:
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
+///
+/// struct MyEvent;
+/// struct MyResource(u32);
+///
+/// #[derive(Component)]
+/// struct MyComponent;
+///
+/// // Work directly on the `World`
+/// let mut world = World::new();
+/// world.init_resource::<Events<MyEvent>>();
+///
+/// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
+/// // as if you were writing an ordinary system.
+/// let mut system_state: SystemState<(
+///     EventWriter<MyEvent>,
+///     Option<ResMut<MyResource>>,
+///     Query<&MyComponent>,
+///     )> = SystemState::new(&mut world);
+///
+/// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
+/// // system_state.get(&world) provides read-only versions of your system parameters instead.
+/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// ```
+/// Caching:
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
+///
+/// struct MyEvent;
+/// struct CachedSystemState<'w, 's>{
+///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// }
+///
+/// // Create and store a system state once
+/// let mut world = World::new();
+/// world.init_resource::<Events<MyEvent>>();
+/// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
+///
+/// // The system state is cached in a resource
+/// world.insert_resource(CachedSystemState{event_state: initial_state});
+///
+/// // Later, fetch the cached system state, saving on overhead
+/// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
+///     let mut event_reader = cached_state.event_state.get_mut(world);
+///
+///     for events in event_reader.iter(){
+///         println!("Hello World!");
+///     };
+/// });
+/// ```
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,

@@ -34,6 +34,12 @@ pub use identifier::WorldId;
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
 ///
+/// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
+/// consider using [`SystemState`](crate::system::SystemState).
+///
+/// To mutate different parts of the world simultaneously,
+/// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
+///
 /// # Resources
 ///
 /// Worlds can also store *resources*, which are unique instances of a given type that don't
@@ -926,9 +932,12 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [World], then re-adds it before
-    /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access
+    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// # Example
     /// ```
     /// use bevy_ecs::{component::Component, world::{World, Mut}};
     /// #[derive(Component)]
