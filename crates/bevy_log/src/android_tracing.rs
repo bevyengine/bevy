@@ -32,7 +32,8 @@ impl Visit for StringRecorder {
                 // first arg
                 self.1 = true;
             }
-            write!(self.0, "{} = {:?};", field.name(), value).expect("Failed to write debug field and value");
+            write!(self.0, "{} = {:?};", field.name(), value)
+                .expect("Failed to write debug field and value");
         }
     }
 }
