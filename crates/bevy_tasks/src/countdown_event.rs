@@ -100,7 +100,7 @@ mod tests {
         countdown_event.decrement();
         let countdown_event_clone = countdown_event.clone();
         let handle = std::thread::spawn(move || {
-            futures_lite::future::block_on(countdown_event_clone.listen())
+            futures_lite::future::block_on(countdown_event_clone.listen());
         });
 
         // Pause to give the new thread time to start blocking (ugly hack)

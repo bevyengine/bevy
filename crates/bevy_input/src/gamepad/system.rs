@@ -101,7 +101,7 @@ pub fn gamepad_event_system(
                     events.send(GamepadEvent::new(
                         event.gamepad,
                         GamepadEventType::ButtonChanged(button_type, filtered_value),
-                    ))
+                    ));
                 }
 
                 let button_property = settings.get_button_settings(gamepad_button);

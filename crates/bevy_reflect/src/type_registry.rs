@@ -276,7 +276,7 @@ impl TypeRegistration {
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
         let mut data = HashMap::default();
-        for (id, type_data) in self.data.iter() {
+        for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }
 

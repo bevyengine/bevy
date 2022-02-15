@@ -180,7 +180,7 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
         let value = self.swap_remove_and_forget_unchecked(index);
-        (self.drop)(value)
+        (self.drop)(value);
     }
 
     /// # Safety
@@ -291,7 +291,7 @@ mod tests {
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+        x.cast::<T>().drop_in_place();
     }
 
     /// # Safety

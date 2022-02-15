@@ -604,7 +604,7 @@ pub fn assign_lights_to_clusters(
             }
         }
 
-        for cluster_lights in clusters_lights.iter_mut() {
+        for cluster_lights in &mut clusters_lights {
             cluster_lights.entities.shrink_to_fit();
         }
 
@@ -821,7 +821,7 @@ pub fn check_light_mesh_visibility(
                     } else {
                         computed_visibility.is_visible = true;
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity)
+                            visible_entities.entities.push(entity);
                         }
                     }
                 }

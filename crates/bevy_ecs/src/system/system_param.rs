@@ -43,7 +43,7 @@ use std::{
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # my_system.system();
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
@@ -299,11 +299,12 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
-        if combined_access.has_write(component_id) {
-            panic!(
-                "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
-        }
+        assert!(
+            !combined_access.has_write(component_id),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
+            std::any::type_name::<T>(),
+            system_meta.name,
+        );
         combined_access.add_read(component_id);
 
         let resource_archetype = world.archetypes.resource();
@@ -614,8 +615,8 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// fn read_from_local(local: Local<usize>) -> usize {
 ///     *local
 /// }
-/// let mut write_system = write_to_local.system();
-/// let mut read_system = read_from_local.system();
+/// let mut write_system = IntoSystem::into_system(write_to_local);
+/// let mut read_system = IntoSystem::into_system(read_from_local);
 /// write_system.initialize(world);
 /// read_system.initialize(world);
 ///
@@ -718,7 +719,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 ///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
 /// }
 ///
-/// # react_on_removal.system();
+/// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
 pub struct RemovedComponents<'a, T: Component> {
     world: &'a World,
@@ -863,11 +864,12 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
 
         let component_id = world.initialize_non_send_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
-        if combined_access.has_write(component_id) {
-            panic!(
-                "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
-        }
+        assert!(
+            !combined_access.has_write(component_id),
+            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
+            std::any::type_name::<T>(),
+            system_meta.name,
+        );
         combined_access.add_read(component_id);
 
         let resource_archetype = world.archetypes.resource();

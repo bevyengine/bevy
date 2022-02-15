@@ -26,7 +26,8 @@ use bevy_render::{
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::{GlobalTransform, Transform},
+    prelude::Transform,
+    TransformBundle,
 };
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -289,7 +290,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
+            .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -348,18 +349,17 @@ async fn load_texture<'a>(
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
-            let (bytes, image_type) = match DataUri::parse(uri) {
-                Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
-                Err(()) => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
-                    let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+            let (bytes, image_type) = if let Ok(data_uri) = DataUri::parse(uri) {
+                (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type))
+            } else {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
 
-                    let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                    let image_type = ImageType::Extension(extension);
+                let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                let image_type = ImageType::Extension(extension);
 
-                    (bytes, image_type)
-                }
+                (bytes, image_type)
             };
 
             Image::from_buffer(
@@ -462,10 +462,9 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle((
-        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::identity(),
-    ));
+    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+        Mat4::from_cols_array_2d(&transform.matrix()),
+    )));
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
@@ -776,7 +775,7 @@ fn resolve_node_hierarchy(
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
-            for child in children.iter() {
+            for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
                 } else if !has_errored {
@@ -802,7 +801,7 @@ fn resolve_node_hierarchy(
 
             assert!(parent_children.remove(&index));
             if let Some((_, child_node)) = nodes.get(&index) {
-                parent_node.children.push(child_node.clone())
+                parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
                 empty_children.push_back(parent_index);
