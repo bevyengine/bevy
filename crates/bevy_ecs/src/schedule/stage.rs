@@ -567,7 +567,7 @@ impl SystemStage {
     /// times since the previous `check_tick` scan. 
     ///
     /// During each scan, any change ticks older than [`MAX_TICK_DELTA`](crate::change_detection::MAX_TICK_DELTA)
-    /// are clamped to that difference, potential false positives due to overflow.
+    /// are clamped to that difference, preventing potential false positives due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
         let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
