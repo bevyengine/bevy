@@ -2,10 +2,14 @@ use std::borrow::Cow;
 
 pub use wgpu::{Backends, Features as WgpuFeatures, Limits as WgpuLimits, PowerPreference};
 
+/// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
 pub enum WgpuSettingsPriority {
+    /// WebGPU default features and limits
     Compatibility,
+    /// The maximum supported features and limits of the adapter and backend
     Functionality,
+    /// WebGPU default limits plus additional constraints in order to be compatible with WebGL2
     WebGL2,
 }
 
