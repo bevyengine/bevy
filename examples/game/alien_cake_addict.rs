@@ -199,33 +199,28 @@ fn move_player(
         let mut moved = false;
         let mut rotation = 0.0;
 
-        let up = keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W);
-        let down = keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S);
-        let right = keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D);
-        let left = keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A);
-
-        if up {
+        if keyboard_input.pressed(KeyCode::Up) {
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
             rotation = -std::f32::consts::FRAC_PI_2;
             moved = true;
         }
-        if down {
+        if keyboard_input.pressed(KeyCode::Down) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
             rotation = std::f32::consts::FRAC_PI_2;
             moved = true;
         }
-        if right {
+        if keyboard_input.pressed(KeyCode::Right) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
             rotation = std::f32::consts::PI;
             moved = true;
         }
-        if left {
+        if keyboard_input.pressed(KeyCode::Left) {
             if game.player.j > 0 {
                 game.player.j -= 1;
             }
