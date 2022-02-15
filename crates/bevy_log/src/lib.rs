@@ -109,10 +109,10 @@ impl Plugin for LogPlugin {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
-        LogTracer::init().unwrap();
+        LogTracer::init().expect("Failed to initialize log tracer");
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
-            .unwrap();
+            .expect("Failed to parse log filter");
         let subscriber = Registry::default().with(filter_layer);
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]

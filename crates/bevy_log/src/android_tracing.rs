@@ -27,12 +27,12 @@ impl Visit for StringRecorder {
         } else {
             if self.1 {
                 // following args
-                write!(self.0, " ").unwrap();
+                write!(self.0, " ").expect("Failed to write the string");
             } else {
                 // first arg
                 self.1 = true;
             }
-            write!(self.0, "{} = {:?};", field.name(), value).unwrap();
+            write!(self.0, "{} = {:?};", field.name(), value).expect("Failed to write debug field and value");
         }
     }
 }
