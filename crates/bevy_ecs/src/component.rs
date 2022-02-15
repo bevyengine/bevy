@@ -413,7 +413,7 @@ impl ComponentTicks {
 fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
     let delta = change_tick.wrapping_sub(*last_change_tick);
     // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
-    // so long as this check runs always runs before that can happen.
+    // so long as this check always runs before that can happen.
     if delta > MAX_TICK_DELTA {
         *last_change_tick = change_tick.wrapping_sub(MAX_TICK_DELTA);
     }
