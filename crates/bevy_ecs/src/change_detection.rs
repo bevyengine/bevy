@@ -5,11 +5,19 @@ use crate::{component::ComponentTicks, system::Resource};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
-/// The minimum number of tick increments between consecutive `check_tick` scans.
-pub const CHANGE_DETECTION_CHECK_THRESHOLD: u32 = u32::MAX / 2048;
+/// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
+/// 
+/// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`, 
+/// the maximum is `2 * N - 1` (i.e. world ticks `N - 1` times, then `N` times).
+/// 
+/// If a change is older than `u32::MAX - (2 * N - 1)`, the difference that calculates its age
+/// might overflow and wraparound before the next scan, causing false positives.
+pub const CHECK_TICK_THRESHOLD: u32 = 10_000_000;
 
-/// The maximum change tick difference that we can guarantee won't overflow before the next scan.
-pub const CHANGE_DETECTION_MAX_DELTA: u32 = u32::MAX - (2 * CHANGE_DETECTION_CHECK_THRESHOLD - 1);
+/// The maximum change tick difference that won't overflow before the next `check_tick` scan.
+/// 
+/// Changes stop being detected once they become this old.
+pub const MAX_TICK_DELTA: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
 /// Types that implement reliable change detection.
 ///

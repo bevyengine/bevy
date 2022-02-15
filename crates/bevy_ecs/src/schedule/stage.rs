@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::CHANGE_DETECTION_CHECK_THRESHOLD,
+    change_detection::CHECK_TICK_THRESHOLD,
     component::ComponentId,
     prelude::IntoSystem,
     schedule::{
@@ -425,14 +425,14 @@ impl SystemStage {
     /// Rearranges all systems in topological orders. Systems must be initialized.
     fn rebuild_orders_and_dependencies(&mut self) {
         // This assertion exists to document that the number of systems in a stage is limited
-        // to guarantee that change detection never has any false positives. However, it's possible
+        // to guarantee that change detection never yields false positives. However, it's possible
         // (but still unlikely) to circumvent this by abusing exclusive or chained systems.
         assert!(
             self.exclusive_at_start.len()
                 + self.exclusive_before_commands.len()
                 + self.exclusive_at_end.len()
                 + self.parallel.len()
-                < (CHANGE_DETECTION_CHECK_THRESHOLD) as usize
+                < (CHECK_TICK_THRESHOLD as usize)
         );
         debug_assert!(
             self.uninitialized_run_criteria.is_empty()
@@ -562,20 +562,17 @@ impl SystemStage {
         }
     }
 
-    /// System and component change ticks are checked for risk of delta overflow once at least
-    /// `CHANGE_DETECTION_CHECK_THRESHOLD` systems have run since the previous check. No more
-    /// than twice that number should run between checks.
+    /// All system and component change ticks are scanned for risk of delta overflow once the world
+    /// counter has incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// times since the previous `check_tick` scan. 
     ///
-    /// During each check, any change ticks older than `CHANGE_DETECTION_MAX_DELTA` are clamped
-    /// to that value.
-    ///
-    /// Because of that, a system will never miss a change so long as its true age and
-    /// and the true age of a change are not *both* greater than or equal to `CHANGE_DETECTION_MAX_DELTA`.
+    /// During each scan, any change ticks older than [`MAX_TICK_DELTA`](crate::change_detection::MAX_TICK_DELTA)
+    /// are clamped to that difference, potential false positives due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
         let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
 
-        if ticks_since_last_check > CHANGE_DETECTION_CHECK_THRESHOLD {
+        if ticks_since_last_check > CHECK_TICK_THRESHOLD {
             // Check all system change ticks.
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system.system_mut().check_change_tick(change_tick);

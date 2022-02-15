@@ -71,13 +71,14 @@ pub(crate) fn check_system_change_tick(
 ) {
     let delta = change_tick.wrapping_sub(*last_change_tick);
     // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
-    // so long as a check runs at least every 2 * `CHANGE_DETECTION_CHECK_THRESHOLD` ticks.
-    if delta > CHANGE_DETECTION_MAX_DELTA {
+    // so long as this check runs always runs before that can happen.
+    if delta > MAX_TICK_DELTA {
+        // TODO: Don't spam this warning over and over for the same system.
         warn!(
-            "{} intervening systems have run since system '{}' last ran. \
-            Systems cannot detect changes older than {}.",
-            delta, system_name, CHANGE_DETECTION_MAX_DELTA - 1,
+            "System '{}' has not run for {} ticks. \
+            Changes older than {} ticks will not be detected.",
+            system_name, delta, MAX_TICK_DELTA - 1,
         );
-        *last_change_tick = change_tick.wrapping_sub(CHANGE_DETECTION_MAX_DELTA);
+        *last_change_tick = change_tick.wrapping_sub(MAX_TICK_DELTA);
     }
 }
