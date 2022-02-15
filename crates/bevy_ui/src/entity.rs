@@ -23,6 +23,8 @@ pub struct NodeBundle {
     pub color: UiColor,
     /// Describes the image of the node
     pub image: UiImage,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
     /// The transform of the node
     pub transform: Transform,
     /// The global transform of the node
@@ -46,6 +48,8 @@ pub struct ImageBundle {
     pub color: UiColor,
     /// The image of the node
     pub image: UiImage,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
     /// The transform of the node
     pub transform: Transform,
     /// The global transform of the node
