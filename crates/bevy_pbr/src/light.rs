@@ -480,7 +480,7 @@ fn ndc_position_to_cluster(
 }
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
-// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows, and
+// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows and
 // we keep a stable set of lights visible
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1): (&Entity, &bool),
