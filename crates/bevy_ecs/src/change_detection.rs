@@ -5,6 +5,12 @@ use crate::{component::ComponentTicks, system::Resource};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
+/// The minimum number of tick increments between consecutive check tick scans. The maximum is twice this number.
+pub const CHANGE_DETECTION_CHECK_THRESHOLD: u32 = u32::MAX / 2048;
+
+/// The maximum change tick difference that won't overflow before the next check.
+pub const CHANGE_DETECTION_MAX_DELTA: u32 = u32::MAX - (2 * CHANGE_DETECTION_CHECK_THRESHOLD);
+
 /// Types that implement reliable change detection.
 ///
 /// ## Example

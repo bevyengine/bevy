@@ -1,8 +1,8 @@
 use bevy_utils::tracing::warn;
 
 use crate::{
-    archetype::ArchetypeComponentId, component::ComponentId, query::Access, schedule::SystemLabel,
-    world::World,
+    archetype::ArchetypeComponentId, change_detection::CHANGE_DETECTION_MAX_DELTA,
+    component::ComponentId, query::Access, schedule::SystemLabel, world::World,
 };
 use std::borrow::Cow;
 
@@ -69,14 +69,15 @@ pub(crate) fn check_system_change_tick(
     change_tick: u32,
     system_name: &str,
 ) {
-    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
-    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-    // Clamp to max delta
-    if tick_delta > MAX_DELTA {
+    let delta = change_tick.wrapping_sub(*last_change_tick);
+    // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
+    // so long as a check runs at least every 2 * `CHANGE_DETECTION_CHECK_THRESHOLD` ticks.
+    if delta > CHANGE_DETECTION_MAX_DELTA {
         warn!(
-            "Too many intervening systems have run since the last time System '{}' was last run; it may fail to detect changes.",
-            system_name
+            "{} intervening systems have run since system '{}' last ran. \
+            Systems cannot detect changes older than {}.",
+            delta, system_name, CHANGE_DETECTION_MAX_DELTA,
         );
-        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+        *last_change_tick = change_tick.wrapping_sub(CHANGE_DETECTION_MAX_DELTA);
     }
 }

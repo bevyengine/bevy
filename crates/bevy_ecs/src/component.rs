@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    change_detection::CHANGE_DETECTION_MAX_DELTA,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -354,21 +355,29 @@ pub struct ComponentTicks {
 impl ComponentTicks {
     #[inline]
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        // The comparison is relative to `change_tick` so that we can detect changes over the whole
-        // `u32` range. Comparing directly the ticks would limit to half that due to overflow
-        // handling.
-        let component_delta = change_tick.wrapping_sub(self.added);
-        let system_delta = change_tick.wrapping_sub(last_change_tick);
+        // The comparison is relative to the world tick (`change_tick`) so that we can use
+        // the full `u32` range. Comparing the system and component ticks directly would limit the
+        // maximum delta to `u32::MAX / 2` because of wraparound.
+        let ticks_since_insert = change_tick
+            .wrapping_sub(self.added)
+            .min(CHANGE_DETECTION_MAX_DELTA);
+        let ticks_since_system = change_tick
+            .wrapping_sub(last_change_tick)
+            .min(CHANGE_DETECTION_MAX_DELTA);
 
-        component_delta < system_delta
+        ticks_since_system > ticks_since_insert
     }
 
     #[inline]
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        let component_delta = change_tick.wrapping_sub(self.changed);
-        let system_delta = change_tick.wrapping_sub(last_change_tick);
+        let ticks_since_change = change_tick
+            .wrapping_sub(self.changed)
+            .min(CHANGE_DETECTION_MAX_DELTA);
+        let ticks_since_system = change_tick
+            .wrapping_sub(last_change_tick)
+            .min(CHANGE_DETECTION_MAX_DELTA);
 
-        component_delta < system_delta
+        ticks_since_system > ticks_since_change
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {
@@ -402,10 +411,10 @@ impl ComponentTicks {
 }
 
 fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
-    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
-    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-    // Clamp to max delta
-    if tick_delta > MAX_DELTA {
-        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    let delta = change_tick.wrapping_sub(*last_change_tick);
+    // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
+    // so long as a check runs at least every 2 * `CHANGE_DETECTION_CHECK_THRESHOLD` ticks.
+    if delta > CHANGE_DETECTION_MAX_DELTA {
+        *last_change_tick = change_tick.wrapping_sub(CHANGE_DETECTION_MAX_DELTA);
     }
 }
