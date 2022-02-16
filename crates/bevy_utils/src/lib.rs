@@ -4,12 +4,21 @@ pub mod label;
 pub use ahash::AHasher;
 pub use enum_variant_meta::*;
 pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
+pub use hashbrown;
+use hashbrown::hash_map::RawEntryMut;
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;
 
 use ahash::RandomState;
-use std::{future::Future, pin::Pin};
+use std::{
+    fmt::Debug,
+    future::Future,
+    hash::{BuildHasher, Hash, Hasher},
+    marker::PhantomData,
+    ops::Deref,
+    pin::Pin,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -208,3 +217,138 @@ pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 //         StableHashSet::with_capacity_and_hasher(capacity, FixedState::default())
 //     }
 // }
+
+pub struct Hashed<V, H = FixedState> {
+    hash: u64,
+    value: V,
+    marker: PhantomData<H>,
+}
+
+impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
+    pub fn new(value: V) -> Self {
+        let builder = H::default();
+        let mut hasher = builder.build_hasher();
+        value.hash(&mut hasher);
+        Self {
+            hash: hasher.finish(),
+            value,
+            marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn hash(&self) -> u64 {
+        self.hash
+    }
+}
+
+impl<V, H> Hash for Hashed<V, H> {
+    #[inline]
+    fn hash<R: Hasher>(&self, state: &mut R) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl<V, H> Deref for Hashed<V, H> {
+    type Target = V;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<V: PartialEq, H> Hashed<V, H> {
+    #[inline]
+    pub fn fast_eq(&self, other: &Hashed<V, H>) -> bool {
+        // Makes the common case of two values not been equal very fast
+        self.hash == other.hash && self.value.eq(&other.value)
+    }
+}
+
+impl<V: PartialEq, H> PartialEq for Hashed<V, H> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.value.eq(&other.value)
+    }
+}
+
+impl<V: Debug, H> Debug for Hashed<V, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Hashed")
+            .field("hash", &self.hash)
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
+impl<V: Clone, H> Clone for Hashed<V, H> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            hash: self.hash.clone(),
+            value: self.value.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<V: Eq, H> Eq for Hashed<V, H> {}
+
+#[derive(Default)]
+pub struct PassHash;
+
+impl BuildHasher for PassHash {
+    type Hasher = PassHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        PassHasher::default()
+    }
+}
+
+#[derive(Debug)]
+pub struct PassHasher {
+    hash: u64,
+}
+
+impl Default for PassHasher {
+    fn default() -> Self {
+        Self { hash: 0 }
+    }
+}
+
+impl Hasher for PassHasher {
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("cannot hash byte arrays using PassHasher");
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.hash = i;
+    }
+
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
+
+pub trait PreHashMapExt<K, V> {
+    fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V;
+}
+
+impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, V> {
+    #[inline]
+    fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V {
+        let entry = self
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(key.hash(), key);
+        match entry {
+            RawEntryMut::Occupied(entry) => entry.into_mut(),
+            RawEntryMut::Vacant(entry) => {
+                let (_, value) = entry.insert_hashed_nocheck(key.hash(), key.clone(), func());
+                value
+            }
+        }
+    }
+}
