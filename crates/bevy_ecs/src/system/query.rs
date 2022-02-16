@@ -281,9 +281,10 @@ where
 
     /// Creates a new [`Query`] from a [`QueryState`]
     ///
-    /// [`Query`] is a simply a borrow of [`QueryState`],
-    /// but when working directly with the [`World`]
-    /// we need to store the query's internal data somewhere, and so cannot return a [`Query`] directly.
+    /// For performance reasons (and to enable change detection), queries cache internal state.
+    /// This data must be stored somewhere,
+    /// and so [`World::query`] must return a [`QueryState`], rather than a [`Query`].
+    /// However, it can often be more convenient to work with a [`Query`] instead.
     ///
     /// As queries can modify the entity-component data in ways that could conflict dangerously,
     /// this method requires a mutable reference to the [`World`],
