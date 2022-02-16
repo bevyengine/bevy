@@ -1165,7 +1165,6 @@ where
                 }
             })
         } else {
-            self.index += 1;
             None
         }
     }
