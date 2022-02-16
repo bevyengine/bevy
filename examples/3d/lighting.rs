@@ -24,7 +24,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 1000.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -354,7 +354,7 @@ fn camera_controller(
                     point_light: PointLight {
                         intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                         color: Color::RED,
-                        shadows_enabled: true,
+                        shadows_enabled: false,
                         ..Default::default()
                     },
                     ..Default::default()

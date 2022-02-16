@@ -211,7 +211,7 @@ pub enum ClusterConfig {
     // explicit x, y and z counts (may yield non-square clusters)
     XYZ(UVec3),
     // fixed number of z-slices, x and y calculated to give square clusters
-    // with at most count total clusters
+    // with at most total clusters
     FixedZ { total: u32, z_slices: u32 },
 }
 
@@ -267,7 +267,7 @@ impl Clusters {
     }
 
     fn from_screen_size_and_dimensions(screen_size: UVec2, dimensions: UVec3) -> Self {
-        Clusters::new((screen_size + UVec2::ONE) / dimensions.xy(), screen_size, Z_SLICES)
+        Clusters::new((screen_size + UVec2::ONE) / dimensions.xy(), screen_size, dimensions.z)
     }
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
@@ -375,8 +375,6 @@ fn compute_aabb_for_cluster(
 
     Aabb::from_min_max(cluster_min, cluster_max)
 }
-
-const Z_SLICES: u32 = 24;
 
 pub fn add_clusters(
     mut commands: Commands,
@@ -516,8 +514,13 @@ fn viewspace_light_aabb(inverse_view_transform: Mat4, projection_matrix: Mat4, l
         center: (inverse_view_transform * light_sphere.center.extend(1.0)).xyz(),
         half_extents: Vec3::splat(light_sphere.radius),
     };
-    let (light_aabb_view_min, light_aabb_view_max) =
+    let (mut light_aabb_view_min, mut light_aabb_view_max) =
         (light_aabb_view.min(), light_aabb_view.max());
+
+    // constraint z to be negative - i.e. in front of the camera
+    light_aabb_view_min.z = light_aabb_view_min.z.min(-0.0001);
+    light_aabb_view_max.z = light_aabb_view_max.z.min(-0.0001);
+
     // Is there a cheaper way to do this? The problem is that because of perspective
     // the point at max z but min xy may be less xy in screenspace, and similar. As
     // such, projecting the min and max xy at both the closer and further z and taking
@@ -566,7 +569,10 @@ fn viewspace_light_aabb(inverse_view_transform: Mat4, projection_matrix: Mat4, l
             .max(light_aabb_ndc_xymax_far),
     );
 
-    (light_aabb_ndc_min.xy().extend(light_aabb_view_min.z), light_aabb_ndc_max.xy().extend(light_aabb_view_max.z))
+    let (aabb_min, aabb_max) = (light_aabb_ndc_min.xy().extend(light_aabb_view_min.z), light_aabb_ndc_max.xy().extend(light_aabb_view_max.z));
+    let (aabb_min, aabb_max) = (aabb_min.min(aabb_max), aabb_min.max(aabb_max));
+    (aabb_min.clamp(Vec3::new(-1.0, -1.0, f32::MIN), Vec3::new(1.0, 1.0, f32::MAX)), aabb_max.clamp(Vec3::new(-1.0, -1.0, f32::MIN), Vec3::new(1.0, 1.0, f32::MAX)))
+    // (aabb_min, aabb_max)
 }
 
 // NOTE: Run this before update_point_light_frusta!
@@ -577,11 +583,13 @@ pub fn assign_lights_to_clusters(
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &ClusterConfig, &mut Clusters)>,
     lights: Query<(Entity, &GlobalTransform, &PointLight)>,
 ) {
-    let mut index_count = 0;
-    let mut index_estimate = 0;
     let light_count = lights.iter().count();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
+        // FIXME remove - just for diagnostics
+        let mut index_count = 0;
+        let mut index_estimate = 0;
+
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
@@ -620,16 +628,18 @@ pub fn assign_lights_to_clusters(
             let light_aabb_ndc_min = light_aabb_ndc_min.xy().clamp(-Vec2::ONE, Vec2::ONE);
             let light_aabb_ndc_max = light_aabb_ndc_max.xy().clamp(-Vec2::ONE, Vec2::ONE);
 
-            let xy_count = (light_aabb_ndc_max - light_aabb_ndc_min) * 0.5 * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32).max(Vec2::ONE);
+            let xy_count = ((light_aabb_ndc_max - light_aabb_ndc_min) * 0.5 * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32)).max(Vec2::ONE);
             cluster_index_count += xy_count.x * xy_count.y * z_count as f32;
         }
 
+        index_estimate = cluster_index_count as usize;
         if cluster_index_count > ViewClusterBindings::MAX_INDICES as f32 {
             // scale x and y cluster count to be able to fit all our indices
             let ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_count;
             let xy_ratio = ratio.sqrt();
-            cluster_dimensions.x = (cluster_dimensions.x as f32 * xy_ratio) as u32;
-            cluster_dimensions.y = (cluster_dimensions.y as f32 * xy_ratio) as u32;
+            cluster_dimensions.x = ((cluster_dimensions.x as f32 * xy_ratio) as u32).max(1);
+            cluster_dimensions.y = ((cluster_dimensions.y as f32 * xy_ratio) as u32).max(1);
+            index_estimate = (cluster_index_count * ratio) as usize;
         }
 
         update_clusters(screen_size_u32, camera, cluster_dimensions, &mut clusters);
@@ -681,7 +691,6 @@ pub fn assign_lights_to_clusters(
                             clusters_lights[cluster_index].entities.push(light_entity);
                             index_count += 1;
                         }
-                        index_estimate += 1;
                     }
                 }
             }
