@@ -20,7 +20,6 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
-    iter::IntoIterator,
     mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
