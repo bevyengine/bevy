@@ -46,42 +46,10 @@ impl std::hash::BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// `aHash` is designed for performance and is NOT cryptographically secure.
-///
-/// # Construction
-///
-/// Users may be surprised when a `HashMap` cannot be constructed with `HashMap::new()`:
-///
-/// ```compile_fail
-/// # fn main() {
-/// use bevy_utils::HashMap;
-///
-/// // Produces an error like "no function or associated item named `new` found [...]"
-/// let map: HashMap<String, String> = HashMap::new();
-/// # }
-/// ```
-///
-/// The standard library's [`HashMap::new`][hashbrown::HashMap::new] is
-/// implemented only for `HashMap`s which use the
-/// [`DefaultHasher`][std::collections::hash_map::DefaultHasher], so it's not
-/// available for Bevy's `HashMap`.
-///
-/// However, an empty `HashMap` can easily be constructed using the `Default`
-/// implementation:
-///
-/// ```
-/// # fn main() {
-/// use bevy_utils::HashMap;
-///
-/// // This works!
-/// let map: HashMap<String, String> = HashMap::default();
-/// assert!(map.is_empty());
-/// # }
-/// ```
-///
 /// [`aHash`]: https://github.com/tkaitchuck/aHash
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
 
-/// A stable std hash map implementing `aHash`, a high speed keyed hashing algorithm
+/// A stable hash map implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashMap`] this has an iteration order that only depends on the order
@@ -90,46 +58,14 @@ pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
 /// `aHash` is designed for performance and is NOT cryptographically secure.
 pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
-/// A [`HashSet`][std::collections::HashSet] implementing [`aHash`], a high
+/// A [`HashSet`][hashbrown::HashSet] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// `aHash` is designed for performance and is NOT cryptographically secure.
-///
-/// # Construction
-///
-/// Users may be surprised when a `HashSet` cannot be constructed with `HashSet::new()`:
-///
-/// ```compile_fail
-/// # fn main() {
-/// use bevy_utils::HashSet;
-///
-/// // Produces an error like "no function or associated item named `new` found [...]"
-/// let map: HashSet<String> = HashSet::new();
-/// # }
-/// ```
-///
-/// The standard library's [`HashSet::new`][std::collections::HashSet::new] is
-/// implemented only for `HashSet`s which use the
-/// [`DefaultHasher`][std::collections::hash_map::DefaultHasher], so it's not
-/// available for Bevy's `HashSet`.
-///
-/// However, an empty `HashSet` can easily be constructed using the `Default`
-/// implementation:
-///
-/// ```
-/// # fn main() {
-/// use bevy_utils::HashSet;
-///
-/// // This works!
-/// let map: HashSet<String> = HashSet::default();
-/// assert!(map.is_empty());
-/// # }
-/// ```
-///
 /// [`aHash`]: https://github.com/tkaitchuck/aHash
 pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
 
-/// A stable std hash set implementing `aHash`, a high speed keyed hashing algorithm
+/// A stable hash set implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashSet`] this has an iteration order that only depends on the order
