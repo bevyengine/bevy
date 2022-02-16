@@ -713,9 +713,9 @@ where
         entities.into_iter().map(|entity| self.get(entity))
     }
 
-    /// Returns the query results for the [`BTreeSet`](std::collections::BTreeSet) of [`Entity`]s provided.
+    /// Returns the query results for the provided Array of [`Entity`]s.
     ///
-    /// These values follow the order of your input iterator (if any).
+    /// These values follow the order of your input Array (if any).
     /// In case of nonunique entities, a nonexisting entity or a mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
