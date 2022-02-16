@@ -8,10 +8,10 @@ use std::ops::{Deref, DerefMut};
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 /// 
 /// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`, 
-/// the maximum is `2 * N - 1` (i.e. world ticks `N - 1` times, then `N` times).
+/// the maximum is `2 * N - 1` (i.e. the world ticks `N - 1` times, then `N` times).
 /// 
-/// If a change is older than `u32::MAX - (2 * N - 1)`, the difference that calculates its age
-/// might overflow and wraparound before the next scan, causing false positives.
+/// If no change is older than `u32::MAX - (2 * N - 1)` following a scan, none of their ages can
+/// overflow and cause false positives.
 pub const CHECK_TICK_THRESHOLD: u32 = 10_000_000;
 
 /// The maximum change tick difference that won't overflow before the next `check_tick` scan.
