@@ -1,0 +1,11 @@
+error[E0499]: cannot borrow `world` as mutable more than once at a time
+  --> tests/ui/query_state_uniqueness_safety.rs:15:46
+   |
+13 |     let mut first_query = Query::from_state(&mut world, &first_query_state);
+   |                                             ---------- first mutable borrow occurs here
+14 |     // This should fail to compile, as another query is already active
+15 |     let mut second_query = Query::from_state(&mut world, &second_query_state);
+   |                                              ^^^^^^^^^^ second mutable borrow occurs here
+...
+18 |     assert_eq!(*first_query.single_mut(), *second_query.single_mut());
+   |                 ------------------------ first borrow later used here
