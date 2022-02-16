@@ -215,7 +215,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            hash: self.hash.clone(),
+            hash: self.hash,
             value: self.value.clone(),
             marker: PhantomData,
         }
@@ -236,16 +236,9 @@ impl BuildHasher for PassHash {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PassHasher {
     hash: u64,
-}
-
-impl Default for PassHasher {
-    #[inline]
-    fn default() -> Self {
-        Self { hash: 0 }
-    }
 }
 
 impl Hasher for PassHasher {
