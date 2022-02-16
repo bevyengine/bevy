@@ -1,7 +1,6 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
-pub mod options;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
@@ -9,6 +8,7 @@ pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
+pub mod settings;
 pub mod texture;
 pub mod view;
 
@@ -108,9 +108,9 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let mut options = app
+        let options = app
             .world
-            .get_resource::<options::WgpuOptions>()
+            .get_resource::<settings::WgpuSettings>()
             .cloned()
             .unwrap_or_default();
 
@@ -134,16 +134,14 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
-                &instance,
-                &mut options,
-                &request_adapter_options,
-            ));
-            debug!("Configured wgpu adapter Limits: {:#?}", &options.limits);
-            debug!("Configured wgpu adapter Features: {:#?}", &options.features);
+            let (device, queue, adapter_info) = futures_lite::future::block_on(
+                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
+            );
+            debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+            debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
-                .insert_resource(options.clone())
+                .insert_resource(adapter_info.clone())
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
@@ -171,7 +169,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
-                .insert_resource(options)
+                .insert_resource(adapter_info)
                 .insert_resource(render_pipeline_cache)
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>();
