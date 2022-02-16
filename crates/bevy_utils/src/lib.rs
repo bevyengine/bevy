@@ -138,6 +138,11 @@ pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
 /// `aHash` is designed for performance and is NOT cryptographically secure.
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
+/// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
+/// It also enables accelerated comparisons using [`Hashed::fast_eq`].
+/// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`] implementation
+/// designed to work with [`Hashed`]
+/// See [`PreHashMap`] for a hashmap pre-configured to use [`Hashed`] keys.
 pub struct Hashed<V, H = FixedState> {
     hash: u64,
     value: V,
@@ -145,6 +150,7 @@ pub struct Hashed<V, H = FixedState> {
 }
 
 impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
+    /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
         let builder = H::default();
         let mut hasher = builder.build_hasher();
@@ -156,6 +162,7 @@ impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
         }
     }
 
+    /// The pre-computed hash.
     #[inline]
     pub fn hash(&self) -> u64 {
         self.hash
@@ -179,9 +186,11 @@ impl<V, H> Deref for Hashed<V, H> {
 }
 
 impl<V: PartialEq, H> Hashed<V, H> {
+    /// A faster version of [`PartialEq`] that first checks that `other`'s pre-computed hash
+    /// matches this value's pre-computed hash. For complex types, this can be much faster than
+    /// [`PartialEq`].
     #[inline]
     pub fn fast_eq(&self, other: &Hashed<V, H>) -> bool {
-        // Makes the common case of two values not being equal very fast
         self.hash == other.hash && self.value.eq(&other.value)
     }
 }
@@ -215,6 +224,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
+/// A [`BuildHasher`] that results in a [`PassHasher`].
 #[derive(Default)]
 pub struct PassHash;
 
@@ -232,6 +242,7 @@ pub struct PassHasher {
 }
 
 impl Default for PassHasher {
+    #[inline]
     fn default() -> Self {
         Self { hash: 0 }
     }
@@ -242,18 +253,25 @@ impl Hasher for PassHasher {
         panic!("cannot hash byte arrays using PassHasher");
     }
 
+    #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
     }
 
+    #[inline]
     fn finish(&self) -> u64 {
         self.hash
     }
 }
 
+/// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
+/// Extension methods intended to add functionality to [`PreHashMap`].
 pub trait PreHashMapExt<K, V> {
+    /// Tries to get or insert the value for the given `key` using the pre-computed hash first.
+    /// If the [`PreHashMap`] does not already contain the `key`, it will clone it and insert
+    /// the value returned by `func`.  
     fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V;
 }
 
