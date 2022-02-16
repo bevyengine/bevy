@@ -678,9 +678,9 @@ where
         }
     }
 
-    /// Returns the read-only query results for the iterator of [`Entity`]s provided.
+    /// Returns the read-only query results for the provided Array of [`Entity`]s.
     ///
-    /// These values follow the order of your input iterator (if any).
+    /// These values follow the order of your input Array (if anyy).
     /// In case of a nonexisting entity or mismatched component,
     /// a [`QueryEntityError`] is returned instead.
     ///
