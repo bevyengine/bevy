@@ -507,9 +507,10 @@ fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
     ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
 }
 
-// Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
-// points of the AABB, then iterate over just those clusters for this light
-fn viewspace_light_aabb(inverse_view_transform: Mat4, projection_matrix: Mat4, light_sphere: &Sphere) -> (Vec3, Vec3) {
+// Calculate an AABB for the light in view space, returns a pair of vec3s containing min and mxa of 
+// - x and y in view space with range [-1, 1]
+// - z in world space with view orientation, with range [-inf, -0.0001] for perspective, and [0.0001, inf] for orthographic
+fn viewspace_light_aabb(is_orthographic: bool, inverse_view_transform: Mat4, projection_matrix: Mat4, light_sphere: &Sphere) -> (Vec3, Vec3) {
     let light_aabb_view = Aabb {
         center: (inverse_view_transform * light_sphere.center.extend(1.0)).xyz(),
         half_extents: Vec3::splat(light_sphere.radius),
@@ -517,9 +518,15 @@ fn viewspace_light_aabb(inverse_view_transform: Mat4, projection_matrix: Mat4, l
     let (mut light_aabb_view_min, mut light_aabb_view_max) =
         (light_aabb_view.min(), light_aabb_view.max());
 
-    // constraint z to be negative - i.e. in front of the camera
-    light_aabb_view_min.z = light_aabb_view_min.z.min(-0.0001);
-    light_aabb_view_max.z = light_aabb_view_max.z.min(-0.0001);
+    if is_orthographic {
+        // constraint z to be positive - i.e. in front of the camera
+        light_aabb_view_min.z = light_aabb_view_min.z.max(0.0001);
+        light_aabb_view_max.z = light_aabb_view_max.z.max(0.0001);
+    } else {
+        // constraint z to be negative - i.e. in front of the camera
+        light_aabb_view_min.z = light_aabb_view_min.z.min(-0.0001);
+        light_aabb_view_max.z = light_aabb_view_max.z.min(-0.0001);
+    }
 
     // Is there a cheaper way to do this? The problem is that because of perspective
     // the point at max z but min xy may be less xy in screenspace, and similar. As
@@ -619,16 +626,16 @@ pub fn assign_lights_to_clusters(
             }
 
             // calculate a conservative estimate of number of clusters affected by this light
-            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(inverse_view_transform, camera.projection_matrix, &light_sphere);
+            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(is_orthographic, inverse_view_transform, camera.projection_matrix, &light_sphere);
 
-            let z_cluster_min = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_max.z, is_orthographic);
-            let z_cluster_max = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_min.z, is_orthographic);
-            let z_count = z_cluster_max - z_cluster_min + 1;
+            let z_cluster_min = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_min.z, is_orthographic);
+            let z_cluster_max = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_max.z, is_orthographic);
+            let z_count = z_cluster_min.max(z_cluster_max) - z_cluster_min.min(z_cluster_max) + 1;
 
-            let light_aabb_ndc_min = light_aabb_ndc_min.xy().clamp(-Vec2::ONE, Vec2::ONE);
-            let light_aabb_ndc_max = light_aabb_ndc_max.xy().clamp(-Vec2::ONE, Vec2::ONE);
-
+            let light_aabb_ndc_min = light_aabb_ndc_min.xy();
+            let light_aabb_ndc_max = light_aabb_ndc_max.xy();
             let xy_count = ((light_aabb_ndc_max - light_aabb_ndc_min) * 0.5 * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32)).max(Vec2::ONE);
+
             cluster_index_count += xy_count.x * xy_count.y * z_count as f32;
         }
 
@@ -661,7 +668,7 @@ pub fn assign_lights_to_clusters(
             }
 
             // FIXME cache this to avoid calling twice?
-            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(inverse_view_transform, camera.projection_matrix, &light_sphere);
+            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(is_orthographic, inverse_view_transform, camera.projection_matrix, &light_sphere);
 
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
