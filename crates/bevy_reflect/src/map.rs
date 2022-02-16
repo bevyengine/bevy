@@ -1,6 +1,6 @@
-use std::{any::Any, collections::hash_map::Entry};
+use std::any::Any;
 
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 

@@ -3,6 +3,7 @@ pub mod label;
 
 pub use ahash::AHasher;
 pub use enum_variant_meta::*;
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;
@@ -32,7 +33,7 @@ impl std::hash::BuildHasher for FixedState {
     }
 }
 
-/// A [`HashMap`][std::collections::HashMap] implementing [`aHash`], a high
+/// A [`HashMap`][hashbrown::HashMap] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// `aHash` is designed for performance and is NOT cryptographically secure.
@@ -50,7 +51,7 @@ impl std::hash::BuildHasher for FixedState {
 /// # }
 /// ```
 ///
-/// The standard library's [`HashMap::new`][std::collections::HashMap::new] is
+/// The standard library's [`HashMap::new`][hashbrown::HashMap::new] is
 /// implemented only for `HashMap`s which use the
 /// [`DefaultHasher`][std::collections::hash_map::DefaultHasher], so it's not
 /// available for Bevy's `HashMap`.
@@ -69,30 +70,30 @@ impl std::hash::BuildHasher for FixedState {
 /// ```
 ///
 /// [`aHash`]: https://github.com/tkaitchuck/aHash
-pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
+pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
 
-pub trait AHashExt {
-    fn with_capacity(capacity: usize) -> Self;
-}
+// pub trait AHashExt {
+//     fn with_capacity(capacity: usize) -> Self;
+// }
 
-impl<K, V> AHashExt for HashMap<K, V> {
-    /// Creates an empty `HashMap` with the specified capacity with aHash.
-    ///
-    /// The hash map will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash map will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{HashMap, AHashExt};
-    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
-    /// assert!(map.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
-    }
-}
+// impl<K, V> AHashExt for HashMap<K, V> {
+//     /// Creates an empty `HashMap` with the specified capacity with aHash.
+//     ///
+//     /// The hash map will be able to hold at least `capacity` elements without
+//     /// reallocating. If `capacity` is 0, the hash map will not allocate.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use bevy_utils::{HashMap, AHashExt};
+//     /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
+//     /// assert!(map.capacity() >= 10);
+//     /// ```
+//     #[inline]
+//     fn with_capacity(capacity: usize) -> Self {
+//         HashMap::with_capacity_and_hasher(capacity, RandomState::default())
+//     }
+// }
 
 /// A stable std hash map implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -101,26 +102,26 @@ impl<K, V> AHashExt for HashMap<K, V> {
 /// of insertions and deletions and not a random source.
 ///
 /// `aHash` is designed for performance and is NOT cryptographically secure.
-pub type StableHashMap<K, V> = std::collections::HashMap<K, V, FixedState>;
+pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
-impl<K, V> AHashExt for StableHashMap<K, V> {
-    /// Creates an empty `StableHashMap` with the specified capacity with `aHash`.
-    ///
-    /// The hash map will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash map will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{StableHashMap, AHashExt};
-    /// let mut map: StableHashMap<&str, i32> = StableHashMap::with_capacity(10);
-    /// assert!(map.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        StableHashMap::with_capacity_and_hasher(capacity, FixedState::default())
-    }
-}
+// impl<K, V> AHashExt for StableHashMap<K, V> {
+//     /// Creates an empty `StableHashMap` with the specified capacity with `aHash`.
+//     ///
+//     /// The hash map will be able to hold at least `capacity` elements without
+//     /// reallocating. If `capacity` is 0, the hash map will not allocate.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use bevy_utils::{StableHashMap, AHashExt};
+//     /// let mut map: StableHashMap<&str, i32> = StableHashMap::with_capacity(10);
+//     /// assert!(map.capacity() >= 10);
+//     /// ```
+//     #[inline]
+//     fn with_capacity(capacity: usize) -> Self {
+//         StableHashMap::with_capacity_and_hasher(capacity, FixedState::default())
+//     }
+// }
 
 /// A [`HashSet`][std::collections::HashSet] implementing [`aHash`], a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
@@ -159,26 +160,26 @@ impl<K, V> AHashExt for StableHashMap<K, V> {
 /// ```
 ///
 /// [`aHash`]: https://github.com/tkaitchuck/aHash
-pub type HashSet<K> = std::collections::HashSet<K, RandomState>;
+pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
 
-impl<K> AHashExt for HashSet<K> {
-    /// Creates an empty `HashSet` with the specified capacity with aHash.
-    ///
-    /// The hash set will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash set will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{HashSet, AHashExt};
-    /// let set: HashSet<i32> = HashSet::with_capacity(10);
-    /// assert!(set.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        HashSet::with_capacity_and_hasher(capacity, RandomState::default())
-    }
-}
+// impl<K> AHashExt for HashSet<K> {
+//     /// Creates an empty `HashSet` with the specified capacity with aHash.
+//     ///
+//     /// The hash set will be able to hold at least `capacity` elements without
+//     /// reallocating. If `capacity` is 0, the hash set will not allocate.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use bevy_utils::{HashSet, AHashExt};
+//     /// let set: HashSet<i32> = HashSet::with_capacity(10);
+//     /// assert!(set.capacity() >= 10);
+//     /// ```
+//     #[inline]
+//     fn with_capacity(capacity: usize) -> Self {
+//         HashSet::with_capacity_and_hasher(capacity, RandomState::default())
+//     }
+// }
 
 /// A stable std hash set implementing `aHash`, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -187,23 +188,23 @@ impl<K> AHashExt for HashSet<K> {
 /// of insertions and deletions and not a random source.
 ///
 /// `aHash` is designed for performance and is NOT cryptographically secure.
-pub type StableHashSet<K> = std::collections::HashSet<K, FixedState>;
+pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
-impl<K> AHashExt for StableHashSet<K> {
-    /// Creates an empty `StableHashSet` with the specified capacity with `aHash`.
-    ///
-    /// The hash set will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash set will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{StableHashSet, AHashExt};
-    /// let set: StableHashSet<i32> = StableHashSet::with_capacity(10);
-    /// assert!(set.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        StableHashSet::with_capacity_and_hasher(capacity, FixedState::default())
-    }
-}
+// impl<K> AHashExt for StableHashSet<K> {
+//     /// Creates an empty `StableHashSet` with the specified capacity with `aHash`.
+//     ///
+//     /// The hash set will be able to hold at least `capacity` elements without
+//     /// reallocating. If `capacity` is 0, the hash set will not allocate.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use bevy_utils::{StableHashSet, AHashExt};
+//     /// let set: StableHashSet<i32> = StableHashSet::with_capacity(10);
+//     /// assert!(set.capacity() >= 10);
+//     /// ```
+//     #[inline]
+//     fn with_capacity(capacity: usize) -> Self {
+//         StableHashSet::with_capacity_and_hasher(capacity, FixedState::default())
+//     }
+// }
