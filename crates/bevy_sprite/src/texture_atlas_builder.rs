@@ -23,6 +23,7 @@ pub enum TextureAtlasBuilderError {
 }
 
 #[derive(Debug)]
+#[must_use]
 /// A builder which is used to create a texture atlas from many individual
 /// sprites.
 pub struct TextureAtlasBuilder {
@@ -88,7 +89,7 @@ impl TextureAtlasBuilder {
                 texture.texture_descriptor.size.height,
                 1,
             ),
-        )
+        );
     }
 
     fn copy_texture_to_atlas(

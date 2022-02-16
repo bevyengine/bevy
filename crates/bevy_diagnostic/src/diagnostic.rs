@@ -65,7 +65,7 @@ impl Diagnostic {
                 "Diagnostic {:?} has name longer than {} characters, and so might overflow in the LogDiagnosticsPlugin\
                 Consider using a shorter name.",
                 name, MAX_DIAGNOSTIC_NAME_WIDTH
-            )
+            );
         }
         Diagnostic {
             id,
@@ -77,6 +77,7 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn with_suffix(mut self, suffix: impl Into<Cow<'static, str>>) -> Self {
         self.suffix = suffix.into();
         self

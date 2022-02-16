@@ -48,7 +48,7 @@ fn setup(
     mut textures: ResMut<Assets<Image>>,
 ) {
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
-    for handle in rpg_sprite_handles.handles.iter() {
+    for handle in &rpg_sprite_handles.handles {
         let texture = textures.get(handle).unwrap();
         texture_atlas_builder.add_texture(handle.clone_weak().typed::<Image>(), texture);
     }
