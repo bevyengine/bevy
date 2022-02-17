@@ -309,6 +309,7 @@ impl Default for CameraController {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn camera_controller(
     mut commands: Commands,
     time: Res<Time>,
