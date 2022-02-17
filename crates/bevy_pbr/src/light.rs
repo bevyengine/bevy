@@ -688,11 +688,11 @@ pub fn assign_lights_to_clusters(
             let light_aabb_ndc_min = light_aabb_ndc_min.xy();
             let light_aabb_ndc_max = light_aabb_ndc_max.xy();
             // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
-            // max with Vec2::ONE to ensure at least 1 whole tile is counted per light
+            // add Vec2::ONE to ensure at least 1 whole tile is counted per light / account for overlap
             let xy_count = ((light_aabb_ndc_max - light_aabb_ndc_min)
                 * 0.5
                 * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32))
-            .max(Vec2::ONE);
+                + Vec2::ONE;
 
             cluster_index_estimate += xy_count.x * xy_count.y * z_count as f32;
         }
