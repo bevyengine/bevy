@@ -15,8 +15,8 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a texture for use with a texture2DArray shader uniform
-/// variable.
+/// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
+/// uniform variable.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
