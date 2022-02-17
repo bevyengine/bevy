@@ -234,23 +234,29 @@ impl Clusters {
     }
 
     fn from_screen_size_and_z_slices(screen_size: UVec2, z_slices: u32) -> Self {
-        let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
-        let n_tiles_y =
-            ((ViewClusterBindings::MAX_OFFSETS as u32 / z_slices) as f32 / aspect_ratio).sqrt();
         // NOTE: Round down the number of tiles in order to avoid overflowing the maximum number of
         // clusters.
-        let n_tiles = UVec2::new(
-            (aspect_ratio * n_tiles_y).floor() as u32,
-            n_tiles_y.floor() as u32,
+        let n_tiles_xy = ViewClusterBindings::MAX_OFFSETS as u32 / z_slices;
+        let px_per_tile = 1.max(
+            ((screen_size.x as f32 * screen_size.y as f32) / n_tiles_xy as f32)
+                .sqrt()
+                .floor() as u32,
         );
-        Clusters::new((screen_size + UVec2::ONE) / n_tiles, screen_size, Z_SLICES)
+        let n_tiles_x = 1.max(screen_size.x / px_per_tile);
+        let n_tiles_y = 1.max(n_tiles_xy / n_tiles_x);
+        let n_tiles = UVec2::new(n_tiles_x, n_tiles_y);
+
+        // Round *up* tile size, so that the number of tiles calculated in update() below
+        // stays below MAX_OFFSETS
+        let tile_size = UVec2::ONE.max((screen_size + n_tiles - UVec2::ONE) / n_tiles);
+        Clusters::new(tile_size, screen_size, Z_SLICES)
     }
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
         self.tile_size = tile_size;
         self.axis_slices = UVec3::new(
-            (screen_size.x + 1) / tile_size.x,
-            (screen_size.y + 1) / tile_size.y,
+            1.max(screen_size.x / tile_size.x),
+            1.max(screen_size.y / tile_size.y),
             z_slices,
         );
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
