@@ -246,8 +246,7 @@ pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
-    /// FIXME temp pub for diagnostics
-    pub axis_slices: UVec3,
+    pub(crate) axis_slices: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
@@ -449,17 +448,12 @@ fn update_clusters(
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisiblePointLights {
     pub entities: Vec<Entity>,
-    /// FIXME temp for diagnostics
-    pub index_count: usize,
-    pub index_estimate: usize,
 }
 
 impl VisiblePointLights {
     pub fn from_light_count(count: usize) -> Self {
         Self {
             entities: Vec::with_capacity(count),
-            index_count: 0,
-            index_estimate: 0,
         }
     }
 
@@ -628,9 +622,6 @@ pub fn assign_lights_to_clusters(
     let light_count = lights.iter().count();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
-        // FIXME remove - just for diagnostics
-        let mut index_count = 0;
-
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
@@ -697,7 +688,6 @@ pub fn assign_lights_to_clusters(
             cluster_index_estimate += xy_count.x * xy_count.y * z_count as f32;
         }
 
-        let mut index_estimate = cluster_index_estimate as usize;
         if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
             // scale x and y cluster count to be able to fit all our indices
             let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
@@ -705,7 +695,6 @@ pub fn assign_lights_to_clusters(
 
             cluster_dimensions.x = ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
             cluster_dimensions.y = ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
-            index_estimate = (cluster_index_estimate * index_ratio) as usize;
         }
 
         update_clusters(screen_size_u32, camera, cluster_dimensions, &mut clusters);
@@ -760,7 +749,6 @@ pub fn assign_lights_to_clusters(
                             global_lights_set.insert(light_entity);
                             visible_lights_set.insert(light_entity);
                             clusters_lights[cluster_index].entities.push(light_entity);
-                            index_count += 1;
                         }
                     }
                 }
@@ -774,8 +762,6 @@ pub fn assign_lights_to_clusters(
         clusters.lights = clusters_lights;
         commands.entity(view_entity).insert(VisiblePointLights {
             entities: visible_lights_set.into_iter().collect(),
-            index_count,
-            index_estimate,
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();

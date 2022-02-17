@@ -624,7 +624,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
             + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
-// #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+#ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
         // NOTE: Visualizes the cluster to which the fragment belongs
         let cluster_overlay_alpha = 0.1;
         let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
@@ -632,7 +632,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
             output_color.a
         );
-// #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
+#endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
 
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
