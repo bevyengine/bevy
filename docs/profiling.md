@@ -6,7 +6,7 @@ Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make i
 
 ### Backend: trace_chrome
 
-`cargo run --release --features trace_chrome`
+`cargo run --release --features bevy/trace_chrome`
 
 After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this (make sure you expand `Process 1`):
 
