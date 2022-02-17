@@ -386,10 +386,13 @@ pub fn extract_lights(
         }
     }
 
-    for (entity, directional_light, visible_entities, transform, _) in directional_lights
+    for (entity, directional_light, visible_entities, transform, visibility) in directional_lights
         .iter_mut()
-        .filter(|(.., visibility)| visibility.is_visible)
     {
+        if !visibility.is_visible {
+            continue;
+        }
+
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
