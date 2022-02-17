@@ -6,6 +6,7 @@ layout(location = 2) in vec2 Vertex_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
+    mat4 View;
     mat4 InverseView;
     mat4 Projection;
     vec3 WorldPosition;

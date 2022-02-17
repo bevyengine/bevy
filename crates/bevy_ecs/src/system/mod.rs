@@ -364,27 +364,27 @@ mod tests {
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
@@ -422,7 +422,7 @@ mod tests {
         world.insert_resource(false);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send(NotSend1(std::rc::Rc::new(0)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -446,8 +446,8 @@ mod tests {
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
-        world.insert_non_send(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
         fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
             *run = true;
@@ -564,7 +564,7 @@ mod tests {
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
                 bundle_components.sort();
-                for component_id in bundle_components.iter() {
+                for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
                         "every bundle component exists in Components"

@@ -324,7 +324,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                     }
                     let alpha_mode = M::alpha_mode(material);
                     if let AlphaMode::Blend = alpha_mode {
-                        mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS
+                        mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
                     }
 
                     let specialized_key = M::key(material);

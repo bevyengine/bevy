@@ -45,7 +45,7 @@ fn setup(mut commands: Commands) {
 fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletionTimer>) {
     for mut timer in query.iter_mut() {
         if timer.0.tick(time.delta()).just_finished() {
-            info!("Entity timer just finished")
+            info!("Entity timer just finished");
         }
     }
 }
@@ -68,7 +68,7 @@ fn countdown(time: Res<Time>, mut countdown: ResMut<Countdown>) {
         } else {
             // The timer has finished so we pause the percent output timer
             countdown.percent_trigger.pause();
-            info!("Paused percent trigger timer")
+            info!("Paused percent trigger timer");
         }
     }
 }

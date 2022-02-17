@@ -334,7 +334,7 @@ pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMu
     // If the clear color has changed
     if clear_color.is_changed() {
         // Update the clear color resource in the render world
-        render_world.insert_resource(clear_color.clone())
+        render_world.insert_resource(clear_color.clone());
     }
 }
 

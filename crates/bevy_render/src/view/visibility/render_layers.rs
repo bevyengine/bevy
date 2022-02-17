@@ -75,6 +75,7 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    #[must_use]
     pub fn with(mut self, layer: Layer) -> Self {
         assert!(usize::from(layer) < Self::TOTAL_LAYERS);
         self.0 |= 1 << layer;
@@ -85,6 +86,7 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    #[must_use]
     pub fn without(mut self, layer: Layer) -> Self {
         assert!(usize::from(layer) < Self::TOTAL_LAYERS);
         self.0 &= !(1 << layer);
@@ -173,6 +175,6 @@ mod rendering_mask_tests {
             RenderLayers::from_layers(&[0, 1, 2]),
             <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
-        )
+        );
     }
 }

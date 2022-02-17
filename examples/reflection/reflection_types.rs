@@ -69,7 +69,7 @@ fn setup() {
             info!(
                 "This is a 'struct' type with an 'x' value of {}",
                 value.get_field::<usize>("x").unwrap()
-            )
+            );
         }
         // `TupleStruct` is a trait automatically implemented for tuple structs that derive Reflect.
         // This trait allows you to interact with fields via their indices

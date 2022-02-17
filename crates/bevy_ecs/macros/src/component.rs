@@ -13,7 +13,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let storage = storage_path(bevy_ecs_path.clone(), attrs.storage);
+    let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
     ast.generics
         .make_where_clause()
@@ -96,7 +96,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     Ok(attrs)
 }
 
-fn storage_path(bevy_ecs_path: Path, ty: StorageTy) -> TokenStream2 {
+fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let typename = match ty {
         StorageTy::Table => Ident::new("TableStorage", Span::call_site()),
         StorageTy::SparseSet => Ident::new("SparseStorage", Span::call_site()),
