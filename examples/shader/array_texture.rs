@@ -1,4 +1,5 @@
 use bevy::{
+    asset::LoadState,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,
     prelude::*,
@@ -25,11 +26,17 @@ fn main() {
         .run();
 }
 
+struct LoadingTexture {
+    is_loaded: bool,
+    handle: Handle<Image>,
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Start loading the texture.
-    commands.insert_resource(LoadingTexture(Some(
-        asset_server.load("textures/array_texture.png"),
-    )));
+    commands.insert_resource(LoadingTexture {
+        is_loaded: false,
+        handle: asset_server.load("textures/array_texture.png"),
+    });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -38,25 +45,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-struct LoadingTexture(Option<Handle<Image>>);
-
 fn create_array_texture(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut loading_texture: ResMut<LoadingTexture>,
     mut textures: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
-    let (handle, texture) = match loading_texture.0.as_ref() {
-        Some(handle) => {
-            if let Some(texture) = textures.get_mut(handle) {
-                (loading_texture.0.take().unwrap(), texture)
-            } else {
-                return;
-            }
-        }
-        None => return,
-    };
+    if loading_texture.is_loaded
+        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
+    {
+        return;
+    }
+    loading_texture.is_loaded = true;
+    let mut texture = textures.get_mut(loading_texture.handle.clone()).unwrap();
 
     // Create a new array texture asset from the loaded texture.
     let array_layers = 4;
@@ -68,7 +71,7 @@ fn create_array_texture(
     commands.spawn().insert_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(ArrayTextureMaterial {
-            array_texture: handle,
+            array_texture: loading_texture.handle.clone(),
         }),
         ..Default::default()
     });
