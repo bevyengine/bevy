@@ -392,7 +392,7 @@ pub fn add_clusters(
             None => continue,
         };
         let screen_size = UVec2::new(window.physical_width(), window.physical_height());
-        let config = config.map(|c| *c).unwrap_or_default();
+        let config = config.copied().unwrap_or_default();
         let clusters = Clusters::from_screen_size_and_dimensions(
             screen_size,
             config.dimensions_for_screen_size(screen_size),
