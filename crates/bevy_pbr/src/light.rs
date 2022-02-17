@@ -188,7 +188,6 @@ pub struct NotShadowReceiver;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SimulationLightSystems {
     AddClusters,
-    UpdateClusters,
     AssignLightsToClusters,
     UpdateDirectionalLightFrusta,
     UpdatePointLightFrusta,
@@ -218,7 +217,10 @@ pub enum ClusterConfig {
 impl Default for ClusterConfig {
     fn default() -> Self {
         // 24 depth slices, square clusters with at most 4096 total clusters
-        Self::FixedZ{ total: 4096, z_slices: 24 }
+        Self::FixedZ {
+            total: 4096,
+            z_slices: 24,
+        }
     }
 }
 
@@ -234,7 +236,7 @@ impl ClusterConfig {
                 let x = (y * aspect_ratio).floor() as u32;
                 let y = y.floor() as u32;
                 UVec3::new(x, y, *z_slices)
-            },
+            }
         }
     }
 }
@@ -267,7 +269,11 @@ impl Clusters {
     }
 
     fn from_screen_size_and_dimensions(screen_size: UVec2, dimensions: UVec3) -> Self {
-        Clusters::new((screen_size + UVec2::ONE) / dimensions.xy(), screen_size, dimensions.z)
+        Clusters::new(
+            (screen_size + UVec2::ONE) / dimensions.xy(),
+            screen_size,
+            dimensions.z,
+        )
     }
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
@@ -396,7 +402,12 @@ pub fn add_clusters(
     }
 }
 
-fn update_clusters(screen_size: UVec2, camera: &Camera, cluster_dimensions: UVec3, clusters: &mut Clusters) {
+fn update_clusters(
+    screen_size: UVec2,
+    camera: &Camera,
+    cluster_dimensions: UVec3,
+    clusters: &mut Clusters,
+) {
     let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
     let inverse_projection = camera.projection_matrix.inverse();
     // Don't update clusters if screen size is 0.
@@ -507,10 +518,15 @@ fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
     ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
 }
 
-// Calculate an AABB for the light in view space, returns a pair of vec3s containing min and mxa of 
+// Calculate an AABB for the light in view space, returns a (Vec3, Vec3) containing min and max with
 // - x and y in view space with range [-1, 1]
-// - z in world space with view orientation, with range [-inf, -0.0001] for perspective, and [0.0001, inf] for orthographic
-fn viewspace_light_aabb(is_orthographic: bool, inverse_view_transform: Mat4, projection_matrix: Mat4, light_sphere: &Sphere) -> (Vec3, Vec3) {
+// - z in world space with view orientation, with range [-inf, -0.0001] for perspective, and [1.0000, inf] for orthographic
+fn viewspace_light_aabb(
+    is_orthographic: bool,
+    inverse_view_transform: Mat4,
+    projection_matrix: Mat4,
+    light_sphere: &Sphere,
+) -> (Vec3, Vec3) {
     let light_aabb_view = Aabb {
         center: (inverse_view_transform * light_sphere.center.extend(1.0)).xyz(),
         half_extents: Vec3::splat(light_sphere.radius),
@@ -520,8 +536,8 @@ fn viewspace_light_aabb(is_orthographic: bool, inverse_view_transform: Mat4, pro
 
     if is_orthographic {
         // constraint z to be positive - i.e. in front of the camera
-        light_aabb_view_min.z = light_aabb_view_min.z.max(0.0001);
-        light_aabb_view_max.z = light_aabb_view_max.z.max(0.0001);
+        light_aabb_view_min.z = light_aabb_view_min.z.max(1.0);
+        light_aabb_view_max.z = light_aabb_view_max.z.max(1.0);
     } else {
         // constraint z to be negative - i.e. in front of the camera
         light_aabb_view_min.z = light_aabb_view_min.z.min(-0.0001);
@@ -576,18 +592,37 @@ fn viewspace_light_aabb(is_orthographic: bool, inverse_view_transform: Mat4, pro
             .max(light_aabb_ndc_xymax_far),
     );
 
-    let (aabb_min, aabb_max) = (light_aabb_ndc_min.xy().extend(light_aabb_view_min.z), light_aabb_ndc_max.xy().extend(light_aabb_view_max.z));
-    let (aabb_min, aabb_max) = (aabb_min.min(aabb_max), aabb_min.max(aabb_max));
-    (aabb_min.clamp(Vec3::new(-1.0, -1.0, f32::MIN), Vec3::new(1.0, 1.0, f32::MAX)), aabb_max.clamp(Vec3::new(-1.0, -1.0, f32::MIN), Vec3::new(1.0, 1.0, f32::MAX)))
-    // (aabb_min, aabb_max)
+    // pack unadjusted z depth into the vecs
+    let (aabb_min, aabb_max) = (
+        light_aabb_ndc_min.xy().extend(light_aabb_view_min.z),
+        light_aabb_ndc_max.xy().extend(light_aabb_view_max.z),
+    );
+    // clamp to ndc coords
+    (
+        aabb_min.clamp(
+            Vec3::new(-1.0, -1.0, f32::MIN),
+            Vec3::new(1.0, 1.0, f32::MAX),
+        ),
+        aabb_max.clamp(
+            Vec3::new(-1.0, -1.0, f32::MIN),
+            Vec3::new(1.0, 1.0, f32::MAX),
+        ),
+    )
 }
 
 // NOTE: Run this before update_point_light_frusta!
 pub fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<VisiblePointLights>,
-    windows: Res<Windows>, 
-    mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &ClusterConfig, &mut Clusters)>,
+    windows: Res<Windows>,
+    mut views: Query<(
+        Entity,
+        &GlobalTransform,
+        &Camera,
+        &Frustum,
+        &ClusterConfig,
+        &mut Clusters,
+    )>,
     lights: Query<(Entity, &GlobalTransform, &PointLight)>,
 ) {
     let light_count = lights.iter().count();
@@ -595,7 +630,6 @@ pub fn assign_lights_to_clusters(
     for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
         // FIXME remove - just for diagnostics
         let mut index_count = 0;
-        let mut index_estimate = 0;
 
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
@@ -613,7 +647,7 @@ pub fn assign_lights_to_clusters(
             is_orthographic,
         );
 
-        let mut cluster_index_count = 0.0;
+        let mut cluster_index_estimate = 0.0;
         for (_light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
                 center: light_transform.translation,
@@ -625,28 +659,53 @@ pub fn assign_lights_to_clusters(
                 continue;
             }
 
-            // calculate a conservative estimate of number of clusters affected by this light
-            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(is_orthographic, inverse_view_transform, camera.projection_matrix, &light_sphere);
+            // calculate a conservative aabb estimate of number of clusters affected by this light
+            // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
+            // it can overestimate more significantly when light ranges are only partially in view
+            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(
+                is_orthographic,
+                inverse_view_transform,
+                camera.projection_matrix,
+                &light_sphere,
+            );
 
-            let z_cluster_min = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_min.z, is_orthographic);
-            let z_cluster_max = view_z_to_z_slice(cluster_factors, cluster_dimensions.z as f32, light_aabb_ndc_max.z, is_orthographic);
+            // since we won't adjust z slices we can calculate exact number of slices required in z dimension
+            let z_cluster_min = view_z_to_z_slice(
+                cluster_factors,
+                cluster_dimensions.z as f32,
+                light_aabb_ndc_min.z,
+                is_orthographic,
+            );
+            let z_cluster_max = view_z_to_z_slice(
+                cluster_factors,
+                cluster_dimensions.z as f32,
+                light_aabb_ndc_max.z,
+                is_orthographic,
+            );
             let z_count = z_cluster_min.max(z_cluster_max) - z_cluster_min.min(z_cluster_max) + 1;
 
+            // calculate x/y count using floats to avoid overestimating counts due to large initial tile sizes
             let light_aabb_ndc_min = light_aabb_ndc_min.xy();
             let light_aabb_ndc_max = light_aabb_ndc_max.xy();
-            let xy_count = ((light_aabb_ndc_max - light_aabb_ndc_min) * 0.5 * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32)).max(Vec2::ONE);
+            // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
+            // max with Vec2::ONE to ensure at least 1 whole tile is counted per light
+            let xy_count = ((light_aabb_ndc_max - light_aabb_ndc_min)
+                * 0.5
+                * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32))
+            .max(Vec2::ONE);
 
-            cluster_index_count += xy_count.x * xy_count.y * z_count as f32;
+            cluster_index_estimate += xy_count.x * xy_count.y * z_count as f32;
         }
 
-        index_estimate = cluster_index_count as usize;
-        if cluster_index_count > ViewClusterBindings::MAX_INDICES as f32 {
+        let mut index_estimate = cluster_index_estimate as usize;
+        if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
             // scale x and y cluster count to be able to fit all our indices
-            let ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_count;
-            let xy_ratio = ratio.sqrt();
-            cluster_dimensions.x = ((cluster_dimensions.x as f32 * xy_ratio) as u32).max(1);
-            cluster_dimensions.y = ((cluster_dimensions.y as f32 * xy_ratio) as u32).max(1);
-            index_estimate = (cluster_index_count * ratio) as usize;
+            let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
+            let xy_ratio = index_ratio.sqrt();
+
+            cluster_dimensions.x = ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
+            cluster_dimensions.y = ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
+            index_estimate = (cluster_index_estimate * index_ratio) as usize;
         }
 
         update_clusters(screen_size_u32, camera, cluster_dimensions, &mut clusters);
@@ -667,8 +726,13 @@ pub fn assign_lights_to_clusters(
                 continue;
             }
 
-            // FIXME cache this to avoid calling twice?
-            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(is_orthographic, inverse_view_transform, camera.projection_matrix, &light_sphere);
+            // note: caching seems to be slower than calling twice for this aabb calculation
+            let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(
+                is_orthographic,
+                inverse_view_transform,
+                camera.projection_matrix,
+                &light_sphere,
+            );
 
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
@@ -711,7 +775,7 @@ pub fn assign_lights_to_clusters(
         commands.entity(view_entity).insert(VisiblePointLights {
             entities: visible_lights_set.into_iter().collect(),
             index_count,
-            index_estimate
+            index_estimate,
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();

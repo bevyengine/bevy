@@ -1,7 +1,23 @@
-use bevy::{prelude::*, input::mouse::MouseMotion, app::AppExit, diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin, Diagnostics, DiagnosticId, Diagnostic}, pbr::{Clusters, VisiblePointLights}};
+use bevy::{
+    app::AppExit,
+    diagnostic::{
+        Diagnostic, DiagnosticId, Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
+    },
+    input::mouse::MouseMotion,
+    pbr::{Clusters, VisiblePointLights},
+    prelude::*,
+    window::{PresentMode, WindowMode},
+};
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            width: 1280.0,
+            height: 720.0,
+            present_mode: PresentMode::Mailbox,
+            mode: WindowMode::Windowed,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -203,11 +219,44 @@ fn setup(
         ..Default::default()
     });
 
+    // for i in 0..100 {
+    //         // red point light
+    //         commands
+    //             .spawn_bundle(PointLightBundle {
+    //                 transform: Transform::from_translation(Vec3::new(i as f32, i as f32, i as f32)),
+    //                 point_light: PointLight {
+    //                     intensity: 500.0,
+    //                     range: f32::sqrt(500.0 * 10.0 / (4.0 * std::f32::consts::PI)),
+    //                     color: Color::RED,
+    //                     shadows_enabled: false,
+    //                     ..Default::default()
+    //                 },
+    //                 ..Default::default()
+    //             })
+    //             .with_children(|builder| {
+    //                 builder.spawn_bundle(PbrBundle {
+    //                     mesh: meshes.add(Mesh::from(shape::UVSphere {
+    //                         radius: 0.1,
+    //                         ..Default::default()
+    //                     })),
+    //                     material: materials.add(StandardMaterial {
+    //                         base_color: Color::RED,
+    //                         emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+    //                         ..Default::default()
+    //                     }),
+    //                     ..Default::default()
+    //                 });
+    //             });
+    // }
+
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    }).insert(CameraController::default());
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..Default::default()
+        })
+        .insert(CameraController::default());
+    // commands.spawn_bundle(OrthographicCameraBundle::new_3d()).insert(CameraController::default());
 }
 
 fn animate_light_direction(
@@ -218,7 +267,6 @@ fn animate_light_direction(
         transform.rotate(Quat::from_rotation_y(time.delta_seconds() * 0.5));
     }
 }
-
 
 #[derive(Component)]
 struct CameraController {
@@ -350,7 +398,9 @@ fn camera_controller(
             // red point light
             commands
                 .spawn_bundle(PointLightBundle {
-                    transform: Transform::from_translation(transform.translation + transform.rotation * Vec3::Z * -3.0),
+                    transform: Transform::from_translation(
+                        transform.translation + transform.rotation * Vec3::Z * -3.0,
+                    ),
                     point_light: PointLight {
                         intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                         color: Color::RED,
@@ -388,7 +438,7 @@ pub const CLUSTER_COUNT_X: DiagnosticId =
     DiagnosticId::from_u128(54021991829115352165418785002088010277);
 pub const CLUSTER_COUNT_Y: DiagnosticId =
     DiagnosticId::from_u128(54021991829115112165418785002088010277);
-    pub const CLUSTER_INDEX_COUNT: DiagnosticId =
+pub const CLUSTER_INDEX_COUNT: DiagnosticId =
     DiagnosticId::from_u128(54021991829115352265418785002088010277);
 pub const CLUSTER_INDEX_ESTIMATE: DiagnosticId =
     DiagnosticId::from_u128(54024991829115352265418785002088010277);
@@ -403,4 +453,3 @@ fn cluster_diagnostics(
         diagnostics.add_measurement(CLUSTER_INDEX_ESTIMATE, vpl.index_estimate as f64);
     }
 }
-
