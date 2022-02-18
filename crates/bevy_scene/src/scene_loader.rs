@@ -13,7 +13,9 @@ pub struct SceneLoader {
 
 impl FromWorld for SceneLoader {
     fn from_world(world: &mut World) -> Self {
-        let type_registry = world.get_resource::<TypeRegistryArc>().unwrap();
+        let type_registry = world
+            .get_resource::<TypeRegistryArc>()
+            .expect("Could not get `TypeRegistryArc` resource from the `World`");
         SceneLoader {
             type_registry: (*type_registry).clone(),
         }

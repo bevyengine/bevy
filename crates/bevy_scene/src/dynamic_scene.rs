@@ -52,7 +52,11 @@ impl DynamicScene {
                 let reflect_component = world
                     .components()
                     .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                    .and_then(|info| {
+                        type_registry.get(info.type_id().unwrap_or_else(|| {
+                            panic!("Component {:?} has no `type_id`", info.name())
+                        }))
+                    })
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
@@ -79,7 +83,10 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let registry = world
+            .get_resource::<TypeRegistryArc>()
+            .expect("Could not get `TypeRegistryArc` resource from the `World`")
+            .clone();
         let type_registry = registry.read();
 
         for scene_entity in &self.entities {
@@ -122,7 +129,7 @@ impl DynamicScene {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
                     .map_entities(world, entity_map)
-                    .unwrap();
+                    .unwrap_or_else(|err| panic!("Error mapping entities to world: `{}`", err));
             }
         }
 
@@ -148,5 +155,5 @@ where
     let mut buf = Vec::new();
     let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
     serialize.serialize(&mut ron_serializer)?;
-    Ok(String::from_utf8(buf).unwrap())
+    Ok(String::from_utf8(buf).expect("Could not convert serialized ron to UTF-8 string"))
 }

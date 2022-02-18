@@ -14,7 +14,9 @@ pub struct SpawnScene {
 
 impl Command for SpawnScene {
     fn write(self, world: &mut World) {
-        let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
+        let mut spawner = world
+            .get_resource_mut::<SceneSpawner>()
+            .expect("Could not get `SceneSpawner` resource in the `World`");
         spawner.spawn(self.scene_handle);
     }
 }
@@ -36,7 +38,9 @@ pub struct SpawnSceneAsChild {
 
 impl Command for SpawnSceneAsChild {
     fn write(self, world: &mut World) {
-        let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
+        let mut spawner = world
+            .get_resource_mut::<SceneSpawner>()
+            .expect("Could not get `SceneSpawner` resource from the `World`");
         spawner.spawn_as_child(self.scene_handle, self.parent);
     }
 }

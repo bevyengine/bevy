@@ -144,7 +144,10 @@ impl SceneSpawner {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
-        let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let type_registry = world
+            .get_resource::<TypeRegistryArc>()
+            .expect("Could not get `TypeRegistryArc` from the `World`")
+            .clone();
         let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
@@ -168,7 +171,9 @@ impl SceneSpawner {
                             .expect("component_ids in archetypes should have ComponentInfo");
 
                         let reflect_component = type_registry
-                            .get(component_info.type_id().unwrap())
+                            .get(component_info.type_id().unwrap_or_else(|| {
+                                panic!("Component {:?} has no `type_id`", component_info.name())
+                            }))
                             .ok_or_else(|| SceneSpawnError::UnregisteredType {
                                 type_name: component_info.name().to_string(),
                             })
@@ -192,7 +197,7 @@ impl SceneSpawner {
                 if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                     map_entities_reflect
                         .map_entities(world, &instance_info.entity_map)
-                        .unwrap();
+                        .unwrap_or_else(|err| panic!("Error mapping entities to world: `{}`", err));
                 }
             }
             self.spawned_instances.insert(instance_id, instance_info);
@@ -313,7 +318,7 @@ pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         let scene_asset_events = world
             .get_resource::<Events<AssetEvent<DynamicScene>>>()
-            .unwrap();
+            .expect("Could not get `Events<AssetEvent<DynamicScene>>` resource from the `World`");
 
         let mut updated_spawned_scenes = Vec::new();
         let scene_spawner = &mut *scene_spawner;
@@ -328,13 +333,15 @@ pub fn scene_spawner_system(world: &mut World) {
             }
         }
 
-        scene_spawner.despawn_queued_scenes(world).unwrap();
+        scene_spawner
+            .despawn_queued_scenes(world)
+            .expect("Failed to despawn queued scenes");
         scene_spawner
             .spawn_queued_scenes(world)
             .unwrap_or_else(|err| panic!("{}", err));
         scene_spawner
             .update_spawned_scenes(world, &updated_spawned_scenes)
-            .unwrap();
+            .expect("Failed to update spawned scenes");
         scene_spawner.set_scene_instance_parent_sync(world);
     });
 }
