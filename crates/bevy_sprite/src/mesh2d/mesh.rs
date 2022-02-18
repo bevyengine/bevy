@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -43,18 +43,18 @@ pub const MESH2D_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d.wgsl")),
-        );
-        shaders.set_untracked(
+        load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
             MESH2D_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_struct.wgsl")),
+            "mesh2d_struct.wgsl",
+            Shader::from_wgsl
         );
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             MESH2D_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_view_bind_group.wgsl")),
+            "mesh2d_view_bind_group.wgsl",
+            Shader::from_wgsl
         );
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
