@@ -246,18 +246,6 @@ pub fn winit_runner_with(mut app: App) {
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = config_control_flow;
-
-        if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
-            if app_exit_event_reader
-                .iter(&app_exit_events)
-                .next_back()
-                .is_some()
-            {
-                *control_flow = ControlFlow::Exit;
-            }
-        }
-
         match event {
             event::Event::WindowEvent {
                 event,
@@ -521,6 +509,7 @@ pub fn winit_runner_with(mut app: App) {
                 }
             }
             Event::RedrawEventsCleared => {
+                *control_flow = config_control_flow;
                 // This needs to run after the app update in `MainEventsCleared`, so we can see if
                 // any redraw events were generated this frame. Otherwise we won't be able to see
                 // redraw requests until the next event, defeating the purpose of a redraw request!
@@ -536,6 +525,15 @@ pub fn winit_runner_with(mut app: App) {
                         if !active {
                             app.update();
                         }
+                    }
+                }
+                if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
+                    if app_exit_event_reader
+                        .iter(&app_exit_events)
+                        .next_back()
+                        .is_some()
+                    {
+                        *control_flow = ControlFlow::Exit;
                     }
                 }
             }
