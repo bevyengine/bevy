@@ -73,7 +73,6 @@ pub(crate) fn check_system_change_tick(
     // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
     // so long as this check always runs before that can happen.
     if delta > MAX_TICK_DELTA {
-        // TODO: Don't spam this warning over and over for the same system.
         warn!(
             "System '{}' has not run for {} ticks. \
             Changes older than {} ticks will not be detected.",
