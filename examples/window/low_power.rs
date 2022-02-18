@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::RequestRedraw,
+    window::{PresentMode, RequestRedraw},
     winit::{ControlFlow, WinitConfig},
 };
 
@@ -14,6 +14,11 @@ fn main() {
     App::new()
         .insert_resource(WinitConfig {
             control_flow: ControlFlow::Wait,
+            ..Default::default()
+        })
+        // Turn off vsync to use maximum CPU/GPU when running all-out
+        .insert_resource(WindowDescriptor {
+            present_mode: PresentMode::Immediate,
             ..Default::default()
         })
         .insert_resource(ManuallyRedraw(false))
@@ -61,23 +66,14 @@ fn setup(
     mut event: EventWriter<RequestRedraw>,
     asset_server: Res<AssetServer>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
-    let material = materials.add(Color::rgb(0.8, 0.7, 0.6).into());
-    // Spawn a big block of cubes
-    for i in -3..=3 {
-        for j in -3..=3 {
-            for k in -3..=3 {
-                commands
-                    .spawn_bundle(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: material.clone(),
-                        transform: Transform::from_xyz(i as f32, j as f32, k as f32),
-                        ..Default::default()
-                    })
-                    .insert(Rotator);
-            }
-        }
-    }
+    // cube
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            ..Default::default()
+        })
+        .insert(Rotator);
     // light
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
@@ -90,7 +86,7 @@ fn setup(
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
     event.send(RequestRedraw);
