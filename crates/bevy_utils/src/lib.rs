@@ -121,20 +121,12 @@ impl<V, H> Deref for Hashed<V, H> {
     }
 }
 
-impl<V: PartialEq, H> Hashed<V, H> {
-    /// A faster version of [`PartialEq`] that first checks that `other`'s pre-computed hash
-    /// matches this value's pre-computed hash. For complex types, this can be much faster than
-    /// [`PartialEq`].
-    #[inline]
-    pub fn fast_eq(&self, other: &Hashed<V, H>) -> bool {
-        self.hash == other.hash && self.value.eq(&other.value)
-    }
-}
-
 impl<V: PartialEq, H> PartialEq for Hashed<V, H> {
+    /// A fast impl of [`PartialEq`] that first checks that `other`'s pre-computed hash
+    /// matches this value's pre-computed hash.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.value.eq(&other.value)
+        self.hash == other.hash && self.value.eq(&other.value)
     }
 }
 
@@ -179,7 +171,7 @@ pub struct PassHasher {
 
 impl Hasher for PassHasher {
     fn write(&mut self, _bytes: &[u8]) {
-        panic!("cannot hash byte arrays using PassHasher");
+        panic!("can only hash u64 using PassHasher");
     }
 
     #[inline]
