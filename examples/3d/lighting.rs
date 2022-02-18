@@ -4,18 +4,19 @@ use bevy::{
         Diagnostic, DiagnosticId, Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
     input::mouse::MouseMotion,
-    pbr::{Clusters, VisiblePointLights},
+    pbr::{Clusters, VisiblePointLights, ClusterConfig, ClusterZConfig, ClusterFarZMode},
     prelude::*,
     window::{PresentMode, WindowMode},
 };
 
 fn main() {
     App::new()
+        .insert_resource(Msaa{samples: 4})
         .insert_resource(WindowDescriptor {
-            width: 1280.0,
-            height: 720.0,
+            // width: 1280.0,
+            // height: 720.0,
             present_mode: PresentMode::Mailbox,
-            mode: WindowMode::Windowed,
+            mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -23,6 +24,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(camera_controller)
+        .add_system(cluster_style)
         .add_system(animate_light_direction)
         .add_startup_system(setup_cluster_diagnostics)
         .add_system(cluster_diagnostics)
@@ -194,65 +196,70 @@ fn setup(
             });
         });
 
-    // directional 'sun' light
-    const HALF_SIZE: f32 = 10.0;
-    commands.spawn_bundle(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            // Configure the projection to better fit the scene
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..Default::default()
-            },
-            shadows_enabled: true,
-            ..Default::default()
-        },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
+    // // directional 'sun' light
+    // const HALF_SIZE: f32 = 10.0;
+    // commands.spawn_bundle(DirectionalLightBundle {
+    //     directional_light: DirectionalLight {
+    //         // Configure the projection to better fit the scene
+    //         shadow_projection: OrthographicProjection {
+    //             left: -HALF_SIZE,
+    //             right: HALF_SIZE,
+    //             bottom: -HALF_SIZE,
+    //             top: HALF_SIZE,
+    //             near: -10.0 * HALF_SIZE,
+    //             far: 10.0 * HALF_SIZE,
+    //             ..Default::default()
+    //         },
+    //         shadows_enabled: true,
+    //         ..Default::default()
+    //     },
+    //     transform: Transform {
+    //         translation: Vec3::new(0.0, 2.0, 0.0),
+    //         rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
+    //         ..Default::default()
+    //     },
+    //     ..Default::default()
+    // });
 
-    // for i in 0..100 {
-    //         // red point light
-    //         commands
-    //             .spawn_bundle(PointLightBundle {
-    //                 transform: Transform::from_translation(Vec3::new(i as f32, i as f32, i as f32)),
-    //                 point_light: PointLight {
-    //                     intensity: 500.0,
-    //                     range: f32::sqrt(500.0 * 10.0 / (4.0 * std::f32::consts::PI)),
-    //                     color: Color::RED,
-    //                     shadows_enabled: false,
-    //                     ..Default::default()
-    //                 },
-    //                 ..Default::default()
-    //             })
-    //             .with_children(|builder| {
-    //                 builder.spawn_bundle(PbrBundle {
-    //                     mesh: meshes.add(Mesh::from(shape::UVSphere {
-    //                         radius: 0.1,
-    //                         ..Default::default()
-    //                     })),
-    //                     material: materials.add(StandardMaterial {
-    //                         base_color: Color::RED,
-    //                         emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
-    //                         ..Default::default()
-    //                     }),
-    //                     ..Default::default()
-    //                 });
-    //             });
-    // }
+    for x in 0..6 {
+        for y in 0..6 {
+            for z in 0..6 {
+                // red point light
+                commands
+                    .spawn_bundle(PointLightBundle {
+                        transform: Transform::from_translation(Vec3::new(x as f32 * 10.0 - 25.0, y as f32 * 10.0 + 10.0, z as f32 * 10.0 - 25.0)),
+                        point_light: PointLight {
+                            intensity: 500.0,
+                            range: f32::sqrt(500.0 * 10.0 / (4.0 * std::f32::consts::PI)),
+                            color: Color::RED,
+                            shadows_enabled: false,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                    .with_children(|builder| {
+                        builder.spawn_bundle(PbrBundle {
+                            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                                radius: 1.0,
+                                ..Default::default()
+                            })),
+                            material: materials.add(StandardMaterial {
+                                base_color: Color::RED,
+                                emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        });
+                    });
+            }    
+        }
+    }
 
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(-25.0, 65.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
         .insert(CameraController::default());
@@ -306,6 +313,46 @@ impl Default for CameraController {
             yaw: 0.0,
             velocity: Vec3::ZERO,
         }
+    }
+}
+
+fn cluster_style(
+    mut q: Query<&mut ClusterConfig>,
+    key_input: Res<Input<KeyCode>>,
+    mut current: Local<usize>,
+) {
+    let configs = vec![
+        ClusterConfig::Single,
+        ClusterConfig::XYZ { 
+            dimensions: UVec3::new(30, 5, 24), 
+            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+        },
+        ClusterConfig::FixedZ { 
+            total: 4096,
+            z_slices: 24, 
+            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+        },
+        ClusterConfig::FixedZ { 
+            total: 4096,
+            z_slices: 24, 
+            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::MaxLightRange } 
+        },
+        ClusterConfig::FixedZ { 
+            total: 512,
+            z_slices: 10, 
+            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+        },
+        ClusterConfig::FixedZ { 
+            total: 512,
+            z_slices: 10, 
+            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::MaxLightRange } 
+        },
+    ];
+
+    if key_input.just_pressed(KeyCode::C) {
+        *current = (*current + 1) % configs.len();
+        *q.single_mut() = configs[*current];
+        println!("config: {:?}", configs[*current]);
     }
 }
 
