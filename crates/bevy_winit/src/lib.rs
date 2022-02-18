@@ -518,21 +518,16 @@ pub fn winit_runner_with(mut app: App) {
                     .get_resource::<WinitConfig>()
                     .map_or(ControlFlow::Poll, |config| config.control_flow);
                 *control_flow = config_control_flow;
-                if let Some(app_redraw_events) =
-                    app.world.get_resource_mut::<Events<RequestRedraw>>()
-                {
+                if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
                     if redraw_event_reader
                         .iter(&app_redraw_events)
-                        .next_back()
+                        .last()
                         .is_some()
                     {
                         *control_flow = ControlFlow::Poll;
-                        if !active {
-                            app.update();
-                        }
                     }
                 }
-                if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
+                if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                     if app_exit_event_reader
                         .iter(&app_exit_events)
                         .next_back()

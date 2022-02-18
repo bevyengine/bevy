@@ -14,8 +14,7 @@ use bevy::{
 /// * While continuously sending `RequestRedraw` events in `Wait` mode: the app will use resources
 ///   regardless of window state.
 ///
-/// * While in `Poll` mode: the app will update continuously, but will suspend app updates when
-///   minimized. Notice resource usage never drops to zero even when minimized.
+/// * While in `Poll` mode: the app will update continuously
 fn main() {
     App::new()
         .insert_resource(WinitConfig {
@@ -55,19 +54,19 @@ fn cycle_modes(
             TestMode::Wait => TestMode::WaitAndRedraw,
             TestMode::WaitAndRedraw => TestMode::Poll,
             TestMode::Poll => TestMode::Wait,
+        };
+        winit_config.control_flow = match *mode {
+            TestMode::Wait => ControlFlow::Wait,
+            TestMode::WaitAndRedraw => ControlFlow::Wait,
+            TestMode::Poll => ControlFlow::Poll,
         }
     }
-    winit_config.control_flow = match *mode {
-        TestMode::Wait => ControlFlow::Wait,
-        TestMode::WaitAndRedraw => {
-            // Sending a `RequestRedraw` event is useful when you want the app to update again
-            // regardless of any user input. For example, your application might use `ControlFlow::Wait`
-            // to reduce power use, but UI animations need to play even when there are no inputs, so you
-            // send redraw requests while the animation is playing.
-            event.send(RequestRedraw);
-            ControlFlow::Wait
-        }
-        TestMode::Poll => ControlFlow::Poll,
+    if let TestMode::WaitAndRedraw = *mode {
+        // Sending a `RequestRedraw` event is useful when you want the app to update again
+        // regardless of any user input. For example, your application might use `ControlFlow::Wait`
+        // to reduce power use, but UI animations need to play even when there are no inputs, so you
+        // send redraw requests while the animation is playing.
+        event.send(RequestRedraw);
     }
 }
 
@@ -82,7 +81,7 @@ pub(crate) mod test_setup {
     /// Rotate the cube to make it clear when the app is updating
     pub(crate) fn rotate(mut cube_transform: Query<&mut Transform, With<Rotator>>) {
         for mut transform in cube_transform.iter_mut() {
-            transform.rotate(Quat::from_rotation_x(0.05));
+            transform.rotate(Quat::from_rotation_x(0.04));
             transform.rotate(Quat::from_rotation_y(0.08));
         }
     }
