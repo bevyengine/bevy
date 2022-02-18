@@ -12,7 +12,8 @@ use std::ops::{Deref, DerefMut};
 /// 
 /// If no change is older than `u32::MAX - (2 * N - 1)` following a scan, none of their ages can
 /// overflow and cause false positives.
-pub const CHECK_TICK_THRESHOLD: u32 = 10_000_000;
+// (518,400,000 = 1000 ticks per frame * 144 frames per second * 3600 seconds per hour)
+pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 
 /// The maximum change tick difference that won't overflow before the next `check_tick` scan.
 /// 
