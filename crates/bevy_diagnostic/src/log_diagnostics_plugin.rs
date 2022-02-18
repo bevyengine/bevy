@@ -87,7 +87,11 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                for diagnostic in filter.iter().map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .unwrap_or_else(|| panic!("Could not find diagnostic with id {:?}", id))
+                }) {
                     Self::log_diagnostic(diagnostic);
                 }
             } else {
@@ -105,7 +109,11 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                for diagnostic in filter.iter().map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .unwrap_or_else(|| panic!("Could not find diagnostic with id {:?}", id))
+                }) {
                     debug!("{:#?}\n", diagnostic);
                 }
             } else {
