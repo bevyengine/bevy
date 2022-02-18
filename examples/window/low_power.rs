@@ -5,8 +5,8 @@ use bevy::{
 };
 
 /// This example illustrates how to run in low power mode, useful for making desktop applications.
-/// The app will only update when there is an event (resize, input, etc.), or you send a redraw
-/// request.
+/// The app will only update when there is an event (resize, mouse input, etc.), or you send a
+/// redraw request.
 fn main() {
     App::new()
         .insert_resource(WinitConfig {
@@ -46,7 +46,6 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         })
         .insert(Rotator);
@@ -62,7 +61,7 @@ fn setup(
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-1.0, 1.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
     event.send(RequestRedraw);
