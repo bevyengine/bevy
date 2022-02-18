@@ -115,7 +115,9 @@ impl Plugin for RenderPlugin {
             .unwrap_or_default();
 
         app.add_asset::<Shader>()
+            .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
+            .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {

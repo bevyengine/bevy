@@ -9,7 +9,7 @@ pub use render_pass::*;
 use std::ops::Range;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
@@ -59,9 +59,7 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-    let ui_shader = Shader::from_wgsl(include_str!("ui.wgsl"));
-    shaders.set_untracked(UI_SHADER_HANDLE, ui_shader);
+    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
     let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
     active_cameras.add(CAMERA_UI);

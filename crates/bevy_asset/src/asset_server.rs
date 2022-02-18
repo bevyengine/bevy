@@ -92,6 +92,10 @@ impl AssetServer {
         }
     }
 
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        &*self.server.asset_io
+    }
+
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
         if self
             .server
