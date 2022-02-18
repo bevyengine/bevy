@@ -1,3 +1,5 @@
+use winit::event_loop::ControlFlow;
+
 /// A resource for configuring usage of the `rust_winit` library.
 #[derive(Debug, Default)]
 pub struct WinitConfig {
@@ -12,4 +14,5 @@ pub struct WinitConfig {
     /// `openbsd`. If set to true on an unsupported platform
     /// [run](bevy_app::App::run) will panic.
     pub return_from_run: bool,
+    pub control_flow: ControlFlow,
 }

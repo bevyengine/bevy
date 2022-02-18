@@ -7,6 +7,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
+pub use winit::event_loop::ControlFlow;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -16,13 +17,13 @@ use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
+    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{EventLoop, EventLoopWindowTarget},
 };
 
 use winit::dpi::LogicalSize;
@@ -230,23 +231,21 @@ pub fn winit_runner_with(mut app: App) {
         .unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+    let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 
-    let should_return_from_run = app
-        .world
-        .get_resource::<WinitConfig>()
-        .map_or(false, |config| config.return_from_run);
+    let winit_config = app.world.get_resource::<WinitConfig>();
+    let should_return_from_run = winit_config.map_or(false, |config| config.return_from_run);
+    let config_control_flow = winit_config.map_or(ControlFlow::Poll, |config| config.control_flow);
 
     let mut active = true;
 
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = ControlFlow::Poll;
-
         if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
             if app_exit_event_reader
                 .iter(&app_exit_events)
@@ -442,6 +441,10 @@ pub fn winit_runner_with(mut app: App) {
                         );
                     }
                     WindowEvent::Focused(focused) => {
+                        match control_flow {
+                            ControlFlow::Wait | ControlFlow::WaitUntil(_) => active = focused,
+                            _ => (),
+                        }
                         window.update_focused_status_from_backend(focused);
                         let mut focused_events =
                             world.get_resource_mut::<Events<WindowFocused>>().unwrap();
@@ -500,6 +503,24 @@ pub fn winit_runner_with(mut app: App) {
                 active = true;
             }
             event::Event::MainEventsCleared => {
+                // Don't use `Event::RedrawRequested(id)`, because it will be generated for each window.
+                *control_flow = config_control_flow;
+                // Force a winit redraw by setting the control flow to `Poll`, even if it is currently set
+                // to `Wait`. Every time the event handler loops, it resets the control_flow to
+                // match the user-defined [`WinitConfig`] in the line above. This ensures we always
+                // respect the user choice, but override it when a redraw is needed.
+                // Why this is required: https://github.com/rust-windowing/winit/issues/1619
+                if let Some(app_redraw_events) =
+                    app.world.get_resource_mut::<Events<RequestRedraw>>()
+                {
+                    if redraw_event_reader
+                        .iter(&app_redraw_events)
+                        .next_back()
+                        .is_some()
+                    {
+                        *control_flow = ControlFlow::Poll;
+                    }
+                }
                 handle_create_window_events(
                     &mut app.world,
                     event_loop,
