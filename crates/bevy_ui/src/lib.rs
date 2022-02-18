@@ -18,6 +18,8 @@ pub use margins::*;
 pub use render::*;
 pub use ui_node::*;
 
+use bevy_render::RenderPlugin;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
@@ -76,15 +78,7 @@ impl Plugin for UiPlugin {
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
             )
-            // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::text_system.before(UiSystem::Flex),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::image_node_system.before(UiSystem::Flex),
-            )
+            // Add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 flex_node_system
@@ -102,6 +96,20 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             );
 
-        crate::render::build_ui_render(app);
+        // Allows for UIPlugin to be tested without a renderer
+        // (text_system and image_node_system depend on textures, which are only
+        // available with RenderPlugin)
+        if app.is_plugin_added::<RenderPlugin>() {
+            app.add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::text_system.before(UiSystem::Flex),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::image_node_system.before(UiSystem::Flex),
+            );
+
+            crate::render::build_ui_render(app);
+        }
     }
 }
