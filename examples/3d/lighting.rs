@@ -4,14 +4,14 @@ use bevy::{
         Diagnostic, DiagnosticId, Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
     input::mouse::MouseMotion,
-    pbr::{Clusters, VisiblePointLights, ClusterConfig, ClusterZConfig, ClusterFarZMode},
+    pbr::{ClusterConfig, ClusterFarZMode, ClusterZConfig, Clusters, VisiblePointLights},
     prelude::*,
     window::{PresentMode, WindowMode},
 };
 
 fn main() {
     App::new()
-        .insert_resource(Msaa{samples: 4})
+        .insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
             // width: 1280.0,
             // height: 720.0,
@@ -227,7 +227,11 @@ fn setup(
                 // red point light
                 commands
                     .spawn_bundle(PointLightBundle {
-                        transform: Transform::from_translation(Vec3::new(x as f32 * 10.0 - 25.0, y as f32 * 10.0 + 10.0, z as f32 * 10.0 - 25.0)),
+                        transform: Transform::from_translation(Vec3::new(
+                            x as f32 * 10.0 - 25.0,
+                            y as f32 * 10.0 + 10.0,
+                            z as f32 * 10.0 - 25.0,
+                        )),
                         point_light: PointLight {
                             intensity: 500.0,
                             range: f32::sqrt(500.0 * 10.0 / (4.0 * std::f32::consts::PI)),
@@ -251,7 +255,7 @@ fn setup(
                             ..Default::default()
                         });
                     });
-            }    
+            }
         }
     }
 
@@ -323,29 +327,44 @@ fn cluster_style(
 ) {
     let configs = vec![
         ClusterConfig::Single,
-        ClusterConfig::XYZ { 
-            dimensions: UVec3::new(30, 5, 24), 
-            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+        ClusterConfig::XYZ {
+            dimensions: UVec3::new(30, 5, 24),
+            z_config: ClusterZConfig {
+                first_slice_depth: 5.0,
+                far_z_mode: ClusterFarZMode::CameraFarPlane,
+            },
         },
-        ClusterConfig::FixedZ { 
+        ClusterConfig::FixedZ {
             total: 4096,
-            z_slices: 24, 
-            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+            z_slices: 24,
+            z_config: ClusterZConfig {
+                first_slice_depth: 5.0,
+                far_z_mode: ClusterFarZMode::CameraFarPlane,
+            },
         },
-        ClusterConfig::FixedZ { 
+        ClusterConfig::FixedZ {
             total: 4096,
-            z_slices: 24, 
-            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::MaxLightRange } 
+            z_slices: 24,
+            z_config: ClusterZConfig {
+                first_slice_depth: 5.0,
+                far_z_mode: ClusterFarZMode::MaxLightRange,
+            },
         },
-        ClusterConfig::FixedZ { 
+        ClusterConfig::FixedZ {
             total: 512,
-            z_slices: 10, 
-            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::CameraFarPlane } 
+            z_slices: 10,
+            z_config: ClusterZConfig {
+                first_slice_depth: 5.0,
+                far_z_mode: ClusterFarZMode::CameraFarPlane,
+            },
         },
-        ClusterConfig::FixedZ { 
+        ClusterConfig::FixedZ {
             total: 512,
-            z_slices: 10, 
-            z_config: ClusterZConfig{ first_slice_depth: 5.0, far_z_mode: ClusterFarZMode::MaxLightRange } 
+            z_slices: 10,
+            z_config: ClusterZConfig {
+                first_slice_depth: 5.0,
+                far_z_mode: ClusterFarZMode::MaxLightRange,
+            },
         },
     ];
 
