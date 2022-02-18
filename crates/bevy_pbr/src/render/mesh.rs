@@ -411,7 +411,7 @@ impl MeshPipelineKey {
     }
 }
 
-impl SpecializedPipeline for MeshPipeline {
+impl SpecializedRenderPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {

@@ -36,7 +36,7 @@ use crate::{
     mesh::MeshPlugin,
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
-    render_resource::{RenderPipelineCache, Shader, ShaderLoader},
+    render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::render_system,
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -145,12 +145,12 @@ impl Plugin for RenderPlugin {
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
-            let render_pipeline_cache = RenderPipelineCache::new(device.clone());
+            let render_pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
 
             let mut render_app = App::empty();
             let mut extract_stage =
-                SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
+                SystemStage::parallel().with_system(PipelineCache::extract_shaders);
             // don't apply buffers when the stage finishes running
             // extract stage runs on the app world, but the buffers are applied to the render world
             extract_stage.set_apply_buffers(false);
@@ -162,7 +162,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
-                        .with_system(RenderPipelineCache::process_pipeline_queue_system)
+                        .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.exclusive_system().at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())

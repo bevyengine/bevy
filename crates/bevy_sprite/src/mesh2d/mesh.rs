@@ -64,7 +64,7 @@ impl Plugin for Mesh2dRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<Mesh2dPipeline>()
-                .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
+                .init_resource::<SpecializedRenderPipelines<Mesh2dPipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
@@ -276,7 +276,7 @@ impl Mesh2dPipelineKey {
     }
 }
 
-impl SpecializedPipeline for Mesh2dPipeline {
+impl SpecializedRenderPipeline for Mesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {

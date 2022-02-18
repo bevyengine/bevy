@@ -244,7 +244,7 @@ impl ShadowPipelineKey {
     }
 }
 
-impl SpecializedPipeline for ShadowPipeline {
+impl SpecializedRenderPipeline for ShadowPipeline {
     type Key = ShadowPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -1090,8 +1090,8 @@ pub fn queue_shadows(
     shadow_pipeline: Res<ShadowPipeline>,
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    mut pipelines: ResMut<SpecializedPipelines<ShadowPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ShadowPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,

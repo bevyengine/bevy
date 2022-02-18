@@ -35,7 +35,7 @@ use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedPipelines},
+    render_resource::{Shader, SpecializedRenderPipelines},
     RenderApp, RenderStage,
 };
 
@@ -64,7 +64,7 @@ impl Plugin for SpritePlugin {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpritePipeline>()
-                .init_resource::<SpecializedPipelines<SpritePipeline>>()
+                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()

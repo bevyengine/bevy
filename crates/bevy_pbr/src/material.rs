@@ -23,8 +23,8 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedPipeline, SpecializedPipelines,
+        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
+        SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
@@ -188,7 +188,7 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
-                .init_resource::<SpecializedPipelines<MaterialPipeline<M>>>()
+                .init_resource::<SpecializedRenderPipelines<MaterialPipeline<M>>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }
@@ -202,7 +202,7 @@ pub struct MaterialPipeline<M: SpecializedMaterial> {
     marker: PhantomData<M>,
 }
 
-impl<M: SpecializedMaterial> SpecializedPipeline for MaterialPipeline<M> {
+impl<M: SpecializedMaterial> SpecializedRenderPipeline for MaterialPipeline<M> {
     type Key = (MeshPipelineKey, M::Key);
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -275,8 +275,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedPipelines<MaterialPipeline<M>>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<MaterialPipeline<M>>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,

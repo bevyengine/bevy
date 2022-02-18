@@ -10,8 +10,8 @@ use bevy::{
         render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
-            RenderPipelineCache, RenderPipelineDescriptor, SpecializedPipeline,
-            SpecializedPipelines,
+            PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
+            SpecializedRenderPipelines,
         },
         view::ExtractedView,
         RenderApp, RenderStage,
@@ -26,7 +26,7 @@ impl Plugin for IsRedPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawIsRed>()
             .init_resource::<IsRedPipeline>()
-            .init_resource::<SpecializedPipelines<IsRedPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<IsRedPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom);
     }
 }
@@ -98,7 +98,7 @@ impl FromWorld for IsRedPipeline {
     }
 }
 
-impl SpecializedPipeline for IsRedPipeline {
+impl SpecializedRenderPipeline for IsRedPipeline {
     type Key = (IsRed, MeshPipelineKey);
 
     fn specialize(&self, (is_red, pbr_pipeline_key): Self::Key) -> RenderPipelineDescriptor {
@@ -133,8 +133,8 @@ fn queue_custom(
     render_meshes: Res<RenderAssets<Mesh>>,
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<IsRedPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<IsRedPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {

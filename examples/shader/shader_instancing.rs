@@ -81,7 +81,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
-            .init_resource::<SpecializedPipelines<CustomPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom)
             .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers);
     }
@@ -99,8 +99,8 @@ fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<CustomPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     material_meshes: Query<
         (Entity, &MeshUniform),
         (With<Handle<Mesh>>, With<InstanceMaterialData>),
@@ -175,7 +175,7 @@ impl FromWorld for CustomPipeline {
     }
 }
 
-impl SpecializedPipeline for CustomPipeline {
+impl SpecializedRenderPipeline for CustomPipeline {
     type Key = MeshPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {

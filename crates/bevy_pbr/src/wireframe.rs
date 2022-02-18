@@ -10,7 +10,9 @@ use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-    render_resource::{RenderPipelineCache, Shader, SpecializedPipeline, SpecializedPipelines},
+    render_resource::{
+        PipelineCache, Shader, SpecializedRenderPipeline, SpecializedRenderPipelines,
+    },
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
@@ -35,7 +37,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
-                .init_resource::<SpecializedPipelines<WireframePipeline>>()
+                .init_resource::<SpecializedRenderPipelines<WireframePipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_wireframes)
                 .add_system_to_stage(RenderStage::Extract, extract_wireframe_config)
                 .add_system_to_stage(RenderStage::Queue, queue_wireframes);
@@ -79,7 +81,7 @@ impl FromWorld for WireframePipeline {
     }
 }
 
-impl SpecializedPipeline for WireframePipeline {
+impl SpecializedRenderPipeline for WireframePipeline {
     type Key = MeshPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> bevy_render::render_resource::RenderPipelineDescriptor {
@@ -98,8 +100,8 @@ fn queue_wireframes(
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedPipelines<WireframePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut specialized_pipelines: ResMut<SpecializedRenderPipelines<WireframePipeline>>,
     msaa: Res<Msaa>,
     mut material_meshes: QuerySet<(
         QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,

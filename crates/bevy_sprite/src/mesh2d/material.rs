@@ -20,8 +20,8 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedPipeline, SpecializedPipelines,
+        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
+        SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
     view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
@@ -172,7 +172,7 @@ impl<M: SpecializedMaterial2d> Plugin for Material2dPlugin<M> {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<Material2dPipeline<M>>()
-                .init_resource::<SpecializedPipelines<Material2dPipeline<M>>>()
+                .init_resource::<SpecializedRenderPipelines<Material2dPipeline<M>>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
         }
     }
@@ -186,7 +186,7 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
     marker: PhantomData<M>,
 }
 
-impl<M: SpecializedMaterial2d> SpecializedPipeline for Material2dPipeline<M> {
+impl<M: SpecializedMaterial2d> SpecializedRenderPipeline for Material2dPipeline<M> {
     type Key = (Mesh2dPipelineKey, M::Key);
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -259,8 +259,8 @@ impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
 pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
-    mut pipelines: ResMut<SpecializedPipelines<Material2dPipeline<M>>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<Material2dPipeline<M>>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
