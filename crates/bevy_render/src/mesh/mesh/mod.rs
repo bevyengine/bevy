@@ -108,6 +108,14 @@ impl Mesh {
         self.attributes.get_mut(&name.into())
     }
 
+    /// Removes the data for a vertex attribute with the specified `name`, returning its value.
+    pub fn remove_attribute(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Option<VertexAttributeValues> {
+        self.attributes.remove(&name.into())
+    }
+
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
