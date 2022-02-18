@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::RequestRedraw,
+    window::{PresentMode, RequestRedraw},
     winit::{ControlFlow, WinitConfig},
 };
 
@@ -27,7 +27,9 @@ fn request_redraw(mut event: EventWriter<RequestRedraw>) {
 
 fn rotate(mut cube_transform: Query<&mut Transform, With<Rotator>>) {
     for mut transform in cube_transform.iter_mut() {
+        transform.rotate(Quat::from_rotation_x(0.05));
         transform.rotate(Quat::from_rotation_y(0.05));
+        transform.rotate(Quat::from_rotation_z(0.05));
     }
 }
 
@@ -41,14 +43,21 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut event: EventWriter<RequestRedraw>,
 ) {
-    // cube
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            ..Default::default()
-        })
-        .insert(Rotator);
+    // Spawn a big block of cubes
+    for i in -5..5 {
+        for j in -5..5 {
+            for k in -5..5 {
+                commands
+                    .spawn_bundle(PbrBundle {
+                        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                        transform: Transform::from_xyz(i as f32, j as f32, k as f32),
+                        ..Default::default()
+                    })
+                    .insert(Rotator);
+            }
+        }
+    }
     // light
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
@@ -61,7 +70,7 @@ fn setup(
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-1.0, 1.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
     event.send(RequestRedraw);
