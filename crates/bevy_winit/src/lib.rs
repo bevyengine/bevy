@@ -510,8 +510,14 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                if active {
-                    app.update();
+                match control_flow {
+                    ControlFlow::Poll => {
+                        if active {
+                            // We only need to update conditionally when in Poll mode.
+                            app.update();
+                        }
+                    }
+                    _ => app.update(),
                 }
             }
             Event::RedrawEventsCleared => {
@@ -526,7 +532,10 @@ pub fn winit_runner_with(mut app: App) {
                         .next_back()
                         .is_some()
                     {
-                        *control_flow = ControlFlow::Poll
+                        *control_flow = ControlFlow::Poll;
+                        if !active {
+                            app.update();
+                        }
                     }
                 }
             }
