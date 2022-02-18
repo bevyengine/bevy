@@ -6,13 +6,19 @@ use bevy::{
 
 /// This example illustrates how to run a winit window in a reactive, low power mode, useful for
 /// making desktop applications or any other program that doesn't need to be running the main loop
-/// non-stop. The app will only update when there is an event (resize, mouse input, etc.), or a
-/// redraw request is sent to force an update.
+/// non-stop. The `winit` event loop will only update when there is a `winit` event (resize, mouse
+/// input, etc.), or a redraw request is sent to force an update.
 ///
-/// When the window is minimized, de-focused, or not receiving input, it will use almost zero power.
+/// * While in `Wait` mode: the app will use almost zero power when the window is minimized,
+///   de-focused, or not receiving input.
+///
+/// * While continuously sending `RequestRedraw` events: the app will use resources regardless of
+///   window state.
+///
+/// Try setting `ControlFlow` to `Poll` (default for Bevy apps), notice resource usage never drops
+/// to zero even when minimized.
 fn main() {
     App::new()
-        // Note: you can change the control_flow setting while the app is running
         .insert_resource(WinitConfig {
             control_flow: ControlFlow::Wait,
             ..Default::default()
@@ -22,33 +28,57 @@ fn main() {
             present_mode: PresentMode::Immediate,
             ..Default::default()
         })
-        .insert_resource(ManuallyRedraw(false))
+        .insert_resource(TestMode::Wait)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(toggle_mode)
+        .add_system(cycle_modes)
         .add_system(rotate)
+        .add_system(update_text)
         .run();
 }
 
-struct ManuallyRedraw(bool);
+#[derive(Debug)]
+enum TestMode {
+    Wait,
+    WaitAndRedraw,
+    Poll,
+}
 
 /// This system runs every update and switches between two modes when the left mouse button is
 /// clicked:
-/// 1) Continuously sending redraw requests
-/// 2) Only updating the app when an input is received
-fn toggle_mode(
+/// * Continuously sending redraw requests
+/// * Only updating the app when a `winit` event is received
+fn cycle_modes(
     mut event: EventWriter<RequestRedraw>,
-    mut redraw: ResMut<ManuallyRedraw>,
+    mut mode: ResMut<TestMode>,
+    mut winit_config: ResMut<WinitConfig>,
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        redraw.0 = !redraw.0;
+        *mode = match *mode {
+            TestMode::Wait => TestMode::WaitAndRedraw,
+            TestMode::WaitAndRedraw => TestMode::Poll,
+            TestMode::Poll => TestMode::Wait,
+        }
     }
-    if redraw.0 {
-        event.send(RequestRedraw);
+    winit_config.control_flow = match *mode {
+        TestMode::Wait => ControlFlow::Wait,
+        TestMode::WaitAndRedraw => {
+            // Sending a `RequestRedraw` event is useful when you want the app to update again
+            // regardless of any user input. For example, your application might use `ControlFlow::Wait`
+            // to reduce power use, but UI animations need to play even when there are no inputs, so you
+            // send redraw requests while the animation is playing.
+            event.send(RequestRedraw);
+            ControlFlow::Wait
+        }
+        TestMode::Poll => ControlFlow::Poll,
     }
 }
 
+#[derive(Component)]
+struct Rotator;
+
+/// Rotate the cube to make it clear when the app is updating
 fn rotate(mut cube_transform: Query<&mut Transform, With<Rotator>>) {
     for mut transform in cube_transform.iter_mut() {
         transform.rotate(Quat::from_rotation_x(0.05));
@@ -57,9 +87,13 @@ fn rotate(mut cube_transform: Query<&mut Transform, With<Rotator>>) {
 }
 
 #[derive(Component)]
-struct Rotator;
+struct ModeText;
 
-/// set up a simple 3D scene
+fn update_text(mode: Res<TestMode>, mut query: Query<&mut Text, With<ModeText>>) {
+    query.get_single_mut().unwrap().sections[1].value = format!("{mode:?}")
+}
+
+/// Set up a scene with a cube and some text
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -67,7 +101,6 @@ fn setup(
     mut event: EventWriter<RequestRedraw>,
     asset_server: Res<AssetServer>,
 ) {
-    // cube
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
@@ -75,7 +108,6 @@ fn setup(
             ..Default::default()
         })
         .insert(Rotator);
-    // light
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
@@ -85,36 +117,43 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..Default::default()
     });
-    // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
     event.send(RequestRedraw);
-    // UI camera
     commands.spawn_bundle(UiCameraBundle::default());
-    // Text with one section
-    commands.spawn_bundle(TextBundle {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            position_type: PositionType::Absolute,
-            position: Rect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
+    let style = TextStyle {
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 50.0,
+        color: Color::WHITE,
+    };
+    commands
+        .spawn_bundle(TextBundle {
+            style: Style {
+                align_self: AlignSelf::FlexStart,
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        },
-        // Use the `Text::with_section` constructor
-        text: Text::with_section(
-            "Click left mouse button to toggle continuous redraw requests",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 50.0,
-                color: Color::WHITE,
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Click left mouse button to cycle modes:\n".into(),
+                        style: style.clone(),
+                    },
+                    TextSection {
+                        value: "Mode::Wait".into(),
+                        style,
+                    },
+                ],
+                alignment: TextAlignment::default(),
             },
-            TextAlignment::default(),
-        ),
-        ..Default::default()
-    });
+            ..Default::default()
+        })
+        .insert(ModeText);
 }
