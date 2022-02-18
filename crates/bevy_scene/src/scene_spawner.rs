@@ -146,7 +146,7 @@ impl SceneSpawner {
         };
         let type_registry = world
             .get_resource::<TypeRegistryArc>()
-            .expect("Could not get `TypeRegistryArc` from the `World`")
+            .expect("Could not get `TypeRegistryArc` from the `World`. Did you forget to add `ScenePlugin` to your `App`?")
             .clone();
         let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
@@ -318,7 +318,7 @@ pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         let scene_asset_events = world
             .get_resource::<Events<AssetEvent<DynamicScene>>>()
-            .expect("Could not get `Events<AssetEvent<DynamicScene>>` resource from the `World`");
+            .expect("Could not get `Events<AssetEvent<DynamicScene>>` resource from the `World`. Did you forget to add `ScenePlugin` to your `App`?");
 
         let mut updated_spawned_scenes = Vec::new();
         let scene_spawner = &mut *scene_spawner;

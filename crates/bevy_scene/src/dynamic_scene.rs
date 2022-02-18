@@ -85,7 +85,7 @@ impl DynamicScene {
     ) -> Result<(), SceneSpawnError> {
         let registry = world
             .get_resource::<TypeRegistryArc>()
-            .expect("Could not get `TypeRegistryArc` resource from the `World`")
+            .expect("Could not get `TypeRegistryArc` resource from the `World`. Did you forget to add `ScenePlugin` to your `App`?")
             .clone();
         let type_registry = registry.read();
 

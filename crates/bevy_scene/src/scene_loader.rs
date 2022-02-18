@@ -15,7 +15,7 @@ impl FromWorld for SceneLoader {
     fn from_world(world: &mut World) -> Self {
         let type_registry = world
             .get_resource::<TypeRegistryArc>()
-            .expect("Could not get `TypeRegistryArc` resource from the `World`");
+            .expect("Could not get `TypeRegistryArc` resource from the `World`. Did you forget to add `ScenePlugin` to your `App`?");
         SceneLoader {
             type_registry: (*type_registry).clone(),
         }

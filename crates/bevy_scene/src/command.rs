@@ -16,7 +16,7 @@ impl Command for SpawnScene {
     fn write(self, world: &mut World) {
         let mut spawner = world
             .get_resource_mut::<SceneSpawner>()
-            .expect("Could not get `SceneSpawner` resource in the `World`");
+            .expect("Could not get `SceneSpawner` resource in the `World`.  Did you forget to add `ScenePlugin` to your `App`?");
         spawner.spawn(self.scene_handle);
     }
 }
@@ -40,7 +40,7 @@ impl Command for SpawnSceneAsChild {
     fn write(self, world: &mut World) {
         let mut spawner = world
             .get_resource_mut::<SceneSpawner>()
-            .expect("Could not get `SceneSpawner` resource from the `World`");
+            .expect("Could not get `SceneSpawner` resource from the `World`. Did you forget to add `ScenePlugin` to your `App`?");
         spawner.spawn_as_child(self.scene_handle, self.parent);
     }
 }
