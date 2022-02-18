@@ -42,40 +42,38 @@ impl std::hash::BuildHasher for FixedState {
     }
 }
 
-/// A [`HashMap`][hashbrown::HashMap] implementing [`aHash`], a high
+/// A [`HashMap`][hashbrown::HashMap] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// `aHash` is designed for performance and is NOT cryptographically secure.
-/// [`aHash`]: https://github.com/tkaitchuck/aHash
+/// aHash is designed for performance and is NOT cryptographically secure.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
 
-/// A stable hash map implementing `aHash`, a high speed keyed hashing algorithm
+/// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashMap`] this has an iteration order that only depends on the order
 /// of insertions and deletions and not a random source.
 ///
-/// `aHash` is designed for performance and is NOT cryptographically secure.
+/// aHash is designed for performance and is NOT cryptographically secure.
 pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
-/// A [`HashSet`][hashbrown::HashSet] implementing [`aHash`], a high
+/// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// `aHash` is designed for performance and is NOT cryptographically secure.
-/// [`aHash`]: https://github.com/tkaitchuck/aHash
+/// aHash is designed for performance and is NOT cryptographically secure.
 pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
 
-/// A stable hash set implementing `aHash`, a high speed keyed hashing algorithm
+/// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
 /// Unlike [`HashSet`] this has an iteration order that only depends on the order
 /// of insertions and deletions and not a random source.
 ///
-/// `aHash` is designed for performance and is NOT cryptographically secure.
+/// aHash is designed for performance and is NOT cryptographically secure.
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
-/// It also enables accelerated comparisons using [`Hashed::fast_eq`].
+/// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.
 /// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`] implementation
 /// designed to work with [`Hashed`]
 /// See [`PreHashMap`] for a hashmap pre-configured to use [`Hashed`] keys.
