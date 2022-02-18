@@ -723,7 +723,7 @@ pub fn assign_lights_to_clusters(
         );
 
         let mut cluster_index_estimate = 0.0;
-        let mut used_light_count = 0.0;
+        let mut corner_index_count = 0.0;
         for (_light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
                 center: light_transform.translation,
@@ -771,7 +771,7 @@ pub fn assign_lights_to_clusters(
             // add one to each axis to ensure at least 1 whole tile is counted per light / account for overlap
             cluster_index_estimate += (xy_count.x + 1.0) * (xy_count.y + 1.0) * z_count as f32;
 
-            used_light_count += 1.0;
+            corner_index_count += z_count as f32;
         }
 
         let mut index_estimate = cluster_index_estimate as usize;
@@ -781,8 +781,8 @@ pub fn assign_lights_to_clusters(
             // we take the ratio of the index estimate less one index per light.
             // we can do this as the number of overlapped clusters are proportional to the tile size
             // except for the additional corner cluster of which there's exactly one per light.
-            let estimate_without_corner = cluster_index_estimate - used_light_count;
-            let max_without_corner = ViewClusterBindings::MAX_INDICES as f32 - used_light_count;
+            let estimate_without_corner = cluster_index_estimate - corner_index_count;
+            let max_without_corner = ViewClusterBindings::MAX_INDICES as f32 - corner_index_count;
 
             let index_ratio = max_without_corner / estimate_without_corner;
             let xy_ratio = index_ratio.sqrt();
