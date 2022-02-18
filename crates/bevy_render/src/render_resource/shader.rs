@@ -45,27 +45,29 @@ pub struct Shader {
 impl Shader {
     pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
         let source = source.into();
+        let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
-            imports: SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source),
+            imports: shader_imports.imports,
+            import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
-            import_path: None,
         }
     }
 
     pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
         let source = source.into();
+        let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
-            imports: SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source),
+            imports: shader_imports.imports,
+            import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
-            import_path: None,
         }
     }
 
     pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Shader {
         Shader {
             imports: Vec::new(),
-            source: Source::SpirV(source.into()),
             import_path: None,
+            source: Source::SpirV(source.into()),
         }
     }
 
@@ -238,12 +240,16 @@ impl AssetLoader for ShaderLoader {
                 _ => panic!("unhandled extension: {}", ext),
             };
 
-            shader.import_path = Some(ShaderImport::AssetPath(
-                load_context.path().to_string_lossy().to_string(),
-            ));
-            let imports = SHADER_IMPORT_PROCESSOR.get_imports(&shader);
+            let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports(&shader);
+            if shader_imports.import_path.is_some() {
+                shader.import_path = shader_imports.import_path;
+            } else {
+                shader.import_path = Some(ShaderImport::AssetPath(
+                    load_context.path().to_string_lossy().to_string(),
+                ));
+            }
             let mut asset = LoadedAsset::new(shader);
-            for import in imports {
+            for import in shader_imports.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
                     let path = PathBuf::from_str(&asset_path)?;
                     asset.add_dependency(path.into());
@@ -281,6 +287,7 @@ pub enum ProcessShaderError {
 pub struct ShaderImportProcessor {
     import_asset_path_regex: Regex,
     import_custom_path_regex: Regex,
+    define_import_path_regex: Regex,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -292,34 +299,48 @@ pub enum ShaderImport {
 impl Default for ShaderImportProcessor {
     fn default() -> Self {
         Self {
-            import_asset_path_regex: Regex::new(r#"^\s*#\s*import\s*"(.+)""#).unwrap(),
-            import_custom_path_regex: Regex::new(r"^\s*#\s*import\s*(.+)").unwrap(),
+            import_asset_path_regex: Regex::new(r#"^\s*#\s*import\s+"(.+)""#).unwrap(),
+            import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+(.+)").unwrap(),
+            define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+(.+)").unwrap(),
         }
     }
 }
 
+#[derive(Default)]
+pub struct ShaderImports {
+    imports: Vec<ShaderImport>,
+    import_path: Option<ShaderImport>,
+}
+
 impl ShaderImportProcessor {
-    pub fn get_imports(&self, shader: &Shader) -> Vec<ShaderImport> {
+    pub fn get_imports(&self, shader: &Shader) -> ShaderImports {
         match &shader.source {
             Source::Wgsl(source) => self.get_imports_from_str(source),
             Source::Glsl(source, _stage) => self.get_imports_from_str(source),
-            Source::SpirV(_source) => Vec::new(),
+            Source::SpirV(_source) => ShaderImports::default(),
         }
     }
 
-    pub fn get_imports_from_str(&self, shader: &str) -> Vec<ShaderImport> {
-        let mut imports = Vec::new();
+    pub fn get_imports_from_str(&self, shader: &str) -> ShaderImports {
+        let mut shader_imports = ShaderImports::default();
         for line in shader.lines() {
             if let Some(cap) = self.import_asset_path_regex.captures(line) {
                 let import = cap.get(1).unwrap();
-                imports.push(ShaderImport::AssetPath(import.as_str().to_string()));
+                shader_imports
+                    .imports
+                    .push(ShaderImport::AssetPath(import.as_str().to_string()));
             } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
                 let import = cap.get(1).unwrap();
-                imports.push(ShaderImport::Custom(import.as_str().to_string()));
+                shader_imports
+                    .imports
+                    .push(ShaderImport::Custom(import.as_str().to_string()));
+            } else if let Some(cap) = self.define_import_path_regex.captures(line) {
+                let path = cap.get(1).unwrap();
+                shader_imports.import_path = Some(ShaderImport::Custom(path.as_str().to_string()));
             }
         }
 
-        imports
+        shader_imports
     }
 }
 
@@ -413,6 +434,11 @@ impl ShaderProcessor {
                     shader_defs,
                     &mut final_string,
                 )?;
+            } else if SHADER_IMPORT_PROCESSOR
+                .define_import_path_regex
+                .is_match(line)
+            {
+                // ignore import path lines
             } else if *scopes.last().unwrap() {
                 final_string.push_str(line);
                 final_string.push('\n');

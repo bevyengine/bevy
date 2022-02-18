@@ -1,3 +1,5 @@
+#define_import_path bevy_pbr::mesh_struct
+
 struct Mesh {
     model: mat4x4<f32>;
     inverse_transpose_model: mat4x4<f32>;

@@ -1,3 +1,5 @@
+#define_import_path bevy_sprite::mesh2d_struct
+
 struct Mesh2d {
     model: mat4x4<f32>;
     inverse_transpose_model: mat4x4<f32>;

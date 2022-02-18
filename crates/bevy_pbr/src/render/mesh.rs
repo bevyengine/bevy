@@ -42,13 +42,11 @@ impl Plugin for MeshRenderPlugin {
         );
         shaders.set_untracked(
             MESH_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_struct.wgsl"))
-                .with_import_path("bevy_pbr::mesh_struct"),
+            Shader::from_wgsl(include_str!("mesh_struct.wgsl")),
         );
         shaders.set_untracked(
             MESH_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_view_bind_group.wgsl"))
-                .with_import_path("bevy_pbr::mesh_view_bind_group"),
+            Shader::from_wgsl(include_str!("mesh_view_bind_group.wgsl")),
         );
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
