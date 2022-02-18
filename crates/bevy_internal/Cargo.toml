@@ -23,6 +23,9 @@ tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 
+# Disable sRGB (needed for certain physical devices)
+no_srgb = ["bevy_render/no_srgb", "bevy_pbr/no_srgb", "bevy_sprite/no_srgb"]
+
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]

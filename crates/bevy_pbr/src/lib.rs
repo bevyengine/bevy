@@ -60,7 +60,16 @@ impl Plugin for PbrPlugin {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.set_untracked(
             PBR_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/pbr.wgsl")),
+            #[cfg(not(feature = "no_srgb"))]
+            Shader::from_wgsl(
+                "let ENABLE_GAMMA_CORRECTION: bool = false;\n".to_owned()
+                    + include_str!("render/pbr.wgsl"),
+            ),
+            #[cfg(feature = "no_srgb")]
+            Shader::from_wgsl(
+                "let ENABLE_GAMMA_CORRECTION: bool = true;\n".to_owned()
+                    + include_str!("render/pbr.wgsl"),
+            ),
         );
         shaders.set_untracked(
             SHADOW_SHADER_HANDLE,

@@ -637,8 +637,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // tone_mapping
         output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
         // Gamma correction.
-        // Not needed with sRGB buffer
-        // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+        // Not needed with sRGB buffer, but needed if sRGB is disabled
+        if (ENABLE_GAMMA_CORRECTION) {
+            output_color = vec4<f32>(pow(output_color.rgb, vec3<f32>(1.0 / 2.2)), output_color.a);
+        }
     }
 
     return output_color;
