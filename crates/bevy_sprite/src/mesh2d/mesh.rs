@@ -50,13 +50,11 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         shaders.set_untracked(
             MESH2D_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_struct.wgsl"))
-                .with_import_path("bevy_sprite::mesh2d_struct"),
+            Shader::from_wgsl(include_str!("mesh2d_struct.wgsl")),
         );
         shaders.set_untracked(
             MESH2D_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_view_bind_group.wgsl"))
-                .with_import_path("bevy_sprite::mesh2d_view_bind_group"),
+            Shader::from_wgsl(include_str!("mesh2d_view_bind_group.wgsl")),
         );
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
