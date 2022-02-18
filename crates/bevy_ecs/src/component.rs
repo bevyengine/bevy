@@ -107,7 +107,7 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn type_id(&self) -> TypeId {
+    pub fn type_id(&self) -> Option<TypeId> {
         self.descriptor.type_id
     }
 
@@ -171,7 +171,7 @@ pub struct ComponentDescriptor {
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
     is_send_and_sync: bool,
-    type_id: TypeId,
+    type_id: Option<TypeId>,
     layout: Layout,
     drop: unsafe fn(*mut u8),
 }
@@ -187,7 +187,7 @@ impl ComponentDescriptor {
             name: std::any::type_name::<T>().to_string(),
             storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
-            type_id: TypeId::of::<T>(),
+            type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: Self::drop_ptr::<T>,
         }
@@ -203,7 +203,7 @@ impl ComponentDescriptor {
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
             is_send_and_sync: true,
-            type_id: TypeId::of::<T>(),
+            type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: Self::drop_ptr::<T>,
         }
@@ -214,7 +214,7 @@ impl ComponentDescriptor {
             name: std::any::type_name::<T>().to_string(),
             storage_type,
             is_send_and_sync: false,
-            type_id: TypeId::of::<T>(),
+            type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: Self::drop_ptr::<T>,
         }
@@ -226,7 +226,7 @@ impl ComponentDescriptor {
     }
 
     #[inline]
-    pub fn type_id(&self) -> TypeId {
+    pub fn type_id(&self) -> Option<TypeId> {
         self.type_id
     }
 

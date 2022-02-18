@@ -171,7 +171,9 @@ impl SceneSpawner {
                             .expect("component_ids in archetypes should have ComponentInfo");
 
                         let reflect_component = type_registry
-                            .get(component_info.type_id())
+                            .get(component_info.type_id().unwrap_or_else(|| {
+                                panic!("Component {:?} has no `type_id`", component_info.name())
+                            }))
                             .ok_or_else(|| SceneSpawnError::UnregisteredType {
                                 type_name: component_info.name().to_string(),
                             })

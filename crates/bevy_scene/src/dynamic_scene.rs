@@ -52,7 +52,11 @@ impl DynamicScene {
                 let reflect_component = world
                     .components()
                     .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id()))
+                    .and_then(|info| {
+                        type_registry.get(info.type_id().unwrap_or_else(|| {
+                            panic!("Component {:?} has no `type_id`", info.name())
+                        }))
+                    })
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
