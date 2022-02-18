@@ -15,6 +15,8 @@ use crate::{
     HandleUntyped,
 };
 
+/// A "debug asset app", whose sole responsibility is hot reloading assets that are
+/// "internal" / compiled-in to Bevy Plugins.
 pub struct DebugAssetApp(App);
 
 impl Deref for DebugAssetApp {
@@ -34,6 +36,11 @@ impl DerefMut for DebugAssetApp {
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
+/// Facilitates the creation of a "debug asset app", whose sole responsibility is hot reloading
+/// assets that are "internal" / compiled-in to Bevy Plugins.
+/// Pair with [`load_internal_asset`](crate::load_internal_asset) to load "hot reloadable" assets
+/// The `debug_asset_server` feature flag must also be enabled for hot reloading to work.
+/// Currently only hot reloads assets stored in the `crates` folder.
 #[derive(Default)]
 pub struct DebugAssetServerPlugin;
 pub struct HandleMap<T: Asset> {
@@ -55,7 +62,7 @@ impl Plugin for DebugAssetServerPlugin {
             .insert_resource(IoTaskPool(
                 TaskPoolBuilder::default()
                     .num_threads(2)
-                    .thread_name("IO Task Pool".to_string())
+                    .thread_name("Debug Asset Server IO Task Pool".to_string())
                     .build(),
             ))
             .insert_resource(AssetServerSettings {
@@ -97,7 +104,10 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
     }
 }
 
-/// This registers the given handle with the handle
+/// Uses the return type of the given loader to register the given handle with the appropriate type
+/// and load the asset with the given `path` and parent `file_path`.
+/// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
+/// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset>(
     _loader: fn(&'static str) -> A,
     app: &mut DebugAssetApp,
@@ -112,11 +122,15 @@ pub fn register_handle_with_loader<A: Asset>(
     let asset_io = asset_server
         .asset_io()
         .downcast_ref::<FileAssetIo>()
-        .unwrap();
-    let absolute_file_path = manifest_dir_path.join(Path::new(file_path).parent().unwrap());
+        .expect("The debug AssetServer only works with FileAssetIo-backed AssetServers");
+    let absolute_file_path = manifest_dir_path.join(
+        Path::new(file_path)
+            .parent()
+            .expect("file path must have a parent"),
+    );
     let asset_folder_relative_path = absolute_file_path
         .strip_prefix(asset_io.root_path())
-        .unwrap();
+        .expect("The AssetIo root path should be a prefix of the absolute file path");
     handle_map.handles.insert(
         asset_server.load(asset_folder_relative_path.join(path)),
         handle.clone_weak().typed::<A>(),
