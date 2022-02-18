@@ -237,9 +237,10 @@ pub fn winit_runner_with(mut app: App) {
 
     trace!("Entering winit event loop");
 
-    let winit_config = app.world.get_resource::<WinitConfig>();
-    let should_return_from_run = winit_config.map_or(false, |config| config.return_from_run);
-    let config_control_flow = winit_config.map_or(ControlFlow::Poll, |config| config.control_flow);
+    let should_return_from_run = app
+        .world
+        .get_resource::<WinitConfig>()
+        .map_or(false, |config| config.return_from_run);
 
     let mut active = true;
 
@@ -509,10 +510,14 @@ pub fn winit_runner_with(mut app: App) {
                 }
             }
             Event::RedrawEventsCleared => {
+                // This block needs to run after `app.update()` in `MainEventsCleared`. Otherwise,
+                // we won't be able to see redraw requests until the next event, defeating the
+                // purpose of a redraw request!
+                let config_control_flow = app
+                    .world
+                    .get_resource::<WinitConfig>()
+                    .map_or(ControlFlow::Poll, |config| config.control_flow);
                 *control_flow = config_control_flow;
-                // This needs to run after the app update in `MainEventsCleared`, so we can see if
-                // any redraw events were generated this frame. Otherwise we won't be able to see
-                // redraw requests until the next event, defeating the purpose of a redraw request!
                 if let Some(app_redraw_events) =
                     app.world.get_resource_mut::<Events<RequestRedraw>>()
                 {

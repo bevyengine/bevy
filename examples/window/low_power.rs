@@ -12,6 +12,7 @@ use bevy::{
 /// When the window is minimized, de-focused, or not receiving input, it will use almost zero power.
 fn main() {
     App::new()
+        // Note: you can change the control_flow setting while the app is running
         .insert_resource(WinitConfig {
             control_flow: ControlFlow::Wait,
             ..Default::default()
