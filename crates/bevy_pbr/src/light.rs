@@ -203,23 +203,48 @@ pub enum SimulationLightSystems {
 // The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa’s Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
+#[derive(Debug, Copy, Clone)]
+pub enum ClusterFarZMode {
+    CameraFarPlane,
+    MaxLightRange,
+    Explicit(f32),
+}
+
+
+#[derive(Debug, Copy, Clone)]
+pub struct ClusterZConfig {
+    pub first_slice_depth: f32,
+    pub far_z_mode: ClusterFarZMode,
+}
+
+impl Default for ClusterZConfig {
+    fn default() -> Self {
+        Self{
+            first_slice_depth: 5.0,
+            far_z_mode: ClusterFarZMode::CameraFarPlane,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Component)]
 pub enum ClusterConfig {
     // one single cluster
     Single,
-    // explicit x, y and z counts (may yield non-square clusters)
-    XYZ(UVec3),
+    // explicit x, y and z counts (may yield non-square x/y clusters)
+    XYZ{ dimensions: UVec3, z_config: ClusterZConfig },
     // fixed number of z-slices, x and y calculated to give square clusters
     // with at most total clusters
-    FixedZ { total: u32, z_slices: u32 },
+    FixedZ { total: u32, z_slices: u32, z_config: ClusterZConfig },
 }
 
 impl Default for ClusterConfig {
     fn default() -> Self {
         // 24 depth slices, square clusters with at most 4096 total clusters
+        // use camera far plane as clusters max extent, first slice extends to 5.0
         Self::FixedZ {
             total: 4096,
             z_slices: 24,
+            z_config: ClusterZConfig::default(),
         }
     }
 }
@@ -228,8 +253,8 @@ impl ClusterConfig {
     fn dimensions_for_screen_size(&self, screen_size: UVec2) -> UVec3 {
         match &self {
             ClusterConfig::Single => UVec3::ONE,
-            ClusterConfig::XYZ(dim) => *dim,
-            ClusterConfig::FixedZ { total, z_slices } => {
+            ClusterConfig::XYZ{ dimensions, .. } => *dimensions,
+            ClusterConfig::FixedZ { total, z_slices, .. } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
                 let per_layer = *total as f32 / *z_slices as f32;
                 let y = f32::sqrt(per_layer / aspect_ratio);
@@ -237,6 +262,22 @@ impl ClusterConfig {
                 let y = y.floor() as u32;
                 UVec3::new(x, y, *z_slices)
             }
+        }
+    }
+
+    fn first_slice_depth(&self) -> f32 {
+        match self {
+            ClusterConfig::Single => 1.0e9, // note can't ues f32::MAX as the aabb explodes
+            ClusterConfig::XYZ { z_config, .. } |
+            ClusterConfig::FixedZ {z_config, .. } => z_config.first_slice_depth,            
+        }
+    }
+
+    fn far_z_mode(&self) -> ClusterFarZMode {
+        match self {
+            ClusterConfig::Single => ClusterFarZMode::Explicit(1.0e9), // note can't ues f32::MAX as the aabb explodes
+            ClusterConfig::XYZ { z_config, .. } |
+            ClusterConfig::FixedZ {z_config, .. } => z_config.far_z_mode
         }
     }
 }
@@ -250,16 +291,18 @@ pub struct Clusters {
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
+    pub(crate) far: f32,
     aabbs: Vec<Aabb>,
     pub(crate) lights: Vec<VisiblePointLights>,
 }
 
 impl Clusters {
-    fn new(tile_size: UVec2, screen_size: UVec2, z_slices: u32) -> Self {
+    fn new(tile_size: UVec2, screen_size: UVec2, z_slices: u32, near: f32, far: f32) -> Self {
         let mut clusters = Self {
             tile_size,
             axis_slices: Default::default(),
-            near: 5.0,
+            near,
+            far,
             aabbs: Default::default(),
             lights: Default::default(),
         };
@@ -267,11 +310,13 @@ impl Clusters {
         clusters
     }
 
-    fn from_screen_size_and_dimensions(screen_size: UVec2, dimensions: UVec3) -> Self {
+    fn from_screen_size_and_dimensions(screen_size: UVec2, dimensions: UVec3, near: f32, far: f32) -> Self {
         Clusters::new(
             (screen_size + UVec2::ONE) / dimensions.xy(),
             screen_size,
             dimensions.z,
+            near,
+            far,
         )
     }
 
@@ -365,8 +410,11 @@ fn compute_aabb_for_cluster(
         };
         // NOTE: This could be simplified to:
         // cluster_far = cluster_near * z_far_over_z_near;
-        let cluster_far =
-            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32);
+        let cluster_far = if cluster_dimensions.z == 1 {
+            z_far
+        } else {
+            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32)
+        };
 
         // Calculate the four intersection points of the min and max points with the cluster near and far planes
         let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
@@ -383,19 +431,16 @@ fn compute_aabb_for_cluster(
 
 pub fn add_clusters(
     mut commands: Commands,
-    windows: Res<Windows>,
-    cameras: Query<(Entity, &Camera, Option<&ClusterConfig>), Without<Clusters>>,
+    cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
 ) {
-    for (entity, camera, config) in cameras.iter() {
-        let window = match windows.get(camera.window) {
-            Some(window) => window,
-            None => continue,
-        };
-        let screen_size = UVec2::new(window.physical_width(), window.physical_height());
+    for (entity, config) in cameras.iter() {
         let config = config.copied().unwrap_or_default();
+        // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         let clusters = Clusters::from_screen_size_and_dimensions(
-            screen_size,
-            config.dimensions_for_screen_size(screen_size),
+            UVec2::ONE,
+            UVec3::ONE,
+            1.0,
+            1.0,
         );
         commands.entity(entity).insert(clusters).insert(config);
     }
@@ -406,6 +451,8 @@ fn update_clusters(
     camera: &Camera,
     cluster_dimensions: UVec3,
     clusters: &mut Clusters,
+    near: f32,
+    far: f32,
 ) {
     let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
     let inverse_projection = camera.projection_matrix.inverse();
@@ -413,7 +460,7 @@ fn update_clusters(
     if screen_size.x == 0 || screen_size.y == 0 {
         return;
     }
-    *clusters = Clusters::from_screen_size_and_dimensions(screen_size, cluster_dimensions);
+    *clusters = Clusters::from_screen_size_and_dimensions(screen_size, cluster_dimensions, near, far);
     let screen_size = screen_size.as_vec2();
     let tile_size_u32 = clusters.tile_size;
     let tile_size = tile_size_u32.as_vec2();
@@ -430,8 +477,8 @@ fn update_clusters(
         for x in 0..clusters.axis_slices.x {
             for z in 0..clusters.axis_slices.z {
                 aabbs.push(compute_aabb_for_cluster(
-                    clusters.near,
-                    camera.far,
+                    near,
+                    far,
                     tile_size,
                     screen_size,
                     inverse_projection,
@@ -630,10 +677,21 @@ pub fn assign_lights_to_clusters(
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
         let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size_u32);
 
+        let first_slice_cutoff = config.first_slice_depth();
+        let far_z = match config.far_z_mode() {
+            ClusterFarZMode::CameraFarPlane => camera.far,
+            ClusterFarZMode::MaxLightRange => {
+                lights.iter().fold(0f32, |cur_max, (_light_entity, light_transform, light)| {
+                    cur_max.max((inverse_view_transform * light_transform.translation.extend(1.0)).z * -1.0 + light.range)
+                })
+            }
+            ClusterFarZMode::Explicit(far) => far,
+        };
+
         let cluster_factors = calculate_cluster_factors(
             // NOTE: Using the special cluster near value
-            clusters.near,
-            camera.far,
+            first_slice_cutoff,
+            far_z,
             cluster_dimensions.z as f32,
             is_orthographic,
         );
@@ -697,7 +755,7 @@ pub fn assign_lights_to_clusters(
             cluster_dimensions.y = ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
         }
 
-        update_clusters(screen_size_u32, camera, cluster_dimensions, &mut clusters);
+        update_clusters(screen_size_u32, camera, cluster_dimensions, &mut clusters, first_slice_cutoff, far_z);
         let cluster_count = clusters.aabbs.len();
 
         let mut clusters_lights =
@@ -739,6 +797,7 @@ pub fn assign_lights_to_clusters(
             );
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
+
             for y in min_cluster.y..=max_cluster.y {
                 for x in min_cluster.x..=max_cluster.x {
                     for z in min_cluster.z..=max_cluster.z {
