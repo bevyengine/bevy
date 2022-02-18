@@ -7,7 +7,7 @@ use crate::{
         QueryIter, WorldQuery,
     },
     storage::TableId,
-    world::{World, WorldId},
+    world::{World, WorldId}, system::QuerySingleError,
 };
 use bevy_tasks::TaskPool;
 use fixedbitset::FixedBitSet;
@@ -262,6 +262,78 @@ where
             self.update_archetypes(world);
             self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
         }
+    }
+
+    /// Returns a single immutable query result for the given [`World`] when there is exactly one
+    /// entity matching the query.
+    /// 
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    pub fn get_single<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        let mut query = self.iter(world);
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
+
+    /// Returns a single immutable query result for the given [`World`] when there is exactly one
+    /// entity matching the query.
+    /// 
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
+    pub fn single<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item {
+        self.get_single(world).unwrap()
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    pub fn get_single_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        let mut query = self.iter_mut(world);
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    /// 
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
+    pub fn single_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> <Q::Fetch as Fetch<'w, 's>>::Item {
+        self.get_single_mut(world).unwrap()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
