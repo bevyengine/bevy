@@ -63,7 +63,7 @@ impl Plugin for WindowPlugin {
             let mut create_window_event = app
                 .world
                 .get_resource_mut::<Events<CreateWindow>>()
-                .unwrap();
+                .expect("Could not find `Events<CreateWindow>` resource in the `World`.");
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,
