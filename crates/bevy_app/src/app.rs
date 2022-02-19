@@ -11,7 +11,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -57,6 +57,7 @@ pub struct App {
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    plugins: HashMap<std::any::TypeId, Option<&'static str>>,
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -100,6 +101,7 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugins: HashMap::default(),
         }
     }
 
@@ -368,7 +370,6 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "add systems to a startup stage using App::add_startup_system_to_stage"
@@ -403,7 +404,6 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "add system sets to a startup stage using App::add_startup_system_set_to_stage"
@@ -749,6 +749,14 @@ impl App {
         self
     }
 
+    /// Check that a plugin has already been added to the app.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugins.contains_key(&std::any::TypeId::of::<T>())
+    }
+
     /// Adds a single [`Plugin`].
     ///
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
@@ -767,9 +775,39 @@ impl App {
     where
         T: Plugin,
     {
-        debug!("added plugin: {}", plugin.name());
+        debug!("added plugin {}", plugin.name());
+        if plugin.is_unique() {
+            self.register_plugin(&std::any::TypeId::of::<T>(), plugin.name(), None);
+        }
         plugin.build(self);
         self
+    }
+
+    /// Checks that a plugin has not already been added to an application. It will panic with an
+    /// helpful message the second time a plugin is being added.
+    pub(crate) fn register_plugin(
+        &mut self,
+        plugin_type: &TypeId,
+        plugin_name: &str,
+        from_group: Option<&'static str>,
+    ) {
+        if let Some(existing_from_group) = self.plugins.insert(*plugin_type, from_group) {
+            match (from_group, existing_from_group) {
+                (None, None) => panic!("Plugin \"{}\" was already added", plugin_name),
+                (None, Some(existing_from_group)) => panic!(
+                    "Plugin \"{}\" was already added with group \"{}\"",
+                    plugin_name, existing_from_group
+                ),
+                (Some(from_group), None) => panic!(
+                    "Plugin \"{}\" from group \"{}\" was already added",
+                    plugin_name, from_group
+                ),
+                (Some(from_group), Some(existing_from_group)) => panic!(
+                    "Plugin \"{}\" from group \"{}\" was already added with group \"{}\"",
+                    plugin_name, from_group, existing_from_group
+                ),
+            };
+        }
     }
 
     /// Adds a group of [`Plugin`]s.
@@ -794,9 +832,15 @@ impl App {
     ///     .add_plugins(MinimalPlugins);
     /// ```
     pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
+        if self.plugins.insert(TypeId::of::<T>(), None).is_some() {
+            panic!(
+                "Plugin Group \"{}\" was already added",
+                std::any::type_name::<T>()
+            );
+        }
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+        plugin_group_builder.finish::<T>(self);
         self
     }
 
@@ -835,10 +879,17 @@ impl App {
         T: PluginGroup,
         F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
     {
+        if self.plugins.insert(TypeId::of::<T>(), None).is_some() {
+            panic!(
+                "Plugin Group \"{}\" was already added",
+                std::any::type_name::<T>()
+            );
+        }
+
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+        plugin_group_builder.finish::<T>(self);
         self
     }
 
@@ -928,3 +979,49 @@ fn run_once(mut app: App) {
 /// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+}

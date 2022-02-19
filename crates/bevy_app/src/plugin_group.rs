@@ -3,7 +3,7 @@ use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
-pub trait PluginGroup {
+pub trait PluginGroup: 'static {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(&mut self, group: &mut PluginGroupBuilder);
 }
@@ -110,11 +110,22 @@ impl PluginGroupBuilder {
     }
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s.
-    pub fn finish(self, app: &mut App) {
+    pub fn finish<T: PluginGroup>(self, app: &mut App) {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
-                    debug!("added plugin: {}", entry.plugin.name());
+                    debug!(
+                        "added plugin {} from group {}",
+                        entry.plugin.name(),
+                        std::any::type_name::<T>()
+                    );
+                    if entry.plugin.is_unique() {
+                        app.register_plugin(
+                            ty,
+                            entry.plugin.name(),
+                            Some(std::any::type_name::<T>()),
+                        );
+                    }
                     entry.plugin.build(app);
                 }
             }
