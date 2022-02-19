@@ -34,7 +34,7 @@ use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use crate::{Border, BorderRadius, CalculatedClip, Node, UiColor, UiImage};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -126,6 +126,9 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub border_color: Option<Color>,
+    pub border_width: Option<f32>,
+    pub border_radius: Option<[f32; 4]>,
 }
 
 #[derive(Default)]
@@ -143,11 +146,15 @@ pub fn extract_uinodes(
         &UiImage,
         &Visibility,
         Option<&CalculatedClip>,
+        Option<&BorderRadius>,
+        Option<&Border>,
     )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, clip, border_radius, border) in
+        uinode_query.iter()
+    {
         if !visibility.is_visible {
             continue;
         }
@@ -166,6 +173,9 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            border_color: border.map(|border| border.color),
+            border_width: border.map(|border| border.width),
+            border_radius: border_radius.map(|border_radius| border_radius.to_array()),
         });
     }
 }
@@ -228,6 +238,9 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    border_color: None,
+                    border_width: None,
+                    border_radius: None,
                 });
             }
         }
@@ -240,6 +253,13 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: u32,
+    pub uv_min: Vec2,
+    pub uv_max: Vec2,
+    pub size: Vec2,
+    pub border_color: u32,
+    pub border_width: f32,
+    /// Radius for each corner in this order: top-left, bottom-left, top-right, bottom-right
+    pub border_radius: [f32; 4],
 }
 
 pub struct UiMeta {
@@ -371,18 +391,26 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        let color = extracted_uinode.color.as_linear_rgba_f32();
-        // encode color as a single u32 to save space
-        let color = (color[0] * 255.0) as u32
-            | ((color[1] * 255.0) as u32) << 8
-            | ((color[2] * 255.0) as u32) << 16
-            | ((color[3] * 255.0) as u32) << 24;
+        fn encode_color_as_u32(color: Color) -> u32 {
+            let color = color.as_linear_rgba_f32();
+            // encode color as a single u32 to save space
+            (color[0] * 255.0) as u32
+                | ((color[1] * 255.0) as u32) << 8
+                | ((color[2] * 255.0) as u32) << 16
+                | ((color[3] * 255.0) as u32) << 24
+        }
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color,
+                color: encode_color_as_u32(extracted_uinode.color),
+                size: Vec2::new(rect_size.x, rect_size.y),
+                uv_min: uinode_rect.min / extracted_uinode.atlas_size.unwrap_or(uinode_rect.max),
+                uv_max: uinode_rect.max / extracted_uinode.atlas_size.unwrap_or(uinode_rect.max),
+                border_color: extracted_uinode.border_color.map_or(0, encode_color_as_u32),
+                border_width: extracted_uinode.border_width.unwrap_or(0.0),
+                border_radius: extracted_uinode.border_radius.unwrap_or([0.0; 4]),
             });
         }
 
