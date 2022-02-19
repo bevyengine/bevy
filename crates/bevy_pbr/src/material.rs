@@ -24,12 +24,13 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedMeshPipeline, SpecializedMeshPipelines,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderStage,
 };
+use bevy_utils::tracing::error;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -218,8 +219,8 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key.0, layout);
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key.0, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -234,7 +235,7 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         ]);
 
         M::specialize(&mut descriptor, key.1, layout);
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -344,6 +345,13 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                             (mesh_key, specialized_key),
                             &mesh.layout,
                         );
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                continue;
+                            }
+                        };
 
                         // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
                         // gives the z component of translation of the mesh in view space

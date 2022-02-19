@@ -417,7 +417,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut vertex_attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
@@ -430,9 +430,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
-        let vertex_buffer_layout = layout
-            .get_layout(&vertex_attributes)
-            .expect("Mesh is missing a vertex attribute");
+        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
@@ -453,7 +451,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
-        RenderPipelineDescriptor {
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
@@ -502,7 +500,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label),
-        }
+        })
     }
 }
 

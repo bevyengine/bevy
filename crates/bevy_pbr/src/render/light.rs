@@ -28,7 +28,10 @@ use bevy_render::{
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -250,12 +253,11 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
-        let vertex_buffer_layout = layout
-            .get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])
-            .expect("Mesh is missing a vertex attribute");
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let vertex_buffer_layout =
+            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])?;
 
-        RenderPipelineDescriptor {
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
@@ -291,7 +293,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
-        }
+        })
     }
 }
 
@@ -1077,6 +1079,14 @@ pub fn queue_shadows(
                             key,
                             &mesh.layout,
                         );
+
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                continue;
+                            }
+                        };
 
                         shadow_phase.add(Shadow {
                             draw_function: draw_shadow_mesh,

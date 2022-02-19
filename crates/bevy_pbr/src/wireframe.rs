@@ -7,7 +7,8 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::mesh::MeshVertexBufferLayout;
 use bevy_render::render_resource::{
-    PolygonMode, SpecializedMeshPipeline, SpecializedMeshPipelines,
+    PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+    SpecializedMeshPipelines,
 };
 use bevy_render::{
     mesh::Mesh,
@@ -17,6 +18,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
+use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
@@ -89,13 +91,13 @@ impl SpecializedMeshPipeline for WireframePipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> bevy_render::render_resource::RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout);
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -129,14 +131,22 @@ fn queue_wireframes(
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
                     let key = msaa_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let pipeline_id = specialized_pipelines.specialize(
+                        &mut pipeline_cache,
+                        &wireframe_pipeline,
+                        key,
+                        &mesh.layout,
+                    );
+                    let pipeline_id = match pipeline_id {
+                        Ok(id) => id,
+                        Err(err) => {
+                            error!("{}", err);
+                            return;
+                        }
+                    };
                     transparent_phase.add(Opaque3d {
                         entity,
-                        pipeline: specialized_pipelines.specialize(
-                            &mut pipeline_cache,
-                            &wireframe_pipeline,
-                            key,
-                            &mesh.layout,
-                        ),
+                        pipeline: pipeline_id,
                         draw_function: draw_custom,
                         distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                     });

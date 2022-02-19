@@ -282,7 +282,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut vertex_attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
@@ -298,11 +298,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
-        let vertex_buffer_layout = layout
-            .get_layout(&vertex_attributes)
-            .expect("Mesh is missing a vertex attribute");
+        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        RenderPipelineDescriptor {
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
@@ -336,7 +334,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("transparent_mesh2d_pipeline".into()),
-        }
+        })
     }
 }
 

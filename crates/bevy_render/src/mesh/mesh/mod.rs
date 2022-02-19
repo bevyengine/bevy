@@ -12,6 +12,7 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::{EnumVariantMeta, Hashed};
 use std::{collections::BTreeMap, hash::Hash};
+use thiserror::Error;
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
     VertexFormat, VertexStepMode,
@@ -374,7 +375,7 @@ impl MeshVertexAttribute {
     }
 
     pub const fn at_shader_location(&self, shader_location: u32) -> VertexAttributeDescriptor {
-        VertexAttributeDescriptor::new(shader_location, self.id)
+        VertexAttributeDescriptor::new(shader_location, self.id, self.name)
     }
 }
 
@@ -415,7 +416,7 @@ impl InnerMeshVertexBufferLayout {
     pub fn get_layout(
         &self,
         attribute_descriptors: &[VertexAttributeDescriptor],
-    ) -> Option<VertexBufferLayout> {
+    ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
         let mut attributes = Vec::with_capacity(attribute_descriptors.len());
         for attribute_descriptor in attribute_descriptors.iter() {
             if let Some(index) = self
@@ -430,11 +431,15 @@ impl InnerMeshVertexBufferLayout {
                     shader_location: attribute_descriptor.shader_location,
                 })
             } else {
-                return None;
+                return Err(MissingVertexAttributeError {
+                    id: attribute_descriptor.id,
+                    name: attribute_descriptor.name,
+                    pipeline_type: None,
+                });
             }
         }
 
-        Some(VertexBufferLayout {
+        Ok(VertexBufferLayout {
             array_stride: self.layout.array_stride,
             step_mode: self.layout.step_mode,
             attributes,
@@ -442,16 +447,26 @@ impl InnerMeshVertexBufferLayout {
     }
 }
 
+#[derive(Error, Debug)]
+#[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
+pub struct MissingVertexAttributeError {
+    pub(crate) pipeline_type: Option<&'static str>,
+    id: MeshVertexAttributeId,
+    name: &'static str,
+}
+
 pub struct VertexAttributeDescriptor {
     pub shader_location: u32,
     pub id: MeshVertexAttributeId,
+    name: &'static str,
 }
 
 impl VertexAttributeDescriptor {
-    pub const fn new(shader_location: u32, id: MeshVertexAttributeId) -> Self {
+    pub const fn new(shader_location: u32, id: MeshVertexAttributeId, name: &'static str) -> Self {
         Self {
             shader_location,
             id,
+            name,
         }
     }
 }

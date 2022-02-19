@@ -11,6 +11,7 @@ use bevy_ecs::{
     },
     world::FromWorld,
 };
+use bevy_log::error;
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -21,7 +22,7 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedMeshPipeline, SpecializedMeshPipelines,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
@@ -202,8 +203,8 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.0, layout);
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh2d_pipeline.specialize(key.0, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -218,7 +219,7 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
         ]);
 
         M::specialize(key.1, &mut descriptor, layout);
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -307,6 +308,14 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                             (mesh2d_key, specialized_key),
                             &mesh.layout,
                         );
+
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                continue;
+                            }
+                        };
 
                         let mesh_z = mesh2d_uniform.transform.w_axis.z;
                         transparent_phase.add(Transparent2d {
