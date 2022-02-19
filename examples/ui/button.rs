@@ -56,6 +56,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             },
             color: NORMAL_BUTTON.into(),
+            border_radius: BorderRadius::all(5.0),
+            border: Border {
+                color: Color::rgb(0.05, 0.05, 0.05),
+                width: 5.0,
+            },
             ..Default::default()
         })
         .with_children(|parent| {
