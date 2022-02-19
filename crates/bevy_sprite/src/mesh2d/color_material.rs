@@ -58,7 +58,7 @@ pub struct ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::rgb(1.0, 0.0, 1.0),
+            color: Color::WHITE,
             texture: None,
         }
     }
@@ -77,7 +77,7 @@ impl From<Handle<Image>> for ColorMaterial {
     fn from(texture: Handle<Image>) -> Self {
         ColorMaterial {
             texture: Some(texture),
-            color: Color::WHITE,
+            ..Default::default()
         }
     }
 }
