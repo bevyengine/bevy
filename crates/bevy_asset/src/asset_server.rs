@@ -8,10 +8,10 @@ use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
 use bevy_tasks::TaskPool;
-use bevy_utils::{HashMap, Uuid};
+use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{collections::hash_map::Entry, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`
@@ -90,6 +90,10 @@ impl AssetServer {
                 asset_io,
             }),
         }
+    }
+
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        &*self.server.asset_io
     }
 
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {

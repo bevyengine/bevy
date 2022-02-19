@@ -1,7 +1,7 @@
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
@@ -23,10 +23,11 @@ pub struct WireframePlugin;
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             WIREFRAME_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/wireframe.wgsl")),
+            "render/wireframe.wgsl",
+            Shader::from_wgsl
         );
 
         app.init_resource::<WireframeConfig>();

@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetServer, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetServer, Assets, Handle, HandleUntyped};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
@@ -25,10 +25,11 @@ pub struct ColorMaterialPlugin;
 
 impl Plugin for ColorMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             COLOR_MATERIAL_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("color_material.wgsl")),
+            "color_material.wgsl",
+            Shader::from_wgsl
         );
 
         app.add_plugin(Material2dPlugin::<ColorMaterial>::default());
@@ -57,7 +58,7 @@ pub struct ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::rgb(1.0, 0.0, 1.0),
+            color: Color::WHITE,
             texture: None,
         }
     }
@@ -76,7 +77,7 @@ impl From<Handle<Image>> for ColorMaterial {
     fn from(texture: Handle<Image>) -> Self {
         ColorMaterial {
             texture: Some(texture),
-            color: Color::WHITE,
+            ..Default::default()
         }
     }
 }

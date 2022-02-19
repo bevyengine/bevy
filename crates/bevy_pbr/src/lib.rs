@@ -33,7 +33,7 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -57,14 +57,12 @@ pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            PBR_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/pbr.wgsl")),
-        );
-        shaders.set_untracked(
+        load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
             SHADOW_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/depth.wgsl")),
+            "render/depth.wgsl",
+            Shader::from_wgsl
         );
 
         app.register_type::<CubemapVisibleEntities>()

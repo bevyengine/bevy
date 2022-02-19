@@ -261,7 +261,13 @@ pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset;
+    fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
+    where
+        T: Asset;
     fn init_asset_loader<T>(&mut self) -> &mut Self
+    where
+        T: AssetLoader + FromWorld;
+    fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
@@ -292,12 +298,44 @@ impl AddAsset for App {
             .add_event::<AssetEvent<T>>()
     }
 
+    fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
+    where
+        T: Asset,
+    {
+        #[cfg(feature = "debug_asset_server")]
+        {
+            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            let mut app = self
+                .world
+                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>()
+                .unwrap();
+            app.add_asset::<T>()
+                .init_resource::<crate::debug_asset_server::HandleMap<T>>();
+        }
+        self
+    }
+
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld,
     {
         let result = T::from_world(&mut self.world);
         self.add_asset_loader(result)
+    }
+
+    fn init_debug_asset_loader<T>(&mut self) -> &mut Self
+    where
+        T: AssetLoader + FromWorld,
+    {
+        #[cfg(feature = "debug_asset_server")]
+        {
+            let mut app = self
+                .world
+                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>()
+                .unwrap();
+            app.init_asset_loader::<T>();
+        }
+        self
     }
 
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
@@ -310,6 +348,43 @@ impl AddAsset for App {
             .add_loader(loader);
         self
     }
+}
+
+#[cfg(feature = "debug_asset_server")]
+#[macro_export]
+macro_rules! load_internal_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        {
+            let mut debug_app = $app
+                .world
+                .get_non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>()
+                .unwrap();
+            bevy_asset::debug_asset_server::register_handle_with_loader(
+                $loader,
+                &mut debug_app,
+                $handle,
+                file!(),
+                $path_str,
+            );
+        }
+        let mut assets = $app
+            .world
+            .get_resource_mut::<bevy_asset::Assets<_>>()
+            .unwrap();
+        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+    }};
+}
+
+#[cfg(not(feature = "debug_asset_server"))]
+#[macro_export]
+macro_rules! load_internal_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        let mut assets = $app
+            .world
+            .get_resource_mut::<bevy_asset::Assets<_>>()
+            .unwrap();
+        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+    }};
 }
 
 #[cfg(test)]

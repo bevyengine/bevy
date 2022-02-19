@@ -29,7 +29,7 @@ use std::hash::Hash;
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
 #[derive(Debug, Clone)]
-pub struct Input<T> {
+pub struct Input<T: Eq + Hash> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that have just been pressed.
@@ -38,7 +38,7 @@ pub struct Input<T> {
     just_released: HashSet<T>,
 }
 
-impl<T> Default for Input<T> {
+impl<T: Eq + Hash> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
