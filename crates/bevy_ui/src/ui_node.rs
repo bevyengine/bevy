@@ -1917,3 +1917,48 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
         })
     }
 }
+
+/// The border radius of the node
+///
+/// This doesn't require a [`Border`] component
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct BorderRadius {
+    pub top_left: f32,
+    pub bottom_left: f32,
+    pub top_right: f32,
+    pub bottom_right: f32,
+}
+
+impl BorderRadius {
+    pub fn all(border_radius: f32) -> Self {
+        Self {
+            top_left: border_radius,
+            bottom_left: border_radius,
+            top_right: border_radius,
+            bottom_right: border_radius,
+        }
+    }
+
+    pub fn to_array(&self) -> [f32; 4] {
+        [
+            self.top_left,
+            self.bottom_left,
+            self.top_right,
+            self.bottom_right,
+        ]
+    }
+}
+
+/// The visual properties of the node's border
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Border {
+    /// The width of the border
+    ///
+    /// This is different from [`Style`] border and it will not cause any displacement inside the node.
+    pub width: f32,
+
+    /// The color of the border
+    pub color: LegacyColor,
+}
