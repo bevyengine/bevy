@@ -13,10 +13,10 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
-            // width: 1280.0,
-            // height: 720.0,
+            width: 1280.0,
+            height: 720.0,
             present_mode: PresentMode::Mailbox,
-            mode: WindowMode::BorderlessFullscreen,
+            // mode: WindowMode::BorderlessFullscreen,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -327,13 +327,6 @@ fn cluster_style(
 ) {
     let configs = vec![
         ClusterConfig::Single,
-        ClusterConfig::XYZ {
-            dimensions: UVec3::new(30, 5, 24),
-            z_config: ClusterZConfig {
-                first_slice_depth: 5.0,
-                far_z_mode: ClusterFarZMode::CameraFarPlane,
-            },
-        },
         ClusterConfig::FixedZ {
             total: 4096,
             z_slices: 24,
@@ -351,7 +344,7 @@ fn cluster_style(
             },
         },
         ClusterConfig::FixedZ {
-            total: 512,
+            total: 1024,
             z_slices: 10,
             z_config: ClusterZConfig {
                 first_slice_depth: 5.0,
@@ -359,7 +352,7 @@ fn cluster_style(
             },
         },
         ClusterConfig::FixedZ {
-            total: 512,
+            total: 1024,
             z_slices: 10,
             z_config: ClusterZConfig {
                 first_slice_depth: 5.0,

@@ -205,13 +205,19 @@ pub enum SimulationLightSystems {
 
 #[derive(Debug, Copy, Clone)]
 pub enum ClusterFarZMode {
+    // use the camera far-plane to determine the Z-depth of the furthest cluster layer
     CameraFarPlane,
+    // calculate the required maximum Z-depth based on currently visible lights. 
+    // Culls lights from fragments better, speeding up GPU lighting operations 
+    // at the expense of some CPU time as the cluster index list is better filled.
     MaxLightRange,
+    // constant max Z-depth
     Constant(f32),
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct ClusterZConfig {
+    // far depth of the nearest cluster layer
     pub first_slice_depth: f32,
     pub far_z_mode: ClusterFarZMode,
 }
@@ -220,16 +226,17 @@ impl Default for ClusterZConfig {
     fn default() -> Self {
         Self {
             first_slice_depth: 5.0,
-            far_z_mode: ClusterFarZMode::CameraFarPlane,
+            far_z_mode: ClusterFarZMode::MaxLightRange,
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, Component)]
 pub enum ClusterConfig {
-    // one single cluster
+    // one single cluster. Optimal for low-light complexity scenes or scenes where 
+    // most lights impact the entire scene
     Single,
-    // explicit x, y and z counts (may yield non-square x/y clusters)
+    // explicit x, y and z counts (may yield non-square x/y clusters depending on aspect ratio)
     XYZ {
         dimensions: UVec3,
         z_config: ClusterZConfig,
@@ -246,7 +253,7 @@ pub enum ClusterConfig {
 impl Default for ClusterConfig {
     fn default() -> Self {
         // 24 depth slices, square clusters with at most 4096 total clusters
-        // use camera far plane as clusters max extent, first slice extends to 5.0
+        // use max light distance as clusters max Z-depth, first slice extends to 5.0
         Self::FixedZ {
             total: 4096,
             z_slices: 24,
@@ -572,10 +579,6 @@ fn ndc_position_to_cluster(
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
 
-fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
-    ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
-}
-
 // Calculate an AABB for the light in view space, returns a (Vec3, Vec3) containing min and max with
 // - x and y in view space with range [-1, 1]
 // - z in world space with view orientation, with range [-inf, -0.0001] for perspective, and [1.0000, inf] for orthographic
@@ -697,7 +700,7 @@ pub fn assign_lights_to_clusters(
         let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
         let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size_u32);
 
-        let first_slice_cutoff = config.first_slice_depth();
+        let first_slice_depth = config.first_slice_depth();
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::CameraFarPlane => camera.far,
             ClusterFarZMode::MaxLightRange => {
@@ -716,7 +719,7 @@ pub fn assign_lights_to_clusters(
 
         let cluster_factors = calculate_cluster_factors(
             // NOTE: Using the special cluster near value
-            first_slice_cutoff,
+            first_slice_depth,
             far_z,
             cluster_dimensions.z as f32,
             is_orthographic,
@@ -771,6 +774,7 @@ pub fn assign_lights_to_clusters(
             // add one to each axis to ensure at least 1 whole tile is counted per light / account for overlap
             cluster_index_estimate += (xy_count.x + 1.0) * (xy_count.y + 1.0) * z_count as f32;
 
+            // record number of corner indexes we've added
             corner_index_count += z_count as f32;
         }
 
@@ -778,13 +782,14 @@ pub fn assign_lights_to_clusters(
         if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
             // scale x and y cluster count to be able to fit all our indices
 
-            // we take the ratio of the index estimate less one index per light.
+            // we take the ratio of the index estimate less one index per light per z-layer 
+            // over the total available indices less one index per light per z-layer.
             // we can do this as the number of overlapped clusters are proportional to the tile size
             // except for the additional corner cluster of which there's exactly one per light.
-            let estimate_without_corner = cluster_index_estimate - corner_index_count;
-            let max_without_corner = ViewClusterBindings::MAX_INDICES as f32 - corner_index_count;
+            let estimate_without_corners = cluster_index_estimate - corner_index_count;
+            let max_without_corners = ViewClusterBindings::MAX_INDICES as f32 - corner_index_count;
 
-            let index_ratio = max_without_corner / estimate_without_corner;
+            let index_ratio = max_without_corners / estimate_without_corners;
             let xy_ratio = index_ratio.sqrt();
 
             cluster_dimensions.x = ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
@@ -797,14 +802,14 @@ pub fn assign_lights_to_clusters(
             camera,
             cluster_dimensions,
             &mut clusters,
-            first_slice_cutoff,
+            first_slice_depth,
             far_z,
         );
         let cluster_count = clusters.aabbs.len();
 
         let mut clusters_lights =
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
-        let mut visible_lights_set = HashSet::with_capacity(light_count);
+        let mut visible_lights = Vec::with_capacity(light_count);
 
         for (light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
@@ -816,6 +821,10 @@ pub fn assign_lights_to_clusters(
             if !frustum.intersects_sphere(&light_sphere) {
                 continue;
             }
+
+            // NOTE: The light intersects the frustum so it must be visible and part of the global set
+            global_lights_set.insert(light_entity);
+            visible_lights.push(light_entity);
 
             // note: caching seems to be slower than calling twice for this aabb calculation
             let (light_aabb_ndc_min, light_aabb_ndc_max) = viewspace_light_aabb(
@@ -843,14 +852,14 @@ pub fn assign_lights_to_clusters(
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
 
             for y in min_cluster.y..=max_cluster.y {
+                let row_offset = y * clusters.axis_slices.x;
                 for x in min_cluster.x..=max_cluster.x {
+                    let col_offset = (row_offset + x) * clusters.axis_slices.z;
                     for z in min_cluster.z..=max_cluster.z {
-                        let cluster_index =
-                            cluster_to_index(clusters.axis_slices, UVec3::new(x, y, z));
+                        // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
+                        let cluster_index = (col_offset + z) as usize;
                         let cluster_aabb = &clusters.aabbs[cluster_index];
                         if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            global_lights_set.insert(light_entity);
-                            visible_lights_set.insert(light_entity);
                             clusters_lights[cluster_index].entities.push(light_entity);
                             index_count += 1;
                         }
@@ -864,8 +873,9 @@ pub fn assign_lights_to_clusters(
         }
 
         clusters.lights = clusters_lights;
+        visible_lights.shrink_to_fit();
         commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights_set.into_iter().collect(),
+            entities: visible_lights,
             index_count,
             index_estimate,
         });
