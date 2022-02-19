@@ -18,11 +18,11 @@ default = ["nalgebra"]
 travis-ci = { repository = "gltf-rs/mikktspace" }
 
 [dependencies]
-nalgebra = { version = "0.26.0", optional = true }
-glam = { version = "0.15.0", optional = true }
+nalgebra = { version = "0.30", optional = true }
+glam = { version = "0.20", optional = true }
 
 [[example]]
 name = "generate"
 
 [dev-dependencies]
-nalgebra = "0.26"
+nalgebra = "0.30"

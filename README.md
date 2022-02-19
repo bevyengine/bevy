@@ -5,7 +5,7 @@
 
 Port of the [Mikkelsen Tangent Space Algorithm](https://en.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
 
-Requires at least Rust 1.31.0.
+Requires at least Rust 1.52.1.
 
 ## Examples
 
