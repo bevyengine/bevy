@@ -616,7 +616,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// See [`move_bundle_to`](EntityCommands::move_bundle_to).
     pub fn move_bundle_from<T: Bundle>(&mut self, source: Entity) -> &mut Self {
         assert!(
-            self.commands.entities.contains(self.entity),
+            self.commands.entities.contains(source),
             "Attempting to move bundle {:?} from entity {:?} to entity {:?}, which doesn't exist.",
             std::any::type_name::<T>(),
             source,
