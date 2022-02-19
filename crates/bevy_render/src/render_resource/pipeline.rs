@@ -137,19 +137,19 @@ impl VertexBufferLayout {
         step_mode: VertexStepMode,
         vertex_formats: T,
     ) -> Self {
-        let mut array_stride = 0;
+        let mut offset = 0;
         let mut attributes = Vec::new();
         for (shader_location, format) in vertex_formats.into_iter().enumerate() {
             attributes.push(VertexAttribute {
                 format,
-                offset: array_stride,
+                offset,
                 shader_location: shader_location as u32,
             });
-            array_stride += format.size();
+            offset += format.size();
         }
 
         VertexBufferLayout {
-            array_stride,
+            array_stride: offset,
             step_mode,
             attributes,
         }
