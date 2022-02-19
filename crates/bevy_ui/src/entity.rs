@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI,
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI, BorderRadius, Border,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -31,6 +31,10 @@ pub struct NodeBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border 
+    pub border: Border,
 }
 
 /// A UI node that is an image
@@ -56,6 +60,10 @@ pub struct ImageBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border 
+    pub border: Border,
 }
 
 /// A UI node that is text
@@ -117,6 +125,10 @@ pub struct ButtonBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 impl Default for ButtonBundle {
@@ -132,6 +144,8 @@ impl Default for ButtonBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            border_radius: Default::default(),
+            border: Default::default(),
         }
     }
 }
