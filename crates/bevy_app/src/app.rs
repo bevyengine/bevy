@@ -754,7 +754,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugins.contains_key(&std::any::TypeId::of::<T>())
+        self.plugins.contains_key(&TypeId::of::<T>())
     }
 
     /// Adds a single [`Plugin`].
