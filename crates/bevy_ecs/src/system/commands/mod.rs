@@ -548,6 +548,105 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
+    /// Clones a [`Bundle`] to a target entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, Clone)]
+    /// # struct Dummy;
+    /// #
+    /// # #[derive(Bundle, Clone)]
+    /// # struct Characteristics {
+    /// #   _dummy: Dummy
+    /// # }
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Offspring { entity: Entity }
+    /// #
+    /// fn duplicate(mut commands: Commands, query: Query<(Entity, &Offspring)>) {
+    ///     for (source, Offspring { entity: target }) in query.iter() {
+    ///         commands.entity(source).clone_bundle_to::<Characteristics>(*target);
+    ///     }
+    /// }
+    /// ```
+    pub fn clone_bundle_to<T>(&mut self, target: Entity) -> &mut Self
+    where
+        T: Bundle + Clone,
+    {
+        assert!(
+            self.commands.entities.contains(target),
+            "Attempting to clone from entity {:?} to entity {:?}, which doesn't exist.",
+            self.entity,
+            target
+        );
+        self.commands.add(CloneBundle::<T> {
+            source: self.entity,
+            target,
+            _bundle: PhantomData,
+        });
+        self
+    }
+
+    /// Clones a [`Component`] to a target entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, Clone)]
+    /// # struct Infected;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Nearest { entity: Entity }
+    /// #
+    /// fn contagion(mut commands: Commands, query: Query<(Entity, &Nearest), With<Infected>>) {
+    ///     for (source, Nearest { entity: target }) in query.iter() {
+    ///         commands.entity(source).clone_to::<Infected>(*target);
+    ///     }
+    /// }
+    /// ```
+    pub fn clone_to<C>(&mut self, target: Entity) -> &mut Self
+    where
+        C: Component + Clone,
+    {
+        self.clone_bundle_to::<(C,)>(target)
+    }
+
+    /// Clones a [`Bundle`] from a source entity.
+    ///
+    /// See [`clone_bundle_to`](EntityCommands::clone_bundle_to).
+    pub fn clone_bundle_from<T>(&mut self, source: Entity) -> &mut Self
+    where
+        T: Bundle + Clone,
+    {
+        assert!(
+            self.commands.entities.contains(source),
+            "Attempting to clone from entity {:?} to entity {:?}, which doesn't exist.",
+            source,
+            self.entity
+        );
+        self.commands.add(CloneBundle::<T> {
+            source,
+            target: self.entity,
+            _bundle: PhantomData,
+        });
+        self
+    }
+
+    /// Clones a [`Component`] from a source entity.
+    ///
+    /// See [`clone_to`](EntityCommands::clone_to)
+    pub fn clone_from<C>(&mut self, source: Entity) -> &mut Self
+    where
+        C: Component + Clone,
+    {
+        self.clone_bundle_from::<(C,)>(source)
+    }
+
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
@@ -689,6 +788,54 @@ where
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
                     This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
         }
+    }
+}
+
+pub struct CloneBundle<T> {
+    pub source: Entity,
+    pub target: Entity,
+    _bundle: PhantomData<T>,
+}
+
+impl<T> CloneBundle<T> {
+    /// Creates a new [`CloneBundle`] with given source and target IDs.
+    pub fn new(source: Entity, target: Entity) -> Self {
+        Self {
+            source,
+            target,
+            _bundle: PhantomData,
+        }
+    }
+}
+
+impl<T> Command for CloneBundle<T>
+where
+    T: Bundle + Clone + 'static,
+{
+    fn write(self, world: &mut World) {
+        let mut source_mut = if let Some(some) = world.get_entity_mut(self.source) {
+            some
+        } else {
+            panic!("Could not clone a bundle (of type `{}`) from entity {:?} because it doesn't exist in this World.\n\
+            If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+            This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.source);
+        };
+
+        let bundle = if let Some(some) = source_mut.remove_bundle::<T>() {
+            some
+        } else {
+            return;
+        };
+        source_mut.insert_bundle(bundle.clone());
+
+        let mut target_mut = if let Some(some) = world.get_entity_mut(self.target) {
+            some
+        } else {
+            panic!("Could not clone a bundle (of type `{}`) into entity {:?} because it doesn't exist in this World.\n\
+                        If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                        This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.source);
+        };
+        target_mut.insert_bundle(bundle);
     }
 }
 
