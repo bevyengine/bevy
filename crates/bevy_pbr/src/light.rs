@@ -207,8 +207,8 @@ pub enum SimulationLightSystems {
 pub enum ClusterFarZMode {
     // use the camera far-plane to determine the Z-depth of the furthest cluster layer
     CameraFarPlane,
-    // calculate the required maximum Z-depth based on currently visible lights. 
-    // Culls lights from fragments better, speeding up GPU lighting operations 
+    // calculate the required maximum Z-depth based on currently visible lights.
+    // Culls lights from fragments better, speeding up GPU lighting operations
     // at the expense of some CPU time as the cluster index list is better filled.
     MaxLightRange,
     // constant max Z-depth
@@ -233,7 +233,7 @@ impl Default for ClusterZConfig {
 
 #[derive(Debug, Copy, Clone, Component)]
 pub enum ClusterConfig {
-    // one single cluster. Optimal for low-light complexity scenes or scenes where 
+    // one single cluster. Optimal for low-light complexity scenes or scenes where
     // most lights impact the entire scene
     Single,
     // explicit x, y and z counts (may yield non-square x/y clusters depending on aspect ratio)
@@ -772,7 +772,7 @@ pub fn assign_lights_to_clusters(
         if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
             // scale x and y cluster count to be able to fit all our indices
 
-            // we take the ratio of the index estimate less one index per light per z-layer 
+            // we take the ratio of the index estimate less one index per light per z-layer
             // over the total available indices less one index per light per z-layer.
             // we can do this as the number of overlapped clusters are proportional to the tile size
             // except for the additional corner cluster of which there's exactly one per light.
