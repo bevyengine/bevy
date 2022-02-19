@@ -548,6 +548,95 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
+    /// Moves a [`Bundle`] to a target entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Dummy;
+    /// #
+    /// # #[derive(Bundle)]
+    /// # struct Cargo {
+    /// #   _dummy: Dummy
+    /// # }
+    /// #
+    /// # #[derive(Component)]
+    /// # struct NextDestination { entity: Entity }
+    /// #
+    /// fn transport(mut commands: Commands, query: Query<(Entity, &NextDestination)>) {
+    ///     for (source, NextDestination { entity: target }) in query.iter() {
+    ///         commands.entity(source).move_bundle_to::<Cargo>(*target);
+    ///     }
+    /// }
+    /// ```
+    pub fn move_bundle_to<T: Bundle>(&mut self, target: Entity) -> &mut Self {
+        assert!(
+            self.commands.entities.contains(target),
+            "Attempting to move bundle {:?} from entity {:?} to entity {:?}, which doesn't exist.",
+            std::any::type_name::<T>(),
+            self.entity,
+            target
+        );
+        self.commands.add(MoveBundle::<T> {
+            source: self.entity,
+            target,
+            _bundle: PhantomData,
+        });
+        self
+    }
+
+    /// Moves a [`Component`] to a target entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Charge;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ConnectedTo { entity: Entity }
+    /// #
+    /// fn conduction(mut commands: Commands, query: Query<(Entity, &ConnectedTo), With<Charge>>) {
+    ///     for (source, ConnectedTo { entity: target }) in query.iter() {
+    ///         commands.entity(source).move_to::<Charge>(*target);
+    ///     }
+    /// }
+    /// ```
+    pub fn move_to<C: Component>(&mut self, target: Entity) -> &mut Self {
+        self.move_bundle_to::<(C,)>(target)
+    }
+
+    /// Moves a [`Bundle`] from a source entity.
+    ///
+    /// See [`move_bundle_to`](EntityCommands::move_bundle_to).
+    pub fn move_bundle_from<T: Bundle>(&mut self, source: Entity) -> &mut Self {
+        assert!(
+            self.commands.entities.contains(self.entity),
+            "Attempting to move bundle {:?} from entity {:?} to entity {:?}, which doesn't exist.",
+            std::any::type_name::<T>(),
+            source,
+            self.entity
+        );
+        self.commands.add(MoveBundle::<T> {
+            source,
+            target: self.entity,
+            _bundle: PhantomData,
+        });
+        self
+    }
+
+    /// Moves a [`Component`] from a source entity.
+    ///
+    /// See [`move_to`](EntityCommands::move_to).
+    pub fn move_from<C: Component>(&mut self, source: Entity) -> &mut Self {
+        self.move_bundle_from::<(C,)>(source)
+    }
+
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
@@ -688,6 +777,52 @@ where
             panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
                     If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
                     This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+        }
+    }
+}
+
+pub struct MoveBundle<T> {
+    pub source: Entity,
+    pub target: Entity,
+    _bundle: PhantomData<T>,
+}
+
+impl<T> MoveBundle<T> {
+    /// Creates a new [`MoveBundle`] with given source and target IDs.
+    pub fn new(source: Entity, target: Entity) -> Self {
+        Self {
+            source,
+            target,
+            _bundle: PhantomData,
+        }
+    }
+}
+
+impl<T> Command for MoveBundle<T>
+where
+    T: Bundle + 'static,
+{
+    fn write(self, world: &mut World) {
+        let bundle_opt = if let Some(mut source) = world.get_entity_mut(self.source) {
+            source.remove_bundle::<T>()
+        } else {
+            panic!("Could not move a bundle (of type `{}`) from entity {:?} because it doesn't exist in this World.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.source);
+        };
+
+        let bundle = if let Some(some) = bundle_opt {
+            some
+        } else {
+            return;
+        };
+
+        if let Some(mut target) = world.get_entity_mut(self.target) {
+            target.insert_bundle(bundle);
+        } else {
+            panic!("Could not move a bundle (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
+                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.target);
         }
     }
 }
