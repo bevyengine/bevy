@@ -15,8 +15,8 @@ pub trait Plugin: Any + Send + Sync {
     fn name(&self) -> &str {
         std::any::type_name::<Self>()
     }
-    /// If the plugin can be instantiated several times in an [`App`](crate::App), override this
-    /// method to return `false`.
+    /// If the plugin can be meaningfully instantiated several times in an [`App`](crate::App),
+    /// override this method to return `false`.
     fn is_unique(&self) -> bool {
         true
     }
