@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -173,6 +173,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
+    pub entity: Entity,
     pub transform: GlobalTransform,
     pub color: Color,
     /// Select an area of the texture
@@ -224,8 +225,15 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
+    sprite_query: Query<(
+        Entity,
+        &Visibility,
+        &Sprite,
+        &GlobalTransform,
+        &Handle<Image>,
+    )>,
     atlas_query: Query<(
+        Entity,
         &Visibility,
         &TextureAtlasSprite,
         &GlobalTransform,
@@ -234,12 +242,13 @@ pub fn extract_sprites(
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
+    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
+            entity,
             color: sprite.color,
             transform: *transform,
             // Use the full texture
@@ -252,13 +261,14 @@ pub fn extract_sprites(
             anchor: sprite.anchor.as_vec(),
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+    for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !visibility.is_visible {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
+                entity,
                 color: atlas_sprite.color,
                 transform: *transform,
                 // Select the area in the texture atlas
@@ -347,7 +357,7 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -390,7 +400,7 @@ pub fn queue_sprites(
         let mut colored_index = 0;
 
         // FIXME: VisibleEntities is ignored
-        for mut transparent_phase in views.iter_mut() {
+        for (visible_entities, mut transparent_phase) in views.iter_mut() {
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
 
@@ -422,6 +432,11 @@ pub fn queue_sprites(
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
             for extracted_sprite in extracted_sprites.iter() {
+                // TODO: this is probably super-inefficient
+                if !visible_entities.entities.contains(&extracted_sprite.entity) {
+                    continue;
+                }
+                // &visible_entities.entities
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,

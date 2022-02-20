@@ -5,6 +5,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
+    prelude::ComputedVisibility,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
     view::Visibility,
 };
@@ -18,6 +19,7 @@ pub struct SpriteBundle {
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for SpriteBundle {
@@ -28,6 +30,7 @@ impl Default for SpriteBundle {
             global_transform: Default::default(),
             texture: DEFAULT_IMAGE_HANDLE.typed(),
             visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }

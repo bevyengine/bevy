@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{texture::Image, view::Visibility, RenderWorld};
+use bevy_render::{prelude::ComputedVisibility, texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
@@ -58,6 +58,7 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
+    pub computed_visibility: ComputedVisibility,
 }
 
 pub fn extract_text2d_sprite(
@@ -111,6 +112,7 @@ pub fn extract_text2d_sprite(
                 let transform = text_transform.mul_transform(glyph_transform);
 
                 extracted_sprites.sprites.push(ExtractedSprite {
+                    entity,
                     transform,
                     color,
                     rect,
