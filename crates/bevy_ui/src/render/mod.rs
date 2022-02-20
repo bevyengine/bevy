@@ -34,7 +34,7 @@ use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{Border, BorderRadius, CalculatedClip, Node, UiColor, UiImage};
+use crate::{Border, CornerRadius, CalculatedClip, Node, UiColor, UiImage};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -128,7 +128,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub border_color: Option<Color>,
     pub border_width: Option<f32>,
-    pub border_radius: Option<[f32; 4]>,
+    pub corner_radius: Option<[f32; 4]>,
 }
 
 #[derive(Default)]
@@ -146,13 +146,13 @@ pub fn extract_uinodes(
         &UiImage,
         &Visibility,
         Option<&CalculatedClip>,
-        Option<&BorderRadius>,
+        Option<&CornerRadius>,
         Option<&Border>,
     )>,
 ) {
     let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip, border_radius, border) in
+    for (uinode, transform, color, image, visibility, clip, corner_radius, border) in
         uinode_query.iter()
     {
         if !visibility.is_visible {
@@ -175,7 +175,7 @@ pub fn extract_uinodes(
             clip: clip.map(|clip| clip.clip),
             border_color: border.map(|border| border.color),
             border_width: border.map(|border| border.width),
-            border_radius: border_radius.map(|border_radius| border_radius.to_array()),
+            corner_radius: corner_radius.map(|corner_radius| corner_radius.to_array()),
         });
     }
 }
@@ -240,7 +240,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     border_color: None,
                     border_width: None,
-                    border_radius: None,
+                    corner_radius: None,
                 });
             }
         }
@@ -259,7 +259,7 @@ struct UiVertex {
     pub border_color: u32,
     pub border_width: f32,
     /// Radius for each corner in this order: top-left, bottom-left, top-right, bottom-right
-    pub border_radius: [f32; 4],
+    pub corner_radius: [f32; 4],
 }
 
 pub struct UiMeta {
@@ -410,7 +410,7 @@ pub fn prepare_uinodes(
                 uv_max: uinode_rect.max / extracted_uinode.atlas_size.unwrap_or(uinode_rect.max),
                 border_color: extracted_uinode.border_color.map_or(0, encode_color_as_u32),
                 border_width: extracted_uinode.border_width.unwrap_or(0.0),
-                border_radius: extracted_uinode.border_radius.unwrap_or([0.0; 4]),
+                corner_radius: extracted_uinode.corner_radius.unwrap_or([0.0; 4]),
             });
         }
 

@@ -14,7 +14,7 @@ struct VertexOutput {
     [[location(5)]] size: vec2<f32>;
     [[location(6)]] border_color: vec4<f32>;
     [[location(7)]] border_width: f32;
-    [[location(8)]] border_radius: vec4<f32>;
+    [[location(8)]] corner_radius: vec4<f32>;
     [[builtin(position)]] position: vec4<f32>;
 };
 
@@ -28,7 +28,7 @@ fn vertex(
     [[location(5)]] size: vec2<f32>,
     [[location(6)]] border_color: u32,
     [[location(7)]] border_width: f32,
-    [[location(8)]] border_radius: vec4<f32>,
+    [[location(8)]] corner_radius: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -39,7 +39,7 @@ fn vertex(
     out.uv_max = uv_max;
     out.border_width = border_width;
     out.border_color = vec4<f32>((vec4<u32>(border_color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
-    out.border_radius = border_radius;
+    out.corner_radius = corner_radius;
     return out;
 }
 
@@ -65,7 +65,7 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     var border_softness = 0.0; //clamp(in.border_width - 1.0, 0.0, 1.0);
 
     // clamp radius between (0.0) and (shortest side / 2.0)
-    var radius = clamp(in.border_radius, vec4<f32>(0.0), vec4<f32>(min(in.size.x, in.size.y) / 2.0));
+    var radius = clamp(in.corner_radius, vec4<f32>(0.0), vec4<f32>(min(in.size.x, in.size.y) / 2.0));
     
     // get a normalized point based on uv, uv_max and uv_min
     var point = ((in.uv - in.uv_min) / (in.uv_max - in.uv_min) - vec2<f32>(0.5)) * in.size;
