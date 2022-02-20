@@ -1,9 +1,9 @@
 pub mod camera;
 pub mod color;
+#[cfg(feature = "gpu_profiler")]
+pub mod gpu_profiler;
 pub mod mesh;
 pub mod primitives;
-#[cfg(feature="gpu_profiler")]
-pub mod gpu_profiler;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
@@ -157,7 +157,7 @@ impl Plugin for RenderPlugin {
             let mut extract_stage =
                 SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
 
-            #[cfg(feature="gpu_profiler")]
+            #[cfg(feature = "gpu_profiler")]
             {
                 let gpu_profiler = gpu_profiler::GpuProfiler::new(&queue);
                 app.insert_resource(gpu_profiler.clone());

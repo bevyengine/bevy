@@ -223,6 +223,6 @@ pub async fn initialize_renderer(
 pub struct RenderContext {
     pub render_device: RenderDevice,
     pub command_encoder: CommandEncoder,
-    #[cfg(feature="gpu_profiler")]
+    #[cfg(feature = "gpu_profiler")]
     pub profiler: crate::gpu_profiler::GpuProfiler,
 }

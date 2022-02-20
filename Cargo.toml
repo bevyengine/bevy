@@ -26,7 +26,6 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
-  "gpu_profiler"
 ]
 
 # Force dynamic linking, which improves iterative compile times
