@@ -12,7 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles, Vec3Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
@@ -34,7 +34,7 @@ use bevy_window::Windows;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{Border, CornerRadius, CalculatedClip, Node, UiColor, UiImage};
+use crate::{Border, CalculatedClip, CornerRadius, Node, UiColor, UiImage};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -253,9 +253,8 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: u32,
-    pub uv_min: Vec2,
-    pub uv_max: Vec2,
     pub size: Vec2,
+    pub center: Vec2,
     pub border_color: u32,
     pub border_width: f32,
     /// Radius for each corner in this order: top-left, bottom-left, top-right, bottom-right
@@ -406,8 +405,7 @@ pub fn prepare_uinodes(
                 uv: uvs[i].into(),
                 color: encode_color_as_u32(extracted_uinode.color),
                 size: Vec2::new(rect_size.x, rect_size.y),
-                uv_min: uinode_rect.min / extracted_uinode.atlas_size.unwrap_or(uinode_rect.max),
-                uv_max: uinode_rect.max / extracted_uinode.atlas_size.unwrap_or(uinode_rect.max),
+                center: ((positions[0] + positions[2]) / 2.0).xy(),
                 border_color: extracted_uinode.border_color.map_or(0, encode_color_as_u32),
                 border_width: extracted_uinode.border_width.unwrap_or(0.0),
                 corner_radius: extracted_uinode.corner_radius.unwrap_or([0.0; 4]),

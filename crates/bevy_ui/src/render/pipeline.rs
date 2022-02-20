@@ -67,7 +67,7 @@ impl SpecializedPipeline for UiPipeline {
     /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 72,
+            array_stride: 64,
             step_mode: VertexStepMode::Vertex,
             attributes: vec![
                 // Position
@@ -88,41 +88,35 @@ impl SpecializedPipeline for UiPipeline {
                     offset: 20,
                     shader_location: 2,
                 },
-                // UV Min
+                // Size
                 VertexAttribute {
                     format: VertexFormat::Float32x2,
                     offset: 24,
                     shader_location: 3,
                 },
-                // UV Max
+                // Center
                 VertexAttribute {
                     format: VertexFormat::Float32x2,
                     offset: 32,
                     shader_location: 4,
                 },
-                // Size
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 40,
-                    shader_location: 5,
-                },
                 // Border Color
                 VertexAttribute {
                     format: VertexFormat::Uint32,
-                    offset: 48,
-                    shader_location: 6,
+                    offset: 40,
+                    shader_location: 5,
                 },
                 // Border Width
                 VertexAttribute {
                     format: VertexFormat::Float32,
-                    offset: 52,
-                    shader_location: 7,
+                    offset: 44,
+                    shader_location: 6,
                 },
-                // Border Radius
+                // Corner Radius
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
-                    offset: 56,
-                    shader_location: 8,
+                    offset: 48,
+                    shader_location: 7,
                 },
             ],
         };
