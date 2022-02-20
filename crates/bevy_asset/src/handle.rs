@@ -51,7 +51,7 @@ impl<'a> From<AssetPath<'a>> for HandleId {
 impl HandleId {
     #[inline]
     pub fn random<T: Asset>() -> Self {
-        HandleId::Id(T::TYPE_UUID, rand::random())
+        HandleId::Id(T::TYPE_UUID, fastrand::u64(..))
     }
 
     #[inline]
