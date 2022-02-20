@@ -38,19 +38,22 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
-        match &desc.source {
-            wgpu::ShaderSource::SpirV(source)
-                if self
-                    .features()
-                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            unsafe {
-                self.device
-                    .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
-                        label: desc.label,
-                        source: source.clone(),
-                    })
+        if self
+            .features()
+            .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH)
+        {
+            match &desc.source {
+                wgpu::ShaderSource::SpirV(source) => unsafe {
+                    self.device
+                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                            label: desc.label,
+                            source: source.clone(),
+                        })
+                },
+                _ => self.device.create_shader_module(desc),
             }
-            _ => self.device.create_shader_module(desc),
+        } else {
+            self.device.create_shader_module(desc)
         }
     }
 
