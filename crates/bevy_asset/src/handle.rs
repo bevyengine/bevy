@@ -179,8 +179,9 @@ impl<T: Asset> Handle<T> {
     }
 
     #[inline]
+    #[must_use]
     pub fn clone_weak(&self) -> Self {
-        Handle::weak(self.id)
+        Self::weak(self.id)
     }
 
     pub fn clone_untyped(&self) -> HandleUntyped {
@@ -327,8 +328,9 @@ impl HandleUntyped {
         }
     }
 
-    pub fn clone_weak(&self) -> HandleUntyped {
-        HandleUntyped::weak(self.id)
+    #[must_use]
+    pub fn clone_weak(&self) -> Self {
+        Self::weak(self.id)
     }
 
     pub fn is_weak(&self) -> bool {
@@ -344,9 +346,10 @@ impl HandleUntyped {
     /// The new handle will maintain the Strong or Weak status of the current handle.
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
-            if T::TYPE_UUID != type_uuid {
-                panic!("Attempted to convert handle to invalid type.");
-            }
+            assert!(
+                T::TYPE_UUID == type_uuid,
+                "Attempted to convert handle to invalid type."
+            );
         }
         let handle_type = match &self.handle_type {
             HandleType::Strong(sender) => HandleType::Strong(sender.clone()),

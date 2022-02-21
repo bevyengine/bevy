@@ -382,7 +382,7 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i))
+                results.lock().push((e, i));
             });
         results.lock().sort();
         assert_eq!(

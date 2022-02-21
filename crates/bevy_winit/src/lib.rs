@@ -57,12 +57,13 @@ fn change_window(world: &mut World) {
                     let window = winit_windows.get_window(id).unwrap();
                     match mode {
                         bevy_window::WindowMode::BorderlessFullscreen => {
-                            window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+                            window
+                                .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
                         }
                         bevy_window::WindowMode::Fullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
                                 get_best_videomode(&window.current_monitor().unwrap()),
-                            )))
+                            )));
                         }
                         bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
                             winit::window::Fullscreen::Exclusive(get_fitting_videomode(
@@ -129,11 +130,11 @@ fn change_window(world: &mut World) {
                 }
                 bevy_window::WindowCommand::SetMaximized { maximized } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_maximized(maximized)
+                    window.set_maximized(maximized);
                 }
                 bevy_window::WindowCommand::SetMinimized { minimized } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_minimized(minimized)
+                    window.set_minimized(minimized);
                 }
                 bevy_window::WindowCommand::SetPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -385,7 +386,7 @@ pub fn winit_runner_with(mut app: App) {
                         char_input_events.send(ReceivedCharacter {
                             id: window_id,
                             char: c,
-                        })
+                        });
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,

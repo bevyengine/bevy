@@ -1,5 +1,7 @@
 mod asset_server;
 mod assets;
+#[cfg(feature = "debug_asset_server")]
+pub mod debug_asset_server;
 pub mod diagnostic;
 #[cfg(all(
     feature = "filesystem_watcher",

@@ -1,3 +1,5 @@
+#define_import_path bevy_pbr::mesh_view_bind_group
+
 struct View {
     view_proj: mat4x4<f32>;
     view: mat4x4<f32>;

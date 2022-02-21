@@ -242,7 +242,7 @@ impl SceneSpawner {
             match self.spawn_dynamic_sync(world, &scene_handle) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn.push(scene_handle)
+                    self.dynamic_scenes_to_spawn.push(scene_handle);
                 }
                 Err(err) => return Err(err),
             }
@@ -254,7 +254,7 @@ impl SceneSpawner {
             match self.spawn_sync_internal(world, scene_handle, instance_id) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentRealScene { handle }) => {
-                    self.scenes_to_spawn.push((handle, instance_id))
+                    self.scenes_to_spawn.push((handle, instance_id));
                 }
                 Err(err) => return Err(err),
             }

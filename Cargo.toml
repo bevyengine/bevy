@@ -90,6 +90,9 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable the "debug asset server" for hot reloading internal assets
+debug_asset_server = ["bevy_internal/debug_asset_server"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }

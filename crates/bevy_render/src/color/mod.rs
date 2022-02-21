@@ -592,7 +592,7 @@ impl Add<Color> for Color {
 impl AddAssign<Vec4> for Color {
     fn add_assign(&mut self, rhs: Vec4) {
         let rhs: Color = rhs.into();
-        *self += rhs
+        *self += rhs;
     }
 }
 

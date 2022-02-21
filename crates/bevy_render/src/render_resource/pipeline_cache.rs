@@ -10,8 +10,8 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
+use bevy_utils::{tracing::error, Entry, HashMap, HashSet};
+use std::{hash::Hash, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
 

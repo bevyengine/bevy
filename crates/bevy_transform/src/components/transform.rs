@@ -103,6 +103,7 @@ impl Transform {
     /// local z direction is toward `target` and its unit vector in the local y direction
     /// is toward `up`.
     #[inline]
+    #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);
         self
@@ -207,6 +208,7 @@ impl Transform {
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`Transform`]
     #[inline]
+    #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {
         let translation = self.mul_vec3(transform.translation);
         let rotation = self.rotation * transform.rotation;

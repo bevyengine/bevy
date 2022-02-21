@@ -92,7 +92,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in transparent_phase.items.iter() {
+        for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
@@ -174,7 +174,7 @@ impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
         let batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
-        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }

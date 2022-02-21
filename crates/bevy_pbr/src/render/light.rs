@@ -15,7 +15,6 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::Mesh,
-    options::WgpuOptions,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -607,7 +606,6 @@ pub fn prepare_lights(
     directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    wgpu_options: Res<WgpuOptions>,
 ) {
     light_meta.view_gpu_lights.clear();
 
@@ -697,9 +695,9 @@ pub fn prepare_lights(
             TextureDescriptor {
                 size: Extent3d {
                     width: (directional_light_shadow_map.size as u32)
-                        .min(wgpu_options.limits.max_texture_dimension_2d),
+                        .min(render_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
-                        .min(wgpu_options.limits.max_texture_dimension_2d),
+                        .min(render_device.limits().max_texture_dimension_2d),
                     depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,
@@ -1237,7 +1235,7 @@ impl Node for ShadowPassNode {
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
                 let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in shadow_phase.items.iter() {
+                for item in &shadow_phase.items {
                     let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                     draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
                 }

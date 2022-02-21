@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn test_supported_file_extensions() {
         for ext in FILE_EXTENSIONS {
-            assert!(image::ImageFormat::from_extension(ext).is_some())
+            assert!(image::ImageFormat::from_extension(ext).is_some());
         }
     }
 }

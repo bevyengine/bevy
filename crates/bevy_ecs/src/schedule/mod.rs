@@ -45,12 +45,14 @@ pub struct Schedule {
 
 impl Schedule {
     /// Similar to [`add_stage`](Self::add_stage), but it also returns itself.
+    #[must_use]
     pub fn with_stage<S: Stage>(mut self, label: impl StageLabel, stage: S) -> Self {
         self.add_stage(label, stage);
         self
     }
 
     /// Similar to [`add_stage_after`](Self::add_stage_after), but it also returns itself.
+    #[must_use]
     pub fn with_stage_after<S: Stage>(
         mut self,
         target: impl StageLabel,
@@ -62,6 +64,7 @@ impl Schedule {
     }
 
     /// Similar to [`add_stage_before`](Self::add_stage_before), but it also returns itself.
+    #[must_use]
     pub fn with_stage_before<S: Stage>(
         mut self,
         target: impl StageLabel,
@@ -72,12 +75,14 @@ impl Schedule {
         self
     }
 
+    #[must_use]
     pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
         self.set_run_criteria(system);
         self
     }
 
     /// Similar to [`add_system_to_stage`](Self::add_system_to_stage), but it also returns itself.
+    #[must_use]
     pub fn with_system_in_stage<Params>(
         mut self,
         stage_label: impl StageLabel,
@@ -109,9 +114,7 @@ impl Schedule {
         let label: Box<dyn StageLabel> = Box::new(label);
         self.stage_order.push(label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
@@ -144,9 +147,7 @@ impl Schedule {
 
         self.stage_order.insert(target_index + 1, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
@@ -180,9 +181,7 @@ impl Schedule {
 
         self.stage_order.insert(target_index, label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
-        if prev.is_some() {
-            panic!("Stage already exists: {:?}.", label);
-        }
+        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
         self
     }
 
@@ -335,7 +334,7 @@ impl Schedule {
 
     /// Executes each [`Stage`] contained in the schedule, one at a time.
     pub fn run_once(&mut self, world: &mut World) {
-        for label in self.stage_order.iter() {
+        for label in &self.stage_order {
             #[cfg(feature = "trace")]
             let stage_span = bevy_utils::tracing::info_span!("stage", name = ?label);
             #[cfg(feature = "trace")]
