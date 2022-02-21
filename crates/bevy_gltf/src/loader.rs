@@ -515,6 +515,8 @@ fn load_node(
                 node.insert(Camera {
                     name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
+                    near: perspective_projection.near,
+                    far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
