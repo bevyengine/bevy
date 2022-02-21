@@ -27,7 +27,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
 
@@ -404,6 +404,8 @@ pub fn queue_sprites(
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
 
+            let visible_entities = HashSet::from_iter(visible_entities.iter().cloned());
+
             transparent_phase.items.reserve(extracted_sprites.len());
 
             // Sort sprites by z for correct transparency and then by handle to improve batching
@@ -432,11 +434,9 @@ pub fn queue_sprites(
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
             for extracted_sprite in extracted_sprites.iter() {
-                // TODO: this is probably super-inefficient
-                if !visible_entities.entities.contains(&extracted_sprite.entity) {
+                if !visible_entities.contains(&extracted_sprite.entity) {
                     continue;
                 }
-                // &visible_entities.entities
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,
