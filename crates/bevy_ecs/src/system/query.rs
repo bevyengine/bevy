@@ -311,7 +311,7 @@ where
     ///
     /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
-    /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that dont help to even out the load.
+    /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
     ///
     ///# Arguments
     ///
